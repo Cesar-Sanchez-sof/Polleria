@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="web_dashboard" name="shell-type" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                overscroll-behavior: none;
+            }
+
+            main>:first-child {
+                margin-top: 0 !important;
+            }
+
+            main>:last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+        id="tailwind-config">tailwind.config = { "darkMode": "class", "theme": { "extend": { "colors": { "on-tertiary-fixed-variant": "#7f2b00", "tertiary-fixed-dim": "#ffb599", "on-primary-fixed": "#001d31", "on-error": "#ffffff", "secondary-fixed": "#bee9ff", "inverse-primary": "#93ccff", "surface-container-highest": "#d5e3fc", "surface-bright": "#f8f9ff", "on-tertiary-fixed": "#370e00", "on-error-container": "#93000a", "surface": "#f8f9ff", "error-container": "#ffdad6", "on-secondary-fixed-variant": "#1e4c5f", "surface-dim": "#ccdbf3", "inverse-surface": "#233144", "primary-container": "#007bb9", "on-tertiary-container": "#fffbff", "surface-container-low": "#eff4ff", "on-secondary-fixed": "#001f2a", "tertiary-container": "#cc4900", "on-primary-fixed-variant": "#004b73", "primary-fixed": "#cce5ff", "secondary-fixed-dim": "#a1cde3", "surface-variant": "#d5e3fc", "primary": "#006194", "on-primary-container": "#fdfcff", "on-background": "#0d1c2e", "secondary": "#396477", "on-secondary-container": "#3d687c", "inverse-on-surface": "#eaf1ff", "surface-container-lowest": "#ffffff", "surface-container-high": "#dce9ff", "on-surface": "#0d1c2e", "on-surface-variant": "#3f4850", "surface-tint": "#006398", "on-primary": "#ffffff", "on-secondary": "#ffffff", "outline": "#707881", "error": "#ba1a1a", "surface-container": "#e6eeff", "outline-variant": "#bfc7d2", "background": "#f8f9ff", "primary-fixed-dim": "#93ccff", "tertiary": "#a33900", "on-tertiary": "#ffffff", "secondary-container": "#bae6fd", "tertiary-fixed": "#ffdbce" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-md": "0.75rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "gutter": "1rem", "space-lg": "1.25rem", "margin": "1.5rem", "space-xl": "1.75rem" }, "fontFamily": { "body-sm": ["Plus Jakarta Sans"], "tabular-nums": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "label-lg": ["Plus Jakarta Sans"], "headline-xl": ["Plus Jakarta Sans"] }, "fontSize": { "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "tabular-nums": ["13px", { "lineHeight": "18px", "fontWeight": "600" }], "label-sm": ["10px", { "lineHeight": "14px", "fontWeight": "600" }], "headline-md": ["18px", { "lineHeight": "26px", "fontWeight": "600" }], "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "500" }], "headline-lg": ["22px", { "lineHeight": "30px", "fontWeight": "700" }], "body-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }], "label-md": ["11px", { "lineHeight": "16px", "fontWeight": "700" }], "label-lg": ["13px", { "lineHeight": "18px", "fontWeight": "700" }], "headline-xl": ["28px", { "lineHeight": "36px", "fontWeight": "700" }] } } } }</script>
+</head>
+
+<body class="bg-surface font-body-md text-on-surface antialiased">
+    <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
+
+    <div class="pl-64 min-h-screen flex flex-col bg-surface">
+        <header
+            class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-margin shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center gap-space-md w-96">
+                <div class="relative w-full"><span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span><input
+                        class="w-full pl-9 pr-4 py-1.5 bg-surface-container-lowest rounded-full font-body-sm text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Buscar cuentas, transacciones o boletas..." type="text" /></div>
+            </div>
+            <div class="flex items-center gap-space-md"><button
+                    class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-full transition-all"
+                    type="button"><span
+                        class="material-symbols-outlined text-[20px]">notifications</span></button><button
+                    class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-full transition-all"
+                    type="button"><span class="material-symbols-outlined text-[20px]">help_outline</span></button>
+                <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span
+                        class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
+            </div>
+        </header>
+        <main class="relative pt-16 flex-1 p-margin">
+            <div class="flex flex-col w-full gap-space-lg">
+                <!-- KPI SUMMARY ROW -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-md">
+                    <!-- KPI 1: Registrados Totales -->
+                    <div
+                        class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                        <div class="flex flex-col">
+                            <span
+                                class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Asientos
+                                en Período</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-headline-xl font-headline font-bold text-on-surface">21</span>
+                                <span
+                                    class="text-body-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">100%
+                                    Validados</span>
+                            </div>
+                            <span class="text-on-surface-variant text-body-sm mt-1">Mes Contable: Junio 2025</span>
+                        </div>
+                        <div
+                            class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary">
+                            <span class="material-symbols-outlined text-[26px]">receipt_long</span>
+                        </div>
+                    </div>
+                    <!-- KPI 2: Ventas / Facturas Clientes -->
+                    <div
+                        class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                        <div class="flex flex-col">
+                            <span
+                                class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Facturación
+                                Clientes</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-headline-md font-headline font-bold text-on-surface">S/
+                                    1,420,850.00</span>
+                            </div>
+                            <span class="text-body-sm text-emerald-600 font-semibold mt-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[15px]">trending_up</span> +14.2% vs mayo
+                            </span>
+                        </div>
+                        <div
+                            class="w-12 h-12 rounded-xl bg-secondary-container/40 flex items-center justify-center text-on-secondary-container">
+                            <span class="material-symbols-outlined text-[26px]">point_of_sale</span>
+                        </div>
+                    </div>
+                    <!-- KPI 3: Compras / Facturas Proveedores -->
+                    <div
+                        class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                        <div class="flex flex-col">
+                            <span
+                                class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Facturas
+                                Proveedor</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-headline-md font-headline font-bold text-on-surface">S/
+                                    895,400.00</span>
+                            </div>
+                            <span class="text-body-sm text-on-surface-variant mt-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[15px]">arrow_downward</span> 16 asientos
+                                asociados
+                            </span>
+                        </div>
+                        <div
+                            class="w-12 h-12 rounded-xl bg-tertiary-fixed/40 flex items-center justify-center text-tertiary">
+                            <span class="material-symbols-outlined text-[26px]">storefront</span>
+                        </div>
+                    </div>
+                    <!-- KPI 4: Operaciones Varias & Cierres -->
+                    <div
+                        class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                        <div class="flex flex-col">
+                            <span
+                                class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Ajustes
+                                &amp; Operaciones</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-headline-md font-headline font-bold text-on-surface">S/
+                                    48,250.00</span>
+                            </div>
+                            <span class="text-body-sm text-on-surface-variant mt-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[15px]">sync_alt</span> 4 asientos manuales
+                            </span>
+                        </div>
+                        <div
+                            class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-on-surface">
+                            <span class="material-symbols-outlined text-[26px]">tune</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- MAIN LEDGER APPLICATION CARD -->
+                <div
+                    class="bg-surface-container-lowest rounded-xl shadow-[0_8px_24px_-4px_rgba(15,23,42,0.04)] p-space-lg flex flex-col gap-space-lg">
+                    <!-- TOP TOOLBAR & CONTROLS: EXACT REPRODUCTION OF ERP / ODOO STYLE HEADER -->
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md pb-space-sm">
+                        <!-- LEFT: Title, Settings Icon & New Button -->
+                        <div class="flex items-center gap-space-md">
+                            <!-- Action Button: Nuevo -->
+                            <button
+                                class="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 bg-primary-container hover:bg-primary text-on-primary rounded-lg font-label-lg text-label-lg shadow-sm transition-all hover:shadow cursor-pointer active:scale-95"
+                                type="button">
+                                <span class="material-symbols-outlined text-[18px]">add</span>
+                                <span>Nuevo</span>
+                            </button>
+                            <div class="flex items-center gap-2">
+                                <h1 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">
+                                    Asientos contables</h1>
+                                <button
+                                    class="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors"
+                                    title="Configurar Diario y Asientos" type="button">
+                                    <span class="material-symbols-outlined text-[20px]">settings</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- RIGHT: Odoo Style Search Bar, Filter Tag, Pagination & View Switcher -->
+                        <div class="flex flex-wrap items-center gap-space-sm lg:justify-end">
+                            <!-- Search & Filter Composite Pill -->
+                            <div
+                                class="relative flex items-center bg-surface-container-low rounded-full px-2.5 py-1 min-w-[280px] md:min-w-[360px] shadow-sm">
+                                <span
+                                    class="material-symbols-outlined text-[18px] text-on-surface-variant mr-2">search</span>
+                                <!-- Active Filter Chip -->
+                                <span
+                                    class="inline-flex items-center gap-1 bg-[#5b3c88] text-white text-[11px] font-semibold px-2 py-0.5 rounded-full mr-2 shadow-xs">
+                                    <span class="material-symbols-outlined text-[13px]">filter_alt</span>
+                                    <span>Registrado</span>
+                                    <button class="hover:text-primary-fixed ml-0.5 text-[14px] leading-none"
+                                        title="Quitar filtro" type="button">×</button>
+                                </span>
+                                <input
+                                    class="bg-transparent border-none outline-none font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant w-full focus:ring-0"
+                                    placeholder="Buscar..." type="text" />
+                                <button class="text-on-surface-variant hover:text-on-surface px-1" type="button">
+                                    <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                                </button>
+                            </div>
+                            <!-- Pagination Controls -->
+                            <div
+                                class="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant bg-surface-container-low px-2 py-1 rounded-lg">
+                                <span class="tabular-nums font-semibold text-on-surface">1-21 / 21</span>
+                                <div class="flex items-center ml-1">
+                                    <button class="p-0.5 text-on-surface-variant/40 cursor-not-allowed rounded"
+                                        disabled="" title="Página anterior" type="button">
+                                        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+                                    </button>
+                                    <button class="p-0.5 text-on-surface-variant hover:text-on-surface rounded"
+                                        title="Página siguiente" type="button">
+                                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- View Switcher Tabs -->
+                            <div class="flex items-center bg-surface-container-low rounded-lg p-0.5">
+                                <button
+                                    class="p-1.5 rounded-md bg-surface-container-lowest text-primary shadow-xs font-semibold"
+                                    title="Vista Lista" type="button">
+                                    <span class="material-symbols-outlined text-[18px]">view_list</span>
+                                </button>
+                                <button
+                                    class="p-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+                                    title="Vista Kanban" type="button">
+                                    <span class="material-symbols-outlined text-[18px]">view_kanban</span>
+                                </button>
+                                <button
+                                    class="p-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+                                    title="Vista Historial / Reloj" type="button">
+                                    <span class="material-symbols-outlined text-[18px]">schedule</span>
+                                </button>
+                                <button
+                                    class="p-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+                                    title="Vista Gráficos" type="button">
+                                    <span class="material-symbols-outlined text-[18px]">bar_chart</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- QUICK CATEGORY / DIARIOS TABS -->
+                    <div class="flex items-center gap-space-xs overflow-x-auto pb-1 scrollbar-none">
+                        <button
+                            class="px-3 py-1 text-[12px] font-bold rounded-lg bg-on-surface text-surface-container-lowest shadow-xs"
+                            type="button">Todos los diarios (21)</button>
+                        <button
+                            class="px-3 py-1 text-[12px] font-semibold rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            type="button">Facturas de cliente (1)</button>
+                        <button
+                            class="px-3 py-1 text-[12px] font-semibold rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            type="button">Facturas de proveedores (18)</button>
+                        <button
+                            class="px-3 py-1 text-[12px] font-semibold rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            type="button">Operaciones varias (2)</button>
+                        <button
+                            class="px-3 py-1 text-[12px] font-semibold rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            type="button">Banco / Caja (0)</button>
+                    </div>
+                    <!-- TABLE WRAPPER -->
+                    <div class="w-full overflow-x-auto">
+                        <table class="w-full text-left border-collapse min-w-[980px]">
+                            <thead>
+                                <tr class="text-on-surface font-label-md text-label-md">
+                                    <th class="py-2.5 px-3 w-10 text-center">
+                                        <input
+                                            class="w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            id="check-all" type="checkbox" />
+                                    </th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                                        Fecha</th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                                        Número</th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                                        Contacto / Tercero</th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                                        Referencia</th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                                        Diario</th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px] text-right">
+                                        Total</th>
+                                    <th
+                                        class="py-2.5 px-3 font-bold uppercase tracking-wider text-on-surface-variant text-[11px] text-center">
+                                        Estado</th>
+                                    <th class="py-2.5 px-3 w-12 text-center text-on-surface-variant"
+                                        title="Personalizar columnas">
+                                        <span
+                                            class="material-symbols-outlined text-[18px] cursor-pointer hover:text-on-surface">tune</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-transparent font-body-md text-body-md text-on-surface">
+                                <!-- ROW 1: Cliente Leandro Mauricci -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">24/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>INV/2025/00010</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 font-medium text-on-surface">Leandro Mauricci Becerra</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Venta mostrador B001-44
+                                    </td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Facturas de cliente</td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-on-surface">S/ 4,72</td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 2: Operaciones varias -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">18/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>MISC/2025/06/0002</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 text-on-surface-variant italic text-body-sm">Ajuste interno
+                                        contable</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Cierre quincenal
+                                        existencias</td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Operaciones varias</td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-on-surface">S/ 681,68
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 3: Alicorp S.A.A. -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">18/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>BILL/2025/06/0009</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 font-medium text-on-surface">Alicorp S.A.A.</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">F003-88291 insumos</td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Facturas de proveedores
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-error">S/ -53,10</td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 4: San Miguel Industrias Pet S.A. -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">18/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>BILL/2025/06/0008</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 font-medium text-on-surface">San Miguel Industrias Pet S.A.
+                                    </td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Envases y embalajes</td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Facturas de proveedores
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-error">S/ -108,56</td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 5: Mario Javier Durant Ochoa -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">18/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>BILL/2025/06/0007</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 font-medium text-on-surface">EMPRESA AGRICOLA MARIO JAVIER
+                                        DURANT OCHOA S.A.C</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Materia prima lote #92
+                                    </td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Facturas de proveedores
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-error">S/ -37,17</td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 6: Mario Vargas -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">18/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>BILL/2025/06/0005</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 font-medium text-on-surface">Mario Vargas</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Servicio de mantenimiento
+                                    </td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Facturas de proveedores
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-error">S/ -53,10</td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 7: Operaciones varias cierre de caja -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">17/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>MISC/2025/06/0001</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 text-on-surface-variant italic text-body-sm">Banco Central de
+                                        Reserva</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Diferencia de tipo de
+                                        cambio</td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Operaciones varias</td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-on-surface">S/ 120,40
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- ROW 8: Proveedor Servicios Industriales -->
+                                <tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+                                    <td class="py-3 px-3 text-center">
+                                        <input
+                                            class="row-checkbox w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
+                                            type="checkbox" />
+                                    </td>
+                                    <td class="py-3 px-3 tabular-nums font-medium text-on-surface">16/06/2025</td>
+                                    <td class="py-3 px-3 font-semibold text-primary hover:underline">
+                                        <a class="flex items-center gap-1.5" href="#">
+                                            <span>BILL/2025/06/0004</span>
+                                            <span
+                                                class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-on-surface-variant">open_in_new</span>
+                                        </a>
+                                    </td>
+                                    <td class="py-3 px-3 font-medium text-on-surface">Linde Gas Perú S.A.</td>
+                                    <td class="py-3 px-3 text-on-surface-variant text-body-sm">Recarga balones de
+                                        nitrógeno</td>
+                                    <td class="py-3 px-3 text-on-surface-variant font-medium">Facturas de proveedores
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-bold text-error">S/ -215,80</td>
+                                    <td class="py-3 px-3 text-center">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#16a34a]/15 text-[#16a34a]">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                                            Registrado
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <button
+                                            class="p-1 rounded text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            type="button">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- TABLE FOOTER & AUDIT SUMMARY -->
+                    <div
+                        class="flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-sm border-t border-surface-container">
+                        <div class="flex items-center gap-space-md text-on-surface-variant text-body-sm">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                Diarios sincronizados con SUNAT
+                            </span>
+                            <span class="hidden sm:inline text-outline-variant">•</span>
+                            <span class="tabular-nums">Moneda base: Soles Peruanos (PEN)</span>
+                        </div>
+                        <div class="flex items-center gap-space-md">
+                            <!-- Quick Action Buttons -->
+                            <button
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg font-label-md text-label-md transition-colors"
+                                type="button">
+                                <span class="material-symbols-outlined text-[16px]">file_download</span>
+                                <span>Exportar XLSX</span>
+                            </button>
+                            <button
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg font-label-md text-label-md transition-colors"
+                                type="button">
+                                <span class="material-symbols-outlined text-[16px]">print</span>
+                                <span>Imprimir Libro Diario</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- VISUAL CHART & INSIGHT BENTO BOX -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-space-md">
+                    <!-- Balance Distribution by Journal -->
+                    <div
+                        class="lg:col-span-2 bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-space-md">
+                            <div>
+                                <h2 class="font-headline-md text-headline-md font-bold text-on-surface">Distribución por
+                                    Diario</h2>
+                                <p class="text-body-sm text-on-surface-variant">Volumen de transacciones registradas del
+                                    período junio 2025</p>
+                            </div>
+                            <span
+                                class="font-label-sm text-label-sm font-semibold bg-surface-container px-2.5 py-1 rounded-full text-on-surface">Cierre
+                                Parcial</span>
+                        </div>
+                        <!-- Compact SVG Bar Chart Visualization -->
+                        <div class="w-full py-2">
+                            <svg class="w-full h-36" fill="none" viewbox="0 0 540 120"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <!-- Guide lines -->
+                                <line class="text-surface-container" stroke="currentColor" stroke-dasharray="3 3"
+                                    stroke-width="1" x1="0" x2="540" y1="20" y2="20"></line>
+                                <line class="text-surface-container" stroke="currentColor" stroke-dasharray="3 3"
+                                    stroke-width="1" x1="0" x2="540" y1="60" y2="60"></line>
+                                <line class="text-surface-container" stroke="currentColor" stroke-width="1" x1="0"
+                                    x2="540" y1="100" y2="100"></line>
+                                <!-- Bar 1: Facturas Cliente -->
+                                <rect fill="#9a0001" height="75" opacity="0.9" rx="6" width="60" x="50" y="25"></rect>
+                                <!-- Bar 2: Facturas Proveedor -->
+                                <rect fill="#755943" height="58" opacity="0.8" rx="6" width="60" x="180" y="42"></rect>
+                                <!-- Bar 3: Operaciones Varias -->
+                                <rect fill="#725c00" height="28" opacity="0.8" rx="6" width="60" x="310" y="72"></rect>
+                                <!-- Bar 4: Banco / Tesorería -->
+                                <rect fill="#5b3c88" height="12" opacity="0.6" rx="6" width="60" x="440" y="88"></rect>
+                                <!-- Labels -->
+                                <text class="text-[10px] font-semibold fill-on-surface-variant" text-anchor="middle"
+                                    x="80" y="115">Ventas (1)</text>
+                                <text class="text-[10px] font-semibold fill-on-surface-variant" text-anchor="middle"
+                                    x="210" y="115">Compras (18)</text>
+                                <text class="text-[10px] font-semibold fill-on-surface-variant" text-anchor="middle"
+                                    x="340" y="115">Varios (2)</text>
+                                <text class="text-[10px] font-semibold fill-on-surface-variant" text-anchor="middle"
+                                    x="470" y="115">Bancos (0)</text>
+                            </svg>
+                        </div>
+                        <div
+                            class="flex items-center justify-between text-body-sm text-on-surface-variant pt-2 border-t border-surface-container">
+                            <span>Partida doble balanceada: <b>Débito = Crédito (S/ 2,364,500.00)</b></span>
+                            <span class="text-emerald-700 font-bold flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">check_circle</span> Cuadrado
+                            </span>
+                        </div>
+                    </div>
+                    <!-- Active Accounting Profile / Assistant -->
+                    <div
+                        class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col justify-between">
+                        <div class="flex flex-col gap-space-sm">
+                            <div class="flex items-center gap-3">
+                                <img class="w-12 h-12 rounded-xl object-cover shadow-sm"
+                                    data-alt="Professional corporate accountant headshot with business suit in an office setting with natural lighting and architectural background"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvD0Wd_dScD6ynOC6qxSMs3yVipqTwD_BQcDnb8AwKf4UdkI7Px8Mz3UAPw8VB4c9nwROfeTrKPXdm6y-0uDYH0Q8b1W8QDzkUcIyPrrXm-kY8-oIu1N4dCSsBOQWcEIvv5HB6a4__ZRJJFSMxcJJruj-_A4X7KKy8zAtFMncwXC6j2gIrfS8j_9BasYr834JGXtnPCRkM1cWqmEPgQGu0u7YW9SnHvk0bfijYRi6mpyNWyVoCY42s" />
+                                <div class="flex flex-col">
+                                    <span class="font-headline-md text-headline-md font-bold text-on-surface">Auditoría
+                                        en Línea</span>
+                                    <span class="font-label-sm text-label-sm text-on-surface-variant">CPC. Carlos
+                                        Benavides</span>
+                                </div>
+                            </div>
+                            <p class="text-body-sm text-on-surface-variant mt-2 leading-relaxed">
+                                Los 21 asientos de este libro diario cuentan con comprobantes electrónicos respaldados
+                                por el catálogo de cuentas PCGE 2025.
+                            </p>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-surface-container flex flex-col gap-2">
+                            <button
+                                class="w-full py-2 bg-surface-container-low hover:bg-surface-container text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-2 transition-colors"
+                                type="button">
+                                <span class="material-symbols-outlined text-[18px]">verified_user</span>
+                                <span>Validar con PLE / SUNAT</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- INLINE SCRIPT FOR ACTIVE SIDEBAR HIGHLIGHT & INTERACTIVE CHECKBOXES -->
+            <script>
+                    (function () {
+                        // 1. Highlight the active link in the shell sidebar for "ASIENTOS CONTABLES"
+                        try {
+                            const links = document.querySelectorAll('aside nav a[data-path]');
+                            links.forEach(link => {
+                                if (link.getAttribute('data-path') === 'asientos-contables') {
+                                    link.classList.remove('text-on-surface-variant');
+                                    link.classList.add('bg-secondary-container', 'text-on-secondary-fixed-variant', 'font-bold', 'shadow-sm');
+                                    const icon = link.querySelector('.material-symbols-outlined');
+                                    if (icon) {
+                                        icon.style.fontVariationSettings = "'FILL' 1";
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.warn('Sidebar nav sync error:', e);
+                        }
+
+                        // 2. Interactive Select-All Checkboxes
+                        const checkAll = document.getElementById('check-all');
+                        const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+
+                        if (checkAll && rowCheckboxes.length > 0) {
+                            checkAll.addEventListener('change', function () {
+                                rowCheckboxes.forEach(cb => {
+                                    cb.checked = checkAll.checked;
+                                    const tr = cb.closest('tr');
+                                    if (checkAll.checked) {
+                                        tr.classList.add('bg-surface-container-low');
+                                    } else {
+                                        tr.classList.remove('bg-surface-container-low');
+                                    }
+                                });
+                            });
+
+                            rowCheckboxes.forEach(cb => {
+                                cb.addEventListener('change', function () {
+                                    const tr = cb.closest('tr');
+                                    if (cb.checked) {
+                                        tr.classList.add('bg-surface-container-low');
+                                    } else {
+                                        tr.classList.remove('bg-surface-container-low');
+                                    }
+                                    checkAll.checked = Array.from(rowCheckboxes).every(c => c.checked);
+                                });
+                            });
+                        }
+                    })();
+            </script>
+        </main>
+    </div>
+</body>
+
+</html>

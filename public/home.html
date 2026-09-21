@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="web_dashboard" name="shell-type" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                overscroll-behavior: none;
+            }
+
+            main>:first-child {
+                margin-top: 0 !important;
+            }
+
+            main>:last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+        id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "outline-variant": "#e7bdb6", "surface-bright": "#f8f9ff", "surface-container-high": "#dce9ff", "secondary": "#755943", "surface-dim": "#ccdbf3", "primary-fixed-dim": "#ffb4a8", "on-tertiary-fixed": "#231b00", "tertiary-fixed-dim": "#edc211", "on-primary-fixed": "#410000", "secondary-fixed-dim": "#e4bfa5", "tertiary": "#725c00", "on-primary": "#ffffff", "on-primary-container": "#ffd5ce", "on-error-container": "#93000a", "surface-container-low": "#eff4ff", "primary-fixed": "#ffdad4", "surface": "#f8f9ff", "on-secondary": "#ffffff", "outline": "#926f69", "on-background": "#0d1c2e", "inverse-primary": "#ffb4a8", "on-surface-variant": "#5d3f3b", "inverse-surface": "#233144", "background": "#f8f9ff", "on-tertiary-container": "#4e3e00", "surface-container-highest": "#d5e3fc", "surface-tint": "#c00001", "primary": "#9a0001", "on-secondary-fixed": "#2a1707", "secondary-container": "#ffd8bd", "surface-variant": "#d5e3fc", "on-secondary-container": "#795d47", "on-surface": "#0d1c2e", "secondary-fixed": "#ffdcc3", "on-tertiary-fixed-variant": "#564500", "error-container": "#ffdad6", "tertiary-container": "#cda700", "on-tertiary": "#ffffff", "on-primary-fixed-variant": "#930000", "inverse-on-surface": "#eaf1ff", "on-error": "#ffffff", "surface-container-lowest": "#ffffff", "surface-container": "#e6eeff", "error": "#ba1a1a", "primary-container": "#c70202", "on-secondary-fixed-variant": "#5b412e", "tertiary-fixed": "#ffe082" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": {}, "fontFamily": { "headline": ["Plus Jakarta Sans"], "display": ["Plus Jakarta Sans"], "body": ["Plus Jakarta Sans"], "label": ["Plus Jakarta Sans"] }, "fontSize": {} } } }</script>
+</head>
+
+<body class="bg-surface font-body text-on-surface antialiased">
+  <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
+
+    <div class="pl-72">
+        <header
+            class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-8">
+            <div class="relative w-full max-w-md"><span
+                    class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span><input
+                    class="w-full bg-surface-container-low text-xs rounded-full pl-9 pr-4 py-2 text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Buscar transacciones, cuentas, comprobantes..." type="text" /></div>
+            <div class="flex items-center gap-4 ml-4"><button
+                    class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+                    title="Ayuda y Soporte" type="button"><span
+                        class="material-symbols-outlined text-[20px]">help_outline</span></button><button
+                    class="relative w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+                    title="Notificaciones" type="button"><span
+                        class="material-symbols-outlined text-[20px]">notifications</span><span
+                        class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary"></span></button>
+                <div class="flex items-center gap-2 pl-2">
+                    <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span
+                            class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
+                    <div class="hidden xl:flex flex-col text-left"><span
+                            class="text-xs font-bold text-on-surface leading-tight">Admin User</span><span
+                            class="text-[10px] text-outline leading-tight">Administrador General</span></div>
+                </div>
+            </div>
+        </header>
+        <main class="relative pt-16 bg-surface min-h-screen w-full px-8 pb-12">
+            <div class="flex flex-col w-full space-y-8">
+                <!-- Top Welcome & Global Executive Control Banner -->
+                <section class="relative bg-surface-container-lowest rounded-xl shadow-sm p-6 lg:p-8 overflow-hidden">
+                    <div
+                        class="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-primary/5 blur-3xl pointer-events-none">
+                    </div>
+                    <div
+                        class="absolute -left-12 -bottom-12 w-64 h-64 rounded-full bg-secondary-container/20 blur-2xl pointer-events-none">
+                    </div>
+                    <div class="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+                        <div class="space-y-2 max-w-2xl">
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-label font-bold tracking-wide uppercase">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>Sincronización SUNAT Activa • Servidor Principal Lima-HQ</span>
+                            </div>
+                            <h1 class="text-2xl lg:text-3xl font-headline font-bold text-on-surface tracking-tight">
+                                Bienvenido de vuelta, Administrador
+                            </h1>
+                            <p class="text-xs lg:text-sm font-body text-outline leading-relaxed">
+                                Panorama general y operaciones en curso al 24 de Octubre de 2026. Consolidado financiero
+                                de tesorería, compras y cumplimiento tributario.
+                            </p>
+                        </div>
+                        <!-- Quick Executive Action Bar -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <!-- Period Selector -->
+                            <div class="inline-flex items-center bg-surface-container-low p-1 rounded-xl shadow-inner">
+                                <button
+                                    class="px-3 py-1.5 rounded-lg text-xs font-semibold text-outline hover:text-on-surface transition-all"
+                                    type="button">Hoy</button>
+                                <button
+                                    class="px-3 py-1.5 rounded-lg text-xs font-semibold text-outline hover:text-on-surface transition-all"
+                                    type="button">Esta semana</button>
+                                <button
+                                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-surface-container-lowest text-primary shadow-sm transition-all"
+                                    type="button">Mes en curso (Oct 2026)</button>
+                            </div>
+                            <!-- Action: Export -->
+                            <button
+                                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface text-xs font-bold transition-colors"
+                                type="button">
+                                <span class="material-symbols-outlined text-[18px] text-tertiary">download</span>
+                                <span>Exportar Resumen</span>
+                            </button>
+                            <!-- Action: New Transaction Dropdown -->
+                            <div class="relative inline-block text-left" id="newTxDropdownContainer">
+                                <button
+                                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-xs font-bold shadow-md shadow-primary/20 transition-all active:scale-95"
+                                    id="btnNewTx" type="button">
+                                    <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                    <span>Nueva Transacción</span>
+                                    <span class="material-symbols-outlined text-[16px] -mr-1">arrow_drop_down</span>
+                                </button>
+                                <div class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-surface-container-lowest shadow-xl py-2 z-50"
+                                    id="txMenu">
+                                    <div
+                                        class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-outline">
+                                        Operaciones Comerciales</div>
+                                    <a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors"
+                                        href="#">
+                                        <span
+                                            class="material-symbols-outlined text-[18px] text-primary">point_of_sale</span>
+                                        <span>Emitir Factura / Boleta</span>
+                                    </a>
+                                    <a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors"
+                                        href="#">
+                                        <span
+                                            class="material-symbols-outlined text-[18px] text-primary">shopping_cart_checkout</span>
+                                        <span>Nueva Orden de Venta</span>
+                                    </a>
+                                    <a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors"
+                                        href="#">
+                                        <span
+                                            class="material-symbols-outlined text-[18px] text-secondary">assignment_add</span>
+                                        <span>Registrar Orden de Compra</span>
+                                    </a>
+                                    <div class="my-1.5 border-t border-surface-container-low"></div>
+                                    <div
+                                        class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-outline">
+                                        Tesorería y Libros</div>
+                                    <a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors"
+                                        href="#">
+                                        <span
+                                            class="material-symbols-outlined text-[18px] text-tertiary">edit_note</span>
+                                        <span>Nuevo Asiento Diario</span>
+                                    </a>
+                                    <a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors"
+                                        href="#">
+                                        <span
+                                            class="material-symbols-outlined text-[18px] text-emerald-600">sync_alt</span>
+                                        <span>Transferencia de Fondos</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Executive Corporate KPI Highlights (4 Cards) -->
+                <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                    <!-- KPI 1: Facturación del Mes -->
+                    <div
+                        class="bg-surface-container-lowest rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[22px]">trending_up</span>
+                                </div>
+                                <div>
+                                    <span
+                                        class="text-[11px] font-label font-bold uppercase tracking-wider text-outline">Ventas
+                                        del Mes</span>
+                                    <div class="text-xs font-medium text-on-surface-variant">Facturación Acumulada</div>
+                                </div>
+                            </div>
+                            <span
+                                class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700">
+                                <span class="material-symbols-outlined text-[14px]">north_east</span>
+                                +14.8%
+                            </span>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-2xl font-headline font-bold text-on-surface tracking-tight"
+                                style="font-feature-settings: 'tnum' 1;">
+                                S/ 1,420,850.00
+                            </div>
+                            <div
+                                class="mt-2.5 flex items-center justify-between text-[11px] text-outline font-semibold">
+                                <span>Meta: S/ 1,600,000.00</span>
+                                <span class="text-on-surface font-bold">88.8%</span>
+                            </div>
+                            <div class="w-full bg-surface-container-low rounded-full h-1.5 mt-1 overflow-hidden">
+                                <div class="bg-primary h-full rounded-full" style="width: 88.8%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- KPI 2: Compras & Adquisiciones -->
+                    <div
+                        class="bg-surface-container-lowest rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[22px]">shopping_bag</span>
+                                </div>
+                                <div>
+                                    <span
+                                        class="text-[11px] font-label font-bold uppercase tracking-wider text-outline">Compras
+                                        &amp; Adquisiciones</span>
+                                    <div class="text-xs font-medium text-on-surface-variant">Presupuesto OPEX/CAPEX
+                                    </div>
+                                </div>
+                            </div>
+                            <span
+                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container text-on-secondary-container">
+                                6 x Revisión
+                            </span>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-2xl font-headline font-bold text-on-surface tracking-tight"
+                                style="font-feature-settings: 'tnum' 1;">
+                                S/ 895,400.00
+                            </div>
+                            <div
+                                class="mt-2.5 flex items-center justify-between text-[11px] text-outline font-semibold">
+                                <span>Ejecución Presupuestal</span>
+                                <span class="text-on-surface font-bold">74.0%</span>
+                            </div>
+                            <div class="w-full bg-surface-container-low rounded-full h-1.5 mt-1 overflow-hidden">
+                                <div class="bg-secondary h-full rounded-full" style="width: 74%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- KPI 3: Liquidez Disponible -->
+                    <div
+                        class="bg-surface-container-lowest rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-surface-container-high text-on-surface flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[22px]">account_balance_wallet</span>
+                                </div>
+                                <div>
+                                    <span
+                                        class="text-[11px] font-label font-bold uppercase tracking-wider text-outline">Liquidez
+                                        Disponible</span>
+                                    <div class="text-xs font-medium text-on-surface-variant">Caja &amp; Bancos (Soles)
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors"
+                                type="button">
+                                Conciliar
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-2xl font-headline font-bold text-on-surface tracking-tight"
+                                style="font-feature-settings: 'tnum' 1;">
+                                S/ 645,210.00
+                            </div>
+                            <div
+                                class="mt-2.5 flex items-center justify-between text-[11px] text-outline font-semibold">
+                                <span class="text-emerald-700 font-bold inline-flex items-center gap-0.5">
+                                    <span class="material-symbols-outlined text-[13px]">arrow_upward</span> +S/
+                                    160,010.00
+                                </span>
+                                <span>Flujo Neto Oct</span>
+                            </div>
+                            <div class="w-full bg-surface-container-low rounded-full h-1.5 mt-1 overflow-hidden">
+                                <div class="bg-emerald-600 h-full rounded-full" style="width: 68%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- KPI 4: Utilidad Neta Proyectada -->
+                    <div
+                        class="bg-surface-container-lowest rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[22px]">savings</span>
+                                </div>
+                                <div>
+                                    <span
+                                        class="text-[11px] font-label font-bold uppercase tracking-wider text-outline">Utilidad
+                                        Neta (P&amp;L)</span>
+                                    <div class="text-xs font-medium text-on-surface-variant">Resultado Proyectado</div>
+                                </div>
+                            </div>
+                            <span
+                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800">
+                                Auditado
+                            </span>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-2xl font-headline font-bold text-on-surface tracking-tight"
+                                style="font-feature-settings: 'tnum' 1;">
+                                S/ 724,310.00
+                            </div>
+                            <div
+                                class="mt-2.5 flex items-center justify-between text-[11px] text-outline font-semibold">
+                                <span>Margen Neto Operativo</span>
+                                <span class="text-on-surface font-bold">15.02%</span>
+                            </div>
+                            <div class="w-full bg-surface-container-low rounded-full h-1.5 mt-1 overflow-hidden">
+                                <div class="bg-tertiary h-full rounded-full" style="width: 78%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Main Split Dashboard Layout -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                    <!-- Left Operations & Financial Analytics Column (Approx 65%) -->
+                    <div class="xl:col-span-8 space-y-8 min-w-0">
+                        <!-- Module Status Bento Cards -->
+                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-primary text-[20px]">hub</span>
+                                    <h2 class="text-base font-headline font-bold text-on-surface">
+                                        Módulos Principales &amp; Estado Operativo
+                                    </h2>
+                                </div>
+                                <span class="text-[11px] font-semibold text-outline">Monitoreo en tiempo real</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Modulo: Ventas -->
+                                <div
+                                    class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between group">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div class="flex items-center gap-2">
+                                                <div
+                                                    class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                                                    <span
+                                                        class="material-symbols-outlined text-[18px]">shopping_cart</span>
+                                                </div>
+                                                <div>
+                                                    <h3
+                                                        class="text-xs font-bold uppercase tracking-wider text-on-surface">
+                                                        Módulo de Ventas</h3>
+                                                    <span
+                                                        class="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                                        SUNAT CPE al día
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <span
+                                                class="text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded">18
+                                                Despachos</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant font-medium leading-snug mb-3">
+                                            6 cotizaciones de alto volumen pendientes de confirmación. Guías de remisión
+                                            electrónicas sincronizadas.
+                                        </p>
+                                    </div>
+                                    <a class="inline-flex items-center justify-between text-xs font-bold text-primary group-hover:underline pt-2 border-t border-surface-container-high/60"
+                                        href="#">
+                                        <span>Ir a Órdenes de Venta</span>
+                                        <span
+                                            class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                    </a>
+                                </div>
+                                <!-- Modulo: Compras -->
+                                <div
+                                    class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between group">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div class="flex items-center gap-2">
+                                                <div
+                                                    class="w-8 h-8 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center">
+                                                    <span
+                                                        class="material-symbols-outlined text-[18px]">local_shipping</span>
+                                                </div>
+                                                <div>
+                                                    <h3
+                                                        class="text-xs font-bold uppercase tracking-wider text-on-surface">
+                                                        Módulo de Compras</h3>
+                                                    <span class="text-[10px] text-outline font-semibold">6 OC con V°B°
+                                                        Requerido</span>
+                                                </div>
+                                            </div>
+                                            <span
+                                                class="text-xs font-bold text-secondary bg-secondary-fixed px-2 py-0.5 rounded">12
+                                                Envíos</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant font-medium leading-snug mb-3">
+                                            Recepciones programadas para hoy en centros de distribución Lurín y Almacén
+                                            Callao.
+                                        </p>
+                                    </div>
+                                    <a class="inline-flex items-center justify-between text-xs font-bold text-secondary group-hover:underline pt-2 border-t border-surface-container-high/60"
+                                        href="#">
+                                        <span>Gestionar Órdenes de Compra</span>
+                                        <span
+                                            class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                    </a>
+                                </div>
+                                <!-- Modulo: Contable -->
+                                <div
+                                    class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between group">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div class="flex items-center gap-2">
+                                                <div
+                                                    class="w-8 h-8 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
+                                                    <span class="material-symbols-outlined text-[18px]">menu_book</span>
+                                                </div>
+                                                <div>
+                                                    <h3
+                                                        class="text-xs font-bold uppercase tracking-wider text-on-surface">
+                                                        Contabilidad &amp; Libros</h3>
+                                                    <span class="text-[10px] text-emerald-700 font-semibold">Ecuación
+                                                        Cuadrada (Δ 0.00)</span>
+                                                </div>
+                                            </div>
+                                            <span
+                                                class="text-xs font-bold text-on-surface bg-surface-container-highest px-2 py-0.5 rounded">142
+                                                Asientos</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant font-medium leading-snug mb-3">
+                                            Libro Diario al corriente. Balances y Estado de Resultados calculados al
+                                            tipo de cambio interbancario.
+                                        </p>
+                                    </div>
+                                    <a class="inline-flex items-center justify-between text-xs font-bold text-on-surface group-hover:underline pt-2 border-t border-surface-container-high/60"
+                                        href="#">
+                                        <span>Abrir Libro Diario &amp; Mayor</span>
+                                        <span
+                                            class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                    </a>
+                                </div>
+                                <!-- Modulo: Inventario -->
+                                <div
+                                    class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between group">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div class="flex items-center gap-2">
+                                                <div
+                                                    class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                                                    <span
+                                                        class="material-symbols-outlined text-[18px]">inventory_2</span>
+                                                </div>
+                                                <div>
+                                                    <h3
+                                                        class="text-xs font-bold uppercase tracking-wider text-on-surface">
+                                                        Inventario &amp; Stock</h3>
+                                                    <span class="text-[10px] text-emerald-700 font-semibold">Nivel
+                                                        Óptimo 94.2%</span>
+                                                </div>
+                                            </div>
+                                            <span
+                                                class="text-xs font-bold text-error bg-error-container text-on-error-container px-2 py-0.5 rounded">3
+                                                Críticos</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant font-medium leading-snug mb-3">
+                                            3 materias primas bajo el punto de reorden en planta central. Kardex
+                                            valorizado actualizado según SUNAT.
+                                        </p>
+                                    </div>
+                                    <a class="inline-flex items-center justify-between text-xs font-bold text-emerald-800 group-hover:underline pt-2 border-t border-surface-container-high/60"
+                                        href="#">
+                                        <span>Revisar Kardex e Inventario</span>
+                                        <span
+                                            class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Financial Chart Panel: Ingresos vs Egresos (6 Meses) -->
+                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-6">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="material-symbols-outlined text-primary text-[20px]">bar_chart</span>
+                                        <h2 class="text-base font-headline font-bold text-on-surface">
+                                            Comparativo Mensual: Ingresos vs. Egresos
+                                        </h2>
+                                    </div>
+                                    <p class="text-xs text-outline mt-0.5">Evolución de tesorería Mayo 2026 - Octubre
+                                        2026 (Expresado en Miles de Soles)</p>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs font-semibold">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-3 h-3 rounded-sm bg-primary"></span>
+                                        <span class="text-on-surface">Ingresos (Ventas)</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-3 h-3 rounded-sm bg-secondary-fixed-dim"></span>
+                                        <span class="text-on-surface-variant">Egresos (Costos/Gastos)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Custom Crisp Visual Bar Chart (Inline SVG Layout) -->
+                            <div class="w-full pt-2">
+                                <div
+                                    class="grid grid-cols-6 gap-2 sm:gap-6 items-end h-56 px-2 sm:px-4 border-b border-surface-container pb-2">
+                                    <!-- Mayo -->
+                                    <div class="flex flex-col items-center h-full justify-end group">
+                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
+                                            style="font-feature-settings: 'tnum' 1;">
+                                            S/ 1,120K
+                                        </div>
+                                        <div
+                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
+                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
+                                                style="height: 120px;" title="Ingresos Mayo: S/ 1,120,000"></div>
+                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
+                                                style="height: 75px;" title="Egresos Mayo: S/ 710,000"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-on-surface-variant mt-2">May</span>
+                                    </div>
+                                    <!-- Junio -->
+                                    <div class="flex flex-col items-center h-full justify-end group">
+                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
+                                            style="font-feature-settings: 'tnum' 1;">
+                                            S/ 1,230K
+                                        </div>
+                                        <div
+                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
+                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
+                                                style="height: 135px;" title="Ingresos Junio: S/ 1,230,000"></div>
+                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
+                                                style="height: 85px;" title="Egresos Junio: S/ 810,000"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Jun</span>
+                                    </div>
+                                    <!-- Julio (Fiestas Patrias Peak) -->
+                                    <div class="flex flex-col items-center h-full justify-end group">
+                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
+                                            style="font-feature-settings: 'tnum' 1;">
+                                            S/ 1,390K
+                                        </div>
+                                        <div
+                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
+                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
+                                                style="height: 155px;" title="Ingresos Julio: S/ 1,390,000"></div>
+                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
+                                                style="height: 98px;" title="Egresos Julio: S/ 920,000"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Jul</span>
+                                    </div>
+                                    <!-- Agosto -->
+                                    <div class="flex flex-col items-center h-full justify-end group">
+                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
+                                            style="font-feature-settings: 'tnum' 1;">
+                                            S/ 1,280K
+                                        </div>
+                                        <div
+                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
+                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
+                                                style="height: 142px;" title="Ingresos Agosto: S/ 1,280,000"></div>
+                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
+                                                style="height: 88px;" title="Egresos Agosto: S/ 840,000"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Ago</span>
+                                    </div>
+                                    <!-- Setiembre -->
+                                    <div class="flex flex-col items-center h-full justify-end group">
+                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
+                                            style="font-feature-settings: 'tnum' 1;">
+                                            S/ 1,340K
+                                        </div>
+                                        <div
+                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
+                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
+                                                style="height: 148px;" title="Ingresos Setiembre: S/ 1,340,000"></div>
+                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
+                                                style="height: 89px;" title="Egresos Setiembre: S/ 860,000"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Set</span>
+                                    </div>
+                                    <!-- Octubre (Mes Actual - Alto Desempeño) -->
+                                    <div class="flex flex-col items-center h-full justify-end relative group">
+                                        <span
+                                            class="absolute -top-3 px-1.5 py-0.5 rounded bg-primary text-on-primary text-[9px] font-bold uppercase tracking-wider">Activo</span>
+                                        <div class="text-[10px] font-bold text-primary mb-1"
+                                            style="font-feature-settings: 'tnum' 1;">
+                                            S/ 1,420K
+                                        </div>
+                                        <div
+                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
+                                            <div class="w-1/2 bg-primary rounded-t-md shadow-md shadow-primary/20"
+                                                style="height: 168px;" title="Ingresos Octubre: S/ 1,420,850"></div>
+                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md" style="height: 94px;"
+                                                title="Egresos Octubre: S/ 895,400"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-primary mt-2">Oct</span>
+                                    </div>
+                                </div>
+                                <!-- Bottom Metric Cards -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+                                    <div class="p-3 bg-surface-container-low rounded-lg flex flex-col">
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total
+                                            Ingresos 6M</span>
+                                        <span class="text-sm font-bold text-on-surface mt-0.5"
+                                            style="font-feature-settings: 'tnum' 1;">S/ 7,780,850.00</span>
+                                    </div>
+                                    <div class="p-3 bg-surface-container-low rounded-lg flex flex-col">
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total
+                                            Egresos 6M</span>
+                                        <span class="text-sm font-bold text-on-surface mt-0.5"
+                                            style="font-feature-settings: 'tnum' 1;">S/ 5,045,400.00</span>
+                                    </div>
+                                    <div class="p-3 bg-secondary-container/40 rounded-lg flex flex-col">
+                                        <span
+                                            class="text-[10px] font-bold uppercase tracking-wider text-secondary">Superávit
+                                            Consolidado</span>
+                                        <span class="text-sm font-bold text-primary mt-0.5"
+                                            style="font-feature-settings: 'tnum' 1;">+S/ 2,735,450.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Live Operations Table: Comprobantes & Registros Recientes -->
+                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-base font-headline font-bold text-on-surface">Comprobantes Recientes
+                                        Emitidos &amp; Recibidos</h2>
+                                    <p class="text-xs text-outline">Últimos documentos procesados con timbrado SUNAT</p>
+                                </div>
+                                <a class="text-xs font-bold text-primary hover:underline" href="#">Ver todos los
+                                    registros →</a>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr
+                                            class="bg-secondary-container/50 text-on-secondary-container text-[11px] font-label font-bold uppercase tracking-wider">
+                                            <th class="py-2.5 px-3 rounded-l-lg">Documento</th>
+                                            <th class="py-2.5 px-3">Entidad / Cliente / Proveedor</th>
+                                            <th class="py-2.5 px-3">Fecha/Hora</th>
+                                            <th class="py-2.5 px-3 text-right">Importe</th>
+                                            <th class="py-2.5 px-3 text-center">Estado SUNAT</th>
+                                            <th class="py-2.5 px-3 text-center rounded-r-lg">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-xs font-body divide-y divide-surface-container-low">
+                                        <!-- Row 1 -->
+                                        <tr class="hover:bg-surface-container-low transition-colors">
+                                            <td class="py-3 px-3 font-bold text-on-surface"
+                                                style="font-feature-settings: 'tnum' 1;">
+                                                <span
+                                                    class="px-1.5 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-bold mr-1.5">F001</span>
+                                                0004921
+                                            </td>
+                                            <td class="py-3 px-3">
+                                                <div class="font-bold text-on-surface">Corporación Aceros Arequipa S.A.
+                                                </div>
+                                                <div class="text-[10px] text-outline">RUC: 20100135891</div>
+                                            </td>
+                                            <td class="py-3 px-3 text-outline">24 Oct, 11:42 AM</td>
+                                            <td class="py-3 px-3 text-right font-bold text-on-surface"
+                                                style="font-feature-settings: 'tnum' 1;">
+                                                S/ 84,320.00
+                                            </td>
+                                            <td class="py-3 px-3 text-center">
+                                                <span
+                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                                    <span
+                                                        class="material-symbols-outlined text-[12px]">check_circle</span>
+                                                    ACEPTADO
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-3 text-center">
+                                                <div class="inline-flex items-center gap-1">
+                                                    <button
+                                                        class="w-7 h-7 rounded bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
+                                                        title="Ver PDF" type="button">
+                                                        <span
+                                                            class="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                                                    </button>
+                                                    <button
+                                                        class="w-7 h-7 rounded bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim flex items-center justify-center transition-colors"
+                                                        title="Descargar XML" type="button">
+                                                        <span class="material-symbols-outlined text-[15px]">code</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <!-- Row 2 -->
+                                        <tr class="hover:bg-surface-container-low transition-colors">
+                                            <td class="py-3 px-3 font-bold text-on-surface"
+                                                style="font-feature-settings: 'tnum' 1;">
+                                                <span
+                                                    class="px-1.5 py-0.5 rounded bg-secondary-fixed text-secondary text-[10px] font-bold mr-1.5">B003</span>
+                                                0019245
+                                            </td>
+                                            <td class="py-3 px-3">
+                                                <div class="font-bold text-on-surface">Constructora e Inversiones del
+                                                    Sur</div>
+                                                <div class="text-[10px] text-outline">DNI/RUC: 10458920194</div>
+                                            </td>
+                                            <td class="py-3 px-3 text-outline">24 Oct, 10:15 AM</td>
+                                            <td class="py-3 px-3 text-right font-bold text-on-surface"
+                                                style="font-feature-settings: 'tnum' 1;">
+                                                S/ 12,450.00
+                                            </td>
+                                            <td class="py-3 px-3 text-center">
+                                                <span
+                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                                    <span
+                                                        class="material-symbols-outlined text-[12px]">check_circle</span>
+                                                    ACEPTADO
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-3 text-center">
+                                                <div class="inline-flex items-center gap-1">
+                                                    <button
+                                                        class="w-7 h-7 rounded bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
+                                                        title="Ver PDF" type="button">
+                                                        <span
+                                                            class="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                                                    </button>
+                                                    <button
+                                                        class="w-7 h-7 rounded bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim flex items-center justify-center transition-colors"
+                                                        title="Descargar XML" type="button">
+                                                        <span class="material-symbols-outlined text-[15px]">code</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <!-- Row 3 -->
+                                        <tr class="hover:bg-surface-container-low transition-colors">
+                                            <td class="py-3 px-3 font-bold text-on-surface"
+                                                style="font-feature-settings: 'tnum' 1;">
+                                                <span
+                                                    class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold mr-1.5">F002</span>
+                                                0008819
+                                            </td>
+                                            <td class="py-3 px-3">
+                                                <div class="font-bold text-on-surface">Soluciones Logísticas Callao
+                                                    S.A.C.</div>
+                                                <div class="text-[10px] text-outline">RUC: 20556781290 (Gasto Logístico)
+                                                </div>
+                                            </td>
+                                            <td class="py-3 px-3 text-outline">24 Oct, 09:30 AM</td>
+                                            <td class="py-3 px-3 text-right font-bold text-on-surface"
+                                                style="font-feature-settings: 'tnum' 1;">
+                                                S/ 28,190.00
+                                            </td>
+                                            <td class="py-3 px-3 text-center">
+                                                <span
+                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                                                    <span class="material-symbols-outlined text-[12px]">sync</span>
+                                                    REGISTRADO
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-3 text-center">
+                                                <div class="inline-flex items-center gap-1">
+                                                    <button
+                                                        class="w-7 h-7 rounded bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
+                                                        title="Ver PDF" type="button">
+                                                        <span
+                                                            class="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                                                    </button>
+                                                    <button
+                                                        class="w-7 h-7 rounded bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed flex items-center justify-center transition-colors"
+                                                        title="Editar Gasto" type="button">
+                                                        <span class="material-symbols-outlined text-[15px]">edit</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right Executive Action & Compliance Column (Approx 35%) -->
+                    <div class="xl:col-span-4 space-y-8 min-w-0">
+                        <!-- Critical Executive Approvals Pending (V°B°) -->
+                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="material-symbols-outlined text-primary text-[20px]">notification_important</span>
+                                    <h2 class="text-base font-headline font-bold text-on-surface">Aprobaciones
+                                        Requeridas</h2>
+                                </div>
+                                <span
+                                    class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">3
+                                    Urgentes</span>
+                            </div>
+                            <p class="text-xs text-outline leading-tight">Transacciones retenidas en el flujo de control
+                                que requieren tu visto bueno.</p>
+                            <div class="space-y-3 pt-1">
+                                <!-- Approval 1 -->
+                                <div
+                                    class="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors space-y-2.5">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <span
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-error-container text-on-error-container">Excede
+                                                Umbral OPEX</span>
+                                            <h4 class="text-xs font-bold text-on-surface mt-1.5">OC-2026-00411 • Aceros
+                                                y Perfiles</h4>
+                                        </div>
+                                        <span class="text-xs font-bold text-primary"
+                                            style="font-feature-settings: 'tnum' 1;">S/ 64,800.00</span>
+                                    </div>
+                                    <p class="text-[11px] text-on-surface-variant">Licitación de materiales
+                                        estructurales para obra San Isidro. Autorizado por Finanzas.</p>
+                                    <div class="flex items-center gap-2 pt-1">
+                                        <button
+                                            class="flex-1 py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-bold text-center transition-colors"
+                                            type="button">
+                                            Dar Visto Bueno (V°B°)
+                                        </button>
+                                        <button
+                                            class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition-colors"
+                                            type="button">
+                                            Detalles
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Approval 2 -->
+                                <div
+                                    class="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors space-y-2.5">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <span
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">Descuento
+                                                Comercial (15%)</span>
+                                            <h4 class="text-xs font-bold text-on-surface mt-1.5">Corporación Minera del
+                                                Centro</h4>
+                                        </div>
+                                        <span class="text-xs font-bold text-on-surface"
+                                            style="font-feature-settings: 'tnum' 1;">S/ 112,000.00</span>
+                                    </div>
+                                    <p class="text-[11px] text-on-surface-variant">Pedido mayorista sujeto a pago a 15
+                                        días. Solicitado por Gerencia Comercial.</p>
+                                    <div class="flex items-center gap-2 pt-1">
+                                        <button
+                                            class="flex-1 py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-bold text-center transition-colors"
+                                            type="button">
+                                            Aprobar Descuento
+                                        </button>
+                                        <button
+                                            class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition-colors"
+                                            type="button">
+                                            Rechazar
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Approval 3 -->
+                                <div
+                                    class="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors space-y-2.5">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <span
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-container-highest text-on-surface">Cierre
+                                                Contable</span>
+                                            <h4 class="text-xs font-bold text-on-surface mt-1.5">Cierre Preliminar
+                                                Impuestos SUNAT</h4>
+                                        </div>
+                                        <span class="text-xs font-bold text-outline">Octubre 2026</span>
+                                    </div>
+                                    <p class="text-[11px] text-on-surface-variant">Revisión de crédito fiscal de IGV (S/
+                                        48,290.00) antes del envío definitivo de declaración PDJ.</p>
+                                    <div class="flex items-center gap-2 pt-1">
+                                        <button
+                                            class="w-full py-1.5 rounded-lg bg-on-surface hover:bg-surface-container-highest text-on-primary text-xs font-bold text-center transition-colors"
+                                            type="button">
+                                            Autorizar Envío PDT
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- System Health & SUNAT Connectivity Hub -->
+                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary text-[20px]">cloud_done</span>
+                                <h2 class="text-base font-headline font-bold text-on-surface">Estado de Enlaces &amp;
+                                    Conectividad</h2>
+                            </div>
+                            <div class="space-y-3">
+                                <div
+                                    class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                        <div>
+                                            <div class="text-xs font-bold text-on-surface">Servidor SUNAT OSE / CPE
+                                            </div>
+                                            <div class="text-[10px] text-outline">Certificado vigente hasta Dic 2027
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span
+                                        class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">100%
+                                        OK</span>
+                                </div>
+                                <div
+                                    class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                        <div>
+                                            <div class="text-xs font-bold text-on-surface">API Bancaria BCP &amp; BBVA
+                                            </div>
+                                            <div class="text-[10px] text-outline">Última conciliación: Hoy 08:30 AM
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span
+                                        class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Cuadrado</span>
+                                </div>
+                                <div
+                                    class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                        <div>
+                                            <div class="text-xs font-bold text-on-surface">Guías Remisión Electrónica
+                                            </div>
+                                            <div class="text-[10px] text-outline">12 generadas sin incidencias hoy</div>
+                                        </div>
+                                    </div>
+                                    <span
+                                        class="text-[10px] font-bold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">Activo</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Activity Feed: Live System Movements -->
+                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-outline text-[20px]">history</span>
+                                    <h2 class="text-base font-headline font-bold text-on-surface">Actividad del Sistema
+                                    </h2>
+                                </div>
+                                <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Hoy</span>
+                            </div>
+                            <div
+                                class="space-y-3 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-container-high">
+                                <!-- Item 1 -->
+                                <div class="relative flex items-start gap-3 pl-2">
+                                    <div
+                                        class="w-3.5 h-3.5 rounded-full bg-primary ring-4 ring-surface-container-lowest shrink-0 mt-1">
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-on-surface">Factura F001-0004921 aprobada por
+                                            SUNAT</p>
+                                        <p class="text-[11px] text-outline">Por S/ 84,320.00 • Aceros Arequipa</p>
+                                        <span class="text-[10px] text-outline font-semibold">Hace 10 min</span>
+                                    </div>
+                                </div>
+                                <!-- Item 2 -->
+                                <div class="relative flex items-start gap-3 pl-2">
+                                    <div
+                                        class="w-3.5 h-3.5 rounded-full bg-secondary ring-4 ring-surface-container-lowest shrink-0 mt-1">
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-on-surface">Transferencia recibida BCP</p>
+                                        <p class="text-[11px] text-outline">Abono de S/ 45,000.00 • Clientes Varios</p>
+                                        <span class="text-[10px] text-outline font-semibold">Hace 35 min</span>
+                                    </div>
+                                </div>
+                                <!-- Item 3 -->
+                                <div class="relative flex items-start gap-3 pl-2">
+                                    <div
+                                        class="w-3.5 h-3.5 rounded-full bg-emerald-600 ring-4 ring-surface-container-lowest shrink-0 mt-1">
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-on-surface">Ingreso a Almacén Central Lurín</p>
+                                        <p class="text-[11px] text-outline">Guía GRE-00381 con 42 pallets recepcionados
+                                        </p>
+                                        <span class="text-[10px] text-outline font-semibold">Hace 1 hora</span>
+                                    </div>
+                                </div>
+                                <!-- Item 4 -->
+                                <div class="relative flex items-start gap-3 pl-2">
+                                    <div
+                                        class="w-3.5 h-3.5 rounded-full bg-surface-container-highest ring-4 ring-surface-container-lowest shrink-0 mt-1">
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-on-surface">Asiento Contable #142 registrado
+                                        </p>
+                                        <p class="text-[11px] text-outline">Provisión de planilla y beneficios sociales
+                                        </p>
+                                        <span class="text-[10px] text-outline font-semibold">Hace 2 horas</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Quick Executive Utility Actions -->
+                        <div
+                            class="bg-gradient-to-br from-primary/5 via-surface-container-low to-surface-container rounded-xl p-5 border border-primary/10 flex items-center justify-between">
+                            <div>
+                                <h4 class="text-xs font-bold text-on-surface uppercase tracking-wider">Centro de Soporte
+                                    SUNAT</h4>
+                                <p class="text-[11px] text-outline mt-0.5">Mesa de ayuda directa para contingencias OSE.
+                                </p>
+                            </div>
+                            <button
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-xs font-bold text-primary shadow-sm transition-colors"
+                                type="button">
+                                <span class="material-symbols-outlined text-[16px]">support_agent</span>
+                                <span>Contactar</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                    // Simple Dropdown Toggle for Executive New Transaction button
+                    (function () {
+                        const btn = document.getElementById('btnNewTx');
+                        const menu = document.getElementById('txMenu');
+                        if (btn && menu) {
+                            btn.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                menu.classList.toggle('hidden');
+                            });
+                            document.addEventListener('click', function () {
+                                if (!menu.classList.contains('hidden')) {
+                                    menu.classList.add('hidden');
+                                }
+                            });
+                        }
+                    })();
+            </script>
+        </main>
+    </div>
+</body>
+
+</html>

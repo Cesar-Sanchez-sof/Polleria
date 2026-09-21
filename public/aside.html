@@ -1,0 +1,243 @@
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="web_dashboard" name="shell-type" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            main>:first-child {
+                margin-top: 0 !important;
+            }
+
+            main>:last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#eff4ff",
+                        "on-primary": "#ffffff",
+                        "on-secondary-container": "#795d47",
+                        "secondary-container": "#ffd8bd",
+                        "on-primary-container": "#ffd5ce",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#5b412e",
+                        "surface-tint": "#c00001",
+                        "secondary-fixed-dim": "#e4bfa5",
+                        "primary": "#9a0001",
+                        "on-background": "#0d1c2e",
+                        "tertiary-fixed-dim": "#edc211",
+                        "outline-variant": "#e7bdb6",
+                        "tertiary": "#725c00",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#564500",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed": "#ffdcc3",
+                        "background": "#f8f9ff",
+                        "on-surface-variant": "#5d3f3b",
+                        "inverse-surface": "#233144",
+                        "secondary": "#755943",
+                        "on-primary-fixed-variant": "#930000",
+                        "surface-variant": "#d5e3fc",
+                        "tertiary-container": "#cda700",
+                        "surface-dim": "#ccdbf3",
+                        "on-secondary-fixed": "#2a1707",
+                        "primary-fixed": "#ffdad4",
+                        "on-primary-fixed": "#410000",
+                        "surface-container-high": "#dce9ff",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#ffb4a8",
+                        "primary-container": "#c70202",
+                        "on-tertiary-fixed": "#231b00",
+                        "on-tertiary-container": "#4e3e00",
+                        "surface-container-highest": "#d5e3fc",
+                        "on-secondary": "#ffffff",
+                        "surface": "#f8f9ff",
+                        "on-surface": "#0d1c2e",
+                        "primary-fixed-dim": "#ffb4a8",
+                        "inverse-on-surface": "#eaf1ff",
+                        "surface-container": "#e6eeff",
+                        "outline": "#926f69",
+                        "surface-bright": "#f8f9ff",
+                        "tertiary-fixed": "#ffe082"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "space-md": "0.75rem",
+                        "space-sm": "0.5rem",
+                        "space-xs": "0.25rem",
+                        "gutter": "1rem",
+                        "space-lg": "1.25rem",
+                        "margin": "1.5rem",
+                        "space-xl": "1.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Plus Jakarta Sans"],
+                        "label": ["Plus Jakarta Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<aside
+    class="fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high">
+    <div class="flex flex-col gap-space-sm overflow-y-auto">
+        <div class="flex flex-col items-center justify-center p-space-sm gap-space-xs text-center">
+            <div class="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center"><span
+                    class="material-symbols-outlined text-primary-container text-[28px]">apps</span></div>
+            <a class="font-headline text-[16px] font-bold text-on-surface tracking-wider mt-space-xs uppercase" href="/"
+                target="_top">ERP EMPRESARIAL</a>
+            <span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">SISTEMA
+                INTEGRAL</span>
+        </div>
+        <div class="flex items-center justify-center bg-surface-container-low rounded-full p-1 gap-1 mx-space-sm">
+            <button
+                class="flex-1 py-1 flex items-center justify-center rounded-full bg-surface-container-lowest text-primary-container shadow-sm hover:text-on-surface transition-colors"
+                type="button"><span class="material-symbols-outlined text-[16px]">light_mode</span></button><button
+                class="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                type="button"><span class="material-symbols-outlined text-[16px]">dark_mode</span></button><button
+                class="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                type="button"><span class="material-symbols-outlined text-[16px]">desktop_windows</span></button>
+        </div>
+        <nav class="flex flex-col gap-1 px-space-xs mt-space-xs"
+            data-active-classes="bg-primary-fixed text-primary font-bold shadow-sm">
+            <div class="px-space-md pt-1 pb-0.5"><span
+                    class="font-label text-[10px] uppercase text-outline font-bold tracking-wider">Restaurante & Salón</span>
+            </div>
+            <!-- Restaurante Section -->
+            <div class="flex flex-col gap-0.5">
+                <a class="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface hover:bg-surface-container text-[12px] font-semibold transition-all"
+                    data-path="mesas" href="/mesas" target="_top">
+                    <span class="material-symbols-outlined text-[18px] text-primary">table_restaurant</span>
+                    <span>Mesas y Salón</span>
+                </a>
+                <a class="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
+                    data-path="cocina" href="/cocina" target="_top">
+                    <span class="material-symbols-outlined text-[18px] text-tertiary">restaurant</span>
+                    <span>Cocina (KDS)</span>
+                </a>
+                <a class="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
+                    data-path="caja" href="/caja" target="_top">
+                    <span class="material-symbols-outlined text-[18px] text-secondary">point_of_sale</span>
+                    <span>Caja y Cobro</span>
+                </a>
+            </div>
+
+            <div class="px-space-md pt-2 pb-0.5"><span
+                    class="font-label text-[10px] uppercase text-outline font-bold tracking-wider">Módulos ERP</span>
+            </div>
+            <!-- Ventas Section -->
+            <div class="flex flex-col gap-0.5">
+                <div class="px-space-md pt-1"><span
+                        class="font-label text-[11px] font-bold text-on-surface">VENTAS</span>
+                </div>
+                <div class="flex flex-col pl-2 gap-0.5"><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="ordenes-de-venta" href="/ventas"
+                target="_top">Órdenes de Venta</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="clientes" href="#">Clientes</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="facturas-de-venta" href="#">Facturas de Venta</a></div>
+            </div><!-- Compras Section -->
+            <div class="flex flex-col gap-0.5 mt-1">
+                <div class="px-space-md pt-1"><span
+                        class="font-label text-[11px] font-bold text-on-surface">COMPRAS</span>
+                </div>
+                <div class="flex flex-col pl-2 gap-0.5"><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="ordenes-de-compra" href="/compras"
+                target="_top">Órdenes de Compra</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="proveedores" href="#">Proveedores</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="facturas-de-proveedor" href="#">Facturas de Proveedor</a></div>
+            </div><!-- Contabilidad Section -->
+            <div class="flex flex-col gap-0.5 mt-1">
+                <div class="px-space-md pt-1"><span
+                        class="font-label text-[11px] font-bold text-on-surface">CONTABILIDAD</span></div>
+                <div class="flex flex-col pl-2 gap-0.5"><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="dashboard-contabilidad" href="/asientos" target="_top">Asientos contables</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="libro-diario" href="#">Libro Diario</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="libro-mayor" href="#">Libro Mayor</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="balance-general" href="#">Balance General</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="estado-de-resultados" href="#">Estado de Resultados</a><a
+                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="flujo-de-efectivo" href="#">Flujo de Efectivo</a></div>
+            </div><!-- Operaciones Section -->
+            <div class="px-space-md pt-2 pb-0.5"><span
+                    class="font-label text-[10px] uppercase text-outline font-bold tracking-wider">Operaciones</span>
+            </div>
+            <div class="flex flex-col gap-0.5"><a
+                    class="flex items-center px-space-md py-1.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface text-[12px] font-bold uppercase transition-all"
+                    data-path="facturacion" href="#">Facturación</a><a
+                    class="flex items-center px-space-md py-1.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface text-[12px] font-bold uppercase transition-all"
+                    data-path="inventario" href="#">Inventario</a></div>
+        </nav>
+    </div>
+    <div
+        class="flex items-center justify-between px-space-sm py-space-xs bg-surface-container-low rounded-xl border border-surface-container-high mt-space-xs">
+        <div class="flex items-center gap-space-sm">
+            <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center"><span
+                    class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
+            <div class="flex flex-col"><span
+                    class="font-label text-[11px] font-bold text-on-surface leading-tight">Admin User</span><span class="font-label text-[10px] text-on-surface-variant leading-tight">Pollería Central</span></div>
+        </div><button class="text-on-surface-variant hover:text-error transition-colors p-1" type="button"><span
+                class="material-symbols-outlined text-[20px]">logout</span></button>
+    </div>
+    <script>
+        (function() {
+            try {
+                const currentPath = window.top.location.pathname;
+                const links = document.querySelectorAll('nav a[href]');
+                links.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && href !== '#' && currentPath.startsWith(href) && href !== '/') {
+                        link.classList.remove('text-on-surface-variant');
+                        link.classList.add('bg-primary/10', 'text-primary', 'font-bold', 'shadow-xs');
+                    }
+                });
+            } catch(e) {}
+        })();
+    </script>
+</aside>

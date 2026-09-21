@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="web_dashboard" name="shell-type" />
+    <title>Salón y Pedidos - Mesero | Pollería</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+            html, body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Plus Jakarta Sans', sans-serif;
+            }
+            body {
+                overscroll-behavior: none;
+            }
+            main > :first-child {
+                margin-top: 0 !important;
+            }
+            main > :last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #eff4ff;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #bfc7d2;
+            border-radius: 4px;
+        }
+        .modal-backdrop {
+            background: rgba(13, 28, 46, 0.6);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            "darkMode": "class",
+            "theme": {
+                "extend": {
+                    "colors": {
+                        "primary": "#9a0001",
+                        "primary-container": "#c70202",
+                        "on-primary": "#ffffff",
+                        "surface": "#f8f9ff",
+                        "surface-container": "#e6eeff",
+                        "surface-container-low": "#eff4ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#dce9ff",
+                        "on-surface": "#0d1c2e",
+                        "on-surface-variant": "#5d3f3b",
+                        "secondary": "#755943",
+                        "secondary-container": "#ffd8bd",
+                        "tertiary": "#725c00",
+                        "tertiary-fixed": "#ffe082"
+                    },
+                    "borderRadius": {
+                        "xl": "0.75rem",
+                        "2xl": "1rem"
+                    },
+                    "fontFamily": {
+                        "body": ["Plus Jakarta Sans", "sans-serif"],
+                        "headline": ["Plus Jakarta Sans", "sans-serif"]
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+
+<body class="bg-surface font-body text-on-surface antialiased">
+    <!-- Barra lateral fija compartida -->
+    <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
+
+    <div class="pl-64 min-h-screen flex flex-col bg-surface">
+        <!-- HEADER -->
+        <header
+            class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-surface-container-high">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary text-[28px]">table_restaurant</span>
+                <div>
+                    <h1 class="text-base font-bold text-on-surface leading-tight">Salón de Mesas &amp; Comandas</h1>
+                    <p class="text-[11px] text-on-surface-variant">Rol: Mesero / Recepcionista • Pollería Central</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Botón rápido para Pedido Para Llevar -->
+                <button onclick="openPedidoModal(null, true)"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">
+                    <span class="material-symbols-outlined text-[18px]">takeout_dining</span>
+                    <span>+ Pedido Para Llevar</span>
+                </button>
+
+                <div class="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full border border-surface-container">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-xs font-semibold text-on-surface" id="time-display">12:30 PM</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN -->
+        <main class="relative pt-20 flex-1 p-6 flex flex-col gap-6">
+            <!-- Barra de estado y leyenda -->
+            <div class="bg-surface-container-lowest p-4 rounded-2xl shadow-xs border border-surface-container flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-bold text-on-surface mr-2">Filtro de Mesas:</span>
+                    <button onclick="filterMesas('todas', this)" class="filter-btn px-3 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold shadow-xs">
+                        Todas (<span id="count-todas">8</span>)
+                    </button>
+                    <button onclick="filterMesas('disponible', this)" class="filter-btn px-3 py-1 bg-surface-container text-on-surface rounded-lg text-xs font-semibold hover:bg-surface-container-high">
+                        Disponibles (<span id="count-disponibles">4</span>)
+                    </button>
+                    <button onclick="filterMesas('ocupada', this)" class="filter-btn px-3 py-1 bg-surface-container text-on-surface rounded-lg text-xs font-semibold hover:bg-surface-container-high">
+                        Ocupadas (<span id="count-ocupadas">4</span>)
+                    </button>
+                </div>
+
+                <!-- Leyenda de Estados del Pedido -->
+                <div class="flex items-center gap-3 text-xs">
+                    <span class="font-bold text-on-surface-variant">Estados de Cocina:</span>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> Recibido
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                        <span class="w-2 h-2 rounded-full bg-amber-500 animate-spin"></span> Preparando
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Servido
+                    </span>
+                </div>
+            </div>
+
+            <!-- GRID DE MESAS Y PEDIDO PARA LLEVAR -->
+            <div id="mesas-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <!-- Se renderiza por JS -->
+            </div>
+
+            <!-- SECCIÓN DE PEDIDOS PARA LLEVAR ACTIVOS -->
+            <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container">
+                <div class="flex items-center justify-between mb-4 border-b border-surface-container pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-600 text-[24px]">takeout_dining</span>
+                        <h2 class="text-sm font-bold text-on-surface">Pedidos Para Llevar Activos (Takeout)</h2>
+                    </div>
+                    <button onclick="openPedidoModal(null, true)" class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">add</span>
+                        <span>Nuevo Para Llevar</span>
+                    </button>
+                </div>
+                <div id="takeout-list" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Cards de Takeout -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL PARA TOMAR / EDITAR PEDIDO (CON CARTA, IMÁGENES, ADICIONALES Y OBSERVACIONES) -->
+    <div id="pedido-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-surface-container-lowest w-full max-w-5xl rounded-2xl shadow-2xl border border-surface-container overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in zoom-in duration-150">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-primary text-on-primary flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[26px]">restaurant_menu</span>
+                    <div>
+                        <h2 id="modal-title" class="text-base font-bold">Tomar Pedido - Mesa 1</h2>
+                        <p class="text-[11px] text-on-primary/80">Selecciona los productos de la carta e ingresa observaciones</p>
+                    </div>
+                </div>
+                <button onclick="closePedidoModal()" class="text-on-primary/80 hover:text-on-primary p-1 rounded-lg hover:bg-white/10" type="button">
+                    <span class="material-symbols-outlined text-[22px]">close</span>
+                </button>
+            </div>
+
+            <!-- Modal Content (Layout Split: Carta a la Izquierda | Comanda a la Derecha) -->
+            <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+                <!-- LADO IZQUIERDO: CARTA DE PRODUCTOS -->
+                <div class="flex-1 flex flex-col border-r border-surface-container bg-surface overflow-hidden">
+                    <!-- Categorías de la Carta -->
+                    <div class="p-3 bg-surface-container-lowest border-b border-surface-container flex items-center gap-2 overflow-x-auto">
+                        <button onclick="filterCarta('todos', this)" class="carta-tab px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-on-primary shadow-xs">Todos</button>
+                        <button onclick="filterCarta('pollos', this)" class="carta-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface hover:bg-surface-container">Pollos a la Brasa</button>
+                        <button onclick="filterCarta('adicionales', this)" class="carta-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface hover:bg-surface-container">Adicionales / Porciones</button>
+                        <button onclick="filterCarta('bebidas', this)" class="carta-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface hover:bg-surface-container">Bebidas</button>
+                    </div>
+
+                    <!-- Grid de Cards de Productos -->
+                    <div id="carta-grid" class="flex-1 p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                        <!-- Productos de la carta inyectados por JS -->
+                    </div>
+                </div>
+
+                <!-- LADO DERECHO: DETALLE DE COMANDA (CARRITO) -->
+                <div class="w-full md:w-96 bg-surface-container-lowest flex flex-col">
+                    <div class="p-4 border-b border-surface-container bg-surface-container-low flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-on-surface uppercase tracking-wider">Detalle del Pedido</span>
+                            <span id="badge-tipo-pedido" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-on-primary">Mesa 1</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <label class="block text-[10px] font-bold text-on-surface-variant">Mozo</label>
+                                <input id="mozo-input" type="text" value="Carlos Mozo" class="w-full px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-xs font-medium focus:ring-1 focus:ring-primary outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-on-surface-variant">Cliente (Opcional)</label>
+                                <input id="cliente-input" type="text" placeholder="General" class="w-full px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-xs font-medium focus:ring-1 focus:ring-primary outline-none" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items del Pedido -->
+                    <div id="pedido-items-list" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3">
+                        <!-- Items inyectados -->
+                    </div>
+
+                    <!-- Total y Confirmación -->
+                    <div class="p-4 border-t border-surface-container bg-surface-container-low flex flex-col gap-3">
+                        <div class="flex items-center justify-between text-xs text-on-surface-variant">
+                            <span>Subtotal:</span>
+                            <span id="pedido-subtotal" class="font-mono">S/ 0.00</span>
+                        </div>
+                        <div class="flex items-center justify-between text-base font-bold text-on-surface border-t border-surface-container pt-1">
+                            <span>TOTAL:</span>
+                            <span id="pedido-total" class="font-mono text-primary text-lg">S/ 0.00</span>
+                        </div>
+
+                        <button onclick="confirmarPedido()"
+                            class="w-full py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95">
+                            <span class="material-symbols-outlined text-[18px]">send</span>
+                            <span id="btn-confirmar-text">Marcar Ocupada y Enviar a Cocina</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL OBSERVACIÓN DE PRODUCTO -->
+    <div id="obs-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-5 shadow-2xl border border-surface-container">
+            <h3 class="text-xs font-bold text-on-surface mb-2 flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-primary text-[18px]">edit_note</span>
+                <span>Observaciones para: <span id="obs-item-name" class="text-primary font-bold"></span></span>
+            </h3>
+            <textarea id="obs-textarea" rows="3" placeholder="Ej: Papas bien doraditas, pechuga, ensalada sin vinagreta..."
+                class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs focus:ring-2 focus:ring-primary focus:outline-none"></textarea>
+            <div class="flex items-center justify-end gap-2 mt-3">
+                <button onclick="closeObsModal()" class="px-3 py-1.5 bg-surface-container text-on-surface rounded-lg text-xs font-semibold">Cancelar</button>
+                <button onclick="saveObsModal()" class="px-3 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-bold">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CARTA DE PRODUCTOS CON IMÁGENES, PRECIOS Y ADICIONALES
+        const CARTA_PRODUCTOS = [
+            {
+                id: 1,
+                categoria: "pollos",
+                nombre: "1 Pollo a la Brasa",
+                precio: 68.00,
+                descripcion: "Incluye papas fritas familiares crocantes y ensalada clásica.",
+                imagen: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 2,
+                categoria: "pollos",
+                nombre: "1/2 Pollo a la Brasa",
+                precio: 36.00,
+                descripcion: "Con papas fritas medianas y ensalada fresca.",
+                imagen: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 3,
+                categoria: "pollos",
+                nombre: "1/4 Pollo a la Brasa",
+                precio: 19.50,
+                descripcion: "Parte pecho o pierna, con papas y ensalada.",
+                imagen: "https://images.unsplash.com/photo-1594221708779-94832f4320d1?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 4,
+                categoria: "pollos",
+                nombre: "Mostrito Especial Pollero",
+                precio: 24.00,
+                descripcion: "1/4 de pollo a la brasa + abundante arroz chaufa y papas.",
+                imagen: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 5,
+                categoria: "adicionales",
+                nombre: "Porción de Papas Fritas",
+                precio: 12.00,
+                descripcion: "Porción adicional de papas nativas doradas y crocantes.",
+                imagen: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 6,
+                categoria: "adicionales",
+                nombre: "Porción Tequeños Polleros (8u)",
+                precio: 16.00,
+                descripcion: "Rellenos de pollo a la brasa y queso con crema de palta.",
+                imagen: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 7,
+                categoria: "adicionales",
+                nombre: "Porción de Arroz Chaufa",
+                precio: 10.00,
+                descripcion: "Chaufa al wok con cebollita china y toques ahumados.",
+                imagen: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 8,
+                categoria: "adicionales",
+                nombre: "Ensalada Familiar Extra",
+                precio: 8.00,
+                descripcion: "Ensalada fresca o rusa con vinagreta especial de la casa.",
+                imagen: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 9,
+                categoria: "bebidas",
+                nombre: "Inka Cola 1.5L",
+                precio: 12.00,
+                descripcion: "Botella familiar helada o sin helar.",
+                imagen: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 10,
+                categoria: "bebidas",
+                nombre: "Jarra de Chicha Morada (1L)",
+                precio: 14.00,
+                descripcion: "Chicha natural elaborada con maíz morado, piña y canela.",
+                imagen: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&auto=format&fit=crop&q=80"
+            },
+            {
+                id: 11,
+                categoria: "bebidas",
+                nombre: "Gaseosa Personal 500ml",
+                precio: 5.00,
+                descripcion: "Inka Cola o Coca Cola personal.",
+                imagen: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&auto=format&fit=crop&q=80"
+            }
+        ];
+
+        // ESTADO GLOBAL DE MESAS Y PEDIDOS EN LOCALSTORAGE
+        const DEFAULT_MESAS = [
+            { id: 1, numero: 1, capacidad: 4, estado: "ocupada", pedidoId: 101 },
+            { id: 2, numero: 2, capacidad: 2, estado: "disponible", pedidoId: null },
+            { id: 3, numero: 3, capacidad: 4, estado: "ocupada", pedidoId: 102 },
+            { id: 4, numero: 4, capacidad: 6, estado: "ocupada", pedidoId: 103 },
+            { id: 5, numero: 5, capacidad: 4, estado: "disponible", pedidoId: null },
+            { id: 6, numero: 6, capacidad: 2, estado: "disponible", pedidoId: null },
+            { id: 7, numero: 7, capacidad: 4, estado: "disponible", pedidoId: null },
+            { id: 8, numero: 8, capacidad: 8, estado: "disponible", pedidoId: null }
+        ];
+
+        const DEFAULT_PEDIDOS = [
+            {
+                id: 101,
+                mesaId: 1,
+                esParaLlevar: false,
+                cliente: "Familia Morales",
+                mozo: "Carlos Mozo",
+                hora: "12:15 PM",
+                estado: "preparando", // recibido | preparando | servido
+                items: [
+                    { productoId: 1, nombre: "1 Pollo a la Brasa", precio: 68.00, cantidad: 1, obs: "Papas bien doraditas" },
+                    { productoId: 5, nombre: "Porción de Papas Fritas", precio: 12.00, cantidad: 1, obs: "Cremas aparte" },
+                    { productoId: 9, nombre: "Inka Cola 1.5L", precio: 12.00, cantidad: 1, obs: "Helada" }
+                ]
+            },
+            {
+                id: 102,
+                mesaId: 3,
+                esParaLlevar: false,
+                cliente: "Pareja mesa 3",
+                mozo: "Carlos Mozo",
+                hora: "12:22 PM",
+                estado: "recibido", // recibido | preparando | servido
+                items: [
+                    { productoId: 4, nombre: "Mostrito Especial Pollero", precio: 24.00, cantidad: 2, obs: "Pechuga ambos, ají aparte" },
+                    { productoId: 10, nombre: "Jarra de Chicha Morada (1L)", precio: 14.00, cantidad: 1, obs: "Bien fría" }
+                ]
+            },
+            {
+                id: 103,
+                mesaId: 4,
+                esParaLlevar: false,
+                cliente: "Oficina Bancaria",
+                mozo: "Ana Moza",
+                hora: "11:55 AM",
+                estado: "servido", // recibido | preparando | servido
+                items: [
+                    { productoId: 1, nombre: "1 Pollo a la Brasa", precio: 68.00, cantidad: 1, obs: "Todo ok" },
+                    { productoId: 2, nombre: "1/2 Pollo a la Brasa", precio: 36.00, cantidad: 1, obs: "Pierna y entrepierna" },
+                    { productoId: 6, nombre: "Porción Tequeños Polleros (8u)", precio: 16.00, cantidad: 1, obs: "" }
+                ]
+            },
+            {
+                id: 104,
+                mesaId: null,
+                esParaLlevar: true,
+                cliente: "Marcos López (Tel: 987654321)",
+                mozo: "Recepción",
+                hora: "12:28 PM",
+                estado: "recibido", // recibido | preparando | servido
+                items: [
+                    { productoId: 3, nombre: "1/4 Pollo a la Brasa", precio: 19.50, cantidad: 1, obs: "Parte pecho para llevar" },
+                    { productoId: 11, nombre: "Gaseosa Personal 500ml", precio: 5.00, cantidad: 1, obs: "" }
+                ]
+            }
+        ];
+
+        let state = {
+            mesas: [],
+            pedidos: []
+        };
+
+        function initState() {
+            const saved = localStorage.getItem('polleria_restaurante_state');
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                } catch (e) {
+                    state = { mesas: DEFAULT_MESAS, pedidos: DEFAULT_PEDIDOS };
+                }
+            } else {
+                state = { mesas: DEFAULT_MESAS, pedidos: DEFAULT_PEDIDOS };
+                saveState();
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('polleria_restaurante_state', JSON.stringify(state));
+        }
+
+        // Renderizado de Mesas
+        let currentFilter = 'todas';
+
+        function renderMesas() {
+            const grid = document.getElementById('mesas-grid');
+            let filtered = state.mesas;
+            if (currentFilter === 'disponible') filtered = state.mesas.filter(m => m.estado === 'disponible');
+            if (currentFilter === 'ocupada') filtered = state.mesas.filter(m => m.estado === 'ocupada');
+
+            // Actualizar contadores
+            document.getElementById('count-todas').textContent = state.mesas.length;
+            document.getElementById('count-disponibles').textContent = state.mesas.filter(m => m.estado === 'disponible').length;
+            document.getElementById('count-ocupadas').textContent = state.mesas.filter(m => m.estado === 'ocupada').length;
+
+            let html = '';
+
+            filtered.forEach(mesa => {
+                const pedido = state.pedidos.find(p => p.id === mesa.pedidoId && !p.esParaLlevar);
+                const isOcupada = mesa.estado === 'ocupada';
+
+                // Estados de pedido
+                let estadoTagHtml = '';
+                let canEdit = false;
+
+                if (isOcupada && pedido) {
+                    if (pedido.estado === 'recibido') {
+                        estadoTagHtml = `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Recibido</span>`;
+                        canEdit = true;
+                    } else if (pedido.estado === 'preparando') {
+                        estadoTagHtml = `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-spin"></span> Preparando</span>`;
+                        canEdit = true;
+                    } else if (pedido.estado === 'servido') {
+                        estadoTagHtml = `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Servido</span>`;
+                        canEdit = false; // "Se debe mostrar el botón siempre y cuando no haya sido servido"
+                    }
+                } else {
+                    estadoTagHtml = `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Sin pedido</span>`;
+                }
+
+                // Cálculo total
+                let totalPedido = 0;
+                let itemsResumen = '';
+                if (pedido) {
+                    totalPedido = pedido.items.reduce((sum, it) => sum + (it.precio * it.cantidad), 0);
+                    itemsResumen = pedido.items.map(it => `${it.cantidad}x ${it.nombre}`).slice(0, 2).join(', ');
+                    if (pedido.items.length > 2) itemsResumen += '...';
+                }
+
+                html += `
+                    <div class="bg-surface-container-lowest rounded-2xl p-5 shadow-xs border ${isOcupada ? 'border-primary/30 ring-1 ring-primary/10' : 'border-surface-container'} flex flex-col justify-between hover:shadow-md transition-all">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-10 h-10 rounded-xl ${isOcupada ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface'} flex items-center justify-center font-bold text-sm shadow-xs">
+                                    M${mesa.numero}
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-on-surface">Mesa ${mesa.numero}</h3>
+                                    <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[13px]">group</span>
+                                        ${mesa.capacidad} Personas
+                                    </span>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isOcupada ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">
+                                ${isOcupada ? 'OCUPADA' : 'DISPONIBLE'}
+                            </span>
+                        </div>
+
+                        <!-- Estado del Pedido -->
+                        <div class="bg-surface-container-low p-3 rounded-xl mb-3 flex flex-col gap-1.5 border border-surface-container/60">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Estado Cocina:</span>
+                                ${estadoTagHtml}
+                            </div>
+                            ${isOcupada && pedido ? `
+                                <div class="text-[11px] text-on-surface font-medium truncate mt-1">
+                                    ${itemsResumen}
+                                </div>
+                                <div class="flex items-center justify-between text-xs font-bold pt-1 border-t border-surface-container">
+                                    <span class="text-on-surface-variant">Total Mesa:</span>
+                                    <span class="font-mono text-primary">S/ ${totalPedido.toFixed(2)}</span>
+                                </div>
+                            ` : `
+                                <span class="text-[11px] text-on-surface-variant italic">Mesa libre para nuevos comensales</span>
+                            `}
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="pt-1">
+                            ${!isOcupada ? `
+                                <button onclick="openPedidoModal(${mesa.id}, false)"
+                                    class="w-full py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[16px]">add_circle</span>
+                                    <span>Tomar Pedido</span>
+                                </button>
+                            ` : `
+                                ${canEdit ? `
+                                    <button onclick="editarPedido(${pedido.id})"
+                                        class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[16px]">edit</span>
+                                        <span>Editar Pedido</span>
+                                    </button>
+                                ` : `
+                                    <div class="w-full py-2 bg-surface-container text-on-surface-variant/80 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 text-center" title="No se puede editar: el pedido ya ha sido servido">
+                                        <span class="material-symbols-outlined text-[15px] text-emerald-600">check_circle</span>
+                                        <span>Servido (No editable)</span>
+                                    </div>
+                                `}
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+            renderTakeoutList();
+        }
+
+        // Renderizado de lista Para Llevar
+        function renderTakeoutList() {
+            const container = document.getElementById('takeout-list');
+            const takeouts = state.pedidos.filter(p => p.esParaLlevar);
+
+            if (takeouts.length === 0) {
+                container.innerHTML = `<p class="col-span-3 text-xs text-on-surface-variant italic py-3">No hay pedidos para llevar activos en este momento.</p>`;
+                return;
+            }
+
+            let html = '';
+            takeouts.forEach(t => {
+                const total = t.items.reduce((sum, it) => sum + (it.precio * it.cantidad), 0);
+                const canEdit = t.estado !== 'servido';
+
+                let tagClass = 'bg-blue-100 text-blue-700';
+                if (t.estado === 'preparando') tagClass = 'bg-amber-100 text-amber-700';
+                if (t.estado === 'servido') tagClass = 'bg-emerald-100 text-emerald-700';
+
+                html += `
+                    <div class="p-3.5 bg-surface-container-low rounded-xl border border-surface-container flex flex-col justify-between gap-2 shadow-xs">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs text-on-surface">#${t.id} - ${t.cliente}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${tagClass}">
+                                ${t.estado.toUpperCase()}
+                            </span>
+                        </div>
+                        <div class="text-[11px] text-on-surface-variant truncate">
+                            ${t.items.map(it => `${it.cantidad}x ${it.nombre}`).join(', ')}
+                        </div>
+                        <div class="flex items-center justify-between pt-1 border-t border-surface-container">
+                            <span class="font-mono text-xs font-bold text-primary">S/ ${total.toFixed(2)}</span>
+                            ${canEdit ? `
+                                <button onclick="editarPedido(${t.id})" class="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">edit</span> Editar
+                                </button>
+                            ` : `
+                                <span class="text-[10px] text-emerald-700 font-bold flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">check</span> Listo</span>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Filtro de mesas
+        function filterMesas(tipo, btn) {
+            currentFilter = tipo;
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.className = 'filter-btn px-3 py-1 bg-surface-container text-on-surface rounded-lg text-xs font-semibold hover:bg-surface-container-high';
+            });
+            btn.className = 'filter-btn px-3 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold shadow-xs';
+            renderMesas();
+        }
+
+        // MODAL DE TOMA Y EDICIÓN DE PEDIDO
+        let currentModalMesaId = null;
+        let isCurrentModalTakeout = false;
+        let editingPedidoId = null;
+        let activeOrderItems = [];
+
+        function openPedidoModal(mesaId, isTakeout) {
+            currentModalMesaId = mesaId;
+            isCurrentModalTakeout = isTakeout;
+            editingPedidoId = null;
+            activeOrderItems = [];
+
+            const modal = document.getElementById('pedido-modal');
+            const title = document.getElementById('modal-title');
+            const badge = document.getElementById('badge-tipo-pedido');
+            const btnText = document.getElementById('btn-confirmar-text');
+
+            if (isTakeout) {
+                title.textContent = "Tomar Pedido Para Llevar (Takeout)";
+                badge.textContent = "Para Llevar";
+                badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white";
+                btnText.textContent = "Enviar Pedido a Cocina";
+                document.getElementById('cliente-input').value = "Cliente Para Llevar";
+            } else {
+                const mesa = state.mesas.find(m => m.id === mesaId);
+                title.textContent = `Tomar Pedido - Mesa ${mesa.numero}`;
+                badge.textContent = `Mesa ${mesa.numero}`;
+                badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-on-primary";
+                btnText.textContent = "Marcar Ocupada y Enviar a Cocina";
+                document.getElementById('cliente-input').value = `Mesa ${mesa.numero}`;
+            }
+
+            renderCarta('todos');
+            renderPedidoItems();
+            modal.classList.remove('hidden');
+        }
+
+        function editarPedido(pedidoId) {
+            const pedido = state.pedidos.find(p => p.id === pedidoId);
+            if (!pedido) return;
+
+            if (pedido.estado === 'servido') {
+                alert('No se puede editar este pedido porque ya ha sido servido por cocina.');
+                return;
+            }
+
+            editingPedidoId = pedidoId;
+            currentModalMesaId = pedido.mesaId;
+            isCurrentModalTakeout = pedido.esParaLlevar;
+            // Clonar items
+            activeOrderItems = JSON.parse(JSON.stringify(pedido.items));
+
+            const modal = document.getElementById('pedido-modal');
+            const title = document.getElementById('modal-title');
+            const badge = document.getElementById('badge-tipo-pedido');
+            const btnText = document.getElementById('btn-confirmar-text');
+
+            if (pedido.esParaLlevar) {
+                title.textContent = `Editar Pedido Para Llevar #${pedido.id}`;
+                badge.textContent = "Para Llevar";
+                badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white";
+            } else {
+                const mesa = state.mesas.find(m => m.id === pedido.mesaId);
+                title.textContent = `Editar Pedido - Mesa ${mesa ? mesa.numero : ''}`;
+                badge.textContent = `Mesa ${mesa ? mesa.numero : ''}`;
+                badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-on-primary";
+            }
+
+            document.getElementById('mozo-input').value = pedido.mozo;
+            document.getElementById('cliente-input').value = pedido.cliente;
+            btnText.textContent = "Guardar Cambios del Pedido";
+
+            renderCarta('todos');
+            renderPedidoItems();
+            modal.classList.remove('hidden');
+        }
+
+        function closePedidoModal() {
+            document.getElementById('pedido-modal').classList.add('hidden');
+        }
+
+        // Renderizado de la Carta en el Modal
+        function renderCarta(cat) {
+            const grid = document.getElementById('carta-grid');
+            let items = CARTA_PRODUCTOS;
+            if (cat !== 'todos') {
+                items = CARTA_PRODUCTOS.filter(p => p.categoria === cat);
+            }
+
+            let html = '';
+            items.forEach(prod => {
+                html += `
+                    <div class="bg-surface-container-lowest rounded-xl p-3 shadow-xs border border-surface-container flex flex-col justify-between hover:border-primary/40 transition-all group">
+                        <div class="relative w-full h-28 rounded-lg overflow-hidden mb-2 bg-surface-container">
+                            <img src="${prod.imagen}" alt="${prod.nombre}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                            <span class="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/70 text-white font-mono">
+                                S/ ${prod.precio.toFixed(2)}
+                            </span>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-on-surface line-clamp-1">${prod.nombre}</h4>
+                            <p class="text-[10px] text-on-surface-variant line-clamp-2 mt-0.5 leading-tight">${prod.descripcion}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 mt-3">
+                            <button onclick="addToOrder(${prod.id})"
+                                class="flex-1 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-on-primary rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">add</span>
+                                <span>Agregar</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function filterCarta(cat, btn) {
+            document.querySelectorAll('.carta-tab').forEach(b => {
+                b.className = 'carta-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface hover:bg-surface-container';
+            });
+            btn.className = 'carta-tab px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-on-primary shadow-xs';
+            renderCarta(cat);
+        }
+
+        // Manejo de Items del Pedido
+        function addToOrder(prodId) {
+            const prod = CARTA_PRODUCTOS.find(p => p.id === prodId);
+            if (!prod) return;
+
+            const existing = activeOrderItems.find(it => it.productoId === prodId);
+            if (existing) {
+                existing.cantidad += 1;
+            } else {
+                activeOrderItems.push({
+                    productoId: prod.id,
+                    nombre: prod.nombre,
+                    precio: prod.precio,
+                    cantidad: 1,
+                    obs: ""
+                });
+            }
+            renderPedidoItems();
+        }
+
+        function changeItemQty(idx, delta) {
+            activeOrderItems[idx].cantidad += delta;
+            if (activeOrderItems[idx].cantidad <= 0) {
+                activeOrderItems.splice(idx, 1);
+            }
+            renderPedidoItems();
+        }
+
+        function renderPedidoItems() {
+            const container = document.getElementById('pedido-items-list');
+            if (activeOrderItems.length === 0) {
+                container.innerHTML = `
+                    <div class="flex-1 flex flex-col items-center justify-center text-center text-on-surface-variant p-6">
+                        <span class="material-symbols-outlined text-[36px] text-outline-variant mb-1">shopping_basket</span>
+                        <p class="text-xs font-bold">No hay productos agregados</p>
+                        <p class="text-[10px] text-gray-400">Selecciona platos o adicionales de la carta</p>
+                    </div>
+                `;
+                document.getElementById('pedido-subtotal').textContent = 'S/ 0.00';
+                document.getElementById('pedido-total').textContent = 'S/ 0.00';
+                return;
+            }
+
+            let total = 0;
+            let html = '';
+
+            activeOrderItems.forEach((it, idx) => {
+                const sub = it.precio * it.cantidad;
+                total += sub;
+
+                html += `
+                    <div class="bg-surface-container-low p-2.5 rounded-xl border border-surface-container flex flex-col gap-1.5">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 pr-2">
+                                <span class="text-xs font-bold text-on-surface line-clamp-1">${it.nombre}</span>
+                                <span class="text-[10px] text-on-surface-variant font-mono">S/ ${it.precio.toFixed(2)} c/u</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 bg-surface-container-lowest px-1.5 py-0.5 rounded-lg border border-surface-container">
+                                <button onclick="changeItemQty(${idx}, -1)" class="w-5 h-5 flex items-center justify-center text-primary font-bold hover:bg-surface-container rounded">-</button>
+                                <span class="text-xs font-bold font-mono px-1">${it.cantidad}</span>
+                                <button onclick="changeItemQty(${idx}, 1)" class="w-5 h-5 flex items-center justify-center text-primary font-bold hover:bg-surface-container rounded">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Observaciones por Producto -->
+                        <div class="flex items-center justify-between text-[11px] pt-1 border-t border-surface-container/60">
+                            <button onclick="openObsModal(${idx})" class="text-[10px] font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[13px]">edit_note</span>
+                                <span>${it.obs ? 'Obs: ' + it.obs : '+ Agregar Observación'}</span>
+                            </button>
+                            <span class="font-mono font-bold text-xs text-on-surface">S/ ${sub.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('pedido-subtotal').textContent = `S/ ${total.toFixed(2)}`;
+            document.getElementById('pedido-total').textContent = `S/ ${total.toFixed(2)}`;
+        }
+
+        // Modal de Observación
+        let activeObsIndex = null;
+
+        function openObsModal(idx) {
+            activeObsIndex = idx;
+            const item = activeOrderItems[idx];
+            document.getElementById('obs-item-name').textContent = item.nombre;
+            document.getElementById('obs-textarea').value = item.obs || "";
+            document.getElementById('obs-modal').classList.remove('hidden');
+        }
+
+        function closeObsModal() {
+            document.getElementById('obs-modal').classList.add('hidden');
+        }
+
+        function saveObsModal() {
+            if (activeObsIndex !== null && activeOrderItems[activeObsIndex]) {
+                activeOrderItems[activeObsIndex].obs = document.getElementById('obs-textarea').value.trim();
+                renderPedidoItems();
+            }
+            closeObsModal();
+        }
+
+        // Confirmar Pedido
+        function confirmarPedido() {
+            if (activeOrderItems.length === 0) {
+                alert('Agrega al menos un producto de la carta al pedido.');
+                return;
+            }
+
+            const mozo = document.getElementById('mozo-input').value.trim() || 'Mozo Pollería';
+            const cliente = document.getElementById('cliente-input').value.trim() || 'General';
+            const hora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+
+            if (editingPedidoId) {
+                // Actualizar pedido existente
+                const pedido = state.pedidos.find(p => p.id === editingPedidoId);
+                if (pedido) {
+                    pedido.items = activeOrderItems;
+                    pedido.mozo = mozo;
+                    pedido.cliente = cliente;
+                }
+            } else {
+                // Nuevo Pedido
+                const nextId = state.pedidos.reduce((max, p) => Math.max(max, p.id), 100) + 1;
+                const nuevoPedido = {
+                    id: nextId,
+                    mesaId: isCurrentModalTakeout ? null : currentModalMesaId,
+                    esParaLlevar: isCurrentModalTakeout,
+                    cliente: cliente,
+                    mozo: mozo,
+                    hora: hora,
+                    estado: "recibido", // Inicia en recibido
+                    items: activeOrderItems
+                };
+                state.pedidos.push(nuevoPedido);
+
+                // Si es mesa, marcar como ocupada
+                if (!isCurrentModalTakeout && currentModalMesaId) {
+                    const mesa = state.mesas.find(m => m.id === currentModalMesaId);
+                    if (mesa) {
+                        mesa.estado = "ocupada";
+                        mesa.pedidoId = nextId;
+                    }
+                }
+            }
+
+            saveState();
+            closePedidoModal();
+            renderMesas();
+
+            alert(editingPedidoId ? '¡Pedido actualizado con éxito!' : '¡Pedido registrado y enviado a Cocina con estado: Recibido!');
+        }
+
+        // Escuchar cambios de estado en tiempo real (por ejemplo desde Cocina o Caja)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'polleria_restaurante_state') {
+                initState();
+                renderMesas();
+            }
+        });
+
+        // Actualizar reloj
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('time-display').textContent = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initState();
+            renderMesas();
+            updateClock();
+            setInterval(updateClock, 30000);
+            // Polling suave local para reflejar cambios entre pestañas
+            setInterval(() => {
+                initState();
+                renderMesas();
+            }, 3000);
+        });
+    </script>
+</body>
+
+</html>

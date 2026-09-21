@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="web_dashboard" name="shell-type" />
+    <title>Caja y Facturación - Cajero | Pollería</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+            html, body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Plus Jakarta Sans', sans-serif;
+            }
+            body {
+                overscroll-behavior: none;
+            }
+            main > :first-child {
+                margin-top: 0 !important;
+            }
+            main > :last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #eff4ff;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #bfc7d2;
+            border-radius: 4px;
+        }
+        .modal-backdrop {
+            background: rgba(13, 28, 46, 0.65);
+            backdrop-filter: blur(4px);
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #ticket-print-area, #ticket-print-area * {
+                visibility: visible;
+            }
+            #ticket-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 80mm;
+            }
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            "darkMode": "class",
+            "theme": {
+                "extend": {
+                    "colors": {
+                        "primary": "#9a0001",
+                        "primary-container": "#c70202",
+                        "on-primary": "#ffffff",
+                        "surface": "#f8f9ff",
+                        "surface-container": "#e6eeff",
+                        "surface-container-low": "#eff4ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#dce9ff",
+                        "on-surface": "#0d1c2e",
+                        "on-surface-variant": "#5d3f3b",
+                        "secondary": "#755943",
+                        "secondary-container": "#ffd8bd",
+                        "tertiary": "#725c00"
+                    },
+                    "borderRadius": {
+                        "xl": "0.75rem",
+                        "2xl": "1rem"
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+
+<body class="bg-surface font-body text-on-surface antialiased">
+    <!-- Barra lateral fija compartida -->
+    <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
+
+    <div class="pl-64 min-h-screen flex flex-col bg-surface">
+        <!-- HEADER -->
+        <header
+            class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-surface-container-high">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-secondary text-[28px]">point_of_sale</span>
+                <div>
+                    <h1 class="text-base font-bold text-on-surface leading-tight">Módulo de Caja y Emisión de Ventas</h1>
+                    <p class="text-[11px] text-on-surface-variant">Rol: Cajero • Facturación Electrónica y Cobros</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-full border border-emerald-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Caja Principal Abierta</span>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-white font-bold text-xs">
+                    CJ
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN -->
+        <main class="relative pt-20 flex-1 p-6 flex flex-col gap-6">
+            <!-- LAYOUT SPLIT: SELECCIÓN Y DETALLE A LA IZQUIERDA | PAGO Y FACTURACIÓN A LA DERECHA -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- COLUMNA IZQUIERDA: SELECCIÓN DE MESA Y CARGA DE DETALLE DEL PEDIDO (7 cols) -->
+                <div class="lg:col-span-7 flex flex-col gap-5">
+                    
+                    <!-- PASO 1: ELEGIR MESA O PEDIDO PARA LLEVAR -->
+                    <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container">
+                        <div class="flex items-center justify-between mb-3 border-b border-surface-container pb-2">
+                            <h2 class="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-[18px]">table_restaurant</span>
+                                <span>1. Elegir Mesa con Pedido a Cobrar</span>
+                            </h2>
+                            <span class="text-[11px] text-on-surface-variant">Selecciona para cargar el pedido</span>
+                        </div>
+
+                        <!-- Grid de Selección Rápida de Mesas con Pedidos -->
+                        <div id="mesas-selector-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            <!-- Inyectado por JS -->
+                        </div>
+                    </div>
+
+                    <!-- PASO 2: DETALLES DEL PEDIDO CARGADOS -->
+                    <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container flex flex-col gap-4">
+                        <div class="flex items-center justify-between border-b border-surface-container pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary text-[20px]">receipt_long</span>
+                                <h3 class="text-xs font-bold text-on-surface uppercase tracking-wider">
+                                    2. Detalles del Pedido (<span id="detalle-origen-label" class="text-primary font-bold">Ninguno</span>)
+                                </h3>
+                            </div>
+                            <div id="detalle-meta" class="text-xs text-on-surface-variant font-medium">
+                                Selecciona una mesa arriba
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Ítems del Pedido -->
+                        <div class="overflow-x-auto rounded-xl border border-surface-container">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-surface-container-low text-on-surface-variant font-bold text-[10px] uppercase border-b border-surface-container">
+                                        <th class="py-2.5 px-3">Cant.</th>
+                                        <th class="py-2.5 px-3">Producto / Adicional</th>
+                                        <th class="py-2.5 px-3 text-right">P. Unit</th>
+                                        <th class="py-2.5 px-3 text-right">Importe</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pedido-items-tbody" class="divide-y divide-surface-container">
+                                    <tr>
+                                        <td colspan="4" class="py-8 text-center text-on-surface-variant italic">
+                                            No hay ninguna mesa seleccionada para cobrar.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Resumen Numérico -->
+                        <div class="bg-surface-container-low p-3.5 rounded-xl border border-surface-container flex flex-col gap-1.5 text-xs">
+                            <div class="flex items-center justify-between text-on-surface-variant">
+                                <span>Subtotal (Op. Gravadas):</span>
+                                <span id="resumen-subtotal" class="font-mono">S/ 0.00</span>
+                            </div>
+                            <div class="flex items-center justify-between text-on-surface-variant">
+                                <span>I.G.V. (18%):</span>
+                                <span id="resumen-igv" class="font-mono">S/ 0.00</span>
+                            </div>
+                            <div class="flex items-center justify-between text-base font-bold text-on-surface pt-2 border-t border-surface-container">
+                                <span>TOTAL A COBRAR:</span>
+                                <span id="resumen-total" class="font-mono text-xl text-primary font-extrabold">S/ 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: OPCIONES DE PAGO Y GENERACIÓN DE COMPROBANTE (5 cols) -->
+                <div class="lg:col-span-5 flex flex-col gap-5">
+                    
+                    <!-- PANEL DE PAGO -->
+                    <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container flex flex-col gap-4">
+                        <div class="flex items-center justify-between border-b border-surface-container pb-2">
+                            <h2 class="text-xs font-bold text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-[18px]">payments</span>
+                                <span>3. Opciones de Pago</span>
+                            </h2>
+                            <span class="text-[10px] bg-surface-container px-2 py-0.5 rounded text-on-surface font-semibold">Requerido</span>
+                        </div>
+
+                        <!-- Selector Efectivo / Yape -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" onclick="selectMetodoPago('efectivo')" id="btn-metodo-efectivo"
+                                class="p-3 rounded-xl border-2 border-primary bg-primary/5 flex flex-col items-center gap-1 transition-all text-center">
+                                <span class="material-symbols-outlined text-primary text-[24px]">local_atm</span>
+                                <span class="text-xs font-bold text-on-surface">Efectivo</span>
+                                <span class="text-[10px] text-on-surface-variant">Cálculo de vuelto</span>
+                            </button>
+
+                            <button type="button" onclick="selectMetodoPago('yape')" id="btn-metodo-yape"
+                                class="p-3 rounded-xl border-2 border-surface-container hover:border-purple-300 flex flex-col items-center gap-1 transition-all text-center">
+                                <span class="material-symbols-outlined text-purple-600 text-[24px]">qr_code_scanner</span>
+                                <span class="text-xs font-bold text-on-surface">Yape / Plin</span>
+                                <span class="text-[10px] text-on-surface-variant">QR en pantalla</span>
+                            </button>
+                        </div>
+
+                        <!-- CONTENIDO PARA EFECTIVO -->
+                        <div id="panel-efectivo" class="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-on-surface mb-1">Monto Entregado por Cliente (S/)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-on-surface-variant">S/</span>
+                                    <input id="monto-efectivo-input" type="number" step="0.50" placeholder="0.00" oninput="calcularVuelto()"
+                                        class="w-full pl-8 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm font-mono font-bold focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                            </div>
+                            <!-- Botones rápidos de billetes -->
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <button type="button" onclick="setBilleteEfectivo(20)" class="px-2.5 py-1 bg-surface-container-lowest border border-surface-container text-[11px] font-bold rounded-md hover:bg-surface-container">S/ 20</button>
+                                <button type="button" onclick="setBilleteEfectivo(50)" class="px-2.5 py-1 bg-surface-container-lowest border border-surface-container text-[11px] font-bold rounded-md hover:bg-surface-container">S/ 50</button>
+                                <button type="button" onclick="setBilleteEfectivo(100)" class="px-2.5 py-1 bg-surface-container-lowest border border-surface-container text-[11px] font-bold rounded-md hover:bg-surface-container">S/ 100</button>
+                                <button type="button" onclick="setBilleteExacto()" class="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 text-[11px] font-bold rounded-md hover:bg-primary/20">Exacto</button>
+                            </div>
+                            <!-- Vuelto -->
+                            <div class="flex items-center justify-between p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
+                                <span class="text-xs font-bold text-emerald-900">Vuelto a devolver:</span>
+                                <span id="monto-vuelto" class="font-mono text-base font-extrabold text-emerald-700">S/ 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- CONTENIDO PARA YAPE (QR DE LA EMPRESA) -->
+                        <div id="panel-yape" class="hidden bg-purple-50 p-4 rounded-xl border border-purple-200 flex flex-col items-center text-center gap-3">
+                            <div class="flex items-center gap-1.5 text-purple-900 font-bold text-xs">
+                                <span class="material-symbols-outlined text-[18px]">smartphone</span>
+                                <span>QR Oficial de Yape de la Pollería</span>
+                            </div>
+                            <!-- Imagen QR simulada de la empresa -->
+                            <div class="w-44 h-44 bg-white p-2 rounded-xl shadow-md border-2 border-purple-300 flex flex-col items-center justify-center">
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YAPE-POLLERIA-CENTRAL-VENTA" alt="QR Yape Empresa" class="w-36 h-36" />
+                            </div>
+                            <div class="text-xs text-purple-950 font-medium">
+                                <p class="font-bold text-sm text-purple-900">Pollería &amp; Brasas del Sur S.A.C.</p>
+                                <p class="text-[11px] font-mono mt-0.5">Celular Yape: <strong>987 654 321</strong></p>
+                                <p class="text-xs font-mono font-bold text-primary mt-1">Monto a Yapear: <span id="yape-monto-label">S/ 0.00</span></p>
+                            </div>
+                        </div>
+
+                        <!-- BOTONES PRINCIPALES DE ACCIÓN -->
+                        <div class="flex flex-col gap-2.5 pt-2">
+                            <!-- Botón Generar Comprobante (Modal) -->
+                            <button type="button" onclick="openComprobanteModal()"
+                                class="w-full py-3 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
+                                <span class="material-symbols-outlined text-[20px]">receipt</span>
+                                <span>Generar Comprobante Electrónico</span>
+                            </button>
+
+                            <!-- Botón Cobrar y Cerrar Pedido -->
+                            <button type="button" onclick="cerrarVentaDirecta()"
+                                class="w-full py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                <span>Cobrar y Cerrar Mesa (Sin Comprobante)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- HISTORIAL DE VENTAS DEL DÍA -->
+                    <div class="bg-surface-container-lowest p-4 rounded-2xl shadow-xs border border-surface-container">
+                        <h3 class="text-xs font-bold text-on-surface mb-2 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
+                            <span>Últimas Ventas Cerradas</span>
+                        </h3>
+                        <div id="historial-ventas-list" class="flex flex-col gap-2 text-xs">
+                            <!-- Lista de ventas -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL: OPCIONES DE COMPROBANTE (BOLETA SIMPLE, BOLETA DNI, FACTURA RUC) -->
+    <div id="comprobante-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl border border-surface-container overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-primary text-on-primary flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-[24px]">description</span>
+                    <div>
+                        <h3 class="text-base font-bold">Emitir Comprobante de Pago</h3>
+                        <p class="text-[11px] text-on-primary/80">Elige el tipo de comprobante para entregar al cliente</p>
+                    </div>
+                </div>
+                <button onclick="closeComprobanteModal()" class="text-on-primary/80 hover:text-on-primary p-1 rounded-lg hover:bg-white/10" type="button">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 flex flex-col gap-4 text-xs">
+                <!-- Selector de Tipo de Comprobante -->
+                <div>
+                    <label class="block font-bold text-on-surface mb-2">Tipo de Comprobante:</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="selectTipoDoc('simple')" id="btn-doc-simple"
+                            class="p-2.5 rounded-xl border-2 border-primary bg-primary/5 text-center flex flex-col items-center gap-1 font-bold text-primary">
+                            <span class="material-symbols-outlined text-[20px]">receipt</span>
+                            <span>Boleta Simple</span>
+                        </button>
+                        <button type="button" onclick="selectTipoDoc('dni')" id="btn-doc-dni"
+                            class="p-2.5 rounded-xl border-2 border-surface-container text-center flex flex-col items-center gap-1 font-bold text-on-surface hover:border-primary/50">
+                            <span class="material-symbols-outlined text-[20px]">badge</span>
+                            <span>Boleta con DNI</span>
+                        </button>
+                        <button type="button" onclick="selectTipoDoc('factura')" id="btn-doc-factura"
+                            class="p-2.5 rounded-xl border-2 border-surface-container text-center flex flex-col items-center gap-1 font-bold text-on-surface hover:border-primary/50">
+                            <span class="material-symbols-outlined text-[20px]">corporate_fare</span>
+                            <span>Factura (RUC)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FORMULARIO DINÁMICO SEGÚN TIPO -->
+                <!-- 1. Boleta Simple -->
+                <div id="form-doc-simple" class="bg-surface-container-low p-3.5 rounded-xl border border-surface-container text-xs flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-[22px]">info</span>
+                    <div>
+                        <p class="font-bold text-on-surface">Boleta Simple / Ticket Consumo</p>
+                        <p class="text-on-surface-variant text-[11px]">Genera el ticket directo con el detalle del pedido en formato PDF / Impresión.</p>
+                    </div>
+                </div>
+
+                <!-- 2. Boleta con DNI (Formulario con búsqueda de DNI y Nombre) -->
+                <div id="form-doc-dni" class="hidden bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col gap-3">
+                    <div>
+                        <label class="block font-bold text-on-surface mb-1">
+                            Número de DNI (8 dígitos) *
+                        </label>
+                        <div class="flex gap-2">
+                            <input id="dni-input" type="text" maxlength="8" placeholder="Ej: 47829103" oninput="buscarDniAutomatico(this.value)"
+                                class="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg font-mono font-bold focus:ring-2 focus:ring-primary outline-none" />
+                            <button type="button" onclick="buscarDniManual()" class="px-3 py-1.5 bg-primary text-on-primary rounded-lg font-bold text-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">search</span>
+                                <span>Buscar</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-on-surface mb-1">
+                            Nombre Completo de la Persona (RENIEC) *
+                        </label>
+                        <input id="dni-nombre-input" type="text" placeholder="Escribe el DNI para autocompletar..."
+                            class="w-full px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg font-medium focus:ring-2 focus:ring-primary outline-none" />
+                        <span id="dni-status" class="text-[10px] text-emerald-700 font-semibold mt-1 block"></span>
+                    </div>
+                </div>
+
+                <!-- 3. Factura con RUC -->
+                <div id="form-doc-factura" class="hidden bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col gap-3">
+                    <div>
+                        <label class="block font-bold text-on-surface mb-1">
+                            Número de RUC (11 dígitos) *
+                        </label>
+                        <div class="flex gap-2">
+                            <input id="ruc-input" type="text" maxlength="11" placeholder="Ej: 20601234567" oninput="buscarRucAutomatico(this.value)"
+                                class="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg font-mono font-bold focus:ring-2 focus:ring-primary outline-none" />
+                            <button type="button" onclick="buscarRucManual()" class="px-3 py-1.5 bg-primary text-on-primary rounded-lg font-bold text-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">search</span>
+                                <span>Consultar</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-on-surface mb-1">Razón Social *</label>
+                        <input id="ruc-razon-input" type="text" placeholder="Ingresa RUC para consultar SUNAT..."
+                            class="w-full px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg font-medium focus:ring-2 focus:ring-primary outline-none" />
+                    </div>
+                </div>
+
+                <div class="p-2.5 bg-amber-50 rounded-lg text-amber-900 text-[11px] flex items-center gap-2 border border-amber-200">
+                    <span class="material-symbols-outlined text-[16px] text-amber-800">lock</span>
+                    <span>No se trabajarán anulaciones de comprobantes para este flujo de caja.</span>
+                </div>
+
+                <!-- Botones del Modal -->
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-surface-container">
+                    <button type="button" onclick="closeComprobanteModal()" class="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl font-semibold">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="emitirComprobanteFinal()" class="px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl font-bold flex items-center gap-1.5 shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">print</span>
+                        <span>Imprimir y Generar PDF</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TICKET MODAL / ÁREA DE IMPRESIÓN (PARA IMPRIMIR O DESCARGAR PDF) -->
+    <div id="ticket-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white text-black w-full max-w-sm rounded-xl p-5 shadow-2xl flex flex-col font-mono text-xs border border-gray-300">
+            <!-- TICKET IMPRIMIBLE -->
+            <div id="ticket-print-area" class="flex flex-col gap-2 p-2">
+                <div class="text-center border-b border-dashed border-gray-400 pb-2">
+                    <h2 class="text-sm font-extrabold tracking-wider uppercase">POLLERÍA Y BRASAS DEL SUR</h2>
+                    <p class="text-[10px]">RUC: 20601234567 • LIMA, PERÚ</p>
+                    <p class="text-[10px]">AV. PRINCIPAL 123 - MIRAFLORES</p>
+                    <p id="ticket-tipo-doc" class="font-bold text-xs mt-1 uppercase">BOLETA DE VENTA ELECTRÓNICA</p>
+                    <p id="ticket-correlativo" class="text-[11px] font-bold">B001-000492</p>
+                </div>
+
+                <div class="text-[10px] space-y-0.5 border-b border-dashed border-gray-400 pb-2">
+                    <p>FECHA: <span id="ticket-fecha">2025-06-24 12:40</span></p>
+                    <p>ORIGEN: <span id="ticket-mesa">MESA 1</span></p>
+                    <p>CLIENTE: <span id="ticket-cliente">CLIENTE GENERAL</span></p>
+                    <p id="ticket-doc-identidad">DOC: -</p>
+                    <p>FORMA PAGO: <span id="ticket-pago">EFECTIVO</span></p>
+                </div>
+
+                <!-- ITEMS EN TICKET -->
+                <div id="ticket-items-tbody" class="text-[10px] border-b border-dashed border-gray-400 py-1 space-y-1">
+                    <!-- Filas del ticket -->
+                </div>
+
+                <!-- TOTALES TICKET -->
+                <div class="text-[11px] font-bold space-y-1 pt-1 border-b border-dashed border-gray-400 pb-2">
+                    <div class="flex justify-between">
+                        <span>OP. GRAVADA:</span>
+                        <span id="ticket-subtotal">S/ 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>I.G.V. (18%):</span>
+                        <span id="ticket-igv">S/ 0.00</span>
+                    </div>
+                    <div class="flex justify-between text-sm font-extrabold pt-1">
+                        <span>TOTAL A PAGAR:</span>
+                        <span id="ticket-total">S/ 0.00</span>
+                    </div>
+                </div>
+
+                <div class="text-center text-[9px] pt-1 leading-tight text-gray-600">
+                    <p>¡GRACIAS POR SU PREFERENCIA!</p>
+                    <p>Representación impresa de Comprobante Electrónico</p>
+                </div>
+            </div>
+
+            <!-- Botones de Acción del Ticket -->
+            <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-200">
+                <button onclick="closeTicketModal()" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-xs font-semibold">Cerrar</button>
+                <button onclick="window.print()" class="px-4 py-1.5 bg-primary text-white rounded text-xs font-bold flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[16px]">print</span>
+                    <span>Imprimir Ticket</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // SIMULACIÓN DE PADRÓN RENIEC / SUNAT PARA AUTOCOMPLETADO
+        const RENIEC_PADRON = {
+            "47829103": "Juan Carlos Pérez Quispe",
+            "71234567": "María Elena Flores Mamani",
+            "10293847": "Leandro Mauricci Becerra",
+            "45678901": "Carlos Alberto Benavides Soto",
+            "09876543": "Ana Patricia Torres Ruiz"
+        };
+
+        const SUNAT_PADRON = {
+            "20601234567": "INVERSIONES GASTRONÓMICAS PERÚ S.A.C.",
+            "20100055237": "SERVICIOS Y EVENTOS LIMA S.R.L.",
+            "20554433221": "CORPORACIÓN DE ALIMENTOS DEL SUR S.A.C."
+        };
+
+        let state = {
+            mesas: [],
+            pedidos: []
+        };
+
+        let activePedidoToCharge = null;
+        let selectedMetodo = 'efectivo';
+        let selectedDocType = 'simple';
+        let ventasHistorial = [];
+
+        function loadState() {
+            const saved = localStorage.getItem('polleria_restaurante_state');
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                } catch (e) {
+                    console.error("Error al cargar estado", e);
+                }
+            }
+            renderMesasSelector();
+            renderHistorial();
+        }
+
+        function saveState() {
+            localStorage.setItem('polleria_restaurante_state', JSON.stringify(state));
+        }
+
+        // Renderizar las mesas disponibles para cobrar
+        function renderMesasSelector() {
+            const grid = document.getElementById('mesas-selector-grid');
+            // Encontrar mesas ocupadas con pedidos
+            const mesasConPedido = state.mesas.filter(m => m.estado === 'ocupada' && m.pedidoId);
+            const takeouts = state.pedidos.filter(p => p.esParaLlevar);
+
+            let html = '';
+
+            mesasConPedido.forEach(m => {
+                const pedido = state.pedidos.find(p => p.id === m.pedidoId);
+                const isSelected = activePedidoToCharge && activePedidoToCharge.id === pedido?.id;
+                const isServido = pedido?.estado === 'servido';
+
+                html += `
+                    <button type="button" onclick="selectPedidoPorMesa(${m.id})"
+                        class="p-3 rounded-xl border-2 text-left flex flex-col justify-between transition-all ${isSelected ? 'border-primary bg-primary/10 shadow-sm' : 'border-surface-container bg-surface-container-low hover:border-primary/40'}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs text-on-surface font-mono">Mesa ${m.numero}</span>
+                            <span class="w-2 h-2 rounded-full ${isServido ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+                        </div>
+                        <span class="text-[10px] text-on-surface-variant mt-1">${pedido ? pedido.items.length + ' productos' : ''}</span>
+                        <span class="text-[10px] font-bold ${isServido ? 'text-emerald-700' : 'text-amber-700'}">${pedido ? pedido.estado : ''}</span>
+                    </button>
+                `;
+            });
+
+            // Agregar cards de pedidos Para Llevar
+            takeouts.forEach(t => {
+                const isSelected = activePedidoToCharge && activePedidoToCharge.id === t.id;
+                html += `
+                    <button type="button" onclick="selectPedidoPorId(${t.id})"
+                        class="p-3 rounded-xl border-2 text-left flex flex-col justify-between transition-all ${isSelected ? 'border-amber-600 bg-amber-50 shadow-sm' : 'border-surface-container bg-surface-container-low hover:border-amber-400'}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs text-amber-900 font-mono">Llevar #${t.id}</span>
+                            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        </div>
+                        <span class="text-[10px] text-on-surface-variant mt-1 truncate">${t.cliente}</span>
+                        <span class="text-[10px] font-bold text-amber-700">${t.estado}</span>
+                    </button>
+                `;
+            });
+
+            if (mesasConPedido.length === 0 && takeouts.length === 0) {
+                html = `<p class="col-span-4 text-xs text-on-surface-variant italic py-3 text-center">No hay mesas ocupadas ni pedidos pendientes de cobro.</p>`;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function selectPedidoPorMesa(mesaId) {
+            const mesa = state.mesas.find(m => m.id === mesaId);
+            if (!mesa || !mesa.pedidoId) return;
+            const pedido = state.pedidos.find(p => p.id === mesa.pedidoId);
+            cargarPedidoEnCaja(pedido, `Mesa ${mesa.numero}`);
+            renderMesasSelector();
+        }
+
+        function selectPedidoPorId(pedidoId) {
+            const pedido = state.pedidos.find(p => p.id === pedidoId);
+            if (!pedido) return;
+            cargarPedidoEnCaja(pedido, `Para Llevar #${pedido.id}`);
+            renderMesasSelector();
+        }
+
+        function cargarPedidoEnCaja(pedido, labelOrigen) {
+            activePedidoToCharge = pedido;
+            document.getElementById('detalle-origen-label').textContent = labelOrigen;
+            document.getElementById('detalle-meta').textContent = `Mozo: ${pedido.mozo} • Hora: ${pedido.hora}`;
+
+            const tbody = document.getElementById('pedido-items-tbody');
+            let total = 0;
+            let html = '';
+
+            pedido.items.forEach(it => {
+                const sub = it.precio * it.cantidad;
+                total += sub;
+                html += `
+                    <tr class="hover:bg-surface-container/50 font-medium">
+                        <td class="py-2.5 px-3 font-mono font-bold">${it.cantidad}x</td>
+                        <td class="py-2.5 px-3">
+                            <p class="font-bold text-on-surface">${it.nombre}</p>
+                            ${it.obs ? `<p class="text-[10px] text-amber-800 font-semibold">Obs: ${it.obs}</p>` : ''}
+                        </td>
+                        <td class="py-2.5 px-3 text-right font-mono">S/ ${it.precio.toFixed(2)}</td>
+                        <td class="py-2.5 px-3 text-right font-mono font-bold text-primary">S/ ${sub.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+
+            const subtotal = total / 1.18;
+            const igv = total - subtotal;
+
+            document.getElementById('resumen-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
+            document.getElementById('resumen-igv').textContent = `S/ ${igv.toFixed(2)}`;
+            document.getElementById('resumen-total').textContent = `S/ ${total.toFixed(2)}`;
+            document.getElementById('yape-monto-label').textContent = `S/ ${total.toFixed(2)}`;
+
+            // Resetear vuelto
+            calcularVuelto();
+        }
+
+        // Selección de método de pago
+        function selectMetodoPago(metodo) {
+            selectedMetodo = metodo;
+            const btnEfe = document.getElementById('btn-metodo-efectivo');
+            const btnYap = document.getElementById('btn-metodo-yape');
+            const panelEfe = document.getElementById('panel-efectivo');
+            const panelYap = document.getElementById('panel-yape');
+
+            if (metodo === 'efectivo') {
+                btnEfe.className = "p-3 rounded-xl border-2 border-primary bg-primary/5 flex flex-col items-center gap-1 transition-all text-center";
+                btnYap.className = "p-3 rounded-xl border-2 border-surface-container hover:border-purple-300 flex flex-col items-center gap-1 transition-all text-center";
+                panelEfe.classList.remove('hidden');
+                panelYap.classList.add('hidden');
+            } else {
+                btnYap.className = "p-3 rounded-xl border-2 border-purple-600 bg-purple-50 flex flex-col items-center gap-1 transition-all text-center";
+                btnEfe.className = "p-3 rounded-xl border-2 border-surface-container hover:border-primary/50 flex flex-col items-center gap-1 transition-all text-center";
+                panelYap.classList.remove('hidden');
+                panelEfe.classList.add('hidden');
+            }
+        }
+
+        function setBilleteEfectivo(monto) {
+            document.getElementById('monto-efectivo-input').value = monto;
+            calcularVuelto();
+        }
+
+        function setBilleteExacto() {
+            if (!activePedidoToCharge) return;
+            const total = activePedidoToCharge.items.reduce((s, it) => s + (it.precio * it.cantidad), 0);
+            document.getElementById('monto-efectivo-input').value = total.toFixed(2);
+            calcularVuelto();
+        }
+
+        function calcularVuelto() {
+            if (!activePedidoToCharge) {
+                document.getElementById('monto-vuelto').textContent = 'S/ 0.00';
+                return;
+            }
+            const total = activePedidoToCharge.items.reduce((s, it) => s + (it.precio * it.cantidad), 0);
+            const entregado = parseFloat(document.getElementById('monto-efectivo-input').value) || 0;
+            const vuelto = Math.max(0, entregado - total);
+            document.getElementById('monto-vuelto').textContent = `S/ ${vuelto.toFixed(2)}`;
+        }
+
+        // Cobro y Cierre Directo (Sin comprobante)
+        function cerrarVentaDirecta() {
+            if (!activePedidoToCharge) {
+                alert('Por favor selecciona una mesa con pedido para cobrar.');
+                return;
+            }
+
+            finalizarVenta("Nota de Venta", "Cliente General", "-");
+        }
+
+        // MODAL COMPROBANTE
+        function openComprobanteModal() {
+            if (!activePedidoToCharge) {
+                alert('Por favor selecciona una mesa con pedido antes de generar comprobante.');
+                return;
+            }
+            selectTipoDoc('simple');
+            document.getElementById('comprobante-modal').classList.remove('hidden');
+        }
+
+        function closeComprobanteModal() {
+            document.getElementById('comprobante-modal').classList.add('hidden');
+        }
+
+        function selectTipoDoc(tipo) {
+            selectedDocType = tipo;
+            const bSimple = document.getElementById('btn-doc-simple');
+            const bDni = document.getElementById('btn-doc-dni');
+            const bFac = document.getElementById('btn-doc-factura');
+
+            const fSimple = document.getElementById('form-doc-simple');
+            const fDni = document.getElementById('form-doc-dni');
+            const fFac = document.getElementById('form-doc-factura');
+
+            [bSimple, bDni, bFac].forEach(b => b.className = "p-2.5 rounded-xl border-2 border-surface-container text-center flex flex-col items-center gap-1 font-bold text-on-surface hover:border-primary/50");
+            [fSimple, fDni, fFac].forEach(f => f.classList.add('hidden'));
+
+            if (tipo === 'simple') {
+                bSimple.className = "p-2.5 rounded-xl border-2 border-primary bg-primary/5 text-center flex flex-col items-center gap-1 font-bold text-primary";
+                fSimple.classList.remove('hidden');
+            } else if (tipo === 'dni') {
+                bDni.className = "p-2.5 rounded-xl border-2 border-primary bg-primary/5 text-center flex flex-col items-center gap-1 font-bold text-primary";
+                fDni.classList.remove('hidden');
+            } else if (tipo === 'factura') {
+                bFac.className = "p-2.5 rounded-xl border-2 border-primary bg-primary/5 text-center flex flex-col items-center gap-1 font-bold text-primary";
+                fFac.classList.remove('hidden');
+            }
+        }
+
+        // Búsqueda de DNI automática en RENIEC
+        function buscarDniAutomatico(val) {
+            if (val.length === 8) {
+                const nombre = RENIEC_PADRON[val] || "CIUDADANO " + val + " (REGISTRADO EN RENIEC)";
+                document.getElementById('dni-nombre-input').value = nombre;
+                document.getElementById('dni-status').textContent = "✓ DNI verificado en padrón RENIEC";
+            } else {
+                document.getElementById('dni-status').textContent = "";
+            }
+        }
+
+        function buscarDniManual() {
+            const val = document.getElementById('dni-input').value.trim();
+            if (val.length !== 8) {
+                alert('El DNI debe tener exactamente 8 dígitos.');
+                return;
+            }
+            buscarDniAutomatico(val);
+        }
+
+        // Búsqueda de RUC automática en SUNAT
+        function buscarRucAutomatico(val) {
+            if (val.length === 11) {
+                const razon = SUNAT_PADRON[val] || "EMPRESA S.A.C. - RUC " + val;
+                document.getElementById('ruc-razon-input').value = razon;
+            }
+        }
+
+        function buscarRucManual() {
+            const val = document.getElementById('ruc-input').value.trim();
+            if (val.length !== 11) {
+                alert('El RUC debe tener exactamente 11 dígitos.');
+                return;
+            }
+            buscarRucAutomatico(val);
+        }
+
+        // Emitir Comprobante Final
+        function emitirComprobanteFinal() {
+            let tipo = "Boleta Simple";
+            let cliente = "Cliente General";
+            let doc = "-";
+
+            if (selectedDocType === 'dni') {
+                const dni = document.getElementById('dni-input').value.trim();
+                const nombre = document.getElementById('dni-nombre-input').value.trim();
+                if (dni.length !== 8 || !nombre) {
+                    alert('Por favor ingresa un DNI de 8 dígitos y el nombre de la persona.');
+                    return;
+                }
+                tipo = "Boleta de Venta Electrónica";
+                cliente = nombre;
+                doc = `DNI: ${dni}`;
+            } else if (selectedDocType === 'factura') {
+                const ruc = document.getElementById('ruc-input').value.trim();
+                const razon = document.getElementById('ruc-razon-input').value.trim();
+                if (ruc.length !== 11 || !razon) {
+                    alert('Por favor ingresa un RUC válido de 11 dígitos y la Razón Social.');
+                    return;
+                }
+                tipo = "Factura Electrónica";
+                cliente = razon;
+                doc = `RUC: ${ruc}`;
+            }
+
+            closeComprobanteModal();
+            prepararTicketEImprimir(tipo, cliente, doc);
+            finalizarVenta(tipo, cliente, doc);
+        }
+
+        // Preparar e Imprimir Ticket
+        function prepararTicketEImprimir(tipoDoc, cliente, doc) {
+            const pedido = activePedidoToCharge;
+            if (!pedido) return;
+
+            const correlativo = (tipoDoc.includes("Factura") ? "F001-" : "B001-") + Math.floor(100000 + Math.random() * 900000);
+            const total = pedido.items.reduce((s, it) => s + (it.precio * it.cantidad), 0);
+            const subtotal = total / 1.18;
+            const igv = total - subtotal;
+
+            document.getElementById('ticket-tipo-doc').textContent = tipoDoc;
+            document.getElementById('ticket-correlativo').textContent = correlativo;
+            document.getElementById('ticket-fecha').textContent = new Date().toLocaleString('es-PE');
+            document.getElementById('ticket-mesa').textContent = pedido.esParaLlevar ? "PARA LLEVAR" : `MESA ${pedido.mesaId}`;
+            document.getElementById('ticket-cliente').textContent = cliente;
+            document.getElementById('ticket-doc-identidad').textContent = doc;
+            document.getElementById('ticket-pago').textContent = selectedMetodo.toUpperCase();
+
+            // Items
+            const itemsCont = document.getElementById('ticket-items-tbody');
+            itemsCont.innerHTML = pedido.items.map(it => `
+                <div class="flex justify-between">
+                    <span>${it.cantidad}x ${it.nombre}</span>
+                    <span class="font-bold">S/ ${(it.precio * it.cantidad).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('ticket-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
+            document.getElementById('ticket-igv').textContent = `S/ ${igv.toFixed(2)}`;
+            document.getElementById('ticket-total').textContent = `S/ ${total.toFixed(2)}`;
+
+            document.getElementById('ticket-modal').classList.remove('hidden');
+        }
+
+        function closeTicketModal() {
+            document.getElementById('ticket-modal').classList.add('hidden');
+        }
+
+        // Finalizar venta: cerrar pedido y liberar mesa
+        function finalizarVenta(tipoComprobante, cliente, doc) {
+            const pedidoId = activePedidoToCharge.id;
+            const total = activePedidoToCharge.items.reduce((s, it) => s + (it.precio * it.cantidad), 0);
+
+            // 1. Si estaba en una mesa, liberar la mesa (disponible)
+            if (!activePedidoToCharge.esParaLlevar && activePedidoToCharge.mesaId) {
+                const mesa = state.mesas.find(m => m.id === activePedidoToCharge.mesaId);
+                if (mesa) {
+                    mesa.estado = "disponible";
+                    mesa.pedidoId = null;
+                }
+            }
+
+            // 2. Remover o archivar pedido activo
+            state.pedidos = state.pedidos.filter(p => p.id !== pedidoId);
+            saveState();
+
+            // 3. Agregar al historial de ventas de caja
+            ventasHistorial.unshift({
+                id: Math.floor(1000 + Math.random() * 9000),
+                comprobante: tipoComprobante,
+                cliente: cliente,
+                doc: doc,
+                total: total,
+                metodo: selectedMetodo,
+                hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+            });
+
+            // Limpiar vista
+            activePedidoToCharge = null;
+            document.getElementById('detalle-origen-label').textContent = 'Ninguno';
+            document.getElementById('detalle-meta').textContent = 'Selecciona una mesa arriba';
+            document.getElementById('pedido-items-tbody').innerHTML = `
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-emerald-700 font-bold">
+                        ✓ ¡Venta cerrada con éxito y mesa liberada!
+                    </td>
+                </tr>
+            `;
+            document.getElementById('resumen-subtotal').textContent = 'S/ 0.00';
+            document.getElementById('resumen-igv').textContent = 'S/ 0.00';
+            document.getElementById('resumen-total').textContent = 'S/ 0.00';
+            document.getElementById('monto-efectivo-input').value = '';
+            document.getElementById('monto-vuelto').textContent = 'S/ 0.00';
+
+            renderMesasSelector();
+            renderHistorial();
+        }
+
+        function renderHistorial() {
+            const cont = document.getElementById('historial-ventas-list');
+            if (ventasHistorial.length === 0) {
+                cont.innerHTML = `<p class="text-on-surface-variant italic text-[11px] py-2">Sin cobros en esta sesión de caja.</p>`;
+                return;
+            }
+
+            cont.innerHTML = ventasHistorial.slice(0, 4).map(v => `
+                <div class="p-2.5 bg-surface-container-low rounded-xl border border-surface-container flex items-center justify-between">
+                    <div>
+                        <p class="font-bold text-on-surface">${v.comprobante} - ${v.cliente}</p>
+                        <p class="text-[10px] text-on-surface-variant font-mono">${v.metodo.toUpperCase()} • ${v.hora}</p>
+                    </div>
+                    <span class="font-mono font-bold text-primary">S/ ${v.total.toFixed(2)}</span>
+                </div>
+            `).join('');
+        }
+
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'polleria_restaurante_state') {
+                loadState();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadState();
+            setInterval(loadState, 3000);
+        });
+    </script>
+</body>
+
+</html>
