@@ -1,1105 +1,1483 @@
-<!DOCTYPE html>
-
-<html lang="es">
-
-<head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <meta content="web_dashboard" name="shell-type" />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap"
-        rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
-    <style>
-        @layer base {
-
-            html,
-            body {
-                margin: 0;
-                padding: 0;
-            }
-
-            body {
-                overscroll-behavior: none;
-            }
-
-            main>:first-child {
-                margin-top: 0 !important;
-            }
-
-            main>:last-child {
-                margin-bottom: 0 !important;
-            }
+<!DOCTYPE html><html lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Los Betos - Compras e Inventario</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandRed: '#FF4D2E',
+            brandOrange: '#FF9F1C',
+            brandBlack: '#121417',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
         }
-
-        ::-webkit-scrollbar {
-            display: none;
-        }
-    </style>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "on-error": "#ffffff",
-                        "surface-container-low": "#eff4ff",
-                        "on-primary": "#ffffff",
-                        "on-secondary-container": "#795d47",
-                        "secondary-container": "#ffd8bd",
-                        "on-primary-container": "#ffd5ce",
-                        "on-error-container": "#93000a",
-                        "on-secondary-fixed-variant": "#5b412e",
-                        "surface-tint": "#c00001",
-                        "secondary-fixed-dim": "#e4bfa5",
-                        "primary": "#9a0001",
-                        "on-background": "#0d1c2e",
-                        "tertiary-fixed-dim": "#edc211",
-                        "outline-variant": "#e7bdb6",
-                        "tertiary": "#725c00",
-                        "error": "#ba1a1a",
-                        "on-tertiary": "#ffffff",
-                        "on-tertiary-fixed-variant": "#564500",
-                        "error-container": "#ffdad6",
-                        "secondary-fixed": "#ffdcc3",
-                        "background": "#f8f9ff",
-                        "on-surface-variant": "#5d3f3b",
-                        "inverse-surface": "#233144",
-                        "secondary": "#755943",
-                        "on-primary-fixed-variant": "#930000",
-                        "surface-variant": "#d5e3fc",
-                        "tertiary-container": "#cda700",
-                        "surface-dim": "#ccdbf3",
-                        "on-secondary-fixed": "#2a1707",
-                        "primary-fixed": "#ffdad4",
-                        "on-primary-fixed": "#410000",
-                        "surface-container-high": "#dce9ff",
-                        "surface-container-lowest": "#ffffff",
-                        "inverse-primary": "#ffb4a8",
-                        "primary-container": "#c70202",
-                        "on-tertiary-fixed": "#231b00",
-                        "on-tertiary-container": "#4e3e00",
-                        "surface-container-highest": "#d5e3fc",
-                        "on-secondary": "#ffffff",
-                        "surface": "#f8f9ff",
-                        "on-surface": "#0d1c2e",
-                        "primary-fixed-dim": "#ffb4a8",
-                        "inverse-on-surface": "#eaf1ff",
-                        "surface-container": "#e6eeff",
-                        "outline": "#926f69",
-                        "surface-bright": "#f8f9ff",
-                        "tertiary-fixed": "#ffe082"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    "spacing": {
-                        "space-md": "0.75rem",
-                        "space-sm": "0.5rem",
-                        "space-xs": "0.25rem",
-                        "gutter": "1rem",
-                        "space-lg": "1.25rem",
-                        "margin": "1.5rem",
-                        "space-xl": "1.75rem"
-                    },
-                    "fontFamily": {
-                        "headline": ["Plus Jakarta Sans"],
-                        "display": ["Plus Jakarta Sans"],
-                        "body": ["Plus Jakarta Sans"],
-                        "label": ["Plus Jakarta Sans"]
-                    }
-                }
-            }
-        }
-    </script>
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #FFFFFF;
+      color: #121417;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #FF4D2E !important;
+      box-shadow: 0 0 0 1px #FF4D2E !important;
+    }
+    .input-error {
+      border-color: #FF4D2E !important;
+      background-color: #FFF5F5 !important;
+    }
+  </style>
 </head>
+<body class="bg-white text-brandBlack min-h-screen flex antialiased select-none font-sans overflow-hidden">
+<!-- SIDEBAR LATERAL -->
+<aside class="w-72 bg-white text-brandBlack flex flex-col justify-between shrink-0 h-screen border-r border-brandBlack/10 z-20 shadow-xs">
+<div class="flex flex-col h-[calc(100vh-76px)]">
+<!-- Brand / ERP Header -->
+<div class="px-6 py-5 border-b border-brandBlack/10 shrink-0">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-lg bg-[#FF4D2E] flex items-center justify-center text-white shadow-xs">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+<div class="min-w-0 flex-1">
+<h1 class="text-sm font-bold tracking-tight text-brandBlack uppercase leading-tight truncate">ERP Empresarial</h1>
+<p class="text-[10px] uppercase tracking-wider text-brandBlack/50 font-semibold">Sistema Integral</p>
+</div>
+</div>
+<!-- Selector de tema -->
+<div class="mt-4 p-0.5 rounded-lg bg-[#F3F4F6] border border-brandBlack/10 flex items-center justify-between text-xs">
+<button class="flex-1 flex items-center justify-center py-1 rounded-md bg-white shadow-xs text-brandBlack font-medium" title="Modo Claro" type="button">
+<svg class="w-3.5 h-3.5 mr-1 text-brandOrange" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
+<span class="text-[11px]">Claro</span>
+</button>
+<button class="flex-1 flex items-center justify-center py-1 rounded-md text-brandBlack/50 hover:text-brandBlack" title="Modo Oscuro" type="button">
+<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
+<span class="text-[11px]">Oscuro</span>
+</button>
+<button class="flex-1 flex items-center justify-center py-1 rounded-md text-brandBlack/50 hover:text-brandBlack" title="Modo Sistema" type="button">
+<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect height="14" rx="2" width="20" x="2" y="3"></rect><path d="M8 21h8m-4-4v4"></path></svg>
+<span class="text-[11px]">Auto</span>
+</button>
+</div>
+</div>
+<!-- Navegación con scroll y categorías ERP -->
+<nav class="px-4 py-4 space-y-5 overflow-y-auto flex-1 text-xs" id="sidebar-nav">
+<!-- Categoría: Restaurante & Salón -->
+<div>
+<p class="px-2 text-[10px] font-bold uppercase tracking-wider text-brandBlack/40 mb-1.5">Restaurante &amp; Salón</p>
+<div class="space-y-0.5">
+<button class="w-full flex items-center px-3 py-2 text-brandBlack/70 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Mesas y Salón', 'Módulo de gestión de pedidos en mesas y plano del salón.')" type="button">
+<svg class="w-4 h-4 mr-2.5 text-brandBlack/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect height="12" rx="2" width="18" x="3" y="4"></rect><path d="M7 20h10M12 16v4"></path></svg>
+<span class="">Mesas y Salón</span>
+</button>
+<button class="w-full flex items-center px-3 py-2 text-brandBlack/70 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Cocina KDS', 'Pantalla de comandas en cocina en tiempo real.')" type="button">
+<svg class="w-4 h-4 mr-2.5 text-brandBlack/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20m10-10H2"></path></svg>
+<span class="">Cocina (KDS)</span>
+</button>
+<button class="w-full flex items-center px-3 py-2 text-brandBlack/70 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Caja y Cobro', 'Apertura, cierre de caja y cobros rápidos.')" type="button">
+<svg class="w-4 h-4 mr-2.5 text-brandBlack/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect height="14" rx="2" width="18" x="3" y="5"></rect><circle cx="9" cy="12" r="2"></circle><path d="M17 9h.01M17 15h.01"></path></svg>
+<span class="">Caja y Cobro</span>
+</button>
+</div>
+</div>
+<!-- Categoría: MÓDULOS ERP -->
+<div>
+<p class="px-2 text-[10px] font-bold uppercase tracking-wider text-brandBlack/40 mb-1.5">Módulos ERP</p>
+<!-- Subsección Ventas -->
+<div class="mb-2">
+<span class="px-2 text-[11px] font-semibold text-brandBlack/70 block mb-1">Ventas</span>
+<div class="space-y-0.5">
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Órdenes de Venta', 'Listado de comandas y órdenes de venta registradas.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Órdenes de Venta</span>
+</button>
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Clientes', 'Directorio de clientes y fidelización.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Clientes</span>
+</button>
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Facturas de Venta', 'Emisión electrónica de boletas y facturas.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Facturas de Venta</span>
+</button>
+</div>
+</div>
+<!-- Subsección Compras (Activa con SPA) -->
+<div class="mb-2">
+<span class="px-2 text-[11px] font-semibold text-[#FF4D2E] block mb-1">Compras</span>
+<div class="space-y-1">
+<button class="w-full flex items-center px-3 py-2 text-xs font-semibold rounded-lg transition-all duration-150 bg-[#FCE8E6] text-[#FF4D2E] border border-[#FAD2CF] group" id="nav-btn-anadir" onclick="switchView('anadir')">
+<svg class="w-4 h-4 mr-2.5 text-[#FF4D2E] transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="truncate">Añadir Compra</span>
+</button>
+<button class="w-full flex items-center px-3 py-2 text-xs font-medium rounded-lg transition-all duration-150 text-brandBlack/70 hover:bg-brandBlack/5 group" id="nav-btn-listar" onclick="switchView('listar')">
+<svg class="w-4 h-4 mr-2.5 text-brandBlack/50 group-hover:text-brandBlack transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="truncate">Listar Compras</span>
+</button>
+<button class="w-full flex items-center px-3 py-2 text-xs font-medium rounded-lg transition-all duration-150 text-brandBlack/70 hover:bg-brandBlack/5 group" id="nav-btn-inventario" onclick="switchView('inventario')">
+<svg class="w-4 h-4 mr-2.5 text-brandBlack/50 group-hover:text-brandBlack transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="truncate">Inventario / Stock</span>
+</button>
+</div>
+</div>
+<!-- Subsección Contabilidad -->
+<div>
+<span class="px-2 text-[11px] font-semibold text-brandBlack/70 block mb-1">Contabilidad</span>
+<div class="space-y-0.5">
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Asientos Contables', 'Módulo de asientos y comprobantes contables.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Asientos Contables</span>
+</button>
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Libro Diario', 'Consulta de transacciones del Libro Diario.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Libro Diario</span>
+</button>
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Libro Mayor', 'Mayorización de cuentas contables.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Libro Mayor</span>
+</button>
+<button class="w-full flex items-center px-3 py-1.5 text-brandBlack/60 hover:bg-brandBlack/5 rounded-lg font-medium transition-colors" onclick="mostrarModalGenerico('Balance General', 'Reporte financiero y estado de situación patrimonial.')" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-brandBlack/30 mr-2.5"></span>
+<span class="">Balance General</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+</div>
+<!-- User / Session Footer -->
+<div class="p-4 border-t border-brandBlack/10 bg-[#FAFAFA] flex items-center justify-between">
+<div class="flex items-center space-x-3 min-w-0">
+<div class="w-8 h-8 rounded-full bg-[#FF4D2E] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+AU
+</div>
+<div class="min-w-0 flex-1">
+<p class="text-xs font-bold text-brandBlack truncate leading-tight">Admin User</p>
+<p class="text-[10px] text-brandBlack/50 font-medium truncate">Pollería Central</p>
+</div>
+</div>
+<button class="p-1.5 text-brandBlack/40 hover:text-[#FF4D2E] rounded-md hover:bg-brandBlack/5 transition-colors" onclick="mostrarModalGenerico('Cerrar Sesión', '¿Desea cerrar la sesión activa del ERP Empresarial?')" title="Cerrar sesión" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</div>
+</aside>
+<!-- CONTENIDO DINÁMICO SPA -->
+<main class="flex-1 bg-white flex flex-col h-screen overflow-hidden">
+<!-- Top Header Bar -->
+<header class="h-16 border-b border-brandBlack/10 px-8 flex items-center justify-between shrink-0 bg-white sticky top-0 z-10">
+<!-- Barra de búsqueda ERP -->
+<div class="flex items-center flex-1 max-w-md">
+<div class="relative w-full">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-brandBlack/40 pointer-events-none">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</span>
+<input class="w-full pl-9 pr-4 py-2 bg-[#FAFAFA] border border-brandBlack/15 rounded-lg text-xs text-brandBlack placeholder:text-brandBlack/40 focus:bg-white transition-all" placeholder="Buscar cuentas, transacciones o boletas..." type="text">
+</div>
+</div>
+<!-- Acciones a la derecha -->
+<div class="flex items-center space-x-3 pl-4">
+<button class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-brandBlack/15 text-xs font-semibold text-brandBlack hover:border-[#FF4D2E] hover:text-[#FF4D2E] transition-colors bg-white" onclick="mostrarModalGenerico('Navegación', 'Redirigiendo al Menú Principal de Los Betos...')" title="Volver al Menú Principal" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">Volver al Menú Principal</span>
+</button>
+<!-- Campana de Notificaciones -->
+<button class="w-8 h-8 rounded-lg border border-brandBlack/15 flex items-center justify-center text-brandBlack/60 hover:text-brandBlack hover:bg-brandBlack/5 relative transition-colors" onclick="mostrarModalGenerico('Notificaciones', 'No hay nuevas notificaciones del sistema.')" title="Notificaciones" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF4D2E]"></span>
+</button>
+<!-- Ayuda (?) -->
+<button class="w-8 h-8 rounded-lg border border-brandBlack/15 flex items-center justify-center text-brandBlack/60 hover:text-brandBlack hover:bg-brandBlack/5 transition-colors text-xs font-bold" onclick="mostrarModalGenerico('Centro de Ayuda', 'Guía rápida y manual de usuario de Compras e Inventario.')" title="Ayuda" type="button">
+?
+</button>
+<!-- Avatar circular rojo -->
+<div class="w-8 h-8 rounded-full bg-[#FF4D2E] text-white flex items-center justify-center font-bold text-xs shadow-xs cursor-pointer" title="Perfil Admin User">
+AU
+</div>
+</div>
+</header>
+<!-- ÁREA DE VISTAS (Contenedor con scroll propio) -->
+<div class="p-8 max-w-7xl w-full mx-auto flex-1 overflow-y-auto">
+<!-- ============================================== -->
+<!-- VISTA 1: AÑADIR COMPRA -->
+<!-- ============================================== -->
+<section class="space-y-6 block" id="view-anadir">
+<!-- Subtítulo e Instrucciones -->
+<div class="flex items-center justify-between">
+<div>
+<h3 class="text-base font-semibold text-brandBlack">Formulario de Registro de Proveedor y Factura</h3>
+</div>
+<span class="text-xs font-medium text-brandOrange">* Campos marcados son obligatorios</span>
+</div>
+<!-- Tarjeta del Formulario -->
+<div class="bg-white border border-brandBlack/10 rounded-xl p-7 shadow-sm">
+<form class="space-y-7" id="form-compra" novalidate="" onsubmit="registrarCompra(event)">
+<!-- Grupo 1: Datos Fiscales Principales -->
+<div>
+<h4 class="text-xs font-bold uppercase tracking-wider text-brandBlack/50 mb-4 flex items-center">
+<span class="w-2 h-2 rounded-full bg-brandRed mr-2"></span> Información del Proveedor y Comprobante
+              </h4>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-5"><!-- RUC -->
+<div class="md:col-span-3">
+<label class="block text-xs font-semibold text-brandBlack mb-1.5" for="input-ruc">
+                    RUC del Proveedor <span class="text-brandRed">*</span>
+</label>
+<input class="w-full px-3.5 py-2.5 bg-white border border-brandBlack/20 rounded-lg text-sm text-brandBlack placeholder:text-brandBlack/30 transition-all" id="input-ruc" maxlength="11" placeholder="Ej. 20601234567" required="" type="text">
+<p class="text-[11px] text-brandBlack/50 mt-1">11 dígitos SUNAT</p>
+</div>
+<!-- Razón Social -->
+<div class="md:col-span-5">
+<label class="block text-xs font-semibold text-brandBlack mb-1.5" for="input-razon">
+                    Razón Social / Proveedor <span class="text-brandRed">*</span>
+</label>
+<input class="w-full px-3.5 py-2.5 bg-white border border-brandBlack/20 rounded-lg text-sm text-brandBlack placeholder:text-brandBlack/30 transition-all" id="input-razon" placeholder="Ej. Distribuidora Avícola San Fernando S.A." required="" type="text">
+<p class="text-[11px] text-brandBlack/50 mt-1">Denominación legal registrada</p>
+</div>
+<!-- Boleta N° / Comprobante N° -->
+<div class="md:col-span-4">
+<label class="block text-xs font-semibold text-brandBlack mb-1.5" for="input-comprobante">N° Comprobante&nbsp;&nbsp;<span class="text-brandRed">*</span></label>
+<input class="w-full px-3.5 py-2.5 bg-white border border-brandBlack/20 rounded-lg text-sm text-brandBlack placeholder:text-brandBlack/30 transition-all font-mono" id="input-comprobante" placeholder="Ej. F001-0004928" required="" type="text">
+<p class="text-[11px] text-brandBlack/50 mt-1">Ingresa la serie y número del comprobante emitido por el proveedor</p>
+</div>
+<!-- Teléfono Contacto -->
+<div class="md:col-span-4">
+<label class="block text-xs font-semibold text-brandBlack mb-1.5" for="input-telefono">
+                    Teléfono Contacto <span class="text-brandRed">*</span>
+</label>
+<input class="w-full px-3.5 py-2.5 bg-white border border-brandBlack/20 rounded-lg text-sm text-brandBlack placeholder:text-brandBlack/30 transition-all" id="input-telefono" placeholder="Ej. 987654321 / (01) 432-1100" required="" type="tel">
+</div>
+<!-- Correo Electrónico -->
+<div class="md:col-span-5">
+<label class="block text-xs font-semibold text-brandBlack mb-1.5" for="input-correo">
+                    Correo Electrónico
+                  </label>
+<input class="w-full px-3.5 py-2.5 bg-white border border-brandBlack/20 rounded-lg text-sm text-brandBlack placeholder:text-brandBlack/30 transition-all" id="input-correo" placeholder="facturacion@proveedor.pe" type="email">
+</div>
+<!-- Fecha de Emisión (Automática / Readonly) -->
+<div class="md:col-span-3">
+<div class="flex items-center justify-between mb-1.5">
+<label class="block text-xs font-semibold text-brandBlack">Fecha de Emisión</label>
+<span class="text-[10px] text-brandBlack/50 font-medium bg-brandBlack/5 px-1.5 py-0.5 rounded">Automática</span>
+</div>
+<input class="w-full px-3.5 py-2.5 bg-[#F3F4F6] border border-brandBlack/20 rounded-lg text-sm text-brandBlack/70 cursor-not-allowed select-none transition-all font-mono" readonly="" title="Fecha fijada automáticamente por el sistema" type="text" value="24/10/2024">
+<p class="text-[11px] text-brandBlack/40 mt-1">Generado automáticamente por sistema</p>
+</div>
+<!-- Dirección Fiscal -->
+<div class="md:col-span-12">
+<label class="block text-xs font-semibold text-brandBlack mb-1.5" for="input-direccion">
+                    Dirección (Dirección Fiscal del Proveedor)
+</label>
+<input class="w-full px-3.5 py-2.5 bg-white border border-brandBlack/20 rounded-lg text-sm text-brandBlack placeholder:text-brandBlack/30 transition-all" id="input-direccion" placeholder="Ej. Av. Mansiche 1250, Urb. El Recreo, Trujillo" type="text">
+<p class="text-[11px] text-brandBlack/50 mt-1">Dirección registrada según comprobante de pago</p>
+</div></div>
+</div>
+<!-- Grupo 2: Tabla de Items de la Compra -->
+<div class="border-t border-brandBlack/10 pt-6">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-xs font-bold uppercase tracking-wider text-brandBlack/50 flex items-center">
+<span class="w-2 h-2 rounded-full bg-brandOrange mr-2"></span> Detalle de Insumos Adquiridos
+                </h4>
+<button class="text-xs font-semibold text-brandRed hover:underline flex items-center space-x-1" id="btn-agregar-item" onclick="agregarFilaItem()" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Agregar Ítem</span>
+</button>
+</div>
+<div class="border border-brandBlack/10 rounded-lg overflow-hidden">
+<table class="w-full text-xs text-left" id="tabla-items-compra">
+<thead class="bg-[#FAFAFA] text-brandBlack/70 uppercase tracking-wider font-semibold border-b border-brandBlack/10">
+<tr>
+<th class="py-2.5 px-4">Producto / Insumo</th>
+<th class="py-2.5 px-4 text-center w-36">Unidad de Medida</th>
+<th class="py-2.5 px-4 text-center w-28">Cantidad</th>
+<th class="py-2.5 px-4 text-right w-36">Costo Unit. (S/.)</th>
+<th class="py-2.5 px-4 text-right w-36">Total (S/.)</th>
+<th class="py-2.5 px-3 text-center w-12"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-brandBlack/10 font-medium" id="tbody-items-compra">
+<tr class="item-fila">
+<td class="py-2.5 px-4">
+<input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="Carne Lomo Fino">
+</td>
+<td class="py-2.5 px-4 text-center">
+<select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+<option selected="" value="kg">kg</option>
+<option value="unid">unid</option>
+<option value="litros">litros</option>
+<option value="atados">atados</option>
+<option value="latas">latas</option>
+</select>
+</td>
+<td class="py-2.5 px-4 text-center">
+<input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="25.0">
+</td>
+<td class="py-2.5 px-4 text-right">
+<input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="48.00">
+</td>
+<td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 1,200.00</td>
+<td class="py-2.5 px-3 text-center">
+<button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+</td>
+</tr>
+<tr class="item-fila">
+<td class="py-2.5 px-4">
+<input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="Pechuga de Pollo Fresca">
+</td>
+<td class="py-2.5 px-4 text-center">
+<select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+<option selected="" value="kg">kg</option>
+<option value="unid">unid</option>
+<option value="litros">litros</option>
+<option value="atados">atados</option>
+<option value="latas">latas</option>
+</select>
+</td>
+<td class="py-2.5 px-4 text-center">
+<input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="40.0">
+</td>
+<td class="py-2.5 px-4 text-right">
+<input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="16.50">
+</td>
+<td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 660.00</td>
+<td class="py-2.5 px-3 text-center">
+<button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+</td>
+</tr>
+<tr class="item-fila">
+<td class="py-2.5 px-4">
+<input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="">
+</td>
+<td class="py-2.5 px-4 text-center">
+<select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+<option selected="" value="kg">kg</option>
+<option value="unid">unid</option>
+<option value="litros">litros</option>
+<option value="atados">atados</option>
+<option value="latas">latas</option>
+</select>
+</td>
+<td class="py-2.5 px-4 text-center">
+<input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="1.0">
+</td>
+<td class="py-2.5 px-4 text-right">
+<input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="0.00">
+</td>
+<td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 0.00</td>
+<td class="py-2.5 px-3 text-center">
+<button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+</td>
+</tr></tbody>
+</table>
+</div>
+</div>
+<!-- Resumen Total y Botones de Acción -->
+<div class="border-t border-brandBlack/10 pt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+<div class="flex items-center space-x-6 text-sm">
+<div>
+<span class="text-xs text-brandBlack/60 block">Subtotal:</span>
+<span class="font-semibold text-brandBlack" id="resumen-subtotal">S/. 1,576.27</span>
+</div>
+<div>
+<span class="text-xs text-brandBlack/60 block">I.G.V. (18%):</span>
+<span class="font-semibold text-brandBlack" id="resumen-igv">S/. 283.73</span>
+</div>
+<div class="border-l border-brandBlack/20 pl-6">
+<span class="text-xs text-brandRed font-bold block uppercase tracking-wide">Total a Pagar:</span>
+<span class="text-xl font-bold text-brandBlack" id="resumen-total">S/. 1,860.00</span>
+</div>
+</div>
+<div class="flex items-center space-x-3">
+<button class="px-5 py-2.5 text-xs font-semibold text-brandBlack hover:bg-brandBlack/5 rounded-lg transition-colors border border-brandBlack/15" onclick="limpiarFormularioCompra()" type="button">
+                  Limpiar Campos
+                </button>
+<button class="px-7 py-2.5 bg-brandRed text-white text-xs font-bold rounded-lg shadow-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center space-x-2" type="submit">
+<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Registrar Compra</span>
+</button>
+</div>
+</div>
+</form>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- VISTA 2: LISTAR COMPRAS -->
+<!-- ============================================== -->
+<section class="space-y-6 hidden" id="view-listar">
+<!-- Header de sección con buscador y filtros rápidos -->
+<div class="space-y-4"><div class="flex items-center justify-between"><h3 class="text-base font-semibold text-brandBlack">Historial de Compras y Facturas</h3></div><div class="flex items-center justify-between gap-4 w-full flex-wrap xl:flex-nowrap"><div class="inline-flex rounded-lg border border-brandBlack/15 p-0.5 bg-[#FAFAFA] text-xs font-medium" id="filtro-periodos-container"><button class="px-3 py-1.5 rounded-md bg-brandBlack text-white font-semibold shadow-xs transition-colors btn-periodo" data-periodo="todos" onclick="filtrarPeriodo('todos', this)">Todos</button><button class="px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo" data-periodo="hoy" onclick="filtrarPeriodo('hoy', this)">Hoy</button><button class="px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo" data-periodo="semana" onclick="filtrarPeriodo('semana', this)">Esta semana</button><button class="px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo" data-periodo="mes" onclick="filtrarPeriodo('mes', this)">Este mes</button></div><div class="flex items-center space-x-2 bg-white border border-brandBlack/20 rounded-lg px-3 py-1.5 text-xs"><div class="flex items-center space-x-1.5"><span class="text-[11px] font-semibold text-brandBlack/60">Desde:</span><input class="bg-transparent text-xs text-brandBlack font-medium border-0 focus:ring-0 p-0" type="date" value="2024-10-01"></div><span class="text-brandBlack/30">—</span><div class="flex items-center space-x-1.5"><span class="text-[11px] font-semibold text-brandBlack/60">Hasta:</span><input class="bg-transparent text-xs text-brandBlack font-medium border-0 focus:ring-0 p-0" type="date" value="2024-10-24"></div></div><div class="flex items-center border border-brandBlack/20 rounded-lg bg-white overflow-hidden shadow-xs"><select class="bg-[#FAFAFA] border-r border-brandBlack/15 text-xs text-brandBlack font-medium px-2.5 py-2 hover:bg-brandBlack/5 transition-colors cursor-pointer" id="filtro-tipo-busqueda" onchange="aplicarFiltrosCompras()"><option selected="" value="razon">Razón Social</option><option value="ruc">RUC</option><option value="comprobante">N° Comprobante</option></select><div class="relative flex items-center flex-1"><span class="absolute left-2.5 pointer-events-none text-brandBlack/40"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span><input class="w-60 pl-8 pr-3 py-2 text-xs text-brandBlack placeholder:text-brandBlack/40 border-0 focus:outline-none" id="input-busqueda-compras" oninput="aplicarFiltrosCompras()" placeholder="Ingrese término de búsqueda..." type="text"></div></div></div></div>
+<!-- Tabla Elegante de Compras -->
+<div class="bg-white border border-brandBlack/10 rounded-xl overflow-hidden shadow-sm flex flex-col">
+<div class="overflow-x-auto max-h-[460px] overflow-y-auto">
+<table class="w-full text-left text-xs border-collapse" id="tabla-compras-historial">
+<thead class="sticky top-0 bg-white z-10 shadow-sm">
+<tr class="border-b border-brandBlack/10 bg-[#FAFAFA] text-brandBlack/70 uppercase tracking-wider font-semibold">
+<th class="py-3.5 px-6">Fecha de Creación</th>
+<th class="py-3.5 px-6">Razón Social del Proveedor</th>
+<th class="py-3.5 px-6 text-right">Total (S/.)</th>
+<th class="py-3.5 px-6 text-center">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-brandBlack/10 font-normal" id="tbody-compras-lista">
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0004819" data-fecha="24/10/2024 10:14" data-periodo="hoy" data-razon="Distribuidora Carnes del Norte S.A.C." data-ruc="20551982731" data-total="3420.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">24/10/2024 10:14</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Distribuidora Carnes del Norte S.A.C.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20551982731 | Comp.: F001-0004819</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 3,420.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F002-0003120" data-fecha="23/10/2024 18:30" data-periodo="semana" data-razon="Avícola El Valle E.I.R.L." data-ruc="20491827364" data-total="890.50">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">23/10/2024 18:30</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Avícola El Valle E.I.R.L.</div>
+<div class="text-[11px] text-brandBlack/50">Moche, Trujillo | RUC: 20491827364 | Comp.: F002-0003120</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 890.50</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F003-0009812" data-fecha="23/10/2024 09:12" data-periodo="semana" data-razon="Comercializadora Agroindustrial La Libertad S.A." data-ruc="20100154308" data-total="2150.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">23/10/2024 09:12</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Comercializadora Agroindustrial La Libertad S.A.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20100154308 | Comp.: F003-0009812</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 2,150.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="B001-0001452" data-fecha="22/10/2024 16:40" data-periodo="semana" data-razon="Verduras Mayorista Mayorazgo - Mercado Hermelinda" data-ruc="20603847291" data-total="1640.20">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">22/10/2024 16:40</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Verduras Mayorista Mayorazgo - Mercado Hermelinda</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20603847291 | Comp.: B001-0001452</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,640.20</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0012903" data-fecha="21/10/2024 11:05" data-periodo="semana" data-razon="Distribuidora de Abarrotes Santa María S.A.C." data-ruc="20100055237" data-total="480.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">21/10/2024 11:05</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Distribuidora de Abarrotes Santa María S.A.C.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20100055237 | Comp.: F001-0012903</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 480.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F004-0005218" data-fecha="20/10/2024 14:22" data-periodo="mes" data-razon="Lácteos del Norte Cajamarca - Trujillo S.R.L." data-ruc="20100190797" data-total="730.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">20/10/2024 14:22</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Lácteos del Norte Cajamarca - Trujillo S.R.L.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20100190797 | Comp.: F004-0005218</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 730.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="B002-0002890" data-fecha="19/10/2024 08:50" data-periodo="mes" data-razon="Empacadora y Granos El Sol S.A.C. - La Hermelinda" data-ruc="20481920391" data-total="1120.40">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">19/10/2024 08:50</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Empacadora y Granos El Sol S.A.C. - La Hermelinda</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20481920391 | Comp.: B002-0002890</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,120.40</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0089201" data-fecha="18/10/2024 17:15" data-periodo="mes" data-razon="Avícola y Embutidos Chimú S.A." data-ruc="20132049102" data-total="4890.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">18/10/2024 17:15</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Avícola y Embutidos Chimú S.A.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20132049102 | Comp.: F001-0089201</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 4,890.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F002-0001092" data-fecha="18/10/2024 10:30" data-periodo="mes" data-razon="Agropecuaria San Pedro de Lloc E.I.R.L." data-ruc="20558192034" data-total="1940.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">18/10/2024 10:30</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Agropecuaria San Pedro de Lloc E.I.R.L.</div>
+<div class="text-[11px] text-brandBlack/50">La Libertad | RUC: 20558192034 | Comp.: F002-0001092</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,940.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0007321" data-fecha="17/10/2024 15:45" data-periodo="mes" data-razon="Comercializadora de Hortalizas Víctor Larco S.A.C." data-ruc="20381920491" data-total="520.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">17/10/2024 15:45</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Comercializadora de Hortalizas Víctor Larco S.A.C.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20381920491 | Comp.: F001-0007321</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 520.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F003-0004192" data-fecha="16/10/2024 12:10" data-periodo="mes" data-razon="Frutas y Cítricos Laredo E.I.R.L." data-ruc="20601928374" data-total="2310.80">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">16/10/2024 12:10</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Frutas y Cítricos Laredo E.I.R.L.</div>
+<div class="text-[11px] text-brandBlack/50">Laredo, Trujillo | RUC: 20601928374 | Comp.: F003-0004192</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 2,310.80</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0010928" data-fecha="15/10/2024 19:00" data-periodo="mes" data-razon="Distribuidora de Huevos y Aves Huanchaco S.A." data-ruc="20492817203" data-total="1850.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">15/10/2024 19:00</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Distribuidora de Huevos y Aves Huanchaco S.A.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20492817203 | Comp.: F001-0010928</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,850.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="B001-0003892" data-fecha="15/10/2024 08:20" data-periodo="mes" data-razon="Especias y Condimentos Norteños S.A.C. - Mercado Central" data-ruc="20519283019" data-total="640.50">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">15/10/2024 08:20</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Especias y Condimentos Norteños S.A.C. - Mercado Central</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20519283019 | Comp.: B001-0003892</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 640.50</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F002-0006741" data-fecha="14/10/2024 16:30" data-periodo="mes" data-razon="Distribuidora de Aceites y Grasas Virú S.A." data-ruc="20291823901" data-total="1430.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">14/10/2024 16:30</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Distribuidora de Aceites y Grasas Virú S.A.</div>
+<div class="text-[11px] text-brandBlack/50">Virú - Trujillo | RUC: 20291823901 | Comp.: F002-0006741</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,430.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+<tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0003310" data-fecha="13/10/2024 11:15" data-periodo="mes" data-razon="Bebidas y Licores La Libertad S.R.L." data-ruc="20401928471" data-total="395.00">
+<td class="py-3.5 px-6 text-brandBlack/70 font-mono">13/10/2024 11:15</td>
+<td class="py-3.5 px-6"><div class="font-semibold text-brandBlack">Bebidas y Licores La Libertad S.R.L.</div>
+<div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20401928471 | Comp.: F001-0003310</div></td>
+<td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 395.00</td>
+<td class="py-3.5 px-6 text-center">
+<button class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors" onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Paginación fija en el pie de la tabla -->
+<div class="px-6 py-4 border-t border-brandBlack/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#FAFAFA]">
+<span class="text-xs text-brandBlack/60 font-medium" id="texto-paginacion-compras">Mostrando 1-15 de 45 registros</span>
+<div class="flex items-center space-x-2" id="contenedor-paginacion-compras">
+<button class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack/40 rounded text-xs font-semibold cursor-not-allowed transition-colors" id="btn-pag-anterior" onclick="cambiarPagina('anterior')">Anterior</button>
+<button class="px-3 py-1.5 bg-brandBlack text-white rounded text-xs font-semibold transition-colors btn-pag-num" data-pagina="1" onclick="irAPagina(1)">1</button>
+<button class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors btn-pag-num" data-pagina="2" onclick="irAPagina(2)">2</button>
+<button class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors btn-pag-num" data-pagina="3" onclick="irAPagina(3)">3</button>
+<button class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors" id="btn-pag-siguiente" onclick="cambiarPagina('siguiente')">Siguiente</button>
+</div>
+</div>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- VISTA 3: REGISTRAR INVENTARIO -->
+<!-- ============================================== -->
+<section class="space-y-6 hidden" id="view-inventario">
+<!-- Header con controles de fecha y almacén -->
+<div class="bg-white border border-brandBlack/10 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div class="">
+<h3 class="text-base font-semibold text-brandBlack">Panel de Control y Registro de Inventario</h3>
+</div>
+<div class="flex items-center space-x-2">
+<label class="text-xs font-semibold text-brandBlack whitespace-nowrap" for="fecha-inventario">Fecha de Toma:</label>
+<input class="px-3 py-2 bg-white border border-brandBlack/20 rounded-lg text-xs font-medium text-brandBlack" id="fecha-inventario" type="date" value="2024-10-24">
+</div></div>
+<!-- Formulario / Tabla de Registro Físico de Stock -->
+<div class="bg-white border border-brandBlack/10 rounded-xl overflow-hidden shadow-sm"><div class="overflow-x-auto">
+<table class="w-full text-left text-xs border-collapse" id="tabla-inventario">
+<thead>
+<tr class="border-b border-brandBlack/10 bg-[#FAFAFA] text-brandBlack/70 uppercase tracking-wider font-semibold">
+<th class="py-3.5 px-5">Código</th>
+<th class="py-3.5 px-5">Insumo / Producto</th>
+<th class="py-3.5 px-4 text-center">Unidad</th>
+<th class="py-3.5 px-4 text-center">Stock Actual</th>
+<th class="py-3.5 px-4 text-center">Cantidad Física (Real)</th>
+<th class="py-3.5 px-4 text-center">Stock Mínimo</th>
+<th class="py-3.5 px-5 text-center">Estado</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-brandBlack/10 font-normal">
+<!-- Item 1 -->
+<tr class="hover:bg-brandBlack/[0.01] transition-colors">
+<td class="py-3.5 px-5 font-mono text-brandBlack/60">INS-001</td>
+<td class="py-3.5 px-5">
+<div class="font-bold text-brandBlack">Carne de Res (Lomo Fino)</div>
+<div class="text-[11px] text-brandBlack/50">Parrillas y cortes especiales</div>
+</td>
+<td class="py-3.5 px-4 text-center font-semibold text-brandBlack/70">KG</td>
+<td class="py-3.5 px-4 text-center font-mono">45.00</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-fisico w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="0.5" type="number" value="42.50">
+</div>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-min w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="0.5" type="number" value="20.00">
+</div>
+</td>
+<td class="py-3.5 px-5 text-center td-estado"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#CEEAD6] bg-[#E6F4EA] text-[#137333]"><span class="w-1.5 h-1.5 rounded-full bg-[#137333] mr-1.5"></span>Óptimo</span></td>
+</tr>
+<!-- Item 2 -->
+<tr class="hover:bg-brandBlack/[0.01] transition-colors">
+<td class="py-3.5 px-5 font-mono text-brandBlack/60">INS-002</td>
+<td class="py-3.5 px-5">
+<div class="font-bold text-brandBlack">Pollo Entero Eviscerado</div>
+<div class="text-[11px] text-brandBlack/50">Brasa y broaster</div>
+</td>
+<td class="py-3.5 px-4 text-center font-semibold text-brandBlack/70">UND</td>
+<td class="py-3.5 px-4 text-center font-mono">80.00</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-fisico w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="78.00">
+</div>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-min w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="30.00">
+</div>
+</td>
+<td class="py-3.5 px-5 text-center td-estado"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#CEEAD6] bg-[#E6F4EA] text-[#137333]"><span class="w-1.5 h-1.5 rounded-full bg-[#137333] mr-1.5"></span>Óptimo</span></td>
+</tr>
+<!-- Item 3 -->
+<tr class="hover:bg-brandBlack/[0.01] transition-colors">
+<td class="py-3.5 px-5 font-mono text-brandBlack/60">INS-003</td>
+<td class="py-3.5 px-5">
+<div class="font-bold text-brandBlack">Arroz Extra Grano Largo</div>
+<div class="text-[11px] text-brandBlack/50">Sacos de 50kg</div>
+</td>
+<td class="py-3.5 px-4 text-center font-semibold text-brandBlack/70">KG</td>
+<td class="py-3.5 px-4 text-center font-mono">15.00</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-fisico w-24 px-2 py-1.5 text-center bg-white border border-[#FF4D2E] rounded-lg text-xs font-bold text-[#FF4D2E] transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="12.00">
+</div>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-min w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="25.00">
+</div>
+</td>
+<td class="py-3.5 px-5 text-center td-estado"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#FAD2CF] bg-[#FCE8E6] text-[#C5221F]"><span class="w-1.5 h-1.5 rounded-full bg-[#FF4D2E] mr-1.5"></span>Bajo Stock</span></td>
+</tr>
+<!-- Item 4 -->
+<tr class="hover:bg-brandBlack/[0.01] transition-colors">
+<td class="py-3.5 px-5 font-mono text-brandBlack/60">INS-004</td>
+<td class="py-3.5 px-5">
+<div class="font-bold text-brandBlack">Aceite Vegetal Cocinero</div>
+<div class="text-[11px] text-brandBlack/50">Bidón de 20 Litros</div>
+</td>
+<td class="py-3.5 px-4 text-center font-semibold text-brandBlack/70">LITRO</td>
+<td class="py-3.5 px-4 text-center font-mono">40.00</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-fisico w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="38.00">
+</div>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-min w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="15.00">
+</div>
+</td>
+<td class="py-3.5 px-5 text-center td-estado"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#CEEAD6] bg-[#E6F4EA] text-[#137333]"><span class="w-1.5 h-1.5 rounded-full bg-[#137333] mr-1.5"></span>Óptimo</span></td>
+</tr>
+<!-- Item 5 -->
+<tr class="hover:bg-brandBlack/[0.01] transition-colors">
+<td class="py-3.5 px-5 font-mono text-brandBlack/60">INS-005</td>
+<td class="py-3.5 px-5">
+<div class="font-bold text-brandBlack">Papa Amarilla Tumbay</div>
+<div class="text-[11px] text-brandBlack/50">Guarnición y pure</div>
+</td>
+<td class="py-3.5 px-4 text-center font-semibold text-brandBlack/70">KG</td>
+<td class="py-3.5 px-4 text-center font-mono">60.00</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-fisico w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="56.00">
+</div>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center justify-center">
+<input class="input-min w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all" min="0" oninput="actualizarEstadoFila(this)" step="1" type="number" value="30.00">
+</div>
+</td>
+<td class="py-3.5 px-5 text-center td-estado"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#CEEAD6] bg-[#E6F4EA] text-[#137333]"><span class="w-1.5 h-1.5 rounded-full bg-[#137333] mr-1.5"></span>Óptimo</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Barra Inferior de Acción -->
+<div class="px-6 py-4 bg-[#FAFAFA] border-t border-brandBlack/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+<span class="text-xs text-brandBlack/60">Los ajustes se sincronizarán inmediatamente con el Kardex del restaurante.</span>
+<button class="px-6 py-2.5 bg-brandRed text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center space-x-2" onclick="guardarInventario()">
+<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Guardar Registro de Inventario</span>
+</button>
+</div></div>
+</section>
+</div>
+<!-- Footer Discreto -->
+<footer class="py-3 px-10 border-t border-brandBlack/10 text-[11px] text-brandBlack/40 flex justify-between items-center bg-white shrink-0"><span class="">Sistema de Gestión "Los Betos" - Trujillo, Perú</span><span class="">Terminal Conectado: Trujillo</span></footer>
+</main>
+<!-- MODAL FLOTANTE DE ERROR / AVISO -->
+<div class="fixed inset-0 bg-brandBlack/60 backdrop-blur-xs flex items-center justify-center z-50 hidden transition-opacity" id="modal-error">
+<div class="bg-white rounded-xl shadow-2xl border border-brandBlack/10 max-w-md w-full mx-4 p-6 overflow-hidden transform transition-all scale-100">
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 rounded-full bg-[#FFF0ED] border border-[#FFDCD6] flex items-center justify-center shrink-0">
+<svg class="w-5 h-5 text-brandRed" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="flex-1">
+<h3 class="text-base font-bold text-brandBlack" id="modal-error-title">Datos Incompletos</h3>
+<p class="text-xs text-brandBlack/70 mt-1.5 leading-relaxed" id="modal-error-msg">Por favor, complete todos los campos obligatorios y asegúrese de incluir al menos un insumo.</p>
+</div>
+</div>
+<div class="mt-6 flex justify-end">
+<button class="px-5 py-2 bg-brandBlack text-white hover:bg-brandBlack/90 text-xs font-semibold rounded-lg shadow-sm transition-colors" onclick="cerrarModal('modal-error')" type="button">
+Entendido
+</button>
+</div>
+</div>
+</div>
+<!-- MODAL FLOTANTE DE ÉXITO -->
+<div class="fixed inset-0 bg-brandBlack/60 backdrop-blur-xs flex items-center justify-center z-50 hidden transition-opacity" id="modal-exito">
+<div class="bg-white rounded-xl shadow-2xl border border-brandBlack/10 max-w-md w-full mx-4 p-6 overflow-hidden transform transition-all scale-100 text-center">
+<div class="w-12 h-12 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] flex items-center justify-center mx-auto mb-4 text-[#137333]">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</div>
+<h3 class="text-lg font-bold text-brandBlack">¡Compra Registrada!</h3>
+<p class="text-xs text-brandBlack/70 mt-2 leading-relaxed">
+¡Compra registrada e inventario actualizado con éxito en Los Betos!
+</p>
+<div class="my-5 p-3.5 bg-[#FAFAFA] border border-brandBlack/10 rounded-lg text-center">
+<span class="text-[11px] uppercase tracking-wider text-brandBlack/60 font-semibold block">Total Registrado</span>
+<span class="text-xl font-bold text-brandBlack mt-0.5 block" id="modal-exito-total">S/. 0.00</span>
+</div>
+<div class="flex items-center justify-center space-x-3">
+<button class="w-full px-5 py-2.5 bg-brandRed text-white text-xs font-bold rounded-lg shadow-sm hover:opacity-95 active:scale-[0.99] transition-all" onclick="cerrarModalExitoYReiniciar()" type="button">
+Aceptar / Nueva Compra
+</button>
+</div>
+</div>
+</div>
+<!-- MODAL GENÉRICO INFORMATIVO -->
+<div class="fixed inset-0 bg-brandBlack/60 backdrop-blur-xs flex items-center justify-center z-50 hidden transition-opacity" id="modal-generico">
+<div class="bg-white rounded-xl shadow-2xl border border-brandBlack/10 max-w-sm w-full mx-4 p-6 overflow-hidden">
+<h3 class="text-sm font-bold text-brandBlack" id="modal-gen-title">Información</h3>
+<p class="text-xs text-brandBlack/70 mt-2 leading-relaxed" id="modal-gen-msg"></p>
+<div class="mt-5 flex justify-end">
+<button class="px-4 py-1.5 bg-brandBlack text-white text-xs font-semibold rounded-lg hover:bg-brandBlack/90 transition-colors" onclick="cerrarModal('modal-generico')" type="button">Cerrar</button>
+</div>
+</div>
+</div>
+<!-- MODAL DETALLE DE COMPRA / FACTURA (LISTAR COMPRAS) -->
+<div class="fixed inset-0 bg-brandBlack/60 backdrop-blur-xs flex items-center justify-center z-50 hidden transition-opacity" id="modal-detalle-compra" onclick="cerrarModalDetalleBackdrop(event)">
+<div class="bg-white rounded-xl shadow-2xl border border-brandBlack/10 max-w-2xl w-full mx-4 p-6 overflow-hidden transform transition-all scale-100 relative" onclick="event.stopPropagation()">
+<!-- Encabezado -->
+<div class="flex items-center justify-between border-b border-brandBlack/10 pb-4 mb-5">
+<div class="flex items-center space-x-2.5">
+<div class="w-8 h-8 rounded-lg bg-[#FFF0ED] text-brandRed flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<h3 class="text-base font-bold text-brandBlack">Detalle de Comprobante / Compra</h3>
+<p class="text-[11px] text-brandBlack/50" id="modal-detalle-subtitulo">Comprobante emitido a Los Betos</p>
+</div>
+</div>
+<button class="text-brandBlack/40 hover:text-brandRed text-lg font-bold p-1 rounded-md transition-colors" onclick="cerrarModal('modal-detalle-compra')" title="Cerrar modal" type="button">✕</button>
+</div>
+<!-- Datos del Proveedor y Factura -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-[#FAFAFA] p-3.5 rounded-lg border border-brandBlack/10 mb-5 text-xs">
+<div class="col-span-2">
+<span class="text-brandBlack/50 block text-[10px] uppercase font-semibold">Proveedor / Razón Social:</span>
+<span class="font-bold text-brandBlack text-xs truncate block" id="det-empresa">Distribuidora Carnes del Norte S.A.C.</span>
+</div>
+<div>
+<span class="text-brandBlack/50 block text-[10px] uppercase font-semibold">RUC:</span>
+<span class="font-mono font-medium text-brandBlack text-xs" id="det-ruc">20551982731</span>
+</div>
+<div>
+<span class="text-brandBlack/50 block text-[10px] uppercase font-semibold">N° Comprobante:</span>
+<span class="font-mono font-bold text-brandBlack text-xs" id="det-comprobante">F001-0004819</span>
+</div>
+<div class="col-span-2">
+<span class="text-brandBlack/50 block text-[10px] uppercase font-semibold">Fecha de Emisión:</span>
+<span class="font-mono text-brandBlack text-xs" id="det-fecha">24/10/2024 10:14</span>
+</div>
+<div class="col-span-2">
+<span class="text-brandBlack/50 block text-[10px] uppercase font-semibold">Estado de Pago:</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">Registrado / Pagado</span>
+</div>
+</div>
+<!-- Desglose de Insumos -->
+<div class="border border-brandBlack/10 rounded-lg overflow-hidden mb-4 max-h-52 overflow-y-auto">
+<table class="w-full text-left text-xs border-collapse">
+<thead class="bg-[#FAFAFA] text-brandBlack/70 uppercase tracking-wider font-semibold border-b border-brandBlack/10 sticky top-0">
+<tr>
+<th class="py-2.5 px-3">Insumo / Producto</th>
+<th class="py-2.5 px-3 text-center w-20">Unidad</th>
+<th class="py-2.5 px-3 text-center w-20">Cant.</th>
+<th class="py-2.5 px-3 text-right w-28">P. Unit. (S/.)</th>
+<th class="py-2.5 px-3 text-right w-28">Subtotal (S/.)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-brandBlack/10" id="det-tabla-insumos">
+<!-- Rellenado por script dinámicamente -->
+</tbody>
+</table>
+</div>
+<!-- Resumen de Totales -->
+<div class="flex items-center justify-between bg-[#FAFAFA] p-3.5 rounded-lg border border-brandBlack/10 text-xs mb-6">
+<div>
+<span class="text-brandBlack/50 block text-[11px]">Subtotal:</span>
+<span class="font-semibold text-brandBlack" id="det-subtotal">S/. 2,898.31</span>
+</div>
+<div>
+<span class="text-brandBlack/50 block text-[11px]">I.G.V. (18%):</span>
+<span class="font-semibold text-brandBlack" id="det-igv">S/. 521.69</span>
+</div>
+<div class="text-right border-l border-brandBlack/15 pl-4">
+<span class="text-[10px] uppercase font-bold text-brandRed block">Total Comprobante:</span>
+<span class="text-lg font-bold text-brandBlack" id="det-total">S/. 3,420.00</span>
+</div>
+</div>
+<!-- Acciones Inferiores -->
+<div class="flex items-center justify-end space-x-3 pt-2">
+<button class="px-4 py-2 border border-brandBlack/20 text-brandBlack text-xs font-semibold rounded-lg hover:bg-brandBlack/5 transition-colors" onclick="cerrarModal('modal-detalle-compra')" type="button">
+      Cerrar
+    </button>
+<button class="px-4 py-2 bg-brandBlack text-white text-xs font-semibold rounded-lg hover:bg-brandBlack/90 transition-colors flex items-center space-x-1.5" onclick="mostrarModalGenerico('Imprimir Documento', 'Preparando vista preliminar y enviando orden de impresión / exportación PDF del comprobante...')" type="button">
+<svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Imprimir / Exportar</span>
+</button>
+</div>
+</div>
+</div>
+<!-- NOTIFICACIÓN TOAST FLOTANTE (REGISTRAR INVENTARIO) -->
+<div class="fixed bottom-6 right-6 z-50 transform transition-all duration-300 translate-y-24 opacity-0 pointer-events-none" id="toast-inventario">
+<div class="bg-brandBlack text-white border border-[#2B313A] shadow-xl rounded-xl p-4 flex items-center space-x-3.5 max-w-md pointer-events-auto">
+<div class="w-9 h-9 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] flex items-center justify-center shrink-0 text-[#137333]">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-xs font-bold text-white tracking-tight">Kardex Actualizado</h4>
+<p class="text-xs text-[#C1C7D0] mt-0.5 leading-snug">¡Registro de inventario guardado y sincronizado con éxito en el Kardex!</p>
+</div>
+<button class="text-[#8E95A2] hover:text-white transition-colors p-1" onclick="ocultarToastInventario()" title="Cerrar notificación" type="button">
+    ✕
+  </button>
+</div>
+</div>
+<!-- LÓGICA INTERACTIVA SPA Y COMPORTAMIENTO UX DE AÑADIR COMPRA, LISTAR Y REGISTRAR INVENTARIO -->
+<script>
+    function switchView(viewName) {
+      const views = ['anadir', 'listar', 'inventario'];
 
-<body class="bg-surface font-body text-on-surface antialiased">
-  <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
-    <div class="pl-64 min-h-screen flex flex-col bg-surface">
-        <header
-            class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-margin border-b border-surface-container-high shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-            <div class="flex items-center gap-space-md w-96">
-                <div class="relative w-full"><span
-                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span><input
-                        class="w-full pl-9 pr-4 py-1.5 bg-surface-container-lowest border border-outline-variant/50 rounded-full font-body text-[12px] text-on-surface outline-none focus:ring-2 focus:ring-primary-container focus:border-primary-container"
-                        placeholder="Buscar cuentas, transacciones o boletas..." type="text" /></div>
-            </div>
-            <div class="flex items-center gap-space-md"><button
-                    class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-full transition-all"
-                    type="button"><span
-                        class="material-symbols-outlined text-[20px]">notifications</span></button><button
-                    class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-full transition-all"
-                    type="button"><span class="material-symbols-outlined text-[20px]">help_outline</span></button>
-                <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center"><span
-                        class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
-            </div>
-        </header>
-        <main class="relative pt-16 flex-1 p-margin">
-            <div class="flex flex-col w-full gap-6">
-                <!-- Header Card with Highlight Border -->
-                <section
-                    class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 relative overflow-hidden">
-                    <div
-                        class="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-secondary-container/30 blur-3xl pointer-events-none">
-                    </div>
-                    <div class="flex flex-col gap-2 z-10">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span
-                                class="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-secondary-container text-on-secondary-fixed">
-                                Módulo de Abastecimiento
-                            </span>
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold bg-surface-container text-on-surface-variant">
-                                <span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-                                Control de Aprobaciones • Cuentas por Pagar
-                            </span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed shadow-sm">
-                                <span class="material-symbols-outlined text-[24px]">shopping_cart_checkout</span>
-                            </div>
-                            <div>
-                                <h1
-                                    class="font-headline text-[24px] md:text-[28px] font-bold text-on-surface tracking-tight leading-tight">
-                                    Órdenes de Compra y Adquisiciones
-                                </h1>
-                                <p class="font-body text-[13px] text-on-surface-variant">
-                                    Supervisión del ciclo de aprovisionamiento, autorización de gasto corporativo e
-                                    ingreso a almacenes.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Action Toolbar -->
-                    <div class="flex flex-wrap items-center gap-2.5 z-10 w-full xl:w-auto">
-                        <button
-                            class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors text-[12px] font-bold"
-                            type="button">
-                            <span class="material-symbols-outlined text-[18px] text-tertiary">request_quote</span>
-                            Solicitud de Cotización (RFQ)
-                        </button>
-                        <button
-                            class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary-fixed-dim transition-colors text-[12px] font-bold"
-                            type="button">
-                            <span class="material-symbols-outlined text-[18px]">verified_user</span>
-                            Aprobar Pendientes
-                            <span
-                                class="ml-1 px-1.5 py-0.2 rounded-full bg-primary-container text-on-primary text-[10px]">6</span>
-                        </button>
-                        <button
-                            class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim transition-colors text-[12px] font-bold shadow-sm"
-                            title="Exportar Reporte" type="button">
-                            <span class="material-symbols-outlined text-[18px]">file_download</span>
-                            Exportar Reporte
-                        </button>
-                        <button
-                            class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary hover:bg-primary transition-all text-[12px] font-bold shadow-md hover:shadow-lg"
-                            type="button">
-                            <span class="material-symbols-outlined text-[20px]">add_circle</span>
-                            + Nueva Orden de Compra
-                        </button>
-                    </div>
-                </section>
-                <!-- KPI Metricas Bento -->
-                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- KPI 1 -->
-                    <div
-                        class="bg-surface-container-lowest rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between">
-                            <div class="flex flex-col">
-                                <span
-                                    class="font-label text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Compras
-                                    Comprometidas</span>
-                                <span class="font-headline text-[22px] font-bold text-on-surface tracking-tight mt-1"
-                                    style="font-feature-settings: 'tnum' 1;">
-                                    S/ 895,400.00
-                                </span>
-                                <span class="font-body text-[11px] text-on-surface-variant mt-0.5">Octubre 2026 •
-                                    Periodo Fiscal Activo</span>
-                            </div>
-                            <div
-                                class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary-container">
-                                <span class="material-symbols-outlined text-[22px]">payments</span>
-                            </div>
-                        </div>
-                        <div
-                            class="mt-3 pt-3 flex items-center justify-between text-[11px] bg-surface-container-low px-2 py-1.5 rounded-md">
-                            <span class="font-medium text-primary font-bold inline-flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">trending_up</span> +8.4% vs Sep
-                            </span>
-                            <span class="text-on-surface-variant">Ejecución 74% de ppto.</span>
-                        </div>
-                    </div>
-                    <!-- KPI 2 -->
-                    <div
-                        class="bg-surface-container-lowest rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between">
-                            <div class="flex flex-col">
-                                <span
-                                    class="font-label text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Órdenes
-                                    por Aprobar</span>
-                                <div class="flex items-baseline gap-2 mt-1">
-                                    <span class="font-headline text-[22px] font-bold text-tertiary tracking-tight"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        6 Órdenes
-                                    </span>
-                                    <span
-                                        class="text-[11px] font-bold px-1.5 py-0.5 bg-error-container text-on-error-container rounded">Urgente</span>
-                                </div>
-                                <span class="font-body text-[11px] text-on-surface-variant mt-0.5"
-                                    style="font-feature-settings: 'tnum' 1;">
-                                    S/ 115,200.00 en espera de V°B°
-                                </span>
-                            </div>
-                            <div
-                                class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center text-on-secondary-container">
-                                <span class="material-symbols-outlined text-[22px]">pending_actions</span>
-                            </div>
-                        </div>
-                        <div
-                            class="mt-3 pt-3 flex items-center justify-between text-[11px] bg-surface-container-low px-2 py-1.5 rounded-md">
-                            <span class="text-error font-semibold inline-flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">warning</span> 2 con +48h de retraso
-                            </span>
-                            <a class="text-primary font-bold hover:underline" href="#">Revisar</a>
-                        </div>
-                    </div>
-                    <!-- KPI 3 -->
-                    <div
-                        class="bg-surface-container-lowest rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between">
-                            <div class="flex flex-col">
-                                <span
-                                    class="font-label text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Mercadería
-                                    por Recibir</span>
-                                <span class="font-headline text-[22px] font-bold text-on-surface tracking-tight mt-1"
-                                    style="font-feature-settings: 'tnum' 1;">
-                                    12 Envíos
-                                </span>
-                                <span class="font-body text-[11px] text-on-surface-variant mt-0.5">Almacén Central Lurín
-                                    y Callao</span>
-                            </div>
-                            <div
-                                class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface">
-                                <span class="material-symbols-outlined text-[22px]">local_shipping</span>
-                            </div>
-                        </div>
-                        <div
-                            class="mt-3 pt-3 flex items-center justify-between text-[11px] bg-surface-container-low px-2 py-1.5 rounded-md">
-                            <span class="text-on-surface-variant font-medium">4 programadas para hoy</span>
-                            <span class="font-bold text-secondary">Guías de Remisión</span>
-                        </div>
-                    </div>
-                    <!-- KPI 4 -->
-                    <div
-                        class="bg-surface-container-lowest rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between">
-                            <div class="flex flex-col">
-                                <span
-                                    class="font-label text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Cuentas
-                                    por Pagar Proveedor</span>
-                                <span
-                                    class="font-headline text-[22px] font-bold text-primary-container tracking-tight mt-1"
-                                    style="font-feature-settings: 'tnum' 1;">
-                                    S/ 342,800.00
-                                </span>
-                                <span class="font-body text-[11px] text-on-surface-variant mt-0.5">Próximo corte: 5 días
-                                    hábiles</span>
-                            </div>
-                            <div
-                                class="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center text-on-error-container">
-                                <span class="material-symbols-outlined text-[22px]">account_balance</span>
-                            </div>
-                        </div>
-                        <div
-                            class="mt-3 pt-3 flex items-center justify-between text-[11px] bg-surface-container-low px-2 py-1.5 rounded-md">
-                            <span class="text-on-surface-variant">Facturas validadas SUNAT</span>
-                            <span class="text-primary font-bold">Programar Pagos</span>
-                        </div>
-                    </div>
-                </section>
-                <!-- Filtros, Buscador y Pestañas Rápidas -->
-                <section class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-3">
-                    <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-                        <!-- Search Input -->
-                        <div class="relative flex-1">
-                            <span
-                                class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
-                            <input
-                                class="w-full pl-10 pr-4 py-2 bg-surface-container-low rounded-full font-body text-[12px] text-on-surface placeholder:text-on-surface-variant/70 outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container"
-                                placeholder="Buscar por proveedor, N° OC, RUC, insumo o centro de costos..."
-                                type="text" />
-                        </div>
-                        <!-- Quick Select Dropdowns -->
-                        <div class="flex flex-wrap items-center gap-2 text-[12px]">
-                            <div
-                                class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low rounded-lg text-on-surface-variant font-medium">
-                                <span class="material-symbols-outlined text-[16px]">domain</span>
-                                <span>Proveedor:</span>
-                                <select
-                                    class="bg-transparent font-bold text-on-surface outline-none cursor-pointer p-0 text-[12px]">
-                                    <option>Todos los Proveedores (148)</option>
-                                    <option>Importadora Global Machinery</option>
-                                    <option>Aceros y Perfiles del Perú</option>
-                                    <option>Servicios &amp; Suministros S.A.</option>
-                                </select>
-                            </div>
-                            <div
-                                class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low rounded-lg text-on-surface-variant font-medium">
-                                <span class="material-symbols-outlined text-[16px]">account_tree</span>
-                                <span>C. Costo:</span>
-                                <select
-                                    class="bg-transparent font-bold text-on-surface outline-none cursor-pointer p-0 text-[12px]">
-                                    <option>Todos los Centros</option>
-                                    <option>CC-01 Operaciones Planta</option>
-                                    <option>CC-04 Mantenimiento Minero</option>
-                                    <option>CC-07 Tecnología &amp; TI</option>
-                                    <option>CC-12 Logística &amp; Flota</option>
-                                </select>
-                            </div>
-                            <div
-                                class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low rounded-lg text-on-surface-variant font-medium">
-                                <span class="material-symbols-outlined text-[16px]">calendar_month</span>
-                                <span class="font-bold text-on-surface">01 Oct - 31 Oct, 2026</span>
-                            </div>
-                            <button
-                                class="p-2 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
-                                title="Más filtros" type="button">
-                                <span class="material-symbols-outlined text-[18px]">tune</span>
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Segmented Status Tabs -->
-                    <div
-                        class="flex items-center gap-1 overflow-x-auto pb-1 border-t border-surface-container-high pt-2.5">
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-bold bg-primary-container text-on-primary shadow-sm flex items-center gap-1"
-                            type="button">
-                            Todas <span class="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">142</span>
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
-                            type="button">
-                            Borrador (8)
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-semibold text-tertiary hover:bg-surface-container transition-colors flex items-center gap-1"
-                            type="button">
-                            Para Aprobar <span
-                                class="bg-secondary-container px-1.5 py-0.2 rounded-full text-[10px] text-on-secondary-fixed">6</span>
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
-                            type="button">
-                            Aprobadas (44)
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
-                            type="button">
-                            En Tránsito / Despachadas (12)
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
-                            type="button">
-                            Recibidas (68)
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded-full text-[11px] font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
-                            type="button">
-                            Facturadas / Cerradas (92)
-                        </button>
-                    </div>
-                </section>
-                <!-- Tabla Ejecutiva de Órdenes de Compra -->
-                <section class="bg-surface-container-lowest rounded-xl p-5 shadow-sm overflow-hidden flex flex-col">
-                    <!-- Table Header Legend -->
-                    <div class="flex items-center justify-between mb-3 px-1">
-                        <div class="flex items-center gap-2">
-                            <span class="font-headline text-[15px] font-bold text-on-surface">Listado Maestro de Órdenes
-                                de Compra</span>
-                            <span class="text-[11px] text-on-surface-variant font-medium">Mostrando 6 de 142
-                                transacciones</span>
-                        </div>
-                        <div class="flex items-center gap-3 text-[11px] text-on-surface-variant">
-                            <span class="inline-flex items-center gap-1"><span
-                                    class="w-2 h-2 rounded-full bg-[#16A34A]"></span> V°B° Aprobado</span>
-                            <span class="inline-flex items-center gap-1"><span
-                                    class="w-2 h-2 rounded-full bg-tertiary"></span> Pendiente V°B°</span>
-                            <span class="inline-flex items-center gap-1"><span
-                                    class="w-2 h-2 rounded-full bg-primary-container"></span> Rechazada/Retenida</span>
-                        </div>
-                    </div>
-                    <!-- Table Canvas -->
-                    <div class="overflow-x-auto w-full">
-                        <table class="w-full text-left text-[12px] border-collapse min-w-[1100px]">
-                            <thead>
-                                <tr class="text-[11px] uppercase font-bold text-on-secondary-container">
-                                    <th class="py-2.5 px-3 bg-secondary-container rounded-l-lg tracking-wider">N° OC /
-                                        Referencia</th>
-                                    <th class="py-2.5 px-3 bg-secondary-container tracking-wider">Fecha Emisión</th>
-                                    <th class="py-2.5 px-3 bg-secondary-container tracking-wider">Proveedor / RUC</th>
-                                    <th class="py-2.5 px-3 bg-secondary-container tracking-wider">Centro Costos /
-                                        Almacén</th>
-                                    <th class="py-2.5 px-3 bg-secondary-container text-right tracking-wider">Monto Total
-                                        (S/)</th>
-                                    <th class="py-2.5 px-3 bg-secondary-container text-center tracking-wider">Aprobación
-                                    </th>
-                                    <th class="py-2.5 px-3 bg-secondary-container text-center tracking-wider">Recepción
-                                    </th>
-                                    <th
-                                        class="py-2.5 px-3 bg-secondary-container rounded-r-lg text-center tracking-wider">
-                                        Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-surface-container-low">
-                                <!-- Row 1: Aprobado / Recibido Parcial -->
-                                <tr class="hover:bg-surface-container-low/70 transition-colors group">
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="material-symbols-outlined text-[18px] text-primary-container">description</span>
-                                            <div class="flex flex-col">
-                                                <span class="font-bold text-on-surface font-headline"
-                                                    style="font-feature-settings: 'tnum' 1;">OC-2026-00412</span>
-                                                <span class="text-[10px] text-on-surface-variant">REQ-8941 • Contrato
-                                                    Marco</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-on-surface font-medium whitespace-nowrap">
-                                        24/10/2026
-                                        <span class="block text-[10px] text-on-surface-variant">Entrega:
-                                            30/10/2026</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-on-surface">Importadora Global Machinery
-                                                S.A.C.</span>
-                                            <span class="text-[10px] text-on-surface-variant font-mono">RUC: 20554189201
-                                                • Nac.</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <span class="font-semibold text-on-surface block">CC-01 Operaciones
-                                            Planta</span>
-                                        <span
-                                            class="text-[10px] text-on-surface-variant inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[12px]">warehouse</span> Almacén
-                                            Principal Lurín
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-right font-bold text-on-surface font-headline"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        S/ 184,500.00
-                                        <span class="block text-[10px] font-normal text-on-surface-variant">IGV inc.
-                                            (18%)</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#166534]">
-                                            <span class="material-symbols-outlined text-[13px]">check_circle</span>
-                                            Aprobado
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-tertiary-fixed text-on-tertiary-fixed">
-                                            <span class="material-symbols-outlined text-[13px]">hourglass_bottom</span>
-                                            Recibido 60%
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors"
-                                                title="Ver Detalle OC" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center hover:bg-tertiary-fixed-dim transition-colors"
-                                                title="Recibir Productos (Guía)" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">inventory_2</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center hover:bg-secondary-fixed-dim transition-colors"
-                                                title="Registrar Factura" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">receipt_long</span>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Row 2: Por Aprobar -->
-                                <tr
-                                    class="hover:bg-surface-container-low/70 transition-colors group bg-error-container/10">
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="material-symbols-outlined text-[18px] text-tertiary">priority_high</span>
-                                            <div class="flex flex-col">
-                                                <span class="font-bold text-on-surface font-headline"
-                                                    style="font-feature-settings: 'tnum' 1;">OC-2026-00411</span>
-                                                <span class="text-[10px] text-on-surface-variant">REQ-8935 • V°B°
-                                                    Gerencial</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-on-surface font-medium whitespace-nowrap">
-                                        23/10/2026
-                                        <span class="block text-[10px] text-error font-semibold">Excede Umbral S/
-                                            50k</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-on-surface">Aceros y Perfiles del Perú
-                                                S.A.</span>
-                                            <span class="text-[10px] text-on-surface-variant font-mono">RUC: 20100481923
-                                                • Certificado</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <span class="font-semibold text-on-surface block">CC-04 Mantenimiento
-                                            Minero</span>
-                                        <span
-                                            class="text-[10px] text-on-surface-variant inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[12px]">warehouse</span> Almacén
-                                            Huancayo Base
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-right font-bold text-tertiary font-headline"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        S/ 64,800.00
-                                        <span class="block text-[10px] font-normal text-on-surface-variant">Crédito 30
-                                            días</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-secondary-container text-on-secondary-fixed">
-                                            <span class="material-symbols-outlined text-[13px]">schedule</span> Por
-                                            Aprobar
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-surface-container text-on-surface-variant">
-                                            <span class="material-symbols-outlined text-[13px]">block</span> No emitida
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors"
-                                                title="Ver Solicitud" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                            </button>
-                                            <button
-                                                class="px-2.5 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center font-bold text-[11px] gap-1 hover:bg-primary transition-colors shadow-sm"
-                                                title="Aprobar y Firmar" type="button">
-                                                <span class="material-symbols-outlined text-[14px]">draw</span> Firmar
-                                                V°B°
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Row 3: Aprobado / En Tránsito -->
-                                <tr class="hover:bg-surface-container-low/70 transition-colors group">
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="material-symbols-outlined text-[18px] text-primary-container">description</span>
-                                            <div class="flex flex-col">
-                                                <span class="font-bold text-on-surface font-headline"
-                                                    style="font-feature-settings: 'tnum' 1;">OC-2026-00410</span>
-                                                <span class="text-[10px] text-on-surface-variant">REQ-8929 • Repuestos
-                                                    Críticos</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-on-surface font-medium whitespace-nowrap">
-                                        22/10/2026
-                                        <span class="block text-[10px] text-on-surface-variant">Entrega:
-                                            26/10/2026</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-on-surface">Servicios &amp; Suministros
-                                                Industriales S.A.</span>
-                                            <span class="text-[10px] text-on-surface-variant font-mono">RUC: 20498711094
-                                                • Homologado</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <span class="font-semibold text-on-surface block">CC-01 Operaciones
-                                            Planta</span>
-                                        <span
-                                            class="text-[10px] text-on-surface-variant inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[12px]">warehouse</span> Almacén
-                                            Principal Lurín
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-right font-bold text-on-surface font-headline"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        S/ 42,350.00
-                                        <span class="block text-[10px] font-normal text-on-surface-variant">Contado
-                                            Comercial</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#166534]">
-                                            <span class="material-symbols-outlined text-[13px]">check_circle</span>
-                                            Aprobado
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-surface-container-high text-on-surface">
-                                            <span class="material-symbols-outlined text-[13px]">local_shipping</span> En
-                                            Tránsito
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors"
-                                                title="Ver Detalle" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center hover:bg-tertiary-fixed-dim transition-colors"
-                                                title="Registrar Recepción" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">inventory_2</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-inverse-surface text-inverse-on-surface flex items-center justify-center hover:bg-on-surface transition-colors"
-                                                title="Imprimir Orden" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">print</span>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Row 4: Aprobado / Recibido Completo -->
-                                <tr class="hover:bg-surface-container-low/70 transition-colors group">
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="material-symbols-outlined text-[18px] text-primary-container">description</span>
-                                            <div class="flex flex-col">
-                                                <span class="font-bold text-on-surface font-headline"
-                                                    style="font-feature-settings: 'tnum' 1;">OC-2026-00409</span>
-                                                <span class="text-[10px] text-on-surface-variant">REQ-8910 • Servidores
-                                                    TI</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-on-surface font-medium whitespace-nowrap">
-                                        20/10/2026
-                                        <span class="block text-[10px] text-on-surface-variant">Recibido:
-                                            23/10/2026</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-on-surface">DataSolutions &amp; Networking Perú
-                                                S.A.</span>
-                                            <span class="text-[10px] text-on-surface-variant font-mono">RUC: 20601249821
-                                                • Agente Ret.</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <span class="font-semibold text-on-surface block">CC-07 Tecnología &amp;
-                                            TI</span>
-                                        <span
-                                            class="text-[10px] text-on-surface-variant inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[12px]">warehouse</span>
-                                            Datacenter San Isidro
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-right font-bold text-on-surface font-headline"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        S/ 96,200.00
-                                        <span class="block text-[10px] font-normal text-on-surface-variant">Factura
-                                            Registrada</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#166534]">
-                                            <span class="material-symbols-outlined text-[13px]">check_circle</span>
-                                            Aprobado
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#166534]">
-                                            <span class="material-symbols-outlined text-[13px]">done_all</span> Recibido
-                                            100%
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors"
-                                                title="Ver Detalle" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center hover:bg-secondary-fixed-dim transition-colors"
-                                                title="Ver Factura Vinculada" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">receipt</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container-high text-on-surface flex items-center justify-center hover:bg-surface-container-highest transition-colors"
-                                                title="Hoja de Entrada Almacén (HEA)" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">task</span>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Row 5: Por Aprobar (Director) -->
-                                <tr class="hover:bg-surface-container-low/70 transition-colors group">
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="material-symbols-outlined text-[18px] text-tertiary">priority_high</span>
-                                            <div class="flex flex-col">
-                                                <span class="font-bold text-on-surface font-headline"
-                                                    style="font-feature-settings: 'tnum' 1;">OC-2026-00408</span>
-                                                <span class="text-[10px] text-on-surface-variant">REQ-8902 • Combustible
-                                                    Flota</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-on-surface font-medium whitespace-nowrap">
-                                        19/10/2026
-                                        <span class="block text-[10px] text-on-surface-variant">Vence entrega:
-                                            28/10</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-on-surface">Corporación de Combustibles del Sur
-                                                S.A.C.</span>
-                                            <span class="text-[10px] text-on-surface-variant font-mono">RUC: 20381900192
-                                                • Recurrente</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <span class="font-semibold text-on-surface block">CC-12 Logística &amp;
-                                            Flota</span>
-                                        <span
-                                            class="text-[10px] text-on-surface-variant inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[12px]">warehouse</span> Base
-                                            Operaciones Pisco
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-right font-bold text-tertiary font-headline"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        S/ 50,400.00
-                                        <span class="block text-[10px] font-normal text-on-surface-variant">Pago 15
-                                            días</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-secondary-container text-on-secondary-fixed">
-                                            <span class="material-symbols-outlined text-[13px]">schedule</span> Por
-                                            Aprobar
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-surface-container text-on-surface-variant">
-                                            <span class="material-symbols-outlined text-[13px]">block</span> Pendiente
-                                            V°B°
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors"
-                                                title="Ver Detalle" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                            </button>
-                                            <button
-                                                class="px-2.5 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center font-bold text-[11px] gap-1 hover:bg-primary transition-colors shadow-sm"
-                                                title="Aprobar y Firmar" type="button">
-                                                <span class="material-symbols-outlined text-[14px]">draw</span> Firmar
-                                                V°B°
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Row 6: Aprobado / Pendiente de Recepción -->
-                                <tr class="hover:bg-surface-container-low/70 transition-colors group">
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="material-symbols-outlined text-[18px] text-primary-container">description</span>
-                                            <div class="flex flex-col">
-                                                <span class="font-bold text-on-surface font-headline"
-                                                    style="font-feature-settings: 'tnum' 1;">OC-2026-00407</span>
-                                                <span class="text-[10px] text-on-surface-variant">REQ-8889 •
-                                                    Indumentaria EPP</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-on-surface font-medium whitespace-nowrap">
-                                        18/10/2026
-                                        <span class="block text-[10px] text-on-surface-variant">Entrega:
-                                            27/10/2026</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-on-surface">Equipos &amp; Seguridad Industrial
-                                                Lima E.I.R.L.</span>
-                                            <span class="text-[10px] text-on-surface-variant font-mono">RUC: 20299841021
-                                                • Regular</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <span class="font-semibold text-on-surface block">CC-01 Operaciones
-                                            Planta</span>
-                                        <span
-                                            class="text-[10px] text-on-surface-variant inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[12px]">warehouse</span> Almacén
-                                            Principal Lurín
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-right font-bold text-on-surface font-headline"
-                                        style="font-feature-settings: 'tnum' 1;">
-                                        S/ 28,150.00
-                                        <span class="block text-[10px] font-normal text-on-surface-variant">30 Días
-                                            F.F.</span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#166534]">
-                                            <span class="material-symbols-outlined text-[13px]">check_circle</span>
-                                            Aprobado
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle text-center">
-                                        <span
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-secondary-container text-on-secondary-fixed">
-                                            <span class="material-symbols-outlined text-[13px]">local_shipping</span> En
-                                            Tránsito
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 align-middle">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors"
-                                                title="Ver Detalle" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center hover:bg-tertiary-fixed-dim transition-colors"
-                                                title="Recepción Almacén" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">inventory_2</span>
-                                            </button>
-                                            <button
-                                                class="w-8 h-8 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center hover:bg-secondary-fixed-dim transition-colors"
-                                                title="Registrar Factura" type="button">
-                                                <span class="material-symbols-outlined text-[16px]">receipt_long</span>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- Paginación y Resumen Totalizador -->
-                    <div
-                        class="mt-4 pt-3 border-t border-surface-container flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div class="flex items-center gap-4 text-[12px] text-on-surface-variant">
-                            <span>Mostrando registros del <strong class="text-on-surface font-bold">1 al 6</strong> de
-                                142 órdenes</span>
-                            <span class="hidden sm:inline">•</span>
-                            <div class="hidden sm:flex items-center gap-1.5">
-                                <span>Filas por página:</span>
-                                <select
-                                    class="bg-surface-container-low font-bold text-on-surface rounded px-2 py-0.5 outline-none text-[11px]">
-                                    <option>10</option>
-                                    <option>25</option>
-                                    <option>50</option>
-                                </select>
-                            </div>
-                        </div>
-                        <!-- Financial Micro Sum Badge -->
-                        <div
-                            class="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-lg text-[12px]">
-                            <span class="text-on-surface-variant font-medium">Subtotal en esta vista:</span>
-                            <span class="font-headline font-bold text-on-surface"
-                                style="font-feature-settings: 'tnum' 1;">S/ 466,400.00</span>
-                        </div>
-                        <!-- Pagination Buttons -->
-                        <div class="flex items-center gap-1">
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center hover:bg-surface-container-high transition-colors disabled:opacity-40"
-                                disabled="" type="button">
-                                <span class="material-symbols-outlined text-[16px]">first_page</span>
-                            </button>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center hover:bg-surface-container-high transition-colors disabled:opacity-40"
-                                disabled="" type="button">
-                                <span class="material-symbols-outlined text-[16px]">chevron_left</span>
-                            </button>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-primary-container text-on-primary font-bold text-[12px] flex items-center justify-center shadow-sm"
-                                type="button">
-                                1
-                            </button>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container-low text-on-surface font-medium text-[12px] flex items-center justify-center hover:bg-surface-container transition-colors"
-                                type="button">
-                                2
-                            </button>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container-low text-on-surface font-medium text-[12px] flex items-center justify-center hover:bg-surface-container transition-colors"
-                                type="button">
-                                3
-                            </button>
-                            <span class="px-1 text-on-surface-variant">...</span>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container-low text-on-surface font-medium text-[12px] flex items-center justify-center hover:bg-surface-container transition-colors"
-                                type="button">
-                                15
-                            </button>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center hover:bg-surface-container-high transition-colors"
-                                type="button">
-                                <span class="material-symbols-outlined text-[16px]">chevron_right</span>
-                            </button>
-                            <button
-                                class="w-8 h-8 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center hover:bg-surface-container-high transition-colors"
-                                type="button">
-                                <span class="material-symbols-outlined text-[16px]">last_page</span>
-                            </button>
-                        </div>
-                    </div>
-                </section>
-                <!-- Panel Inferior: Recepción en Almacén y Flujo de Aprobación Activo -->
-                <section class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    <!-- Próximos Despachos a Recibir -->
-                    <div
-                        class="lg:col-span-2 bg-surface-container-lowest rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-2">
-                                <div
-                                    class="w-7 h-7 rounded bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
-                                    <span class="material-symbols-outlined text-[18px]">conveyor_belt</span>
-                                </div>
-                                <h2 class="font-headline text-[15px] font-bold text-on-surface">Recepción de Mercadería
-                                    Programada (Hoy &amp; Mañana)</h2>
-                            </div>
-                            <span class="text-[11px] font-bold text-primary hover:underline cursor-pointer">Ver
-                                cronograma completo</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div class="bg-surface-container-low p-3.5 rounded-lg flex items-start gap-3">
-                                <div
-                                    class="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-primary font-bold text-[11px] shadow-sm flex-shrink-0">
-                                    14:30
-                                </div>
-                                <div class="flex flex-col flex-1 min-w-0">
-                                    <div class="flex items-center justify-between">
-                                        <span class="font-bold text-on-surface text-[12px] truncate">OC-2026-00410 •
-                                            Repuestos Críticos</span>
-                                        <span
-                                            class="text-[10px] bg-secondary-container text-on-secondary-fixed px-1.5 py-0.2 rounded font-bold">Lurín</span>
-                                    </div>
-                                    <span class="text-[11px] text-on-surface-variant truncate">Servicios &amp;
-                                        Suministros Industriales S.A.</span>
-                                    <div class="mt-2 flex items-center justify-between text-[10px]">
-                                        <span class="text-on-surface font-semibold">GR-T-001-9284 • 14 bultos</span>
-                                        <button
-                                            class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed rounded font-bold hover:bg-tertiary-fixed-dim">Iniciar
-                                            Check-in</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="bg-surface-container-low p-3.5 rounded-lg flex items-start gap-3">
-                                <div
-                                    class="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-on-surface font-bold text-[11px] shadow-sm flex-shrink-0">
-                                    17:00
-                                </div>
-                                <div class="flex flex-col flex-1 min-w-0">
-                                    <div class="flex items-center justify-between">
-                                        <span class="font-bold text-on-surface text-[12px] truncate">OC-2026-00412 •
-                                            Lote Maquinaria</span>
-                                        <span
-                                            class="text-[10px] bg-surface-container-high text-on-surface px-1.5 py-0.2 rounded font-bold">Callao</span>
-                                    </div>
-                                    <span class="text-[11px] text-on-surface-variant truncate">Importadora Global
-                                        Machinery S.A.C.</span>
-                                    <div class="mt-2 flex items-center justify-between text-[10px]">
-                                        <span class="text-on-surface font-semibold">T1-Containers • 2 unidades</span>
-                                        <span class="text-secondary font-bold">En rampa 03</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Resumen de Cadena de Aprobaciones -->
-                    <div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <h2
-                                    class="font-headline text-[14px] font-bold text-on-surface flex items-center gap-1.5">
-                                    <span
-                                        class="material-symbols-outlined text-[18px] text-primary-container">fact_check</span>
-                                    Matriz de Autorizaciones
-                                </h2>
-                                <span
-                                    class="text-[10px] font-bold bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full">Nivel
-                                    3 Activo</span>
-                            </div>
-                            <p class="text-[11px] text-on-surface-variant mb-3">
-                                Políticas corporativas de control presupuestal según escala monetaria.
-                            </p>
-                            <div class="flex flex-col gap-2 text-[11px]">
-                                <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-[#16A34A]"></span>
-                                        <span class="text-on-surface font-medium">Hasta S/ 15,000.00</span>
-                                    </div>
-                                    <span class="font-bold text-on-surface-variant">Jefe de Área (Autónomo)</span>
-                                </div>
-                                <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-tertiary"></span>
-                                        <span class="text-on-surface font-medium">S/ 15,001 - S/ 50,000</span>
-                                    </div>
-                                    <span class="font-bold text-on-surface-variant">Gerente de Compras</span>
-                                </div>
-                                <div class="flex items-center justify-between p-2 rounded bg-secondary-container/40">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-primary-container animate-ping"></span>
-                                        <span class="text-on-surface font-bold">Mayor a S/ 50,000.00</span>
-                                    </div>
-                                    <span class="font-bold text-primary-container">Gerente General + Finanzas</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div
-                            class="mt-3 pt-2.5 border-t border-surface-container-high flex items-center justify-between text-[11px]">
-                            <span class="text-on-surface-variant">Usuario: <strong class="text-on-surface">Admin
-                                    User</strong></span>
-                            <span class="text-[#16A34A] font-bold inline-flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">verified</span> Firma Digital
-                                Habilitada
-                            </span>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </main>
-    </div>
-</body>
+      views.forEach(function(v) {
+        const viewElem = document.getElementById('view-' + v);
+        if (viewElem) {
+          viewElem.classList.add('hidden');
+          viewElem.classList.remove('block');
+        }
 
-</html>
+        const btnElem = document.getElementById('nav-btn-' + v);
+        if (btnElem) {
+          btnElem.className = "w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-150 text-[#C1C7D0] hover:text-white hover:bg-[#1C2026] group";
+          const svg = btnElem.querySelector('svg');
+          if (svg) {
+            svg.className = "w-5 h-5 mr-3 text-[#8E95A2] group-hover:text-white transition-colors";
+          }
+        }
+      });
+
+      const targetView = document.getElementById('view-' + viewName);
+      if (targetView) {
+        targetView.classList.remove('hidden');
+        targetView.classList.add('block');
+      }
+
+      const activeBtn = document.getElementById('nav-btn-' + viewName);
+      if (activeBtn) {
+        activeBtn.className = "w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-150 bg-brandRed text-white shadow-sm group";
+        const activeSvg = activeBtn.querySelector('svg');
+        if (activeSvg) {
+          activeSvg.className = "w-5 h-5 mr-3 text-white transition-colors";
+        }
+      }
+
+      const breadcrumb = document.getElementById('header-breadcrumb');
+      const title = document.getElementById('header-title');
+
+      if (viewName === 'anadir') {
+        breadcrumb.textContent = "Añadir Compra";
+        title.textContent = "Nueva Factura de Compra";
+      } else if (viewName === 'listar') {
+        breadcrumb.textContent = "Listar Compras";
+        title.textContent = "Historial de Compras Registradas";
+        aplicarFiltrosCompras();
+      } else if (viewName === 'inventario') {
+        breadcrumb.textContent = "Registrar Inventario";
+        title.textContent = "Control Diario de Stock";
+      }
+    }
+
+    // ==========================================
+    // GESTIÓN DINÁMICA DE LA TABLA DE INSUMOS
+    // ==========================================
+    function formatearSoles(monto) {
+      return 'S/. ' + monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function recalcularTotales() {
+      const tbody = document.getElementById('tbody-items-compra');
+      if (!tbody) return;
+      const filas = tbody.querySelectorAll('.item-fila');
+      let totalGeneral = 0;
+
+      filas.forEach(fila => {
+        const inputCant = fila.querySelector('.item-cantidad');
+        const inputCosto = fila.querySelector('.item-costo');
+        const cellTotal = fila.querySelector('.item-total');
+
+        const cant = parseFloat(inputCant.value) || 0;
+        const costo = parseFloat(inputCosto.value) || 0;
+        const subFila = cant * costo;
+
+        cellTotal.textContent = formatearSoles(subFila);
+        totalGeneral += subFila;
+      });
+
+      const subtotal = totalGeneral / 1.18;
+      const igv = totalGeneral - subtotal;
+
+      const resTotal = document.getElementById('resumen-total');
+      const resSub = document.getElementById('resumen-subtotal');
+      const resIgv = document.getElementById('resumen-igv');
+
+      if (resTotal) resTotal.textContent = formatearSoles(totalGeneral);
+      if (resSub) resSub.textContent = formatearSoles(subtotal);
+      if (resIgv) resIgv.textContent = formatearSoles(igv);
+    }
+
+    function enlazarEventosFila(fila) {
+      const inputCant = fila.querySelector('.item-cantidad');
+      const inputCosto = fila.querySelector('.item-costo');
+      const btnEliminar = fila.querySelector('.btn-eliminar-item');
+      const inputNombre = fila.querySelector('.item-nombre');
+
+      if (inputCant) {
+        inputCant.addEventListener('input', recalcularTotales);
+      }
+      if (inputCosto) {
+        inputCosto.addEventListener('input', recalcularTotales);
+      }
+      if (inputNombre) {
+        inputNombre.addEventListener('input', function() {
+          inputNombre.classList.remove('input-error');
+        });
+      }
+
+      if (btnEliminar) {
+        btnEliminar.onclick = function() {
+          fila.remove();
+          recalcularTotales();
+        };
+      }
+    }
+
+    function agregarFilaItem() {
+      const tbody = document.getElementById('tbody-items-compra');
+      const tr = document.createElement('tr');
+      tr.className = 'item-fila';
+      tr.innerHTML = `
+        <td class="py-2.5 px-4">
+          <input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="">
+        </td>
+        <td class="py-2.5 px-4 text-center">
+          <select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+            <option selected value="kg">kg</option>
+            <option value="unid">unid</option>
+            <option value="litros">litros</option>
+            <option value="atados">atados</option>
+            <option value="latas">latas</option>
+          </select>
+        </td>
+        <td class="py-2.5 px-4 text-center">
+          <input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="1.0">
+        </td>
+        <td class="py-2.5 px-4 text-right">
+          <input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="0.00">
+        </td>
+        <td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 0.00</td>
+        <td class="py-2.5 px-3 text-center">
+          <button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+      enlazarEventosFila(tr);
+      recalcularTotales();
+
+      const nombreInput = tr.querySelector('.item-nombre');
+      if (nombreInput) nombreInput.focus();
+    }
+
+    function inicializarFilasExistentes() {
+      const tbody = document.getElementById('tbody-items-compra');
+      if (tbody) {
+        tbody.querySelectorAll('.item-fila').forEach(fila => {
+          enlazarEventosFila(fila);
+        });
+      }
+    }
+
+    // ==========================================
+    // MODALES Y VALIDACIÓN
+    // ==========================================
+    function mostrarModalError(msg) {
+      if (msg) {
+        document.getElementById('modal-error-msg').textContent = msg;
+      } else {
+        document.getElementById('modal-error-msg').textContent = "Por favor, complete todos los campos obligatorios y asegúrese de incluir al menos un insumo.";
+      }
+      document.getElementById('modal-error').classList.remove('hidden');
+    }
+
+    function mostrarModalGenerico(titulo, msg) {
+      document.getElementById('modal-gen-title').textContent = titulo;
+      document.getElementById('modal-gen-msg').innerHTML = msg;
+      document.getElementById('modal-generico').classList.remove('hidden');
+    }
+
+    function cerrarModal(idModal) {
+      const m = document.getElementById(idModal);
+      if (m) m.classList.add('hidden');
+    }
+
+    function cerrarModalExitoYReiniciar() {
+      cerrarModal('modal-exito');
+      limpiarFormularioCompra();
+    }
+
+    // Remover bordes de error al tipear
+    ['input-ruc', 'input-razon', 'input-comprobante', 'input-telefono'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', function() {
+          el.classList.remove('input-error');
+        });
+      }
+    });
+
+    function registrarCompra(event) {
+      event.preventDefault();
+
+      const obligatorios = [
+        { id: 'input-ruc', nombre: 'RUC del Proveedor' },
+        { id: 'input-razon', nombre: 'Razón Social' },
+        { id: 'input-comprobante', nombre: 'N° Comprobante' },
+        { id: 'input-telefono', nombre: 'Teléfono Contacto' }
+      ];
+
+      let camposValidos = true;
+      obligatorios.forEach(campo => {
+        const input = document.getElementById(campo.id);
+        if (!input || !input.value.trim()) {
+          camposValidos = false;
+          if (input) input.classList.add('input-error');
+        } else {
+          if (input) input.classList.remove('input-error');
+        }
+      });
+
+      const tbody = document.getElementById('tbody-items-compra');
+      const filas = tbody ? tbody.querySelectorAll('.item-fila') : [];
+      let insumosValidos = false;
+      let totalSuma = 0;
+
+      filas.forEach(fila => {
+        const nombre = (fila.querySelector('.item-nombre')?.value || '').trim();
+        const cant = parseFloat(fila.querySelector('.item-cantidad')?.value) || 0;
+        const costo = parseFloat(fila.querySelector('.item-costo')?.value) || 0;
+        const totalFila = cant * costo;
+        totalSuma += totalFila;
+
+        if (nombre !== '' && totalFila > 0) {
+          insumosValidos = true;
+        }
+      });
+
+      if (!camposValidos || filas.length === 0 || !insumosValidos) {
+        mostrarModalError("Por favor, complete todos los campos obligatorios y asegúrese de incluir al menos un insumo con cantidad y costo válidos.");
+        return;
+      }
+
+      document.getElementById('modal-exito-total').textContent = formatearSoles(totalSuma);
+      document.getElementById('modal-exito').classList.remove('hidden');
+    }
+
+    function limpiarFormularioCompra() {
+      const form = document.getElementById('form-compra');
+      if (form) form.reset();
+
+      ['input-ruc', 'input-razon', 'input-comprobante', 'input-telefono', 'input-correo', 'input-direccion'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.value = '';
+          el.classList.remove('input-error');
+        }
+      });
+
+      const tbody = document.getElementById('tbody-items-compra');
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr class="item-fila">
+            <td class="py-2.5 px-4">
+              <input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="Carne Lomo Fino">
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+                <option selected value="kg">kg</option>
+                <option value="unid">unid</option>
+                <option value="litros">litros</option>
+                <option value="atados">atados</option>
+                <option value="latas">latas</option>
+              </select>
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="25.0">
+            </td>
+            <td class="py-2.5 px-4 text-right">
+              <input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="48.00">
+            </td>
+            <td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 1,200.00</td>
+            <td class="py-2.5 px-3 text-center">
+              <button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+            </td>
+          </tr>
+          <tr class="item-fila">
+            <td class="py-2.5 px-4">
+              <input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="Pechuga de Pollo Fresca">
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+                <option selected value="kg">kg</option>
+                <option value="unid">unid</option>
+                <option value="litros">litros</option>
+                <option value="atados">atados</option>
+                <option value="latas">latas</option>
+              </select>
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="40.0">
+            </td>
+            <td class="py-2.5 px-4 text-right">
+              <input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="16.50">
+            </td>
+            <td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 660.00</td>
+            <td class="py-2.5 px-3 text-center">
+              <button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+            </td>
+          </tr>
+        `;
+        inicializarFilasExistentes();
+        recalcularTotales();
+      }
+    }
+
+    // =======================================================
+    // 1. INTERACCIONES Y EVENTOS EN "LISTAR COMPRAS"
+    // =======================================================
+    let periodoFiltroActual = 'todos';
+    let paginaActualCompras = 1;
+    const totalPaginasSimuladas = 3;
+
+    function filtrarPeriodo(periodo, btnElem) {
+      periodoFiltroActual = periodo;
+      const botones = document.querySelectorAll('#filtro-periodos-container .btn-periodo');
+      botones.forEach(b => {
+        b.className = "px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo";
+      });
+      if (btnElem) {
+        btnElem.className = "px-3 py-1.5 rounded-md bg-brandBlack text-white font-semibold shadow-xs transition-colors btn-periodo";
+      }
+      aplicarFiltrosCompras();
+    }
+
+    function aplicarFiltrosCompras() {
+      const inputBusqueda = document.getElementById('input-busqueda-compras');
+      const selectTipo = document.getElementById('filtro-tipo-busqueda');
+      if (!inputBusqueda || !selectTipo) return;
+
+      const termino = inputBusqueda.value.trim().toLowerCase();
+      const criterio = selectTipo.value; // 'razon', 'ruc', 'comprobante'
+
+      const filas = document.querySelectorAll('#tbody-compras-lista .fila-compra');
+      let visibles = 0;
+
+      filas.forEach(fila => {
+        const razon = (fila.getAttribute('data-razon') || '').toLowerCase();
+        const ruc = (fila.getAttribute('data-ruc') || '').toLowerCase();
+        const comprobante = (fila.getAttribute('data-comprobante') || '').toLowerCase();
+        const periodoFila = fila.getAttribute('data-periodo') || 'mes';
+
+        // 1. Filtro de periodo
+        let coincidePeriodo = true;
+        if (periodoFiltroActual === 'hoy') {
+          coincidePeriodo = (periodoFila === 'hoy');
+        } else if (periodoFiltroActual === 'semana') {
+          coincidePeriodo = (periodoFila === 'hoy' || periodoFila === 'semana');
+        } else if (periodoFiltroActual === 'mes' || periodoFiltroActual === 'todos') {
+          coincidePeriodo = true;
+        }
+
+        // 2. Filtro de texto por criterio
+        let coincideTexto = true;
+        if (termino !== '') {
+          if (criterio === 'razon') {
+            coincideTexto = razon.includes(termino);
+          } else if (criterio === 'ruc') {
+            coincideTexto = ruc.includes(termino);
+          } else if (criterio === 'comprobante') {
+            coincideTexto = comprobante.includes(termino);
+          }
+        }
+
+        if (coincidePeriodo && coincideTexto) {
+          fila.style.display = '';
+          visibles++;
+        } else {
+          fila.style.display = 'none';
+        }
+      });
+
+      // Actualizar contador
+      const contadorText = document.getElementById('texto-paginacion-compras');
+      if (contadorText) {
+        if (termino !== '' || periodoFiltroActual !== 'todos') {
+          contadorText.textContent = `Mostrando ${visibles} registro(s) encontrado(s)`;
+        } else {
+          actualizarPaginacionVisual();
+        }
+      }
+    }
+
+    // Paginación de Listar Compras
+    function irAPagina(numPagina) {
+      paginaActualCompras = numPagina;
+      actualizarPaginacionVisual();
+    }
+
+    function cambiarPagina(direccion) {
+      if (direccion === 'anterior' && paginaActualCompras > 1) {
+        paginaActualCompras--;
+      } else if (direccion === 'siguiente' && paginaActualCompras < totalPaginasSimuladas) {
+        paginaActualCompras++;
+      }
+      actualizarPaginacionVisual();
+    }
+
+    function actualizarPaginacionVisual() {
+      const btnAnterior = document.getElementById('btn-pag-anterior');
+      const btnSiguiente = document.getElementById('btn-pag-siguiente');
+      const botonesNum = document.querySelectorAll('#contenedor-paginacion-compras .btn-pag-num');
+      const textoPaginacion = document.getElementById('texto-paginacion-compras');
+
+      // Botón anterior
+      if (btnAnterior) {
+        if (paginaActualCompras === 1) {
+          btnAnterior.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack/40 rounded text-xs font-semibold cursor-not-allowed transition-colors";
+        } else {
+          btnAnterior.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors cursor-pointer";
+        }
+      }
+
+      // Botón siguiente
+      if (btnSiguiente) {
+        if (paginaActualCompras === totalPaginasSimuladas) {
+          btnSiguiente.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack/40 rounded text-xs font-semibold cursor-not-allowed transition-colors";
+        } else {
+          btnSiguiente.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors cursor-pointer";
+        }
+      }
+
+      // Botones numéricos
+      botonesNum.forEach(btn => {
+        const pag = parseInt(btn.getAttribute('data-pagina'), 10);
+        if (pag === paginaActualCompras) {
+          btn.className = "px-3 py-1.5 bg-brandBlack text-white rounded text-xs font-semibold transition-colors btn-pag-num";
+        } else {
+          btn.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors btn-pag-num";
+        }
+      });
+
+      // Texto
+      if (textoPaginacion) {
+        const inicio = (paginaActualCompras - 1) * 15 + 1;
+        const fin = Math.min(paginaActualCompras * 15, 45);
+        textoPaginacion.textContent = `Mostrando ${inicio}-${fin} de 45 registros`;
+      }
+    }
+
+    // Modal de Detalle de Compra
+    function abrirModalDetalleCompra(boton) {
+      const fila = boton.closest('tr');
+      if (!fila) return;
+
+      const razon = fila.getAttribute('data-razon') || 'Distribuidora Carnes del Norte S.A.C.';
+      const ruc = fila.getAttribute('data-ruc') || '20551982731';
+      const comprobante = fila.getAttribute('data-comprobante') || 'F001-0004819';
+      const fecha = fila.getAttribute('data-fecha') || '24/10/2024 10:14';
+      const totalNum = parseFloat(fila.getAttribute('data-total')) || 3420.00;
+
+      // Desglose simulado coherente con el tipo de proveedor
+      let itemsSimulados = [];
+      const subtotal = totalNum / 1.18;
+      const igv = totalNum - subtotal;
+
+      if (razon.toLowerCase().includes('carnes') || razon.toLowerCase().includes('res')) {
+        itemsSimulados = [
+          { insumo: 'Lomo Fino Argentino Premium', unidad: 'KG', cant: (totalNum * 0.015).toFixed(1), unit: 48.00 },
+          { insumo: 'Bife Angosto para Parrilla', unidad: 'KG', cant: (totalNum * 0.012).toFixed(1), unit: 38.00 }
+        ];
+      } else if (razon.toLowerCase().includes('avícola') || razon.toLowerCase().includes('pollo') || razon.toLowerCase().includes('chimú')) {
+        itemsSimulados = [
+          { insumo: 'Pollo Fresco Entero Eviscerado', unidad: 'UND', cant: (totalNum * 0.035).toFixed(0), unit: 18.50 },
+          { insumo: 'Filete de Pechuga Especial', unidad: 'KG', cant: (totalNum * 0.02).toFixed(1), unit: 16.50 }
+        ];
+      } else if (razon.toLowerCase().includes('verdura') || razon.toLowerCase().includes('hortaliza') || razon.toLowerCase().includes('fruta')) {
+        itemsSimulados = [
+          { insumo: 'Cebolla Roja Seleccionada', unidad: 'KG', cant: '120.0', unit: 3.50 },
+          { insumo: 'Tomate Chonto Fresco', unidad: 'KG', cant: '90.0', unit: 4.20 },
+          { insumo: 'Limón Sutil Norteño', unidad: 'KG', cant: '45.0', unit: 5.00 }
+        ];
+      } else {
+        itemsSimulados = [
+          { insumo: 'Insumo Operativo de Cocina / Stock', unidad: 'UND', cant: '10.0', unit: (subtotal / 10).toFixed(2) }
+        ];
+      }
+
+      // Rellenar cabecera modal
+      document.getElementById('det-empresa').textContent = razon;
+      document.getElementById('det-ruc').textContent = ruc;
+      document.getElementById('det-comprobante').textContent = comprobante;
+      document.getElementById('det-fecha').textContent = fecha;
+      document.getElementById('modal-detalle-subtitulo').textContent = `Comprobante ${comprobante} emitido a Los Betos`;
+
+      // Rellenar tabla insumos
+      const tbody = document.getElementById('det-tabla-insumos');
+      if (tbody) {
+        tbody.innerHTML = '';
+        itemsSimulados.forEach(item => {
+          const subItem = parseFloat(item.cant) * parseFloat(item.unit);
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-brandBlack/[0.02]';
+          tr.innerHTML = `
+            <td class="py-2 px-3 font-medium text-brandBlack">${item.insumo}</td>
+            <td class="py-2 px-3 text-center text-brandBlack/70 font-semibold">${item.unidad}</td>
+            <td class="py-2 px-3 text-center font-mono">${item.cant}</td>
+            <td class="py-2 px-3 text-right font-mono">S/. ${parseFloat(item.unit).toFixed(2)}</td>
+            <td class="py-2 px-3 text-right font-semibold text-brandBlack font-mono">S/. ${subItem.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Rellenar totales
+      document.getElementById('det-subtotal').textContent = formatearSoles(subtotal);
+      document.getElementById('det-igv').textContent = formatearSoles(igv);
+      document.getElementById('det-total').textContent = formatearSoles(totalNum);
+
+      // Mostrar modal
+      const modalDetalle = document.getElementById('modal-detalle-compra');
+      if (modalDetalle) modalDetalle.classList.remove('hidden');
+    }
+
+    function cerrarModalDetalleBackdrop(event) {
+      if (event.target.id === 'modal-detalle-compra') {
+        cerrarModal('modal-detalle-compra');
+      }
+    }
+
+    // =======================================================
+    // 2. INTERACCIONES Y EVENTOS EN "REGISTRAR INVENTARIO"
+    // =======================================================
+    function actualizarEstadoFila(inputModificado) {
+      const tr = inputModificado.closest('tr');
+      if (!tr) return;
+      const inputFisico = tr.querySelector('.input-fisico');
+      const inputMin = tr.querySelector('.input-min');
+      const tdEstado = tr.querySelector('.td-estado');
+
+      const fisico = parseFloat(inputFisico.value) || 0;
+      const minimo = parseFloat(inputMin.value) || 0;
+
+      if (fisico < minimo) {
+        inputFisico.className = "input-fisico w-24 px-2 py-1.5 text-center bg-white border border-[#FF4D2E] rounded-lg text-xs font-bold text-[#FF4D2E] transition-all";
+        tdEstado.innerHTML = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#FAD2CF] bg-[#FCE8E6] text-[#C5221F]"><span class="w-1.5 h-1.5 rounded-full bg-[#FF4D2E] mr-1.5"></span>Bajo Stock</span>';
+      } else {
+        inputFisico.className = "input-fisico w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all";
+        tdEstado.innerHTML = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#CEEAD6] bg-[#E6F4EA] text-[#137333]"><span class="w-1.5 h-1.5 rounded-full bg-[#137333] mr-1.5"></span>Óptimo</span>';
+      }
+    }
+
+    let timerToastInventario = null;
+    function guardarInventario() {
+      const toast = document.getElementById('toast-inventario');
+      if (!toast) return;
+
+      // Animar entrada del toast
+      toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      if (timerToastInventario) clearTimeout(timerToastInventario);
+
+      // Ocultar automáticamente tras 4 segundos
+      timerToastInventario = setTimeout(function() {
+        ocultarToastInventario();
+      }, 4000);
+    }
+
+    function ocultarToastInventario() {
+      const toast = document.getElementById('toast-inventario');
+      if (!toast) return;
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+    }
+
+    // Inicialización al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+      inicializarFilasExistentes();
+      recalcularTotales();
+
+      // Enlazar listeners para inputs de inventario
+      const inputsFisicos = document.querySelectorAll('.input-fisico, .input-min');
+      inputsFisicos.forEach(inp => {
+        inp.addEventListener('input', function() {
+          actualizarEstadoFila(this);
+        });
+        inp.addEventListener('change', function() {
+          actualizarEstadoFila(this);
+        });
+      });
+    });
+  </script>
+
+
+</body></html>
