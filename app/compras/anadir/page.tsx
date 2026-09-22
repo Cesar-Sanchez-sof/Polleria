@@ -1,8 +1,9 @@
-export default function CajaPage() {
+
+const AnadirCompra = () => {
     return (
         <iframe
-            src="/caja.html"
-            title="Caja y Cobro"
+            src="/comprasAnadir.html"
+            title="Página de ventas"
             style={{
                 width: "100%",
                 height: "100vh",
@@ -11,3 +12,5 @@ export default function CajaPage() {
         />
     );
 }
+
+export default AnadirCompra;

@@ -1,8 +1,8 @@
-export default function MesasPage() {
+export default function CajaPage() {
     return (
         <iframe
-            src="/mesas.html"
-            title="Salón y Mesas"
+            src="/restauranteCaja.html"
+            title="Caja y Cobro"
             style={{
                 width: "100%",
                 height: "100vh",

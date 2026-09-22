@@ -1,0 +1,936 @@
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Los Betos - Compras e Inventario</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandRed: '#FF4D2E',
+            brandOrange: '#FF9F1C',
+            brandBlack: '#121417',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #FFFFFF;
+      color: #121417;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #FF4D2E !important;
+      box-shadow: 0 0 0 1px #FF4D2E !important;
+    }
+
+    .input-error {
+      border-color: #FF4D2E !important;
+      background-color: #FFF5F5 !important;
+    }
+  </style>
+</head>
+
+<iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
+
+<section class="pl-64 min-h-screen" id="view">
+  <div class="p-7 space-y-6 relative">
+    <!-- Header de sección con buscador y filtros rápidos -->
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold text-brandBlack">Historial de Compras y Facturas</h3>
+      </div>
+      <div class="flex items-center justify-between gap-4 w-full flex-wrap xl:flex-nowrap">
+        <div class="inline-flex rounded-lg border border-brandBlack/15 p-0.5 bg-[#FAFAFA] text-xs font-medium"
+          id="filtro-periodos-container"><button
+            class="px-3 py-1.5 rounded-md bg-brandBlack text-white font-semibold shadow-xs transition-colors btn-periodo"
+            data-periodo="todos" onclick="filtrarPeriodo('todos', this)">Todos</button><button
+            class="px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo"
+            data-periodo="hoy" onclick="filtrarPeriodo('hoy', this)">Hoy</button><button
+            class="px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo"
+            data-periodo="semana" onclick="filtrarPeriodo('semana', this)">Esta semana</button><button
+            class="px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo"
+            data-periodo="mes" onclick="filtrarPeriodo('mes', this)">Este mes</button></div>
+        <div class="flex items-center space-x-2 bg-white border border-brandBlack/20 rounded-lg px-3 py-1.5 text-xs">
+          <div class="flex items-center space-x-1.5"><span
+              class="text-[11px] font-semibold text-brandBlack/60">Desde:</span><input
+              class="bg-transparent text-xs text-brandBlack font-medium border-0 focus:ring-0 p-0" type="date"
+              value="2024-10-01"></div><span class="text-brandBlack/30">—</span>
+          <div class="flex items-center space-x-1.5"><span
+              class="text-[11px] font-semibold text-brandBlack/60">Hasta:</span><input
+              class="bg-transparent text-xs text-brandBlack font-medium border-0 focus:ring-0 p-0" type="date"
+              value="2024-10-24"></div>
+        </div>
+        <div class="flex items-center border border-brandBlack/20 rounded-lg bg-white overflow-hidden shadow-xs">
+          <select
+            class="bg-[#FAFAFA] border-r border-brandBlack/15 text-xs text-brandBlack font-medium px-2.5 py-2 hover:bg-brandBlack/5 transition-colors cursor-pointer"
+            id="filtro-tipo-busqueda" onchange="aplicarFiltrosCompras()">
+            <option selected="" value="razon">Razón Social</option>
+            <option value="ruc">RUC</option>
+            <option value="comprobante">N° Comprobante</option>
+          </select>
+          <div class="relative flex items-center flex-1"><span
+              class="absolute left-2.5 pointer-events-none text-brandBlack/40"><svg class="w-3.5 h-3.5" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="2"></path>
+              </svg></span><input
+              class="w-60 pl-8 pr-3 py-2 text-xs text-brandBlack placeholder:text-brandBlack/40 border-0 focus:outline-none"
+              id="input-busqueda-compras" oninput="aplicarFiltrosCompras()" placeholder="Ingrese término de búsqueda..."
+              type="text"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Tabla Elegante de Compras -->
+    <div class="bg-white border border-brandBlack/10 rounded-xl overflow-hidden shadow-sm flex flex-col">
+      <div class="overflow-x-auto max-h-[460px] overflow-y-auto">
+        <table class="w-full text-left text-xs border-collapse" id="tabla-compras-historial">
+          <thead class="sticky top-0 bg-white z-10 shadow-sm">
+            <tr
+              class="border-b border-brandBlack/10 bg-[#FAFAFA] text-brandBlack/70 uppercase tracking-wider font-semibold">
+              <th class="py-3.5 px-6">Fecha de Creación</th>
+              <th class="py-3.5 px-6">Razón Social del Proveedor</th>
+              <th class="py-3.5 px-6 text-right">Total (S/.)</th>
+              <th class="py-3.5 px-6 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-brandBlack/10 font-normal" id="tbody-compras-lista">
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0004819"
+              data-fecha="24/10/2024 10:14" data-periodo="hoy" data-razon="Distribuidora Carnes del Norte S.A.C."
+              data-ruc="20551982731" data-total="3420.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">24/10/2024 10:14</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Distribuidora Carnes del Norte S.A.C.</div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20551982731 | Comp.:
+                  F001-0004819</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 3,420.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F002-0003120"
+              data-fecha="23/10/2024 18:30" data-periodo="semana" data-razon="Avícola El Valle E.I.R.L."
+              data-ruc="20491827364" data-total="890.50">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">23/10/2024 18:30</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Avícola El Valle E.I.R.L.</div>
+                <div class="text-[11px] text-brandBlack/50">Moche, Trujillo | RUC: 20491827364 | Comp.:
+                  F002-0003120
+                </div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 890.50</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F003-0009812"
+              data-fecha="23/10/2024 09:12" data-periodo="semana"
+              data-razon="Comercializadora Agroindustrial La Libertad S.A." data-ruc="20100154308" data-total="2150.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">23/10/2024 09:12</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Comercializadora Agroindustrial La Libertad S.A.
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20100154308 | Comp.:
+                  F003-0009812</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 2,150.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="B001-0001452"
+              data-fecha="22/10/2024 16:40" data-periodo="semana"
+              data-razon="Verduras Mayorista Mayorazgo - Mercado Hermelinda" data-ruc="20603847291"
+              data-total="1640.20">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">22/10/2024 16:40</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Verduras Mayorista Mayorazgo - Mercado Hermelinda
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20603847291 | Comp.:
+                  B001-0001452</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,640.20</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0012903"
+              data-fecha="21/10/2024 11:05" data-periodo="semana"
+              data-razon="Distribuidora de Abarrotes Santa María S.A.C." data-ruc="20100055237" data-total="480.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">21/10/2024 11:05</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Distribuidora de Abarrotes Santa María S.A.C.
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20100055237 | Comp.:
+                  F001-0012903</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 480.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F004-0005218"
+              data-fecha="20/10/2024 14:22" data-periodo="mes"
+              data-razon="Lácteos del Norte Cajamarca - Trujillo S.R.L." data-ruc="20100190797" data-total="730.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">20/10/2024 14:22</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Lácteos del Norte Cajamarca - Trujillo S.R.L.
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20100190797 | Comp.:
+                  F004-0005218</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 730.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="B002-0002890"
+              data-fecha="19/10/2024 08:50" data-periodo="mes"
+              data-razon="Empacadora y Granos El Sol S.A.C. - La Hermelinda" data-ruc="20481920391"
+              data-total="1120.40">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">19/10/2024 08:50</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Empacadora y Granos El Sol S.A.C. - La Hermelinda
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20481920391 | Comp.:
+                  B002-0002890</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,120.40</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0089201"
+              data-fecha="18/10/2024 17:15" data-periodo="mes" data-razon="Avícola y Embutidos Chimú S.A."
+              data-ruc="20132049102" data-total="4890.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">18/10/2024 17:15</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Avícola y Embutidos Chimú S.A.</div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20132049102 | Comp.:
+                  F001-0089201</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 4,890.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F002-0001092"
+              data-fecha="18/10/2024 10:30" data-periodo="mes" data-razon="Agropecuaria San Pedro de Lloc E.I.R.L."
+              data-ruc="20558192034" data-total="1940.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">18/10/2024 10:30</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Agropecuaria San Pedro de Lloc E.I.R.L.</div>
+                <div class="text-[11px] text-brandBlack/50">La Libertad | RUC: 20558192034 | Comp.:
+                  F002-0001092
+                </div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,940.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0007321"
+              data-fecha="17/10/2024 15:45" data-periodo="mes"
+              data-razon="Comercializadora de Hortalizas Víctor Larco S.A.C." data-ruc="20381920491"
+              data-total="520.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">17/10/2024 15:45</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Comercializadora de Hortalizas Víctor Larco
+                  S.A.C.</div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20381920491 | Comp.:
+                  F001-0007321</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 520.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F003-0004192"
+              data-fecha="16/10/2024 12:10" data-periodo="mes" data-razon="Frutas y Cítricos Laredo E.I.R.L."
+              data-ruc="20601928374" data-total="2310.80">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">16/10/2024 12:10</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Frutas y Cítricos Laredo E.I.R.L.</div>
+                <div class="text-[11px] text-brandBlack/50">Laredo, Trujillo | RUC: 20601928374 | Comp.:
+                  F003-0004192</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 2,310.80</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0010928"
+              data-fecha="15/10/2024 19:00" data-periodo="mes"
+              data-razon="Distribuidora de Huevos y Aves Huanchaco S.A." data-ruc="20492817203" data-total="1850.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">15/10/2024 19:00</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Distribuidora de Huevos y Aves Huanchaco S.A.
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20492817203 | Comp.:
+                  F001-0010928</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,850.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="B001-0003892"
+              data-fecha="15/10/2024 08:20" data-periodo="mes"
+              data-razon="Especias y Condimentos Norteños S.A.C. - Mercado Central" data-ruc="20519283019"
+              data-total="640.50">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">15/10/2024 08:20</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Especias y Condimentos Norteños S.A.C. - Mercado
+                  Central
+                </div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20519283019 | Comp.:
+                  B001-0003892</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 640.50</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F002-0006741"
+              data-fecha="14/10/2024 16:30" data-periodo="mes" data-razon="Distribuidora de Aceites y Grasas Virú S.A."
+              data-ruc="20291823901" data-total="1430.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">14/10/2024 16:30</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Distribuidora de Aceites y Grasas Virú S.A.</div>
+                <div class="text-[11px] text-brandBlack/50">Virú - Trujillo | RUC: 20291823901 | Comp.:
+                  F002-0006741
+                </div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 1,430.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+            <tr class="fila-compra hover:bg-brandBlack/[0.02] transition-colors" data-comprobante="F001-0003310"
+              data-fecha="13/10/2024 11:15" data-periodo="mes" data-razon="Bebidas y Licores La Libertad S.R.L."
+              data-ruc="20401928471" data-total="395.00">
+              <td class="py-3.5 px-6 text-brandBlack/70 font-mono">13/10/2024 11:15</td>
+              <td class="py-3.5 px-6">
+                <div class="font-semibold text-brandBlack">Bebidas y Licores La Libertad S.R.L.</div>
+                <div class="text-[11px] text-brandBlack/50">Trujillo | RUC: 20401928471 | Comp.:
+                  F001-0003310</div>
+              </td>
+              <td class="py-3.5 px-6 text-right font-semibold text-brandBlack">S/. 395.00</td>
+              <td class="py-3.5 px-6 text-center">
+                <button
+                  class="btn-ver-detalle-compra px-3 py-1 rounded border border-brandBlack/20 text-brandBlack hover:border-brandRed hover:text-brandRed text-[11px] font-medium transition-colors"
+                  onclick="abrirModalDetalleCompra(this)">Ver Detalle</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Paginación fija en el pie de la tabla -->
+      <div
+        class="px-6 py-4 border-t border-brandBlack/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#FAFAFA]">
+        <span class="text-xs text-brandBlack/60 font-medium" id="texto-paginacion-compras">Mostrando 1-15 de 45
+          registros</span>
+        <div class="flex items-center space-x-2" id="contenedor-paginacion-compras">
+          <button
+            class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack/40 rounded text-xs font-semibold cursor-not-allowed transition-colors"
+            id="btn-pag-anterior" onclick="cambiarPagina('anterior')">Anterior</button>
+          <button
+            class="px-3 py-1.5 bg-brandBlack text-white rounded text-xs font-semibold transition-colors btn-pag-num"
+            data-pagina="1" onclick="irAPagina(1)">1</button>
+          <button
+            class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors btn-pag-num"
+            data-pagina="2" onclick="irAPagina(2)">2</button>
+          <button
+            class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors btn-pag-num"
+            data-pagina="3" onclick="irAPagina(3)">3</button>
+          <button
+            class="px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors"
+            id="btn-pag-siguiente" onclick="cambiarPagina('siguiente')">Siguiente</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+
+  // ==========================================
+  // GESTIÓN DINÁMICA DE LA TABLA DE INSUMOS
+  // ==========================================
+  function formatearSoles(monto) {
+    return 'S/. ' + monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function recalcularTotales() {
+    const tbody = document.getElementById('tbody-items-compra');
+    if (!tbody) return;
+    const filas = tbody.querySelectorAll('.item-fila');
+    let totalGeneral = 0;
+
+    filas.forEach(fila => {
+      const inputCant = fila.querySelector('.item-cantidad');
+      const inputCosto = fila.querySelector('.item-costo');
+      const cellTotal = fila.querySelector('.item-total');
+
+      const cant = parseFloat(inputCant.value) || 0;
+      const costo = parseFloat(inputCosto.value) || 0;
+      const subFila = cant * costo;
+
+      cellTotal.textContent = formatearSoles(subFila);
+      totalGeneral += subFila;
+    });
+
+    const subtotal = totalGeneral / 1.18;
+    const igv = totalGeneral - subtotal;
+
+    const resTotal = document.getElementById('resumen-total');
+    const resSub = document.getElementById('resumen-subtotal');
+    const resIgv = document.getElementById('resumen-igv');
+
+    if (resTotal) resTotal.textContent = formatearSoles(totalGeneral);
+    if (resSub) resSub.textContent = formatearSoles(subtotal);
+    if (resIgv) resIgv.textContent = formatearSoles(igv);
+  }
+
+  function enlazarEventosFila(fila) {
+    const inputCant = fila.querySelector('.item-cantidad');
+    const inputCosto = fila.querySelector('.item-costo');
+    const btnEliminar = fila.querySelector('.btn-eliminar-item');
+    const inputNombre = fila.querySelector('.item-nombre');
+
+    if (inputCant) {
+      inputCant.addEventListener('input', recalcularTotales);
+    }
+    if (inputCosto) {
+      inputCosto.addEventListener('input', recalcularTotales);
+    }
+    if (inputNombre) {
+      inputNombre.addEventListener('input', function () {
+        inputNombre.classList.remove('input-error');
+      });
+    }
+
+    if (btnEliminar) {
+      btnEliminar.onclick = function () {
+        fila.remove();
+        recalcularTotales();
+      };
+    }
+  }
+
+  function agregarFilaItem() {
+    const tbody = document.getElementById('tbody-items-compra');
+    const tr = document.createElement('tr');
+    tr.className = 'item-fila';
+    tr.innerHTML = `
+        <td class="py-2.5 px-4">
+          <input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="">
+        </td>
+        <td class="py-2.5 px-4 text-center">
+          <select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+            <option selected value="kg">kg</option>
+            <option value="unid">unid</option>
+            <option value="litros">litros</option>
+            <option value="atados">atados</option>
+            <option value="latas">latas</option>
+          </select>
+        </td>
+        <td class="py-2.5 px-4 text-center">
+          <input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="1.0">
+        </td>
+        <td class="py-2.5 px-4 text-right">
+          <input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="0.00">
+        </td>
+        <td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 0.00</td>
+        <td class="py-2.5 px-3 text-center">
+          <button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+        </td>
+      `;
+
+    tbody.appendChild(tr);
+    enlazarEventosFila(tr);
+    recalcularTotales();
+
+    const nombreInput = tr.querySelector('.item-nombre');
+    if (nombreInput) nombreInput.focus();
+  }
+
+  function inicializarFilasExistentes() {
+    const tbody = document.getElementById('tbody-items-compra');
+    if (tbody) {
+      tbody.querySelectorAll('.item-fila').forEach(fila => {
+        enlazarEventosFila(fila);
+      });
+    }
+  }
+
+  // ==========================================
+  // MODALES Y VALIDACIÓN
+  // ==========================================
+  function mostrarModalError(msg) {
+    if (msg) {
+      document.getElementById('modal-error-msg').textContent = msg;
+    } else {
+      document.getElementById('modal-error-msg').textContent = "Por favor, complete todos los campos obligatorios y asegúrese de incluir al menos un insumo.";
+    }
+    document.getElementById('modal-error').classList.remove('hidden');
+  }
+
+  function mostrarModalGenerico(titulo, msg) {
+    document.getElementById('modal-gen-title').textContent = titulo;
+    document.getElementById('modal-gen-msg').innerHTML = msg;
+    document.getElementById('modal-generico').classList.remove('hidden');
+  }
+
+  function cerrarModal(idModal) {
+    const m = document.getElementById(idModal);
+    if (m) m.classList.add('hidden');
+  }
+
+  function cerrarModalExitoYReiniciar() {
+    cerrarModal('modal-exito');
+    limpiarFormularioCompra();
+  }
+
+  // Remover bordes de error al tipear
+  ['input-ruc', 'input-razon', 'input-comprobante', 'input-telefono'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', function () {
+        el.classList.remove('input-error');
+      });
+    }
+  });
+
+  function registrarCompra(event) {
+    event.preventDefault();
+
+    const obligatorios = [
+      { id: 'input-ruc', nombre: 'RUC del Proveedor' },
+      { id: 'input-razon', nombre: 'Razón Social' },
+      { id: 'input-comprobante', nombre: 'N° Comprobante' },
+      { id: 'input-telefono', nombre: 'Teléfono Contacto' }
+    ];
+
+    let camposValidos = true;
+    obligatorios.forEach(campo => {
+      const input = document.getElementById(campo.id);
+      if (!input || !input.value.trim()) {
+        camposValidos = false;
+        if (input) input.classList.add('input-error');
+      } else {
+        if (input) input.classList.remove('input-error');
+      }
+    });
+
+    const tbody = document.getElementById('tbody-items-compra');
+    const filas = tbody ? tbody.querySelectorAll('.item-fila') : [];
+    let insumosValidos = false;
+    let totalSuma = 0;
+
+    filas.forEach(fila => {
+      const nombre = (fila.querySelector('.item-nombre')?.value || '').trim();
+      const cant = parseFloat(fila.querySelector('.item-cantidad')?.value) || 0;
+      const costo = parseFloat(fila.querySelector('.item-costo')?.value) || 0;
+      const totalFila = cant * costo;
+      totalSuma += totalFila;
+
+      if (nombre !== '' && totalFila > 0) {
+        insumosValidos = true;
+      }
+    });
+
+    if (!camposValidos || filas.length === 0 || !insumosValidos) {
+      mostrarModalError("Por favor, complete todos los campos obligatorios y asegúrese de incluir al menos un insumo con cantidad y costo válidos.");
+      return;
+    }
+
+    document.getElementById('modal-exito-total').textContent = formatearSoles(totalSuma);
+    document.getElementById('modal-exito').classList.remove('hidden');
+  }
+
+  function limpiarFormularioCompra() {
+    const form = document.getElementById('form-compra');
+    if (form) form.reset();
+
+    ['input-ruc', 'input-razon', 'input-comprobante', 'input-telefono', 'input-correo', 'input-direccion'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.value = '';
+        el.classList.remove('input-error');
+      }
+    });
+
+    const tbody = document.getElementById('tbody-items-compra');
+    if (tbody) {
+      tbody.innerHTML = `
+          <tr class="item-fila">
+            <td class="py-2.5 px-4">
+              <input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="Carne Lomo Fino">
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+                <option selected value="kg">kg</option>
+                <option value="unid">unid</option>
+                <option value="litros">litros</option>
+                <option value="atados">atados</option>
+                <option value="latas">latas</option>
+              </select>
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="25.0">
+            </td>
+            <td class="py-2.5 px-4 text-right">
+              <input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="48.00">
+            </td>
+            <td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 1,200.00</td>
+            <td class="py-2.5 px-3 text-center">
+              <button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+            </td>
+          </tr>
+          <tr class="item-fila">
+            <td class="py-2.5 px-4">
+              <input class="item-nombre w-full px-2.5 py-1.5 border border-brandBlack/20 rounded text-xs" placeholder="Ej. Cebolla Roja" type="text" value="Pechuga de Pollo Fresca">
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <select class="item-unidad w-full px-2 py-1.5 border border-brandBlack/20 rounded text-xs bg-white text-brandBlack">
+                <option selected value="kg">kg</option>
+                <option value="unid">unid</option>
+                <option value="litros">litros</option>
+                <option value="atados">atados</option>
+                <option value="latas">latas</option>
+              </select>
+            </td>
+            <td class="py-2.5 px-4 text-center">
+              <input class="item-cantidad w-20 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-center" min="0" step="0.1" type="number" value="40.0">
+            </td>
+            <td class="py-2.5 px-4 text-right">
+              <input class="item-costo w-28 px-2 py-1.5 border border-brandBlack/20 rounded text-xs text-right" min="0" step="0.1" type="number" value="16.50">
+            </td>
+            <td class="item-total py-2.5 px-4 text-right font-bold text-brandBlack">S/. 660.00</td>
+            <td class="py-2.5 px-3 text-center">
+              <button class="btn-eliminar-item text-brandBlack/30 hover:text-brandRed" title="Quitar" type="button">✕</button>
+            </td>
+          </tr>
+        `;
+      inicializarFilasExistentes();
+      recalcularTotales();
+    }
+  }
+
+  // =======================================================
+  // 1. INTERACCIONES Y EVENTOS EN "LISTAR COMPRAS"
+  // =======================================================
+  let periodoFiltroActual = 'todos';
+  let paginaActualCompras = 1;
+  const totalPaginasSimuladas = 3;
+
+  function filtrarPeriodo(periodo, btnElem) {
+    periodoFiltroActual = periodo;
+    const botones = document.querySelectorAll('#filtro-periodos-container .btn-periodo');
+    botones.forEach(b => {
+      b.className = "px-3 py-1.5 rounded-md text-brandBlack/70 hover:text-brandBlack transition-colors btn-periodo";
+    });
+    if (btnElem) {
+      btnElem.className = "px-3 py-1.5 rounded-md bg-brandBlack text-white font-semibold shadow-xs transition-colors btn-periodo";
+    }
+    aplicarFiltrosCompras();
+  }
+
+  function aplicarFiltrosCompras() {
+    const inputBusqueda = document.getElementById('input-busqueda-compras');
+    const selectTipo = document.getElementById('filtro-tipo-busqueda');
+    if (!inputBusqueda || !selectTipo) return;
+
+    const termino = inputBusqueda.value.trim().toLowerCase();
+    const criterio = selectTipo.value; // 'razon', 'ruc', 'comprobante'
+
+    const filas = document.querySelectorAll('#tbody-compras-lista .fila-compra');
+    let visibles = 0;
+
+    filas.forEach(fila => {
+      const razon = (fila.getAttribute('data-razon') || '').toLowerCase();
+      const ruc = (fila.getAttribute('data-ruc') || '').toLowerCase();
+      const comprobante = (fila.getAttribute('data-comprobante') || '').toLowerCase();
+      const periodoFila = fila.getAttribute('data-periodo') || 'mes';
+
+      // 1. Filtro de periodo
+      let coincidePeriodo = true;
+      if (periodoFiltroActual === 'hoy') {
+        coincidePeriodo = (periodoFila === 'hoy');
+      } else if (periodoFiltroActual === 'semana') {
+        coincidePeriodo = (periodoFila === 'hoy' || periodoFila === 'semana');
+      } else if (periodoFiltroActual === 'mes' || periodoFiltroActual === 'todos') {
+        coincidePeriodo = true;
+      }
+
+      // 2. Filtro de texto por criterio
+      let coincideTexto = true;
+      if (termino !== '') {
+        if (criterio === 'razon') {
+          coincideTexto = razon.includes(termino);
+        } else if (criterio === 'ruc') {
+          coincideTexto = ruc.includes(termino);
+        } else if (criterio === 'comprobante') {
+          coincideTexto = comprobante.includes(termino);
+        }
+      }
+
+      if (coincidePeriodo && coincideTexto) {
+        fila.style.display = '';
+        visibles++;
+      } else {
+        fila.style.display = 'none';
+      }
+    });
+
+    // Actualizar contador
+    const contadorText = document.getElementById('texto-paginacion-compras');
+    if (contadorText) {
+      if (termino !== '' || periodoFiltroActual !== 'todos') {
+        contadorText.textContent = `Mostrando ${visibles} registro(s) encontrado(s)`;
+      } else {
+        actualizarPaginacionVisual();
+      }
+    }
+  }
+
+  // Paginación de Listar Compras
+  function irAPagina(numPagina) {
+    paginaActualCompras = numPagina;
+    actualizarPaginacionVisual();
+  }
+
+  function cambiarPagina(direccion) {
+    if (direccion === 'anterior' && paginaActualCompras > 1) {
+      paginaActualCompras--;
+    } else if (direccion === 'siguiente' && paginaActualCompras < totalPaginasSimuladas) {
+      paginaActualCompras++;
+    }
+    actualizarPaginacionVisual();
+  }
+
+  function actualizarPaginacionVisual() {
+    const btnAnterior = document.getElementById('btn-pag-anterior');
+    const btnSiguiente = document.getElementById('btn-pag-siguiente');
+    const botonesNum = document.querySelectorAll('#contenedor-paginacion-compras .btn-pag-num');
+    const textoPaginacion = document.getElementById('texto-paginacion-compras');
+
+    // Botón anterior
+    if (btnAnterior) {
+      if (paginaActualCompras === 1) {
+        btnAnterior.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack/40 rounded text-xs font-semibold cursor-not-allowed transition-colors";
+      } else {
+        btnAnterior.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors cursor-pointer";
+      }
+    }
+
+    // Botón siguiente
+    if (btnSiguiente) {
+      if (paginaActualCompras === totalPaginasSimuladas) {
+        btnSiguiente.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack/40 rounded text-xs font-semibold cursor-not-allowed transition-colors";
+      } else {
+        btnSiguiente.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors cursor-pointer";
+      }
+    }
+
+    // Botones numéricos
+    botonesNum.forEach(btn => {
+      const pag = parseInt(btn.getAttribute('data-pagina'), 10);
+      if (pag === paginaActualCompras) {
+        btn.className = "px-3 py-1.5 bg-brandBlack text-white rounded text-xs font-semibold transition-colors btn-pag-num";
+      } else {
+        btn.className = "px-3 py-1.5 border border-brandBlack/20 text-brandBlack rounded text-xs font-semibold hover:bg-brandBlack/5 transition-colors btn-pag-num";
+      }
+    });
+
+    // Texto
+    if (textoPaginacion) {
+      const inicio = (paginaActualCompras - 1) * 15 + 1;
+      const fin = Math.min(paginaActualCompras * 15, 45);
+      textoPaginacion.textContent = `Mostrando ${inicio}-${fin} de 45 registros`;
+    }
+  }
+
+  // Modal de Detalle de Compra
+  function abrirModalDetalleCompra(boton) {
+    const fila = boton.closest('tr');
+    if (!fila) return;
+
+    const razon = fila.getAttribute('data-razon') || 'Distribuidora Carnes del Norte S.A.C.';
+    const ruc = fila.getAttribute('data-ruc') || '20551982731';
+    const comprobante = fila.getAttribute('data-comprobante') || 'F001-0004819';
+    const fecha = fila.getAttribute('data-fecha') || '24/10/2024 10:14';
+    const totalNum = parseFloat(fila.getAttribute('data-total')) || 3420.00;
+
+    // Desglose simulado coherente con el tipo de proveedor
+    let itemsSimulados = [];
+    const subtotal = totalNum / 1.18;
+    const igv = totalNum - subtotal;
+
+    if (razon.toLowerCase().includes('carnes') || razon.toLowerCase().includes('res')) {
+      itemsSimulados = [
+        { insumo: 'Lomo Fino Argentino Premium', unidad: 'KG', cant: (totalNum * 0.015).toFixed(1), unit: 48.00 },
+        { insumo: 'Bife Angosto para Parrilla', unidad: 'KG', cant: (totalNum * 0.012).toFixed(1), unit: 38.00 }
+      ];
+    } else if (razon.toLowerCase().includes('avícola') || razon.toLowerCase().includes('pollo') || razon.toLowerCase().includes('chimú')) {
+      itemsSimulados = [
+        { insumo: 'Pollo Fresco Entero Eviscerado', unidad: 'UND', cant: (totalNum * 0.035).toFixed(0), unit: 18.50 },
+        { insumo: 'Filete de Pechuga Especial', unidad: 'KG', cant: (totalNum * 0.02).toFixed(1), unit: 16.50 }
+      ];
+    } else if (razon.toLowerCase().includes('verdura') || razon.toLowerCase().includes('hortaliza') || razon.toLowerCase().includes('fruta')) {
+      itemsSimulados = [
+        { insumo: 'Cebolla Roja Seleccionada', unidad: 'KG', cant: '120.0', unit: 3.50 },
+        { insumo: 'Tomate Chonto Fresco', unidad: 'KG', cant: '90.0', unit: 4.20 },
+        { insumo: 'Limón Sutil Norteño', unidad: 'KG', cant: '45.0', unit: 5.00 }
+      ];
+    } else {
+      itemsSimulados = [
+        { insumo: 'Insumo Operativo de Cocina / Stock', unidad: 'UND', cant: '10.0', unit: (subtotal / 10).toFixed(2) }
+      ];
+    }
+
+    // Rellenar cabecera modal
+    document.getElementById('det-empresa').textContent = razon;
+    document.getElementById('det-ruc').textContent = ruc;
+    document.getElementById('det-comprobante').textContent = comprobante;
+    document.getElementById('det-fecha').textContent = fecha;
+    document.getElementById('modal-detalle-subtitulo').textContent = `Comprobante ${comprobante} emitido a Los Betos`;
+
+    // Rellenar tabla insumos
+    const tbody = document.getElementById('det-tabla-insumos');
+    if (tbody) {
+      tbody.innerHTML = '';
+      itemsSimulados.forEach(item => {
+        const subItem = parseFloat(item.cant) * parseFloat(item.unit);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-brandBlack/[0.02]';
+        tr.innerHTML = `
+            <td class="py-2 px-3 font-medium text-brandBlack">${item.insumo}</td>
+            <td class="py-2 px-3 text-center text-brandBlack/70 font-semibold">${item.unidad}</td>
+            <td class="py-2 px-3 text-center font-mono">${item.cant}</td>
+            <td class="py-2 px-3 text-right font-mono">S/. ${parseFloat(item.unit).toFixed(2)}</td>
+            <td class="py-2 px-3 text-right font-semibold text-brandBlack font-mono">S/. ${subItem.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Rellenar totales
+    document.getElementById('det-subtotal').textContent = formatearSoles(subtotal);
+    document.getElementById('det-igv').textContent = formatearSoles(igv);
+    document.getElementById('det-total').textContent = formatearSoles(totalNum);
+
+    // Mostrar modal
+    const modalDetalle = document.getElementById('modal-detalle-compra');
+    if (modalDetalle) modalDetalle.classList.remove('hidden');
+  }
+
+  function cerrarModalDetalleBackdrop(event) {
+    if (event.target.id === 'modal-detalle-compra') {
+      cerrarModal('modal-detalle-compra');
+    }
+  }
+
+  // =======================================================
+  // 2. INTERACCIONES Y EVENTOS EN "REGISTRAR INVENTARIO"
+  // =======================================================
+  function actualizarEstadoFila(inputModificado) {
+    const tr = inputModificado.closest('tr');
+    if (!tr) return;
+    const inputFisico = tr.querySelector('.input-fisico');
+    const inputMin = tr.querySelector('.input-min');
+    const tdEstado = tr.querySelector('.td-estado');
+
+    const fisico = parseFloat(inputFisico.value) || 0;
+    const minimo = parseFloat(inputMin.value) || 0;
+
+    if (fisico < minimo) {
+      inputFisico.className = "input-fisico w-24 px-2 py-1.5 text-center bg-white border border-[#FF4D2E] rounded-lg text-xs font-bold text-[#FF4D2E] transition-all";
+      tdEstado.innerHTML = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#FAD2CF] bg-[#FCE8E6] text-[#C5221F]"><span class="w-1.5 h-1.5 rounded-full bg-[#FF4D2E] mr-1.5"></span>Bajo Stock</span>';
+    } else {
+      inputFisico.className = "input-fisico w-24 px-2 py-1.5 text-center bg-white border border-brandBlack/20 rounded-lg text-xs font-bold text-brandBlack transition-all";
+      tdEstado.innerHTML = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#CEEAD6] bg-[#E6F4EA] text-[#137333]"><span class="w-1.5 h-1.5 rounded-full bg-[#137333] mr-1.5"></span>Óptimo</span>';
+    }
+  }
+
+  let timerToastInventario = null;
+  function guardarInventario() {
+    const toast = document.getElementById('toast-inventario');
+    if (!toast) return;
+
+    // Animar entrada del toast
+    toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    if (timerToastInventario) clearTimeout(timerToastInventario);
+
+    // Ocultar automáticamente tras 4 segundos
+    timerToastInventario = setTimeout(function () {
+      ocultarToastInventario();
+    }, 4000);
+  }
+
+  function ocultarToastInventario() {
+    const toast = document.getElementById('toast-inventario');
+    if (!toast) return;
+    toast.classList.remove('translate-y-0', 'opacity-100');
+    toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+  }
+
+  // Inicialización al cargar la página
+  document.addEventListener('DOMContentLoaded', function () {
+    inicializarFilasExistentes();
+    recalcularTotales();
+
+    // Enlazar listeners para inputs de inventario
+    const inputsFisicos = document.querySelectorAll('.input-fisico, .input-min');
+    inputsFisicos.forEach(inp => {
+      inp.addEventListener('input', function () {
+        actualizarEstadoFila(this);
+      });
+      inp.addEventListener('change', function () {
+        actualizarEstadoFila(this);
+      });
+    });
+  });
+</script>

@@ -1,8 +1,9 @@
-export default function CocinaPage() {
+
+const Ventas = () => {
     return (
         <iframe
-            src="/cocina.html"
-            title="Cocina y KDS"
+            src="/comprasInventario.html"
+            title="Página de ventas"
             style={{
                 width: "100%",
                 height: "100vh",
@@ -11,3 +12,5 @@ export default function CocinaPage() {
         />
     );
 }
+
+export default Ventas;

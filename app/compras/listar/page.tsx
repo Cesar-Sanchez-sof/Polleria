@@ -1,8 +1,8 @@
 
-const Compras = () => {
+const Ventas = () => {
     return (
         <iframe
-            src="/compras.html"
+            src="/comprasListar.html"
             title="Página de ventas"
             style={{
                 width: "100%",
@@ -13,4 +13,4 @@ const Compras = () => {
     );
 }
 
-export default Compras;
+export default Ventas;

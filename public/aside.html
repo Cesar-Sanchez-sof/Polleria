@@ -137,22 +137,23 @@
         <nav class="flex flex-col gap-1 px-space-xs mt-space-xs"
             data-active-classes="bg-primary-fixed text-primary font-bold shadow-sm">
             <div class="px-space-md pt-1 pb-0.5"><span
-                    class="font-label text-[10px] uppercase text-outline font-bold tracking-wider">Restaurante & Salón</span>
+                    class="font-label text-[10px] uppercase text-outline font-bold tracking-wider">Restaurante &
+                    Salón</span>
             </div>
             <!-- Restaurante Section -->
             <div class="flex flex-col gap-0.5">
                 <a class="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface hover:bg-surface-container text-[12px] font-semibold transition-all"
-                    data-path="mesas" href="/mesas" target="_top">
+                    data-path="mesas" href="/restaurante/mesas" target="_top">
                     <span class="material-symbols-outlined text-[18px] text-primary">table_restaurant</span>
                     <span>Mesas y Salón</span>
                 </a>
                 <a class="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
-                    data-path="cocina" href="/cocina" target="_top">
+                    data-path="cocina" href="/restaurante/cocina" target="_top">
                     <span class="material-symbols-outlined text-[18px] text-tertiary">restaurant</span>
                     <span>Cocina (KDS)</span>
                 </a>
                 <a class="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
-                    data-path="caja" href="/caja" target="_top">
+                    data-path="caja" href="/restaurante/caja" target="_top">
                     <span class="material-symbols-outlined text-[18px] text-secondary">point_of_sale</span>
                     <span>Caja y Cobro</span>
                 </a>
@@ -168,8 +169,7 @@
                 </div>
                 <div class="flex flex-col pl-2 gap-0.5"><a
                         class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="ordenes-de-venta" href="/ventas"
-                target="_top">Órdenes de Venta</a><a
+                        data-path="ordenes-de-venta" href="/ventas" target="_top">Órdenes de Venta</a><a
                         class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
                         data-path="clientes" href="#">Clientes</a><a
                         class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
@@ -179,40 +179,39 @@
                 <div class="px-space-md pt-1"><span
                         class="font-label text-[11px] font-bold text-on-surface">COMPRAS</span>
                 </div>
-                <div class="flex flex-col pl-2 gap-0.5"><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="ordenes-de-compra" href="/compras"
-                target="_top">Órdenes de Compra</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="proveedores" href="#">Proveedores</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="facturas-de-proveedor" href="#">Facturas de Proveedor</a></div>
+                <div class="flex flex-col pl-2 gap-0.5">
+                    <!-- Compras Section 
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="proveedores" href="#">Proveedores</a>-->
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="facturas-de-proveedor" href="#">Facturas de Proveedor</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="ordenes-de-compra" href="/compras/anadir" target="_top">Añadir compra</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="ordenes-de-compra" href="/compras/listar" target="_top">Listar compras</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="ordenes-de-compra" href="/compras/inventario" target="_top">Inventario</a>
+                </div>
             </div><!-- Contabilidad Section -->
             <div class="flex flex-col gap-0.5 mt-1">
                 <div class="px-space-md pt-1"><span
                         class="font-label text-[11px] font-bold text-on-surface">CONTABILIDAD</span></div>
-                <div class="flex flex-col pl-2 gap-0.5"><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="dashboard-contabilidad" href="/asientos" target="_top">Asientos contables</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="libro-diario" href="#">Libro Diario</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="libro-mayor" href="#">Libro Mayor</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="balance-general" href="#">Balance General</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="estado-de-resultados" href="#">Estado de Resultados</a><a
-                        class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="flujo-de-efectivo" href="#">Flujo de Efectivo</a></div>
-            </div><!-- Operaciones Section -->
-            <div class="px-space-md pt-2 pb-0.5"><span
-                    class="font-label text-[10px] uppercase text-outline font-bold tracking-wider">Operaciones</span>
+                <div class="flex flex-col pl-2 gap-0.5">
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="dashboard-contabilidad" href="/asientos" target="_top">Asientos contables</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="libro-diario" href="#">Libro Diario</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="libro-mayor" href="#">Libro Mayor</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="balance-general" href="#">Balance General</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="estado-de-resultados" href="#">Estado de Resultados</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="flujo-de-efectivo" href="#">Flujo de Efectivo</a>
+                </div>
             </div>
-            <div class="flex flex-col gap-0.5"><a
-                    class="flex items-center px-space-md py-1.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface text-[12px] font-bold uppercase transition-all"
-                    data-path="facturacion" href="#">Facturación</a><a
-                    class="flex items-center px-space-md py-1.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface text-[12px] font-bold uppercase transition-all"
-                    data-path="inventario" href="#">Inventario</a></div>
+
         </nav>
     </div>
     <div
@@ -221,23 +220,24 @@
             <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center"><span
                     class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
             <div class="flex flex-col"><span
-                    class="font-label text-[11px] font-bold text-on-surface leading-tight">Admin User</span><span class="font-label text-[10px] text-on-surface-variant leading-tight">Pollería Central</span></div>
+                    class="font-label text-[11px] font-bold text-on-surface leading-tight">Admin User</span><span
+                    class="font-label text-[10px] text-on-surface-variant leading-tight">Pollería Central</span></div>
         </div><button class="text-on-surface-variant hover:text-error transition-colors p-1" type="button"><span
                 class="material-symbols-outlined text-[20px]">logout</span></button>
     </div>
     <script>
-        (function() {
-            try {
-                const currentPath = window.top.location.pathname;
-                const links = document.querySelectorAll('nav a[href]');
-                links.forEach(link => {
-                    const href = link.getAttribute('href');
-                    if (href && href !== '#' && currentPath.startsWith(href) && href !== '/') {
-                        link.classList.remove('text-on-surface-variant');
-                        link.classList.add('bg-primary/10', 'text-primary', 'font-bold', 'shadow-xs');
-                    }
-                });
-            } catch(e) {}
-        })();
+            (function () {
+                try {
+                    const currentPath = window.top.location.pathname;
+                    const links = document.querySelectorAll('nav a[href]');
+                    links.forEach(link => {
+                        const href = link.getAttribute('href');
+                        if (href && href !== '#' && currentPath.startsWith(href) && href !== '/') {
+                            link.classList.remove('text-on-surface-variant');
+                            link.classList.add('bg-primary/10', 'text-primary', 'font-bold', 'shadow-xs');
+                        }
+                    });
+                } catch (e) { }
+            })();
     </script>
 </aside>
