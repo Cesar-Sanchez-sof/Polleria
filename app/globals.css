@@ -185,3 +185,8 @@ main > :last-child {
     @apply font-sans;
   }
 }
+
+.text-on-surface-variant {
+  --tw-text-opacity: 1;
+  color: rgb(93 63 59 / var(--tw-text-opacity));
+}
