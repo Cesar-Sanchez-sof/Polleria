@@ -9,7 +9,6 @@ import { EncabezadoAsientos } from "./EncabezadoAsientos";
 import { FiltrosAsientos, type FiltroChip } from "./FiltrosAsientos";
 import { KpisAsientos } from "./KpisAsientos";
 import { PaginacionAsientos } from "./PaginacionAsientos";
-import { PieAsientos } from "./PieAsientos";
 import { TabsDiarioAsientos } from "./TabsDiarioAsientos";
 import { TablaAsientos } from "./TablaAsientos";
 import { ToolbarAsientos } from "./ToolbarAsientos";
@@ -360,8 +359,6 @@ export default function AsientosPage() {
                 onPagina={cambiarPagina}
                 onPageSize={cambiarPageSize}
               />
-
-              <PieAsientos />
             </Card>
           </div>
         </main>

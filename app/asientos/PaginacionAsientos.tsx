@@ -54,13 +54,36 @@ export function PaginacionAsientos({
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+      <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-lg">
+          <span className="tabular-nums font-semibold text-slate-900">
+            {desdeMostrado}-{hastaMostrado} / {total}
+          </span>
+          <div className="flex items-center ml-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="p-0.5 text-slate-600 hover:text-slate-900 rounded h-6 w-6 disabled:text-slate-300"
+              disabled={cargando || page <= 1}
+              title="Página anterior"
+              type="button"
+              onClick={() => onPagina(Math.max(1, page - 1))}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="p-0.5 text-slate-600 hover:text-slate-900 rounded h-6 w-6 disabled:text-slate-300"
+              disabled={cargando || page >= totalPaginas}
+              title="Página siguiente"
+              type="button"
+              onClick={() => onPagina(Math.min(totalPaginas, page + 1))}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       <div className="flex items-center gap-3 text-xs text-slate-500">
-        {seleccionados > 0 && (
-          <span className="font-semibold text-slate-800">{seleccionados} seleccionado(s)</span>
-        )}
-        <span className="tabular-nums">
-          Mostrando {desdeMostrado}–{hastaMostrado} de {total} asientos
-        </span>
         <div className="flex items-center gap-1.5">
           <label id="page-size-label" className="text-slate-500">
             Por página

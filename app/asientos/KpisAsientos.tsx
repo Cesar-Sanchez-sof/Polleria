@@ -50,7 +50,7 @@ export function KpisAsientos({ cargandoInicial, total, porcentaje, desde, hasta 
           <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">
             Facturación Clientes
           </span>
-          <div className="flex items-baseline gap-2 mt-1">
+          <div className="flex flex-col items-baseline mt-1">
             <span className="text-xl font-bold text-slate-900">S/ 1,420,850.00</span>
             <span className="text-xs text-emerald-600 font-semibold mt-1 flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5" /> +14.2% vs mayo
@@ -68,7 +68,7 @@ export function KpisAsientos({ cargandoInicial, total, porcentaje, desde, hasta 
           <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">
             Facturas Proveedor
           </span>
-          <div className="flex items-baseline gap-2 mt-1">
+          <div className="flex flex-col items-baseline mt-1">
             <span className="text-xl font-bold text-slate-900">S/ 895,400.00</span>
             <span className="text-xs text-slate-500 mt-1 flex items-center gap-1">
               <ArrowDown className="w-3.5 h-3.5" /> 16 asientos asociados
@@ -86,7 +86,7 @@ export function KpisAsientos({ cargandoInicial, total, porcentaje, desde, hasta 
           <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">
             Ajustes &amp; Operaciones
           </span>
-          <div className="flex items-baseline gap-2 mt-1">
+          <div className="flex flex-col items-baseline mt-1">
             <span className="text-xl font-bold text-slate-900">S/ 48,250.00</span>
             <span className="text-xs text-slate-500 mt-1 flex items-center gap-1">
               <SlidersHorizontal className="w-3.5 h-3.5" /> 4 asientos manuales

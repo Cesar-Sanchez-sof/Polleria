@@ -72,12 +72,12 @@ export function FiltrosAsientos({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col lg:flex-row gap-1">
           <label
             htmlFor="filtro-desde"
             className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
           >
-            <CalendarDays className="w-3.5 h-3.5" /> Fecha desde
+            <CalendarDays className="w-3.5 h-3.5" /> Desde
           </label>
           <Input
             id="filtro-desde"
@@ -85,16 +85,16 @@ export function FiltrosAsientos({
             value={desde}
             max={hasta || undefined}
             onChange={(e) => onDesde(e.target.value)}
-            className="h-9 w-40 rounded-lg border-slate-200 bg-white text-xs shadow-none"
+            className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
           />
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col lg:flex-row gap-1">
           <label
             htmlFor="filtro-hasta"
             className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
           >
-            <CalendarDays className="w-3.5 h-3.5" /> Fecha hasta
+            <CalendarDays className="w-3.5 h-3.5" /> Hasta
           </label>
           <Input
             id="filtro-hasta"
@@ -102,24 +102,26 @@ export function FiltrosAsientos({
             value={hasta}
             min={desde || undefined}
             onChange={(e) => onHasta(e.target.value)}
-            className="h-9 w-40 rounded-lg border-slate-200 bg-white text-xs shadow-none"
+            className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
           />
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col lg:flex-row gap-1">
           <label
             id="filtro-estado-label"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
+            htmlFor="estadoFiltro"
+            className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
           >
             Estado
           </label>
           <Select
+            id="estadoFiltro"
             value={estadoFiltro}
             items={opcionesEstado}
             onValueChange={(valor) => onEstado(valor ?? "todos")}
           >
             <SelectTrigger
-              className="w-52 rounded-lg bg-white text-xs"
+              className="w-40 rounded-lg bg-white text-xs"
               aria-labelledby="filtro-estado-label"
             >
               <SelectValue />
@@ -148,16 +150,16 @@ export function FiltrosAsientos({
         </div>
       </div>
 
-      {/* Chips con los filtros aplicados (se pueden quitar uno a uno) */}
+      {/* Chips con los filtros aplicados (se pueden quitar uno a uno) 
       {chips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/80">
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-slate-200/80">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Filtros aplicados
           </span>
           {chips.map((chip) => (
             <span
               key={chip.id}
-              className="inline-flex items-center gap-1.5 bg-purple-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs"
+              className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs"
             >
               <span>{chip.etiqueta}</span>
               <button
@@ -172,6 +174,7 @@ export function FiltrosAsientos({
           ))}
         </div>
       )}
+        */}
     </div>
   );
 }
