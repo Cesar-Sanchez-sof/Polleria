@@ -450,6 +450,7 @@ model Asiento_contable {
   id_planilla           Int?
   fecha_contable        DateTime                   @default(now()) @db.Date
   glosa                 String                     @db.VarChar(200)
+  diario                String                     @default("Operaciones varias") @db.VarChar(60)
   responsable           String?                    @db.VarChar(100)
   fecha_creacion        DateTime                   @default(now()) @db.Timestamp(6)
   fecha_actualizacion   DateTime                   @default(now()) @db.Timestamp(6)
@@ -464,6 +465,9 @@ model Asiento_contable {
   @@index([id_comprobante_venta], map: "idx_asiento_compventa")
   @@index([id_comprobante_compra], map: "idx_asiento_compcompra")
   @@index([id_planilla], map: "idx_asiento_planilla")
+  @@index([fecha_contable], map: "idx_asiento_fecha")
+  @@index([diario], map: "idx_asiento_diario")
+  @@index([estado], map: "idx_asiento_estado")
   @@map("asiento_contable")
 }
 
@@ -471,6 +475,7 @@ model Detalle_asiento_contable {
   id_detalle_asiento_contable Int              @id @default(autoincrement())
   id_asiento_contable         Int
   id_cuenta_contable          Int
+  descripcion                 String?          @db.VarChar(200)
   debito                      Decimal          @default(0) @db.Decimal(12, 2)
   credito                     Decimal          @default(0) @db.Decimal(12, 2)
   asiento_contable            Asiento_contable @relation(fields: [id_asiento_contable], references: [id_asiento_contable], onDelete: Cascade)
