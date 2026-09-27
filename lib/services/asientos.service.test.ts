@@ -3,7 +3,10 @@ import {
   construirQuery,
   ErrorApi,
   listarAsientos,
+  registrarAsiento,
+  type AsientoResumen,
   type DireccionOrden,
+  type EntradaAsiento,
   type FiltroAsientos,
   type OrdenAsiento,
   type PaginaAsientos,
@@ -174,6 +177,108 @@ describe("listarAsientos", () => {
 
     await expect(listarAsientos()).rejects.toThrow(
       "Error inesperado al consultar el servicio."
+    );
+  });
+});
+
+describe("registrarAsiento", () => {
+  /** Asiento que envía el diálogo de alta manual. */
+  const ENTRADA: EntradaAsiento = {
+    fecha: "2026-09-27",
+    diario: "Operaciones varias",
+    glosa: "Caja chica: compra de insumos",
+    responsable: "Leandro Mauricci",
+    observacion: "Factura S001-000123",
+    lineas: [
+      { idCuenta: 7, descripcion: "Efectivo", debe: 118, haber: 0 },
+      { idCuenta: 21, descripcion: "Compra de mercadería", debe: 0, haber: 100 },
+      { idCuenta: 173, descripcion: "IGV por acreditar", debe: 0, haber: 18 },
+    ],
+  };
+
+  const RESUMEN: AsientoResumen = {
+    id: 501,
+    numero: "MISC/2026/09/0001",
+    fecha: "2026-09-27",
+    diario: "Operaciones varias",
+    concepto: "Caja chica: compra de insumos",
+    responsable: "Leandro Mauricci",
+    estado: "Registrado",
+    total: 118,
+  };
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("envía el asiento en JSON a /api/asientos y devuelve su resumen", async () => {
+    fetchMock.mockResolvedValue(respuestaJson(RESUMEN, 201));
+
+    const resultado = await registrarAsiento(ENTRADA);
+
+    expect(resultado).toEqual(RESUMEN);
+    expect(fetchMock).toHaveBeenCalledWith("/api/asientos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(ENTRADA),
+    });
+  });
+
+  it("convierte las validaciones del servidor en un ErrorApi con cada detalle", async () => {
+    fetchMock.mockResolvedValue(
+      respuestaJson(
+        {
+          error: "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
+          errores: [
+            "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
+            "Línea 2: los importes no pueden ser negativos.",
+          ],
+        },
+        400
+      )
+    );
+
+    const error = await errorDe(registrarAsiento(ENTRADA));
+
+    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error.message).toBe(
+      "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00)."
+    );
+    expect(error.errores).toEqual([
+      "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
+      "Línea 2: los importes no pueden ser negativos.",
+    ]);
+  });
+
+  it("usa el propio mensaje como detalle cuando la respuesta no trae `errores`", async () => {
+    fetchMock.mockResolvedValue(
+      respuestaJson(
+        { error: "Una o más cuentas contables del asiento no existen en el plan contable." },
+        400
+      )
+    );
+
+    const error = await errorDe(registrarAsiento(ENTRADA));
+
+    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error.message).toBe(
+      "Una o más cuentas contables del asiento no existen en el plan contable."
+    );
+    expect(error.errores).toEqual([
+      "Una o más cuentas contables del asiento no existen en el plan contable.",
+    ]);
+  });
+
+  it("informa de fallo de conexión si fetch se rechaza", async () => {
+    fetchMock.mockRejectedValue(new Error("network down"));
+
+    await expect(registrarAsiento(ENTRADA)).rejects.toThrow(
+      "No se pudo conectar con el servidor."
     );
   });
 });
