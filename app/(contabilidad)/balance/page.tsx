@@ -1,4 +1,4 @@
-import { KpisAsientos } from "../balance/KpisAsientos";
+import { KpisAsientos } from "./KpisAsientos";
 
 export default function Balance() {
   return (

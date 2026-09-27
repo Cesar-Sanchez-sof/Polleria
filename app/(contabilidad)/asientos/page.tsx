@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Sidebar from "../../components/personalized/Sidebar";
+import Sidebar from "../../../components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 
 import { DetalleAsientos } from "./DetalleAsientos";
