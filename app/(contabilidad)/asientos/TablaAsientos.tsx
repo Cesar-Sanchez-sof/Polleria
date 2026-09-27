@@ -153,7 +153,7 @@ export function TablaAsientos({
               Número
             </ThOrden>
             <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">
-              Concepto
+              Concepto (glosa)
             </TableHead>
             <ThOrden
               campo="diario"

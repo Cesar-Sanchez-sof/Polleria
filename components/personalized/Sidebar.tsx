@@ -23,9 +23,9 @@ export default function Sidebar() {
           <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
             <Component className="w-7 text-primary-container" />
           </div>
-          <a className="font-headline text-[16px] font-bold text-on-surface tracking-wider mt-space-xs uppercase" href="/" target="_top">
+          <Link className="font-headline text-[16px] font-bold text-on-surface tracking-wider mt-space-xs uppercase" href="/" target="_top">
             ERP EMPRESARIAL
-          </a>
+          </Link>
           <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
             SISTEMA INTEGRAL
           </span>

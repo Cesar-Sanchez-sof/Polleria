@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Sidebar from "../../components/personalized/Sidebar";
+import Sidebar from "../../../components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 
 import { DetalleAsientos } from "./DetalleAsientos";
-import { EncabezadoAsientos } from "./EncabezadoAsientos";
 import { FiltrosAsientos, type FiltroChip } from "./FiltrosAsientos";
-import { KpisAsientos } from "./KpisAsientos";
+import { NuevoAsientoDialog } from "./NuevoAsientoDialog";
 import { PaginacionAsientos } from "./PaginacionAsientos";
 import { TabsDiarioAsientos } from "./TabsDiarioAsientos";
 import { TablaAsientos } from "./TablaAsientos";
@@ -61,6 +60,9 @@ export default function AsientosPage() {
   const [cargandoDetalle, setCargandoDetalle] = useState<boolean>(false);
   const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
 
+  // Diálogo de alta manual
+  const [nuevoAbierto, setNuevoAbierto] = useState<boolean>(false);
+
   // Control de carreras: sólo la última petición puede escribir estado
   const solicitudRef = useRef(0);
   const detalleSolicitudRef = useRef(0);
@@ -90,6 +92,13 @@ export default function AsientosPage() {
     return () => {
       activo = false;
     };
+  }, []);
+
+  // Un asiento recién creado puede aportar un diario nuevo a los filtros
+  const recargarOpciones = useCallback(() => {
+    obtenerOpcionesAsientos()
+      .then((datos) => setOpciones(datos))
+      .catch(() => setOpciones(null));
   }, []);
 
   // Listado: se reconsulta cada vez que cambia un filtro, el orden o la página
@@ -212,6 +221,17 @@ export default function AsientosPage() {
 
   const cambiarPagina = (valor: number) => setPage(valor);
 
+  /** Tras registrar un asiento manual: refresca listado y opciones de filtro. */
+  const trasCrearAsiento = () => {
+    if (page !== 1) {
+      // Cambiar de página ya dispara la recarga del listado
+      setPage(1);
+    } else {
+      void cargarListado();
+    }
+    recargarOpciones();
+  };
+
   const abrirDetalle = async (id: number) => {
     const solicitud = ++detalleSolicitudRef.current;
     setDetalleAbierto(true);
@@ -281,25 +301,18 @@ export default function AsientosPage() {
 
       {/* Main content area */}
       <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
-        <EncabezadoAsientos q={q} onBuscar={setQ} />
-
         {/* Main Content */}
-        <main className="relative pt-20 flex-1 p-6">
+        <main className="relative flex-1 p-6">
           <div className="flex flex-col w-full gap-5">
-            <KpisAsientos
-              cargandoInicial={cargando && !pagina}
-              total={total}
-              porcentaje={porcentajeValidados}
-              desde={desde}
-              hasta={hasta}
-            />
+
 
             {/* MAIN LEDGER APPLICATION CARD */}
-            <Card className="bg-white rounded-xl shadow-xs   p-6 flex flex-col gap-5">
+            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
               <ToolbarAsientos
                 q={q}
                 onBuscar={setQ}
                 onLimpiarBusqueda={limpiarBusqueda}
+                onNuevo={() => setNuevoAbierto(true)}
                 desdeMostrado={desdeMostrado}
                 hastaMostrado={hastaMostrado}
                 total={total}
@@ -308,28 +321,35 @@ export default function AsientosPage() {
                 totalPaginas={totalPaginas}
                 onPagina={cambiarPagina}
               />
+            </Card>
 
-              <FiltrosAsientos
-                desde={desde}
-                hasta={hasta}
-                diario={diario}
-                estadoFiltro={estadoFiltro}
-                busqueda={busqueda}
-                opciones={opciones}
-                hayFiltros={hayFiltros}
-                onDesde={(valor) => cambiarRango("desde", valor)}
-                onHasta={(valor) => cambiarRango("hasta", valor)}
-                onEstado={cambiarEstado}
-                onLimpiar={limpiarFiltros}
-                onQuitar={quitarFiltro}
-              />
 
-              <TabsDiarioAsientos
-                diarios={diarios}
-                total={total}
-                diario={diario}
-                onSeleccionar={cambiarDiario}
-              />
+
+            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
+
+              <div className="flex flex-wrap gap-3">
+                <TabsDiarioAsientos
+                  diarios={diarios}
+                  total={total}
+                  diario={diario}
+                  onSeleccionar={cambiarDiario}
+                />
+
+                <FiltrosAsientos
+                  desde={desde}
+                  hasta={hasta}
+                  diario={diario}
+                  estadoFiltro={estadoFiltro}
+                  busqueda={busqueda}
+                  opciones={opciones}
+                  hayFiltros={hayFiltros}
+                  onDesde={(valor) => cambiarRango("desde", valor)}
+                  onHasta={(valor) => cambiarRango("hasta", valor)}
+                  onEstado={cambiarEstado}
+                  onLimpiar={limpiarFiltros}
+                  onQuitar={quitarFiltro}
+                />
+              </div>
 
               <TablaAsientos
                 filas={filas}
@@ -346,6 +366,8 @@ export default function AsientosPage() {
                 onReintentar={() => void cargarListado()}
                 onLimpiarFiltros={limpiarFiltros}
               />
+
+
 
               <PaginacionAsientos
                 page={page}
@@ -372,6 +394,14 @@ export default function AsientosPage() {
         error={errorDetalle}
         onCerrar={cerrarDetalle}
         onReintentar={reintentarDetalle}
+      />
+
+      {/* ALTA MANUAL DE UN ASIENTO */}
+      <NuevoAsientoDialog
+        abierto={nuevoAbierto}
+        diarios={opciones?.diarios ?? []}
+        onCerrar={() => setNuevoAbierto(false)}
+        onCreado={trasCrearAsiento}
       />
     </div>
   );

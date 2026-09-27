@@ -100,6 +100,37 @@ export interface OpcionesAsientos {
   estados: OpcionEstado[];
 }
 
+/** Cuenta del plan contable disponible para una línea del asiento. */
+export interface CuentaContable {
+  id: number;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+}
+
+/** Línea (partida) de un asiento manual: una cuenta y su importe. */
+export interface LineaNuevaAsiento {
+  /** `cuenta_contable.id_cuenta_contable`. */
+  idCuenta: number;
+  descripcion?: string;
+  /** Importe en el Debe (0 si la partida va en el Haber). */
+  debe: number;
+  /** Importe en el Haber (0 si la partida va en el Debe). */
+  haber: number;
+}
+
+/** Datos necesarios para registrar un asiento contable manual. */
+export interface EntradaAsiento {
+  /** Fecha contable (YYYY-MM-DD). */
+  fecha: string;
+  diario: string;
+  glosa: string;
+  responsable?: string;
+  observacion?: string;
+  /** Mínimo dos partidas y totales de debe y haber iguales. */
+  lineas: LineaNuevaAsiento[];
+}
+
 const ORDENES_VALIDOS: OrdenAsiento[] = [
   "fecha",
   "numero",
@@ -109,26 +140,52 @@ const ORDENES_VALIDOS: OrdenAsiento[] = [
   "total",
 ];
 
-async function obtenerJson<T>(url: string): Promise<T> {
+/** Error de negocio devuelto por la API, con el detalle de cada validación. */
+export class ErrorApi extends Error {
+  /** Una entrada por cada validación fallida (la primera es la principal). */
+  readonly errores: string[];
+
+  constructor(mensaje: string, errores: string[] = []) {
+    super(mensaje);
+    this.name = "ErrorApi";
+    this.errores = errores.length > 0 ? errores : [mensaje];
+  }
+}
+
+async function pedir<T>(url: string, opciones: RequestInit): Promise<T> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(url, { cache: "no-store" });
+    respuesta = await fetch(url, opciones);
   } catch {
     throw new Error("No se pudo conectar con el servidor.");
   }
 
   if (!respuesta.ok) {
     let mensaje = "Error inesperado al consultar el servicio.";
+    let detalle: string[] = [];
     try {
-      const cuerpo = (await respuesta.json()) as { error?: string };
+      const cuerpo = (await respuesta.json()) as { error?: string; errores?: string[] };
       if (cuerpo?.error) mensaje = cuerpo.error;
+      if (Array.isArray(cuerpo?.errores)) detalle = cuerpo.errores;
     } catch {
       /* la respuesta no traía cuerpo JSON */
     }
-    throw new Error(mensaje);
+    throw new ErrorApi(mensaje, detalle);
   }
 
   return (await respuesta.json()) as T;
+}
+
+async function obtenerJson<T>(url: string): Promise<T> {
+  return pedir<T>(url, { cache: "no-store" });
+}
+
+async function enviarJson<T>(url: string, cuerpo: unknown): Promise<T> {
+  return pedir<T>(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cuerpo),
+  });
 }
 
 /** Serializa los filtros a query string, omitiendo los vacíos. */
@@ -166,6 +223,27 @@ export async function obtenerAsiento(id: number): Promise<AsientoDetalle> {
 /** Diarios contables y estados disponibles para los filtros, con sus conteos. */
 export async function obtenerOpcionesAsientos(): Promise<OpcionesAsientos> {
   return obtenerJson<OpcionesAsientos>(`${BASE}/opciones`);
+}
+
+/** Cuentas activas del plan contable, para seleccionar en las líneas. */
+export async function listarCuentasContables(): Promise<CuentaContable[]> {
+  const respuesta = await obtenerJson<{ data: CuentaContable[] }>(`${BASE}/cuentas`);
+  return respuesta.data ?? [];
+}
+
+/**
+ * Número sugerido (`MISC/AAAA/MM/NNNN`) que recibiría un asiento manual en la
+ * fecha indicada. Es una vista previa: el definitivo se genera al crearlo.
+ */
+export async function obtenerSiguienteCodigo(fecha: string): Promise<string> {
+  const params = fecha ? `?fecha=${encodeURIComponent(fecha)}` : "";
+  const respuesta = await obtenerJson<{ codigo: string }>(`${BASE}/siguiente-codigo${params}`);
+  return respuesta.codigo;
+}
+
+/** Registra un asiento contable manual y devuelve su resumen. */
+export async function registrarAsiento(entrada: EntradaAsiento): Promise<AsientoResumen> {
+  return enviarJson<AsientoResumen>(BASE, entrada);
 }
 
 /** Formatea una fecha ISO (YYYY-MM-DD) como dd/mm/AAAA sin corrimiento horario. */

@@ -20,7 +20,7 @@ export function TabsDiarioAsientos({ diarios, total, diario, onSeleccionar }: Re
   ];
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+    <div className="flex items-center gap-1.5 overflow-x-auto">
       {tabs.map((tab) => {
         const activo = diario === tab.valor;
         return (

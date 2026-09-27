@@ -3,8 +3,7 @@
 import { useState } from "react";
 import {
   BarChart3,
-  ChevronLeft,
-  ChevronRight,
+  Calculator,
   Clock,
   Download,
   Filter,
@@ -12,12 +11,10 @@ import {
   List,
   Plus,
   Search,
-  Settings,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FiltrosAsientos } from "./FiltrosAsientos";
 
 interface Props {
   /** Texto actual del buscador del listado. */
@@ -63,17 +60,9 @@ export function ToolbarAsientos({
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
       {/* LEFT: Title, Settings Icon & New Button */}
       <div className="flex flex-col items-start gap-0">
-        <div className="flex  justify-start items-start gap-2">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Asientos contables</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer h-8 w-8"
-            title="Configurar Diario y Asientos"
-            type="button"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
+        <div className="flex justify-start items-center gap-2">
+          <Calculator className="w-7 h-7" />
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Asientos contables</h1>
         </div>
       </div>
 

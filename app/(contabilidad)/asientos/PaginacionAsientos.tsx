@@ -53,7 +53,7 @@ export function PaginacionAsientos({
   }, [page, totalPaginas]);
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+    <div className="flex flex-col md:flex-row items-center justify-between gap-3">
       <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-lg">
           <span className="tabular-nums font-semibold text-slate-900">
             {desdeMostrado}-{hastaMostrado} / {total}

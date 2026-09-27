@@ -1,3 +1,4 @@
+import { KpisAsientos } from "./KpisAsientos";
 
 export default function Balance() {
   return (
@@ -10,5 +11,14 @@ export default function Balance() {
         border: "none",
       }}
     />
+/*
+  <KpisAsientos
+  cargandoInicial={cargando && !pagina}
+  total={total}
+  porcentaje={porcentajeValidados}
+  desde={desde}
+  hasta={hasta}
+  />
+  */
   );
 }
