@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
-import type { Prisma } from "@prisma/client";
+import { Prisma, type Asiento_contable } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { fechaAISO, fechaUTC } from "@/lib/fechas";
+import { generarCodigoAsiento } from "@/lib/codigo-asiento";
 
 // El listado depende de la petición (filtros, orden y paginación en query string).
 export const dynamic = "force-dynamic";
@@ -199,6 +200,223 @@ export async function GET(request: NextRequest) {
     console.error("[api/asientos] error al listar asientos:", error);
     return Response.json(
       { error: "No se pudo obtener el listado de asientos contables." },
+      { status: 500 }
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Registro manual de un asiento contable
+// ---------------------------------------------------------------------------
+
+/** Línea ya validada, lista para persistirse. */
+interface LineaNueva {
+  idCuenta: number;
+  descripcion: string | null;
+  debe: number;
+  haber: number;
+}
+
+/** Redondea a 2 decimales (precisión monetaria) sin sorpresas de coma flotante. */
+function redondear2(valor: number): number {
+  return Math.round(valor * 100) / 100;
+}
+
+/** Texto recortado del body; cualquier valor que no sea texto se trata como vacío. */
+function texto(valor: unknown): string {
+  return typeof valor === "string" ? valor.trim() : "";
+}
+
+/** Importe numérico: acepta número o su representación en texto (vacío = 0). */
+function importe(valor: unknown): number | null {
+  if (valor === undefined || valor === null || valor === "") return 0;
+  const numero = typeof valor === "number" ? valor : Number(valor);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+/** `true` cuando el fallo corresponde al índice único de `asiento_contable.codigo`. */
+function codigoDuplicado(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+/**
+ * Registra un asiento contable manual con sus líneas.
+ *
+ * El número (`codigo`) siempre lo genera el servidor con
+ * `generarCodigoAsiento`; si dos peticiones concurrentes eligen el mismo, el
+ * índice único rechaza la segunda y se reintenta (hasta 3 veces).
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const cuerpo = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo)) {
+      return Response.json(
+        { error: "El cuerpo de la petición no es un JSON válido." },
+        { status: 400 }
+      );
+    }
+
+    const errores: string[] = [];
+
+    const fecha = texto(cuerpo.fecha);
+    if (!FECHA_RE.test(fecha)) {
+      errores.push("La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.");
+    }
+
+    const glosa = texto(cuerpo.glosa);
+    if (!glosa) errores.push("El concepto (glosa) del asiento es obligatorio.");
+    else if (glosa.length > 200) errores.push("El concepto no puede superar los 200 caracteres.");
+
+    const diario = texto(cuerpo.diario) || "Operaciones varias";
+    if (diario.length > 60) errores.push("El diario no puede superar los 60 caracteres.");
+
+    const responsable = texto(cuerpo.responsable);
+    if (responsable.length > 100) {
+      errores.push("El responsable no puede superar los 100 caracteres.");
+    }
+
+    const observacion = texto(cuerpo.observacion);
+    if (observacion.length > 200) {
+      errores.push("La observación no puede superar los 200 caracteres.");
+    }
+
+    const estado = typeof cuerpo.estado === "boolean" ? cuerpo.estado : true;
+
+    const entradas = Array.isArray(cuerpo.lineas) ? cuerpo.lineas : [];
+    if (entradas.length < 2) {
+      errores.push("El asiento debe registrar al menos dos líneas (debe y haber).");
+    } else if (entradas.length > 100) {
+      errores.push("El asiento no puede superar las 100 líneas.");
+    }
+
+    const lineas: LineaNueva[] = [];
+    entradas.forEach((entrada, indice) => {
+      const etiqueta = `Línea ${indice + 1}:`;
+
+      if (!entrada || typeof entrada !== "object") {
+        errores.push(`${etiqueta} el formato de la línea no es válido.`);
+        return;
+      }
+
+      const linea = entrada as Record<string, unknown>;
+
+      const idCuenta = Number(linea.idCuenta);
+      if (!Number.isInteger(idCuenta) || idCuenta <= 0) {
+        errores.push(`${etiqueta} falta la cuenta contable.`);
+        return;
+      }
+
+      const descripcion = texto(linea.descripcion);
+      if (descripcion.length > 200) {
+        errores.push(`${etiqueta} la descripción no puede superar los 200 caracteres.`);
+      }
+
+      const debe = importe(linea.debe);
+      const haber = importe(linea.haber);
+      if (debe === null || haber === null) {
+        errores.push(`${etiqueta} los importes deben ser números válidos.`);
+        return;
+      }
+      if (debe < 0 || haber < 0) {
+        errores.push(`${etiqueta} los importes no pueden ser negativos.`);
+        return;
+      }
+      if (debe > 0 && haber > 0) {
+        errores.push(`${etiqueta} no puede tener importe en debe y en haber al mismo tiempo.`);
+        return;
+      }
+      if (debe === 0 && haber === 0) {
+        errores.push(`${etiqueta} debe tener un importe en debe o en haber.`);
+        return;
+      }
+
+      lineas.push({
+        idCuenta,
+        descripcion: descripcion || null,
+        debe: redondear2(debe),
+        haber: redondear2(haber),
+      });
+    });
+
+    const totalDebe = redondear2(lineas.reduce((suma, linea) => suma + linea.debe, 0));
+    const totalHaber = redondear2(lineas.reduce((suma, linea) => suma + linea.haber, 0));
+    if (lineas.length >= 2 && Math.abs(totalDebe - totalHaber) >= 0.005) {
+      errores.push(
+        `El asiento no cuadra: el debe (${totalDebe.toFixed(2)}) no coincide con el haber (${totalHaber.toFixed(2)}).`
+      );
+    }
+
+    if (errores.length > 0) {
+      return Response.json({ error: errores[0], errores }, { status: 400 });
+    }
+
+    // Todas las líneas deben apuntar a cuentas existentes del plan contable.
+    const idsCuentas = [...new Set(lineas.map((linea) => linea.idCuenta))];
+    const cuentas = await prisma.cuenta_contable.findMany({
+      where: { id_cuenta_contable: { in: idsCuentas } },
+      select: { id_cuenta_contable: true },
+    });
+    const existentes = new Set(cuentas.map((cuenta) => cuenta.id_cuenta_contable));
+    if (idsCuentas.some((id) => !existentes.has(id))) {
+      return Response.json(
+        { error: "Una o más cuentas contables del asiento no existen en el plan contable." },
+        { status: 400 }
+      );
+    }
+
+    const fechaContable = fechaUTC(fecha);
+
+    let asiento: Asiento_contable | null = null;
+    for (let intento = 0; intento < 3 && !asiento; intento++) {
+      try {
+        asiento = await prisma.asiento_contable.create({
+          data: {
+            codigo: await generarCodigoAsiento(fechaContable),
+            fecha_contable: fechaContable,
+            glosa,
+            diario,
+            responsable: responsable || null,
+            observacion: observacion || null,
+            estado,
+            detalles_asiento: {
+              create: lineas.map((linea) => ({
+                id_cuenta_contable: linea.idCuenta,
+                descripcion: linea.descripcion,
+                debito: linea.debe,
+                credito: linea.haber,
+              })),
+            },
+          },
+        });
+      } catch (error) {
+        if (!codigoDuplicado(error)) throw error;
+      }
+    }
+
+    if (!asiento) {
+      return Response.json(
+        { error: "No se pudo asignar un número de asiento, intente nuevamente." },
+        { status: 500 }
+      );
+    }
+
+    return Response.json(
+      {
+        id: asiento.id_asiento_contable,
+        numero: asiento.codigo,
+        fecha,
+        diario: asiento.diario,
+        concepto: asiento.glosa,
+        responsable: asiento.responsable,
+        estado: asiento.estado ? "Registrado" : "Anulado",
+        total: totalDebe,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("[api/asientos] error al registrar el asiento:", error);
+    return Response.json(
+      { error: "No se pudo registrar el asiento contable." },
       { status: 500 }
     );
   }

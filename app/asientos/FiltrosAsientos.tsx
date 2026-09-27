@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, X } from "lucide-react";
+import { FunnelX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -54,7 +54,7 @@ export function FiltrosAsientos({
   ];
 
   const opcionesEstado = [
-    { value: "todos", label: "Todos los estados" },
+    { value: "todos", label: "Todos" },
     ...estados.map((est) => ({ value: est.valor, label: `${est.etiqueta} (${est.total})` })),
   ];
 
@@ -70,87 +70,75 @@ export function FiltrosAsientos({
     chips.push({ id: "q", etiqueta: `Búsqueda: "${busqueda.trim()}"` });
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col lg:flex-row gap-1">
-          <label
-            htmlFor="filtro-desde"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
-          >
-            <CalendarDays className="w-3.5 h-3.5" /> Desde
-          </label>
-          <Input
-            id="filtro-desde"
-            type="date"
-            value={desde}
-            max={hasta || undefined}
-            onChange={(e) => onDesde(e.target.value)}
-            className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
-          />
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-1">
-          <label
-            htmlFor="filtro-hasta"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
-          >
-            <CalendarDays className="w-3.5 h-3.5" /> Hasta
-          </label>
-          <Input
-            id="filtro-hasta"
-            type="date"
-            value={hasta}
-            min={desde || undefined}
-            onChange={(e) => onHasta(e.target.value)}
-            className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
-          />
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-1">
-          <label
-            id="filtro-estado-label"
-            htmlFor="estadoFiltro"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
-          >
-            Estado
-          </label>
-          <Select
-            id="estadoFiltro"
-            value={estadoFiltro}
-            items={opcionesEstado}
-            onValueChange={(valor) => onEstado(valor ?? "todos")}
-          >
-            <SelectTrigger
-              className="w-40 rounded-lg bg-white text-xs"
-              aria-labelledby="filtro-estado-label"
+    <>
+      <div className="flex flex-col gap-3 bg-slate-50/70">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-row gap-2">
+            <label
+              htmlFor="filtro-desde"
+              className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {opcionesEstado.map((op) => (
-                <SelectItem key={op.value} value={op.value}>
-                  {op.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              De
+            </label>
+            <Input
+              id="filtro-desde"
+              type="date"
+              value={desde}
+              max={hasta || undefined}
+              onChange={(e) => onDesde(e.target.value)}
+              className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
+            />
+            <label
+              htmlFor="filtro-hasta"
+              className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
+            >
+              A
+            </label>
+            <Input
+              id="filtro-hasta"
+              type="date"
+              value={hasta}
+              min={desde || undefined}
+              onChange={(e) => onHasta(e.target.value)}
+              className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
+            />
+          </div>
+
+          <div className="flex flex-row gap-2">
+            <label
+              id="filtro-estado-label"
+              htmlFor="estadoFiltro"
+              className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
+            >
+              Estado
+            </label>
+            <Select
+              id="estadoFiltro"
+              value={estadoFiltro}
+              items={opcionesEstado}
+              onValueChange={(valor) => onEstado(valor ?? "todos")}
+            >
+              <SelectTrigger
+                className="w-36 rounded-lg bg-white text-xs"
+                aria-labelledby="filtro-estado-label"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {opcionesEstado.map((op) => (
+                  <SelectItem key={op.value} value={op.value}>
+                    {op.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            type="button"
-            onClick={onLimpiar}
-            disabled={!hayFiltros}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
-          >
-            <X className="w-4 h-4" />
-            <span>Limpiar filtros</span>
-          </Button>
-        </div>
-      </div>
 
-      {/* Chips con los filtros aplicados (se pueden quitar uno a uno) 
+        {/* Chips con los filtros aplicados (se pueden quitar uno a uno) 
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 pt-1 border-slate-200/80">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -175,6 +163,18 @@ export function FiltrosAsientos({
         </div>
       )}
         */}
-    </div>
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          type="button"
+          onClick={onLimpiar}
+          disabled={!hayFiltros}
+          className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
+        >
+          <FunnelX className="w-5 h-5" />
+        </Button>
+      </div>
+    </>
   );
 }
