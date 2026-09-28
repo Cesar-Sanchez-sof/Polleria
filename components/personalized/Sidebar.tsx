@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect } from 'react';
-import { Sun, Moon, Monitor, Table, Utensils, Component, CreditCardReader, ChefHat, User, LogOut } from 'lucide-react';
+import { useEffect } from 'react';
+import { Sun, Moon, Monitor, Utensils, Component, CreditCardReader, ChefHat, User, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Sidebar() {
@@ -63,7 +63,7 @@ export default function Sidebar() {
             <Link
               className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
               data-path="cocina"
-              href="/Utensilse/cocina"
+              href="/restaurante/cocina"
               target="_top"
             >
               <ChefHat className="w-4.5 h-4.5 text-tertiary" />
@@ -171,12 +171,22 @@ export default function Sidebar() {
             </div>
             <div className="flex flex-col pl-2 gap-0.5">
               <Link
-                className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                className="justify-between flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all gap-1"
                 data-path="dashboard-contabilidad"
                 href="/asientos"
                 target="_top"
               >
-                Asientos contables
+                <span>Asientos contables</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+              </Link>
+              <Link
+                className="justify-between flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                data-path="dashboard-contabilidad"
+                href="/cuentas"
+                target="_top"
+              >
+                <span>Cuentas contables</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
               </Link>
               <Link
                 className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
