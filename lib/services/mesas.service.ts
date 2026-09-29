@@ -106,6 +106,34 @@ export interface ComprobanteEmitido {
   } | null;
 }
 
+export interface ClienteItem {
+  id: number;
+  nroDoc: string;
+  nombre: string;
+  apellido: string;
+  nombreCompleto: string;
+  telefono: string;
+  tipoPersona: "Natural" | "Juridico";
+  estado: boolean;
+  totalCompras: number;
+}
+
+export interface VentasDiariasResumen {
+  totalRecaudado: number;
+  cantidadVentas: number;
+  desgloseMetodos: {
+    efectivo: number;
+    yape: number;
+    tarjeta: number;
+    otros: number;
+  };
+  desgloseComprobantes: {
+    boletas: number;
+    facturas: number;
+    tickets: number;
+  };
+}
+
 // Mapeo referencial de fotos para los platos de la carta (sin alterar la BD)
 const IMAGENES_PLATOS: Record<string, string> = {
   "1 pollo": "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400&auto=format&fit=crop&q=80",
@@ -259,6 +287,7 @@ export async function registrarVenta(datos: {
     nro_doc?: string;
     nombre: string;
     tipo_persona?: "Natural" | "Juridico";
+    telefono?: string;
   };
   monto_recibido?: number;
   pasarela?: {
@@ -278,3 +307,45 @@ export async function registrarVenta(datos: {
   }
   return res.json();
 }
+
+export async function listarClientes(busqueda?: string): Promise<ClienteItem[]> {
+  const url = busqueda ? `/api/clientes?q=${encodeURIComponent(busqueda)}` : "/api/clientes";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "No se pudo obtener el listado de clientes.");
+  }
+  const json = await res.json();
+  return json.data || [];
+}
+
+export async function crearCliente(datos: {
+  nro_doc?: string;
+  nombre: string;
+  apellido?: string;
+  telefono?: string;
+  tipo_persona?: "Natural" | "Juridico";
+}): Promise<{ mensaje: string; cliente: ClienteItem }> {
+  const res = await fetch("/api/clientes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "No se pudo registrar el cliente.");
+  }
+  return res.json();
+}
+
+export async function listarVentasDiarias(
+  fecha: string = "hoy"
+): Promise<{ data: ComprobanteEmitido[]; resumenDiario: VentasDiariasResumen }> {
+  const res = await fetch(`/api/ventas?fecha=${encodeURIComponent(fecha)}`, { cache: "no-store" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "No se pudieron obtener las ventas del día.");
+  }
+  return res.json();
+}
+
