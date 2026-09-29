@@ -1,9 +1,14 @@
 "use client";
 import React, { useEffect } from 'react';
-import { Sun, Moon, Monitor, Table, Utensils, Component, CreditCardReader, ChefHat, User, LogOut } from 'lucide-react';
+import { Sun, Moon, Monitor, Table, Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X } from 'lucide-react';
 import Link from 'next/link';
 
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps = {}) {
   useEffect(() => {
     const currentPath = window.location.pathname;
     const links = document.querySelectorAll('nav a[href]');
@@ -16,106 +21,136 @@ export default function Sidebar() {
     });
   }, []);
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high">
-      <div className="flex flex-col gap-space-sm overflow-y-auto">
-        {/* Header */}
-        <div className="flex flex-col items-center justify-center p-space-sm gap-space-xs text-center">
-          <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
-            <Component className="w-7 text-primary-container" />
-          </div>
-          <Link className="font-headline text-[16px] font-bold text-on-surface tracking-wider mt-space-xs uppercase" href="/" target="_top">
-            ERP EMPRESARIAL
-          </Link>
-          <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-            SISTEMA INTEGRAL
-          </span>
-        </div>
-        {/* Theme toggle */}
-        <div className="flex items-center justify-center bg-surface-container-low rounded-full p-1 gap-1 mx-space-sm">
-          <button className="flex-1 py-1 flex items-center justify-center rounded-full bg-surface-container-lowest text-primary-container shadow-sm hover:text-on-surface transition-colors" type="button">
-            <Sun className="w-4 h-4" />
-          </button>
-          <button className="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors" type="button">
-            <Moon className="w-4 h-4" />
-          </button>
-          <button className="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors" type="button">
-            <Monitor className="w-4 h-4" />
-          </button>
-        </div>
-        {/* Navigation */}
-        <nav className="flex flex-col gap-1 px-space-xs mt-space-xs" data-active-classes="bg-primary-fixed text-primary font-bold shadow-sm">
-          <div className="px-space-md pt-1 pb-0.5">
-            <span className="font-label text-[10px] uppercase text-outline font-bold tracking-wider">
-              Restaurante & Salón
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <div className="flex flex-col gap-space-sm overflow-y-auto">
+          {/* Header */}
+          <div className="relative flex flex-col items-center justify-center p-space-sm gap-space-xs text-center">
+            {onCloseMobile && (
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                className="absolute right-0 top-0 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden cursor-pointer"
+                aria-label="Cerrar menú lateral"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
+              <Component className="w-7 text-primary-container" />
+            </div>
+            <Link className="font-headline text-[16px] font-bold text-on-surface tracking-wider mt-space-xs uppercase" href="/" target="_top">
+              ERP EMPRESARIAL
+            </Link>
+            <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
+              SISTEMA INTEGRAL
             </span>
           </div>
-          {/* Restaurante Section */}
-          <div className="flex flex-col gap-0.5">
-            <Link
-              className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface hover:bg-surface-container text-[12px] font-semibold transition-all"
-              data-path="mesas"
-              href="/restaurante/mesas"
-              target="_top"
-            >
-              <Utensils className="w-4.5 h-4.5 text-primary" />
-              <span>Mesas y Salón</span>
-            </Link>
-            <Link
-              className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
-              data-path="cocina"
-              href="/Utensilse/cocina"
-              target="_top"
-            >
-              <ChefHat className="w-4.5 h-4.5 text-tertiary" />
-              <span>Cocina (KDS)</span>
-            </Link>
-            <Link
-              className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
-              data-path="caja"
-              href="/restaurante/caja"
-              target="_top"
-            >
-              <CreditCardReader className="w-4.5 h-4.5 text-secondary" />
-              <span>Caja y Cobro</span>
-            </Link>
+          {/* Theme toggle */}
+          <div className="flex items-center justify-center bg-surface-container-low rounded-full p-1 gap-1 mx-space-sm">
+            <button className="flex-1 py-1 flex items-center justify-center rounded-full bg-surface-container-lowest text-primary-container shadow-sm hover:text-on-surface transition-colors" type="button">
+              <Sun className="w-4 h-4" />
+            </button>
+            <button className="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors" type="button">
+              <Moon className="w-4 h-4" />
+            </button>
+            <button className="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors" type="button">
+              <Monitor className="w-4 h-4" />
+            </button>
           </div>
-          <div className="px-space-md pt-2 pb-0.5">
-            <span className="font-label text-[10px] uppercase text-outline font-bold tracking-wider">
-              Módulos ERP
-            </span>
-          </div>
-          {/* Ventas Section */}
-          <div className="flex flex-col gap-0.5">
-            <div className="px-space-md pt-1">
-              <span className="font-label text-[11px] font-bold text-on-surface">VENTAS</span>
+          {/* Navigation */}
+          <nav className="flex flex-col gap-1 px-space-xs mt-space-xs" data-active-classes="bg-primary-fixed text-primary font-bold shadow-sm">
+            <div className="px-space-md pt-1 pb-0.5">
+              <span className="font-label text-[10px] uppercase text-outline font-bold tracking-wider">
+                Restaurante & Salón
+              </span>
             </div>
-            <div className="flex flex-col pl-2 gap-0.5">
+            {/* Restaurante Section */}
+            <div className="flex flex-col gap-0.5">
               <Link
-                className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                data-path="ordenes-de-venta"
-                href="/ventas"
-                target="_top"
+                className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface hover:bg-surface-container text-[12px] font-semibold transition-all"
+                data-path="mesas"
+                href="/restaurante/mesas"
+                onClick={onCloseMobile}
               >
-                Órdenes de Venta
+                <Utensils className="w-4.5 h-4.5 text-primary" />
+                <span>Mesas y Salón</span>
               </Link>
               <Link
-                className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                data-path="clientes"
-                href="#"
-                target="_top"
+                className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
+                data-path="cocina"
+                href="/restaurante/cocina"
+                onClick={onCloseMobile}
               >
-                Clientes
+                <ChefHat className="w-4.5 h-4.5 text-tertiary" />
+                <span>Cocina (KDS)</span>
               </Link>
               <Link
-                className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                data-path="facturas-de-venta"
-                href="#"
-                target="_top"
+                className="flex items-center gap-2 px-space-md py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-semibold transition-all"
+                data-path="caja"
+                href="/restaurante/caja"
+                onClick={onCloseMobile}
               >
-                Facturas de Venta
+                <CreditCardReader className="w-4.5 h-4.5 text-secondary" />
+                <span>Caja y Cobro</span>
               </Link>
             </div>
-          </div>
+            <div className="px-space-md pt-2 pb-0.5">
+              <span className="font-label text-[10px] uppercase text-outline font-bold tracking-wider">
+                Módulos ERP
+              </span>
+            </div>
+            {/* Ventas Section */}
+            <div className="flex flex-col gap-0.5">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">VENTAS</span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                  data-path="ordenes-de-venta"
+                  href="/ventas?tab=mesas"
+                  onClick={onCloseMobile}
+                >
+                  Gestión de Mesas y Ventas
+                </Link>
+                <Link
+                  className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                  data-path="clientes"
+                  href="/ventas?tab=clientes"
+                  onClick={onCloseMobile}
+                >
+                  Clientes
+                </Link>
+                <Link
+                  className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                  data-path="facturas-de-venta"
+                  href="/ventas?tab=facturas"
+                  onClick={onCloseMobile}
+                >
+                  Facturas de Venta
+                </Link>
+                <Link
+                  className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                  data-path="cobros-pendientes"
+                  href="/ventas?tab=cobros"
+                  onClick={onCloseMobile}
+                >
+                  Cobros No Cobrados
+                </Link>
+              </div>
+            </div>
           {/* Compras Section */}
           <div className="flex flex-col gap-0.5 mt-1">
             <div className="px-space-md pt-1">
@@ -240,5 +275,6 @@ export default function Sidebar() {
       {/* Active link handling moved to useEffect */}
 
     </aside>
+    </>
   );
 }
