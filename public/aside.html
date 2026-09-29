@@ -174,23 +174,27 @@
                         data-path="clientes" href="#">Clientes</a><a
                         class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
                         data-path="facturas-de-venta" href="#">Facturas de Venta</a></div>
-            </div><!-- Compras Section -->
+            <!-- Compras Section -->
             <div class="flex flex-col gap-0.5 mt-1">
-                <div class="px-space-md pt-1"><span
-                        class="font-label text-[11px] font-bold text-on-surface">COMPRAS</span>
+                <div class="px-space-md pt-1"><a
+                        class="font-label text-[11px] font-bold text-on-surface hover:text-primary transition-colors"
+                        href="/compras" target="_top">COMPRAS E INVENTARIO</a>
                 </div>
                 <div class="flex flex-col pl-2 gap-0.5">
-                    <!-- Compras Section 
                     <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="proveedores" href="#">Proveedores</a>-->
+                        data-path="anadir" href="/compras/anadir" target="_top">Órdenes de Compra</a>
                     <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="facturas-de-proveedor" href="#">Facturas de Proveedor</a>
+                        data-path="recepcion" href="/compras/recepcion" target="_top">Recepción de Compra</a>
                     <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="ordenes-de-compra" href="/compras/anadir" target="_top">Añadir compra</a>
+                        data-path="facturas-de-proveedor" href="/compras/facturas-proveedor" target="_top">Facturas y Pagos</a>
                     <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="ordenes-de-compra" href="/compras/listar" target="_top">Listar compras</a>
+                        data-path="inventario" href="/compras/inventario" target="_top">Inventario / Insumos</a>
                     <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
-                        data-path="ordenes-de-compra" href="/compras/inventario" target="_top">Inventario</a>
+                        data-path="transformacion" href="/compras/transformacion" target="_top">Transformación</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="proveedores" href="/compras/proveedores" target="_top">Proveedores</a>
+                    <a class="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                        data-path="compra-sin-comprobante" href="/compras/compra-sin-comprobante" target="_top">Compra Menor sin Comprobante</a>
                 </div>
             </div><!-- Contabilidad Section -->
             <div class="flex flex-col gap-0.5 mt-1">
