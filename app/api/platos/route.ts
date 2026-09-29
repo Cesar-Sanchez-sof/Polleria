@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { consultarStockPlato } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       orderBy: { id_plato: "asc" }
     });
 
-    const platos = platosDb
+    const platosFiltrados = platosDb
       .map((p) => {
         const cat = determinarCategoria(p.nombre);
         return {
@@ -40,7 +41,19 @@ export async function GET(request: NextRequest) {
       })
       .filter((p) => !categoria || categoria === "todos" || p.categoria === categoria);
 
-    return Response.json({ data: platos, total: platos.length });
+    // Obtener stock en tiempo real desde Redis Cloud para cada plato
+    const platosConStock = await Promise.all(
+      platosFiltrados.map(async (p) => {
+        const stock = await consultarStockPlato(p.id);
+        return {
+          ...p,
+          stock,
+          disponible: stock > 0
+        };
+      })
+    );
+
+    return Response.json({ data: platosConStock, total: platosConStock.length });
   } catch (error) {
     console.error("[api/platos] Error al listar platos:", error);
     return Response.json(

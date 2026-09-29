@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liberarStockPlato } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
 
@@ -214,6 +215,16 @@ export async function PATCH(
           where: { id_pedido: id },
           data: { estado_plato: "Servido" }
         });
+      }
+
+      // Si el pedido se cancela, devolver el stock reservado a Redis
+      if (nuevoEstado === "Cancelado" && pedido.estado !== "Cancelado") {
+        const detalles = await tx.detalle_pedido.findMany({
+          where: { id_pedido: id }
+        });
+        for (const d of detalles) {
+          await liberarStockPlato(d.id_plato, d.cantidad).catch(() => {});
+        }
       }
     });
 

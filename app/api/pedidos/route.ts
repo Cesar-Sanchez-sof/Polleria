@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { reservarStockComanda, liberarStockPlato } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
 
@@ -147,78 +148,101 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 4. Verificación y reserva atómica de stock en Redis Cloud (evita sobreventa concurrente entre mozos)
+    const itemsReserva = items.map((it) => ({
+      idPlato: Number(it.id_plato),
+      cantidad: Math.floor(it.cantidad),
+      nombre: mapaPlatos.get(Number(it.id_plato))?.nombre,
+    }));
+
+    const resultadoReserva = await reservarStockComanda(itemsReserva);
+    if (!resultadoReserva.exito) {
+      return Response.json(
+        { error: resultadoReserva.error || "Stock insuficiente para atender el pedido." },
+        { status: 400 }
+      );
+    }
+
     // Generar código único para el pedido (PED-XXXXXX)
     const sufijoAleatorio = Math.floor(1000 + Math.random() * 9000);
     const timestampCodigo = Date.now().toString().slice(-4);
     const codigo = `PED-${timestampCodigo}${sufijoAleatorio}`;
 
     // Ejecución transaccional para garantizar integridad
-    const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Crear el Pedido
-      const nuevoPedido = await tx.pedido.create({
-        data: {
-          codigo,
-          tipo_pedido: tipoPedido,
-          estado: "Recibido",
-          fecha_pedido: new Date()
+    try {
+      const resultado = await prisma.$transaction(async (tx) => {
+        // 1. Crear el Pedido
+        const nuevoPedido = await tx.pedido.create({
+          data: {
+            codigo,
+            tipo_pedido: tipoPedido,
+            estado: "Recibido",
+            fecha_pedido: new Date()
+          }
+        });
+
+        // 2. Asociar a mesa únicamente si es tipo Mesa
+        if (tipoPedido === "Mesa" && idMesa) {
+          await tx.pedido_mesa.create({
+            data: {
+              id_mesa: idMesa,
+              id_pedido: nuevoPedido.id_pedido,
+              observacion: observacionMesa
+            }
+          });
+
+          // Marcar la mesa como ocupada
+          await tx.mesa.update({
+            where: { id_mesa: idMesa },
+            data: { estado: false }
+          });
+        }
+
+        // 3. Crear detalles del pedido con observaciones por producto
+        for (const item of items) {
+          const plato = mapaPlatos.get(Number(item.id_plato))!;
+          const precioUnitario = Number(plato.precio);
+          const subTotal = Math.round(precioUnitario * item.cantidad * 100) / 100;
+
+          await tx.detalle_pedido.create({
+            data: {
+              id_pedido: nuevoPedido.id_pedido,
+              id_plato: plato.id_plato,
+              cantidad: Math.floor(item.cantidad),
+              precio_unitario: precioUnitario,
+              sub_total: subTotal,
+              estado_plato: "Pendiente",
+              observaciones: item.observaciones ? item.observaciones.trim().slice(0, 100) : null
+            }
+          });
+        }
+
+        return nuevoPedido;
+      });
+
+      // Consultar el pedido completo creado con sus relaciones
+      const pedidoCompleto = await prisma.pedido.findUnique({
+        where: { id_pedido: resultado.id_pedido },
+        include: {
+          pedidos_mesa: { include: { mesa: true } },
+          detalles_pedido: { include: { plato: true } }
         }
       });
 
-      // 2. Asociar a mesa únicamente si es tipo Mesa
-      if (tipoPedido === "Mesa" && idMesa) {
-        await tx.pedido_mesa.create({
-          data: {
-            id_mesa: idMesa,
-            id_pedido: nuevoPedido.id_pedido,
-            observacion: observacionMesa
-          }
-        });
-
-        // Marcar la mesa como ocupada
-        await tx.mesa.update({
-          where: { id_mesa: idMesa },
-          data: { estado: false }
-        });
+      return Response.json(
+        {
+          mensaje: "Pedido registrado con éxito.",
+          pedido: pedidoCompleto
+        },
+        { status: 201 }
+      );
+    } catch (dbError) {
+      // ROLLBACK EN REDIS: Si la base de datos falla, liberamos el stock previamente reservado
+      for (const item of itemsReserva) {
+        await liberarStockPlato(item.idPlato, item.cantidad).catch(() => {});
       }
-
-      // 3. Crear detalles del pedido con observaciones por producto
-      for (const item of items) {
-        const plato = mapaPlatos.get(Number(item.id_plato))!;
-        const precioUnitario = Number(plato.precio);
-        const subTotal = Math.round(precioUnitario * item.cantidad * 100) / 100;
-
-        await tx.detalle_pedido.create({
-          data: {
-            id_pedido: nuevoPedido.id_pedido,
-            id_plato: plato.id_plato,
-            cantidad: Math.floor(item.cantidad),
-            precio_unitario: precioUnitario,
-            sub_total: subTotal,
-            estado_plato: "Pendiente",
-            observaciones: item.observaciones ? item.observaciones.trim().slice(0, 100) : null
-          }
-        });
-      }
-
-      return nuevoPedido;
-    });
-
-    // Consultar el pedido completo creado con sus relaciones
-    const pedidoCompleto = await prisma.pedido.findUnique({
-      where: { id_pedido: resultado.id_pedido },
-      include: {
-        pedidos_mesa: { include: { mesa: true } },
-        detalles_pedido: { include: { plato: true } }
-      }
-    });
-
-    return Response.json(
-      {
-        mensaje: "Pedido registrado con éxito.",
-        pedido: pedidoCompleto
-      },
-      { status: 201 }
-    );
+      throw dbError;
+    }
   } catch (error) {
     console.error("[api/pedidos] Error al crear pedido:", error);
     return Response.json(
