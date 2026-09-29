@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { calcularResumenVentasDiarias } from "@/lib/utils/ventas-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -227,3 +228,121 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const fechaParam = searchParams.get("fecha"); // "hoy", YYYY-MM-DD o "todas"
+
+    const whereClause: any = {};
+
+    if (fechaParam && fechaParam !== "todas") {
+      let baseDate: Date;
+      if (fechaParam === "hoy") {
+        baseDate = new Date();
+      } else {
+        baseDate = new Date(fechaParam);
+      }
+
+      // Rango de inicio a fin del día
+      const fechaInicio = new Date(baseDate);
+      fechaInicio.setHours(0, 0, 0, 0);
+      const fechaFin = new Date(baseDate);
+      fechaFin.setHours(23, 59, 59, 999);
+
+      whereClause.created_at = {
+        gte: fechaInicio,
+        lte: fechaFin,
+      };
+    }
+
+    const comprobantes = await prisma.comprobante_venta.findMany({
+      where: whereClause,
+      include: {
+        cliente: true,
+        pagos_venta: {
+          include: {
+            tipo_pago: true,
+          },
+        },
+        pedido: {
+          include: {
+            pedidos_mesa: {
+              include: {
+                mesa: true,
+              },
+            },
+            detalles_pedido: {
+              include: {
+                plato: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { id_comprobante_venta: "desc" },
+      take: 150,
+    });
+
+    const listaFormateada = comprobantes.map((c) => {
+      const nombreCliente = c.cliente
+        ? `${c.cliente.nombre}${c.cliente.apellido ? " " + c.cliente.apellido : ""}`.trim()
+        : "CLIENTE GENERAL";
+      const mesaAsociada = c.pedido?.pedidos_mesa[0]?.mesa;
+      const metodo = c.pagos_venta[0]?.tipo_pago?.nombre || "Efectivo";
+
+      return {
+        id: c.id_comprobante_venta,
+        idPedido: c.id_pedido,
+        tipo: c.tipo_comprobante as "Boleta" | "Factura" | "Ticket",
+        serie: c.serie,
+        numero: c.numero,
+        codigoCompleto: `${c.serie}-${String(c.numero).padStart(6, "0")}`,
+        fecha: c.created_at.toISOString(),
+        subtotal: Number(c.subtotal),
+        igv: Number(c.igv),
+        total: Number(c.monto_total),
+        estado: c.estado,
+        metodoPago: metodo,
+        montoRecibido: Number(c.monto_total),
+        vuelto: 0,
+        cliente: {
+          id: c.cliente?.id_cliente,
+          nombre: nombreCliente,
+          nroDoc: c.cliente?.nro_doc || "00000000",
+          tipoPersona: c.cliente?.tipo_persona || "Natural",
+        },
+        origen: mesaAsociada ? `Mesa ${mesaAsociada.numero}` : "Pedido Para Llevar",
+        items:
+          c.pedido?.detalles_pedido.map((d) => ({
+            nombre: d.plato.nombre,
+            cantidad: d.cantidad,
+            precioUnitario: Number(d.precio_unitario),
+            subTotal: Number(d.sub_total),
+            observaciones: d.observaciones || "",
+          })) || [],
+      };
+    });
+
+    const resumenDiario = calcularResumenVentasDiarias(
+      listaFormateada.map((v) => ({
+        monto_total: v.total,
+        metodo_pago: v.metodoPago,
+        tipo_comprobante: v.tipo,
+        fecha_emision: v.fecha,
+      }))
+    );
+
+    return Response.json({
+      data: listaFormateada,
+      resumenDiario,
+    });
+  } catch (error) {
+    console.error("[api/ventas] Error al listar comprobantes y ventas:", error);
+    return Response.json(
+      { error: "No se pudieron obtener las ventas registradas." },
+      { status: 500 }
+    );
+  }
+}
+
