@@ -48,33 +48,11 @@
 </head>
 
 <body class="bg-surface font-body text-on-surface antialiased">
-  <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
+    <iframe src="aside.html" width="100%" height="100%" style="border: none; position: fixed;"></iframe>
 
     <div class="pl-72">
-        <header
-            class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-8">
-            <div class="relative w-full max-w-md"><span
-                    class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span><input
-                    class="w-full bg-surface-container-low text-xs rounded-full pl-9 pr-4 py-2 text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                    placeholder="Buscar transacciones, cuentas, comprobantes..." type="text" /></div>
-            <div class="flex items-center gap-4 ml-4"><button
-                    class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
-                    title="Ayuda y Soporte" type="button"><span
-                        class="material-symbols-outlined text-[20px]">help_outline</span></button><button
-                    class="relative w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
-                    title="Notificaciones" type="button"><span
-                        class="material-symbols-outlined text-[20px]">notifications</span><span
-                        class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary"></span></button>
-                <div class="flex items-center gap-2 pl-2">
-                    <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span
-                            class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
-                    <div class="hidden xl:flex flex-col text-left"><span
-                            class="text-xs font-bold text-on-surface leading-tight">Admin User</span><span
-                            class="text-[10px] text-outline leading-tight">Administrador General</span></div>
-                </div>
-            </div>
-        </header>
-        <main class="relative pt-16 bg-surface min-h-screen w-full px-8 pb-12">
+        
+        <main class="relative bg-surface min-h-screen w-full p-6">
             <div class="flex flex-col w-full space-y-8">
                 <!-- Top Welcome & Global Executive Control Banner -->
                 <section class="relative bg-surface-container-lowest rounded-xl shadow-sm p-6 lg:p-8 overflow-hidden">
@@ -330,7 +308,7 @@
                 <!-- Main Split Dashboard Layout -->
                 <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
                     <!-- Left Operations & Financial Analytics Column (Approx 65%) -->
-                    <div class="xl:col-span-8 space-y-8 min-w-0">
+                    <div class="xl:col-span-6 space-y-8 min-w-0">
                         <!-- Module Status Bento Cards -->
                         <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-5">
                             <div class="flex items-center justify-between">
@@ -487,311 +465,10 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Financial Chart Panel: Ingresos vs Egresos (6 Meses) -->
-                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-6">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span
-                                            class="material-symbols-outlined text-primary text-[20px]">bar_chart</span>
-                                        <h2 class="text-base font-headline font-bold text-on-surface">
-                                            Comparativo Mensual: Ingresos vs. Egresos
-                                        </h2>
-                                    </div>
-                                    <p class="text-xs text-outline mt-0.5">Evolución de tesorería Mayo 2026 - Octubre
-                                        2026 (Expresado en Miles de Soles)</p>
-                                </div>
-                                <div class="flex items-center gap-4 text-xs font-semibold">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="w-3 h-3 rounded-sm bg-primary"></span>
-                                        <span class="text-on-surface">Ingresos (Ventas)</span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="w-3 h-3 rounded-sm bg-secondary-fixed-dim"></span>
-                                        <span class="text-on-surface-variant">Egresos (Costos/Gastos)</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Custom Crisp Visual Bar Chart (Inline SVG Layout) -->
-                            <div class="w-full pt-2">
-                                <div
-                                    class="grid grid-cols-6 gap-2 sm:gap-6 items-end h-56 px-2 sm:px-4 border-b border-surface-container pb-2">
-                                    <!-- Mayo -->
-                                    <div class="flex flex-col items-center h-full justify-end group">
-                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
-                                            style="font-feature-settings: 'tnum' 1;">
-                                            S/ 1,120K
-                                        </div>
-                                        <div
-                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
-                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
-                                                style="height: 120px;" title="Ingresos Mayo: S/ 1,120,000"></div>
-                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
-                                                style="height: 75px;" title="Egresos Mayo: S/ 710,000"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-on-surface-variant mt-2">May</span>
-                                    </div>
-                                    <!-- Junio -->
-                                    <div class="flex flex-col items-center h-full justify-end group">
-                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
-                                            style="font-feature-settings: 'tnum' 1;">
-                                            S/ 1,230K
-                                        </div>
-                                        <div
-                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
-                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
-                                                style="height: 135px;" title="Ingresos Junio: S/ 1,230,000"></div>
-                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
-                                                style="height: 85px;" title="Egresos Junio: S/ 810,000"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Jun</span>
-                                    </div>
-                                    <!-- Julio (Fiestas Patrias Peak) -->
-                                    <div class="flex flex-col items-center h-full justify-end group">
-                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
-                                            style="font-feature-settings: 'tnum' 1;">
-                                            S/ 1,390K
-                                        </div>
-                                        <div
-                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
-                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
-                                                style="height: 155px;" title="Ingresos Julio: S/ 1,390,000"></div>
-                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
-                                                style="height: 98px;" title="Egresos Julio: S/ 920,000"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Jul</span>
-                                    </div>
-                                    <!-- Agosto -->
-                                    <div class="flex flex-col items-center h-full justify-end group">
-                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
-                                            style="font-feature-settings: 'tnum' 1;">
-                                            S/ 1,280K
-                                        </div>
-                                        <div
-                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
-                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
-                                                style="height: 142px;" title="Ingresos Agosto: S/ 1,280,000"></div>
-                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
-                                                style="height: 88px;" title="Egresos Agosto: S/ 840,000"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Ago</span>
-                                    </div>
-                                    <!-- Setiembre -->
-                                    <div class="flex flex-col items-center h-full justify-end group">
-                                        <div class="text-[10px] font-bold text-outline opacity-0 group-hover:opacity-100 transition-opacity mb-1"
-                                            style="font-feature-settings: 'tnum' 1;">
-                                            S/ 1,340K
-                                        </div>
-                                        <div
-                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
-                                            <div class="w-1/2 bg-primary rounded-t-md hover:brightness-110 transition-all"
-                                                style="height: 148px;" title="Ingresos Setiembre: S/ 1,340,000"></div>
-                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md hover:brightness-105 transition-all"
-                                                style="height: 89px;" title="Egresos Setiembre: S/ 860,000"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-on-surface-variant mt-2">Set</span>
-                                    </div>
-                                    <!-- Octubre (Mes Actual - Alto Desempeño) -->
-                                    <div class="flex flex-col items-center h-full justify-end relative group">
-                                        <span
-                                            class="absolute -top-3 px-1.5 py-0.5 rounded bg-primary text-on-primary text-[9px] font-bold uppercase tracking-wider">Activo</span>
-                                        <div class="text-[10px] font-bold text-primary mb-1"
-                                            style="font-feature-settings: 'tnum' 1;">
-                                            S/ 1,420K
-                                        </div>
-                                        <div
-                                            class="flex items-end gap-1.5 sm:gap-2.5 w-full max-w-[64px] justify-center">
-                                            <div class="w-1/2 bg-primary rounded-t-md shadow-md shadow-primary/20"
-                                                style="height: 168px;" title="Ingresos Octubre: S/ 1,420,850"></div>
-                                            <div class="w-1/2 bg-secondary-fixed-dim rounded-t-md" style="height: 94px;"
-                                                title="Egresos Octubre: S/ 895,400"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-primary mt-2">Oct</span>
-                                    </div>
-                                </div>
-                                <!-- Bottom Metric Cards -->
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
-                                    <div class="p-3 bg-surface-container-low rounded-lg flex flex-col">
-                                        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total
-                                            Ingresos 6M</span>
-                                        <span class="text-sm font-bold text-on-surface mt-0.5"
-                                            style="font-feature-settings: 'tnum' 1;">S/ 7,780,850.00</span>
-                                    </div>
-                                    <div class="p-3 bg-surface-container-low rounded-lg flex flex-col">
-                                        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total
-                                            Egresos 6M</span>
-                                        <span class="text-sm font-bold text-on-surface mt-0.5"
-                                            style="font-feature-settings: 'tnum' 1;">S/ 5,045,400.00</span>
-                                    </div>
-                                    <div class="p-3 bg-secondary-container/40 rounded-lg flex flex-col">
-                                        <span
-                                            class="text-[10px] font-bold uppercase tracking-wider text-secondary">Superávit
-                                            Consolidado</span>
-                                        <span class="text-sm font-bold text-primary mt-0.5"
-                                            style="font-feature-settings: 'tnum' 1;">+S/ 2,735,450.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Live Operations Table: Comprobantes & Registros Recientes -->
-                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h2 class="text-base font-headline font-bold text-on-surface">Comprobantes Recientes
-                                        Emitidos &amp; Recibidos</h2>
-                                    <p class="text-xs text-outline">Últimos documentos procesados con timbrado SUNAT</p>
-                                </div>
-                                <a class="text-xs font-bold text-primary hover:underline" href="#">Ver todos los
-                                    registros →</a>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr
-                                            class="bg-secondary-container/50 text-on-secondary-container text-[11px] font-label font-bold uppercase tracking-wider">
-                                            <th class="py-2.5 px-3 rounded-l-lg">Documento</th>
-                                            <th class="py-2.5 px-3">Entidad / Cliente / Proveedor</th>
-                                            <th class="py-2.5 px-3">Fecha/Hora</th>
-                                            <th class="py-2.5 px-3 text-right">Importe</th>
-                                            <th class="py-2.5 px-3 text-center">Estado SUNAT</th>
-                                            <th class="py-2.5 px-3 text-center rounded-r-lg">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="text-xs font-body divide-y divide-surface-container-low">
-                                        <!-- Row 1 -->
-                                        <tr class="hover:bg-surface-container-low transition-colors">
-                                            <td class="py-3 px-3 font-bold text-on-surface"
-                                                style="font-feature-settings: 'tnum' 1;">
-                                                <span
-                                                    class="px-1.5 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-bold mr-1.5">F001</span>
-                                                0004921
-                                            </td>
-                                            <td class="py-3 px-3">
-                                                <div class="font-bold text-on-surface">Corporación Aceros Arequipa S.A.
-                                                </div>
-                                                <div class="text-[10px] text-outline">RUC: 20100135891</div>
-                                            </td>
-                                            <td class="py-3 px-3 text-outline">24 Oct, 11:42 AM</td>
-                                            <td class="py-3 px-3 text-right font-bold text-on-surface"
-                                                style="font-feature-settings: 'tnum' 1;">
-                                                S/ 84,320.00
-                                            </td>
-                                            <td class="py-3 px-3 text-center">
-                                                <span
-                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                                    <span
-                                                        class="material-symbols-outlined text-[12px]">check_circle</span>
-                                                    ACEPTADO
-                                                </span>
-                                            </td>
-                                            <td class="py-3 px-3 text-center">
-                                                <div class="inline-flex items-center gap-1">
-                                                    <button
-                                                        class="w-7 h-7 rounded bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
-                                                        title="Ver PDF" type="button">
-                                                        <span
-                                                            class="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                                                    </button>
-                                                    <button
-                                                        class="w-7 h-7 rounded bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim flex items-center justify-center transition-colors"
-                                                        title="Descargar XML" type="button">
-                                                        <span class="material-symbols-outlined text-[15px]">code</span>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <!-- Row 2 -->
-                                        <tr class="hover:bg-surface-container-low transition-colors">
-                                            <td class="py-3 px-3 font-bold text-on-surface"
-                                                style="font-feature-settings: 'tnum' 1;">
-                                                <span
-                                                    class="px-1.5 py-0.5 rounded bg-secondary-fixed text-secondary text-[10px] font-bold mr-1.5">B003</span>
-                                                0019245
-                                            </td>
-                                            <td class="py-3 px-3">
-                                                <div class="font-bold text-on-surface">Constructora e Inversiones del
-                                                    Sur</div>
-                                                <div class="text-[10px] text-outline">DNI/RUC: 10458920194</div>
-                                            </td>
-                                            <td class="py-3 px-3 text-outline">24 Oct, 10:15 AM</td>
-                                            <td class="py-3 px-3 text-right font-bold text-on-surface"
-                                                style="font-feature-settings: 'tnum' 1;">
-                                                S/ 12,450.00
-                                            </td>
-                                            <td class="py-3 px-3 text-center">
-                                                <span
-                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                                    <span
-                                                        class="material-symbols-outlined text-[12px]">check_circle</span>
-                                                    ACEPTADO
-                                                </span>
-                                            </td>
-                                            <td class="py-3 px-3 text-center">
-                                                <div class="inline-flex items-center gap-1">
-                                                    <button
-                                                        class="w-7 h-7 rounded bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
-                                                        title="Ver PDF" type="button">
-                                                        <span
-                                                            class="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                                                    </button>
-                                                    <button
-                                                        class="w-7 h-7 rounded bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim flex items-center justify-center transition-colors"
-                                                        title="Descargar XML" type="button">
-                                                        <span class="material-symbols-outlined text-[15px]">code</span>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <!-- Row 3 -->
-                                        <tr class="hover:bg-surface-container-low transition-colors">
-                                            <td class="py-3 px-3 font-bold text-on-surface"
-                                                style="font-feature-settings: 'tnum' 1;">
-                                                <span
-                                                    class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold mr-1.5">F002</span>
-                                                0008819
-                                            </td>
-                                            <td class="py-3 px-3">
-                                                <div class="font-bold text-on-surface">Soluciones Logísticas Callao
-                                                    S.A.C.</div>
-                                                <div class="text-[10px] text-outline">RUC: 20556781290 (Gasto Logístico)
-                                                </div>
-                                            </td>
-                                            <td class="py-3 px-3 text-outline">24 Oct, 09:30 AM</td>
-                                            <td class="py-3 px-3 text-right font-bold text-on-surface"
-                                                style="font-feature-settings: 'tnum' 1;">
-                                                S/ 28,190.00
-                                            </td>
-                                            <td class="py-3 px-3 text-center">
-                                                <span
-                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
-                                                    <span class="material-symbols-outlined text-[12px]">sync</span>
-                                                    REGISTRADO
-                                                </span>
-                                            </td>
-                                            <td class="py-3 px-3 text-center">
-                                                <div class="inline-flex items-center gap-1">
-                                                    <button
-                                                        class="w-7 h-7 rounded bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
-                                                        title="Ver PDF" type="button">
-                                                        <span
-                                                            class="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                                                    </button>
-                                                    <button
-                                                        class="w-7 h-7 rounded bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed flex items-center justify-center transition-colors"
-                                                        title="Editar Gasto" type="button">
-                                                        <span class="material-symbols-outlined text-[15px]">edit</span>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+
+
                     </div>
-                    <!-- Right Executive Action & Compliance Column (Approx 35%) -->
-                    <div class="xl:col-span-4 space-y-8 min-w-0">
-                        <!-- Critical Executive Approvals Pending (V°B°) -->
+                    <div class="xl:col-span-3 space-y-8 min-w-0">
                         <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
@@ -890,59 +567,9 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- System Health & SUNAT Connectivity Hub -->
-                        <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
-                            <div class="flex items-center gap-2">
-                                <span class="material-symbols-outlined text-primary text-[20px]">cloud_done</span>
-                                <h2 class="text-base font-headline font-bold text-on-surface">Estado de Enlaces &amp;
-                                    Conectividad</h2>
-                            </div>
-                            <div class="space-y-3">
-                                <div
-                                    class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
-                                    <div class="flex items-center gap-2.5">
-                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                                        <div>
-                                            <div class="text-xs font-bold text-on-surface">Servidor SUNAT OSE / CPE
-                                            </div>
-                                            <div class="text-[10px] text-outline">Certificado vigente hasta Dic 2027
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">100%
-                                        OK</span>
-                                </div>
-                                <div
-                                    class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
-                                    <div class="flex items-center gap-2.5">
-                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                                        <div>
-                                            <div class="text-xs font-bold text-on-surface">API Bancaria BCP &amp; BBVA
-                                            </div>
-                                            <div class="text-[10px] text-outline">Última conciliación: Hoy 08:30 AM
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Cuadrado</span>
-                                </div>
-                                <div
-                                    class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
-                                    <div class="flex items-center gap-2.5">
-                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                                        <div>
-                                            <div class="text-xs font-bold text-on-surface">Guías Remisión Electrónica
-                                            </div>
-                                            <div class="text-[10px] text-outline">12 generadas sin incidencias hoy</div>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="text-[10px] font-bold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">Activo</span>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Activity Feed: Live System Movements -->
+                    </div>
+
+                    <div class="xl:col-span-3 space-y-8 min-w-0">
                         <div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-4">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
@@ -1003,22 +630,6 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <!-- Quick Executive Utility Actions -->
-                        <div
-                            class="bg-gradient-to-br from-primary/5 via-surface-container-low to-surface-container rounded-xl p-5 border border-primary/10 flex items-center justify-between">
-                            <div>
-                                <h4 class="text-xs font-bold text-on-surface uppercase tracking-wider">Centro de Soporte
-                                    SUNAT</h4>
-                                <p class="text-[11px] text-outline mt-0.5">Mesa de ayuda directa para contingencias OSE.
-                                </p>
-                            </div>
-                            <button
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-xs font-bold text-primary shadow-sm transition-colors"
-                                type="button">
-                                <span class="material-symbols-outlined text-[16px]">support_agent</span>
-                                <span>Contactar</span>
-                            </button>
                         </div>
                     </div>
                 </div>
