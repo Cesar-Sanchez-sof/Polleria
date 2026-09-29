@@ -14,30 +14,35 @@ export interface ComprobanteCompraInput {
 }
 
 export async function obtenerRecepcionesSinComprobante() {
-  return await prisma.recepcion_compra.findMany({
-    where: {
-      comprobantes_compra: {
-        none: {},
-      },
-    },
-    include: {
-      orden_compra: {
-        include: {
-          proveedor: true,
+  try {
+    return await prisma.recepcion_compra.findMany({
+      where: {
+        comprobantes_compra: {
+          none: {},
         },
       },
-      detalles_recepcion_compra: {
-        include: {
-          detalle_orden_compra: {
-            include: {
-              insumo: true,
+      include: {
+        orden_compra: {
+          include: {
+            proveedor: true,
+          },
+        },
+        detalles_recepcion_compra: {
+          include: {
+            detalle_orden_compra: {
+              include: {
+                insumo: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: { fecha_recepcion: "desc" },
-  });
+      orderBy: { fecha_recepcion: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener recepciones sin comprobante:", error);
+    return [];
+  }
 }
 
 export async function crearComprobanteCompra(data: ComprobanteCompraInput) {
@@ -129,48 +134,53 @@ export async function crearComprobanteCompra(data: ComprobanteCompraInput) {
 }
 
 export async function obtenerComprobantesCompra() {
-  const comprobantes = await prisma.comprobante_compra.findMany({
-    include: {
-      proveedor: true,
-      recepcion: {
-        include: {
-          detalles_recepcion_compra: {
-            include: {
-              detalle_orden_compra: {
-                include: {
-                  insumo: true,
+  try {
+    const comprobantes = await prisma.comprobante_compra.findMany({
+      include: {
+        proveedor: true,
+        recepcion: {
+          include: {
+            detalles_recepcion_compra: {
+              include: {
+                detalle_orden_compra: {
+                  include: {
+                    insumo: true,
+                  },
                 },
               },
             },
           },
         },
-      },
-      pagos_compra: {
-        include: {
-          tipo_pago: true,
+        pagos_compra: {
+          include: {
+            tipo_pago: true,
+          },
         },
       },
-    },
-    orderBy: { created_at: "desc" },
-  });
+      orderBy: { created_at: "desc" },
+    });
 
-  return comprobantes.map((c) => {
-    const totalPagado = c.pagos_compra.reduce((sum, p) => sum + Number(p.monto), 0);
-    const montoTotal = Number(c.monto_total);
-    let estadoPago: "Pendiente" | "Parcial" | "Pagado" = "Pendiente";
-    if (totalPagado >= montoTotal && montoTotal > 0) {
-      estadoPago = "Pagado";
-    } else if (totalPagado > 0) {
-      estadoPago = "Parcial";
-    }
+    return comprobantes.map((c) => {
+      const totalPagado = c.pagos_compra.reduce((sum, p) => sum + Number(p.monto), 0);
+      const montoTotal = Number(c.monto_total);
+      let estadoPago: "Pendiente" | "Parcial" | "Pagado" = "Pendiente";
+      if (totalPagado >= montoTotal && montoTotal > 0) {
+        estadoPago = "Pagado";
+      } else if (totalPagado > 0) {
+        estadoPago = "Parcial";
+      }
 
-    return {
-      ...c,
-      totalPagado,
-      saldoPendiente: Math.max(0, montoTotal - totalPagado),
-      estadoPago,
-    };
-  });
+      return {
+        ...c,
+        totalPagado,
+        saldoPendiente: Math.max(0, montoTotal - totalPagado),
+        estadoPago,
+      };
+    });
+  } catch (error) {
+    console.error("Error al obtener comprobantes de compra:", error);
+    return [];
+  }
 }
 
 export async function registrarPagoCompra(
@@ -211,8 +221,13 @@ export async function registrarPagoCompra(
 }
 
 export async function obtenerTiposPago() {
-  return await prisma.tipo_pago.findMany({
-    where: { estado: true },
-    orderBy: { nombre: "asc" },
-  });
+  try {
+    return await prisma.tipo_pago.findMany({
+      where: { estado: true },
+      orderBy: { nombre: "asc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener tipos de pago:", error);
+    return [];
+  }
 }

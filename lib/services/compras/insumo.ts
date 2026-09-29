@@ -11,9 +11,14 @@ export interface InsumoInput {
 }
 
 export async function obtenerInsumos() {
-  return await prisma.insumo.findMany({
-    orderBy: { nombre: "asc" },
-  });
+  try {
+    return await prisma.insumo.findMany({
+      orderBy: { nombre: "asc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener insumos:", error);
+    return [];
+  }
 }
 
 export async function crearInsumo(data: InsumoInput) {
@@ -79,16 +84,21 @@ export async function registrarAjusteInventario(
 }
 
 export async function obtenerMovimientosInventario(id_insumo?: number) {
-  return await prisma.movimiento_inventario.findMany({
-    where: id_insumo ? { id_insumo } : undefined,
-    include: {
-      insumo: true,
-      detalle_recepcion_compra: {
-        include: {
-          recepcion: true,
+  try {
+    return await prisma.movimiento_inventario.findMany({
+      where: id_insumo ? { id_insumo } : undefined,
+      include: {
+        insumo: true,
+        detalle_recepcion_compra: {
+          include: {
+            recepcion: true,
+          },
         },
       },
-    },
-    orderBy: { fecha_movimiento: "desc" },
-  });
+      orderBy: { fecha_movimiento: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener movimientos de inventario:", error);
+    return [];
+  }
 }

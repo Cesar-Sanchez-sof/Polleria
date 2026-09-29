@@ -114,15 +114,20 @@ export async function registrarTransformacion(data: TransformacionInput) {
 }
 
 export async function obtenerTransformaciones() {
-  return await prisma.transformacion.findMany({
-    include: {
-      empleado: true,
-      detalles_transformacion: {
-        include: {
-          insumo: true,
+  try {
+    return await prisma.transformacion.findMany({
+      include: {
+        empleado: true,
+        detalles_transformacion: {
+          include: {
+            insumo: true,
+          },
         },
       },
-    },
-    orderBy: { fecha: "desc" },
-  });
+      orderBy: { fecha: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener transformaciones:", error);
+    return [];
+  }
 }

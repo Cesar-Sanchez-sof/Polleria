@@ -99,37 +99,47 @@ export async function crearOrdenCompra(data: OrdenCompraInput) {
 }
 
 export async function obtenerOrdenesCompra() {
-  return await prisma.orden_compra.findMany({
-    include: {
-      proveedor: true,
-      empleado: true,
-      detalles_orden: {
-        include: {
-          insumo: true,
+  try {
+    return await prisma.orden_compra.findMany({
+      include: {
+        proveedor: true,
+        empleado: true,
+        detalles_orden: {
+          include: {
+            insumo: true,
+          },
         },
+        recepciones_compra: true,
       },
-      recepciones_compra: true,
-    },
-    orderBy: { fecha_emision: "desc" },
-  });
+      orderBy: { fecha_emision: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener órdenes de compra:", error);
+    return [];
+  }
 }
 
 export async function obtenerOrdenCompraPorId(id_orden_compra: number) {
-  return await prisma.orden_compra.findUnique({
-    where: { id_orden_compra },
-    include: {
-      proveedor: true,
-      empleado: true,
-      detalles_orden: {
-        include: {
-          insumo: true,
+  try {
+    return await prisma.orden_compra.findUnique({
+      where: { id_orden_compra },
+      include: {
+        proveedor: true,
+        empleado: true,
+        detalles_orden: {
+          include: {
+            insumo: true,
+          },
+        },
+        recepciones_compra: {
+          include: {
+            detalles_recepcion_compra: true,
+          },
         },
       },
-      recepciones_compra: {
-        include: {
-          detalles_recepcion_compra: true,
-        },
-      },
-    },
-  });
+    });
+  } catch (error) {
+    console.error("Error al obtener orden de compra:", error);
+    return null;
+  }
 }

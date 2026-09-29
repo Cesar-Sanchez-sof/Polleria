@@ -18,29 +18,34 @@ export interface RecepcionCompraInput {
 }
 
 export async function obtenerOrdenesParaRecepcion() {
-  return await prisma.orden_compra.findMany({
-    where: {
-      estado: {
-        in: [EstadoOrdenCompraEnum.Pendiente, EstadoOrdenCompraEnum.RecibidaParcial],
-      },
-    },
-    include: {
-      proveedor: true,
-      empleado: true,
-      detalles_orden: {
-        include: {
-          insumo: true,
-          detalles_recepcion_compra: true,
+  try {
+    return await prisma.orden_compra.findMany({
+      where: {
+        estado: {
+          in: [EstadoOrdenCompraEnum.Pendiente, EstadoOrdenCompraEnum.RecibidaParcial],
         },
       },
-      recepciones_compra: {
-        include: {
-          detalles_recepcion_compra: true,
+      include: {
+        proveedor: true,
+        empleado: true,
+        detalles_orden: {
+          include: {
+            insumo: true,
+            detalles_recepcion_compra: true,
+          },
+        },
+        recepciones_compra: {
+          include: {
+            detalles_recepcion_compra: true,
+          },
         },
       },
-    },
-    orderBy: { fecha_emision: "desc" },
-  });
+      orderBy: { fecha_emision: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener órdenes para recepción:", error);
+    return [];
+  }
 }
 
 export async function recepcionarCompra(data: RecepcionCompraInput) {
@@ -153,25 +158,30 @@ export async function recepcionarCompra(data: RecepcionCompraInput) {
 }
 
 export async function obtenerRecepcionesCompra() {
-  return await prisma.recepcion_compra.findMany({
-    include: {
-      orden_compra: {
-        include: {
-          proveedor: true,
+  try {
+    return await prisma.recepcion_compra.findMany({
+      include: {
+        orden_compra: {
+          include: {
+            proveedor: true,
+          },
         },
-      },
-      empleado_recepcion: true,
-      detalles_recepcion_compra: {
-        include: {
-          detalle_orden_compra: {
-            include: {
-              insumo: true,
+        empleado_recepcion: true,
+        detalles_recepcion_compra: {
+          include: {
+            detalle_orden_compra: {
+              include: {
+                insumo: true,
+              },
             },
           },
         },
+        comprobantes_compra: true,
       },
-      comprobantes_compra: true,
-    },
-    orderBy: { fecha_recepcion: "desc" },
-  });
+      orderBy: { fecha_recepcion: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener recepciones de compra:", error);
+    return [];
+  }
 }

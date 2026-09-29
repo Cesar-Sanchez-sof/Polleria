@@ -14,9 +14,14 @@ export interface ProveedorInput {
 }
 
 export async function obtenerProveedores() {
-  return await prisma.proveedor.findMany({
-    orderBy: { razon_social: "asc" },
-  });
+  try {
+    return await prisma.proveedor.findMany({
+      orderBy: { razon_social: "asc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener proveedores:", error);
+    return [];
+  }
 }
 
 export async function crearProveedor(data: ProveedorInput) {

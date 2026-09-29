@@ -70,11 +70,16 @@ export async function registrarCompraSinComprobante(data: CompraSinComprobanteIn
 }
 
 export async function obtenerComprasSinComprobante() {
-  return await prisma.compra_sin_comprobante.findMany({
-    include: {
-      insumo: true,
-      empleado: true,
-    },
-    orderBy: { fecha: "desc" },
-  });
+  try {
+    return await prisma.compra_sin_comprobante.findMany({
+      include: {
+        insumo: true,
+        empleado: true,
+      },
+      orderBy: { fecha: "desc" },
+    });
+  } catch (error) {
+    console.error("Error al obtener compras sin comprobante:", error);
+    return [];
+  }
 }
