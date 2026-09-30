@@ -309,9 +309,9 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
-                  className={getLinkClass("#")}
+                  className={getLinkClass("/diario")}
                   data-path="libro-diario"
-                  href="#"
+                  href="/diario"
                   target="_top"
                   onClick={handleLinkClick}
                 >
