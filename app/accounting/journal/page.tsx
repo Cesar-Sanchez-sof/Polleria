@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { BookOpen } from "lucide-react";
 
-import { DetalleAsientos } from "../asientos/DetalleAsientos";
-import { PaginacionAsientos } from "../asientos/PaginacionAsientos";
+import { DetalleAsientos } from "../entries/components/JournalEntryDetail";
+import { PaginacionAsientos } from "../entries/components/JournalEntryPagination";
 import { FiltrosDiario } from "./FiltrosDiario";
 import { DailyJournalTable } from "./TablaDiario";
 

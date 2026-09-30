@@ -1,10 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { JournalOption, OpcionDiario } from "@/lib/services/asientos.service";
+import type { JournalBookOption } from "@/lib/services/asientos.service";
 
 interface Props {
-  journals: JournalOption[];
+  journals: JournalBookOption[];
   /** Total journal entries of the current list (with applied filters). */
   total: number;
   /** Selected journal ("todos" = unfiltered). */

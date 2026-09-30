@@ -34,46 +34,46 @@ const ACCOUNT_CODE_REGEX = /^[A-Za-z0-9.-]{1,10}$/;
 /** Selector sentinel value for root account (no parent). */
 const ROOT_ACCOUNT_VALUE = "__raiz__";
 
-interface CuentaDialogProps {
-  abierto: boolean;
-  cuenta: AccountingAccount | null;
-  padreInicial: AccountingAccount | null;
-  cuentas: AccountingAccount[];
-  onCerrar: () => void;
-  onGuardado: (cuenta: AccountingAccount) => void;
+interface AccountDialogProps {
+  isOpen: boolean;
+  account: AccountingAccount | null;
+  initialParent: AccountingAccount | null;
+  accounts: AccountingAccount[];
+  onClose: () => void;
+  onSaved: (account: AccountingAccount) => void;
 }
 
-export function CuentaDialog({
-  abierto,
-  cuenta,
-  padreInicial,
-  cuentas,
-  onCerrar,
-  onGuardado,
-}: Readonly<CuentaDialogProps>) {
-  const [code, setCode] = useState<string>(() => (cuenta ? cuenta.codigo : ""));
-  const [name, setName] = useState<string>(() => (cuenta ? cuenta.nombre : ""));
+export function AccountDialog({
+  isOpen,
+  account,
+  initialParent,
+  accounts,
+  onClose,
+  onSaved,
+}: Readonly<AccountDialogProps>) {
+  const [code, setCode] = useState<string>(() => (account ? account.codigo : ""));
+  const [name, setName] = useState<string>(() => (account ? account.nombre : ""));
   const [parentId, setParentId] = useState<string>(() => {
-    if (cuenta) return cuenta.idPadre === null ? ROOT_ACCOUNT_VALUE : String(cuenta.idPadre);
-    if (padreInicial) return String(padreInicial.id);
+    if (account) return account.idPadre === null ? ROOT_ACCOUNT_VALUE : String(account.idPadre);
+    if (initialParent) return String(initialParent.id);
     return ROOT_ACCOUNT_VALUE;
   });
   const [accountType, setAccountType] = useState<string>(() => {
-    if (cuenta) return cuenta.tipo;
-    if (padreInicial) return padreInicial.tipo;
+    if (account) return account.tipo;
+    if (initialParent) return initialParent.tipo;
     return "";
   });
-  const [isActive, setIsActive] = useState<boolean>(() => (cuenta ? cuenta.activo : true));
+  const [isActive, setIsActive] = useState<boolean>(() => (account ? account.activo : true));
   const [errors, setErrors] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  const isEditMode = cuenta !== null;
+  const isEditMode = account !== null;
   const numericParentId = parentId === ROOT_ACCOUNT_VALUE ? null : Number(parentId);
   const isInheritedType = numericParentId !== null;
 
   const parentAccount = useMemo(
-    () => (numericParentId === null ? null : (cuentas.find((c) => c.id === numericParentId) ?? null)),
-    [cuentas, numericParentId]
+    () => (numericParentId === null ? null : (accounts.find((c) => c.id === numericParentId) ?? null)),
+    [accounts, numericParentId]
   );
 
   const excludedIds = useMemo(() => {
@@ -99,11 +99,11 @@ export function CuentaDialog({
 
   const parentOptions = useMemo(
     () =>
-      cuentas
+      accounts
         .filter((c) => !excludedIds.has(c.id) && (c.activo || c.id === numericParentId))
         .slice()
         .sort((a, b) => a.codigo.localeCompare(b.codigo)),
-    [cuentas, excludedIds, numericParentId]
+    [accounts, excludedIds, numericParentId]
   );
 
   const typeOptions = useMemo(
@@ -115,7 +115,7 @@ export function CuentaDialog({
     const nextParentId = value ?? ROOT_ACCOUNT_VALUE;
     setParentId(nextParentId);
     if (nextParentId !== ROOT_ACCOUNT_VALUE) {
-      const parent = cuentas.find((c) => String(c.id) === nextParentId);
+      const parent = accounts.find((c) => String(c.id) === nextParentId);
       if (parent) setAccountType(parent.tipo);
     }
   };
@@ -163,9 +163,9 @@ export function CuentaDialog({
         ...(isEditMode ? { activo: isActive } : {}),
       };
       const savedAccount = isEditMode
-        ? await updateAccount(cuenta.id, payload)
+        ? await updateAccount(account!.id, payload)
         : await registerAccount(payload);
-      onGuardado(savedAccount);
+      onSaved(savedAccount);
     } catch (error) {
       setErrors(
         error instanceof ApiError
@@ -181,14 +181,14 @@ export function CuentaDialog({
   const inputClasses = "h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-none";
 
   return (
-    <Dialog open={abierto} onOpenChange={(open) => (open ? undefined : onCerrar())}>
+    <Dialog open={isOpen} onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="sm:max-w-xl max-h-[calc(100vh-4rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-slate-900">
             {isEditMode
               ? "Editar cuenta contable"
-              : padreInicial
-                ? `Nueva subcuenta de ${padreInicial.codigo}`
+              : initialParent
+                ? `Nueva subcuenta de ${initialParent.codigo}`
                 : "Nueva cuenta contable"}
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500">

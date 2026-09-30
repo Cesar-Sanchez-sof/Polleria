@@ -28,12 +28,9 @@ import {
 import {
   formatDate,
   formatCurrency,
-  type AsientoResumen,
   type JournalEntrySummary,
-  type DireccionOrden,
-  type OrderDirection,
-  type OrdenAsiento,
-  type JournalEntryOrder,
+  type JournalEntrySort,
+  type SortDirection,
 } from "@/lib/services/asientos.service";
 
 interface Props {
@@ -41,10 +38,10 @@ interface Props {
   loading: boolean;
   error: string | null;
   hasFilters: boolean;
-  order: { field: JournalEntryOrder; dir: OrderDirection };
+  order: { field: JournalEntrySort; dir: SortDirection };
   pageSize: number;
   selectedIds: number[];
-  onSort: (field: JournalEntryOrder) => void;
+  onSort: (field: JournalEntrySort) => void;
   onSelectAll: (checked: boolean) => void;
   onSelectRow: (id: number, checked: boolean) => void;
   onOpenDetail: (id: number) => void;
@@ -63,11 +60,11 @@ function ThOrder({
   className = "",
   align = "left",
 }: Readonly<{
-  field: JournalEntryOrder;
+  field: JournalEntrySort;
   title: string;
-  currentOrder: JournalEntryOrder;
-  dir: OrderDirection;
-  onSort: (field: JournalEntryOrder) => void;
+  currentOrder: JournalEntrySort;
+  dir: SortDirection;
+  onSort: (field: JournalEntrySort) => void;
   children: ReactNode;
   className?: string;
   align?: "left" | "right" | "center";

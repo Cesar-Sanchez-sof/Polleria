@@ -61,19 +61,19 @@ function createEmptyLine(key: number): FormLine {
   return { key, accountId: "", description: "", debit: "", credit: "" };
 }
 
-interface NuevoAsientoDialogProps {
+interface NewJournalEntryDialogProps {
   abierto: boolean;
   diarios: JournalBookOption[];
   onCerrar: () => void;
   onCreado: (asiento: JournalEntrySummary) => void;
 }
 
-export function NuevoAsientoDialog({
+export function NewJournalEntryDialog({
   abierto,
   diarios,
   onCerrar,
   onCreado,
-}: Readonly<NuevoAsientoDialogProps>) {
+}: Readonly<NewJournalEntryDialogProps>) {
   const [entryDate, setEntryDate] = useState<string>(() => getTodayIsoDate());
   const [book, setBook] = useState<string>(DEFAULT_BOOK);
   const [description, setDescription] = useState<string>("");
@@ -505,14 +505,12 @@ export function NuevoAsientoDialog({
               </span>
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                isBalanced ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
-              }`}
+              className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${isBalanced ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                }`}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isBalanced ? "bg-emerald-400" : "bg-amber-400"
-                }`}
+                className={`w-1.5 h-1.5 rounded-full ${isBalanced ? "bg-emerald-400" : "bg-amber-400"
+                  }`}
               ></span>
               {isBalanced ? "Asiento cuadrado" : "Debe y haber deben coincidir"}
             </span>

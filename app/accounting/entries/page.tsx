@@ -1,22 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Sidebar from "../../../components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 
-import { DetalleAsientos } from "./DetalleAsientos";
-import { JournalEntryFilters, type FilterChip } from "./FiltrosAsientos";
-import { NuevoAsientoDialog } from "./NuevoAsientoDialog";
-import { JournalEntryPagination } from "./PaginacionAsientos";
-import { JournalEntryTabs } from "./TabsDiarioAsientos";
-import { JournalEntryTable } from "./TablaAsientos";
-import { JournalEntryToolbar } from "./ToolbarAsientos";
+import { JournalEntryDetail } from "./components/JournalEntryDetail";
+import { JournalEntryFilters, type FilterChip } from "./components/JournalEntryFilters";
+import { NewJournalEntryDialog } from "./components/NewJournalEntryDialog";
+import { JournalEntryPagination } from "./components/JournalEntryPagination";
+import { JournalEntryTabs } from "./components/JournalEntryTabs";
+import { JournalEntryTable } from "./components/JournalEntryTable";
+import { JournalEntryToolbar } from "./components/JournalEntryToolbar";
 
 import {
   listJournalEntries,
   getJournalEntry,
   getJournalEntriesOptions,
-  type JournalEntryDetail,
+  type JournalEntryDetail as TypeJournalEntryDetail,
   type SortDirection,
   type JournalEntriesOptions,
   type JournalEntriesPage,
@@ -56,7 +55,7 @@ export default function AsientosPage() {
   // Selected entry detail
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [detailId, setDetailId] = useState<number | null>(null);
-  const [detail, setDetail] = useState<JournalEntryDetail | null>(null);
+  const [detail, setDetail] = useState<TypeJournalEntryDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
@@ -364,7 +363,7 @@ export default function AsientosPage() {
       </div>
 
       {/* DETALLE DEL ASIENTO SELECCIONADO */}
-      <DetalleAsientos
+      <JournalEntryDetail
         open={detailOpen}
         detail={detail}
         loading={loadingDetail}
@@ -374,7 +373,7 @@ export default function AsientosPage() {
       />
 
       {/* ALTA MANUAL DE UN ASIENTO */}
-      <NuevoAsientoDialog
+      <NewJournalEntryDialog
         abierto={newOpen}
         diarios={options?.diarios ?? []}
         onCerrar={() => setNewOpen(false)}

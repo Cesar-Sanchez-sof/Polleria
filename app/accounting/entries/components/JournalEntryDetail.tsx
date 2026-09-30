@@ -25,7 +25,7 @@ import {
   type JournalEntryDetail,
 } from "@/lib/services/asientos.service";
 
-interface DetalleAsientosProps {
+interface JournalEntryDetailProps {
   open: boolean;
   detail: JournalEntryDetail | null;
   loading: boolean;
@@ -34,14 +34,14 @@ interface DetalleAsientosProps {
   onRetry: () => void;
 }
 
-export function DetalleAsientos({
+export function JournalEntryDetail({
   open,
   detail,
   loading,
   error,
   onClose,
   onRetry,
-}: Readonly<DetalleAsientosProps>) {
+}: Readonly<JournalEntryDetailProps>) {
   return (
     <Sheet open={open} onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent

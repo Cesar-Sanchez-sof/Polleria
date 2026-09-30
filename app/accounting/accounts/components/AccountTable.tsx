@@ -27,56 +27,56 @@ import type { AccountingAccount } from "@/lib/services/cuentas.service";
 
 /** Tree row representing an account with depth and branch expansion state. */
 export interface AccountTableRow {
-  cuenta: AccountingAccount;
-  profundidad: number;
-  tieneHijos: boolean;
-  expandida: boolean;
+  account: AccountingAccount;
+  depth: number;
+  hasChildren: boolean;
+  expanded: boolean;
 }
 
 export type FilaCuenta = AccountTableRow;
 
-interface TablaCuentasProps {
-  filas: AccountTableRow[];
-  cargando: boolean;
+interface AccountTableProps {
+  rows: AccountTableRow[];
+  loading: boolean;
   error: string | null;
-  hayFiltros: boolean;
-  idEnAccion: number | null;
-  onAlternarRama: (id: number) => void;
-  onExpandirTodo: () => void;
-  onContraerTodo: () => void;
-  onEditar: (cuenta: AccountingAccount) => void;
-  onNuevoHijo: (cuenta: AccountingAccount) => void;
-  onCambiarEstado: (cuenta: AccountingAccount) => void;
-  onReintentar: () => void;
-  onLimpiarFiltros: () => void;
+  hasFilters: boolean;
+  actionId: number | null;
+  onToggleBranch: (id: number) => void;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
+  onEdit: (account: AccountingAccount) => void;
+  onCreateChild: (account: AccountingAccount) => void;
+  onToggleStatus: (account: AccountingAccount) => void;
+  onRetry: () => void;
+  onClearFilters: () => void;
 }
 
 const TOTAL_COLUMNS = 6;
 
-export function TablaCuentas({
-  filas,
-  cargando,
+export function AccountTable({
+  rows,
+  loading,
   error,
-  hayFiltros,
-  idEnAccion,
-  onAlternarRama,
-  onExpandirTodo,
-  onContraerTodo,
-  onEditar,
-  onNuevoHijo,
-  onCambiarEstado,
-  onReintentar,
-  onLimpiarFiltros,
-}: Readonly<TablaCuentasProps>) {
-  const isSkeleton = cargando && filas.length === 0 && !error;
-  const isEmpty = !error && !cargando && filas.length === 0;
+  hasFilters,
+  actionId,
+  onToggleBranch,
+  onExpandAll,
+  onCollapseAll,
+  onEdit,
+  onCreateChild,
+  onToggleStatus,
+  onRetry,
+  onClearFilters,
+}: Readonly<AccountTableProps>) {
+  const isSkeleton = loading && rows.length === 0 && !error;
+  const isEmpty = !error && !loading && rows.length === 0;
 
   return (
     <div className="w-full">
       <div className="flex items-center justify-end gap-3 pb-2 text-[11px] font-semibold text-slate-500">
         <button
           type="button"
-          onClick={onExpandirTodo}
+          onClick={onExpandAll}
           className="uppercase tracking-wider hover:text-slate-900 cursor-pointer transition-colors"
         >
           Expandir todo
@@ -86,7 +86,7 @@ export function TablaCuentas({
         </span>
         <button
           type="button"
-          onClick={onContraerTodo}
+          onClick={onCollapseAll}
           className="uppercase tracking-wider hover:text-slate-900 cursor-pointer transition-colors"
         >
           Contraer todo
@@ -94,7 +94,7 @@ export function TablaCuentas({
       </div>
 
       <div
-        className={`w-full overflow-x-auto rounded-lg transition-opacity ${cargando && filas.length > 0 ? "opacity-60" : ""}`}
+        className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && rows.length > 0 ? "opacity-60" : ""}`}
       >
         <Table className="w-full text-left border-collapse min-w-30">
           <TableHeader>
@@ -143,7 +143,7 @@ export function TablaCuentas({
                 </TableRow>
               ))}
 
-            {error && !cargando && (
+            {error && !loading && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={TOTAL_COLUMNS} className="py-10 text-center">
                   <div className="flex flex-col items-center gap-3 text-slate-600">
@@ -151,7 +151,7 @@ export function TablaCuentas({
                     <p className="text-sm font-semibold">{error}</p>
                     <Button
                       type="button"
-                      onClick={onReintentar}
+                      onClick={onRetry}
                       className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -168,19 +168,19 @@ export function TablaCuentas({
                   <div className="flex flex-col items-center gap-3 text-slate-500">
                     <Inbox className="w-8 h-8 text-slate-400" />
                     <p className="text-sm font-semibold text-slate-700">
-                      {hayFiltros
+                      {hasFilters
                         ? "No se encontraron cuentas con los filtros seleccionados"
                         : "Sin cuentas contables"}
                     </p>
                     <p className="text-xs">
-                      {hayFiltros
+                      {hasFilters
                         ? "Ajusta la búsqueda, el tipo o el estado."
                         : "Registra la primera cuenta con el botón “Nueva cuenta”."}
                     </p>
-                    {hayFiltros && (
+                    {hasFilters && (
                       <Button
                         type="button"
-                        onClick={onLimpiarFiltros}
+                        onClick={onClearFilters}
                         className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -193,36 +193,36 @@ export function TablaCuentas({
             )}
 
             {!error &&
-              filas.map(({ cuenta, profundidad, tieneHijos, expandida }) => {
-                const inAction = idEnAccion === cuenta.id;
+              rows.map(({ account, depth, hasChildren, expanded }) => {
+                const inAction = actionId === account.id;
                 return (
                   <TableRow
-                    key={cuenta.id}
+                    key={account.id}
                     className="hover:bg-(--color-background) transition-colors group border-b border-slate-100"
                   >
                     <TableCell className="py-2.5 px-3 font-mono text-xs font-semibold text-slate-700 tabular-nums">
-                      {cuenta.codigo}
+                      {account.codigo}
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3">
                       <span
                         className="flex items-center gap-1"
-                        style={{ marginLeft: profundidad * 18 }}
+                        style={{ marginLeft: depth * 18 }}
                       >
-                        {tieneHijos ? (
+                        {hasChildren ? (
                           <button
                             type="button"
-                            onClick={() => onAlternarRama(cuenta.id)}
+                            onClick={() => onToggleBranch(account.id)}
                             className="p-0.5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-colors"
-                            title={expandida ? "Contraer subcuentas" : "Expandir subcuentas"}
+                            title={expanded ? "Contraer subcuentas" : "Expandir subcuentas"}
                             aria-label={
-                              expandida
-                                ? `Contraer las subcuentas de ${cuenta.nombre}`
-                                : `Expandir las subcuentas de ${cuenta.nombre}`
+                              expanded
+                                ? `Contraer las subcuentas de ${account.nombre}`
+                                : `Expandir las subcuentas de ${account.nombre}`
                             }
-                            aria-expanded={expandida}
+                            aria-expanded={expanded}
                           >
-                            {expandida ? (
+                            {expanded ? (
                               <ChevronDown className="w-4 h-4" />
                             ) : (
                               <ChevronRight className="w-4 h-4" />
@@ -233,40 +233,40 @@ export function TablaCuentas({
                         )}
                         <span
                           className={
-                            profundidad === 0
+                            depth === 0
                               ? "font-semibold text-slate-900"
                               : "text-slate-700"
                           }
                         >
-                          {cuenta.nombre}
+                          {account.nombre}
                         </span>
                       </span>
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3 text-slate-600 text-xs font-medium">
-                      {cuenta.tipo}
+                      {account.tipo}
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3 text-center">
                       <Badge
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${cuenta.activo ? "bg-emerald-100/80 text-emerald-700" : "bg-slate-200/80 text-slate-600"}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${account.activo ? "bg-emerald-100/80 text-emerald-700" : "bg-slate-200/80 text-slate-600"}`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${cuenta.activo ? "bg-emerald-600" : "bg-slate-500"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${account.activo ? "bg-emerald-600" : "bg-slate-500"}`}
                         ></span>
-                        {cuenta.activo ? "Activa" : "Inactiva"}
+                        {account.activo ? "Activa" : "Inactiva"}
                       </Badge>
                     </TableCell>
 
                     <TableCell
                       className="py-2.5 px-3 text-right tabular-nums text-xs text-slate-500"
                       title={
-                        cuenta.usos > 0
-                          ? `Usada en ${cuenta.usos} línea${cuenta.usos === 1 ? "" : "s"} de asiento`
+                        account.usos > 0
+                          ? `Usada en ${account.usos} línea${account.usos === 1 ? "" : "s"} de asiento`
                           : "Todavía no se usa en ningún asiento"
                       }
                     >
-                      {cuenta.usos}
+                      {account.usos}
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3 text-right">
@@ -275,11 +275,11 @@ export function TablaCuentas({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          title={`Añadir subcuenta a ${cuenta.codigo}`}
-                          aria-label={`Añadir subcuenta a ${cuenta.nombre}`}
-                          onClick={() => onNuevoHijo(cuenta)}
+                          title={`Añadir subcuenta a ${account.codigo}`}
+                          aria-label={`Añadir subcuenta a ${account.nombre}`}
+                          onClick={() => onCreateChild(account)}
                           disabled={inAction}
-                          className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7"
+                          className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer h-7 w-7"
                         >
                           <FolderPlus className="w-4 h-4" />
                         </Button>
@@ -288,11 +288,11 @@ export function TablaCuentas({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          title={`Editar ${cuenta.codigo}`}
-                          aria-label={`Editar la cuenta ${cuenta.nombre}`}
-                          onClick={() => onEditar(cuenta)}
+                          title={`Editar ${account.codigo}`}
+                          aria-label={`Editar la cuenta ${account.nombre}`}
+                          onClick={() => onEdit(account)}
                           disabled={inAction}
-                          className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7"
+                          className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer h-7 w-7"
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -301,15 +301,15 @@ export function TablaCuentas({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          title={cuenta.activo ? `Desactivar ${cuenta.codigo}` : `Activar ${cuenta.codigo}`}
+                          title={account.activo ? `Desactivar ${account.codigo}` : `Activar ${account.codigo}`}
                           aria-label={
-                            cuenta.activo
-                              ? `Desactivar la cuenta ${cuenta.nombre}`
-                              : `Activar la cuenta ${cuenta.nombre}`
+                            account.activo
+                              ? `Desactivar la cuenta ${account.nombre}`
+                              : `Activar la cuenta ${account.nombre}`
                           }
-                          onClick={() => onCambiarEstado(cuenta)}
+                          onClick={() => onToggleStatus(account)}
                           disabled={inAction}
-                          className={`p-1.5 rounded opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7 ${cuenta.activo ? "text-slate-400 hover:text-rose-600" : "text-slate-400 hover:text-emerald-600"}`}
+                          className={`p-1.5 rounded group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7 ${account.activo ? "text-slate-400 hover:text-rose-600" : "text-slate-400 hover:emerald-600"}`}
                         >
                           {inAction ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

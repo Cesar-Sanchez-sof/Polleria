@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-import { CuentaDialog } from "./CuentaDialog";
-import { TablaCuentas, type AccountTableRow } from "./TablaCuentas";
-import { ToolbarCuentas } from "./ToolbarCuentas";
+import { CuentaDialog } from "./components/CuentaDialog";
+import { AccountTable, type AccountTableRow } from "./components/AccountTable";
+import { ToolbarCuentas } from "./components/ToolbarCuentas";
 
 import {
   updateAccount,
@@ -105,10 +105,10 @@ export default function CuentasPage() {
         const children = accountTree.children.get(account.id) ?? [];
         const isCollapsed = !hasActiveFilters && collapsedIds.has(account.id);
         outputRows.push({
-          cuenta: account,
-          profundidad: depth,
-          tieneHijos: children.length > 0,
-          expandida: !isCollapsed,
+          account: account,
+          depth: depth,
+          hasChildren: children.length > 0,
+          expanded: !isCollapsed,
         });
         if (!isCollapsed) traverse(children, depth + 1);
       }
@@ -225,20 +225,20 @@ export default function CuentasPage() {
                 </div>
               )}
 
-              <TablaCuentas
-                filas={rows}
-                cargando={isLoading}
+              <AccountTable
+                rows={rows}
+                loading={isLoading}
                 error={errorMessage}
-                hayFiltros={hasActiveFilters}
-                idEnAccion={actionAccountId}
-                onAlternarRama={handleToggleBranch}
-                onExpandirTodo={handleExpandAll}
-                onContraerTodo={handleCollapseAll}
-                onEditar={handleEditAccount}
-                onNuevoHijo={handleCreateSubaccount}
-                onCambiarEstado={(acc) => void handleToggleStatus(acc)}
-                onReintentar={() => void loadAccounts()}
-                onLimpiarFiltros={handleClearFilters}
+                hasFilters={hasActiveFilters}
+                actionId={actionAccountId}
+                onToggleBranch={handleToggleBranch}
+                onExpandAll={handleExpandAll}
+                onCollapseAll={handleCollapseAll}
+                onEdit={handleEditAccount}
+                onCreateChild={handleCreateSubaccount}
+                onToggleStatus={handleToggleStatus}
+                onRetry={loadAccounts}
+                onClearFilters={handleClearFilters}
               />
             </Card>
           </div>

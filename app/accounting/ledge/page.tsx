@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { BookMarked } from "lucide-react";
 
-import { DetalleAsientos } from "../asientos/DetalleAsientos";
+import { DetalleAsientos } from "../entries/components/JournalEntryDetail";
 import { FiltrosMayor } from "./FiltrosMayor";
 import { TablaMayor } from "./TablaMayor";
 
