@@ -49,6 +49,7 @@ import {
   TrendingUp,
   Tag,
   ArrowRight,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -59,6 +60,7 @@ import {
   crearPedido,
   editarPedido,
   actualizarEstadoPedido,
+  cancelarPedido,
   registrarVenta,
   listarClientes,
   crearCliente,
@@ -181,6 +183,7 @@ function VentasGestionMesasContent() {
   const [esEdicion, setEsEdicion] = useState<boolean>(false);
   const [pedidoEdicionId, setPedidoEdicionId] = useState<number | null>(null);
   const [mesaSeleccionada, setMesaSeleccionada] = useState<MesaItem | null>(null);
+  const [mesasAdicionales, setMesasAdicionales] = useState<number[]>([]);
   const [esParaLlevar, setEsParaLlevar] = useState<boolean>(false);
   const [observacionMesa, setObservacionMesa] = useState<string>("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>("todos");
@@ -196,12 +199,29 @@ function VentasGestionMesasContent() {
   const [obsTexto, setObsTexto] = useState<string>("");
 
   // ---------------------------------------------------------------------------
+  // ESTADO MODAL CANCELACIÓN DE COMANDA (AUDITORÍA & LIBERACIÓN)
+  // ---------------------------------------------------------------------------
+  const [modalCancelarAbierto, setModalCancelarAbierto] = useState<boolean>(false);
+  const [pedidoACancelar, setPedidoACancelar] = useState<PedidoResumen | null>(null);
+  const [motivoCancelacion, setMotivoCancelacion] = useState<string>("");
+  const [usuarioCancelacion, setUsuarioCancelacion] = useState<string>("Mozo Salón");
+  const [cancelandoPedido, setCancelandoPedido] = useState<boolean>(false);
+
+  // ---------------------------------------------------------------------------
   // ESTADO CAJA Y COBRO EN VENTANILLA
   // ---------------------------------------------------------------------------
   const [pedidoACobrar, setPedidoACobrar] = useState<PedidoResumen | null>(null);
   const [origenCobro, setOrigenCobro] = useState<string>("");
-  const [metodoPago, setMetodoPago] = useState<"efectivo" | "yape" | "pos">("efectivo");
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "yape" | "pos" | "mixto">("efectivo");
   const [montoEntregado, setMontoEntregado] = useState<string>("");
+  // Partes de pago dinámicas para Pagar en Partes (Caja Ventanilla)
+  const [partesPago, setPartesPago] = useState<
+    Array<{ id: string; idTipoPago: number; monto: string; efectivoEntregado?: string }>
+  >([
+    { id: "p-1", idTipoPago: 1, monto: "" },
+    { id: "p-2", idTipoPago: 2, monto: "" },
+  ]);
+
   const [modalComprobanteAbierto, setModalComprobanteAbierto] = useState<boolean>(false);
   const [tipoComprobante, setTipoComprobante] = useState<"Boleta" | "Factura" | "Ticket">("Boleta");
   const [clienteDoc, setClienteDoc] = useState<string>("");
@@ -210,11 +230,17 @@ function VentasGestionMesasContent() {
   const [procesandoVenta, setProcesandoVenta] = useState<boolean>(false);
 
   // ---------------------------------------------------------------------------
-  // ESTADO COBRO MÓVIL / MOZO (COBRO CON CELULAR / TAP TO PAY / YAPE)
+  // ESTADO COBRO MÓVIL / MOZO (COBRO CON CELULAR / TAP TO PAY / YAPE / PARTES)
   // ---------------------------------------------------------------------------
   const [modalCobroMozoAbierto, setModalCobroMozoAbierto] = useState<boolean>(false);
   const [pedidoCobroMozo, setPedidoCobroMozo] = useState<PedidoResumen | null>(null);
-  const [metodoPagoMozo, setMetodoPagoMozo] = useState<"efectivo" | "yape" | "pos">("pos");
+  const [metodoPagoMozo, setMetodoPagoMozo] = useState<"efectivo" | "yape" | "pos" | "mixto">("pos");
+  const [partesPagoMozo, setPartesPagoMozo] = useState<
+    Array<{ id: string; idTipoPago: number; monto: string; efectivoEntregado?: string }>
+  >([
+    { id: "pm-1", idTipoPago: 1, monto: "" },
+    { id: "pm-2", idTipoPago: 2, monto: "" },
+  ]);
   const [montoEntregadoMozo, setMontoEntregadoMozo] = useState<string>("");
   const [procesandoCobroMozo, setProcesandoCobroMozo] = useState<boolean>(false);
   const [tapToPayDetectado, setTapToPayDetectado] = useState<boolean>(false);
@@ -425,6 +451,7 @@ function VentasGestionMesasContent() {
     setEsEdicion(false);
     setPedidoEdicionId(null);
     setMesaSeleccionada(mesa);
+    setMesasAdicionales([]);
     setEsParaLlevar(false);
     setObservacionMesa("");
     setItemsComanda([]);
@@ -437,6 +464,7 @@ function VentasGestionMesasContent() {
     setEsEdicion(false);
     setPedidoEdicionId(null);
     setMesaSeleccionada(null);
+    setMesasAdicionales([]);
     setEsParaLlevar(true);
     setObservacionMesa("");
     setItemsComanda([]);
@@ -459,6 +487,7 @@ function VentasGestionMesasContent() {
     }
     setEsEdicion(true);
     setPedidoEdicionId(pedido.id);
+    setMesasAdicionales([]);
     setEsParaLlevar(pedido.tipoPedido === "Llevar");
     setObservacionMesa(pedido.observacionMesa || pedido.observacion || "");
     setItemsComanda(
@@ -534,6 +563,7 @@ function VentasGestionMesasContent() {
         await crearPedido({
           tipo_pedido: esParaLlevar ? "Llevar" : "Mesa",
           id_mesa: esParaLlevar ? undefined : mesaSeleccionada?.id,
+          mesas_adicionales: !esParaLlevar && mesasAdicionales.length > 0 ? mesasAdicionales : undefined,
           observacion: observacionMesa,
           items: itemsComanda.map((it) => ({
             id_plato: it.idPlato,
@@ -544,6 +574,8 @@ function VentasGestionMesasContent() {
         toast.success(
           esParaLlevar
             ? "Pedido para llevar registrado con éxito."
+            : mesasAdicionales.length > 0
+            ? `Mesa ${mesaSeleccionada?.numero} ocupada con ${mesasAdicionales.length} mesa(s) unida(s). Comanda enviada a cocina.`
             : `Mesa ${mesaSeleccionada?.numero} ocupada. Comanda enviada a cocina.`
         );
       }
@@ -567,6 +599,99 @@ function VentasGestionMesasContent() {
     }
   };
 
+  // Cancelación de comanda con auditoría y liberación de mesas
+  const abrirModalCancelar = (pedido: PedidoResumen) => {
+    if (pedido.estado === "Cerrado") {
+      toast.warning("No se puede cancelar un pedido que ya fue cobrado y cerrado.");
+      return;
+    }
+    setPedidoACancelar(pedido);
+    setMotivoCancelacion("");
+    setUsuarioCancelacion("Mozo Salón");
+    setModalCancelarAbierto(true);
+  };
+
+  const ejecutarCancelacion = async () => {
+    if (!pedidoACancelar) return;
+    if (!motivoCancelacion.trim()) {
+      toast.warning("Debe indicar el motivo de la cancelación.");
+      return;
+    }
+
+    try {
+      setCancelandoPedido(true);
+      const res = await cancelarPedido(
+        pedidoACancelar.id,
+        motivoCancelacion.trim(),
+        usuarioCancelacion.trim() || "Mozo Salón"
+      );
+      toast.success(res.mensaje || "Pedido cancelado, mesa(s) liberada(s) y stock devuelto exitosamente.");
+      setModalCancelarAbierto(false);
+      setPedidoACancelar(null);
+      await cargarDatos();
+    } catch (err: any) {
+      toast.error(err.message || "Error al cancelar la comanda.");
+    } finally {
+      setCancelandoPedido(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // FUNCIONES AUXILIARES PARA PAGAR EN PARTES (DINÁMICO)
+  // ---------------------------------------------------------------------------
+  const agregarPartePago = (destino: "caja" | "mozo") => {
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    fnSet((prev) => {
+      const usados = new Set(prev.map((p) => p.idTipoPago));
+      const disponible = tiposPago.find((t) => !usados.has(t.id))?.id || tiposPago[0]?.id || 1;
+      return [
+        ...prev,
+        {
+          id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          idTipoPago: disponible,
+          monto: "",
+        },
+      ];
+    });
+  };
+
+  const removerPartePago = (id: string, destino: "caja" | "mozo") => {
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    fnSet((prev) => {
+      if (prev.length <= 2) {
+        toast.warning("Debe mantener al menos 2 partes para dividir el pago.");
+        return prev;
+      }
+      return prev.filter((p) => p.id !== id);
+    });
+  };
+
+  const actualizarPartePago = (
+    id: string,
+    campo: "idTipoPago" | "monto" | "efectivoEntregado",
+    valor: any,
+    destino: "caja" | "mozo"
+  ) => {
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    fnSet((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p))
+    );
+  };
+
+  const autocompletarRestante = (idParte: string, totalCuenta: number, destino: "caja" | "mozo") => {
+    const partesActuales = destino === "caja" ? partesPago : partesPagoMozo;
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    const otrosSuma = partesActuales
+      .filter((p) => p.id !== idParte)
+      .reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+    const restante = Math.max(0, Math.round((totalCuenta - otrosSuma) * 100) / 100);
+    fnSet((prev) =>
+      prev.map((p) =>
+        p.id === idParte ? { ...p, monto: restante > 0 ? String(restante) : "" } : p
+      )
+    );
+  };
+
   // ---------------------------------------------------------------------------
   // ACCIONES COBRO EN VENTANILLA / CAJA
   // ---------------------------------------------------------------------------
@@ -574,6 +699,12 @@ function VentasGestionMesasContent() {
     setPedidoACobrar(pedido);
     setOrigenCobro(origen);
     setMontoEntregado("");
+    const idEf = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
+    const idYap = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+    setPartesPago([
+      { id: "p-1", idTipoPago: idEf, monto: "" },
+      { id: "p-2", idTipoPago: idYap, monto: "" },
+    ]);
     setTabActiva("caja");
   };
 
@@ -581,24 +712,6 @@ function VentasGestionMesasContent() {
     if (!pedidoACobrar) {
       toast.warning("Selecciona una comanda a cobrar.");
       return;
-    }
-
-    const tpObj = tiposPago.find((t) => {
-      const n = t.nombre.toLowerCase();
-      if (metodoPago === "efectivo") return n.includes("efectivo");
-      if (metodoPago === "yape") return n.includes("yape");
-      if (metodoPago === "pos") return n.includes("pos") || n.includes("tarjeta");
-      return false;
-    });
-
-    const idTipoPago = tpObj?.id || (tiposPago[0]?.id ?? 1);
-
-    if (metodoPago === "efectivo" && montoEntregado) {
-      const validacionVuelto = calcularVuelto(totalCobroVentanilla, Number(montoEntregado));
-      if (!validacionVuelto.esValido) {
-        toast.error(validacionVuelto.error || "Monto en efectivo insuficiente.");
-        return;
-      }
     }
 
     // Validar documento si se ingresó
@@ -611,24 +724,71 @@ function VentasGestionMesasContent() {
       }
     }
 
+    const payloadVenta: any = {
+      id_pedido: pedidoACobrar.id,
+      tipo_comprobante: tipoComprobante,
+      cliente: {
+        nro_doc: clienteDoc.trim() || undefined,
+        nombre: clienteNombre.trim() || (tipoComprobante === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"),
+        tipo_persona: tipoComprobante === "Factura" ? "Juridico" : "Natural",
+        telefono: clienteTelefono.trim() || undefined,
+      },
+    };
+
+    if (metodoPago === "mixto") {
+      const listaValida = partesPago
+        .map((p) => ({
+          id_tipo_pago: p.idTipoPago,
+          monto: Math.round((Number(p.monto) || 0) * 100) / 100,
+        }))
+        .filter((p) => p.monto > 0);
+
+      if (listaValida.length < 2) {
+        toast.error("Para pagar en partes debe ingresar al menos 2 formas de pago con montos mayores a S/ 0.");
+        return;
+      }
+
+      const sumaPartes = Math.round(listaValida.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+
+      if (Math.abs(sumaPartes - totalCobroVentanilla) > 0.05) {
+        toast.error(
+          `La suma de las partes (S/ ${sumaPartes.toFixed(2)}) debe coincidir con el total de la cuenta (S/ ${totalCobroVentanilla.toFixed(2)}).`
+        );
+        return;
+      }
+
+      payloadVenta.pagos = listaValida;
+      payloadVenta.monto_recibido = totalCobroVentanilla;
+    } else {
+      const tpObj = tiposPago.find((t) => {
+        const n = t.nombre.toLowerCase();
+        if (metodoPago === "efectivo") return n.includes("efectivo");
+        if (metodoPago === "yape") return n.includes("yape");
+        if (metodoPago === "pos") return n.includes("pos") || n.includes("tarjeta");
+        return false;
+      });
+
+      const idTipoPago = tpObj?.id || (tiposPago[0]?.id ?? 1);
+
+      if (metodoPago === "efectivo" && montoEntregado) {
+        const validacionVuelto = calcularVuelto(totalCobroVentanilla, Number(montoEntregado));
+        if (!validacionVuelto.esValido) {
+          toast.error(validacionVuelto.error || "Monto en efectivo insuficiente.");
+          return;
+        }
+      }
+
+      payloadVenta.id_tipo_pago = idTipoPago;
+      payloadVenta.monto_recibido = metodoPago === "efectivo" && montoEntregado ? Number(montoEntregado) : totalCobroVentanilla;
+      payloadVenta.pasarela = {
+        proveedor: "mercado_pago",
+        modo: metodoPago === "pos" ? "tap_to_pay" : metodoPago === "yape" ? "qr" : "manual",
+      };
+    }
+
     try {
       setProcesandoVenta(true);
-      const res = await registrarVenta({
-        id_pedido: pedidoACobrar.id,
-        id_tipo_pago: idTipoPago,
-        tipo_comprobante: tipoComprobante,
-        cliente: {
-          nro_doc: clienteDoc.trim() || undefined,
-          nombre: clienteNombre.trim() || (tipoComprobante === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"),
-          tipo_persona: tipoComprobante === "Factura" ? "Juridico" : "Natural",
-          telefono: clienteTelefono.trim() || undefined,
-        },
-        monto_recibido: metodoPago === "efectivo" && montoEntregado ? Number(montoEntregado) : totalCobroVentanilla,
-        pasarela: {
-          proveedor: "mercado_pago",
-          modo: metodoPago === "pos" ? "tap_to_pay" : metodoPago === "yape" ? "qr" : "manual",
-        },
-      });
+      const res = await registrarVenta(payloadVenta);
 
       toast.success(res.mensaje);
       setComprobanteEmitido(res.comprobante);
@@ -637,6 +797,12 @@ function VentasGestionMesasContent() {
       setPedidoACobrar(null);
       setOrigenCobro("");
       setMontoEntregado("");
+      const idEf = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
+      const idYap = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+      setPartesPago([
+        { id: "p-1", idTipoPago: idEf, monto: "" },
+        { id: "p-2", idTipoPago: idYap, monto: "" },
+      ]);
       setClienteDoc("");
       setClienteNombre("");
       setClienteTelefono("");
@@ -649,40 +815,80 @@ function VentasGestionMesasContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // ACCIONES COBRO MÓVIL / MOZO (CELULAR / TAP TO PAY / YAPE / EFECTIVO)
+  // ACCIONES COBRO MÓVIL / MOZO (CELULAR / TAP TO PAY / YAPE / EFECTIVO / PARTES)
   // ---------------------------------------------------------------------------
   const abrirCobroMozo = (pedido: PedidoResumen) => {
     setPedidoCobroMozo(pedido);
     setMetodoPagoMozo("pos");
     setMontoEntregadoMozo("");
     setTapToPayDetectado(false);
+    const idEf = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
+    const idYap = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+    setPartesPagoMozo([
+      { id: "pm-1", idTipoPago: idEf, monto: "" },
+      { id: "pm-2", idTipoPago: idYap, monto: "" },
+    ]);
     setModalCobroMozoAbierto(true);
   };
 
   const ejecutarCobroMozo = async () => {
     if (!pedidoCobroMozo) return;
 
-    const tpObj = tiposPago.find((t) => {
-      const n = t.nombre.toLowerCase();
-      if (metodoPagoMozo === "efectivo") return n.includes("efectivo");
-      if (metodoPagoMozo === "yape") return n.includes("yape");
-      if (metodoPagoMozo === "pos") return n.includes("pos") || n.includes("tarjeta");
-      return false;
-    });
+    let payloadVentaMozo: any;
 
-    const idTipoPago = tpObj?.id || (tiposPago[0]?.id ?? 1);
+    if (metodoPagoMozo === "mixto") {
+      const listaValida = partesPagoMozo
+        .map((p) => ({
+          id_tipo_pago: p.idTipoPago,
+          monto: Math.round((Number(p.monto) || 0) * 100) / 100,
+        }))
+        .filter((p) => p.monto > 0);
 
-    if (metodoPagoMozo === "efectivo" && montoEntregadoMozo) {
-      const validacionVuelto = calcularVuelto(totalCobroMozo, Number(montoEntregadoMozo));
-      if (!validacionVuelto.esValido) {
-        toast.error(validacionVuelto.error || "Monto recibido insuficiente.");
+      if (listaValida.length < 2) {
+        toast.error("Para pagar en partes debe ingresar al menos 2 formas de pago con montos mayores a S/ 0.");
         return;
       }
-    }
 
-    try {
-      setProcesandoCobroMozo(true);
-      const res = await registrarVenta({
+      const sumaPartes = Math.round(listaValida.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+
+      if (Math.abs(sumaPartes - totalCobroMozo) > 0.05) {
+        toast.error(
+          `La suma de las partes (S/ ${sumaPartes.toFixed(2)}) debe coincidir con el total de la cuenta (S/ ${totalCobroMozo.toFixed(2)}).`
+        );
+        return;
+      }
+
+      payloadVentaMozo = {
+        id_pedido: pedidoCobroMozo.id,
+        tipo_comprobante: "Ticket",
+        cliente: {
+          nro_doc: "00000000",
+          nombre: "CLIENTE SALÓN",
+          tipo_persona: "Natural",
+        },
+        pagos: listaValida,
+        monto_recibido: totalCobroMozo,
+      };
+    } else {
+      const tpObj = tiposPago.find((t) => {
+        const n = t.nombre.toLowerCase();
+        if (metodoPagoMozo === "efectivo") return n.includes("efectivo");
+        if (metodoPagoMozo === "yape") return n.includes("yape");
+        if (metodoPagoMozo === "pos") return n.includes("pos") || n.includes("tarjeta");
+        return false;
+      });
+
+      const idTipoPago = tpObj?.id || (tiposPago[0]?.id ?? 1);
+
+      if (metodoPagoMozo === "efectivo" && montoEntregadoMozo) {
+        const validacionVuelto = calcularVuelto(totalCobroMozo, Number(montoEntregadoMozo));
+        if (!validacionVuelto.esValido) {
+          toast.error(validacionVuelto.error || "Monto recibido insuficiente.");
+          return;
+        }
+      }
+
+      payloadVentaMozo = {
         id_pedido: pedidoCobroMozo.id,
         id_tipo_pago: idTipoPago,
         tipo_comprobante: "Ticket",
@@ -696,7 +902,12 @@ function VentasGestionMesasContent() {
           proveedor: "mercado_pago",
           modo: metodoPagoMozo === "pos" ? "tap_to_pay" : metodoPagoMozo === "yape" ? "qr" : "manual",
         },
-      });
+      };
+    }
+
+    try {
+      setProcesandoCobroMozo(true);
+      const res = await registrarVenta(payloadVentaMozo);
 
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
       setComprobanteEmitido(res.comprobante);
@@ -985,6 +1196,11 @@ function VentasGestionMesasContent() {
                           <h3 className="font-bold text-sm sm:text-base text-slate-900">
                             Mesa {mesa.numero}
                           </h3>
+                          {tienePedido && pedido?.observacionMesa?.includes("Mesas unidas:") && (
+                            <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
+                              {pedido.observacionMesa.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -1190,6 +1406,31 @@ function VentasGestionMesasContent() {
                               A Ventanilla
                             </Button>
                           </div>
+
+                          {/* Cancelar Comanda con trazabilidad */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              abrirModalCancelar({
+                                id: pedido.id,
+                                idPedidoMesa: pedido.idPedidoMesa,
+                                codigo: pedido.codigo,
+                                tipoPedido: "Mesa",
+                                fecha: pedido.fecha,
+                                estado: pedido.estado,
+                                mesa: { id: mesa.id, numero: mesa.numero },
+                                observacion: pedido.observacionMesa,
+                                items: pedido.items,
+                                total: pedido.total,
+                                editable: pedido.editable,
+                              })
+                            }
+                            className="w-full text-[11px] font-semibold h-7 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                          >
+                            <XCircle className="w-3.5 h-3.5 mr-1 text-rose-500" />
+                            Cancelar Comanda
+                          </Button>
                         </>
                       ) : (
                         <Button
@@ -1342,7 +1583,7 @@ function VentasGestionMesasContent() {
                         </div>
                       </div>
 
-                      {/* Botones de cobro directo */}
+                      {/* Botones de cobro directo y cancelación */}
                       <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200">
                         {cobro.tipo === "Mesa" && (
                           <Button
@@ -1362,6 +1603,15 @@ function VentasGestionMesasContent() {
                         >
                           <Receipt className="w-3.5 h-3.5 mr-1 text-slate-600" />
                           Ventanilla
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => abrirModalCancelar(cobro.pedidoObj)}
+                          title="Cancelar comanda"
+                          className="text-xs font-bold h-8 px-2 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        >
+                          <XCircle className="w-4 h-4" />
                         </Button>
                       </div>
                     </Card>
@@ -1568,7 +1818,7 @@ function VentasGestionMesasContent() {
                         <label className="text-xs font-bold text-slate-700 block mb-1.5">
                           Método de Pago:
                         </label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <button
                             type="button"
                             onClick={() => setMetodoPago("efectivo")}
@@ -1606,6 +1856,19 @@ function VentasGestionMesasContent() {
                           >
                             <CreditCard className="w-5 h-5 text-blue-600" />
                             <span>Tarjeta / POS</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setMetodoPago("mixto")}
+                            className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
+                              metodoPago === "mixto"
+                                ? "bg-amber-50 border-amber-500 text-amber-800 ring-2 ring-amber-500/20"
+                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <CircleDollarSign className="w-5 h-5 text-amber-600" />
+                            <span>Pagar en Partes</span>
                           </button>
                         </div>
                       </div>
@@ -1649,6 +1912,219 @@ function VentasGestionMesasContent() {
                               S/ {vueltoVentanilla.toFixed(2)}
                             </span>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Configuración de Pagar en Partes (Múltiples Medios de Pago) */}
+                      {metodoPago === "mixto" && (
+                        <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 flex flex-col gap-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-amber-200/80">
+                            <div>
+                              <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                <CircleDollarSign className="w-4 h-4 text-amber-600" />
+                                <span>Pagar en Partes (Múltiples Medios de Pago)</span>
+                              </div>
+                              <p className="text-[11px] text-amber-800">
+                                Divide el total de la cuenta en 2 o más partes con cualquier medio de pago (Efectivo, Yape, Tarjeta, Plin).
+                              </p>
+                            </div>
+                            <div className="text-xs font-bold text-slate-800 bg-white px-3 py-1 rounded-xl border border-amber-200 shrink-0 self-start sm:self-auto">
+                              Total de la Cuenta: <span className="text-red-700 text-sm font-extrabold">{formatearMoneda(totalCobroVentanilla)}</span>
+                            </div>
+                          </div>
+
+                          {/* Listado dinámico de partes de pago */}
+                          <div className="flex flex-col gap-2">
+                            {partesPago.map((parte, index) => {
+                              const tpSeleccionado = tiposPago.find((t) => t.id === parte.idTipoPago);
+                              const esEfectivo = tpSeleccionado?.nombre.toLowerCase().includes("efectivo");
+
+                              // Calcular cuánto falta considerando las otras partes
+                              const sumaOtras = partesPago
+                                .filter((p) => p.id !== parte.id)
+                                .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                              const restanteParaEsta = Math.max(0, Math.round((totalCobroVentanilla - sumaOtras) * 100) / 100);
+
+                              return (
+                                <div
+                                  key={parte.id}
+                                  className="bg-white p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col gap-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center shrink-0">
+                                      #{index + 1}
+                                    </span>
+
+                                    {/* Selector de método de pago */}
+                                    <div className="flex-1 min-w-[130px]">
+                                      <select
+                                        value={parte.idTipoPago}
+                                        onChange={(e) =>
+                                          actualizarPartePago(parte.id, "idTipoPago", Number(e.target.value), "caja")
+                                        }
+                                        className="w-full h-8 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                                      >
+                                        {tiposPago.map((tp) => (
+                                          <option key={tp.id} value={tp.id}>
+                                            {tp.nombre}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    {/* Input del monto de la parte */}
+                                    <div className="w-32 shrink-0 relative">
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">
+                                        S/
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        step="any"
+                                        placeholder="0.00"
+                                        value={parte.monto}
+                                        onChange={(e) =>
+                                          actualizarPartePago(parte.id, "monto", e.target.value, "caja")
+                                        }
+                                        className="h-8 pl-7 text-xs font-bold text-slate-900 rounded-lg bg-slate-50"
+                                      />
+                                    </div>
+
+                                    {/* Botón rápido para autocompletar lo que resta para esta parte */}
+                                    {restanteParaEsta > 0 && Number(parte.monto) !== restanteParaEsta && (
+                                      <button
+                                        type="button"
+                                        onClick={() => autocompletarRestante(parte.id, totalCobroVentanilla, "caja")}
+                                        className="text-[10px] font-bold px-2 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors cursor-pointer shrink-0 hidden sm:inline"
+                                        title={`Asignar el saldo restante de S/ ${restanteParaEsta.toFixed(2)}`}
+                                      >
+                                        = S/ {restanteParaEsta.toFixed(2)}
+                                      </button>
+                                    )}
+
+                                    {/* Botón eliminar parte (si hay más de 2) */}
+                                    {partesPago.length > 2 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removerPartePago(parte.id, "caja")}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                                        title="Eliminar esta parte"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Helper para Efectivo: Vuelto si el cliente entrega un billete más grande */}
+                                  {esEfectivo && Number(parte.monto) > 0 && (
+                                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-600">
+                                      <span className="text-[10px] text-slate-500 font-semibold">
+                                        ¿Cliente paga con billete mayor?
+                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        <Input
+                                          type="number"
+                                          step="any"
+                                          placeholder="Billete (ej: 20)"
+                                          value={parte.efectivoEntregado || ""}
+                                          onChange={(e) =>
+                                            actualizarPartePago(parte.id, "efectivoEntregado", e.target.value, "caja")
+                                          }
+                                          className="h-6 w-24 text-[10px] rounded px-1.5 bg-slate-50"
+                                        />
+                                        {Number(parte.efectivoEntregado) > Number(parte.monto) && (
+                                          <span className="text-emerald-700 font-bold text-[10px]">
+                                            Vuelto: S/ {(Number(parte.efectivoEntregado) - Number(parte.monto)).toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Botón para agregar una nueva parte */}
+                          <div className="flex items-center justify-between pt-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => agregarPartePago("caja")}
+                              className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-8 rounded-xl cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5 mr-1" />
+                              <span>Agregar otra forma de pago</span>
+                            </Button>
+
+                            <span className="text-[10px] text-amber-800 hidden sm:inline">
+                              Ingresa montos hasta cubrir el 100% de la cuenta.
+                            </span>
+                          </div>
+
+                          {/* Balance y validación en tiempo real */}
+                          {(() => {
+                            const cubierto = Math.round(
+                              partesPago.reduce((sum, p) => sum + (Number(p.monto) || 0), 0) * 100
+                            ) / 100;
+                            const diferencia = Math.round((totalCobroVentanilla - cubierto) * 100) / 100;
+                            const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
+                            const porcentaje = totalCobroVentanilla > 0
+                              ? Math.min(100, Math.round((cubierto / totalCobroVentanilla) * 100))
+                              : 0;
+
+                            return (
+                              <div className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-2 text-xs">
+                                {/* Barra visual de progreso */}
+                                <div>
+                                  <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                    <span>Progreso del Pago: {porcentaje}%</span>
+                                    <span>
+                                      Suma de Partes: <strong className="text-slate-900">S/ {cubierto.toFixed(2)}</strong> de{" "}
+                                      <strong className="text-red-700">{formatearMoneda(totalCobroVentanilla)}</strong>
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
+                                    <div
+                                      className={`h-full transition-all duration-300 ${
+                                        esExacto ? "bg-emerald-500" : diferencia > 0 ? "bg-amber-500" : "bg-rose-500"
+                                      }`}
+                                      style={{ width: `${Math.min(100, porcentaje)}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                  {esExacto ? (
+                                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      <span>¡Excelente! Cuenta 100% cubierta con las partes indicadas.</span>
+                                    </div>
+                                  ) : diferencia > 0 ? (
+                                    <div className="flex items-center gap-1.5 text-amber-800 font-bold">
+                                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                                      <span>Falta cubrir: S/ {diferencia.toFixed(2)}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 text-rose-700 font-bold">
+                                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                                      <span>Las partes exceden el total por: S/ {Math.abs(diferencia).toFixed(2)}</span>
+                                    </div>
+                                  )}
+
+                                  {esExacto ? (
+                                    <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                                      Listo para cobrar
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] text-slate-500">
+                                      Ajuste requerido
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
@@ -2006,7 +2482,7 @@ function VentasGestionMesasContent() {
       <Dialog open={modalPedidoAbierto} onOpenChange={setModalPedidoAbierto}>
         <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6 bg-white">
           <DialogHeader className="pb-3 border-b border-slate-200">
-            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between">
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-8">
               <span className="flex items-center gap-2">
                 <Utensils className="w-5 h-5 text-red-700" />
                 {esEdicion
@@ -2020,6 +2496,51 @@ function VentasGestionMesasContent() {
               </span>
             </DialogTitle>
           </DialogHeader>
+
+          {/* Selección de Mesas Unidas (cuando el cliente ocupa más de 1 mesa) */}
+          {!esParaLlevar && !esEdicion && mesaSeleccionada && (
+            <div className="mt-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Unir mesa(s) adicional(es) para este cliente (Opcional):</span>
+                </label>
+                {mesasAdicionales.length > 0 && (
+                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
+                    +{mesasAdicionales.length} unida(s)
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {mesas
+                  .filter((m) => !m.ocupada && m.id !== mesaSeleccionada.id)
+                  .map((m) => {
+                    const seleccionada = mesasAdicionales.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setMesasAdicionales((prev) =>
+                            seleccionada ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                          );
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          seleccionada
+                            ? "bg-amber-500 text-white border-amber-600 shadow-xs ring-2 ring-amber-300"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        + Mesa {m.numero} (Aforo {m.aforo})
+                      </button>
+                    );
+                  })}
+                {mesas.filter((m) => !m.ocupada && m.id !== mesaSeleccionada.id).length === 0 && (
+                  <span className="text-[11px] text-slate-400 italic">No hay otras mesas disponibles en el salón para unir.</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Observación general */}
           <div className="mt-2">
@@ -2206,13 +2727,13 @@ function VentasGestionMesasContent() {
       <Dialog open={modalCobroMozoAbierto} onOpenChange={setModalCobroMozoAbierto}>
         <DialogContent className="w-[95vw] sm:max-w-md rounded-2xl p-4 sm:p-6 bg-white">
           <DialogHeader className="pb-3 border-b border-slate-200">
-            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between">
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-8">
               <span className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-emerald-600" />
                 <span>Cobro Móvil / Mozo</span>
               </span>
               {pedidoCobroMozo?.mesa && (
-                <Badge className="bg-red-700 text-white font-bold">
+                <Badge className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-xs">
                   Mesa {pedidoCobroMozo.mesa.numero}
                 </Badge>
               )}
@@ -2239,7 +2760,7 @@ function VentasGestionMesasContent() {
                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
                   Selecciona Medio de Pago en Mesa:
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setMetodoPagoMozo("pos")}
@@ -2277,6 +2798,19 @@ function VentasGestionMesasContent() {
                   >
                     <Banknote className="w-5 h-5 text-emerald-600" />
                     <span>Efectivo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMetodoPagoMozo("mixto")}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${
+                      metodoPagoMozo === "mixto"
+                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
+                        : "bg-slate-50 border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    <CircleDollarSign className="w-5 h-5 text-amber-600" />
+                    <span>En Partes</span>
                   </button>
                 </div>
               </div>
@@ -2349,6 +2883,131 @@ function VentasGestionMesasContent() {
                       S/ {vueltoMozo.toFixed(2)}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* Modo Pagar en Partes en Mesa */}
+              {metodoPagoMozo === "mixto" && (
+                <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-amber-200/70">
+                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <CircleDollarSign className="w-4 h-4 text-amber-600" />
+                      <span>Pagar en Partes en Mesa</span>
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-900">
+                      Total: {formatearMoneda(pedidoCobroMozo.total)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {partesPagoMozo.map((parte, index) => {
+                      const sumaOtras = partesPagoMozo
+                        .filter((p) => p.id !== parte.id)
+                        .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                      const restanteParaEsta = Math.max(0, Math.round((pedidoCobroMozo.total - sumaOtras) * 100) / 100);
+
+                      return (
+                        <div
+                          key={parte.id}
+                          className="bg-white p-2 rounded-xl border border-amber-200 flex items-center gap-2"
+                        >
+                          <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            #{index + 1}
+                          </span>
+                          <select
+                            value={parte.idTipoPago}
+                            onChange={(e) =>
+                              actualizarPartePago(parte.id, "idTipoPago", Number(e.target.value), "mozo")
+                            }
+                            className="flex-1 h-7 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-1.5"
+                          >
+                            {tiposPago.map((tp) => (
+                              <option key={tp.id} value={tp.id}>
+                                {tp.nombre}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="w-24 relative shrink-0">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                              S/
+                            </span>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder="0.00"
+                              value={parte.monto}
+                              onChange={(e) =>
+                                actualizarPartePago(parte.id, "monto", e.target.value, "mozo")
+                              }
+                              className="h-7 pl-6 text-xs font-bold rounded-lg bg-slate-50"
+                            />
+                          </div>
+                          {restanteParaEsta > 0 && Number(parte.monto) !== restanteParaEsta && (
+                            <button
+                              type="button"
+                              onClick={() => autocompletarRestante(parte.id, pedidoCobroMozo.total, "mozo")}
+                              className="text-[10px] font-bold px-1.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded transition-colors cursor-pointer shrink-0"
+                              title="Asignar restante"
+                            >
+                              = S/{restanteParaEsta.toFixed(2)}
+                            </button>
+                          )}
+                          {partesPagoMozo.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removerPartePago(parte.id, "mozo")}
+                              className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => agregarPartePago("mozo")}
+                      className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-7 rounded-lg cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      <span>Agregar parte</span>
+                    </Button>
+                  </div>
+
+                  {/* Balance en mesa */}
+                  {(() => {
+                    const cubierto = Math.round(
+                      partesPagoMozo.reduce((s, p) => s + (Number(p.monto) || 0), 0) * 100
+                    ) / 100;
+                    const diferencia = Math.round((pedidoCobroMozo.total - cubierto) * 100) / 100;
+                    const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
+
+                    return (
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 text-xs flex items-center justify-between">
+                        <span>
+                          Suma: <strong>S/ {cubierto.toFixed(2)}</strong>
+                        </span>
+                        {esExacto ? (
+                          <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                            ✓ 100% Cubierto
+                          </Badge>
+                        ) : diferencia > 0 ? (
+                          <Badge className="bg-amber-600 text-white font-bold text-[10px]">
+                            Falta: S/ {diferencia.toFixed(2)}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-rose-600 text-white font-bold text-[10px]">
+                            Excede: S/ {Math.abs(diferencia).toFixed(2)}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -2586,7 +3245,7 @@ function VentasGestionMesasContent() {
       <Dialog open={modalTicketAbierto} onOpenChange={setModalTicketAbierto}>
         <DialogContent className="w-[95vw] sm:max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl p-4 bg-white print:p-0 print:border-none print:shadow-none print:max-w-none">
           <DialogHeader className="pb-2 border-b border-slate-200 no-print">
-            <DialogTitle className="text-sm font-bold text-slate-900 flex items-center justify-between">
+            <DialogTitle className="text-sm font-bold text-slate-900 flex items-center justify-between pr-8">
               <span className="flex items-center gap-1.5">
                 <Receipt className="w-4 h-4 text-emerald-600" />
                 <span>Comprobante Emitido</span>
@@ -2704,6 +3363,126 @@ function VentasGestionMesasContent() {
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimir en Ticketera</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL 6: CANCELACIÓN AUDITADA DE COMANDA (LIBERACIÓN Y DEVOLUCIÓN) */}
+      {/* =================================================================== */}
+      <Dialog open={modalCancelarAbierto} onOpenChange={setModalCancelarAbierto}>
+        <DialogContent className="w-[95vw] sm:max-w-md rounded-2xl p-5 bg-white">
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <DialogTitle className="text-base font-bold text-rose-700 flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-rose-600" />
+              <span>Cancelar Comanda #{pedidoACancelar?.codigo}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-3 flex flex-col gap-4">
+            {/* Aviso informativo de reglas del negocio */}
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex flex-col gap-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>Acción irreversible bajo auditoría</span>
+              </div>
+              <ul className="list-disc pl-5 space-y-0.5 text-[11px] text-rose-800">
+                <li>El pedido pasará inmediatamente a estado <strong>Cancelado</strong>.</li>
+                <li>Si ocupaba mesa(s), <strong>quedarán disponibles</strong> de inmediato.</li>
+                <li>Se repondrá el stock reservado en cocina para los platos.</li>
+                <li><strong>No generará ventas ni movimientos contables</strong>.</li>
+              </ul>
+            </div>
+
+            {/* Datos del pedido a cancelar */}
+            {pedidoACancelar && (
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs flex flex-col gap-1">
+                <div className="flex justify-between font-semibold text-slate-800">
+                  <span>Origen: {pedidoACancelar.tipoPedido === "Mesa" && pedidoACancelar.mesa ? `Mesa ${pedidoACancelar.mesa.numero}` : "Para Llevar"}</span>
+                  <span className="text-red-700 font-bold">Total: {formatearMoneda(pedidoACancelar.total)}</span>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Items: {pedidoACancelar.items.map((i) => `${i.cantidad}x ${i.nombre}`).join(", ")}
+                </div>
+              </div>
+            )}
+
+            {/* Usuario responsable */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Usuario / Mozo Responsable:
+              </label>
+              <Input
+                value={usuarioCancelacion}
+                onChange={(e) => setUsuarioCancelacion(e.target.value)}
+                placeholder="Nombre del mozo o supervisor"
+                className="h-9 text-xs rounded-xl"
+              />
+            </div>
+
+            {/* Motivo de la cancelación (Obligatorio) */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span>Motivo de Cancelación:</span>
+                <span className="text-rose-600 text-[10px] font-semibold">* Requerido</span>
+              </label>
+              <textarea
+                value={motivoCancelacion}
+                onChange={(e) => setMotivoCancelacion(e.target.value)}
+                placeholder="Indique detalladamente el motivo de la cancelación..."
+                rows={3}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+              />
+
+              {/* Botones rápidos de motivos comunes */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  "Cliente desistió de esperar",
+                  "Error al registrar comanda",
+                  "Cliente se retiró del salón",
+                  "Pedido duplicado",
+                ].map((motivo) => (
+                  <button
+                    key={motivo}
+                    type="button"
+                    onClick={() => setMotivoCancelacion(motivo)}
+                    className="text-[10px] px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer"
+                  >
+                    + {motivo}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setModalCancelarAbierto(false)}
+              disabled={cancelandoPedido}
+              className="text-xs font-semibold rounded-xl"
+            >
+              Regresar
+            </Button>
+            <Button
+              size="sm"
+              onClick={ejecutarCancelacion}
+              disabled={cancelandoPedido || !motivoCancelacion.trim()}
+              className="bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer"
+            >
+              {cancelandoPedido ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" />
+                  <span>Cancelando...</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-3.5 h-3.5 mr-1" />
+                  <span>Confirmar Cancelación</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
