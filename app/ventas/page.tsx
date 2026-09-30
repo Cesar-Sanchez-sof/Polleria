@@ -970,14 +970,14 @@ function VentasGestionMesasContent() {
   };
 
   return (
-    <div className="flex bg-slate-50 text-sm text-slate-900 antialiased min-h-screen">
+    <div className="w-full min-w-full min-h-screen flex bg-slate-50 text-sm text-slate-900 antialiased overflow-x-hidden">
       {/* Sidebar Fijo en Desktop y Desplegable en Móvil */}
       <Sidebar mobileOpen={menuMovilAbierto} onCloseMobile={() => setMenuMovilAbierto(false)} />
 
       {/* Contenedor Principal (pl-0 en móviles, pl-64 en desktop) */}
-      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-slate-50 w-full transition-all duration-300">
+      <div className="flex-1 w-full min-w-0 pl-0 md:pl-64 min-h-screen flex flex-col bg-slate-50 transition-all duration-300">
         {/* Header Superior Responsivo */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
+        <header className="w-full sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-3">
             {/* Botón Hamburguesa para Móviles */}
             <button
@@ -1036,7 +1036,7 @@ function VentasGestionMesasContent() {
         </header>
 
         {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
-        <div className="px-4 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
+        <div className="w-full px-4 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
           {/* Pestaña 1: Mesas y Salón */}
           <button
             type="button"
@@ -1112,7 +1112,7 @@ function VentasGestionMesasContent() {
         {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
         {/* =================================================================== */}
         {tabActiva === "mesas" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full p-3 sm:p-6 flex flex-col gap-5">
             {/* Barra de Filtros y Leyenda */}
             <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1453,7 +1453,7 @@ function VentasGestionMesasContent() {
         {/* PESTAÑA 2: COBROS NO COBRADOS (PENDIENTES EN SALA Y LLEVAR) */}
         {/* =================================================================== */}
         {tabActiva === "cobros" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full p-3 sm:p-6 flex flex-col gap-5">
             {/* Banner de Resumen de Cuentas por Cobrar */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="bg-amber-500/10 border-amber-200 p-4 rounded-2xl flex items-center gap-3">
@@ -1626,7 +1626,7 @@ function VentasGestionMesasContent() {
         {/* PESTAÑA 3: CAJA Y COBRO EN VENTANILLA */}
         {/* =================================================================== */}
         {tabActiva === "caja" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full p-3 sm:p-6 flex flex-col gap-5">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Columna Izquierda: Selección de Comanda a Cobrar */}
               <div className="lg:col-span-5 flex flex-col gap-4">
@@ -2180,7 +2180,7 @@ function VentasGestionMesasContent() {
         {/* PESTAÑA 4: CLIENTES (LISTADO, BÚSQUEDA Y REGISTRO) */}
         {/* =================================================================== */}
         {tabActiva === "clientes" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full p-3 sm:p-6 flex flex-col gap-5">
             <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
               {/* Barra Superior con Búsqueda y Botón Nuevo */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
@@ -2285,7 +2285,7 @@ function VentasGestionMesasContent() {
         {/* PESTAÑA 5: VENTAS DIARIAS & FACTURAS DE VENTA */}
         {/* =================================================================== */}
         {tabActiva === "facturas" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full p-3 sm:p-6 flex flex-col gap-5">
             {/* Tarjetas KPI de Resumen de Ventas Diarias */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">

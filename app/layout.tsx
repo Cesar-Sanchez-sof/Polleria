@@ -25,16 +25,17 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
-      lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      lang="es"
+      className={cn("h-full w-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
     >
-      <body className="min-h-full flex flex-col">
-        <div className="flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
+      <body className="w-full min-h-full flex flex-col">
+        <div className="w-full min-w-full flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
           {/* Sidebar */}
           <Sidebar />
-          {children}
+          <div className="flex-1 w-full min-w-0">
+            {children}
+          </div>
         </div>
-        {children}
         <Toaster richColors position="top-right" />
       </body>
     </html>

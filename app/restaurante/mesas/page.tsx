@@ -30,7 +30,8 @@ import {
   CreditCard,
   ChefHat,
   X,
-  MessageSquare
+  MessageSquare,
+  Menu,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -57,6 +58,7 @@ export default function MesasSalonPage() {
   const [platos, setPlatos] = useState<PlatoCarta[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [filtroMesa, setFiltroMesa] = useState<"todas" | "disponibles" | "ocupadas">("todas");
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState<boolean>(false);
 
   // Reloj en tiempo real
   const [horaActual, setHoraActual] = useState<string>("");
@@ -314,38 +316,49 @@ export default function MesasSalonPage() {
   };
 
   return (
-    <div className="flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
-      {/* Sidebar fijo */}
-      <Sidebar />
+    <div className="w-full min-w-full min-h-screen flex bg-(--color-background) text-sm text-slate-900 antialiased overflow-x-hidden">
+      {/* Sidebar Fijo en Desktop y Desplegable en Móvil */}
+      <Sidebar mobileOpen={menuMovilAbierto} onCloseMobile={() => setMenuMovilAbierto(false)} />
 
       {/* Área principal */}
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
+      <div className="flex-1 w-full min-w-0 pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) transition-all duration-300">
         {/* Header superior */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-xs">
+        <header className="w-full sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-700">
+            {/* Botón Hamburguesa para Móviles */}
+            <button
+              type="button"
+              onClick={() => setMenuMovilAbierto(true)}
+              className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+              aria-label="Abrir Menú"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-700 shrink-0">
               <Utensils className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
                 Salón de Mesas &amp; Comandas
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Atención en Sala y Para Llevar • Pollería Central
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               onClick={abrirTomarPedidoLlevar}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 sm:h-9 px-3 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>+ Pedido Para Llevar</span>
+              <span className="hidden sm:inline">+ Pedido Para Llevar</span>
+              <span className="sm:hidden">+ Llevar</span>
             </Button>
 
-            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
+            <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>{horaActual || "12:00:00"}</span>
             </div>
@@ -355,7 +368,7 @@ export default function MesasSalonPage() {
               size="icon"
               onClick={() => void cargarDatos()}
               title="Refrescar mesas"
-              className="h-9 w-9 rounded-xl cursor-pointer"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${cargando ? "animate-spin" : ""}`} />
             </Button>
@@ -363,16 +376,16 @@ export default function MesasSalonPage() {
         </header>
 
         {/* Contenido principal */}
-        <main className="flex-1 p-6 flex flex-col gap-6">
+        <main className="flex-1 w-full p-3 sm:p-6 flex flex-col gap-5 sm:gap-6">
           {/* Barra de Filtros y Leyenda de Estados */}
-          <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <Card className="w-full bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-slate-700 mr-1">Filtro de Mesas:</span>
               <Button
                 size="sm"
                 variant={filtroMesa === "todas" ? "default" : "outline"}
                 onClick={() => setFiltroMesa("todas")}
-                className={`text-xs font-bold h-8 rounded-lg ${filtroMesa === "todas" ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${filtroMesa === "todas" ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
               >
                 Todas ({resumen.total})
               </Button>
@@ -380,7 +393,7 @@ export default function MesasSalonPage() {
                 size="sm"
                 variant={filtroMesa === "disponibles" ? "default" : "outline"}
                 onClick={() => setFiltroMesa("disponibles")}
-                className={`text-xs font-bold h-8 rounded-lg ${filtroMesa === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${filtroMesa === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
               >
                 Disponibles ({resumen.disponibles})
               </Button>
@@ -388,13 +401,13 @@ export default function MesasSalonPage() {
                 size="sm"
                 variant={filtroMesa === "ocupadas" ? "default" : "outline"}
                 onClick={() => setFiltroMesa("ocupadas")}
-                className={`text-xs font-bold h-8 rounded-lg ${filtroMesa === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${filtroMesa === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
               >
                 Ocupadas ({resumen.ocupadas})
               </Button>
             </div>
 
-            <div className="flex items-center gap-3 text-xs flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap">
               <span className="font-bold text-slate-500">Estados de Cocina:</span>
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
                 <span className="w-2 h-2 rounded-full bg-blue-600"></span> Recibido
@@ -409,7 +422,7 @@ export default function MesasSalonPage() {
           </Card>
 
           {/* GRID DE MESAS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 w-full gap-4 sm:gap-5">
             {mesasFiltradas.map((mesa) => {
               const pedido = mesa.pedidoActivo;
               const isOcupada = mesa.ocupada;
