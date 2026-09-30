@@ -17,8 +17,14 @@ import { Redis } from "@upstash/redis";
 const LUA_DESCONTAR_STOCK = `
   local clave = KEYS[1]
   local pedido = tonumber(ARGV[1])
-  local actual = tonumber(redis.call('get', clave) or '0')
+  local raw = redis.call('get', clave)
 
+  -- Si el plato no tiene un stock fijado o restringido en Redis (nil), se permite la venta libremente
+  if not raw then
+    return 999
+  end
+
+  local actual = tonumber(raw)
   if actual >= pedido then
     local restante = actual - pedido
     redis.call('set', clave, restante)
@@ -159,7 +165,12 @@ export async function reservarStockPlato(
   }
 
   // Fallback atómico en memoria
-  const actual = stockMemoriaFallback.get(clave) ?? 999;
+  if (!stockMemoriaFallback.has(clave)) {
+    // Si no se ha limitado el stock de este plato en cocina, se permite la venta sin restricción
+    return { exito: true, stockRestante: 999 };
+  }
+
+  const actual = stockMemoriaFallback.get(clave)!;
   if (actual >= cant) {
     const restante = actual - cant;
     stockMemoriaFallback.set(clave, restante);
