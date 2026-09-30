@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { seedCuentas } from "./seed-cuentas";
 
 const prisma = new PrismaClient();
 
@@ -155,6 +156,9 @@ async function main() {
     }
   }
   console.log(`✔ ${platosData.length} platos registrados en la carta.`);
+
+  // 5. CATÁLOGO DE CUENTAS CONTABLES (PCGE 2019 simplificado para la pollería)
+  await seedCuentas(prisma);
 
   console.log("✨ Población de datos completada con éxito!");
 }
