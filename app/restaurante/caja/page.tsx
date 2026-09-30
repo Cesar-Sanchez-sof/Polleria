@@ -32,7 +32,8 @@ import {
   ArrowRight,
   ShieldCheck,
   ChevronRight,
-  FileCheck
+  FileCheck,
+  Menu,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -50,6 +51,9 @@ import {
 function CajaCobroContent() {
   const searchParams = useSearchParams();
   const urlPedidoId = searchParams.get("pedidoId");
+
+  // Control de menú lateral en móviles
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState<boolean>(false);
 
   // Datos
   const [mesas, setMesas] = useState<MesaItem[]>([]);
@@ -250,32 +254,42 @@ function CajaCobroContent() {
   };
 
   return (
-    <div className="flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
-      {/* Sidebar fijo */}
-      <Sidebar />
+    <div className="w-full min-w-full min-h-screen flex bg-(--color-background) text-sm text-slate-900 antialiased overflow-x-hidden">
+      {/* Sidebar fijo en desktop y desplegable en móvil */}
+      <Sidebar mobileOpen={menuMovilAbierto} onCloseMobile={() => setMenuMovilAbierto(false)} />
 
       {/* Área principal */}
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
+      <div className="flex-1 w-full min-w-0 pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) transition-all duration-300">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white">
+        <header className="w-full sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Botón Hamburguesa para Móviles */}
+            <button
+              type="button"
+              onClick={() => setMenuMovilAbierto(true)}
+              className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+              aria-label="Abrir Menú"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
                 Módulo de Caja y Facturación
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-1">
                 Cobro de Comandas, Métodos de Pago y Emisión de Comprobantes
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-full border border-emerald-200 text-xs font-semibold">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-full border border-emerald-200 text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Caja Principal Abierta</span>
+              <span>Caja Abierta</span>
             </div>
 
             <Button
@@ -283,7 +297,7 @@ function CajaCobroContent() {
               size="icon"
               onClick={() => void cargarDatos()}
               title="Refrescar comanda"
-              className="h-9 w-9 rounded-xl cursor-pointer"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${cargando ? "animate-spin" : ""}`} />
             </Button>
@@ -291,7 +305,7 @@ function CajaCobroContent() {
         </header>
 
         {/* Contenido dividido en 2 columnas: 1. Selección y Comanda | 2. Pagos y Emisión */}
-        <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <main className="flex-1 w-full p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
           {/* COLUMNA IZQUIERDA: 1. Elegir mesa + 2. Detalles del pedido (7 columnas) */}
           <div className="lg:col-span-7 flex flex-col gap-5">
             {/* PASO 1: Elegir Mesa u Orden Para Llevar */}
