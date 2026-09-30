@@ -214,10 +214,13 @@ function VentasGestionMesasContent() {
   const [origenCobro, setOrigenCobro] = useState<string>("");
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "yape" | "pos" | "mixto">("efectivo");
   const [montoEntregado, setMontoEntregado] = useState<string>("");
-  // Montos para Pago Dividido / Mixto
-  const [montoMixtoEfectivo, setMontoMixtoEfectivo] = useState<string>("");
-  const [montoMixtoYape, setMontoMixtoYape] = useState<string>("");
-  const [montoMixtoPos, setMontoMixtoPos] = useState<string>("");
+  // Partes de pago dinámicas para Pagar en Partes (Caja Ventanilla)
+  const [partesPago, setPartesPago] = useState<
+    Array<{ id: string; idTipoPago: number; monto: string; efectivoEntregado?: string }>
+  >([
+    { id: "p-1", idTipoPago: 1, monto: "" },
+    { id: "p-2", idTipoPago: 2, monto: "" },
+  ]);
 
   const [modalComprobanteAbierto, setModalComprobanteAbierto] = useState<boolean>(false);
   const [tipoComprobante, setTipoComprobante] = useState<"Boleta" | "Factura" | "Ticket">("Boleta");
@@ -227,11 +230,17 @@ function VentasGestionMesasContent() {
   const [procesandoVenta, setProcesandoVenta] = useState<boolean>(false);
 
   // ---------------------------------------------------------------------------
-  // ESTADO COBRO MÓVIL / MOZO (COBRO CON CELULAR / TAP TO PAY / YAPE)
+  // ESTADO COBRO MÓVIL / MOZO (COBRO CON CELULAR / TAP TO PAY / YAPE / PARTES)
   // ---------------------------------------------------------------------------
   const [modalCobroMozoAbierto, setModalCobroMozoAbierto] = useState<boolean>(false);
   const [pedidoCobroMozo, setPedidoCobroMozo] = useState<PedidoResumen | null>(null);
-  const [metodoPagoMozo, setMetodoPagoMozo] = useState<"efectivo" | "yape" | "pos">("pos");
+  const [metodoPagoMozo, setMetodoPagoMozo] = useState<"efectivo" | "yape" | "pos" | "mixto">("pos");
+  const [partesPagoMozo, setPartesPagoMozo] = useState<
+    Array<{ id: string; idTipoPago: number; monto: string; efectivoEntregado?: string }>
+  >([
+    { id: "pm-1", idTipoPago: 1, monto: "" },
+    { id: "pm-2", idTipoPago: 2, monto: "" },
+  ]);
   const [montoEntregadoMozo, setMontoEntregadoMozo] = useState<string>("");
   const [procesandoCobroMozo, setProcesandoCobroMozo] = useState<boolean>(false);
   const [tapToPayDetectado, setTapToPayDetectado] = useState<boolean>(false);
@@ -628,15 +637,74 @@ function VentasGestionMesasContent() {
   };
 
   // ---------------------------------------------------------------------------
+  // FUNCIONES AUXILIARES PARA PAGAR EN PARTES (DINÁMICO)
+  // ---------------------------------------------------------------------------
+  const agregarPartePago = (destino: "caja" | "mozo") => {
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    fnSet((prev) => {
+      const usados = new Set(prev.map((p) => p.idTipoPago));
+      const disponible = tiposPago.find((t) => !usados.has(t.id))?.id || tiposPago[0]?.id || 1;
+      return [
+        ...prev,
+        {
+          id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          idTipoPago: disponible,
+          monto: "",
+        },
+      ];
+    });
+  };
+
+  const removerPartePago = (id: string, destino: "caja" | "mozo") => {
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    fnSet((prev) => {
+      if (prev.length <= 2) {
+        toast.warning("Debe mantener al menos 2 partes para dividir el pago.");
+        return prev;
+      }
+      return prev.filter((p) => p.id !== id);
+    });
+  };
+
+  const actualizarPartePago = (
+    id: string,
+    campo: "idTipoPago" | "monto" | "efectivoEntregado",
+    valor: any,
+    destino: "caja" | "mozo"
+  ) => {
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    fnSet((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p))
+    );
+  };
+
+  const autocompletarRestante = (idParte: string, totalCuenta: number, destino: "caja" | "mozo") => {
+    const partesActuales = destino === "caja" ? partesPago : partesPagoMozo;
+    const fnSet = destino === "caja" ? setPartesPago : setPartesPagoMozo;
+    const otrosSuma = partesActuales
+      .filter((p) => p.id !== idParte)
+      .reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+    const restante = Math.max(0, Math.round((totalCuenta - otrosSuma) * 100) / 100);
+    fnSet((prev) =>
+      prev.map((p) =>
+        p.id === idParte ? { ...p, monto: restante > 0 ? String(restante) : "" } : p
+      )
+    );
+  };
+
+  // ---------------------------------------------------------------------------
   // ACCIONES COBRO EN VENTANILLA / CAJA
   // ---------------------------------------------------------------------------
   const irACobrarVentanilla = (pedido: PedidoResumen, origen: string) => {
     setPedidoACobrar(pedido);
     setOrigenCobro(origen);
     setMontoEntregado("");
-    setMontoMixtoEfectivo("");
-    setMontoMixtoYape("");
-    setMontoMixtoPos("");
+    const idEf = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
+    const idYap = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+    setPartesPago([
+      { id: "p-1", idTipoPago: idEf, monto: "" },
+      { id: "p-2", idTipoPago: idYap, monto: "" },
+    ]);
     setTabActiva("caja");
   };
 
@@ -668,33 +736,28 @@ function VentasGestionMesasContent() {
     };
 
     if (metodoPago === "mixto") {
-      const efe = Number(montoMixtoEfectivo) || 0;
-      const yap = Number(montoMixtoYape) || 0;
-      const pos = Number(montoMixtoPos) || 0;
-      const sumaMixta = Math.round((efe + yap + pos) * 100) / 100;
+      const listaValida = partesPago
+        .map((p) => ({
+          id_tipo_pago: p.idTipoPago,
+          monto: Math.round((Number(p.monto) || 0) * 100) / 100,
+        }))
+        .filter((p) => p.monto > 0);
 
-      if (Math.abs(sumaMixta - totalCobroVentanilla) > 0.05) {
+      if (listaValida.length < 2) {
+        toast.error("Para pagar en partes debe ingresar al menos 2 formas de pago con montos mayores a S/ 0.");
+        return;
+      }
+
+      const sumaPartes = Math.round(listaValida.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+
+      if (Math.abs(sumaPartes - totalCobroVentanilla) > 0.05) {
         toast.error(
-          `La suma de los pagos divididos (S/ ${sumaMixta.toFixed(2)}) debe coincidir con el total a cobrar (S/ ${totalCobroVentanilla.toFixed(2)}).`
+          `La suma de las partes (S/ ${sumaPartes.toFixed(2)}) debe coincidir con el total de la cuenta (S/ ${totalCobroVentanilla.toFixed(2)}).`
         );
         return;
       }
 
-      const tpEfectivo = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
-      const tpYape = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
-      const tpPos = tiposPago.find((t) => t.nombre.toLowerCase().includes("pos") || t.nombre.toLowerCase().includes("tarjeta"))?.id ?? 3;
-
-      const pagosArray: Array<{ id_tipo_pago: number; monto: number }> = [];
-      if (efe > 0) pagosArray.push({ id_tipo_pago: tpEfectivo, monto: efe });
-      if (yap > 0) pagosArray.push({ id_tipo_pago: tpYape, monto: yap });
-      if (pos > 0) pagosArray.push({ id_tipo_pago: tpPos, monto: pos });
-
-      if (pagosArray.length === 0) {
-        toast.error("Debe ingresar al menos un monto en los medios de pago.");
-        return;
-      }
-
-      payloadVenta.pagos = pagosArray;
+      payloadVenta.pagos = listaValida;
       payloadVenta.monto_recibido = totalCobroVentanilla;
     } else {
       const tpObj = tiposPago.find((t) => {
@@ -734,9 +797,12 @@ function VentasGestionMesasContent() {
       setPedidoACobrar(null);
       setOrigenCobro("");
       setMontoEntregado("");
-      setMontoMixtoEfectivo("");
-      setMontoMixtoYape("");
-      setMontoMixtoPos("");
+      const idEf = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
+      const idYap = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+      setPartesPago([
+        { id: "p-1", idTipoPago: idEf, monto: "" },
+        { id: "p-2", idTipoPago: idYap, monto: "" },
+      ]);
       setClienteDoc("");
       setClienteNombre("");
       setClienteTelefono("");
@@ -749,40 +815,80 @@ function VentasGestionMesasContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // ACCIONES COBRO MÓVIL / MOZO (CELULAR / TAP TO PAY / YAPE / EFECTIVO)
+  // ACCIONES COBRO MÓVIL / MOZO (CELULAR / TAP TO PAY / YAPE / EFECTIVO / PARTES)
   // ---------------------------------------------------------------------------
   const abrirCobroMozo = (pedido: PedidoResumen) => {
     setPedidoCobroMozo(pedido);
     setMetodoPagoMozo("pos");
     setMontoEntregadoMozo("");
     setTapToPayDetectado(false);
+    const idEf = tiposPago.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
+    const idYap = tiposPago.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+    setPartesPagoMozo([
+      { id: "pm-1", idTipoPago: idEf, monto: "" },
+      { id: "pm-2", idTipoPago: idYap, monto: "" },
+    ]);
     setModalCobroMozoAbierto(true);
   };
 
   const ejecutarCobroMozo = async () => {
     if (!pedidoCobroMozo) return;
 
-    const tpObj = tiposPago.find((t) => {
-      const n = t.nombre.toLowerCase();
-      if (metodoPagoMozo === "efectivo") return n.includes("efectivo");
-      if (metodoPagoMozo === "yape") return n.includes("yape");
-      if (metodoPagoMozo === "pos") return n.includes("pos") || n.includes("tarjeta");
-      return false;
-    });
+    let payloadVentaMozo: any;
 
-    const idTipoPago = tpObj?.id || (tiposPago[0]?.id ?? 1);
+    if (metodoPagoMozo === "mixto") {
+      const listaValida = partesPagoMozo
+        .map((p) => ({
+          id_tipo_pago: p.idTipoPago,
+          monto: Math.round((Number(p.monto) || 0) * 100) / 100,
+        }))
+        .filter((p) => p.monto > 0);
 
-    if (metodoPagoMozo === "efectivo" && montoEntregadoMozo) {
-      const validacionVuelto = calcularVuelto(totalCobroMozo, Number(montoEntregadoMozo));
-      if (!validacionVuelto.esValido) {
-        toast.error(validacionVuelto.error || "Monto recibido insuficiente.");
+      if (listaValida.length < 2) {
+        toast.error("Para pagar en partes debe ingresar al menos 2 formas de pago con montos mayores a S/ 0.");
         return;
       }
-    }
 
-    try {
-      setProcesandoCobroMozo(true);
-      const res = await registrarVenta({
+      const sumaPartes = Math.round(listaValida.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+
+      if (Math.abs(sumaPartes - totalCobroMozo) > 0.05) {
+        toast.error(
+          `La suma de las partes (S/ ${sumaPartes.toFixed(2)}) debe coincidir con el total de la cuenta (S/ ${totalCobroMozo.toFixed(2)}).`
+        );
+        return;
+      }
+
+      payloadVentaMozo = {
+        id_pedido: pedidoCobroMozo.id,
+        tipo_comprobante: "Ticket",
+        cliente: {
+          nro_doc: "00000000",
+          nombre: "CLIENTE SALÓN",
+          tipo_persona: "Natural",
+        },
+        pagos: listaValida,
+        monto_recibido: totalCobroMozo,
+      };
+    } else {
+      const tpObj = tiposPago.find((t) => {
+        const n = t.nombre.toLowerCase();
+        if (metodoPagoMozo === "efectivo") return n.includes("efectivo");
+        if (metodoPagoMozo === "yape") return n.includes("yape");
+        if (metodoPagoMozo === "pos") return n.includes("pos") || n.includes("tarjeta");
+        return false;
+      });
+
+      const idTipoPago = tpObj?.id || (tiposPago[0]?.id ?? 1);
+
+      if (metodoPagoMozo === "efectivo" && montoEntregadoMozo) {
+        const validacionVuelto = calcularVuelto(totalCobroMozo, Number(montoEntregadoMozo));
+        if (!validacionVuelto.esValido) {
+          toast.error(validacionVuelto.error || "Monto recibido insuficiente.");
+          return;
+        }
+      }
+
+      payloadVentaMozo = {
         id_pedido: pedidoCobroMozo.id,
         id_tipo_pago: idTipoPago,
         tipo_comprobante: "Ticket",
@@ -796,7 +902,12 @@ function VentasGestionMesasContent() {
           proveedor: "mercado_pago",
           modo: metodoPagoMozo === "pos" ? "tap_to_pay" : metodoPagoMozo === "yape" ? "qr" : "manual",
         },
-      });
+      };
+    }
+
+    try {
+      setProcesandoCobroMozo(true);
+      const res = await registrarVenta(payloadVentaMozo);
 
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
       setComprobanteEmitido(res.comprobante);
@@ -1757,7 +1868,7 @@ function VentasGestionMesasContent() {
                             }`}
                           >
                             <CircleDollarSign className="w-5 h-5 text-amber-600" />
-                            <span>Pago Dividido</span>
+                            <span>Pagar en Partes</span>
                           </button>
                         </div>
                       </div>
@@ -1804,88 +1915,213 @@ function VentasGestionMesasContent() {
                         </div>
                       )}
 
-                      {/* Configuración de Pago Mixto / Dividido */}
+                      {/* Configuración de Pagar en Partes (Múltiples Medios de Pago) */}
                       {metodoPago === "mixto" && (
-                        <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 flex flex-col gap-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                              <CircleDollarSign className="w-4 h-4 text-amber-600" />
-                              <span>Distribución del Pago Dividido:</span>
-                            </span>
-                            <span className="text-xs font-bold text-slate-700">
-                              Total Requerido: <strong>{formatearMoneda(totalCobroVentanilla)}</strong>
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                            <div className="bg-white p-2 rounded-lg border border-amber-200">
-                              <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                Efectivo (S/):
-                              </label>
-                              <Input
-                                type="number"
-                                step="any"
-                                placeholder="0.00"
-                                value={montoMixtoEfectivo}
-                                onChange={(e) => setMontoMixtoEfectivo(e.target.value)}
-                                className="bg-slate-50 text-xs h-8 font-bold"
-                              />
+                        <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 flex flex-col gap-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-amber-200/80">
+                            <div>
+                              <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                <CircleDollarSign className="w-4 h-4 text-amber-600" />
+                                <span>Pagar en Partes (Múltiples Medios de Pago)</span>
+                              </div>
+                              <p className="text-[11px] text-amber-800">
+                                Divide el total de la cuenta en 2 o más partes con cualquier medio de pago (Efectivo, Yape, Tarjeta, Plin).
+                              </p>
                             </div>
-                            <div className="bg-white p-2 rounded-lg border border-amber-200">
-                              <label className="text-[11px] font-bold text-purple-700 block mb-1">
-                                Yape / QR (S/):
-                              </label>
-                              <Input
-                                type="number"
-                                step="any"
-                                placeholder="0.00"
-                                value={montoMixtoYape}
-                                onChange={(e) => setMontoMixtoYape(e.target.value)}
-                                className="bg-slate-50 text-xs h-8 font-bold"
-                              />
-                            </div>
-                            <div className="bg-white p-2 rounded-lg border border-amber-200">
-                              <label className="text-[11px] font-bold text-blue-700 block mb-1">
-                                Tarjeta / POS (S/):
-                              </label>
-                              <Input
-                                type="number"
-                                step="any"
-                                placeholder="0.00"
-                                value={montoMixtoPos}
-                                onChange={(e) => setMontoMixtoPos(e.target.value)}
-                                className="bg-slate-50 text-xs h-8 font-bold"
-                              />
+                            <div className="text-xs font-bold text-slate-800 bg-white px-3 py-1 rounded-xl border border-amber-200 shrink-0 self-start sm:self-auto">
+                              Total de la Cuenta: <span className="text-red-700 text-sm font-extrabold">{formatearMoneda(totalCobroVentanilla)}</span>
                             </div>
                           </div>
 
-                          {/* Balance en tiempo real */}
+                          {/* Listado dinámico de partes de pago */}
+                          <div className="flex flex-col gap-2">
+                            {partesPago.map((parte, index) => {
+                              const tpSeleccionado = tiposPago.find((t) => t.id === parte.idTipoPago);
+                              const esEfectivo = tpSeleccionado?.nombre.toLowerCase().includes("efectivo");
+
+                              // Calcular cuánto falta considerando las otras partes
+                              const sumaOtras = partesPago
+                                .filter((p) => p.id !== parte.id)
+                                .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                              const restanteParaEsta = Math.max(0, Math.round((totalCobroVentanilla - sumaOtras) * 100) / 100);
+
+                              return (
+                                <div
+                                  key={parte.id}
+                                  className="bg-white p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col gap-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center shrink-0">
+                                      #{index + 1}
+                                    </span>
+
+                                    {/* Selector de método de pago */}
+                                    <div className="flex-1 min-w-[130px]">
+                                      <select
+                                        value={parte.idTipoPago}
+                                        onChange={(e) =>
+                                          actualizarPartePago(parte.id, "idTipoPago", Number(e.target.value), "caja")
+                                        }
+                                        className="w-full h-8 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                                      >
+                                        {tiposPago.map((tp) => (
+                                          <option key={tp.id} value={tp.id}>
+                                            {tp.nombre}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    {/* Input del monto de la parte */}
+                                    <div className="w-32 shrink-0 relative">
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">
+                                        S/
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        step="any"
+                                        placeholder="0.00"
+                                        value={parte.monto}
+                                        onChange={(e) =>
+                                          actualizarPartePago(parte.id, "monto", e.target.value, "caja")
+                                        }
+                                        className="h-8 pl-7 text-xs font-bold text-slate-900 rounded-lg bg-slate-50"
+                                      />
+                                    </div>
+
+                                    {/* Botón rápido para autocompletar lo que resta para esta parte */}
+                                    {restanteParaEsta > 0 && Number(parte.monto) !== restanteParaEsta && (
+                                      <button
+                                        type="button"
+                                        onClick={() => autocompletarRestante(parte.id, totalCobroVentanilla, "caja")}
+                                        className="text-[10px] font-bold px-2 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors cursor-pointer shrink-0 hidden sm:inline"
+                                        title={`Asignar el saldo restante de S/ ${restanteParaEsta.toFixed(2)}`}
+                                      >
+                                        = S/ {restanteParaEsta.toFixed(2)}
+                                      </button>
+                                    )}
+
+                                    {/* Botón eliminar parte (si hay más de 2) */}
+                                    {partesPago.length > 2 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removerPartePago(parte.id, "caja")}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                                        title="Eliminar esta parte"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Helper para Efectivo: Vuelto si el cliente entrega un billete más grande */}
+                                  {esEfectivo && Number(parte.monto) > 0 && (
+                                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-600">
+                                      <span className="text-[10px] text-slate-500 font-semibold">
+                                        ¿Cliente paga con billete mayor?
+                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        <Input
+                                          type="number"
+                                          step="any"
+                                          placeholder="Billete (ej: 20)"
+                                          value={parte.efectivoEntregado || ""}
+                                          onChange={(e) =>
+                                            actualizarPartePago(parte.id, "efectivoEntregado", e.target.value, "caja")
+                                          }
+                                          className="h-6 w-24 text-[10px] rounded px-1.5 bg-slate-50"
+                                        />
+                                        {Number(parte.efectivoEntregado) > Number(parte.monto) && (
+                                          <span className="text-emerald-700 font-bold text-[10px]">
+                                            Vuelto: S/ {(Number(parte.efectivoEntregado) - Number(parte.monto)).toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Botón para agregar una nueva parte */}
+                          <div className="flex items-center justify-between pt-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => agregarPartePago("caja")}
+                              className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-8 rounded-xl cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5 mr-1" />
+                              <span>Agregar otra forma de pago</span>
+                            </Button>
+
+                            <span className="text-[10px] text-amber-800 hidden sm:inline">
+                              Ingresa montos hasta cubrir el 100% de la cuenta.
+                            </span>
+                          </div>
+
+                          {/* Balance y validación en tiempo real */}
                           {(() => {
-                            const cubierto =
-                              (Number(montoMixtoEfectivo) || 0) +
-                              (Number(montoMixtoYape) || 0) +
-                              (Number(montoMixtoPos) || 0);
+                            const cubierto = Math.round(
+                              partesPago.reduce((sum, p) => sum + (Number(p.monto) || 0), 0) * 100
+                            ) / 100;
                             const diferencia = Math.round((totalCobroVentanilla - cubierto) * 100) / 100;
-                            const esExacto = Math.abs(diferencia) <= 0.05;
+                            const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
+                            const porcentaje = totalCobroVentanilla > 0
+                              ? Math.min(100, Math.round((cubierto / totalCobroVentanilla) * 100))
+                              : 0;
 
                             return (
-                              <div className="flex items-center justify-between pt-1 border-t border-amber-200/80 text-xs">
-                                <span>
-                                  Suma ingresada: <strong>S/ {cubierto.toFixed(2)}</strong>
-                                </span>
-                                {esExacto ? (
-                                  <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
-                                    ✓ Total exacto cubierto
-                                  </Badge>
-                                ) : diferencia > 0 ? (
-                                  <Badge className="bg-amber-600 text-white font-bold text-[10px]">
-                                    Falta cubrir: S/ {diferencia.toFixed(2)}
-                                  </Badge>
-                                ) : (
-                                  <Badge className="bg-red-600 text-white font-bold text-[10px]">
-                                    Excede por: S/ {Math.abs(diferencia).toFixed(2)}
-                                  </Badge>
-                                )}
+                              <div className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-2 text-xs">
+                                {/* Barra visual de progreso */}
+                                <div>
+                                  <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                    <span>Progreso del Pago: {porcentaje}%</span>
+                                    <span>
+                                      Suma de Partes: <strong className="text-slate-900">S/ {cubierto.toFixed(2)}</strong> de{" "}
+                                      <strong className="text-red-700">{formatearMoneda(totalCobroVentanilla)}</strong>
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
+                                    <div
+                                      className={`h-full transition-all duration-300 ${
+                                        esExacto ? "bg-emerald-500" : diferencia > 0 ? "bg-amber-500" : "bg-rose-500"
+                                      }`}
+                                      style={{ width: `${Math.min(100, porcentaje)}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                  {esExacto ? (
+                                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      <span>¡Excelente! Cuenta 100% cubierta con las partes indicadas.</span>
+                                    </div>
+                                  ) : diferencia > 0 ? (
+                                    <div className="flex items-center gap-1.5 text-amber-800 font-bold">
+                                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                                      <span>Falta cubrir: S/ {diferencia.toFixed(2)}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 text-rose-700 font-bold">
+                                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                                      <span>Las partes exceden el total por: S/ {Math.abs(diferencia).toFixed(2)}</span>
+                                    </div>
+                                  )}
+
+                                  {esExacto ? (
+                                    <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                                      Listo para cobrar
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] text-slate-500">
+                                      Ajuste requerido
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             );
                           })()}
@@ -2524,7 +2760,7 @@ function VentasGestionMesasContent() {
                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
                   Selecciona Medio de Pago en Mesa:
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setMetodoPagoMozo("pos")}
@@ -2562,6 +2798,19 @@ function VentasGestionMesasContent() {
                   >
                     <Banknote className="w-5 h-5 text-emerald-600" />
                     <span>Efectivo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMetodoPagoMozo("mixto")}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${
+                      metodoPagoMozo === "mixto"
+                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
+                        : "bg-slate-50 border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    <CircleDollarSign className="w-5 h-5 text-amber-600" />
+                    <span>En Partes</span>
                   </button>
                 </div>
               </div>
@@ -2634,6 +2883,131 @@ function VentasGestionMesasContent() {
                       S/ {vueltoMozo.toFixed(2)}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* Modo Pagar en Partes en Mesa */}
+              {metodoPagoMozo === "mixto" && (
+                <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-amber-200/70">
+                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <CircleDollarSign className="w-4 h-4 text-amber-600" />
+                      <span>Pagar en Partes en Mesa</span>
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-900">
+                      Total: {formatearMoneda(pedidoCobroMozo.total)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {partesPagoMozo.map((parte, index) => {
+                      const sumaOtras = partesPagoMozo
+                        .filter((p) => p.id !== parte.id)
+                        .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                      const restanteParaEsta = Math.max(0, Math.round((pedidoCobroMozo.total - sumaOtras) * 100) / 100);
+
+                      return (
+                        <div
+                          key={parte.id}
+                          className="bg-white p-2 rounded-xl border border-amber-200 flex items-center gap-2"
+                        >
+                          <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            #{index + 1}
+                          </span>
+                          <select
+                            value={parte.idTipoPago}
+                            onChange={(e) =>
+                              actualizarPartePago(parte.id, "idTipoPago", Number(e.target.value), "mozo")
+                            }
+                            className="flex-1 h-7 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-1.5"
+                          >
+                            {tiposPago.map((tp) => (
+                              <option key={tp.id} value={tp.id}>
+                                {tp.nombre}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="w-24 relative shrink-0">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                              S/
+                            </span>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder="0.00"
+                              value={parte.monto}
+                              onChange={(e) =>
+                                actualizarPartePago(parte.id, "monto", e.target.value, "mozo")
+                              }
+                              className="h-7 pl-6 text-xs font-bold rounded-lg bg-slate-50"
+                            />
+                          </div>
+                          {restanteParaEsta > 0 && Number(parte.monto) !== restanteParaEsta && (
+                            <button
+                              type="button"
+                              onClick={() => autocompletarRestante(parte.id, pedidoCobroMozo.total, "mozo")}
+                              className="text-[10px] font-bold px-1.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded transition-colors cursor-pointer shrink-0"
+                              title="Asignar restante"
+                            >
+                              = S/{restanteParaEsta.toFixed(2)}
+                            </button>
+                          )}
+                          {partesPagoMozo.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removerPartePago(parte.id, "mozo")}
+                              className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => agregarPartePago("mozo")}
+                      className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-7 rounded-lg cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      <span>Agregar parte</span>
+                    </Button>
+                  </div>
+
+                  {/* Balance en mesa */}
+                  {(() => {
+                    const cubierto = Math.round(
+                      partesPagoMozo.reduce((s, p) => s + (Number(p.monto) || 0), 0) * 100
+                    ) / 100;
+                    const diferencia = Math.round((pedidoCobroMozo.total - cubierto) * 100) / 100;
+                    const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
+
+                    return (
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 text-xs flex items-center justify-between">
+                        <span>
+                          Suma: <strong>S/ {cubierto.toFixed(2)}</strong>
+                        </span>
+                        {esExacto ? (
+                          <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                            ✓ 100% Cubierto
+                          </Badge>
+                        ) : diferencia > 0 ? (
+                          <Badge className="bg-amber-600 text-white font-bold text-[10px]">
+                            Falta: S/ {diferencia.toFixed(2)}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-rose-600 text-white font-bold text-[10px]">
+                            Excede: S/ {Math.abs(diferencia).toFixed(2)}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

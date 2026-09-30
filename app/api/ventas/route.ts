@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       const sumaPagos = Math.round(listaPagos.reduce((s, p) => s + p.monto, 0) * 100) / 100;
       if (Math.abs(sumaPagos - totalRedondeado) > 0.05) {
         return Response.json(
-          { error: `La suma de los pagos divididos (S/ ${sumaPagos.toFixed(2)}) no coincide con el total de la cuenta (S/ ${totalRedondeado.toFixed(2)}).` },
+          { error: `La suma de las partes de pago (S/ ${sumaPagos.toFixed(2)}) no coincide con el total de la cuenta (S/ ${totalRedondeado.toFixed(2)}).` },
           { status: 400 }
         );
       }
@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
     const vuelto = monto_recibido ? Math.max(0, Math.round((monto_recibido - totalRedondeado) * 100) / 100) : 0;
 
     const metodoPagoNombre = esPagoDividido
-      ? `Pago Dividido (${listaPagos.map((p) => `${p.nombre}: S/ ${p.monto.toFixed(2)}`).join(" + ")})`
+      ? `Pago en Partes (${listaPagos.map((p) => `${p.nombre}: S/ ${p.monto.toFixed(2)}`).join(" + ")})`
       : (tipoPago?.nombre ?? "Efectivo");
 
     return Response.json(
