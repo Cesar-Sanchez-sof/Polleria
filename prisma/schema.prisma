@@ -99,7 +99,9 @@ model Usuario {
   id_empleado       Int
   id_rol            Int
   username          String    @unique @db.VarChar(20)
+  correo            String?   @unique @db.VarChar(80)
   password          String    @db.VarChar(255)
+  estado            Boolean   @default(true)
   intentos_fallidos Int       @default(0)
   bloqueado         Boolean   @default(false)
   fecha_bloqueo     DateTime? @db.Timestamp(6)
@@ -111,7 +113,6 @@ model Usuario {
   @@index([id_rol], map: "idx_usuario_rol")
   @@map("usuario")
 }
-
 // =====================================================================
 // MÓDULO 2: RECURSOS HUMANOS (PLANILLA)
 // =====================================================================

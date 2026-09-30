@@ -199,6 +199,21 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
               </Link>
             </div>
           </div>
+          {/* Usuarios */}
+          <div className="flex flex-col gap-0.5 mt-1">
+            <div className="px-space-md pt-1">
+              <span className="font-label text-[11px] font-bold text-on-surface">SEGURIDAD</span>
+            </div>
+            <div className="flex flex-col pl-2 gap-0.5">
+              <Link
+                className="flex items-center px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-[12px] font-medium transition-all"
+                href="/usuarios"
+                target="_top"
+              >
+                Usuarios
+              </Link>
+            </div>
+          </div>
           {/* Contabilidad Section */}
           <div className="flex flex-col gap-0.5 mt-1">
             <div className="px-space-md pt-1">
@@ -268,8 +283,15 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
             <span className="font-label text-[10px] text-on-surface-variant leading-tight">Pollería Central</span>
           </div>
         </div>
-        <button className="text-on-surface-variant hover:text-error transition-colors p-1" type="button">
-          <LogOut className='w-4.5 h-4.5 '></LogOut>
+        <button
+          className="text-on-surface-variant hover:text-error transition-colors p-1"
+          type="button"
+          aria-label="Cerrar sesión"
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "/login";
+          }}
+        >          <LogOut className='w-4.5 h-4.5 '></LogOut>
         </button>
       </div>
       {/* Active link handling moved to useEffect */}
