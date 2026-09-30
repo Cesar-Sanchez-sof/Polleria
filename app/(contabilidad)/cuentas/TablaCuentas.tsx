@@ -176,7 +176,7 @@ export function TablaCuentas({
                     <p className="text-sm font-semibold text-slate-700">
                       {hayFiltros
                         ? "No se encontraron cuentas con los filtros seleccionados"
-                        : "El plan contable está vacío"}
+                        : "Sin cuentas contables"}
                     </p>
                     <p className="text-xs">
                       {hayFiltros

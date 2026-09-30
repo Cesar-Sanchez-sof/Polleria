@@ -190,3 +190,49 @@ main > :last-child {
   --tw-text-opacity: 1;
   color: rgb(93 63 59 / var(--tw-text-opacity));
 }
+
+/* =====================================================================
+   REGLAS DE IMPRESIÓN PARA TICKETES TÉRMICOS DE 80MM (TICKETERA POS)
+   Evita que el navegador imprima en formato A4 estándar y fuerza el ancho de rollo.
+   ===================================================================== */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0mm !important;
+  }
+
+  html,
+  body {
+    width: 80mm !important;
+    min-width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+  }
+
+  /* Ocultar elementos de interfaz ajenos al ticket */
+  header,
+  aside,
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* El contenedor del ticket ocupa el 100% de los 80mm */
+  .ticket-termico-print {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    margin: 0 !important;
+    padding: 3mm 2mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-family: monospace, "Courier New", Courier, monospace !important;
+  }
+}

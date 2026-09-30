@@ -20,6 +20,41 @@ enum TipoPersonaEnum {
   @@map("tipo_persona_enum")
 }
 
+enum EstadoOrdenCompraEnum {
+  Pendiente
+  RecibidaParcial
+  RecibidaTotal
+  Cancelada
+
+  @@map("estado_orden_compra_enum")
+}
+
+enum EstadoRecepcionCompraEnum {
+  Confirmada
+  Anulada
+
+  @@map("estado_recepcion_compra_enum")
+}
+
+enum TipoInsumoEnum {
+  MateriaPrima
+  ProductoTerminado
+
+  @@map("tipo_insumo_enum")
+}
+
+enum TipoMovimientoEnum {
+  Compra
+  TransformacionSalida
+  TransformacionEntrada
+  Venta
+  Merma
+  Ajuste
+  CompraSinComprobante
+
+  @@map("tipo_movimiento_enum")
+}
+
 // =====================================================================
 // MÓDULO 1: SEGURIDAD Y CONTROL DE ACCESO
 // =====================================================================
@@ -85,10 +120,12 @@ model Empleado {
   sueldo_base        Decimal              @default(0) @db.Decimal(10, 2)
   estado             Boolean              @default(true)
   turno              Turno?               @relation(fields: [id_turno], references: [id_turno], onDelete: SetNull)
-  usuarios           Usuario[]
-  planillas          Planilla[]
-  ordenes_compra     Orden_compra[]
-  recepciones_compra Recepcion_compra[]
+  usuarios               Usuario[]
+  planillas              Planilla[]
+  ordenes_compra         Orden_compra[]
+  recepciones_compra     Recepcion_compra[]
+  transformaciones       Transformacion[]
+  compras_sin_comprobante Compra_sin_comprobante[]
 
   @@index([id_turno], map: "idx_empleado_turno")
   @@map("empleado")
@@ -146,6 +183,7 @@ model Proveedor {
   nombre_comercial    String?              @db.VarChar(150)
   razon_social        String               @db.VarChar(150)
   nombre              String?              @db.VarChar(100)
+  persona_contacto    String?              @db.VarChar(100)
   direccion           String?              @db.VarChar(150)
   telefono            String?              @db.VarChar(9)
   correo              String?              @db.VarChar(80)
@@ -173,7 +211,7 @@ model Orden_compra {
   numero_orden       String                 @unique @db.VarChar(20)
   fecha_emision      DateTime               @default(now()) @db.Date
   fecha_esperada     DateTime?              @db.Date
-  estado             Boolean                @default(true)
+  estado             EstadoOrdenCompraEnum  @default(Pendiente)
   subtotal           Decimal                @default(0) @db.Decimal(7, 2)
   igv                Decimal                @default(0) @db.Decimal(7, 2)
   total              Decimal                @default(0) @db.Decimal(7, 2)
@@ -189,14 +227,18 @@ model Orden_compra {
 }
 
 model Insumo {
-  id_insumo              Int                     @id @default(autoincrement())
-  nombre                 String                  @db.VarChar(50)
-  unidad_medida          String                  @db.VarChar(10)
-  stock_actual           Decimal                 @default(0) @db.Decimal(10, 2)
-  stock_minimo           Decimal                 @default(0) @db.Decimal(10, 2)
-  estado                 Boolean                 @default(true)
-  detalles_orden_compra  Detalle_orden_compra[]
-  movimientos_inventario Movimiento_inventario[]
+  id_insumo               Int                      @id @default(autoincrement())
+  nombre                  String                   @db.VarChar(50)
+  tipo                    TipoInsumoEnum           @default(MateriaPrima)
+  unidad_medida           String                   @db.VarChar(10)
+  stock_actual            Decimal                  @default(0) @db.Decimal(10, 2)
+  stock_minimo            Decimal                  @default(0) @db.Decimal(10, 2)
+  estado                  Boolean                  @default(true)
+  detalles_orden_compra   Detalle_orden_compra[]
+  movimientos_inventario  Movimiento_inventario[]
+  detalles_transformacion Detalle_transformacion[]
+  compras_sin_comprobante Compra_sin_comprobante[]
+  recetas_plato           Receta_plato[]
 
   @@map("insumo")
 }
@@ -222,7 +264,7 @@ model Recepcion_compra {
   id_empleado_recepcion     Int
   fecha_recepcion           DateTime                   @default(now()) @db.Timestamp(6)
   observacion               String?                    @db.VarChar(200)
-  estado                    Boolean                    @default(true)
+  estado                    EstadoRecepcionCompraEnum  @default(Confirmada)
   orden_compra              Orden_compra               @relation(fields: [id_orden_compra], references: [id_orden_compra], onDelete: Restrict)
   empleado_recepcion        Empleado                   @relation(fields: [id_empleado_recepcion], references: [id_empleado], onDelete: Restrict)
   detalles_recepcion_compra Detalle_recepcion_compra[]
@@ -252,9 +294,10 @@ model Movimiento_inventario {
   id_movimiento_inventario    Int                       @id @default(autoincrement())
   id_insumo                   Int
   id_detalle_recepcion_compra Int?
-  tipo_movimiento             String                    @db.VarChar(10)
+  tipo_movimiento             TipoMovimientoEnum
   cantidad                    Decimal                   @db.Decimal(10, 2)
-  motivo                      String?                   @db.VarChar(15)
+  costo_unitario              Decimal?                  @db.Decimal(10, 2)
+  motivo                      String?                   @db.VarChar(100)
   fecha_movimiento            DateTime                  @default(now()) @db.Timestamp(6)
   insumo                      Insumo                    @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
   detalle_recepcion_compra    Detalle_recepcion_compra? @relation(fields: [id_detalle_recepcion_compra], references: [id_detalle_recepcion_compra], onDelete: SetNull)
@@ -302,6 +345,50 @@ model Pago_compra {
   @@map("pago_compra")
 }
 
+model Transformacion {
+  id_transformacion       Int                      @id @default(autoincrement())
+  id_empleado             Int
+  fecha                   DateTime                 @default(now()) @db.Timestamp(6)
+  observacion             String?                  @db.VarChar(200)
+  empleado                Empleado                 @relation(fields: [id_empleado], references: [id_empleado], onDelete: Restrict)
+  detalles_transformacion Detalle_transformacion[]
+
+  @@index([id_empleado], map: "idx_transformacion_empleado")
+  @@map("transformacion")
+}
+
+model Detalle_transformacion {
+  id_detalle_transformacion Int            @id @default(autoincrement())
+  id_transformacion         Int
+  id_insumo                 Int
+  tipo_detalle              String         @db.VarChar(10)
+  cantidad                  Decimal        @db.Decimal(10, 2)
+  costo_unitario            Decimal?       @db.Decimal(10, 2)
+  transformacion            Transformacion @relation(fields: [id_transformacion], references: [id_transformacion], onDelete: Cascade)
+  insumo                    Insumo         @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
+
+  @@index([id_transformacion], map: "idx_dettransf_transformacion")
+  @@index([id_insumo], map: "idx_dettransf_insumo")
+  @@map("detalle_transformacion")
+}
+
+model Compra_sin_comprobante {
+  id_compra_menor            Int      @id @default(autoincrement())
+  id_insumo                  Int
+  id_empleado                Int
+  cantidad                   Decimal  @db.Decimal(10, 2)
+  monto_pagado               Decimal  @db.Decimal(10, 2)
+  fecha                      DateTime @default(now()) @db.Date
+  lugar_o_proveedor_informal String?  @db.VarChar(150)
+  motivo                     String?  @db.VarChar(150)
+  insumo                     Insumo   @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
+  empleado                   Empleado @relation(fields: [id_empleado], references: [id_empleado], onDelete: Restrict)
+
+  @@index([id_insumo], map: "idx_comprasincomp_insumo")
+  @@index([id_empleado], map: "idx_comprasincomp_empleado")
+  @@map("compra_sin_comprobante")
+}
+
 // =====================================================================
 // MÓDULO 4: VENTAS Y ATENCIÓN AL CLIENTE
 // =====================================================================
@@ -337,8 +424,23 @@ model Plato {
   precio          Decimal          @db.Decimal(7, 2)
   estado          Boolean          @default(true)
   detalles_pedido Detalle_pedido[]
+  recetas_plato   Receta_plato[]
 
   @@map("plato")
+}
+
+model Receta_plato {
+  id_receta_plato    Int     @id @default(autoincrement())
+  id_plato           Int
+  id_insumo          Int
+  cantidad_requerida Decimal @db.Decimal(10, 2)
+  plato              Plato   @relation(fields: [id_plato], references: [id_plato], onDelete: Cascade)
+  insumo             Insumo  @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
+
+  @@unique([id_plato, id_insumo], map: "uq_receta_plato_insumo")
+  @@index([id_plato], map: "idx_recetaplato_plato")
+  @@index([id_insumo], map: "idx_recetaplato_insumo")
+  @@map("receta_plato")
 }
 
 model Pedido {

@@ -63,7 +63,7 @@ export function ToolbarCuentas({
       <div className="flex flex-col items-start gap-0">
         <div className="flex justify-start items-center gap-2">
           <BookOpen className="w-7 h-7" />
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Plan contable</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cuentas contables</h1>
         </div>
         <p className="text-xs text-slate-500 mt-1">
           {cargando
