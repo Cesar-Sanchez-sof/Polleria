@@ -4,9 +4,15 @@ import { calcularResumenVentasDiarias } from "@/lib/utils/ventas-helpers";
 
 export const dynamic = "force-dynamic";
 
+interface PagoDivididoInput {
+  id_tipo_pago: number;
+  monto: number;
+}
+
 interface RegistrarVentaInput {
   id_pedido: number;
-  id_tipo_pago: number;
+  id_tipo_pago?: number;
+  pagos?: PagoDivididoInput[];
   tipo_comprobante: "Boleta" | "Factura" | "Ticket";
   cliente?: {
     nro_doc?: string;
@@ -35,16 +41,38 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "ID de pedido inválido." }, { status: 400 });
     }
 
-    if (!id_tipo_pago || Number.isNaN(Number(id_tipo_pago))) {
+    const esPagoDividido = Array.isArray(cuerpo.pagos) && cuerpo.pagos.length > 0;
+
+    if (!esPagoDividido && (!id_tipo_pago || Number.isNaN(Number(id_tipo_pago)))) {
       return Response.json({ error: "Debe seleccionar un método de pago válido." }, { status: 400 });
     }
 
-    // 1. Validar existencia del método de pago
-    const tipoPago = await prisma.tipo_pago.findUnique({
-      where: { id_tipo_pago: Number(id_tipo_pago) }
-    });
-    if (!tipoPago || !tipoPago.estado) {
-      return Response.json({ error: "El método de pago no está disponible." }, { status: 400 });
+    // 1. Validar existencia del método o métodos de pago
+    let tipoPago: { id_tipo_pago: number; nombre: string; estado: boolean } | null = null;
+    const listaPagos: Array<{ id_tipo_pago: number; monto: number; nombre: string }> = [];
+
+    if (esPagoDividido) {
+      const tiposDb = await prisma.tipo_pago.findMany({ where: { estado: true } });
+      const mapaTipos = new Map(tiposDb.map((t) => [t.id_tipo_pago, t]));
+      for (const p of cuerpo.pagos!) {
+        const idTP = Number(p.id_tipo_pago);
+        const montoNum = Math.round(Number(p.monto) * 100) / 100;
+        const tp = mapaTipos.get(idTP);
+        if (!tp) {
+          return Response.json({ error: `El método de pago con ID ${idTP} no está disponible.` }, { status: 400 });
+        }
+        if (montoNum <= 0) {
+          return Response.json({ error: "El monto de cada pago parcial debe ser mayor a 0." }, { status: 400 });
+        }
+        listaPagos.push({ id_tipo_pago: idTP, monto: montoNum, nombre: tp.nombre });
+      }
+    } else {
+      tipoPago = await prisma.tipo_pago.findUnique({
+        where: { id_tipo_pago: Number(id_tipo_pago) }
+      });
+      if (!tipoPago || !tipoPago.estado) {
+        return Response.json({ error: "El método de pago no está disponible." }, { status: 400 });
+      }
     }
 
     // 2. Validar que el pedido exista, esté pendiente de cobro y tenga ítems
@@ -67,6 +95,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (pedido.estado === "Cancelado") {
+      return Response.json(
+        { error: "Operación rechazada: Un pedido cancelado no puede convertirse en una venta ni generar cobro." },
+        { status: 400 }
+      );
+    }
+
     if (pedido.detalles_pedido.length === 0) {
       return Response.json(
         { error: "El pedido no contiene ítems para ser cobrado." },
@@ -85,13 +120,24 @@ export async function POST(request: NextRequest) {
     const subtotalGravado = Math.round((totalRedondeado / 1.18) * 100) / 100;
     const igvCalculado = Math.round((totalRedondeado - subtotalGravado) * 100) / 100;
 
-    // Validación de efectivo entregado
-    if (tipoPago.nombre.toLowerCase().includes("efectivo") && monto_recibido) {
-      if (monto_recibido < totalRedondeado) {
+    // Validación de total en pagos divididos
+    if (esPagoDividido) {
+      const sumaPagos = Math.round(listaPagos.reduce((s, p) => s + p.monto, 0) * 100) / 100;
+      if (Math.abs(sumaPagos - totalRedondeado) > 0.05) {
         return Response.json(
-          { error: `El monto entregado (S/ ${monto_recibido.toFixed(2)}) es menor al total a cobrar (S/ ${totalRedondeado.toFixed(2)}).` },
+          { error: `La suma de los pagos divididos (S/ ${sumaPagos.toFixed(2)}) no coincide con el total de la cuenta (S/ ${totalRedondeado.toFixed(2)}).` },
           { status: 400 }
         );
+      }
+    } else {
+      // Validación de efectivo entregado para pago único
+      if (tipoPago && tipoPago.nombre.toLowerCase().includes("efectivo") && monto_recibido) {
+        if (monto_recibido < totalRedondeado) {
+          return Response.json(
+            { error: `El monto entregado (S/ ${monto_recibido.toFixed(2)}) es menor al total a cobrar (S/ ${totalRedondeado.toFixed(2)}).` },
+            { status: 400 }
+          );
+        }
       }
     }
 
@@ -131,7 +177,7 @@ export async function POST(request: NextRequest) {
     const correlativo = (ultimoComprobante?.numero ?? 0) + 1;
 
     // 6. Transacción atómica en Prisma:
-    //    Crear Comprobante -> Registrar Pago -> Cerrar Pedido -> Liberar Mesa
+    //    Crear Comprobante -> Registrar Pago(s) -> Cerrar Pedido -> Liberar Mesa y Mesas Unidas
     const transaccion = await prisma.$transaction(async (tx) => {
       // A. Registrar Comprobante de Venta
       const comprobante = await tx.comprobante_venta.create({
@@ -149,15 +195,28 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // B. Registrar Pago de Venta
-      const pago = await tx.pago_venta.create({
-        data: {
-          id_comprobante_venta: comprobante.id_comprobante_venta,
-          id_tipo_pago: tipoPago.id_tipo_pago,
-          monto: totalRedondeado,
-          fecha_pago: new Date()
+      // B. Registrar Pago(s) de Venta
+      if (esPagoDividido) {
+        for (const p of listaPagos) {
+          await tx.pago_venta.create({
+            data: {
+              id_comprobante_venta: comprobante.id_comprobante_venta,
+              id_tipo_pago: p.id_tipo_pago,
+              monto: p.monto,
+              fecha_pago: new Date()
+            }
+          });
         }
-      });
+      } else {
+        await tx.pago_venta.create({
+          data: {
+            id_comprobante_venta: comprobante.id_comprobante_venta,
+            id_tipo_pago: tipoPago!.id_tipo_pago,
+            monto: totalRedondeado,
+            fecha_pago: new Date()
+          }
+        });
+      }
 
       // C. Actualizar estado del pedido a Cerrado
       await tx.pedido.update({
@@ -165,21 +224,42 @@ export async function POST(request: NextRequest) {
         data: { estado: "Cerrado" }
       });
 
-      // D. Liberar la mesa si el pedido estuvo en mesa
+      // D. Liberar la mesa y mesas unidas si el pedido estuvo en mesa
       if (pedido.pedidos_mesa.length > 0) {
         for (const pm of pedido.pedidos_mesa) {
           await tx.mesa.update({
             where: { id_mesa: pm.id_mesa },
             data: { estado: true } // Disponible / Libre
           });
+
+          // Liberar mesas unidas si existen en la observación
+          if (pm.observacion) {
+            const match = pm.observacion.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i);
+            if (match && match[1]) {
+              const numMesas = match[1]
+                .split(",")
+                .map((n) => Number(n.trim()))
+                .filter((n) => !Number.isNaN(n));
+              if (numMesas.length > 0) {
+                await tx.mesa.updateMany({
+                  where: { numero: { in: numMesas } },
+                  data: { estado: true }
+                });
+              }
+            }
+          }
         }
       }
 
-      return { comprobante, pago };
+      return { comprobante };
     });
 
     const mesaAsociada = pedido.pedidos_mesa[0]?.mesa ?? null;
     const vuelto = monto_recibido ? Math.max(0, Math.round((monto_recibido - totalRedondeado) * 100) / 100) : 0;
+
+    const metodoPagoNombre = esPagoDividido
+      ? `Pago Dividido (${listaPagos.map((p) => `${p.nombre}: S/ ${p.monto.toFixed(2)}`).join(" + ")})`
+      : (tipoPago?.nombre ?? "Efectivo");
 
     return Response.json(
       {
@@ -194,7 +274,7 @@ export async function POST(request: NextRequest) {
           subtotal: subtotalGravado,
           igv: igvCalculado,
           total: totalRedondeado,
-          metodoPago: tipoPago.nombre,
+          metodoPago: metodoPagoNombre,
           montoRecibido: monto_recibido ?? totalRedondeado,
           vuelto,
           cliente: {
