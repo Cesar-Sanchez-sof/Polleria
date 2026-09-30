@@ -1,19 +1,9 @@
 "use client";
+import { useEffect } from 'react';
+import { Sun, Moon, Monitor, Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X } from 'lucide-react';
+import Link from 'next/link';
 
 import React from "react";
-import {
-  Sun,
-  Moon,
-  Monitor,
-  Utensils,
-  Component,
-  CreditCardReader,
-  ChefHat,
-  User,
-  LogOut,
-  X,
-} from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface SidebarProps {
@@ -35,9 +25,9 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
   const getLinkClass = (href: string) => {
     const active = isLinkActive(href);
     if (active) {
-      return "flex items-center px-space-md py-1 rounded-lg text-[12px] font-bold transition-all bg-primary/10 text-primary shadow-xs";
+      return "justify-between flex items-center px-space-md py-1 rounded-lg text-[12px] font-bold transition-all bg-primary/10 text-primary shadow-xs";
     }
-    return "flex items-center px-space-md py-1 rounded-lg text-[12px] font-medium transition-all text-on-surface-variant hover:bg-surface-container hover:text-on-surface";
+    return "justify-between flex items-center px-space-md py-1 rounded-lg text-[12px] font-medium transition-all text-on-surface-variant hover:bg-surface-container hover:text-on-surface";
   };
 
   const getIconLinkClass = (href: string) => {
@@ -64,9 +54,8 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
         />
       )}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
+        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          }`}
       >
         <div className="flex flex-col gap-space-sm overflow-y-auto">
           {/* Header */}
@@ -307,11 +296,22 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
                   onClick={handleLinkClick}
                 >
                   Asientos contables
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
-                  className={getLinkClass("#")}
+                  className={getLinkClass("/cuentas")}
+                  data-path="dashboard-contabilidad"
+                  href="/cuentas"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Cuentas contables</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                </Link>
+                <Link
+                  className={getLinkClass("/diario")}
                   data-path="libro-diario"
-                  href="#"
+                  href="/diario"
                   target="_top"
                   onClick={handleLinkClick}
                 >

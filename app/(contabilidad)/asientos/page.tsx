@@ -295,10 +295,7 @@ export default function AsientosPage() {
   const diarios = opciones?.diarios ?? [];
 
   return (
-    <div className="flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
-      {/* Sidebar */}
-      <Sidebar />
-
+    <>
       {/* Main content area */}
       <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
         {/* Main Content */}
@@ -403,6 +400,6 @@ export default function AsientosPage() {
         onCerrar={() => setNuevoAbierto(false)}
         onCreado={trasCrearAsiento}
       />
-    </div>
+    </>
   );
 }
