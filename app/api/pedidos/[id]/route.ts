@@ -194,13 +194,26 @@ export async function PATCH(
       );
     }
 
-    const pedido = await prisma.pedido.findUnique({ where: { id_pedido: id } });
+    const pedido = await prisma.pedido.findUnique({
+      where: { id_pedido: id },
+      include: { pedidos_mesa: true }
+    });
     if (!pedido) {
       return Response.json({ error: "Pedido no encontrado." }, { status: 404 });
     }
 
     if (pedido.estado === "Cerrado") {
       return Response.json({ error: "No se puede alterar el estado de un pedido ya cerrado." }, { status: 400 });
+    }
+
+    if (nuevoEstado === "Cancelado") {
+      if (pedido.estado === "Cancelado") {
+        return Response.json({ error: "El pedido ya se encuentra cancelado." }, { status: 400 });
+      }
+      const motivo = typeof cuerpo?.motivo === "string" ? cuerpo.motivo.trim() : "";
+      if (!motivo) {
+        return Response.json({ error: "Debe indicar el motivo de la cancelación." }, { status: 400 });
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -217,8 +230,47 @@ export async function PATCH(
         });
       }
 
-      // Si el pedido se cancela, devolver el stock reservado a Redis
+      // Si el pedido se cancela, liberar mesas asociadas y devolver stock
       if (nuevoEstado === "Cancelado" && pedido.estado !== "Cancelado") {
+        const usuario = typeof cuerpo?.usuario === "string" && cuerpo.usuario.trim() ? cuerpo.usuario.trim() : "Personal";
+        const motivo = typeof cuerpo?.motivo === "string" ? cuerpo.motivo.trim() : "Cancelado";
+        const tagCancelado = `[CANCELADO por ${usuario}: ${motivo}]`;
+
+        // 1. Liberar mesas y registrar auditoría en pedido_mesa
+        for (const pm of pedido.pedidos_mesa) {
+          // Liberar mesa principal
+          await tx.mesa.update({
+            where: { id_mesa: pm.id_mesa },
+            data: { estado: true }
+          });
+
+          // Liberar mesas unidas si existen en la observación
+          if (pm.observacion) {
+            const match = pm.observacion.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i);
+            if (match && match[1]) {
+              const numMesas = match[1]
+                .split(",")
+                .map((n) => Number(n.trim()))
+                .filter((n) => !Number.isNaN(n));
+              if (numMesas.length > 0) {
+                await tx.mesa.updateMany({
+                  where: { numero: { in: numMesas } },
+                  data: { estado: true }
+                });
+              }
+            }
+          }
+
+          // Actualizar observación con motivo y responsable de la cancelación
+          const obsActual = pm.observacion || "";
+          const nuevaObs = `${obsActual.slice(0, 45)} ${tagCancelado}`.trim().slice(0, 100);
+          await tx.pedido_mesa.update({
+            where: { id_pedido_mesa: pm.id_pedido_mesa },
+            data: { observacion: nuevaObs }
+          });
+        }
+
+        // 2. Liberar el stock reservado en Redis
         const detalles = await tx.detalle_pedido.findMany({
           where: { id_pedido: id }
         });

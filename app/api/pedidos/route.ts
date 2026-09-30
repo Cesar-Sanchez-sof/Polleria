@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
 
     const tipoPedido = cuerpo.tipo_pedido === "Llevar" ? "Llevar" : "Mesa";
     const idMesa = cuerpo.id_mesa ? Number(cuerpo.id_mesa) : null;
+    const mesasAdicionales = Array.isArray(cuerpo.mesas_adicionales)
+      ? (cuerpo.mesas_adicionales.map(Number).filter((n: number) => !Number.isNaN(n) && n !== idMesa) as number[])
+      : [];
     const observacionMesa = typeof cuerpo.observacion === "string" ? cuerpo.observacion.trim() : null;
     const items = Array.isArray(cuerpo.items) ? (cuerpo.items as ItemPedidoInput[]) : [];
 
@@ -98,7 +101,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "El pedido debe contener al menos un producto." }, { status: 400 });
     }
 
-    // Si es en mesa, verificar que la mesa existe y que no tiene un pedido activo ya registrado
+    // Si es en mesa, verificar que la mesa principal existe y que no tiene un pedido activo ya registrado
     if (tipoPedido === "Mesa" && idMesa) {
       const mesa = await prisma.mesa.findUnique({
         where: { id_mesa: idMesa },
@@ -122,6 +125,31 @@ export async function POST(request: NextRequest) {
           { error: `La Mesa ${mesa.numero} ya tiene un pedido activo en curso.` },
           { status: 400 }
         );
+      }
+
+      // Validar mesas adicionales unidas
+      if (mesasAdicionales.length > 0) {
+        const mesasAdicDb = await prisma.mesa.findMany({
+          where: { id_mesa: { in: mesasAdicionales } },
+          include: {
+            pedidos_mesa: {
+              where: {
+                pedido: {
+                  estado: { notIn: ["Cerrado", "Cancelado"] }
+                }
+              }
+            }
+          }
+        });
+
+        for (const m of mesasAdicDb) {
+          if (m.pedidos_mesa.length > 0 || !m.estado) {
+            return Response.json(
+              { error: `La mesa adicional Mesa ${m.numero} ya está ocupada o tiene un pedido activo.` },
+              { status: 400 }
+            );
+          }
+        }
       }
     }
 
@@ -183,19 +211,38 @@ export async function POST(request: NextRequest) {
 
         // 2. Asociar a mesa únicamente si es tipo Mesa
         if (tipoPedido === "Mesa" && idMesa) {
+          let observacionFinal = observacionMesa;
+          if (mesasAdicionales.length > 0) {
+            const mesasAdic = await tx.mesa.findMany({
+              where: { id_mesa: { in: mesasAdicionales } },
+              select: { numero: true }
+            });
+            const nums = mesasAdic.map((m) => m.numero).sort((a, b) => a - b).join(", ");
+            const tag = `[Mesas unidas: ${nums}]`;
+            observacionFinal = observacionMesa ? `${observacionMesa} ${tag}` : tag;
+          }
+
           await tx.pedido_mesa.create({
             data: {
               id_mesa: idMesa,
               id_pedido: nuevoPedido.id_pedido,
-              observacion: observacionMesa
+              observacion: observacionFinal
             }
           });
 
-          // Marcar la mesa como ocupada
+          // Marcar la mesa principal como ocupada
           await tx.mesa.update({
             where: { id_mesa: idMesa },
             data: { estado: false }
           });
+
+          // Marcar mesas adicionales como ocupadas
+          if (mesasAdicionales.length > 0) {
+            await tx.mesa.updateMany({
+              where: { id_mesa: { in: mesasAdicionales } },
+              data: { estado: false }
+            });
+          }
         }
 
         // 3. Crear detalles del pedido con observaciones por producto

@@ -219,6 +219,7 @@ export async function obtenerPedido(id: number): Promise<PedidoResumen> {
 export async function crearPedido(datos: {
   tipo_pedido: "Mesa" | "Llevar";
   id_mesa?: number;
+  mesas_adicionales?: number[];
   observacion?: string;
   items: Array<{ id_plato: number; cantidad: number; observaciones?: string }>;
 }): Promise<any> {
@@ -269,6 +270,23 @@ export async function actualizarEstadoPedido(
   return res.json();
 }
 
+export async function cancelarPedido(
+  id: number,
+  motivo: string,
+  usuario: string = "Mozo Salón"
+): Promise<{ mensaje: string }> {
+  const res = await fetch(`/api/pedidos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ estado: "Cancelado", motivo, usuario }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "No se pudo cancelar el pedido.");
+  }
+  return res.json();
+}
+
 export async function listarTiposPago(): Promise<TipoPagoItem[]> {
   const res = await fetch("/api/tipos-pago", { cache: "no-store" });
   if (!res.ok) {
@@ -281,7 +299,8 @@ export async function listarTiposPago(): Promise<TipoPagoItem[]> {
 
 export async function registrarVenta(datos: {
   id_pedido: number;
-  id_tipo_pago: number;
+  id_tipo_pago?: number;
+  pagos?: Array<{ id_tipo_pago: number; monto: number }>;
   tipo_comprobante: "Boleta" | "Factura" | "Ticket";
   cliente?: {
     nro_doc?: string;
