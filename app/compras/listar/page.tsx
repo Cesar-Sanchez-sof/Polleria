@@ -1,16 +1,5 @@
+import { redirect } from "next/navigation";
 
-const Ventas = () => {
-    return (
-        <iframe
-            src="/comprasListar.html"
-            title="Página de ventas"
-            style={{
-                width: "100%",
-                height: "100vh",
-                border: "none",
-            }}
-        />
-    );
+export default function ListarComprasPage() {
+  redirect("/compras/facturas-proveedor");
 }
-
-export default Ventas;
