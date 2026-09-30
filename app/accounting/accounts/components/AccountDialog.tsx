@@ -78,12 +78,12 @@ export function AccountDialog({
 
   const excludedIds = useMemo(() => {
     const excluded = new Set<number>();
-    if (!cuenta) return excluded;
-    excluded.add(cuenta.id);
+    if (!account) return excluded;
+    excluded.add(account.id);
     let changed = true;
     while (changed) {
       changed = false;
-      for (const candidate of cuentas) {
+      for (const candidate of accounts) {
         if (
           !excluded.has(candidate.id) &&
           candidate.idPadre !== null &&
@@ -95,7 +95,7 @@ export function AccountDialog({
       }
     }
     return excluded;
-  }, [cuenta, cuentas]);
+  }, [account, accounts]);
 
   const parentOptions = useMemo(
     () =>
@@ -323,15 +323,15 @@ export function AccountDialog({
             </div>
           )}
 
-          {isEditMode && cuenta.usos > 0 && (
+          {isEditMode && account.usos > 0 && (
             <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
               <span className={labelClasses}>Uso actual</span>
               <p className="text-xs text-slate-600 mt-1">
                 La cuenta está en{" "}
                 <b className="text-slate-900 tabular-nums">
-                  {cuenta.usos} línea{cuenta.usos === 1 ? "" : "s"}
+                  {account.usos} línea{account.usos === 1 ? "" : "s"}
                 </b>{" "}
-                de asiento{cuenta.usos === 1 ? "" : "s"}. Su historial no se modifica.
+                de asiento{account.usos === 1 ? "" : "s"}. Su historial no se modifica.
               </p>
             </div>
           )}
@@ -354,7 +354,7 @@ export function AccountDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={onCerrar}
+              onClick={onClose}
               disabled={isSaving}
               className="rounded-lg border-slate-200 bg-white text-xs font-semibold shadow-none"
             >

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-import { CuentaDialog } from "./components/CuentaDialog";
+import { AccountDialog } from "./components/AccountDialog";
 import { AccountTable, type AccountTableRow } from "./components/AccountTable";
 import { ToolbarCuentas } from "./components/ToolbarCuentas";
 
@@ -246,13 +246,13 @@ export default function CuentasPage() {
       </div>
 
       {isDialogOpen && (
-        <CuentaDialog
-          abierto={isDialogOpen}
-          cuenta={editingAccount}
-          padreInicial={initialParent}
-          cuentas={accounts}
-          onCerrar={handleCloseDialog}
-          onGuardado={handleSaved}
+        <AccountDialog
+          isOpen={isDialogOpen}
+          account={editingAccount}
+          initialParent={initialParent}
+          accounts={accounts}
+          onClose={handleCloseDialog}
+          onSaved={handleSaved}
         />
       )}
     </>
