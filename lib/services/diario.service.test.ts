@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  construirQueryDiario,
-  ErrorApi,
-  listarLibroDiario,
-  type PaginaDiario,
+  buildDailyBookQuery,
+  ApiError,
+  listDailyBookEntries,
+  type DailyBookPage,
 } from "./diario.service";
 
-const PAGINA: PaginaDiario = {
+const PAGE_DATA: DailyBookPage = {
   data: [
     {
       id: 7,
@@ -34,34 +34,32 @@ const PAGINA: PaginaDiario = {
   meta: { total: 36, page: 1, pageSize: 10, totalPaginas: 4, desde: "", hasta: "" },
 };
 
-/** Respuesta JSON con estado indicado. */
-function respuestaJson(cuerpo: unknown, status = 200): Response {
-  return new Response(JSON.stringify(cuerpo), {
+function createJsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
 }
 
-/** Ejecuta la petición y devuelve el ErrorApi lanzado (falla si no lanza). */
-async function errorDe(peticion: Promise<unknown>): Promise<ErrorApi> {
+async function catchApiError(promise: Promise<unknown>): Promise<ApiError> {
   try {
-    await peticion;
-  } catch (error) {
-    return error as ErrorApi;
+    await promise;
+  } catch (err) {
+    return err as ApiError;
   }
   throw new Error("La petición no lanzó el error esperado.");
 }
 
 const fetchMock = vi.fn();
 
-describe("construirQueryDiario (libro diario)", () => {
+describe("buildDailyBookQuery (libro diario)", () => {
   it("omite los filtros vacíos", () => {
-    expect(construirQueryDiario({})).toBe("");
+    expect(buildDailyBookQuery({})).toBe("");
   });
 
   it("serializa el periodo y la paginación", () => {
     const params = new URLSearchParams(
-      construirQueryDiario({
+      buildDailyBookQuery({
         desde: "2025-05-01",
         hasta: "2025-06-30",
         page: 2,
@@ -76,14 +74,14 @@ describe("construirQueryDiario (libro diario)", () => {
   });
 
   it("acepta un solo extremo del periodo", () => {
-    const params = new URLSearchParams(construirQueryDiario({ hasta: "2025-06-30" }));
+    const params = new URLSearchParams(buildDailyBookQuery({ hasta: "2025-06-30" }));
 
     expect(params.get("desde")).toBeNull();
     expect(params.get("hasta")).toBe("2025-06-30");
   });
 });
 
-describe("listarLibroDiario", () => {
+describe("listDailyBookEntries", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
@@ -94,11 +92,11 @@ describe("listarLibroDiario", () => {
   });
 
   it("consulta /api/diario con el periodo y sin caché", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(PAGINA));
+    fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    const resultado = await listarLibroDiario({ desde: "2025-05-01", page: 2 });
+    const result = await listDailyBookEntries({ desde: "2025-05-01", page: 2 });
 
-    expect(resultado).toEqual(PAGINA);
+    expect(result).toEqual(PAGE_DATA);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith("/api/diario?desde=2025-05-01&page=2", {
       cache: "no-store",
@@ -106,21 +104,21 @@ describe("listarLibroDiario", () => {
   });
 
   it("consulta /api/diario sin query cuando no hay filtros", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(PAGINA));
+    fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    await listarLibroDiario();
+    await listDailyBookEntries();
 
     expect(fetchMock).toHaveBeenCalledWith("/api/diario", { cache: "no-store" });
   });
 
   it("propaga el error del servidor como ErrorApi con sus validaciones", async () => {
     fetchMock.mockResolvedValue(
-      respuestaJson({ error: "La fecha inicial no puede ser posterior a la fecha final." }, 400)
+      createJsonResponse({ error: "La fecha inicial no puede ser posterior a la fecha final." }, 400)
     );
 
-    const error = await errorDe(listarLibroDiario({ desde: "2025-06-30", hasta: "2025-05-01" }));
+    const error = await catchApiError(listDailyBookEntries({ desde: "2025-06-30", hasta: "2025-05-01" }));
 
-    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.message).toBe("La fecha inicial no puede ser posterior a la fecha final.");
   });
 });

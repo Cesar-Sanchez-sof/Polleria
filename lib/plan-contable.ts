@@ -1,14 +1,13 @@
 /**
- * Reglas del plan contable compartidas por las rutas de `/api/cuentas`.
+ * Chart of accounts rules shared by `/api/cuentas` route handlers.
  *
- * Sólo lo usan los route handlers (server): validación de campos, respuesta
- * de errores, detección del índice único de `codigo` y cálculo de jerarquía.
- * El catálogo de tipos se mantiene alineado con `lib/services/cuentas.service`.
+ * Used exclusively by server route handlers: field validation, error responses,
+ * unique code index detection, and hierarchy calculation.
  */
 import { Prisma } from "@prisma/client";
 
-/** Tipos de cuenta admitidos (PCGE 2019), en el orden en que se listan. */
-export const TIPOS_VALIDOS = [
+/** Supported account types (PCGE 2019), in listing order. */
+export const VALID_ACCOUNT_TYPES = [
   "Activo",
   "Pasivo",
   "Patrimonio",
@@ -17,143 +16,144 @@ export const TIPOS_VALIDOS = [
   "Costo",
 ] as const;
 
-/** Formato admitido para `cuenta_contable.codigo` (`@db.VarChar(10)`). */
-export const CODIGO_RE = /^[A-Za-z0-9.-]{1,10}$/;
+/** Format allowed for `AccountingAccount.code` (`@db.VarChar(10)`). */
+export const ACCOUNT_CODE_REGEX = /^[A-Za-z0-9.-]{1,10}$/;
 
-/** Campos ya validados y normalizados listos para persistirse. */
-export interface ValoresCuenta {
-  codigo?: string;
-  nombre?: string;
-  tipo?: string;
-  /** `null` = cuenta raíz (sin padre). */
-  idPadre?: number | null;
-  activo?: boolean;
+/** Validated and normalized account fields ready for persistence. */
+export interface AccountValues {
+  code?: string;
+  name?: string;
+  type?: string;
+  /** `null` = root account (no parent). */
+  parentId?: number | null;
+  active?: boolean;
 }
 
-/** Texto recortado del body; cualquier valor que no sea texto se trata como vacío. */
-export function texto(valor: unknown): string {
-  return typeof valor === "string" ? valor.trim() : "";
+/** Trimmed string from request body; non-string values are treated as empty string. */
+export function trimText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 /**
- * Valida y normaliza los campos de una cuenta según el modo:
+ * Validates and normalizes account fields depending on mode:
  *
- * - `alta`: código, nombre, tipo, jerarquía y estado son obligatorios.
- * - `edicion`: sólo se valida lo presente en el body (campo por campo).
+ * - `alta` (create): code, name, type, hierarchy, and status are mandatory.
+ * - `edicion` (edit): only fields present in body are validated.
  *
- * Devuelve los errores (si los hay) y los campos válidos.
+ * Returns errors array (if any) and validated values.
  */
-export function validarCuenta(
-  cuerpo: Record<string, unknown>,
-  modo: "alta" | "edicion"
-): { errores: string[]; valores: ValoresCuenta } {
-  const errores: string[] = [];
-  const valores: ValoresCuenta = {};
-  const esAlta = modo === "alta";
+export function validateAccount(
+  body: Record<string, unknown>,
+  mode: "alta" | "edicion"
+): { errors: string[]; values: AccountValues } {
+  const errors: string[] = [];
+  const values: AccountValues = {};
+  const isCreate = mode === "alta";
 
-  const codigo = texto(cuerpo.codigo);
-  if (esAlta || cuerpo.codigo !== undefined) {
-    if (!codigo) {
-      errores.push("El código de la cuenta es obligatorio.");
-    } else if (!CODIGO_RE.test(codigo)) {
-      errores.push(
+  const code = trimText(body.codigo ?? body.code);
+  if (isCreate || body.codigo !== undefined || body.code !== undefined) {
+    if (!code) {
+      errors.push("El código de la cuenta es obligatorio.");
+    } else if (!ACCOUNT_CODE_REGEX.test(code)) {
+      errors.push(
         "El código sólo puede tener hasta 10 caracteres con letras, números, punto o guion."
       );
     } else {
-      valores.codigo = codigo;
+      values.code = code;
     }
   }
 
-  const nombre = texto(cuerpo.nombre);
-  if (esAlta || cuerpo.nombre !== undefined) {
-    if (!nombre) {
-      errores.push("El nombre de la cuenta es obligatorio.");
-    } else if (nombre.length > 100) {
-      errores.push("El nombre de la cuenta no puede superar los 100 caracteres.");
+  const name = trimText(body.nombre ?? body.name);
+  if (isCreate || body.nombre !== undefined || body.name !== undefined) {
+    if (!name) {
+      errors.push("El nombre de la cuenta es obligatorio.");
+    } else if (name.length > 100) {
+      errors.push("El nombre de la cuenta no puede superar los 100 caracteres.");
     } else {
-      valores.nombre = nombre;
+      values.name = name;
     }
   }
 
-  if (esAlta || cuerpo.tipo !== undefined) {
-    const tipo = texto(cuerpo.tipo);
-    if (!(TIPOS_VALIDOS as readonly string[]).includes(tipo)) {
-      errores.push(
-        `El tipo de cuenta no es válido (valores admitidos: ${TIPOS_VALIDOS.join(", ")}).`
+  if (isCreate || body.tipo !== undefined || body.type !== undefined) {
+    const type = trimText(body.tipo ?? body.type);
+    if (!(VALID_ACCOUNT_TYPES as readonly string[]).includes(type)) {
+      errors.push(
+        `El tipo de cuenta no es válido (valores admitidos: ${VALID_ACCOUNT_TYPES.join(", ")}).`
       );
     } else {
-      valores.tipo = tipo;
+      values.type = type;
     }
   }
 
-  if (esAlta || cuerpo.idPadre !== undefined) {
-    const idPadre = cuerpo.idPadre;
-    if (idPadre === undefined || idPadre === null) {
-      valores.idPadre = null;
+  const rawParentId = body.idPadre !== undefined ? body.idPadre : body.parentId;
+  if (isCreate || rawParentId !== undefined) {
+    if (rawParentId === undefined || rawParentId === null) {
+      values.parentId = null;
     } else {
-      const numero = typeof idPadre === "number" ? idPadre : Number(idPadre);
-      if (!Number.isInteger(numero) || numero <= 0) {
-        errores.push("La cuenta padre indicada no es válida.");
+      const parsedNumber = typeof rawParentId === "number" ? rawParentId : Number(rawParentId);
+      if (!Number.isInteger(parsedNumber) || parsedNumber <= 0) {
+        errors.push("La cuenta padre indicada no es válida.");
       } else {
-        valores.idPadre = numero;
+        values.parentId = parsedNumber;
       }
     }
   }
 
-  if (esAlta || cuerpo.activo !== undefined) {
-    const activo = esAlta && cuerpo.activo === undefined ? true : cuerpo.activo;
-    if (typeof activo !== "boolean") {
-      errores.push("El estado de la cuenta debe ser activo o inactivo.");
+  const rawActive = body.activo !== undefined ? body.activo : body.active;
+  if (isCreate || rawActive !== undefined) {
+    const active = isCreate && rawActive === undefined ? true : rawActive;
+    if (typeof active !== "boolean") {
+      errors.push("El estado de la cuenta debe ser activo o inactivo.");
     } else {
-      valores.activo = activo;
+      values.active = active;
     }
   }
 
-  return { errores, valores };
+  return { errors, values };
 }
 
-/** `true` cuando el fallo corresponde al índice único de `cuenta_contable.codigo`. */
-export function codigoDuplicado(error: unknown): boolean {
+/** `true` when the error corresponds to unique index constraint on `AccountingAccount.code`. */
+export function isDuplicateCodeError(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-/** Respuesta 400 con el primer error como mensaje y el detalle completo. */
-export function respuestaValidacion(errores: string[]): Response {
-  return Response.json({ error: errores[0], errores }, { status: 400 });
+/** 400 Bad Request response with the first error as message and full details list. */
+export function validationResponse(errors: string[]): Response {
+  return Response.json({ error: errors[0], errores: errors }, { status: 400 });
 }
 
-/** Respuesta 409: ya existe otra cuenta con ese código. */
-export function respuestaCodigoDuplicado(codigo: string): Response {
+/** 409 Conflict response: another account with that code already exists. */
+export function duplicateCodeResponse(code: string): Response {
   return Response.json(
-    { error: `Ya existe una cuenta contable con el código ${codigo}.` },
+    { error: `Ya existe una cuenta contable con el código ${code}.` },
     { status: 409 }
   );
 }
 
-/** Campos que devuelve siempre la API de cuentas. */
-export const SELECT_CUENTA = {
-  id_cuenta_contable: true,
-  codigo: true,
-  nombre: true,
-  tipo: true,
-  id_cuenta_padre: true,
-  activo: true,
-  _count: { select: { detalles_asiento: true } },
+/** Fields always selected by the accounts API. */
+export const ACCOUNT_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  type: true,
+  parentId: true,
+  active: true,
+  _count: { select: { entryDetails: true } },
 } as const;
 
-/** Fila de `cuenta_contable` tal y como la devuelven los `select` de las rutas. */
-export interface CuentaFila {
-  id_cuenta_contable: number;
-  codigo: string;
-  nombre: string;
-  tipo: string;
-  id_cuenta_padre: number | null;
-  activo: boolean;
-  _count?: { detalles_asiento: number };
+/** Database row structure for `AccountingAccount` returned by `ACCOUNT_SELECT`. */
+export interface AccountRow {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
+  parentId: number | null;
+  active: boolean;
+  _count?: { entryDetails: number };
 }
 
-/** Forma pública de una cuenta en las respuestas de la API. */
-export interface CuentaApi {
+/** Public API shape of an account in responses (maintains backward compatibility for clients). */
+export interface AccountApi {
   id: number;
   codigo: string;
   nombre: string;
@@ -163,44 +163,60 @@ export interface CuentaApi {
   usos: number;
 }
 
-/** Convierte una fila de la base en la respuesta pública. */
-export function aCuentaApi(cuenta: CuentaFila): CuentaApi {
+/** Maps a database row into the public API format. */
+export function toAccountApi(account: AccountRow): AccountApi {
   return {
-    id: cuenta.id_cuenta_contable,
-    codigo: cuenta.codigo,
-    nombre: cuenta.nombre,
-    tipo: cuenta.tipo,
-    idPadre: cuenta.id_cuenta_padre,
-    activo: cuenta.activo,
-    usos: cuenta._count?.detalles_asiento ?? 0,
+    id: account.id,
+    codigo: account.code,
+    nombre: account.name,
+    tipo: account.type,
+    idPadre: account.parentId,
+    activo: account.active,
+    usos: account._count?.entryDetails ?? 0,
   };
 }
 
-/** Relación mínima necesaria para recorrer la jerarquía de cuentas. */
-export interface NodoJerarquia {
-  id_cuenta_contable: number;
-  id_cuenta_padre: number | null;
+/** Minimal hierarchy node structure to traverse parent-child accounts. */
+export interface HierarchyNode {
+  id: number;
+  parentId: number | null;
 }
 
 /**
- * Ids de todas las subcuentas (hijas, nietas, …) de la cuenta indicada.
- * Se calcula sobre el listado completo para no hacer consultas recursivas.
+ * Returns IDs of all descendants (children, grandchildren, ...) of the given account.
+ * Calculated in-memory across the list to avoid recursive queries.
  */
-export function descendientesDe(id: number, nodos: NodoJerarquia[]): number[] {
-  const hijosPorPadre = new Map<number, number[]>();
-  for (const nodo of nodos) {
-    if (nodo.id_cuenta_padre === null) continue;
-    const lista = hijosPorPadre.get(nodo.id_cuenta_padre) ?? [];
-    lista.push(nodo.id_cuenta_contable);
-    hijosPorPadre.set(nodo.id_cuenta_padre, lista);
+export function getDescendantsOf(id: number, nodes: HierarchyNode[]): number[] {
+  const childrenByParent = new Map<number, number[]>();
+  for (const node of nodes) {
+    if (node.parentId === null) continue;
+    const list = childrenByParent.get(node.parentId) ?? [];
+    list.push(node.id);
+    childrenByParent.set(node.parentId, list);
   }
 
-  const descendientes: number[] = [];
-  const pendientes = [...(hijosPorPadre.get(id) ?? [])];
-  while (pendientes.length > 0) {
-    const actual = pendientes.shift() as number;
-    descendientes.push(actual);
-    pendientes.push(...(hijosPorPadre.get(actual) ?? []));
+  const descendants: number[] = [];
+  const queue = [...(childrenByParent.get(id) ?? [])];
+  while (queue.length > 0) {
+    const currentId = queue.shift() as number;
+    descendants.push(currentId);
+    queue.push(...(childrenByParent.get(currentId) ?? []));
   }
-  return descendientes;
+  return descendants;
 }
+
+// Backward-compatibility aliases
+export const TIPOS_VALIDOS = VALID_ACCOUNT_TYPES;
+export const CODIGO_RE = ACCOUNT_CODE_REGEX;
+export type ValoresCuenta = AccountValues;
+export const texto = trimText;
+export const validarCuenta = validateAccount;
+export const codigoDuplicado = isDuplicateCodeError;
+export const respuestaValidacion = validationResponse;
+export const respuestaCodigoDuplicado = duplicateCodeResponse;
+export const SELECT_CUENTA = ACCOUNT_SELECT;
+export type CuentaFila = AccountRow;
+export type CuentaApi = AccountApi;
+export const aCuentaApi = toAccountApi;
+export type NodoJerarquia = HierarchyNode;
+export const descendientesDe = getDescendantsOf;

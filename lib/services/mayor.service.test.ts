@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  construirQueryMayor,
-  ErrorApi,
-  obtenerLibroMayor,
-  type LibroMayor,
+  buildGeneralLedgerQuery,
+  ApiError,
+  getGeneralLedger,
+  type GeneralLedger,
 } from "./mayor.service";
 
-const LIBRO: LibroMayor = {
+const LEDGER_DATA: GeneralLedger = {
   cuenta: { codigo: "101", nombre: "Caja", tipo: "Activo" },
   saldoAnterior: 0,
   saldoFinal: 118,
@@ -30,34 +30,32 @@ const LIBRO: LibroMayor = {
   ],
 };
 
-/** Respuesta JSON con estado indicado. */
-function respuestaJson(cuerpo: unknown, status = 200): Response {
-  return new Response(JSON.stringify(cuerpo), {
+function createJsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
 }
 
-/** Ejecuta la petición y devuelve el ErrorApi lanzado (falla si no lanza). */
-async function errorDe(peticion: Promise<unknown>): Promise<ErrorApi> {
+async function catchApiError(promise: Promise<unknown>): Promise<ApiError> {
   try {
-    await peticion;
-  } catch (error) {
-    return error as ErrorApi;
+    await promise;
+  } catch (err) {
+    return err as ApiError;
   }
   throw new Error("La petición no lanzó el error esperado.");
 }
 
 const fetchMock = vi.fn();
 
-describe("construirQueryMayor (libro mayor)", () => {
+describe("buildGeneralLedgerQuery (libro mayor)", () => {
   it("siempre envía la cuenta consultada", () => {
-    expect(construirQueryMayor({ codigo: "101" })).toBe("codigo=101");
+    expect(buildGeneralLedgerQuery({ codigo: "101" })).toBe("codigo=101");
   });
 
   it("serializa el periodo completo", () => {
     const params = new URLSearchParams(
-      construirQueryMayor({ codigo: "101", desde: "2025-05-01", hasta: "2025-06-30" })
+      buildGeneralLedgerQuery({ codigo: "101", desde: "2025-05-01", hasta: "2025-06-30" })
     );
 
     expect(params.get("codigo")).toBe("101");
@@ -67,7 +65,7 @@ describe("construirQueryMayor (libro mayor)", () => {
 
   it("omite los extremos de fecha vacíos", () => {
     const params = new URLSearchParams(
-      construirQueryMayor({ codigo: "201", hasta: "2025-06-30" })
+      buildGeneralLedgerQuery({ codigo: "201", hasta: "2025-06-30" })
     );
 
     expect(params.get("desde")).toBeNull();
@@ -75,7 +73,7 @@ describe("construirQueryMayor (libro mayor)", () => {
   });
 });
 
-describe("obtenerLibroMayor", () => {
+describe("getGeneralLedger", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
@@ -86,14 +84,14 @@ describe("obtenerLibroMayor", () => {
   });
 
   it("consulta /api/mayor con la cuenta y el periodo, sin caché", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(LIBRO));
+    fetchMock.mockResolvedValue(createJsonResponse(LEDGER_DATA));
 
-    const resultado = await obtenerLibroMayor({
+    const result = await getGeneralLedger({
       codigo: "101",
       desde: "2025-05-01",
     });
 
-    expect(resultado).toEqual(LIBRO);
+    expect(result).toEqual(LEDGER_DATA);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/mayor?codigo=101&desde=2025-05-01",
@@ -102,23 +100,23 @@ describe("obtenerLibroMayor", () => {
   });
 
   it("consulta /api/mayor sólo con la cuenta cuando no hay periodo", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(LIBRO));
+    fetchMock.mockResolvedValue(createJsonResponse(LEDGER_DATA));
 
-    await obtenerLibroMayor({ codigo: "101" });
+    await getGeneralLedger({ codigo: "101" });
 
     expect(fetchMock).toHaveBeenCalledWith("/api/mayor?codigo=101", { cache: "no-store" });
   });
 
   it("propaga el error del servidor como ErrorApi con sus validaciones", async () => {
     fetchMock.mockResolvedValue(
-      respuestaJson({ error: "La fecha inicial no puede ser posterior a la fecha final." }, 400)
+      createJsonResponse({ error: "La fecha inicial no puede ser posterior a la fecha final." }, 400)
     );
 
-    const error = await errorDe(
-      obtenerLibroMayor({ codigo: "101", desde: "2025-06-30", hasta: "2025-05-01" })
+    const error = await catchApiError(
+      getGeneralLedger({ codigo: "101", desde: "2025-06-30", hasta: "2025-05-01" })
     );
 
-    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.message).toBe("La fecha inicial no puede ser posterior a la fecha final.");
   });
 });

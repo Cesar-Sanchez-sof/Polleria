@@ -10,40 +10,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TIPOS_CUENTA } from "@/lib/services/cuentas.service";
+import { ACCOUNT_TYPES } from "@/lib/services/cuentas.service";
 
-interface Props {
-  /** Texto actual del buscador (filtra código, nombre y tipo). */
+interface ToolbarCuentasProps {
   q: string;
-  onBuscar: (valor: string) => void;
+  onBuscar: (value: string) => void;
   onLimpiarBusqueda: () => void;
-  /** Tipo seleccionado o `"todos"`. */
   tipo: string;
-  onTipo: (valor: string) => void;
-  /** Estado seleccionado: `"todos"`, `"activas"` o `"inactivas"`. */
+  onTipo: (value: string) => void;
   estado: string;
-  onEstado: (valor: string) => void;
-  /** Abre el diálogo para registrar una cuenta nueva. */
+  onEstado: (value: string) => void;
   onNuevo: () => void;
-  /** Cuentas que muestra la tabla ahora mismo. */
   visibles: number;
-  /** Cuentas existentes en el plan. */
   total: number;
   cargando: boolean;
 }
 
-const OPCIONES_TIPO = [
+const TYPE_OPTIONS = [
   { value: "todos", label: "Todos los tipos" },
-  ...TIPOS_CUENTA.map((tipo) => ({ value: tipo, label: tipo })),
+  ...ACCOUNT_TYPES.map((type) => ({ value: type, label: type })),
 ];
 
-const OPCIONES_ESTADO = [
+const STATUS_OPTIONS = [
   { value: "todos", label: "Todos los estados" },
   { value: "activas", label: "Activas" },
   { value: "inactivas", label: "Inactivas" },
 ];
 
-/** Barra superior: título, buscador, filtros de tipo/estado y alta de cuentas. */
 export function ToolbarCuentas({
   q,
   onBuscar,
@@ -56,10 +49,9 @@ export function ToolbarCuentas({
   visibles,
   total,
   cargando,
-}: Readonly<Props>) {
+}: Readonly<ToolbarCuentasProps>) {
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-      {/* LEFT: Título y conteo del plan */}
       <div className="flex flex-col items-start gap-0">
         <div className="flex justify-start items-center gap-2">
           <BookOpen className="w-7 h-7" />
@@ -72,9 +64,7 @@ export function ToolbarCuentas({
         </p>
       </div>
 
-      {/* RIGHT: Buscador, filtros y alta */}
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-        {/* Search Composite Pill */}
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-55 md:min-w-70">
           <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
           <Input
@@ -103,8 +93,8 @@ export function ToolbarCuentas({
 
         <Select
           value={tipo}
-          items={OPCIONES_TIPO}
-          onValueChange={(valor) => onTipo(valor ?? "todos")}
+          items={TYPE_OPTIONS}
+          onValueChange={(val) => onTipo(val ?? "todos")}
           disabled={cargando}
         >
           <SelectTrigger
@@ -114,9 +104,9 @@ export function ToolbarCuentas({
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
-            {OPCIONES_TIPO.map((opcion) => (
-              <SelectItem key={opcion.value} value={opcion.value}>
-                {opcion.label}
+            {TYPE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -124,8 +114,8 @@ export function ToolbarCuentas({
 
         <Select
           value={estado}
-          items={OPCIONES_ESTADO}
-          onValueChange={(valor) => onEstado(valor ?? "todos")}
+          items={STATUS_OPTIONS}
+          onValueChange={(val) => onEstado(val ?? "todos")}
           disabled={cargando}
         >
           <SelectTrigger
@@ -135,9 +125,9 @@ export function ToolbarCuentas({
             <SelectValue placeholder="Todos los estados" />
           </SelectTrigger>
           <SelectContent>
-            {OPCIONES_ESTADO.map((opcion) => (
-              <SelectItem key={opcion.value} value={opcion.value}>
-                {opcion.label}
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
               </SelectItem>
             ))}
           </SelectContent>

@@ -1,54 +1,54 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  aCuentaApi,
-  codigoDuplicado,
-  descendientesDe,
-  respuestaCodigoDuplicado,
-  respuestaValidacion,
-  SELECT_CUENTA,
-  validarCuenta,
-  type NodoJerarquia,
+  ACCOUNT_SELECT,
+  duplicateCodeResponse,
+  getDescendantsOf,
+  HierarchyNode,
+  isDuplicateCodeError,
+  toAccountApi,
+  validateAccount,
+  validationResponse,
 } from "@/lib/plan-contable";
 
 export const dynamic = "force-dynamic";
 
-/** Padre mínimo que se necesita para validar jerarquía y estado. */
-const SELECT_PADRE = {
-  id_cuenta_contable: true,
-  tipo: true,
-  activo: true,
+/** Minimal parent structure required to validate hierarchy and active status. */
+const SELECT_PARENT = {
+  id: true,
+  type: true,
+  active: true,
 } as const;
 
-/** Datos públicos de la cuenta que se está modificando. */
-const SELECT_NODO = {
-  id_cuenta_contable: true,
-  id_cuenta_padre: true,
+/** Minimal account node structure to check hierarchy. */
+const SELECT_NODE = {
+  id: true,
+  parentId: true,
 } as const;
 
-/** Cuenta contable individual (detalle o base de la edición). */
+/** Individual account lookup (detail or edit baseline). */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: idParam } = await params;
-    const id = Number.parseInt(idParam, 10);
+    const accountId = Number.parseInt(idParam, 10);
 
-    if (Number.isNaN(id)) {
+    if (Number.isNaN(accountId)) {
       return Response.json({ error: "Identificador de cuenta inválido." }, { status: 400 });
     }
 
-    const cuenta = await prisma.cuenta_contable.findUnique({
-      where: { id_cuenta_contable: id },
-      select: SELECT_CUENTA,
+    const account = await prisma.accountingAccount.findUnique({
+      where: { id: accountId },
+      select: ACCOUNT_SELECT,
     });
 
-    if (!cuenta) {
+    if (!account) {
       return Response.json({ error: "Cuenta contable no encontrada." }, { status: 404 });
     }
 
-    return Response.json(aCuentaApi(cuenta));
+    return Response.json(toAccountApi(account));
   } catch (error) {
     console.error("[api/cuentas/[id]] error al obtener la cuenta:", error);
     return Response.json(
@@ -59,166 +59,152 @@ export async function GET(
 }
 
 /**
- * Modifica una cuenta existente: código, nombre, tipo, jerarquía o estado.
- *
- * Reglas que garantiza el servidor:
- * - el código sigue siendo único en todo el plan;
- * - una subcuenta siempre comparte el tipo de su cuenta padre (al cambiar el
- *   tipo de una cuenta, éste se propaga a todas sus subcuentas);
- * - no se crea ninguna jerarquía cíclica (una cuenta no puede colgarse de
- *   una de sus propias subcuentas);
- * - no se desactiva una cuenta con subcuentas activas, ni se activa una
- *   cuenta cuyo padre esté inactiva.
+ * Modifies an existing account: code, name, type, hierarchy, or status.
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Sólo para poder nombrar el código en el error de carrera del índice único.
-  let codigoNuevo: string | undefined;
+  let newCode: string | undefined;
 
   try {
     const { id: idParam } = await params;
-    const id = Number.parseInt(idParam, 10);
+    const accountId = Number.parseInt(idParam, 10);
 
-    if (Number.isNaN(id)) {
+    if (Number.isNaN(accountId)) {
       return Response.json({ error: "Identificador de cuenta inválido." }, { status: 400 });
     }
 
-    const cuenta = await prisma.cuenta_contable.findUnique({
-      where: { id_cuenta_contable: id },
-      select: SELECT_CUENTA,
+    const currentAccount = await prisma.accountingAccount.findUnique({
+      where: { id: accountId },
+      select: ACCOUNT_SELECT,
     });
 
-    if (!cuenta) {
+    if (!currentAccount) {
       return Response.json({ error: "Cuenta contable no encontrada." }, { status: 404 });
     }
 
-    const cuerpo = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo)) {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
       return Response.json(
         { error: "El cuerpo de la petición no es un JSON válido." },
         { status: 400 }
       );
     }
 
-    const { errores, valores } = validarCuenta(cuerpo, "edicion");
-    codigoNuevo = valores.codigo;
-    if (errores.length > 0) return respuestaValidacion(errores);
+    const { errors, values } = validateAccount(body, "edicion");
+    newCode = values.code;
+    if (errors.length > 0) return validationResponse(errors);
 
-    // El código no puede repetirse con otra cuenta del plan.
-    if (valores.codigo !== undefined) {
-      const repetida = await prisma.cuenta_contable.findUnique({
-        where: { codigo: valores.codigo },
-        select: { id_cuenta_contable: true },
+    // Code uniqueness across other accounts
+    if (values.code !== undefined) {
+      const existingWithCode = await prisma.accountingAccount.findUnique({
+        where: { code: values.code },
+        select: { id: true },
       });
-      if (repetida && repetida.id_cuenta_contable !== id) {
-        return respuestaCodigoDuplicado(valores.codigo);
+      if (existingWithCode && existingWithCode.id !== accountId) {
+        return duplicateCodeResponse(values.code);
       }
     }
 
-    const tipoFinal = valores.tipo ?? cuenta.tipo;
-    const tipoCambiado = valores.tipo !== undefined && valores.tipo !== cuenta.tipo;
-    const cambiaPadre = valores.idPadre !== undefined;
-    const idPadreFinal = cambiaPadre ? (valores.idPadre ?? null) : cuenta.id_cuenta_padre;
-    const propioPadre = cambiaPadre && idPadreFinal === id;
+    const finalType = values.type ?? currentAccount.type;
+    const typeChanged = values.type !== undefined && values.type !== currentAccount.type;
+    const changesParent = values.parentId !== undefined;
+    const finalParentId = changesParent ? (values.parentId ?? null) : currentAccount.parentId;
+    const isOwnParent = changesParent && finalParentId === accountId;
 
-    if (propioPadre) {
-      errores.push("Una cuenta no puede ser su propia cuenta padre.");
-      return respuestaValidacion(errores);
+    if (isOwnParent) {
+      errors.push("Una cuenta no puede ser su propia cuenta padre.");
+      return validationResponse(errors);
     }
 
-    // La jerarquía completa sólo hace falta para detectar ciclos y propagar el tipo.
-    const nodos: NodoJerarquia[] | null =
-      cambiaPadre || tipoCambiado
-        ? await prisma.cuenta_contable.findMany({ select: SELECT_NODO })
+    // Full hierarchy needed to detect cycles or propagate type
+    const nodes: HierarchyNode[] | null =
+      changesParent || typeChanged
+        ? await prisma.accountingAccount.findMany({ select: SELECT_NODE })
         : null;
 
-    // Cuenta padre final, cargada una sola vez y sólo si hace falta validarla.
-    const necesitaPadre =
-      idPadreFinal !== null &&
-      ((cambiaPadre && idPadreFinal !== id) ||
-        tipoCambiado ||
-        valores.activo === true);
+    const needsParentValidation =
+      finalParentId !== null &&
+      ((changesParent && finalParentId !== accountId) ||
+        typeChanged ||
+        values.active === true);
 
-    const padre = necesitaPadre
-      ? await prisma.cuenta_contable.findUnique({
-          where: { id_cuenta_contable: idPadreFinal as number },
-          select: SELECT_PADRE,
+    const parentAccount = needsParentValidation
+      ? await prisma.accountingAccount.findUnique({
+          where: { id: finalParentId as number },
+          select: SELECT_PARENT,
         })
       : null;
 
-    if (necesitaPadre && !padre) {
-      errores.push("La cuenta padre indicada no existe.");
-    } else if (padre) {
-      if (cambiaPadre) {
-        if (!padre.activo) {
-          errores.push("La cuenta padre está inactiva: actívala antes de mover la cuenta.");
+    if (needsParentValidation && !parentAccount) {
+      errors.push("La cuenta padre indicada no existe.");
+    } else if (parentAccount) {
+      if (changesParent) {
+        if (!parentAccount.active) {
+          errors.push("La cuenta padre está inactiva: actívala antes de mover la cuenta.");
         }
-        if (padre.tipo !== tipoFinal) {
-          errores.push(`La subcuenta debe tener el mismo tipo que su cuenta padre (${padre.tipo}).`);
+        if (parentAccount.type !== finalType) {
+          errors.push(`La subcuenta debe tener el mismo tipo que su cuenta padre (${parentAccount.type}).`);
         }
-        if (nodos && descendientesDe(id, nodos).includes(idPadreFinal as number)) {
-          errores.push("La cuenta padre no puede ser una subcuenta de la misma cuenta.");
+        if (nodes && getDescendantsOf(accountId, nodes).includes(finalParentId as number)) {
+          errors.push("La cuenta padre no puede ser una subcuenta de la misma cuenta.");
         }
       } else {
-        if (tipoCambiado && padre.tipo !== tipoFinal) {
-          errores.push(`La subcuenta debe tener el mismo tipo que su cuenta padre (${padre.tipo}).`);
+        if (typeChanged && parentAccount.type !== finalType) {
+          errors.push(`La subcuenta debe tener el mismo tipo que su cuenta padre (${parentAccount.type}).`);
         }
-        if (valores.activo === true && !padre.activo) {
-          errores.push("No se puede activar una cuenta cuya cuenta padre está inactiva.");
+        if (values.active === true && !parentAccount.active) {
+          errors.push("No se puede activar una cuenta cuya cuenta padre está inactiva.");
         }
       }
     }
 
-    // Estado: no se puede apagar una rama con subcuentas encendidas.
-    if (valores.activo === false) {
-      const hijaActiva = await prisma.cuenta_contable.findFirst({
-        where: { id_cuenta_padre: id, activo: true },
-        select: { id_cuenta_contable: true },
+    // Status: cannot deactivate if it has active child accounts
+    if (values.active === false) {
+      const activeChild = await prisma.accountingAccount.findFirst({
+        where: { parentId: accountId, active: true },
+        select: { id: true },
       });
-      if (hijaActiva) {
-        errores.push("No se puede desactivar una cuenta con subcuentas activas: desactívalas primero.");
+      if (activeChild) {
+        errors.push("No se puede desactivar una cuenta con subcuentas activas: desactívalas primero.");
       }
     }
 
-    if (errores.length > 0) return respuestaValidacion(errores);
+    if (errors.length > 0) return validationResponse(errors);
 
-    const descendientes = nodos && tipoCambiado ? descendientesDe(id, nodos) : [];
+    const descendants = nodes && typeChanged ? getDescendantsOf(accountId, nodes) : [];
 
-    // Cuenta actualizada y, si cambió el tipo, todas sus subcuentas en una
-    // sola transacción para que la jerarquía nunca quede con tipos mezclados.
-    const actualizada = await prisma.$transaction(async (transaccion) => {
-      const modificada = await transaccion.cuenta_contable.update({
-        where: { id_cuenta_contable: id },
+    const updated = await prisma.$transaction(async (tx) => {
+      const modified = await tx.accountingAccount.update({
+        where: { id: accountId },
         data: {
-          ...(valores.codigo !== undefined && { codigo: valores.codigo }),
-          ...(valores.nombre !== undefined && { nombre: valores.nombre }),
-          ...(valores.tipo !== undefined && { tipo: valores.tipo }),
-          ...(cambiaPadre && { id_cuenta_padre: idPadreFinal }),
-          ...(valores.activo !== undefined && { activo: valores.activo }),
+          ...(values.code !== undefined && { code: values.code }),
+          ...(values.name !== undefined && { name: values.name }),
+          ...(values.type !== undefined && { type: values.type }),
+          ...(changesParent && { parentId: finalParentId }),
+          ...(values.active !== undefined && { active: values.active }),
         },
-        select: SELECT_CUENTA,
+        select: ACCOUNT_SELECT,
       });
 
-      if (tipoCambiado && descendientes.length > 0) {
-        await transaccion.cuenta_contable.updateMany({
-          where: { id_cuenta_contable: { in: descendientes } },
-          data: { tipo: tipoFinal },
+      if (typeChanged && descendants.length > 0) {
+        await tx.accountingAccount.updateMany({
+          where: { id: { in: descendants } },
+          data: { type: finalType },
         });
       }
 
-      return modificada;
+      return modified;
     });
 
-    return Response.json(aCuentaApi(actualizada));
+    return Response.json(toAccountApi(updated));
   } catch (error) {
-    // Otra petición tomó el mismo código entre la comprobación y el update.
-    if (codigoDuplicado(error)) {
+    if (isDuplicateCodeError(error)) {
       return Response.json(
         {
-          error: codigoNuevo
-            ? `Ya existe una cuenta contable con el código ${codigoNuevo}.`
+          error: newCode
+            ? `Ya existe una cuenta contable con el código ${newCode}.`
             : "Ya existe una cuenta contable con ese código.",
         },
         { status: 409 }

@@ -1,65 +1,64 @@
 /**
- * Servicio de frontend para la historia de usuario
- * "Consultar y filtrar asientos contables".
+ * Frontend service for "Search and filter accounting journal entries".
  *
- * Centraliza el acceso a /api/asientos: listado con filtros combinados,
- * orden y paginación, detalle de un asiento y opciones de filtrado.
+ * Centralizes access to `/api/asientos`: filtered listing,
+ * ordering and pagination, journal entry detail, and filter options.
  */
 
-import { ErrorApi, enviarJson, obtenerJson } from "./http";
+import { ApiError, getJson, postJson } from "./http";
 
-const BASE = "/api/asientos";
+const BASE_URL = "/api/asientos";
 
-export type OrdenAsiento = "fecha" | "numero" | "concepto" | "diario" | "estado" | "total";
-export type DireccionOrden = "asc" | "desc";
-export type EstadoAsiento = "Registrado" | "Anulado";
+export type JournalEntrySort = "fecha" | "numero" | "concepto" | "diario" | "estado" | "total";
+export type SortDirection = "asc" | "desc";
+export type JournalEntryStatus = "Registrado" | "Anulado";
 
-/** Filtros que el usuario puede aplicar de forma simultánea. */
-export interface FiltroAsientos {
-  /** Fecha desde (YYYY-MM-DD, inclusive). */
+/** Filters applied concurrently. */
+export interface JournalEntriesFilter {
+  /** Start date (YYYY-MM-DD, inclusive). */
   desde?: string;
-  /** Fecha hasta (YYYY-MM-DD, inclusive). */
+  /** End date (YYYY-MM-DD, inclusive). */
   hasta?: string;
-  /** Diario contable exacto. Vacío = todos. */
+  /** Specific journal book. Empty = all. */
   diario?: string;
-  /** "registrado" | "anulado". Vacío = todos. */
+  /** "registrado" | "anulado". Empty = all. */
   estado?: string;
-  /** Búsqueda libre: número/referencia, concepto o cuenta contable. */
+  /** Free-text search: number/code, description (glosa), or account. */
   q?: string;
   page?: number;
   pageSize?: number;
-  orden?: OrdenAsiento;
-  dir?: DireccionOrden;
+  orden?: JournalEntrySort;
+  dir?: SortDirection;
 }
 
-export interface AsientoResumen {
+export interface JournalEntrySummary {
   id: number;
   numero: string;
   fecha: string;
   diario: string;
   concepto: string;
   responsable: string | null;
-  estado: EstadoAsiento;
+  estado: JournalEntryStatus;
   total: number;
 }
 
-export interface MetaAsientos {
+export interface JournalEntriesMeta {
   total: number;
   registrados: number;
   anulados: number;
   page: number;
   pageSize: number;
   totalPaginas: number;
-  orden: OrdenAsiento;
-  dir: DireccionOrden;
+  orden: JournalEntrySort;
+  dir: SortDirection;
 }
 
-export interface PaginaAsientos {
-  data: AsientoResumen[];
-  meta: MetaAsientos;
+export interface JournalEntriesPage {
+  data: JournalEntrySummary[];
+  meta: JournalEntriesMeta;
 }
 
-export interface LineaAsiento {
+export interface JournalEntryLine {
   id: number;
   cuentaCodigo: string;
   cuentaNombre: string;
@@ -69,13 +68,13 @@ export interface LineaAsiento {
   haber: number;
 }
 
-export interface AsientoDetalle {
+export interface JournalEntryDetail {
   id: number;
   numero: string;
   fecha: string;
   diario: string;
   concepto: string;
-  estado: EstadoAsiento;
+  estado: JournalEntryStatus;
   responsable: string;
   observacion: string;
   fechaCreacion: string;
@@ -83,57 +82,52 @@ export interface AsientoDetalle {
   total: number;
   cuadrado: boolean;
   totales: { debe: number; haber: number };
-  lineas: LineaAsiento[];
+  lineas: JournalEntryLine[];
 }
 
-export interface OpcionDiario {
+export interface JournalBookOption {
   nombre: string;
   total: number;
 }
 
-export interface OpcionEstado {
+export interface JournalStatusOption {
   valor: string;
   etiqueta: string;
   total: number;
 }
 
-export interface OpcionesAsientos {
-  diarios: OpcionDiario[];
-  estados: OpcionEstado[];
+export interface JournalEntriesOptions {
+  diarios: JournalBookOption[];
+  estados: JournalStatusOption[];
 }
 
-/** Cuenta del plan contable disponible para una línea del asiento. */
-export interface CuentaContable {
+/** Chart of accounts item available for an entry line. */
+export interface AccountingAccount {
   id: number;
   codigo: string;
   nombre: string;
   tipo: string;
 }
 
-/** Línea (partida) de un asiento manual: una cuenta y su importe. */
-export interface LineaNuevaAsiento {
-  /** `cuenta_contable.id_cuenta_contable`. */
+/** Line item of a manual journal entry. */
+export interface NewJournalEntryLine {
   idCuenta: number;
   descripcion?: string;
-  /** Importe en el Debe (0 si la partida va en el Haber). */
   debe: number;
-  /** Importe en el Haber (0 si la partida va en el Debe). */
   haber: number;
 }
 
-/** Datos necesarios para registrar un asiento contable manual. */
-export interface EntradaAsiento {
-  /** Fecha contable (YYYY-MM-DD). */
+/** Input payload to register a manual journal entry. */
+export interface NewJournalEntryInput {
   fecha: string;
   diario: string;
   glosa: string;
   responsable?: string;
   observacion?: string;
-  /** Mínimo dos partidas y totales de debe y haber iguales. */
-  lineas: LineaNuevaAsiento[];
+  lineas: NewJournalEntryLine[];
 }
 
-const ORDENES_VALIDOS: OrdenAsiento[] = [
+const VALID_SORTS: JournalEntrySort[] = [
   "fecha",
   "numero",
   "concepto",
@@ -142,82 +136,103 @@ const ORDENES_VALIDOS: OrdenAsiento[] = [
   "total",
 ];
 
-/**
- * `ErrorApi` vive en ./http (se comparte con el resto de servicios) y se
- * reexporta desde aquí para que los consumidores de este módulo no cambien.
- */
-export { ErrorApi };
+export { ApiError, ApiError as ErrorApi };
 
-/** Serializa los filtros a query string, omitiendo los vacíos. */
-export function construirQuery(filtros: FiltroAsientos): string {
+/** Serializes filters to query string, omitting empty values. */
+export function buildQuery(filters: JournalEntriesFilter): string {
   const params = new URLSearchParams();
 
-  if (filtros.desde) params.set("desde", filtros.desde);
-  if (filtros.hasta) params.set("hasta", filtros.hasta);
-  if (filtros.diario) params.set("diario", filtros.diario);
-  if (filtros.estado) params.set("estado", filtros.estado);
-  if (filtros.q?.trim()) params.set("q", filtros.q.trim());
-  if (filtros.page) params.set("page", String(filtros.page));
-  if (filtros.pageSize) params.set("pageSize", String(filtros.pageSize));
+  if (filters.desde) params.set("desde", filters.desde);
+  if (filters.hasta) params.set("hasta", filters.hasta);
+  if (filters.diario) params.set("diario", filters.diario);
+  if (filters.estado) params.set("estado", filters.estado);
+  if (filters.q?.trim()) params.set("q", filters.q.trim());
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
 
-  const orden = filtros.orden && ORDENES_VALIDOS.includes(filtros.orden) ? filtros.orden : "fecha";
-  params.set("orden", orden);
-  params.set("dir", filtros.dir === "asc" ? "asc" : "desc");
+  const sort = filters.orden && VALID_SORTS.includes(filters.orden) ? filters.orden : "fecha";
+  params.set("orden", sort);
+  params.set("dir", filters.dir === "asc" ? "asc" : "desc");
 
   return params.toString();
 }
 
-/**
- * Lista asientos aplicando todos los filtros indicados (se combinan con AND),
- * el orden pedido y la página solicitada.
- */
-export async function listarAsientos(filtros: FiltroAsientos = {}): Promise<PaginaAsientos> {
-  return obtenerJson<PaginaAsientos>(`${BASE}?${construirQuery(filtros)}`);
+/** Lists journal entries applying given filters, order, and pagination. */
+export async function listJournalEntries(
+  filters: JournalEntriesFilter = {}
+): Promise<JournalEntriesPage> {
+  return getJson<JournalEntriesPage>(`${BASE_URL}?${buildQuery(filters)}`);
 }
 
-/** Devuelve el asiento seleccionado con todas sus líneas (cuenta, descripción, debe y haber). */
-export async function obtenerAsiento(id: number): Promise<AsientoDetalle> {
-  return obtenerJson<AsientoDetalle>(`${BASE}/${id}`);
+/** Returns the selected journal entry with all its lines. */
+export async function getJournalEntry(id: number): Promise<JournalEntryDetail> {
+  return getJson<JournalEntryDetail>(`${BASE_URL}/${id}`);
 }
 
-/** Diarios contables y estados disponibles para los filtros, con sus conteos. */
-export async function obtenerOpcionesAsientos(): Promise<OpcionesAsientos> {
-  return obtenerJson<OpcionesAsientos>(`${BASE}/opciones`);
+/** Returns journal books and statuses with count for filters. */
+export async function getJournalEntriesOptions(): Promise<JournalEntriesOptions> {
+  return getJson<JournalEntriesOptions>(`${BASE_URL}/opciones`);
 }
 
-/** Cuentas activas del plan contable, para seleccionar en las líneas. */
-export async function listarCuentasContables(): Promise<CuentaContable[]> {
-  const respuesta = await obtenerJson<{ data: CuentaContable[] }>(`${BASE}/cuentas`);
-  return respuesta.data ?? [];
+/** Active chart of accounts list for line selection. */
+export async function listAccountingAccounts(): Promise<AccountingAccount[]> {
+  const response = await getJson<{ data: AccountingAccount[] }>(`${BASE_URL}/cuentas`);
+  return response.data ?? [];
 }
 
-/**
- * Número sugerido (`MISC/AAAA/MM/NNNN`) que recibiría un asiento manual en la
- * fecha indicada. Es una vista previa: el definitivo se genera al crearlo.
- */
-export async function obtenerSiguienteCodigo(fecha: string): Promise<string> {
-  const params = fecha ? `?fecha=${encodeURIComponent(fecha)}` : "";
-  const respuesta = await obtenerJson<{ codigo: string }>(`${BASE}/siguiente-codigo${params}`);
-  return respuesta.codigo;
+/** Preview of the next suggested code for the given date. */
+export async function getNextJournalEntryCode(date: string): Promise<string> {
+  const params = date ? `?fecha=${encodeURIComponent(date)}` : "";
+  const response = await getJson<{ codigo: string }>(`${BASE_URL}/siguiente-codigo${params}`);
+  return response.codigo;
 }
 
-/** Registra un asiento contable manual y devuelve su resumen. */
-export async function registrarAsiento(entrada: EntradaAsiento): Promise<AsientoResumen> {
-  return enviarJson<AsientoResumen>(BASE, entrada);
+/** Registers a manual journal entry and returns its summary. */
+export async function registerJournalEntry(
+  input: NewJournalEntryInput
+): Promise<JournalEntrySummary> {
+  return postJson<JournalEntrySummary>(BASE_URL, input);
 }
 
-/** Formatea una fecha ISO (YYYY-MM-DD) como dd/mm/AAAA sin corrimiento horario. */
-export function formatearFecha(iso: string): string {
+/** Formats an ISO date (YYYY-MM-DD) to DD/MM/YYYY without timezone shift. */
+export function formatDate(iso: string): string {
   if (!iso) return "—";
-  const [anio, mes, dia] = iso.split("-");
-  if (!anio || !mes || !dia) return iso;
-  return `${dia}/${mes}/${anio}`;
+  const [year, month, day] = iso.split("-");
+  if (!year || !month || !day) return iso;
+  return `${day}/${month}/${year}`;
 }
 
-/** Formatea un importe en soles peruanos. */
-export function formatearMoneda(valor: number): string {
-  return `S/ ${(valor ?? 0).toLocaleString("es-PE", {
+/** Formats a numeric currency value to Peruvian Soles (PEN). */
+export function formatCurrency(value: number): string {
+  return `S/ ${(value ?? 0).toLocaleString("es-PE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
+
+// Backward-compatibility aliases
+export type OrdenAsiento = JournalEntrySort;
+export type DireccionOrden = SortDirection;
+export type EstadoAsiento = JournalEntryStatus;
+export type FiltroAsientos = JournalEntriesFilter;
+export type AsientoResumen = JournalEntrySummary;
+export type MetaAsientos = JournalEntriesMeta;
+export type PaginaAsientos = JournalEntriesPage;
+export type LineaAsiento = JournalEntryLine;
+export type AsientoDetalle = JournalEntryDetail;
+export type OpcionDiario = JournalBookOption;
+export type OpcionEstado = JournalStatusOption;
+export type OpcionesAsientos = JournalEntriesOptions;
+export type CuentaContable = AccountingAccount;
+export type LineaNuevaAsiento = NewJournalEntryLine;
+export type EntradaAsiento = NewJournalEntryInput;
+
+export const construirQuery = buildQuery;
+export const listarAsientos = listJournalEntries;
+export const obtenerAsiento = getJournalEntry;
+export const obtenerOpcionesAsientos = getJournalEntriesOptions;
+export const listarCuentasContables = listAccountingAccounts;
+export const obtenerSiguienteCodigo = getNextJournalEntryCode;
+export const registrarAsiento = registerJournalEntry;
+export const formatearFecha = formatDate;
+export const formatearMoneda = formatCurrency;

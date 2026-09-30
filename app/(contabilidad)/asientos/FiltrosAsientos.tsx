@@ -5,69 +5,71 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  formatearFecha,
+  formatDate,
+  type JournalEntriesOptions,
   type OpcionesAsientos,
 } from "@/lib/services/asientos.service";
 
-/** Identificador de cada chip de filtro activo. */
-export type FiltroChip = "desde" | "hasta" | "diario" | "estado" | "q";
+/** Identifier for each active filter chip. */
+export type FilterChip = "from" | "to" | "journal" | "status" | "q";
+export type FiltroChip = "desde" | "hasta" | "diario" | "estado" | "q" | FilterChip;
 
 interface Props {
-  desde: string;
-  hasta: string;
-  diario: string;
-  estadoFiltro: string;
-  /** Búsqueda ya confirmada (con debounce aplicado). */
-  busqueda: string;
-  opciones: OpcionesAsientos | null;
-  hayFiltros: boolean;
-  onDesde: (valor: string) => void;
-  onHasta: (valor: string) => void;
-  onEstado: (valor: string) => void;
-  onLimpiar: () => void;
-  onQuitar: (chip: FiltroChip) => void;
+  from: string;
+  to: string;
+  journal: string;
+  statusFilter: string;
+  /** Confirmed search query (debounced). */
+  search: string;
+  options: JournalEntriesOptions | null;
+  hasFilters: boolean;
+  onFrom: (value: string) => void;
+  onTo: (value: string) => void;
+  onStatus: (value: string) => void;
+  onClear: () => void;
+  onRemove: (chip: FilterChip) => void;
 }
 
-interface ChipFiltro {
-  id: FiltroChip;
-  etiqueta: string;
+interface FilterChipItem {
+  id: FilterChip;
+  label: string;
 }
 
-/** Barra de filtros combinados (fechas, estado) con sus chips removibles. */
-export function FiltrosAsientos({
-  desde,
-  hasta,
-  diario,
-  estadoFiltro,
-  busqueda,
-  opciones,
-  hayFiltros,
-  onDesde,
-  onHasta,
-  onEstado,
-  onLimpiar,
-  onQuitar,
+/** Combined filters bar (dates, status) with removable chips. */
+export function JournalEntryFilters({
+  from,
+  to,
+  journal,
+  statusFilter,
+  search,
+  options,
+  hasFilters,
+  onFrom,
+  onTo,
+  onStatus,
+  onClear,
+  onRemove,
 }: Readonly<Props>) {
-  const estados = opciones?.estados ?? [
+  const statuses = options?.estados ?? [
     { valor: "registrado", etiqueta: "Registrado", total: 0 },
     { valor: "anulado", etiqueta: "Anulado", total: 0 },
   ];
 
-  const opcionesEstado = [
+  const statusOptions = [
     { value: "todos", label: "Todos" },
-    ...estados.map((est) => ({ value: est.valor, label: `${est.etiqueta} (${est.total})` })),
+    ...statuses.map((st) => ({ value: st.valor, label: `${st.etiqueta} (${st.total})` })),
   ];
 
-  const etiquetaEstado =
-    estados.find((est) => est.valor === estadoFiltro)?.etiqueta ?? estadoFiltro;
+  const statusLabel =
+    statuses.find((st) => st.valor === statusFilter)?.etiqueta ?? statusFilter;
 
-  const chips: ChipFiltro[] = [];
-  if (desde) chips.push({ id: "desde", etiqueta: `Desde ${formatearFecha(desde)}` });
-  if (hasta) chips.push({ id: "hasta", etiqueta: `Hasta ${formatearFecha(hasta)}` });
-  if (diario !== "todos") chips.push({ id: "diario", etiqueta: `Diario: ${diario}` });
-  if (estadoFiltro !== "todos") chips.push({ id: "estado", etiqueta: `Estado: ${etiquetaEstado}` });
-  if (busqueda.trim() !== "")
-    chips.push({ id: "q", etiqueta: `Búsqueda: "${busqueda.trim()}"` });
+  const chips: FilterChipItem[] = [];
+  if (from) chips.push({ id: "from", label: `Desde ${formatDate(from)}` });
+  if (to) chips.push({ id: "to", label: `Hasta ${formatDate(to)}` });
+  if (journal !== "todos") chips.push({ id: "journal", label: `Diario: ${journal}` });
+  if (statusFilter !== "todos") chips.push({ id: "status", label: `Estado: ${statusLabel}` });
+  if (search.trim() !== "")
+    chips.push({ id: "q", label: `Búsqueda: "${search.trim()}"` });
 
   return (
     <>
@@ -83,9 +85,9 @@ export function FiltrosAsientos({
             <Input
               id="filtro-desde"
               type="date"
-              value={desde}
-              max={hasta || undefined}
-              onChange={(e) => onDesde(e.target.value)}
+              value={from}
+              max={to || undefined}
+              onChange={(e) => onFrom(e.target.value)}
               className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
             />
             <label
@@ -97,9 +99,9 @@ export function FiltrosAsientos({
             <Input
               id="filtro-hasta"
               type="date"
-              value={hasta}
-              min={desde || undefined}
-              onChange={(e) => onHasta(e.target.value)}
+              value={to}
+              min={from || undefined}
+              onChange={(e) => onTo(e.target.value)}
               className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
             />
           </div>
@@ -114,18 +116,13 @@ export function FiltrosAsientos({
             </label>
             <Select
               id="estadoFiltro"
-              value={estadoFiltro}
-              items={opcionesEstado}
-              onValueChange={(valor) => onEstado(valor ?? "todos")}
+              value={statusFilter}
+              items={statusOptions}
+              onValueChange={(val) => onStatus(val ?? "todos")}
             >
-              <SelectTrigger
-                className="w-36 rounded-lg bg-white text-xs"
-                aria-labelledby="filtro-estado-label"
-              >
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-36 rounded-lg bg-white text-xs" aria-labelledby="filtro-estado-label" />
               <SelectContent>
-                {opcionesEstado.map((op) => (
+                {statusOptions.map((op) => (
                   <SelectItem key={op.value} value={op.value}>
                     {op.label}
                   </SelectItem>
@@ -133,48 +130,23 @@ export function FiltrosAsientos({
               </SelectContent>
             </Select>
           </div>
-
-
         </div>
 
-
-        {/* Chips con los filtros aplicados (se pueden quitar uno a uno) 
-      {chips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-slate-200/80">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Filtros aplicados
-          </span>
-          {chips.map((chip) => (
-            <span
-              key={chip.id}
-              className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs"
-            >
-              <span>{chip.etiqueta}</span>
-              <button
-                type="button"
-                onClick={() => onQuitar(chip.id)}
-                className="hover:text-purple-200 ml-0.5 text-sm leading-none cursor-pointer"
-                title="Quitar filtro"
-              >
-                <X className="w-3 h-3 inline" />
-              </button>
-            </span>
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            type="button"
+            onClick={onClear}
+            disabled={!hasFilters}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
+          >
+            <FunnelX className="w-5 h-5" />
+          </Button>
         </div>
-      )}
-        */}
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <Button
-          variant="outline"
-          type="button"
-          onClick={onLimpiar}
-          disabled={!hayFiltros}
-          className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
-        >
-          <FunnelX className="w-5 h-5" />
-        </Button>
       </div>
     </>
   );
 }
+
+// Backwards compatibility aliases
+export const FiltrosAsientos = JournalEntryFilters;

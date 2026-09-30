@@ -1,17 +1,15 @@
 /**
- * Servicio de frontend para la historia de usuario
- * "Listar y registrar cuentas contables".
+ * Frontend service for "List and register accounting accounts".
  *
- * Centraliza el acceso a /api/cuentas: listado completo del plan contable
- * (raíces y subcuentas), alta de cuentas y modificación de sus datos,
- * jerarquía y estado (activa / inactiva).
+ * Centralizes access to `/api/cuentas`: full chart of accounts listing
+ * (roots and sub-accounts), account creation, updates, hierarchy, and status.
  */
-import { actualizarJson, enviarJson, ErrorApi, obtenerJson } from "./http";
+import { ApiError, getJson, patchJson, postJson } from "./http";
 
-const BASE = "/api/cuentas";
+const BASE_URL = "/api/cuentas";
 
-/** Tipos de cuenta del PCGE, en el mismo orden en que se muestran. */
-export const TIPOS_CUENTA = [
+/** PCGE account types, in display order. */
+export const ACCOUNT_TYPES = [
   "Activo",
   "Pasivo",
   "Patrimonio",
@@ -20,34 +18,34 @@ export const TIPOS_CUENTA = [
   "Costo",
 ] as const;
 
-export type TipoCuenta = (typeof TIPOS_CUENTA)[number];
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
-/** Cuenta del plan contable, tal y como la devuelve la API. */
-export interface CuentaContable {
+/** Chart of accounts item as returned by the API. */
+export interface AccountingAccount {
   id: number;
   codigo: string;
   nombre: string;
   tipo: string;
-  /** Cuenta de la que depende; `null` cuando es una cuenta raíz. */
+  /** Parent account; `null` for root accounts. */
   idPadre: number | null;
   activo: boolean;
-  /** Líneas de asiento que ya usan la cuenta. */
+  /** Journal entry lines currently using this account. */
   usos: number;
 }
 
-/** Datos de alta de una cuenta contable. */
-export interface EntradaCuenta {
+/** Input data to register an account. */
+export interface AccountInput {
   codigo: string;
   nombre: string;
   tipo: string;
-  /** `null` o ausente = cuenta raíz. */
+  /** `null` or undefined = root account. */
   idPadre?: number | null;
-  /** Por defecto `true`. */
+  /** Defaults to `true`. */
   activo?: boolean;
 }
 
-/** Datos modificables de una cuenta: sólo lo que se envía se actualiza. */
-export interface CambiosCuenta {
+/** Modifiable account fields. */
+export interface AccountChanges {
   codigo?: string;
   nombre?: string;
   tipo?: string;
@@ -55,24 +53,32 @@ export interface CambiosCuenta {
   activo?: boolean;
 }
 
-/** Devuelve todas las cuentas del plan, ordenadas por código. */
-export async function listarCuentas(): Promise<CuentaContable[]> {
-  const respuesta = await obtenerJson<{ data: CuentaContable[] }>(BASE);
-  return respuesta.data ?? [];
+/** Returns all accounts in the chart, sorted by code. */
+export async function listAccounts(): Promise<AccountingAccount[]> {
+  const response = await getJson<{ data: AccountingAccount[] }>(BASE_URL);
+  return response.data ?? [];
 }
 
-/** Registra una cuenta nueva (raíz o subcuenta) y la devuelve con su id. */
-export async function registrarCuenta(entrada: EntradaCuenta): Promise<CuentaContable> {
-  return enviarJson<CuentaContable>(BASE, entrada);
+/** Registers a new account (root or sub-account) and returns it with its generated id. */
+export async function registerAccount(input: AccountInput): Promise<AccountingAccount> {
+  return postJson<AccountingAccount>(BASE_URL, input);
 }
 
-/** Actualiza datos, jerarquía o estado de una cuenta existente. */
-export async function actualizarCuenta(
+/** Updates data, hierarchy, or status of an existing account. */
+export async function updateAccount(
   id: number,
-  cambios: CambiosCuenta
-): Promise<CuentaContable> {
-  return actualizarJson<CuentaContable>(`${BASE}/${id}`, cambios);
+  changes: AccountChanges
+): Promise<AccountingAccount> {
+  return patchJson<AccountingAccount>(`${BASE_URL}/${id}`, changes);
 }
 
-/** Los errores de la API llegan como `ErrorApi` con el detalle de cada validación. */
-export { ErrorApi };
+// Backward-compatibility aliases
+export const TIPOS_CUENTA = ACCOUNT_TYPES;
+export type TipoCuenta = AccountType;
+export type CuentaContable = AccountingAccount;
+export type EntradaCuenta = AccountInput;
+export type CambiosCuenta = AccountChanges;
+export const listarCuentas = listAccounts;
+export const registrarCuenta = registerAccount;
+export const actualizarCuenta = updateAccount;
+export { ApiError as ErrorApi };

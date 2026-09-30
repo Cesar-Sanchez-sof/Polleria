@@ -1,44 +1,48 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { OpcionDiario } from "@/lib/services/asientos.service";
+import type { JournalOption, OpcionDiario } from "@/lib/services/asientos.service";
 
 interface Props {
-  diarios: OpcionDiario[];
-  /** Total de asientos del listado actual (con los filtros aplicados). */
+  journals: JournalOption[];
+  /** Total journal entries of the current list (with applied filters). */
   total: number;
-  /** Diario seleccionado ("todos" = sin filtro). */
-  diario: string;
-  onSeleccionar: (diario: string) => void;
+  /** Selected journal ("todos" = unfiltered). */
+  journal: string;
+  onSelect: (journal: string) => void;
 }
 
-/** Tabs de diario contable: filtro rápido con el conteo de cada diario. */
-export function TabsDiarioAsientos({ diarios, total, diario, onSeleccionar }: Readonly<Props>) {
+/** Accounting journal tabs: quick filter with entry counts. */
+export function JournalEntryTabs({ journals, total, journal, onSelect }: Readonly<Props>) {
   const tabs = [
-    { valor: "todos", etiqueta: "Todos los diarios", total },
-    ...diarios.map((d) => ({ valor: d.nombre, etiqueta: d.nombre, total: d.total })),
+    { value: "todos", label: "Todos los diarios", total },
+    ...journals.map((d) => ({ value: d.nombre, label: d.nombre, total: d.total })),
   ];
 
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto">
       {tabs.map((tab) => {
-        const activo = diario === tab.valor;
+        const isActive = journal === tab.value;
         return (
           <Button
-            key={tab.valor}
+            key={tab.value}
             variant="ghost"
-            onClick={() => onSeleccionar(tab.valor)}
+            onClick={() => onSelect(tab.value)}
             className={`px-3 py-1.5 text-xs rounded-lg transition-colors cursor-pointer h-auto shrink-0 ${
-              activo
+              isActive
                 ? "font-bold bg-slate-900 text-white shadow-xs hover:bg-slate-900 hover:text-white"
                 : "font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             }`}
             type="button"
           >
-            {tab.etiqueta} ({tab.total})
+            {tab.label} ({tab.total})
           </Button>
         );
       })}
     </div>
   );
 }
+
+// Backwards compatibility alias
+export const TabsDiarioAsientos = JournalEntryTabs;
+

@@ -23,38 +23,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { CuentaContable } from "@/lib/services/cuentas.service";
+import type { AccountingAccount } from "@/lib/services/cuentas.service";
 
-/** Una fila del árbol: la cuenta con su nivel de anidamiento y su estado de rama. */
-export interface FilaCuenta {
-  cuenta: CuentaContable;
-  /** Profundidad dentro del árbol (0 = cuenta raíz). */
+/** Tree row representing an account with depth and branch expansion state. */
+export interface AccountTableRow {
+  cuenta: AccountingAccount;
   profundidad: number;
   tieneHijos: boolean;
-  /** `false` cuando la rama está contraída. */
   expandida: boolean;
 }
 
-interface Props {
-  filas: FilaCuenta[];
+export type FilaCuenta = AccountTableRow;
+
+interface TablaCuentasProps {
+  filas: AccountTableRow[];
   cargando: boolean;
   error: string | null;
   hayFiltros: boolean;
-  /** Cuenta que tiene una operación en curso (para bloquear sus botones). */
   idEnAccion: number | null;
   onAlternarRama: (id: number) => void;
   onExpandirTodo: () => void;
   onContraerTodo: () => void;
-  onEditar: (cuenta: CuentaContable) => void;
-  onNuevoHijo: (cuenta: CuentaContable) => void;
-  onCambiarEstado: (cuenta: CuentaContable) => void;
+  onEditar: (cuenta: AccountingAccount) => void;
+  onNuevoHijo: (cuenta: AccountingAccount) => void;
+  onCambiarEstado: (cuenta: AccountingAccount) => void;
   onReintentar: () => void;
   onLimpiarFiltros: () => void;
 }
 
-const COLUMNAS = 6;
+const TOTAL_COLUMNS = 6;
 
-/** Listado del plan contable como árbol: estados, filas y acciones por cuenta. */
 export function TablaCuentas({
   filas,
   cargando,
@@ -69,13 +67,12 @@ export function TablaCuentas({
   onCambiarEstado,
   onReintentar,
   onLimpiarFiltros,
-}: Readonly<Props>) {
-  const esqueleto = cargando && filas.length === 0 && !error;
-  const vacio = !error && !cargando && filas.length === 0;
+}: Readonly<TablaCuentasProps>) {
+  const isSkeleton = cargando && filas.length === 0 && !error;
+  const isEmpty = !error && !cargando && filas.length === 0;
 
   return (
     <div className="w-full">
-      {/* Contraer / expandir todas las ramas */}
       <div className="flex items-center justify-end gap-3 pb-2 text-[11px] font-semibold text-slate-500">
         <button
           type="button"
@@ -122,8 +119,7 @@ export function TablaCuentas({
           </TableHeader>
 
           <TableBody className="divide-y divide-slate-100 text-sm text-slate-900">
-            {/* Cargando por primera vez */}
-            {esqueleto &&
+            {isSkeleton &&
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
                   <TableCell className="py-3 px-3">
@@ -147,10 +143,9 @@ export function TablaCuentas({
                 </TableRow>
               ))}
 
-            {/* Error de carga */}
             {error && !cargando && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={COLUMNAS} className="py-10 text-center">
+                <TableCell colSpan={TOTAL_COLUMNS} className="py-10 text-center">
                   <div className="flex flex-col items-center gap-3 text-slate-600">
                     <AlertCircle className="w-8 h-8 text-red-600" />
                     <p className="text-sm font-semibold">{error}</p>
@@ -167,10 +162,9 @@ export function TablaCuentas({
               </TableRow>
             )}
 
-            {/* Sin resultados */}
-            {vacio && (
+            {isEmpty && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={COLUMNAS} className="py-10 text-center">
+                <TableCell colSpan={TOTAL_COLUMNS} className="py-10 text-center">
                   <div className="flex flex-col items-center gap-3 text-slate-500">
                     <Inbox className="w-8 h-8 text-slate-400" />
                     <p className="text-sm font-semibold text-slate-700">
@@ -198,10 +192,9 @@ export function TablaCuentas({
               </TableRow>
             )}
 
-            {/* Filas del árbol */}
             {!error &&
               filas.map(({ cuenta, profundidad, tieneHijos, expandida }) => {
-                const enAccion = idEnAccion === cuenta.id;
+                const inAction = idEnAccion === cuenta.id;
                 return (
                   <TableRow
                     key={cuenta.id}
@@ -285,7 +278,7 @@ export function TablaCuentas({
                           title={`Añadir subcuenta a ${cuenta.codigo}`}
                           aria-label={`Añadir subcuenta a ${cuenta.nombre}`}
                           onClick={() => onNuevoHijo(cuenta)}
-                          disabled={enAccion}
+                          disabled={inAction}
                           className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7"
                         >
                           <FolderPlus className="w-4 h-4" />
@@ -298,7 +291,7 @@ export function TablaCuentas({
                           title={`Editar ${cuenta.codigo}`}
                           aria-label={`Editar la cuenta ${cuenta.nombre}`}
                           onClick={() => onEditar(cuenta)}
-                          disabled={enAccion}
+                          disabled={inAction}
                           className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7"
                         >
                           <Pencil className="w-4 h-4" />
@@ -315,10 +308,10 @@ export function TablaCuentas({
                               : `Activar la cuenta ${cuenta.nombre}`
                           }
                           onClick={() => onCambiarEstado(cuenta)}
-                          disabled={enAccion}
+                          disabled={inAction}
                           className={`p-1.5 rounded opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7 ${cuenta.activo ? "text-slate-400 hover:text-rose-600" : "text-slate-400 hover:text-emerald-600"}`}
                         >
-                          {enAccion ? (
+                          {inAction ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <Power className="w-4 h-4" />

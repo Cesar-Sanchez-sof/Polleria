@@ -1,33 +1,26 @@
 /**
- * Servicio de frontend para la historia de usuario "Consultar libro diario".
+ * Frontend service for "Daily Book / General Journal (Libro Diario)".
  *
- * Centraliza el acceso a /api/diario: listado cronológico de asientos con sus
- * líneas (cuenta, descripción e importes) y totales, filtrado por un rango de
- * fechas y paginación.
+ * Centralizes access to `/api/diario`: chronological listing of journal entries with lines
+ * and totals, filtered by date range and pagination.
  */
 
-import { ErrorApi, obtenerJson } from "./http";
+import { ApiError, getJson } from "./http";
 
-const BASE = "/api/diario";
+const BASE_URL = "/api/diario";
 
-/**
- * `ErrorApi` vive en ./http (se comparte con el resto de servicios) y se
- * reexporta desde aquí para que los consumidores de este módulo no cambien.
- */
-export { ErrorApi };
+export { ApiError, ApiError as ErrorApi };
 
-/** Filtros del libro diario: un periodo (fechas inclusive) y la paginación. */
-export interface FiltroDiario {
-  /** Fecha inicial (YYYY-MM-DD, inclusive). */
+export interface DailyBookFilter {
+  /** Start date (YYYY-MM-DD, inclusive). */
   desde?: string;
-  /** Fecha final (YYYY-MM-DD, inclusive). */
+  /** End date (YYYY-MM-DD, inclusive). */
   hasta?: string;
   page?: number;
   pageSize?: number;
 }
 
-/** Línea del asiento: cuenta contable, descripción e importe en Debe/Haber. */
-export interface LineaDiario {
+export interface DailyBookLine {
   id: number;
   cuentaCodigo: string;
   cuentaNombre: string;
@@ -37,65 +30,70 @@ export interface LineaDiario {
   haber: number;
 }
 
-/** Asiento del libro diario con sus líneas y totales. */
-export interface AsientoDiario {
+export interface DailyBookEntry {
   id: number;
-  /** Número/código único del asiento. */
   numero: string;
-  /** Fecha contable (YYYY-MM-DD). */
   fecha: string;
   diario: string;
-  /** Descripción (glosa) del asiento. */
   concepto: string;
   responsable: string | null;
   estado: "Registrado" | "Anulado";
-  /** C05: totales del asiento. */
   totales: { debe: number; haber: number };
-  /** C06: `true` cuando el total del Debe coincide con el del Haber. */
   cuadrado: boolean;
-  lineas: LineaDiario[];
+  lineas: DailyBookLine[];
 }
 
-export interface MetaDiario {
+export interface DailyBookMeta {
   total: number;
   page: number;
   pageSize: number;
   totalPaginas: number;
-  /** Rango aplicado (vacío = sin filtro de periodo). */
   desde: string;
   hasta: string;
 }
 
-export interface PaginaDiario {
-  data: AsientoDiario[];
-  meta: MetaDiario;
+export interface DailyBookPage {
+  data: DailyBookEntry[];
+  meta: DailyBookMeta;
 }
 
-/** Serializa los filtros a query string, omitiendo los vacíos. */
-export function construirQueryDiario(filtros: FiltroDiario): string {
+/** Serializes filters to query string, omitting empty values. */
+export function buildDailyBookQuery(filters: DailyBookFilter): string {
   const params = new URLSearchParams();
 
-  if (filtros.desde) params.set("desde", filtros.desde);
-  if (filtros.hasta) params.set("hasta", filtros.hasta);
-  if (filtros.page) params.set("page", String(filtros.page));
-  if (filtros.pageSize) params.set("pageSize", String(filtros.pageSize));
+  if (filters.desde) params.set("desde", filters.desde);
+  if (filters.hasta) params.set("hasta", filters.hasta);
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
 
   return params.toString();
 }
 
-/**
- * Lista los asientos del libro diario (cronológicamente, del más reciente al
- * más antiguo) aplicando el periodo indicado y la página solicitada.
- */
-export async function listarLibroDiario(filtros: FiltroDiario = {}): Promise<PaginaDiario> {
-  const query = construirQueryDiario(filtros);
-  return obtenerJson<PaginaDiario>(`${BASE}${query ? `?${query}` : ""}`);
+/** Lists daily journal entries in reverse chronological order applying period and pagination. */
+export async function listDailyBookEntries(
+  filters: DailyBookFilter = {}
+): Promise<DailyBookPage> {
+  const query = buildDailyBookQuery(filters);
+  return getJson<DailyBookPage>(`${BASE_URL}${query ? `?${query}` : ""}`);
 }
 
-/**
- * Formatea una fecha ISO (YYYY-MM-DD) como dd/mm/AAAA y un importe en soles,
- * y consulta el detalle de un asiento. Se reutilizan los helpers del módulo de
- * asientos para que todo el bloque de contabilidad muestre los mismos formatos
- * y responda igual el detalle.
- */
-export { formatearFecha, formatearMoneda, obtenerAsiento, type AsientoDetalle } from "./asientos.service";
+// Re-export formatting helpers
+export {
+  formatDate,
+  formatCurrency,
+  getJournalEntry,
+  type JournalEntryDetail,
+  formatearFecha,
+  formatearMoneda,
+  obtenerAsiento,
+  type AsientoDetalle,
+} from "./asientos.service";
+
+// Backward-compatibility aliases
+export type FiltroDiario = DailyBookFilter;
+export type LineaDiario = DailyBookLine;
+export type AsientoDiario = DailyBookEntry;
+export type MetaDiario = DailyBookMeta;
+export type PaginaDiario = DailyBookPage;
+export const construirQueryDiario = buildDailyBookQuery;
+export const listarLibroDiario = listDailyBookEntries;

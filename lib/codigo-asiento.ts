@@ -1,52 +1,55 @@
 /**
- * Numeración de los asientos contables registrados a mano.
+ * Numbering for manually registered accounting journal entries.
  *
- * Los asientos manuales se numeran con el mismo formato misceláneo que usa el
- * seed (`MISC/AAAA/MM/NNNN`), de modo que cada mes arranca en 0001 y el valor
- * sigue siendo único en `asiento_contable.codigo` (columna `@db.VarChar(20)`).
+ * Manual entries are numbered with the same miscellaneous format used by the
+ * seed (`MISC/YYYY/MM/NNNN`), so each month starts at 0001 and remains unique
+ * in `journalEntry.code` (`@db.VarChar(20)`).
  */
 import { prisma } from "@/lib/prisma";
 
-/** Longitud máxima soportada por `asiento_contable.codigo`. */
-const LARGO_MAXIMO = 20;
+/** Maximum length supported by `journalEntry.code`. */
+const MAX_CODE_LENGTH = 20;
 
-/** Prefijo `MISC/AAAA/MM/` propio de la fecha contable indicada. */
-function prefijoDe(fecha: Date): string {
-  const anio = fecha.getUTCFullYear();
-  const mes = String(fecha.getUTCMonth() + 1).padStart(2, "0");
-  return `MISC/${anio}/${mes}/`;
+/** `MISC/YYYY/MM/` prefix specific to the given accounting date. */
+function getPrefixForDate(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `MISC/${year}/${month}/`;
 }
 
 /**
- * Devuelve el primer código `MISC/AAAA/MM/NNNN` libre para la fecha dada.
+ * Returns the first available `MISC/YYYY/MM/NNNN` code for the given date.
  *
- * Parte del máximo ya usado en ese mes y va subiendo hasta encontrar un número
- * disponible; si dos peticiones concurrentes obtienen el mismo candidato, el
- * índice único de la base rechaza la segunda y el llamante puede reintentar.
+ * Starts from the highest number already used in that month and increments until
+ * finding an available one; if concurrent requests pick the same candidate,
+ * the unique database index rejects the second one and the caller can retry.
  */
-export async function generarCodigoAsiento(fecha: Date): Promise<string> {
-  const base = prefijoDe(fecha);
+export async function generateJournalEntryCode(date: Date): Promise<string> {
+  const prefix = getPrefixForDate(date);
 
-  const existentes = await prisma.asiento_contable.findMany({
-    where: { codigo: { startsWith: base } },
-    select: { codigo: true },
+  const existingEntries = await prisma.journalEntry.findMany({
+    where: { code: { startsWith: prefix } },
+    select: { code: true },
   });
 
-  const maximo = existentes.reduce((mayor, asiento) => {
-    const numero = Number.parseInt(asiento.codigo.slice(base.length), 10);
-    return Number.isNaN(numero) ? mayor : Math.max(mayor, numero);
+  const maxNumber = existingEntries.reduce((highest, entry) => {
+    const parsedNumber = Number.parseInt(entry.code.slice(prefix.length), 10);
+    return Number.isNaN(parsedNumber) ? highest : Math.max(highest, parsedNumber);
   }, 0);
 
-  for (let numero = maximo + 1; numero <= maximo + 50; numero++) {
-    const codigo = `${base}${String(numero).padStart(4, "0")}`;
-    if (codigo.length > LARGO_MAXIMO) break;
+  for (let currentNumber = maxNumber + 1; currentNumber <= maxNumber + 50; currentNumber++) {
+    const candidateCode = `${prefix}${String(currentNumber).padStart(4, "0")}`;
+    if (candidateCode.length > MAX_CODE_LENGTH) break;
 
-    const ocupado = await prisma.asiento_contable.findUnique({
-      where: { codigo },
-      select: { id_asiento_contable: true },
+    const existingCode = await prisma.journalEntry.findUnique({
+      where: { code: candidateCode },
+      select: { id: true },
     });
-    if (!ocupado) return codigo;
+    if (!existingCode) return candidateCode;
   }
 
   throw new Error("No se pudo generar un número de asiento disponible.");
 }
+
+// Backward-compatibility alias
+export const generarCodigoAsiento = generateJournalEntryCode;

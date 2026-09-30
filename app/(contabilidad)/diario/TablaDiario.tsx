@@ -20,14 +20,14 @@ import {
 } from "@/lib/services/diario.service";
 
 interface Props {
-  filas: AsientoDiario[];
-  cargando: boolean;
+  rows: AsientoDiario[];
+  loading: boolean;
   error: string | null;
-  hayFiltros: boolean;
-  rangoInvalido: boolean;
-  onAbrirDetalle: (id: number) => void;
-  onReintentar: () => void;
-  onLimpiarFiltros: () => void;
+  hasFilters: boolean;
+  invalidRange: boolean;
+  onOpenDetail: (id: number) => void;
+  onRetry: () => void;
+  onClearFilters: () => void;
 }
 
 /** Encabezado de columna del libro diario (sin orden: el orden siempre es cronológico). */
@@ -46,22 +46,22 @@ function Th({ children, align = "left" }: Readonly<{ children: ReactNode; align?
  * encabezado (fecha, número y concepto + totales) y sus líneas (cuenta
  * contable, descripción e importe en Debe o Haber).
  */
-export function TablaDiario({
-  filas,
-  cargando,
+export function DailyJournalTable({
+  rows,
+  loading,
   error,
-  hayFiltros,
-  rangoInvalido,
-  onAbrirDetalle,
-  onReintentar,
-  onLimpiarFiltros,
+  hasFilters,
+  invalidRange,
+  onOpenDetail,
+  onRetry,
+  onClearFilters,
 }: Readonly<Props>) {
-  const esqueleto = cargando && filas.length === 0 && !error;
-  const vacio = !error && !cargando && filas.length === 0 && !rangoInvalido;
+  const skeleton = loading && rows.length === 0 && !error;
+  const empty = !error && !loading && rows.length === 0 && !invalidRange;
 
   return (
     <div
-      className={`w-full overflow-x-auto rounded-lg transition-opacity ${cargando && filas.length > 0 ? "opacity-60" : ""}`}
+      className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && rows.length > 0 ? "opacity-60" : ""}`}
     >
       <Table className="w-full text-left border-collapse min-w-175">
         <TableHeader>
@@ -77,7 +77,7 @@ export function TablaDiario({
         </TableHeader>
         <TableBody className="divide-y divide-slate-100 text-sm text-slate-900">
           {/* Cargando por primera vez */}
-          {esqueleto &&
+          {skeleton &&
             Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
                 <TableCell className="py-3 px-3">
@@ -105,16 +105,16 @@ export function TablaDiario({
             ))}
 
           {/* Error de carga o de validación del periodo */}
-          {error && !cargando && (
+          {error && !loading && (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={7} className="py-10 text-center">
                 <div className="flex flex-col items-center gap-3 text-slate-600">
                   <AlertCircle className="w-8 h-8 text-red-600" />
                   <p className="text-sm font-semibold">{error}</p>
-                  {!rangoInvalido && (
+                  {!invalidRange && (
                     <Button
                       type="button"
-                      onClick={onReintentar}
+                      onClick={onRetry}
                       className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -127,7 +127,7 @@ export function TablaDiario({
           )}
 
           {/* C11: sin asientos para el periodo seleccionado */}
-          {vacio && (
+          {empty && (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={7} className="py-10 text-center">
                 <div className="flex flex-col items-center gap-3 text-slate-500">
@@ -138,10 +138,10 @@ export function TablaDiario({
                   <p className="text-xs">
                     Ajusta las fechas inicial y final para ampliar el rango consultado.
                   </p>
-                  {hayFiltros && (
+                  {hasFilters && (
                     <Button
                       type="button"
-                      onClick={onLimpiarFiltros}
+                      onClick={onClearFilters}
                       className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -155,11 +155,11 @@ export function TablaDiario({
 
           {/* Asientos del periodo, cronológicamente */}
           {!error &&
-            filas.map((asiento) => (
+            rows.map((asiento) => (
               <Fragment key={asiento.id}>
                 {/* Encabezado del asiento: fecha, número, concepto y totales (C02, C05) */}
                 <TableRow
-                  onClick={() => onAbrirDetalle(asiento.id)}
+                  onClick={() => onOpenDetail(asiento.id)}
                   className="bg-slate-50/60 hover:bg-slate-100/70 transition-colors group cursor-pointer"
                   title="Ver detalle del asiento"
                 >
@@ -220,7 +220,7 @@ export function TablaDiario({
                 {asiento.lineas.map((linea) => (
                   <TableRow
                     key={linea.id}
-                    onClick={() => onAbrirDetalle(asiento.id)}
+                    onClick={() => onOpenDetail(asiento.id)}
                     className="hover:bg-(--color-background) transition-colors cursor-pointer"
                     title="Ver detalle del asiento"
                   >

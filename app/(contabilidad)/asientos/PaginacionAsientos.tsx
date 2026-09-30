@@ -11,78 +11,78 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PAGE_SIZE_OPCIONES = [10, 25, 50];
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 interface Props {
   page: number;
-  totalPaginas: number;
+  totalPages: number;
   pageSize: number;
-  cargando: boolean;
-  desdeMostrado: number;
-  hastaMostrado: number;
+  loading: boolean;
+  fromShown: number;
+  toShown: number;
   total: number;
-  seleccionados: number;
-  onPagina: (pagina: number) => void;
+  selectedCount: number;
+  onPage: (page: number) => void;
   onPageSize: (pageSize: number) => void;
 }
 
-/** Paginación inferior: rango visible, filas por página y saltos de página. */
-export function PaginacionAsientos({
+/** Bottom pagination: visible range, rows per page, and page jumps. */
+export function JournalEntryPagination({
   page,
-  totalPaginas,
+  totalPages,
   pageSize,
-  cargando,
-  desdeMostrado,
-  hastaMostrado,
+  loading,
+  fromShown,
+  toShown,
   total,
-  seleccionados,
-  onPagina,
+  selectedCount,
+  onPage,
   onPageSize,
 }: Readonly<Props>) {
-  const paginasVisibles = useMemo(() => {
-    const actual = Math.min(page, totalPaginas);
-    const inicio = Math.max(1, Math.min(actual - 2, totalPaginas - 4));
-    const fin = Math.min(totalPaginas, inicio + 4);
-    const lista: (number | "…")[] = [];
-    if (inicio > 1) lista.push(1);
-    if (inicio > 2) lista.push("…");
-    for (let n = inicio; n <= fin; n++) lista.push(n);
-    if (fin < totalPaginas - 1) lista.push("…");
-    if (fin < totalPaginas) lista.push(totalPaginas);
-    return lista;
-  }, [page, totalPaginas]);
+  const visiblePages = useMemo(() => {
+    const current = Math.min(page, totalPages);
+    const start = Math.max(1, Math.min(current - 2, totalPages - 4));
+    const end = Math.min(totalPages, start + 4);
+    const list: (number | "…")[] = [];
+    if (start > 1) list.push(1);
+    if (start > 2) list.push("…");
+    for (let n = start; n <= end; n++) list.push(n);
+    if (end < totalPages - 1) list.push("…");
+    if (end < totalPages) list.push(totalPages);
+    return list;
+  }, [page, totalPages]);
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-between gap-3">
       <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-lg">
-          <span className="tabular-nums font-semibold text-slate-900">
-            {desdeMostrado}-{hastaMostrado} / {total}
-          </span>
-          <div className="flex items-center ml-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="p-0.5 text-slate-600 hover:text-slate-900 rounded h-6 w-6 disabled:text-slate-300"
-              disabled={cargando || page <= 1}
-              title="Página anterior"
-              type="button"
-              onClick={() => onPagina(Math.max(1, page - 1))}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="p-0.5 text-slate-600 hover:text-slate-900 rounded h-6 w-6 disabled:text-slate-300"
-              disabled={cargando || page >= totalPaginas}
-              title="Página siguiente"
-              type="button"
-              onClick={() => onPagina(Math.min(totalPaginas, page + 1))}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+        <span className="tabular-nums font-semibold text-slate-900">
+          {fromShown}-{toShown} / {total}
+        </span>
+        <div className="flex items-center ml-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="p-0.5 text-slate-600 hover:text-slate-900 rounded h-6 w-6 disabled:text-slate-300"
+            disabled={loading || page <= 1}
+            title="Página anterior"
+            type="button"
+            onClick={() => onPage(Math.max(1, page - 1))}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="p-0.5 text-slate-600 hover:text-slate-900 rounded h-6 w-6 disabled:text-slate-300"
+            disabled={loading || page >= totalPages}
+            title="Página siguiente"
+            type="button"
+            onClick={() => onPage(Math.min(totalPages, page + 1))}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
         </div>
+      </div>
       <div className="flex items-center gap-3 text-xs text-slate-500">
         <div className="flex items-center gap-1.5">
           <label id="page-size-label" className="text-slate-500">
@@ -90,8 +90,8 @@ export function PaginacionAsientos({
           </label>
           <Select
             value={pageSize}
-            onValueChange={(valor) => {
-              if (typeof valor === "number") onPageSize(valor);
+            onValueChange={(val) => {
+              if (typeof val === "number") onPageSize(val);
             }}
           >
             <SelectTrigger
@@ -102,7 +102,7 @@ export function PaginacionAsientos({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PAGE_SIZE_OPCIONES.map((n) => (
+              {PAGE_SIZE_OPTIONS.map((n) => (
                 <SelectItem key={n} value={n}>
                   {n}
                 </SelectItem>
@@ -117,15 +117,15 @@ export function PaginacionAsientos({
           variant="ghost"
           size="icon"
           type="button"
-          disabled={cargando || page <= 1}
-          onClick={() => onPagina(Math.max(1, page - 1))}
+          disabled={loading || page <= 1}
+          onClick={() => onPage(Math.max(1, page - 1))}
           className="h-7 w-7 rounded-md text-slate-600 hover:text-slate-900 disabled:text-slate-300"
           title="Página anterior"
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
 
-        {paginasVisibles.map((n, i) =>
+        {visiblePages.map((n, i) =>
           n === "…" ? (
             <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs">
               …
@@ -135,8 +135,8 @@ export function PaginacionAsientos({
               key={n}
               variant="ghost"
               type="button"
-              onClick={() => onPagina(n)}
-              disabled={cargando}
+              onClick={() => onPage(n)}
+              disabled={loading}
               className={`h-7 min-w-7 px-2 rounded-md text-xs tabular-nums cursor-pointer ${
                 n === page
                   ? "bg-slate-900 text-white font-bold hover:bg-slate-900 hover:text-white"
@@ -152,8 +152,8 @@ export function PaginacionAsientos({
           variant="ghost"
           size="icon"
           type="button"
-          disabled={cargando || page >= totalPaginas}
-          onClick={() => onPagina(Math.min(totalPaginas, page + 1))}
+          disabled={loading || page >= totalPages}
+          onClick={() => onPage(Math.min(totalPages, page + 1))}
           className="h-7 w-7 rounded-md text-slate-600 hover:text-slate-900 disabled:text-slate-300"
           title="Página siguiente"
         >
@@ -163,3 +163,7 @@ export function PaginacionAsientos({
     </div>
   );
 }
+
+// Backwards compatibility alias
+export const PaginacionAsientos = JournalEntryPagination;
+

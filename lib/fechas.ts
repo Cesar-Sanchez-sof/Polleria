@@ -1,21 +1,24 @@
 /**
- * Utilidades de fecha para la API de asientos contables.
+ * Date utilities for the accounting journal entries API.
  *
- * `fecha_contable` es una columna `@db.Date`: se almacena como fecha pura,
- * por lo que hay que leerla y escribirla en UTC para que el día no se corra
- * según la zona horaria del servidor.
+ * `entryDate` (`fecha_contable`) is a `@db.Date` column: it is stored as a pure
+ * date, so it must be read and written in UTC to prevent timezone day shifts.
  */
 
-/** Convierte "YYYY-MM-DD" a un `Date` a medianoche UTC. */
-export function fechaUTC(iso: string): Date {
-  const [anio, mes, dia] = iso.split("-").map(Number);
-  return new Date(Date.UTC(anio, mes - 1, dia));
+/** Converts "YYYY-MM-DD" to a `Date` at midnight UTC. */
+export function parseUtcDate(isoString: string): Date {
+  const [year, month, day] = isoString.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
-/** Devuelve "YYYY-MM-DD" de una fecha almacenada como `@db.Date`, sin corrimiento horario. */
-export function fechaAISO(fecha: Date): string {
-  const anio = fecha.getUTCFullYear();
-  const mes = String(fecha.getUTCMonth() + 1).padStart(2, "0");
-  const dia = String(fecha.getUTCDate()).padStart(2, "0");
-  return `${anio}-${mes}-${dia}`;
+/** Returns "YYYY-MM-DD" from a date stored as `@db.Date`, without timezone shifts. */
+export function formatDateToIso(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
+
+// Backward-compatibility aliases
+export const fechaUTC = parseUtcDate;
+export const fechaAISO = formatDateToIso;

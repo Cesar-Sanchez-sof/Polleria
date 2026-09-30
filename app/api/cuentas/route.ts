@@ -1,30 +1,30 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  aCuentaApi,
-  codigoDuplicado,
-  respuestaCodigoDuplicado,
-  respuestaValidacion,
-  SELECT_CUENTA,
-  validarCuenta,
+  ACCOUNT_SELECT,
+  duplicateCodeResponse,
+  isDuplicateCodeError,
+  toAccountApi,
+  validateAccount,
+  validationResponse,
 } from "@/lib/plan-contable";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Plan contable completo (raíces y subcuentas), ordenado por código.
+ * Full chart of accounts (roots and subaccounts), ordered by code.
  *
- * El listado no se pagina: el front arma el árbol con el conjunto completo y
- * filtra en cliente, de modo que una subcuenta nunca se separa de su padre.
+ * This listing is not paginated: frontend builds the full tree and filters client-side,
+ * ensuring a subaccount is never separated from its parent.
  */
 export async function GET() {
   try {
-    const cuentas = await prisma.cuenta_contable.findMany({
-      orderBy: { codigo: "asc" },
-      select: SELECT_CUENTA,
+    const accounts = await prisma.accountingAccount.findMany({
+      orderBy: { code: "asc" },
+      select: ACCOUNT_SELECT,
     });
 
-    return Response.json({ data: cuentas.map(aCuentaApi) });
+    return Response.json({ data: accounts.map(toAccountApi) });
   } catch (error) {
     console.error("[api/cuentas] error al obtener el plan contable:", error);
     return Response.json({ error: "No se pudo obtener el plan contable." }, { status: 500 });
@@ -32,71 +32,69 @@ export async function GET() {
 }
 
 /**
- * Registra una cuenta contable nueva.
+ * Registers a new accounting account.
  *
- * Body: `{ codigo, nombre, tipo, idPadre?, activo? }`. El código es único en
- * toda la tabla (índice + comprobación previa) y una subcuenta hereda el tipo
- * de su cuenta padre, de modo que el tipo de una jerarquía siempre es el mismo.
+ * Body: `{ codigo, nombre, tipo, idPadre?, activo? }`. Code is unique across
+ * the table and a subaccount inherits its parent's type.
  */
 export async function POST(request: NextRequest) {
   try {
-    const cuerpo = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo)) {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
       return Response.json(
         { error: "El cuerpo de la petición no es un JSON válido." },
         { status: 400 }
       );
     }
 
-    const { errores, valores } = validarCuenta(cuerpo, "alta");
-    if (errores.length > 0) return respuestaValidacion(errores);
+    const { errors, values } = validateAccount(body, "alta");
+    if (errors.length > 0) return validationResponse(errors);
 
-    const codigo = valores.codigo as string;
-    const tipo = valores.tipo as string;
-    const idPadre = valores.idPadre ?? null;
+    const code = values.code as string;
+    const type = values.type as string;
+    const parentId = values.parentId ?? null;
 
-    // El código no puede repetirse en el plan contable.
-    const repetida = await prisma.cuenta_contable.findUnique({
-      where: { codigo },
-      select: { id_cuenta_contable: true },
+    // Code cannot be duplicated in the chart of accounts
+    const existing = await prisma.accountingAccount.findUnique({
+      where: { code },
+      select: { id: true },
     });
-    if (repetida) return respuestaCodigoDuplicado(codigo);
+    if (existing) return duplicateCodeResponse(code);
 
-    // Jerarquía: la cuenta padre debe existir, estar activa y compartir el tipo.
-    if (idPadre !== null) {
-      const padre = await prisma.cuenta_contable.findUnique({
-        where: { id_cuenta_contable: idPadre },
-        select: { id_cuenta_contable: true, tipo: true, activo: true },
+    // Hierarchy: parent account must exist, be active, and share the same type
+    if (parentId !== null) {
+      const parent = await prisma.accountingAccount.findUnique({
+        where: { id: parentId },
+        select: { id: true, type: true, active: true },
       });
 
-      if (!padre) errores.push("La cuenta padre indicada no existe.");
+      if (!parent) errors.push("La cuenta padre indicada no existe.");
       else {
-        if (!padre.activo) {
-          errores.push("La cuenta padre está inactiva: actívala antes de crear subcuentas.");
+        if (!parent.active) {
+          errors.push("La cuenta padre está inactiva: actívala antes de crear subcuentas.");
         }
-        if (padre.tipo !== tipo) {
-          errores.push(`La subcuenta debe tener el mismo tipo que su cuenta padre (${padre.tipo}).`);
+        if (parent.type !== type) {
+          errors.push(`La subcuenta debe tener el mismo tipo que su cuenta padre (${parent.type}).`);
         }
       }
-      if (errores.length > 0) return respuestaValidacion(errores);
+      if (errors.length > 0) return validationResponse(errors);
     }
 
     try {
-      const cuenta = await prisma.cuenta_contable.create({
+      const createdAccount = await prisma.accountingAccount.create({
         data: {
-          codigo,
-          nombre: valores.nombre as string,
-          tipo,
-          id_cuenta_padre: idPadre,
-          activo: valores.activo ?? true,
+          code,
+          name: values.name as string,
+          type,
+          parentId,
+          active: values.active ?? true,
         },
-        select: SELECT_CUENTA,
+        select: ACCOUNT_SELECT,
       });
 
-      return Response.json(aCuentaApi(cuenta), { status: 201 });
+      return Response.json(toAccountApi(createdAccount), { status: 201 });
     } catch (error) {
-      // Otra petición creó el mismo código entre la comprobación y el alta.
-      if (codigoDuplicado(error)) return respuestaCodigoDuplicado(codigo);
+      if (isDuplicateCodeError(error)) return duplicateCodeResponse(code);
       throw error;
     }
   } catch (error) {

@@ -20,256 +20,241 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ErrorApi,
-  formatearMoneda,
-  listarCuentasContables,
-  obtenerSiguienteCodigo,
-  registrarAsiento,
-  type AsientoResumen,
-  type CuentaContable,
-  type OpcionDiario,
+  ApiError,
+  formatCurrency,
+  listAccountingAccounts,
+  getNextJournalEntryCode,
+  registerJournalEntry,
+  type JournalEntrySummary,
+  type AccountingAccount,
+  type JournalBookOption,
 } from "@/lib/services/asientos.service";
 
-const DIARIO_POR_DEFECTO = "Operaciones varias";
-const LINEAS_INICIALES = 2;
+const DEFAULT_BOOK = "Operaciones varias";
+const INITIAL_LINE_COUNT = 2;
 
-/** Fecha local de hoy en YYYY-MM-DD, sin corrimiento por zona horaria. */
-function hoy(): string {
-  const fecha = new Date();
-  const anio = fecha.getFullYear();
-  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-  const dia = String(fecha.getDate()).padStart(2, "0");
-  return `${anio}-${mes}-${dia}`;
+/** Today's local date in YYYY-MM-DD format. */
+function getTodayIsoDate(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-/** Importe escrito en un input: vacío o inválido = 0, redondeado a 2 decimales. */
-function aImporte(valor: string): number {
-  const numero = Number(valor);
-  if (!Number.isFinite(numero)) return 0;
-  return Math.round(numero * 100) / 100;
+/** Parses numeric string to 2-decimal rounded amount. */
+function parseAmount(value: string): number {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num * 100) / 100;
 }
 
-/** Fila del editor de partidas; `clave` es sólo un identificador para React. */
-interface LineaForm {
-  clave: number;
-  idCuenta: string;
-  descripcion: string;
-  debe: string;
-  haber: string;
+interface FormLine {
+  key: number;
+  accountId: string;
+  description: string;
+  debit: string;
+  credit: string;
 }
 
-function lineaVacia(clave: number): LineaForm {
-  return { clave, idCuenta: "", descripcion: "", debe: "", haber: "" };
+function createEmptyLine(key: number): FormLine {
+  return { key, accountId: "", description: "", debit: "", credit: "" };
 }
 
-interface Props {
+interface NuevoAsientoDialogProps {
   abierto: boolean;
-  /** Diarios contables existentes, ya cargados por la página. */
-  diarios: OpcionDiario[];
+  diarios: JournalBookOption[];
   onCerrar: () => void;
-  /** Se invoca con el asiento recién registrado (para refrescar el listado). */
-  onCreado: (asiento: AsientoResumen) => void;
+  onCreado: (asiento: JournalEntrySummary) => void;
 }
 
-/** Diálogo para registrar un asiento contable manual con sus partidas. */
 export function NuevoAsientoDialog({
   abierto,
   diarios,
   onCerrar,
   onCreado,
-}: Readonly<Props>) {
-  // Encabezado del asiento
-  const [fecha, setFecha] = useState<string>(() => hoy());
-  const [diario, setDiario] = useState<string>(DIARIO_POR_DEFECTO);
-  const [glosa, setGlosa] = useState<string>("");
-  const [responsable, setResponsable] = useState<string>("");
-  const [observacion, setObservacion] = useState<string>("");
+}: Readonly<NuevoAsientoDialogProps>) {
+  const [entryDate, setEntryDate] = useState<string>(() => getTodayIsoDate());
+  const [book, setBook] = useState<string>(DEFAULT_BOOK);
+  const [description, setDescription] = useState<string>("");
+  const [responsible, setResponsible] = useState<string>("");
+  const [observation, setObservation] = useState<string>("");
 
-  // Partidas
-  const [lineas, setLineas] = useState<LineaForm[]>(() =>
-    Array.from({ length: LINEAS_INICIALES }, (_, i) => lineaVacia(i + 1))
+  const [lines, setLines] = useState<FormLine[]>(() =>
+    Array.from({ length: INITIAL_LINE_COUNT }, (_, i) => createEmptyLine(i + 1))
   );
-  const contadorClaves = useRef(LINEAS_INICIALES);
+  const lineKeyCounter = useRef(INITIAL_LINE_COUNT);
 
-  // Datos de apoyo y estado del formulario
-  const [cuentas, setCuentas] = useState<CuentaContable[]>([]);
-  const [codigoSugerido, setCodigoSugerido] = useState<string>("");
-  const [errores, setErrores] = useState<string[]>([]);
-  const [guardando, setGuardando] = useState<boolean>(false);
+  const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
+  const [suggestedCode, setSuggestedCode] = useState<string>("");
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Plan contable: se consulta una sola vez al montar el diálogo.
   useEffect(() => {
-    let activo = true;
-    listarCuentasContables()
-      .then((datos) => {
-        if (activo) setCuentas(datos);
+    let isActive = true;
+    listAccountingAccounts()
+      .then((data) => {
+        if (isActive) setAccounts(data);
       })
       .catch(() => {
-        if (activo) setCuentas([]);
+        if (isActive) setAccounts([]);
       });
     return () => {
-      activo = false;
+      isActive = false;
     };
   }, []);
 
-  // Número sugerido para la fecha elegida (se vuelve a pedir si cambia).
   useEffect(() => {
-    let activo = true;
-    obtenerSiguienteCodigo(fecha)
-      .then((codigo) => {
-        if (activo) setCodigoSugerido(codigo);
+    let isActive = true;
+    getNextJournalEntryCode(entryDate)
+      .then((code) => {
+        if (isActive) setSuggestedCode(code);
       })
       .catch(() => {
-        if (activo) setCodigoSugerido("");
+        if (isActive) setSuggestedCode("");
       });
     return () => {
-      activo = false;
+      isActive = false;
     };
-  }, [fecha]);
+  }, [entryDate]);
 
-  const opcionesCuenta = useMemo(
+  const accountOptions = useMemo(
     () =>
-      cuentas.map((cuenta) => ({
-        value: String(cuenta.id),
-        label: `${cuenta.codigo} · ${cuenta.nombre}`,
+      accounts.map((acc) => ({
+        value: String(acc.id),
+        label: `${acc.codigo} · ${acc.nombre}`,
       })),
-    [cuentas]
+    [accounts]
   );
 
-  const opcionesDiario = useMemo(() => {
-    const nombres = Array.from(
-      new Set([DIARIO_POR_DEFECTO, ...diarios.map((opcion) => opcion.nombre)])
+  const bookOptions = useMemo(() => {
+    const bookNames = Array.from(
+      new Set([DEFAULT_BOOK, ...diarios.map((d) => d.nombre)])
     );
-    return nombres.map((nombre) => ({ value: nombre, label: nombre }));
+    return bookNames.map((name) => ({ value: name, label: name }));
   }, [diarios]);
 
-  const totales = lineas.reduce(
-    (acumulado, linea) => ({
-      debe: acumulado.debe + aImporte(linea.debe),
-      haber: acumulado.haber + aImporte(linea.haber),
+  const totals = lines.reduce(
+    (acc, line) => ({
+      debit: acc.debit + parseAmount(line.debit),
+      credit: acc.credit + parseAmount(line.credit),
     }),
-    { debe: 0, haber: 0 }
+    { debit: 0, credit: 0 }
   );
-  const totalDebe = Math.round(totales.debe * 100) / 100;
-  const totalHaber = Math.round(totales.haber * 100) / 100;
-  const cuadrado = Math.abs(totalDebe - totalHaber) < 0.005 && totalDebe > 0;
+  const totalDebit = Math.round(totals.debit * 100) / 100;
+  const totalCredit = Math.round(totals.credit * 100) / 100;
+  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.005 && totalDebit > 0;
 
-  /** Vuelve el formulario a su estado inicial. */
-  const reiniciar = () => {
-    contadorClaves.current = LINEAS_INICIALES;
-    setFecha(hoy());
-    setDiario(DIARIO_POR_DEFECTO);
-    setGlosa("");
-    setResponsable("");
-    setObservacion("");
-    setLineas(
-      Array.from({ length: LINEAS_INICIALES }, (_, i) => lineaVacia(i + 1))
-    );
-    setErrores([]);
+  const resetForm = () => {
+    lineKeyCounter.current = INITIAL_LINE_COUNT;
+    setEntryDate(getTodayIsoDate());
+    setBook(DEFAULT_BOOK);
+    setDescription("");
+    setResponsible("");
+    setObservation("");
+    setLines(Array.from({ length: INITIAL_LINE_COUNT }, (_, i) => createEmptyLine(i + 1)));
+    setErrors([]);
   };
 
-  const manejarApertura = (open: boolean) => {
+  const handleOpenChange = (open: boolean) => {
     if (open) return;
-    reiniciar();
+    resetForm();
     onCerrar();
   };
 
-  const actualizarLinea = (clave: number, cambios: Partial<LineaForm>) => {
-    setLineas((previo) =>
-      previo.map((linea) => (linea.clave === clave ? { ...linea, ...cambios } : linea))
+  const updateLine = (key: number, changes: Partial<FormLine>) => {
+    setLines((prev) =>
+      prev.map((line) => (line.key === key ? { ...line, ...changes } : line))
     );
   };
 
-  const agregarLinea = () => {
-    contadorClaves.current += 1;
-    const nueva = lineaVacia(contadorClaves.current);
-    setLineas((previo) => [...previo, nueva]);
+  const addLine = () => {
+    lineKeyCounter.current += 1;
+    const newLine = createEmptyLine(lineKeyCounter.current);
+    setLines((prev) => [...prev, newLine]);
   };
 
-  const quitarLinea = (clave: number) => {
-    setLineas((previo) => (previo.length > 1 ? previo.filter((l) => l.clave !== clave) : previo));
+  const removeLine = (key: number) => {
+    setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
   };
 
-  /** Validaciones del cliente; el servidor vuelve a validar todo. */
-  const validar = (): string[] => {
-    const lista: string[] = [];
+  const validate = (): string[] => {
+    const list: string[] = [];
 
-    if (!fecha) lista.push("Selecciona la fecha contable.");
-    if (!glosa.trim()) lista.push("Escribe el concepto (glosa) del asiento.");
-    if (!diario) lista.push("Selecciona el diario contable.");
-    if (lineas.length < LINEAS_INICIALES) {
-      lista.push("El asiento debe tener al menos dos líneas (debe y haber).");
+    if (!entryDate) list.push("Selecciona la fecha contable.");
+    if (!description.trim()) list.push("Escribe el concepto (glosa) del asiento.");
+    if (!book) list.push("Selecciona el diario contable.");
+    if (lines.length < INITIAL_LINE_COUNT) {
+      list.push("El asiento debe tener al menos dos líneas (debe y haber).");
     }
 
-    lineas.forEach((linea, indice) => {
-      const etiqueta = `Línea ${indice + 1}:`;
-      if (!linea.idCuenta) lista.push(`${etiqueta} selecciona la cuenta contable.`);
+    lines.forEach((line, index) => {
+      const lineLabel = `Línea ${index + 1}:`;
+      if (!line.accountId) list.push(`${lineLabel} selecciona la cuenta contable.`);
 
-      const debe = aImporte(linea.debe);
-      const haber = aImporte(linea.haber);
-      if (debe > 0 && haber > 0) {
-        lista.push(`${etiqueta} no puede tener importe en debe y en haber a la vez.`);
-      } else if (debe === 0 && haber === 0) {
-        lista.push(`${etiqueta} indica el importe en el debe o en el haber.`);
+      const debit = parseAmount(line.debit);
+      const credit = parseAmount(line.credit);
+      if (debit > 0 && credit > 0) {
+        list.push(`${lineLabel} no puede tener importe en debe y en haber a la vez.`);
+      } else if (debit === 0 && credit === 0) {
+        list.push(`${lineLabel} indica el importe en el debe o en el haber.`);
       }
     });
 
-    if (lista.length === 0 && !cuadrado) {
-      lista.push(
-        `El asiento debe cuadrar: debe ${formatearMoneda(totalDebe)} vs. haber ${formatearMoneda(totalHaber)}.`
+    if (list.length === 0 && !isBalanced) {
+      list.push(
+        `El asiento debe cuadrar: debe ${formatCurrency(totalDebit)} vs. haber ${formatCurrency(totalCredit)}.`
       );
     }
 
-    return lista;
+    return list;
   };
 
-  const manejarEnvio = async (evento: FormEvent<HTMLFormElement>) => {
-    evento.preventDefault();
-    if (guardando) return;
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSaving) return;
 
-    const validacion = validar();
-    if (validacion.length > 0) {
-      setErrores(validacion);
+    const validationErrors = validate();
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
-    setErrores([]);
-    setGuardando(true);
+    setErrors([]);
+    setIsSaving(true);
     try {
-      const asiento = await registrarAsiento({
-        fecha,
-        diario,
-        glosa: glosa.trim(),
-        responsable: responsable.trim() || undefined,
-        observacion: observacion.trim() || undefined,
-        lineas: lineas.map((linea) => ({
-          idCuenta: Number(linea.idCuenta),
-          descripcion: linea.descripcion.trim() || undefined,
-          debe: aImporte(linea.debe),
-          haber: aImporte(linea.haber),
+      const createdEntry = await registerJournalEntry({
+        fecha: entryDate,
+        diario: book,
+        glosa: description.trim(),
+        responsable: responsible.trim() || undefined,
+        observacion: observation.trim() || undefined,
+        lineas: lines.map((line) => ({
+          idCuenta: Number(line.accountId),
+          descripcion: line.description.trim() || undefined,
+          debe: parseAmount(line.debit),
+          haber: parseAmount(line.credit),
         })),
       });
-      reiniciar();
-      onCreado(asiento);
+      resetForm();
+      onCreado(createdEntry);
       onCerrar();
-    } catch (error) {
-      setErrores(
-        error instanceof ErrorApi
-          ? error.errores
-          : [error instanceof Error ? error.message : "No se pudo registrar el asiento."]
+    } catch (err) {
+      setErrors(
+        err instanceof ApiError
+          ? err.errors
+          : [err instanceof Error ? err.message : "No se pudo registrar el asiento."]
       );
     } finally {
-      setGuardando(false);
+      setIsSaving(false);
     }
   };
 
-  const etiquetaCampo =
-    "text-[11px] font-bold uppercase tracking-wider text-slate-500";
-  const inputCampo =
-    "h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-none";
+  const labelClasses = "text-[11px] font-bold uppercase tracking-wider text-slate-500";
+  const inputClasses = "h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-none";
 
   return (
-    <Dialog open={abierto} onOpenChange={manejarApertura}>
+    <Dialog open={abierto} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[calc(100vh-4rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-slate-900">
@@ -281,33 +266,32 @@ export function NuevoAsientoDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={(e) => void manejarEnvio(e)}>
-          {/* Encabezado del asiento */}
+        <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="flex flex-col gap-1">
-              <label htmlFor="asiento-fecha" className={etiquetaCampo}>
+              <label htmlFor="asiento-fecha" className={labelClasses}>
                 Fecha contable
               </label>
               <Input
                 id="asiento-fecha"
                 type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className={inputCampo}
-                disabled={guardando}
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className={inputClasses}
+                disabled={isSaving}
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label id="asiento-diario-label" htmlFor="asiento-diario" className={etiquetaCampo}>
+              <label id="asiento-diario-label" htmlFor="asiento-diario" className={labelClasses}>
                 Diario
               </label>
               <Select
                 id="asiento-diario"
-                value={diario}
-                items={opcionesDiario}
-                onValueChange={(valor) => setDiario(valor ?? DIARIO_POR_DEFECTO)}
-                disabled={guardando}
+                value={book}
+                items={bookOptions}
+                onValueChange={(val) => setBook(val ?? DEFAULT_BOOK)}
+                disabled={isSaving}
               >
                 <SelectTrigger
                   className="w-full rounded-lg bg-white text-xs"
@@ -316,9 +300,9 @@ export function NuevoAsientoDialog({
                   <SelectValue placeholder="Seleccionar diario" />
                 </SelectTrigger>
                 <SelectContent>
-                  {opcionesDiario.map((opcion) => (
-                    <SelectItem key={opcion.value} value={opcion.value}>
-                      {opcion.label}
+                  {bookOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -326,22 +310,22 @@ export function NuevoAsientoDialog({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="asiento-responsable" className={etiquetaCampo}>
+              <label htmlFor="asiento-responsable" className={labelClasses}>
                 Responsable (opcional)
               </label>
               <Input
                 id="asiento-responsable"
                 type="text"
                 maxLength={100}
-                value={responsable}
-                onChange={(e) => setResponsable(e.target.value)}
-                className={inputCampo}
-                disabled={guardando}
+                value={responsible}
+                onChange={(e) => setResponsible(e.target.value)}
+                className={inputClasses}
+                disabled={isSaving}
               />
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label htmlFor="asiento-glosa" className={etiquetaCampo}>
+              <label htmlFor="asiento-glosa" className={labelClasses}>
                 Concepto (glosa)
               </label>
               <Input
@@ -349,57 +333,53 @@ export function NuevoAsientoDialog({
                 type="text"
                 maxLength={200}
                 placeholder="Ej. Ajuste por diferencia de caja del mes"
-                value={glosa}
-                onChange={(e) => setGlosa(e.target.value)}
-                className={inputCampo}
-                disabled={guardando}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className={inputClasses}
+                disabled={isSaving}
               />
             </div>
 
-            
-
             <div className="flex flex-col gap-1">
-              <label htmlFor="asiento-observacion" className={etiquetaCampo}>
+              <label htmlFor="asiento-observacion" className={labelClasses}>
                 Observación (opcional)
               </label>
               <Input
                 id="asiento-observacion"
                 type="text"
                 maxLength={200}
-                value={observacion}
-                onChange={(e) => setObservacion(e.target.value)}
-                className={inputCampo}
-                disabled={guardando}
+                value={observation}
+                onChange={(e) => setObservation(e.target.value)}
+                className={inputClasses}
+                disabled={isSaving}
               />
             </div>
           </div>
 
-          {/* Número que se asignará */}
           <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
-            <span className={etiquetaCampo}>Número</span>
+            <span className={labelClasses}>Número</span>
             <p className="text-xs text-slate-600 mt-1">
               Se genera automáticamente al registrar
-              {codigoSugerido ? (
+              {suggestedCode ? (
                 <>
                   {" "}
                   · referencia{" "}
-                  <span className="font-bold text-slate-900 tabular-nums">{codigoSugerido}</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{suggestedCode}</span>
                 </>
               ) : null}
             </p>
           </div>
 
-          {/* Partidas */}
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Líneas del asiento ({lineas.length})
+              Líneas del asiento ({lines.length})
             </h3>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={agregarLinea}
-              disabled={guardando}
+              onClick={addLine}
+              disabled={isSaving}
               className="inline-flex items-center gap-1.5 rounded-lg border-slate-200 bg-white text-xs font-semibold shadow-none cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -410,36 +390,36 @@ export function NuevoAsientoDialog({
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <div className="min-w-176">
               <div className="grid grid-cols-[14rem_minmax(0,1fr)_8rem_8rem_2rem] gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
-                <span className={etiquetaCampo}>Cuenta contable</span>
-                <span className={etiquetaCampo}>Descripción</span>
-                <span className={`${etiquetaCampo} text-right`}>Debe (S/)</span>
-                <span className={`${etiquetaCampo} text-right`}>Haber (S/)</span>
+                <span className={labelClasses}>Cuenta contable</span>
+                <span className={labelClasses}>Descripción</span>
+                <span className={`${labelClasses} text-right`}>Debe (S/)</span>
+                <span className={`${labelClasses} text-right`}>Haber (S/)</span>
                 <span aria-hidden="true"></span>
               </div>
 
-              {lineas.map((linea, indice) => (
+              {lines.map((line, index) => (
                 <div
-                  key={linea.clave}
+                  key={line.key}
                   className="grid grid-cols-[14rem_minmax(0,1fr)_8rem_8rem_2rem] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0"
                 >
                   <Select
-                    value={linea.idCuenta}
-                    items={opcionesCuenta}
-                    onValueChange={(valor) =>
-                      actualizarLinea(linea.clave, { idCuenta: valor ?? "" })
+                    value={line.accountId}
+                    items={accountOptions}
+                    onValueChange={(val) =>
+                      updateLine(line.key, { accountId: val ?? "" })
                     }
-                    disabled={guardando}
+                    disabled={isSaving}
                   >
                     <SelectTrigger
                       className="h-8 w-full rounded-lg bg-white text-xs"
-                      aria-label={`Cuenta de la línea ${indice + 1}`}
+                      aria-label={`Cuenta de la línea ${index + 1}`}
                     >
                       <SelectValue placeholder="Seleccionar cuenta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {opcionesCuenta.map((opcion) => (
-                        <SelectItem  className="text-xs" key={opcion.value} value={opcion.value}>
-                          {opcion.label}
+                      {accountOptions.map((opt) => (
+                        <SelectItem className="text-xs" key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -449,11 +429,11 @@ export function NuevoAsientoDialog({
                     type="text"
                     maxLength={200}
                     placeholder="Detalle (opcional)"
-                    aria-label={`Descripción de la línea ${indice + 1}`}
-                    value={linea.descripcion}
-                    onChange={(e) => actualizarLinea(linea.clave, { descripcion: e.target.value })}
+                    aria-label={`Descripción de la línea ${index + 1}`}
+                    value={line.description}
+                    onChange={(e) => updateLine(line.key, { description: e.target.value })}
                     className="h-8 rounded-lg border-slate-200 bg-white text-xs shadow-none"
-                    disabled={guardando}
+                    disabled={isSaving}
                   />
 
                   <Input
@@ -462,13 +442,13 @@ export function NuevoAsientoDialog({
                     step="0.01"
                     inputMode="decimal"
                     placeholder="0.00"
-                    aria-label={`Debe de la línea ${indice + 1}`}
-                    value={linea.debe}
+                    aria-label={`Debe de la línea ${index + 1}`}
+                    value={line.debit}
                     onChange={(e) =>
-                      actualizarLinea(linea.clave, { debe: e.target.value, haber: "" })
+                      updateLine(line.key, { debit: e.target.value, credit: "" })
                     }
                     className="h-8 rounded-lg border-slate-200 bg-white text-xs text-right tabular-nums shadow-none"
-                    disabled={guardando}
+                    disabled={isSaving}
                   />
 
                   <Input
@@ -477,13 +457,13 @@ export function NuevoAsientoDialog({
                     step="0.01"
                     inputMode="decimal"
                     placeholder="0.00"
-                    aria-label={`Haber de la línea ${indice + 1}`}
-                    value={linea.haber}
+                    aria-label={`Haber de la línea ${index + 1}`}
+                    value={line.credit}
                     onChange={(e) =>
-                      actualizarLinea(linea.clave, { haber: e.target.value, debe: "" })
+                      updateLine(line.key, { credit: e.target.value, debit: "" })
                     }
                     className="h-8 rounded-lg border-slate-200 bg-white text-xs text-right tabular-nums shadow-none"
-                    disabled={guardando}
+                    disabled={isSaving}
                   />
 
                   <Button
@@ -491,9 +471,9 @@ export function NuevoAsientoDialog({
                     variant="ghost"
                     size="icon-sm"
                     title="Quitar línea"
-                    aria-label={`Quitar la línea ${indice + 1}`}
-                    onClick={() => quitarLinea(linea.clave)}
-                    disabled={guardando || lineas.length <= LINEAS_INICIALES}
+                    aria-label={`Quitar la línea ${index + 1}`}
+                    onClick={() => removeLine(line.key)}
+                    disabled={isSaving || lines.length <= INITIAL_LINE_COUNT}
                     className="h-8 w-8 text-slate-400 hover:text-rose-600 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -503,52 +483,50 @@ export function NuevoAsientoDialog({
             </div>
           </div>
 
-          {opcionesCuenta.length === 0 && (
+          {accountOptions.length === 0 && (
             <p className="text-xs text-amber-700">
               No hay cuentas disponibles en el plan contable para registrar las líneas.
             </p>
           )}
 
-          {/* Totales y cuadre */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-900 text-white px-4 py-3">
             <div className="flex items-center gap-5 text-xs">
               <span className="uppercase tracking-wider text-slate-400">
                 Debe{" "}
                 <b className="text-sm text-white tabular-nums ml-1">
-                  {formatearMoneda(totalDebe)}
+                  {formatCurrency(totalDebit)}
                 </b>
               </span>
               <span className="uppercase tracking-wider text-slate-400">
                 Haber{" "}
                 <b className="text-sm text-white tabular-nums ml-1">
-                  {formatearMoneda(totalHaber)}
+                  {formatCurrency(totalCredit)}
                 </b>
               </span>
             </div>
             <span
               className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                cuadrado ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                isBalanced ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  cuadrado ? "bg-emerald-400" : "bg-amber-400"
+                  isBalanced ? "bg-emerald-400" : "bg-amber-400"
                 }`}
               ></span>
-              {cuadrado ? "Asiento cuadrado" : "Debe y haber deben coincidir"}
+              {isBalanced ? "Asiento cuadrado" : "Debe y haber deben coincidir"}
             </span>
           </div>
 
-          {/* Validaciones del cliente y del servidor */}
-          {errores.length > 0 && (
+          {errors.length > 0 && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">
               <p className="flex items-center gap-1.5 font-bold">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 Revisa lo siguiente para registrar el asiento
               </p>
               <ul className="list-disc pl-5 mt-1.5 space-y-0.5">
-                {errores.map((error, indice) => (
-                  <li key={`${indice}-${error}`}>{error}</li>
+                {errors.map((err, idx) => (
+                  <li key={`${idx}-${err}`}>{err}</li>
                 ))}
               </ul>
             </div>
@@ -558,18 +536,18 @@ export function NuevoAsientoDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => manejarApertura(false)}
-              disabled={guardando}
+              onClick={() => handleOpenChange(false)}
+              disabled={isSaving}
               className="rounded-lg border-slate-200 bg-white text-xs font-semibold shadow-none"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={guardando || opcionesCuenta.length === 0}
+              disabled={isSaving || accountOptions.length === 0}
               className="rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold shadow-none"
             >
-              {guardando ? "Registrando..." : "Registrar asiento"}
+              {isSaving ? "Registrando..." : "Registrar asiento"}
             </Button>
           </DialogFooter>
         </form>

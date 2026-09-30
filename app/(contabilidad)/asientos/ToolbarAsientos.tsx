@@ -17,43 +17,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface Props {
-  /** Texto actual del buscador del listado. */
+  /** Current text in search input. */
   q: string;
-  onBuscar: (valor: string) => void;
-  onLimpiarBusqueda: () => void;
-  /** Abre el diálogo para registrar un asiento manual. */
-  onNuevo: () => void;
-  /** Rango de filas visibles de la página actual (ej. 1-10 de 36). */
-  desdeMostrado: number;
-  hastaMostrado: number;
+  onSearch: (value: string) => void;
+  onClearSearch: () => void;
+  /** Opens dialog to register a manual journal entry. */
+  onNew: () => void;
+  /** Range of visible rows (e.g. 1-10 of 36). */
+  fromShown: number;
+  toShown: number;
   total: number;
-  cargando: boolean;
+  loading: boolean;
   page: number;
-  totalPaginas: number;
-  onPagina: (pagina: number) => void;
+  totalPages: number;
+  onPage: (page: number) => void;
 }
 
-/** Barra superior: título, buscador, rango de página y selector de vista. */
-export function ToolbarAsientos({
+/** Top toolbar: title, search, page range and view selector. */
+export function JournalEntryToolbar({
   q,
-  onBuscar,
-  onLimpiarBusqueda,
-  onNuevo,
-  desdeMostrado,
-  hastaMostrado,
+  onSearch,
+  onClearSearch,
+  onNew,
+  fromShown,
+  toShown,
   total,
-  cargando,
+  loading,
   page,
-  totalPaginas,
-  onPagina,
+  totalPages,
+  onPage,
 }: Readonly<Props>) {
-  const [vista, setVista] = useState<string>("list");
+  const [view, setView] = useState<string>("list");
 
-  const vistas = [
-    { valor: "list", titulo: "Vista Lista", Icono: List },
-    { valor: "kanban", titulo: "Vista Kanban", Icono: Kanban },
-    { valor: "schedule", titulo: "Vista Historial / Reloj", Icono: Clock },
-    { valor: "chart", titulo: "Vista Gráficos", Icono: BarChart3 },
+  const views = [
+    { value: "list", title: "Vista Lista", Icon: List },
+    { value: "kanban", title: "Vista Kanban", Icon: Kanban },
+    { value: "schedule", title: "Vista Historial / Reloj", Icon: Clock },
+    { value: "chart", title: "Vista Gráficos", Icon: BarChart3 },
   ];
 
   return (
@@ -66,7 +66,7 @@ export function ToolbarAsientos({
         </div>
       </div>
 
-      {/* RIGHT: Odoo Style Search Bar, Pagination & View Switcher */}
+      {/* RIGHT: Search Bar & Actions */}
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
         {/* Search Composite Pill */}
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-60 md:min-w-70">
@@ -76,14 +76,14 @@ export function ToolbarAsientos({
             placeholder="Número, concepto o cuenta..."
             type="text"
             value={q}
-            onChange={(e) => onBuscar(e.target.value)}
+            onChange={(e) => onSearch(e.target.value)}
           />
           {q !== "" ? (
             <button
               className="text-slate-400 hover:text-slate-700 px-1 cursor-pointer shrink-0"
               type="button"
               title="Limpiar búsqueda"
-              onClick={onLimpiarBusqueda}
+              onClick={onClearSearch}
             >
               <X className="w-4 h-4" />
             </button>
@@ -97,7 +97,7 @@ export function ToolbarAsientos({
         <Button
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer h-9"
           type="button"
-          onClick={onNuevo}
+          onClick={onNew}
         >
           <Plus className="w-4 h-4" />
           <span>Nuevo</span>
@@ -111,27 +111,11 @@ export function ToolbarAsientos({
           <Download className="w-4 h-4" />
           <span>Exportar XLSX</span>
         </Button>
-
-        {/* View Switcher Tabs 
-        <div className="flex items-center bg-slate-100 rounded-lg p-0.5  ">
-          {vistas.map(({ valor, titulo, Icono }) => (
-            <Button
-              key={valor}
-              variant="ghost"
-              size="icon"
-              onClick={() => setVista(valor)}
-              className={`p-1.5 rounded-md cursor-pointer transition-colors h-7 w-7 ${vista === valor
-                ? "bg-white text-red-700 shadow-xs font-semibold hover:bg-white"
-                : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-                }`}
-              title={titulo}
-              type="button"
-            >
-              <Icono className="w-4 h-4" />
-            </Button>
-          ))}
-        </div>*/}
       </div>
     </div>
   );
 }
+
+// Backwards compatibility alias
+export const ToolbarAsientos = JournalEntryToolbar;
+

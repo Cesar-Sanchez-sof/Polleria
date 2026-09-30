@@ -3,28 +3,28 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 /**
- * Plan contable disponible para armar las líneas de un asiento manual.
- * Sólo se devuelven cuentas activas, ordenadas por código.
+ * Chart of accounts available to build lines in a manual journal entry.
+ * Returns only active accounts, ordered by code.
  */
 export async function GET() {
   try {
-    const cuentas = await prisma.cuenta_contable.findMany({
-      where: { activo: true },
-      orderBy: { codigo: "asc" },
+    const accounts = await prisma.accountingAccount.findMany({
+      where: { active: true },
+      orderBy: { code: "asc" },
       select: {
-        id_cuenta_contable: true,
-        codigo: true,
-        nombre: true,
-        tipo: true,
+        id: true,
+        code: true,
+        name: true,
+        type: true,
       },
     });
 
     return Response.json({
-      data: cuentas.map((cuenta) => ({
-        id: cuenta.id_cuenta_contable,
-        codigo: cuenta.codigo,
-        nombre: cuenta.nombre,
-        tipo: cuenta.tipo,
+      data: accounts.map((account) => ({
+        id: account.id,
+        codigo: account.code,
+        nombre: account.name,
+        tipo: account.type,
       })),
     });
   } catch (error) {

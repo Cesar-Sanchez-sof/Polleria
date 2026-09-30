@@ -7,7 +7,7 @@ import { BookOpen } from "lucide-react";
 import { DetalleAsientos } from "../asientos/DetalleAsientos";
 import { PaginacionAsientos } from "../asientos/PaginacionAsientos";
 import { FiltrosDiario } from "./FiltrosDiario";
-import { TablaDiario } from "./TablaDiario";
+import { DailyJournalTable } from "./TablaDiario";
 
 import {
   listarLibroDiario,
@@ -142,7 +142,7 @@ export default function LibroDiarioPage() {
   // ---------------------------------------------------------------------
   // Datos derivados
   // ---------------------------------------------------------------------
-  const filas = pagina?.data ?? [];
+  const rows = pagina?.data ?? [];
   const meta = pagina?.meta;
   const total = meta?.total ?? 0;
   const totalPaginas = meta?.totalPaginas ?? 1;
@@ -196,24 +196,24 @@ export default function LibroDiarioPage() {
             {/* FILTRO DE PERIODO Y TABLA */}
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
               <FiltrosDiario
-                desde={desde}
-                hasta={hasta}
-                hayFiltros={hayFiltros}
-                rangoInvalido={rangoInvalido}
-                onDesde={(valor) => cambiarRango("desde", valor)}
-                onHasta={(valor) => cambiarRango("hasta", valor)}
-                onLimpiar={limpiarFiltros}
+                from={desde}
+                to={hasta}
+                hasFilters={hayFiltros}
+                invalidRange={rangoInvalido}
+                onFrom={(valor) => cambiarRango("desde", valor)}
+                onTo={(valor) => cambiarRango("hasta", valor)}
+                onClear={limpiarFiltros}
               />
 
-              <TablaDiario
-                filas={filas}
-                cargando={enCarga}
+              <DailyJournalTable
+                rows={rows}
+                loading={enCarga}
                 error={errorMostrado}
-                hayFiltros={hayFiltros}
-                rangoInvalido={rangoInvalido}
-                onAbrirDetalle={(id) => void abrirDetalle(id)}
-                onReintentar={() => void cargarListado()}
-                onLimpiarFiltros={limpiarFiltros}
+                hasFilters={hayFiltros}
+                invalidRange={rangoInvalido}
+                onOpenDetail={(id) => void abrirDetalle(id)}
+                onRetry={() => void cargarListado()}
+                onClearFilters={limpiarFiltros}
               />
 
               {!rangoInvalido && (

@@ -1,61 +1,57 @@
 import type { NextRequest } from "next/server";
-import { Prisma, type Asiento_contable } from "@prisma/client";
+import { Prisma, type JournalEntry } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { fechaAISO, fechaUTC } from "@/lib/fechas";
-import { generarCodigoAsiento } from "@/lib/codigo-asiento";
+import { formatDateToIso, parseUtcDate } from "@/lib/fechas";
+import { generateJournalEntryCode } from "@/lib/codigo-asiento";
 
-// El listado depende de la petición (filtros, orden y paginación en query string).
 export const dynamic = "force-dynamic";
 
-export type OrdenAsiento = "fecha" | "numero" | "concepto" | "diario" | "estado" | "total";
-export type DireccionOrden = "asc" | "desc";
+export type JournalEntrySort = "fecha" | "numero" | "concepto" | "diario" | "estado" | "total";
+export type SortDirection = "asc" | "desc";
 
-const ORDENES: OrdenAsiento[] = ["fecha", "numero", "concepto", "diario", "estado", "total"];
+const VALID_SORTS: JournalEntrySort[] = ["fecha", "numero", "concepto", "diario", "estado", "total"];
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function entero(valor: string | null, defecto: number, min: number, max: number): number {
-  if (!valor) return defecto;
-  const n = Number.parseInt(valor, 10);
-  if (Number.isNaN(n)) return defecto;
-  return Math.min(Math.max(n, min), max);
+function parseInteger(value: string | null, defaultValue: number, min: number, max: number): number {
+  if (!value) return defaultValue;
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return defaultValue;
+  return Math.min(Math.max(parsed, min), max);
 }
 
 /**
- * Construye el filtro que comparten el conteo y el listado.
- * Todas las condiciones se combinan con AND: sólo se devuelven los asientos
- * que cumplen todos los filtros seleccionados.
+ * Builds Prisma where filter shared by count and listing queries.
+ * Conditions are combined with AND.
  */
-function construirFiltro(searchParams: URLSearchParams): Prisma.Asiento_contableWhereInput {
-  const filtro: Prisma.Asiento_contableWhereInput = {};
+function buildFilter(searchParams: URLSearchParams): Prisma.JournalEntryWhereInput {
+  const filter: Prisma.JournalEntryWhereInput = {};
 
-  const desde = searchParams.get("desde");
-  const hasta = searchParams.get("hasta");
-  const diario = searchParams.get("diario");
-  const estado = searchParams.get("estado");
-  const q = (searchParams.get("q") ?? "").trim();
+  const fromDate = searchParams.get("desde");
+  const toDate = searchParams.get("hasta");
+  const book = searchParams.get("diario");
+  const status = searchParams.get("estado");
+  const search = (searchParams.get("q") ?? "").trim();
 
-  const rango: Prisma.DateTimeFilter<"Asiento_contable"> = {};
-  if (desde && FECHA_RE.test(desde)) rango.gte = fechaUTC(desde);
-  if (hasta && FECHA_RE.test(hasta)) rango.lte = fechaUTC(hasta);
-  if (Object.keys(rango).length > 0) filtro.fecha_contable = rango;
+  const dateRange: Prisma.DateTimeFilter<"JournalEntry"> = {};
+  if (fromDate && DATE_REGEX.test(fromDate)) dateRange.gte = parseUtcDate(fromDate);
+  if (toDate && DATE_REGEX.test(toDate)) dateRange.lte = parseUtcDate(toDate);
+  if (Object.keys(dateRange).length > 0) filter.entryDate = dateRange;
 
-  if (diario) filtro.diario = diario;
-  if (estado === "registrado") filtro.estado = true;
-  if (estado === "anulado") filtro.estado = false;
+  if (book) filter.book = book;
+  if (status === "registrado") filter.status = true;
+  if (status === "anulado") filter.status = false;
 
-  if (q) {
-    // Búsqueda por número/referencia, concepto (glosa) o cuenta contable.
-    filtro.OR = [
-      { codigo: { contains: q, mode: "insensitive" } },
-      { glosa: { contains: q, mode: "insensitive" } },
+  if (search) {
+    filter.OR = [
+      { code: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
       {
-        detalles_asiento: {
+        entryDetails: {
           some: {
-            cuenta_contable: {
+            account: {
               OR: [
-                { codigo: { contains: q, mode: "insensitive" } },
-                { nombre: { contains: q, mode: "insensitive" } },
+                { code: { contains: search, mode: "insensitive" } },
+                { name: { contains: search, mode: "insensitive" } },
               ],
             },
           },
@@ -64,135 +60,124 @@ function construirFiltro(searchParams: URLSearchParams): Prisma.Asiento_contable
     ];
   }
 
-  return filtro;
+  return filter;
 }
 
-/** Columna de `Asiento_contable` asociada a cada criterio de orden. */
-function ordenarPor(
-  campo: OrdenAsiento,
-  dir: DireccionOrden
-): Prisma.Asiento_contableOrderByWithRelationInput {
-  switch (campo) {
+/** Prisma order input corresponding to sort criteria. */
+function getOrderBy(
+  sortField: JournalEntrySort,
+  direction: SortDirection
+): Prisma.JournalEntryOrderByWithRelationInput {
+  switch (sortField) {
     case "numero":
-      return { codigo: dir };
+      return { code: direction };
     case "concepto":
-      return { glosa: dir };
+      return { description: direction };
     case "diario":
-      return { diario: dir };
+      return { book: direction };
     case "estado":
-      return { estado: dir };
+      return { status: direction };
     case "total":
-      // No es una columna: se ordena con la agregación del detalle.
       return {};
     case "fecha":
     default:
-      return { fecha_contable: dir };
+      return { entryDate: direction };
   }
 }
 
-/** Suma del debe de cada asiento indicado (clave: id del asiento). */
-async function totalesPorAsiento(ids: number[]): Promise<Map<number, number>> {
-  const sumas = await prisma.detalle_asiento_contable.groupBy({
-    by: ["id_asiento_contable"],
-    where: { id_asiento_contable: { in: ids } },
-    _sum: { debito: true },
+/** Sum of debit per journal entry ID. */
+async function getTotalsByEntryId(entryIds: number[]): Promise<Map<number, number>> {
+  const sums = await prisma.journalEntryDetail.groupBy({
+    by: ["entryId"],
+    where: { entryId: { in: entryIds } },
+    _sum: { debit: true },
   });
 
-  return new Map(sumas.map((s) => [s.id_asiento_contable, Number(s._sum.debito ?? 0)]));
+  return new Map(sums.map((s) => [s.entryId, Number(s._sum.debit ?? 0)]));
 }
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
-    const page = entero(searchParams.get("page"), 1, 1, Number.MAX_SAFE_INTEGER);
-    const pageSize = entero(searchParams.get("pageSize"), 10, 1, 100);
-    const ordenParam = (searchParams.get("orden") ?? "fecha") as OrdenAsiento;
-    const orden: OrdenAsiento = ORDENES.includes(ordenParam) ? ordenParam : "fecha";
-    const dir: DireccionOrden = searchParams.get("dir") === "asc" ? "asc" : "desc";
+    const page = parseInteger(searchParams.get("page"), 1, 1, Number.MAX_SAFE_INTEGER);
+    const pageSize = parseInteger(searchParams.get("pageSize"), 10, 1, 100);
+    const sortParam = (searchParams.get("orden") ?? "fecha") as JournalEntrySort;
+    const sort: JournalEntrySort = VALID_SORTS.includes(sortParam) ? sortParam : "fecha";
+    const dir: SortDirection = searchParams.get("dir") === "asc" ? "asc" : "desc";
 
-    const filtro = construirFiltro(searchParams);
+    const filter = buildFilter(searchParams);
 
-    // Los conteos por estado se agregan al filtro con AND: así
-    // `registrados + anulados` siempre coincide con `total`.
-    const [total, registrados, anulados] = await Promise.all([
-      prisma.asiento_contable.count({ where: filtro }),
-      prisma.asiento_contable.count({ where: { AND: [filtro, { estado: true }] } }),
-      prisma.asiento_contable.count({ where: { AND: [filtro, { estado: false }] } }),
+    const [total, registered, annulled] = await Promise.all([
+      prisma.journalEntry.count({ where: filter }),
+      prisma.journalEntry.count({ where: { AND: [filter, { status: true }] } }),
+      prisma.journalEntry.count({ where: { AND: [filter, { status: false }] } }),
     ]);
 
-    const totalPaginas = Math.max(1, Math.ceil(total / pageSize));
-    const pagina = Math.min(page, totalPaginas);
-    const offset = (pagina - 1) * pageSize;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const effectivePage = Math.min(page, totalPages);
+    const offset = (effectivePage - 1) * pageSize;
 
-    // El total del asiento es la suma de sus líneas, así que para ordenar por
-    // esa columna derivada primero se agrupan los importes con Prisma y se
-    // ordena el resultado; después se pide sólo la página solicitada.
-    let idsPagina: number[] | null = null;
-    if (orden === "total") {
-      const filas = await prisma.asiento_contable.findMany({
-        where: filtro,
-        select: { id_asiento_contable: true },
+    let pageEntryIds: number[] | null = null;
+    if (sort === "total") {
+      const rows = await prisma.journalEntry.findMany({
+        where: filter,
+        select: { id: true },
       });
-      const totales = await totalesPorAsiento(filas.map((f) => f.id_asiento_contable));
-      const ordenadas = filas
-        .map((f) => ({ id: f.id_asiento_contable, total: totales.get(f.id_asiento_contable) ?? 0 }))
-        .sort(
-          (a, b) =>
-            (dir === "asc" ? a.total - b.total : b.total - a.total) || b.id - a.id
-        );
-      idsPagina = ordenadas.slice(offset, offset + pageSize).map((f) => f.id);
+      const totalsMap = await getTotalsByEntryId(rows.map((r) => r.id));
+      const sortedRows = rows
+        .map((r) => ({ id: r.id, total: totalsMap.get(r.id) ?? 0 }))
+        .sort((a, b) => (dir === "asc" ? a.total - b.total : b.total - a.total) || b.id - a.id);
+      pageEntryIds = sortedRows.slice(offset, offset + pageSize).map((r) => r.id);
     }
 
-    const filtroPagina: Prisma.Asiento_contableWhereInput = idsPagina
-      ? { AND: [filtro, { id_asiento_contable: { in: idsPagina } }] }
-      : filtro;
+    const pageFilter: Prisma.JournalEntryWhereInput = pageEntryIds
+      ? { AND: [filter, { id: { in: pageEntryIds } }] }
+      : filter;
 
-    const registros = await prisma.asiento_contable.findMany({
-      where: filtroPagina,
-      orderBy: idsPagina ? undefined : [ordenarPor(orden, dir), { id_asiento_contable: "desc" }],
-      skip: idsPagina ? undefined : offset,
-      take: idsPagina ? undefined : pageSize,
+    const records = await prisma.journalEntry.findMany({
+      where: pageFilter,
+      orderBy: pageEntryIds ? undefined : [getOrderBy(sort, dir), { id: "desc" }],
+      skip: pageEntryIds ? undefined : offset,
+      take: pageEntryIds ? undefined : pageSize,
       select: {
-        id_asiento_contable: true,
-        codigo: true,
-        fecha_contable: true,
-        diario: true,
-        glosa: true,
-        responsable: true,
-        estado: true,
-        detalles_asiento: { select: { debito: true } },
+        id: true,
+        code: true,
+        entryDate: true,
+        book: true,
+        description: true,
+        responsible: true,
+        status: true,
+        entryDetails: { select: { debit: true } },
       },
     });
 
-    const data = registros.map((r) => ({
-      id: r.id_asiento_contable,
-      numero: r.codigo,
-      fecha: fechaAISO(r.fecha_contable),
-      diario: r.diario,
-      concepto: r.glosa,
-      responsable: r.responsable,
-      estado: r.estado ? "Registrado" : "Anulado",
-      total: r.detalles_asiento.reduce((suma, linea) => suma + Number(linea.debito), 0),
+    const data = records.map((entry) => ({
+      id: entry.id,
+      numero: entry.code,
+      fecha: formatDateToIso(entry.entryDate),
+      diario: entry.book,
+      concepto: entry.description,
+      responsable: entry.responsible,
+      estado: entry.status ? ("Registrado" as const) : ("Anulado" as const),
+      total: entry.entryDetails.reduce((sum, line) => sum + Number(line.debit), 0),
     }));
 
-    // Al ordenar por total el orden de la página viene dado por `idsPagina`.
-    if (idsPagina) {
-      const posicion = new Map(idsPagina.map((id, i) => [id, i]));
-      data.sort((a, b) => (posicion.get(a.id) ?? 0) - (posicion.get(b.id) ?? 0));
+    if (pageEntryIds) {
+      const positionMap = new Map(pageEntryIds.map((id, index) => [id, index]));
+      data.sort((a, b) => (positionMap.get(a.id) ?? 0) - (positionMap.get(b.id) ?? 0));
     }
 
     return Response.json({
       data,
       meta: {
         total,
-        registrados,
-        anulados,
-        // Página efectiva: si los filtros reducen el resultado, se recorta al último rango
-        page: pagina,
+        registrados: registered,
+        anulados: annulled,
+        page: effectivePage,
         pageSize,
-        totalPaginas,
-        orden,
+        totalPaginas: totalPages,
+        orden: sort,
         dir,
       },
     });
@@ -206,194 +191,181 @@ export async function GET(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Registro manual de un asiento contable
+// Manual registration of a journal entry
 // ---------------------------------------------------------------------------
 
-/** Línea ya validada, lista para persistirse. */
-interface LineaNueva {
-  idCuenta: number;
-  descripcion: string | null;
-  debe: number;
-  haber: number;
+interface ValidatedLine {
+  accountId: number;
+  description: string | null;
+  debit: number;
+  credit: number;
 }
 
-/** Redondea a 2 decimales (precisión monetaria) sin sorpresas de coma flotante. */
-function redondear2(valor: number): number {
-  return Math.round(valor * 100) / 100;
+function roundToTwo(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
-/** Texto recortado del body; cualquier valor que no sea texto se trata como vacío. */
-function texto(valor: unknown): string {
-  return typeof valor === "string" ? valor.trim() : "";
+function trimString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-/** Importe numérico: acepta número o su representación en texto (vacío = 0). */
-function importe(valor: unknown): number | null {
-  if (valor === undefined || valor === null || valor === "") return 0;
-  const numero = typeof valor === "number" ? valor : Number(valor);
-  return Number.isFinite(numero) ? numero : null;
+function parseAmount(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return 0;
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : null;
 }
 
-/** `true` cuando el fallo corresponde al índice único de `asiento_contable.codigo`. */
-function codigoDuplicado(error: unknown): boolean {
+function isDuplicateCode(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-/**
- * Registra un asiento contable manual con sus líneas.
- *
- * El número (`codigo`) siempre lo genera el servidor con
- * `generarCodigoAsiento`; si dos peticiones concurrentes eligen el mismo, el
- * índice único rechaza la segunda y se reintenta (hasta 3 veces).
- */
 export async function POST(request: NextRequest) {
   try {
-    const cuerpo = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo)) {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
       return Response.json(
         { error: "El cuerpo de la petición no es un JSON válido." },
         { status: 400 }
       );
     }
 
-    const errores: string[] = [];
+    const errors: string[] = [];
 
-    const fecha = texto(cuerpo.fecha);
-    if (!FECHA_RE.test(fecha)) {
-      errores.push("La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.");
+    const dateStr = trimString(body.fecha);
+    if (!DATE_REGEX.test(dateStr)) {
+      errors.push("La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.");
     }
 
-    const glosa = texto(cuerpo.glosa);
-    if (!glosa) errores.push("El concepto (glosa) del asiento es obligatorio.");
-    else if (glosa.length > 200) errores.push("El concepto no puede superar los 200 caracteres.");
+    const description = trimString(body.glosa);
+    if (!description) errors.push("El concepto (glosa) del asiento es obligatorio.");
+    else if (description.length > 200) errors.push("El concepto no puede superar los 200 caracteres.");
 
-    const diario = texto(cuerpo.diario) || "Operaciones varias";
-    if (diario.length > 60) errores.push("El diario no puede superar los 60 caracteres.");
+    const book = trimString(body.diario) || "Operaciones varias";
+    if (book.length > 60) errors.push("El diario no puede superar los 60 caracteres.");
 
-    const responsable = texto(cuerpo.responsable);
-    if (responsable.length > 100) {
-      errores.push("El responsable no puede superar los 100 caracteres.");
+    const responsible = trimString(body.responsable);
+    if (responsible.length > 100) {
+      errors.push("El responsable no puede superar los 100 caracteres.");
     }
 
-    const observacion = texto(cuerpo.observacion);
-    if (observacion.length > 200) {
-      errores.push("La observación no puede superar los 200 caracteres.");
+    const observation = trimString(body.observacion);
+    if (observation.length > 200) {
+      errors.push("La observación no puede superar los 200 caracteres.");
     }
 
-    const estado = typeof cuerpo.estado === "boolean" ? cuerpo.estado : true;
+    const status = typeof body.estado === "boolean" ? body.estado : true;
 
-    const entradas = Array.isArray(cuerpo.lineas) ? cuerpo.lineas : [];
-    if (entradas.length < 2) {
-      errores.push("El asiento debe registrar al menos dos líneas (debe y haber).");
-    } else if (entradas.length > 100) {
-      errores.push("El asiento no puede superar las 100 líneas.");
+    const rawLines = Array.isArray(body.lineas) ? body.lineas : [];
+    if (rawLines.length < 2) {
+      errors.push("El asiento debe registrar al menos dos líneas (debe y haber).");
+    } else if (rawLines.length > 100) {
+      errors.push("El asiento no puede superar las 100 líneas.");
     }
 
-    const lineas: LineaNueva[] = [];
-    entradas.forEach((entrada, indice) => {
-      const etiqueta = `Línea ${indice + 1}:`;
+    const validatedLines: ValidatedLine[] = [];
+    rawLines.forEach((rawLine, index) => {
+      const lineLabel = `Línea ${index + 1}:`;
 
-      if (!entrada || typeof entrada !== "object") {
-        errores.push(`${etiqueta} el formato de la línea no es válido.`);
+      if (!rawLine || typeof rawLine !== "object") {
+        errors.push(`${lineLabel} el formato de la línea no es válido.`);
         return;
       }
 
-      const linea = entrada as Record<string, unknown>;
+      const lineObj = rawLine as Record<string, unknown>;
 
-      const idCuenta = Number(linea.idCuenta);
-      if (!Number.isInteger(idCuenta) || idCuenta <= 0) {
-        errores.push(`${etiqueta} falta la cuenta contable.`);
-        return;
-      }
-
-      const descripcion = texto(linea.descripcion);
-      if (descripcion.length > 200) {
-        errores.push(`${etiqueta} la descripción no puede superar los 200 caracteres.`);
-      }
-
-      const debe = importe(linea.debe);
-      const haber = importe(linea.haber);
-      if (debe === null || haber === null) {
-        errores.push(`${etiqueta} los importes deben ser números válidos.`);
-        return;
-      }
-      if (debe < 0 || haber < 0) {
-        errores.push(`${etiqueta} los importes no pueden ser negativos.`);
-        return;
-      }
-      if (debe > 0 && haber > 0) {
-        errores.push(`${etiqueta} no puede tener importe en debe y en haber al mismo tiempo.`);
-        return;
-      }
-      if (debe === 0 && haber === 0) {
-        errores.push(`${etiqueta} debe tener un importe en debe o en haber.`);
+      const accountId = Number(lineObj.idCuenta);
+      if (!Number.isInteger(accountId) || accountId <= 0) {
+        errors.push(`${lineLabel} falta la cuenta contable.`);
         return;
       }
 
-      lineas.push({
-        idCuenta,
-        descripcion: descripcion || null,
-        debe: redondear2(debe),
-        haber: redondear2(haber),
+      const lineDescription = trimString(lineObj.descripcion);
+      if (lineDescription.length > 200) {
+        errors.push(`${lineLabel} la descripción no puede superar los 200 caracteres.`);
+      }
+
+      const debit = parseAmount(lineObj.debe);
+      const credit = parseAmount(lineObj.haber);
+      if (debit === null || credit === null) {
+        errors.push(`${lineLabel} los importes deben ser números válidos.`);
+        return;
+      }
+      if (debit < 0 || credit < 0) {
+        errors.push(`${lineLabel} los importes no pueden ser negativos.`);
+        return;
+      }
+      if (debit > 0 && credit > 0) {
+        errors.push(`${lineLabel} no puede tener importe en debe y en haber al mismo tiempo.`);
+        return;
+      }
+      if (debit === 0 && credit === 0) {
+        errors.push(`${lineLabel} debe tener un importe en debe o en haber.`);
+        return;
+      }
+
+      validatedLines.push({
+        accountId,
+        description: lineDescription || null,
+        debit: roundToTwo(debit),
+        credit: roundToTwo(credit),
       });
     });
 
-    const totalDebe = redondear2(lineas.reduce((suma, linea) => suma + linea.debe, 0));
-    const totalHaber = redondear2(lineas.reduce((suma, linea) => suma + linea.haber, 0));
-    if (lineas.length >= 2 && Math.abs(totalDebe - totalHaber) >= 0.005) {
-      errores.push(
-        `El asiento no cuadra: el debe (${totalDebe.toFixed(2)}) no coincide con el haber (${totalHaber.toFixed(2)}).`
+    const totalDebit = roundToTwo(validatedLines.reduce((sum, line) => sum + line.debit, 0));
+    const totalCredit = roundToTwo(validatedLines.reduce((sum, line) => sum + line.credit, 0));
+    if (validatedLines.length >= 2 && Math.abs(totalDebit - totalCredit) >= 0.005) {
+      errors.push(
+        `El asiento no cuadra: el debe (${totalDebit.toFixed(2)}) no coincide con el haber (${totalCredit.toFixed(2)}).`
       );
     }
 
-    if (errores.length > 0) {
-      return Response.json({ error: errores[0], errores }, { status: 400 });
+    if (errors.length > 0) {
+      return Response.json({ error: errors[0], errores: errors }, { status: 400 });
     }
 
-    // Todas las líneas deben apuntar a cuentas existentes del plan contable.
-    const idsCuentas = [...new Set(lineas.map((linea) => linea.idCuenta))];
-    const cuentas = await prisma.cuenta_contable.findMany({
-      where: { id_cuenta_contable: { in: idsCuentas } },
-      select: { id_cuenta_contable: true },
+    const uniqueAccountIds = [...new Set(validatedLines.map((line) => line.accountId))];
+    const existingAccounts = await prisma.accountingAccount.findMany({
+      where: { id: { in: uniqueAccountIds } },
+      select: { id: true },
     });
-    const existentes = new Set(cuentas.map((cuenta) => cuenta.id_cuenta_contable));
-    if (idsCuentas.some((id) => !existentes.has(id))) {
+    const foundAccountIds = new Set(existingAccounts.map((acc) => acc.id));
+    if (uniqueAccountIds.some((id) => !foundAccountIds.has(id))) {
       return Response.json(
         { error: "Una o más cuentas contables del asiento no existen en el plan contable." },
         { status: 400 }
       );
     }
 
-    const fechaContable = fechaUTC(fecha);
+    const accountingDate = parseUtcDate(dateStr);
 
-    let asiento: Asiento_contable | null = null;
-    for (let intento = 0; intento < 3 && !asiento; intento++) {
+    let createdEntry: JournalEntry | null = null;
+    for (let attempt = 0; attempt < 3 && !createdEntry; attempt++) {
       try {
-        asiento = await prisma.asiento_contable.create({
+        createdEntry = await prisma.journalEntry.create({
           data: {
-            codigo: await generarCodigoAsiento(fechaContable),
-            fecha_contable: fechaContable,
-            glosa,
-            diario,
-            responsable: responsable || null,
-            observacion: observacion || null,
-            estado,
-            detalles_asiento: {
-              create: lineas.map((linea) => ({
-                id_cuenta_contable: linea.idCuenta,
-                descripcion: linea.descripcion,
-                debito: linea.debe,
-                credito: linea.haber,
+            code: await generateJournalEntryCode(accountingDate),
+            entryDate: accountingDate,
+            description,
+            book,
+            responsible: responsible || null,
+            observation: observation || null,
+            status,
+            entryDetails: {
+              create: validatedLines.map((line) => ({
+                accountId: line.accountId,
+                description: line.description,
+                debit: line.debit,
+                credit: line.credit,
               })),
             },
           },
         });
-      } catch (error) {
-        if (!codigoDuplicado(error)) throw error;
+      } catch (err) {
+        if (!isDuplicateCode(err)) throw err;
       }
     }
 
-    if (!asiento) {
+    if (!createdEntry) {
       return Response.json(
         { error: "No se pudo asignar un número de asiento, intente nuevamente." },
         { status: 500 }
@@ -402,14 +374,14 @@ export async function POST(request: NextRequest) {
 
     return Response.json(
       {
-        id: asiento.id_asiento_contable,
-        numero: asiento.codigo,
-        fecha,
-        diario: asiento.diario,
-        concepto: asiento.glosa,
-        responsable: asiento.responsable,
-        estado: asiento.estado ? "Registrado" : "Anulado",
-        total: totalDebe,
+        id: createdEntry.id,
+        numero: createdEntry.code,
+        fecha: dateStr,
+        diario: createdEntry.book,
+        concepto: createdEntry.description,
+        responsable: createdEntry.responsible,
+        estado: createdEntry.status ? "Registrado" : "Anulado",
+        total: totalDebit,
       },
       { status: 201 }
     );

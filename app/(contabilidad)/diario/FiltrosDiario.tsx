@@ -5,30 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface Props {
-  desde: string;
-  hasta: string;
-  /** `true` cuando hay un periodo u otro filtro activo. */
-  hayFiltros: boolean;
-  /** `true` cuando el rango no tiene sentido (inicial > final). */
-  rangoInvalido: boolean;
-  onDesde: (valor: string) => void;
-  onHasta: (valor: string) => void;
-  onLimpiar: () => void;
+  from: string;
+  to: string;
+  /** `true` when a period or filter is active. */
+  hasFilters: boolean;
+  /** `true` when the date range is invalid (from > to). */
+  invalidRange: boolean;
+  onFrom: (value: string) => void;
+  onTo: (value: string) => void;
+  onClear: () => void;
 }
 
 /**
- * Filtro de periodo del libro diario: fecha inicial y fecha final (ambas
- * inclusive). El `max`/`min` de cada input impide elegir un rango invertido
- * desde el navegador.
+ * Daily book date filter: start date and end date (both inclusive).
  */
-export function FiltrosDiario({
-  desde,
-  hasta,
-  hayFiltros,
-  rangoInvalido,
-  onDesde,
-  onHasta,
-  onLimpiar,
+export function DailyBookFilters({
+  from,
+  to,
+  hasFilters,
+  invalidRange,
+  onFrom,
+  onTo,
+  onClear,
 }: Readonly<Props>) {
   return (
     <div className="flex flex-col gap-2">
@@ -43,9 +41,9 @@ export function FiltrosDiario({
           <Input
             id="diario-desde"
             type="date"
-            value={desde}
-            max={hasta || undefined}
-            onChange={(e) => onDesde(e.target.value)}
+            value={from}
+            max={to || undefined}
+            onChange={(e) => onFrom(e.target.value)}
             aria-label="Fecha inicial del periodo"
             className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
           />
@@ -58,9 +56,9 @@ export function FiltrosDiario({
           <Input
             id="diario-hasta"
             type="date"
-            value={hasta}
-            min={desde || undefined}
-            onChange={(e) => onHasta(e.target.value)}
+            value={to}
+            min={from || undefined}
+            onChange={(e) => onTo(e.target.value)}
             aria-label="Fecha final del periodo"
             className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
           />
@@ -74,8 +72,8 @@ export function FiltrosDiario({
           <Button
             variant="outline"
             type="button"
-            onClick={onLimpiar}
-            disabled={!hayFiltros}
+            onClick={onClear}
+            disabled={!hasFilters}
             title="Limpiar filtros"
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
           >
@@ -84,7 +82,7 @@ export function FiltrosDiario({
         </div>
       </div>
 
-      {rangoInvalido && (
+      {invalidRange && (
         <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           La fecha inicial no puede ser posterior a la fecha final.
         </p>
@@ -92,3 +90,7 @@ export function FiltrosDiario({
     </div>
   );
 }
+
+// Backwards compatibility alias
+export const FiltrosDiario = DailyBookFilters;
+

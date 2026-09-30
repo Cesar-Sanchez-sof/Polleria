@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  construirQuery,
-  ErrorApi,
-  listarAsientos,
-  registrarAsiento,
-  type AsientoResumen,
-  type DireccionOrden,
-  type EntradaAsiento,
-  type FiltroAsientos,
-  type OrdenAsiento,
-  type PaginaAsientos,
+  buildQuery,
+  ApiError,
+  listJournalEntries,
+  registerJournalEntry,
+  type JournalEntrySummary,
+  type SortDirection,
+  type NewJournalEntryInput,
+  type JournalEntriesFilter,
+  type JournalEntrySort,
+  type JournalEntriesPage,
 } from "./asientos.service";
 
-const PAGINA: PaginaAsientos = {
+const PAGE_DATA: JournalEntriesPage = {
   data: [
     {
       id: 7,
@@ -37,34 +37,32 @@ const PAGINA: PaginaAsientos = {
   },
 };
 
-/** Respuesta JSON con estado indicado. */
-function respuestaJson(cuerpo: unknown, status = 200): Response {
-  return new Response(JSON.stringify(cuerpo), {
+function createJsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
 }
 
-/** Ejecuta la petición y devuelve el ErrorApi lanzado (falla si no lanza). */
-async function errorDe(peticion: Promise<unknown>): Promise<ErrorApi> {
+async function catchApiError(promise: Promise<unknown>): Promise<ApiError> {
   try {
-    await peticion;
-  } catch (error) {
-    return error as ErrorApi;
+    await promise;
+  } catch (err) {
+    return err as ApiError;
   }
   throw new Error("La petición no lanzó el error esperado.");
 }
 
 const fetchMock = vi.fn();
 
-describe("construirQuery (listar asientos)", () => {
+describe("buildQuery (listar asientos)", () => {
   it("omite los filtros vacíos y fija el orden por defecto", () => {
-    expect(construirQuery({})).toBe("orden=fecha&dir=desc");
+    expect(buildQuery({})).toBe("orden=fecha&dir=desc");
   });
 
   it("serializa todos los filtros activos", () => {
     const params = new URLSearchParams(
-      construirQuery({
+      buildQuery({
         desde: "2025-05-01",
         hasta: "2025-06-30",
         diario: "Banco / Caja",
@@ -81,7 +79,7 @@ describe("construirQuery (listar asientos)", () => {
     expect(params.get("hasta")).toBe("2025-06-30");
     expect(params.get("diario")).toBe("Banco / Caja");
     expect(params.get("estado")).toBe("registrado");
-    expect(params.get("q")).toBe("caja"); // sin espacios sobrantes
+    expect(params.get("q")).toBe("caja");
     expect(params.get("page")).toBe("2");
     expect(params.get("pageSize")).toBe("25");
     expect(params.get("orden")).toBe("total");
@@ -89,12 +87,12 @@ describe("construirQuery (listar asientos)", () => {
   });
 
   it("descarta orden y dirección que no sean válidos", () => {
-    const filtros = {
+    const filters = {
       orden: "loquesea",
       dir: "ASC",
-    } as unknown as FiltroAsientos;
+    } as unknown as JournalEntriesFilter;
 
-    const params = new URLSearchParams(construirQuery(filtros));
+    const params = new URLSearchParams(buildQuery(filters));
 
     expect(params.get("orden")).toBe("fecha");
     expect(params.get("dir")).toBe("desc");
@@ -102,7 +100,7 @@ describe("construirQuery (listar asientos)", () => {
 
   it("conserva un orden válido aunque la dirección sea distinta", () => {
     const params = new URLSearchParams(
-      construirQuery({ orden: "concepto" as OrdenAsiento, dir: "asc" as DireccionOrden })
+      buildQuery({ orden: "concepto" as JournalEntrySort, dir: "asc" as SortDirection })
     );
 
     expect(params.get("orden")).toBe("concepto");
@@ -110,7 +108,7 @@ describe("construirQuery (listar asientos)", () => {
   });
 });
 
-describe("listarAsientos", () => {
+describe("listJournalEntries", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
@@ -121,11 +119,11 @@ describe("listarAsientos", () => {
   });
 
   it("consulta /api/asientos con los filtros y sin caché", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(PAGINA));
+    fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    const resultado = await listarAsientos({ page: 2, orden: "concepto", dir: "asc" });
+    const result = await listJournalEntries({ page: 2, orden: "concepto", dir: "asc" });
 
-    expect(resultado).toEqual(PAGINA);
+    expect(result).toEqual(PAGE_DATA);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith("/api/asientos?page=2&orden=concepto&dir=asc", {
       cache: "no-store",
@@ -133,9 +131,9 @@ describe("listarAsientos", () => {
   });
 
   it("usa los valores por defecto cuando no se envían filtros", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(PAGINA));
+    fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    await listarAsientos();
+    await listJournalEntries();
 
     expect(fetchMock).toHaveBeenCalledWith("/api/asientos?orden=fecha&dir=desc", {
       cache: "no-store",
@@ -144,46 +142,45 @@ describe("listarAsientos", () => {
 
   it("propaga el error del servidor como ErrorApi con sus validaciones", async () => {
     fetchMock.mockResolvedValue(
-      respuestaJson(
+      createJsonResponse(
         { error: "No se pudo obtener el listado de asientos contables.", errores: ["detalle 1"] },
         500
       )
     );
 
-    const error = await errorDe(listarAsientos());
+    const error = await catchApiError(listJournalEntries());
 
-    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.message).toBe("No se pudo obtener el listado de asientos contables.");
-    expect(error.errores).toEqual(["detalle 1"]);
+    expect(error.errors).toEqual(["detalle 1"]);
   });
 
   it("usa el propio mensaje como detalle cuando la respuesta no trae `errores`", async () => {
-    fetchMock.mockResolvedValue(respuestaJson({ error: "Página no encontrada" }, 404));
+    fetchMock.mockResolvedValue(createJsonResponse({ error: "Página no encontrada" }, 404));
 
-    const error = await errorDe(listarAsientos());
+    const error = await catchApiError(listJournalEntries());
 
-    expect(error).toBeInstanceOf(ErrorApi);
-    expect(error.errores).toEqual(["Página no encontrada"]);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.errors).toEqual(["Página no encontrada"]);
   });
 
   it("informa de fallo de conexión si fetch se rechaza", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
 
-    await expect(listarAsientos()).rejects.toThrow("No se pudo conectar con el servidor.");
+    await expect(listJournalEntries()).rejects.toThrow("No se pudo conectar con el servidor.");
   });
 
   it("usa un mensaje genérico si la respuesta no es JSON", async () => {
     fetchMock.mockResolvedValue(new Response("Internal Server Error", { status: 500 }));
 
-    await expect(listarAsientos()).rejects.toThrow(
+    await expect(listJournalEntries()).rejects.toThrow(
       "Error inesperado al consultar el servicio."
     );
   });
 });
 
-describe("registrarAsiento", () => {
-  /** Asiento que envía el diálogo de alta manual. */
-  const ENTRADA: EntradaAsiento = {
+describe("registerJournalEntry", () => {
+  const INPUT: NewJournalEntryInput = {
     fecha: "2026-09-27",
     diario: "Operaciones varias",
     glosa: "Caja chica: compra de insumos",
@@ -196,7 +193,7 @@ describe("registrarAsiento", () => {
     ],
   };
 
-  const RESUMEN: AsientoResumen = {
+  const SUMMARY: JournalEntrySummary = {
     id: 501,
     numero: "MISC/2026/09/0001",
     fecha: "2026-09-27",
@@ -217,21 +214,21 @@ describe("registrarAsiento", () => {
   });
 
   it("envía el asiento en JSON a /api/asientos y devuelve su resumen", async () => {
-    fetchMock.mockResolvedValue(respuestaJson(RESUMEN, 201));
+    fetchMock.mockResolvedValue(createJsonResponse(SUMMARY, 201));
 
-    const resultado = await registrarAsiento(ENTRADA);
+    const result = await registerJournalEntry(INPUT);
 
-    expect(resultado).toEqual(RESUMEN);
+    expect(result).toEqual(SUMMARY);
     expect(fetchMock).toHaveBeenCalledWith("/api/asientos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(ENTRADA),
+      body: JSON.stringify(INPUT),
     });
   });
 
   it("convierte las validaciones del servidor en un ErrorApi con cada detalle", async () => {
     fetchMock.mockResolvedValue(
-      respuestaJson(
+      createJsonResponse(
         {
           error: "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
           errores: [
@@ -243,13 +240,13 @@ describe("registrarAsiento", () => {
       )
     );
 
-    const error = await errorDe(registrarAsiento(ENTRADA));
+    const error = await catchApiError(registerJournalEntry(INPUT));
 
-    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.message).toBe(
       "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00)."
     );
-    expect(error.errores).toEqual([
+    expect(error.errors).toEqual([
       "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
       "Línea 2: los importes no pueden ser negativos.",
     ]);
@@ -257,19 +254,19 @@ describe("registrarAsiento", () => {
 
   it("usa el propio mensaje como detalle cuando la respuesta no trae `errores`", async () => {
     fetchMock.mockResolvedValue(
-      respuestaJson(
+      createJsonResponse(
         { error: "Una o más cuentas contables del asiento no existen en el plan contable." },
         400
       )
     );
 
-    const error = await errorDe(registrarAsiento(ENTRADA));
+    const error = await catchApiError(registerJournalEntry(INPUT));
 
-    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.message).toBe(
       "Una o más cuentas contables del asiento no existen en el plan contable."
     );
-    expect(error.errores).toEqual([
+    expect(error.errors).toEqual([
       "Una o más cuentas contables del asiento no existen en el plan contable.",
     ]);
   });
@@ -277,7 +274,7 @@ describe("registrarAsiento", () => {
   it("informa de fallo de conexión si fetch se rechaza", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
 
-    await expect(registrarAsiento(ENTRADA)).rejects.toThrow(
+    await expect(registerJournalEntry(INPUT)).rejects.toThrow(
       "No se pudo conectar con el servidor."
     );
   });

@@ -2,243 +2,220 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, X } from "lucide-react";
-import Sidebar from "@/components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 
 import { CuentaDialog } from "./CuentaDialog";
-import { TablaCuentas, type FilaCuenta } from "./TablaCuentas";
+import { TablaCuentas, type AccountTableRow } from "./TablaCuentas";
 import { ToolbarCuentas } from "./ToolbarCuentas";
 
 import {
-  actualizarCuenta,
-  ErrorApi,
-  listarCuentas,
-  type CuentaContable,
+  updateAccount,
+  ErrorApi as ApiError,
+  listAccounts,
+  type AccountingAccount,
 } from "@/lib/services/cuentas.service";
 
 /**
- * Pantalla de consulta y alta del plan contable.
- * La lógica de presentación vive en ./<Componente>Cuentas.tsx y el acceso a
- * datos en lib/services/cuentas.service.ts.
+ * Chart of accounts overview and creation page.
  */
 export default function CuentasPage() {
-  // ---------------------------------------------------------------------
-  // Datos del plan contable
-  // ---------------------------------------------------------------------
-  const [cuentas, setCuentas] = useState<CuentaContable[]>([]);
-  const [cargando, setCargando] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Filtros (se aplican en cliente para no separar a una subcuenta de su padre)
-  const [q, setQ] = useState<string>("");
-  const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
-  const [estadoFiltro, setEstadoFiltro] = useState<string>("todos");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("todos");
+  const [statusFilter, setStatusFilter] = useState<string>("todos");
 
-  // Ramas contraídas del árbol
-  const [contraidas, setContraidas] = useState<Set<number>>(() => new Set());
+  const [collapsedIds, setCollapsedIds] = useState<Set<number>>(() => new Set());
 
-  // Diálogo de alta / edición
-  const [dialogAbierto, setDialogAbierto] = useState<boolean>(false);
-  const [cuentaEditando, setCuentaEditando] = useState<CuentaContable | null>(null);
-  const [padreInicial, setPadreInicial] = useState<CuentaContable | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [editingAccount, setEditingAccount] = useState<AccountingAccount | null>(null);
+  const [initialParent, setInitialParent] = useState<AccountingAccount | null>(null);
 
-  // Cambio de estado (activar / desactivar) y avisos de error de acciones
-  const [idEnAccion, setIdEnAccion] = useState<number | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [actionAccountId, setActionAccountId] = useState<number | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
-  const cargar = useCallback(async () => {
-    setCargando(true);
-    setError(null);
+  const loadAccounts = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
     try {
-      const datos = await listarCuentas();
-      setCuentas(datos);
-    } catch (e) {
-      setCuentas([]);
-      setError(e instanceof Error ? e.message : "No se pudo cargar el plan contable.");
+      const data = await listAccounts();
+      setAccounts(data);
+    } catch (err) {
+      setAccounts([]);
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo cargar el plan contable.");
     } finally {
-      setCargando(false);
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // Se difiere al siguiente tick para no invocar setState de forma síncrona
-    // dentro del cuerpo del efecto (regla react-hooks/set-state-in-effect).
     const timer = setTimeout(() => {
-      void cargar();
+      void loadAccounts();
     }, 0);
     return () => clearTimeout(timer);
-  }, [cargar]);
+  }, [loadAccounts]);
 
-  // ---------------------------------------------------------------------
-  // Árbol y filas visibles
-  // ---------------------------------------------------------------------
-  const arbol = useMemo(() => {
-    const ids = new Set(cuentas.map((c) => c.id));
-    const hijos = new Map<number, CuentaContable[]>();
-    const raices: CuentaContable[] = [];
-    const comparar = (a: CuentaContable, b: CuentaContable) =>
+  const accountTree = useMemo(() => {
+    const accountIds = new Set(accounts.map((c) => c.id));
+    const childrenMap = new Map<number, AccountingAccount[]>();
+    const roots: AccountingAccount[] = [];
+    const compareByCode = (a: AccountingAccount, b: AccountingAccount) =>
       a.codigo.localeCompare(b.codigo);
 
-    for (const cuenta of cuentas) {
-      if (cuenta.idPadre !== null && ids.has(cuenta.idPadre)) {
-        const lista = hijos.get(cuenta.idPadre) ?? [];
-        lista.push(cuenta);
-        hijos.set(cuenta.idPadre, lista);
+    for (const account of accounts) {
+      if (account.idPadre !== null && accountIds.has(account.idPadre)) {
+        const list = childrenMap.get(account.idPadre) ?? [];
+        list.push(account);
+        childrenMap.set(account.idPadre, list);
       } else {
-        raices.push(cuenta);
+        roots.push(account);
       }
     }
 
-    raices.sort(comparar);
-    for (const lista of hijos.values()) lista.sort(comparar);
-    return { hijos, raices };
-  }, [cuentas]);
+    roots.sort(compareByCode);
+    for (const list of childrenMap.values()) list.sort(compareByCode);
+    return { children: childrenMap, roots };
+  }, [accounts]);
 
-  const hayFiltros = q.trim() !== "" || tipoFiltro !== "todos" || estadoFiltro !== "todos";
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || typeFilter !== "todos" || statusFilter !== "todos";
 
-  const filas = useMemo<FilaCuenta[]>(() => {
-    const texto = q.trim().toLowerCase();
+  const rows = useMemo<AccountTableRow[]>(() => {
+    const query = searchQuery.trim().toLowerCase();
 
-    const coincide = (cuenta: CuentaContable): boolean => {
-      if (texto && !`${cuenta.codigo} ${cuenta.nombre} ${cuenta.tipo}`.toLowerCase().includes(texto)) {
+    const matchesFilter = (account: AccountingAccount): boolean => {
+      if (query && !`${account.codigo} ${account.nombre} ${account.tipo}`.toLowerCase().includes(query)) {
         return false;
       }
-      if (tipoFiltro !== "todos" && cuenta.tipo !== tipoFiltro) return false;
-      if (estadoFiltro === "activas" && !cuenta.activo) return false;
-      if (estadoFiltro === "inactivas" && cuenta.activo) return false;
+      if (typeFilter !== "todos" && account.tipo !== typeFilter) return false;
+      if (statusFilter === "activas" && !account.activo) return false;
+      if (statusFilter === "inactivas" && account.activo) return false;
       return true;
     };
 
-    // Con filtros activos se muestra la cuenta y toda su ascendencia.
-    const enRama = (cuenta: CuentaContable): boolean =>
-      coincide(cuenta) || (arbol.hijos.get(cuenta.id) ?? []).some(enRama);
+    const isInBranch = (account: AccountingAccount): boolean =>
+      matchesFilter(account) || (accountTree.children.get(account.id) ?? []).some(isInBranch);
 
-    const salida: FilaCuenta[] = [];
-    const recorrer = (lista: CuentaContable[], profundidad: number) => {
-      for (const cuenta of lista) {
-        if (hayFiltros && !enRama(cuenta)) continue;
-        const hijos = arbol.hijos.get(cuenta.id) ?? [];
-        const contraida = !hayFiltros && contraidas.has(cuenta.id);
-        salida.push({
-          cuenta,
-          profundidad,
-          tieneHijos: hijos.length > 0,
-          expandida: !contraida,
+    const outputRows: AccountTableRow[] = [];
+    const traverse = (list: AccountingAccount[], depth: number) => {
+      for (const account of list) {
+        if (hasActiveFilters && !isInBranch(account)) continue;
+        const children = accountTree.children.get(account.id) ?? [];
+        const isCollapsed = !hasActiveFilters && collapsedIds.has(account.id);
+        outputRows.push({
+          cuenta: account,
+          profundidad: depth,
+          tieneHijos: children.length > 0,
+          expandida: !isCollapsed,
         });
-        if (!contraida) recorrer(hijos, profundidad + 1);
+        if (!isCollapsed) traverse(children, depth + 1);
       }
     };
 
-    recorrer(arbol.raices, 0);
-    return salida;
-  }, [arbol, contraidas, estadoFiltro, hayFiltros, q, tipoFiltro]);
+    traverse(accountTree.roots, 0);
+    return outputRows;
+  }, [accountTree, collapsedIds, statusFilter, hasActiveFilters, searchQuery, typeFilter]);
 
-  // ---------------------------------------------------------------------
-  // Acciones
-  // ---------------------------------------------------------------------
-  const alternarRama = (id: number) => {
-    setContraidas((previo) => {
-      const siguiente = new Set(previo);
-      if (siguiente.has(id)) siguiente.delete(id);
-      else siguiente.add(id);
-      return siguiente;
+  const handleToggleBranch = (id: number) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   };
 
-  const expandirTodo = () => setContraidas(new Set());
-  const contraerTodo = () => setContraidas(new Set(arbol.hijos.keys()));
+  const handleExpandAll = () => setCollapsedIds(new Set());
+  const handleCollapseAll = () => setCollapsedIds(new Set(accountTree.children.keys()));
 
-  const nuevaCuenta = () => {
-    setCuentaEditando(null);
-    setPadreInicial(null);
-    setDialogAbierto(true);
+  const handleCreateAccount = () => {
+    setEditingAccount(null);
+    setInitialParent(null);
+    setIsDialogOpen(true);
   };
 
-  const nuevaSubcuenta = (cuenta: CuentaContable) => {
-    setCuentaEditando(null);
-    setPadreInicial(cuenta);
-    setDialogAbierto(true);
+  const handleCreateSubaccount = (parent: AccountingAccount) => {
+    setEditingAccount(null);
+    setInitialParent(parent);
+    setIsDialogOpen(true);
   };
 
-  const editarCuenta = (cuenta: CuentaContable) => {
-    setCuentaEditando(cuenta);
-    setPadreInicial(null);
-    setDialogAbierto(true);
+  const handleEditAccount = (account: AccountingAccount) => {
+    setEditingAccount(account);
+    setInitialParent(null);
+    setIsDialogOpen(true);
   };
 
-  const cerrarDialogo = () => {
-    setDialogAbierto(false);
-    setCuentaEditando(null);
-    setPadreInicial(null);
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingAccount(null);
+    setInitialParent(null);
   };
 
-  const trasGuardar = () => {
-    cerrarDialogo();
-    void cargar();
+  const handleSaved = () => {
+    handleCloseDialog();
+    void loadAccounts();
   };
 
-  /** Activa o desactiva la cuenta; el servidor explica por qué no puede. */
-  const cambiarEstado = async (cuenta: CuentaContable) => {
-    if (idEnAccion !== null) return;
-    setIdEnAccion(cuenta.id);
-    setAviso(null);
+  const handleToggleStatus = async (account: AccountingAccount) => {
+    if (actionAccountId !== null) return;
+    setActionAccountId(account.id);
+    setNoticeMessage(null);
     try {
-      await actualizarCuenta(cuenta.id, { activo: !cuenta.activo });
-      await cargar();
-    } catch (e) {
-      setAviso(
-        e instanceof ErrorApi
-          ? e.message
-          : e instanceof Error
-            ? e.message
+      await updateAccount(account.id, { activo: !account.activo });
+      await loadAccounts();
+    } catch (err) {
+      setNoticeMessage(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
             : "No se pudo cambiar el estado de la cuenta."
       );
     } finally {
-      setIdEnAccion(null);
+      setActionAccountId(null);
     }
   };
 
-  const limpiarFiltros = () => {
-    setQ("");
-    setTipoFiltro("todos");
-    setEstadoFiltro("todos");
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setTypeFilter("todos");
+    setStatusFilter("todos");
   };
 
   return (
     <>
-      {/* Main content area */}
       <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
-        {/* Main Content */}
         <main className="relative flex-1 p-6">
           <div className="flex flex-col w-full gap-5">
-            {/* MAIN PLAN CONTABLE APPLICATION CARD */}
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
               <ToolbarCuentas
-                q={q}
-                onBuscar={setQ}
-                onLimpiarBusqueda={() => setQ("")}
-                tipo={tipoFiltro}
-                onTipo={setTipoFiltro}
-                estado={estadoFiltro}
-                onEstado={setEstadoFiltro}
-                onNuevo={nuevaCuenta}
-                visibles={filas.length}
-                total={cuentas.length}
-                cargando={cargando}
+                q={searchQuery}
+                onBuscar={setSearchQuery}
+                onLimpiarBusqueda={() => setSearchQuery("")}
+                tipo={typeFilter}
+                onTipo={setTypeFilter}
+                estado={statusFilter}
+                onEstado={setStatusFilter}
+                onNuevo={handleCreateAccount}
+                visibles={rows.length}
+                total={accounts.length}
+                cargando={isLoading}
               />
             </Card>
 
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              {/* Aviso de una acción rechazada por el servidor */}
-              {aviso && (
+              {noticeMessage && (
                 <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
                   <p className="flex items-start gap-1.5">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{aviso}</span>
+                    <span>{noticeMessage}</span>
                   </p>
                   <button
                     type="button"
-                    onClick={() => setAviso(null)}
+                    onClick={() => setNoticeMessage(null)}
                     className="text-amber-500 hover:text-amber-800 cursor-pointer shrink-0"
                     title="Descartar aviso"
                     aria-label="Descartar aviso"
@@ -249,34 +226,33 @@ export default function CuentasPage() {
               )}
 
               <TablaCuentas
-                filas={filas}
-                cargando={cargando}
-                error={error}
-                hayFiltros={hayFiltros}
-                idEnAccion={idEnAccion}
-                onAlternarRama={alternarRama}
-                onExpandirTodo={expandirTodo}
-                onContraerTodo={contraerTodo}
-                onEditar={editarCuenta}
-                onNuevoHijo={nuevaSubcuenta}
-                onCambiarEstado={(cuenta) => void cambiarEstado(cuenta)}
-                onReintentar={() => void cargar()}
-                onLimpiarFiltros={limpiarFiltros}
+                filas={rows}
+                cargando={isLoading}
+                error={errorMessage}
+                hayFiltros={hasActiveFilters}
+                idEnAccion={actionAccountId}
+                onAlternarRama={handleToggleBranch}
+                onExpandirTodo={handleExpandAll}
+                onContraerTodo={handleCollapseAll}
+                onEditar={handleEditAccount}
+                onNuevoHijo={handleCreateSubaccount}
+                onCambiarEstado={(acc) => void handleToggleStatus(acc)}
+                onReintentar={() => void loadAccounts()}
+                onLimpiarFiltros={handleClearFilters}
               />
             </Card>
           </div>
         </main>
       </div>
 
-      {/* ALTA / EDICIÓN DE UNA CUENTA */}
-      {dialogAbierto && (
+      {isDialogOpen && (
         <CuentaDialog
-          abierto={dialogAbierto}
-          cuenta={cuentaEditando}
-          padreInicial={padreInicial}
-          cuentas={cuentas}
-          onCerrar={cerrarDialogo}
-          onGuardado={trasGuardar}
+          abierto={isDialogOpen}
+          cuenta={editingAccount}
+          padreInicial={initialParent}
+          cuentas={accounts}
+          onCerrar={handleCloseDialog}
+          onGuardado={handleSaved}
         />
       )}
     </>

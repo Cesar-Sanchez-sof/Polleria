@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fechaAISO } from "@/lib/fechas";
+import { formatDateToIso } from "@/lib/fechas";
 
 export const dynamic = "force-dynamic";
 
@@ -10,54 +10,54 @@ export async function GET(
 ) {
   try {
     const { id: idParam } = await params;
-    const id = Number.parseInt(idParam, 10);
+    const entryId = Number.parseInt(idParam, 10);
 
-    if (Number.isNaN(id)) {
+    if (Number.isNaN(entryId)) {
       return Response.json({ error: "Identificador de asiento inválido." }, { status: 400 });
     }
 
-    const asiento = await prisma.asiento_contable.findUnique({
-      where: { id_asiento_contable: id },
+    const entry = await prisma.journalEntry.findUnique({
+      where: { id: entryId },
       include: {
-        detalles_asiento: {
-          orderBy: { id_detalle_asiento_contable: "asc" },
-          include: { cuenta_contable: true },
+        entryDetails: {
+          orderBy: { id: "asc" },
+          include: { account: true },
         },
       },
     });
 
-    if (!asiento) {
+    if (!entry) {
       return Response.json({ error: "Asiento contable no encontrado." }, { status: 404 });
     }
 
-    const lineas = asiento.detalles_asiento.map((linea) => ({
-      id: linea.id_detalle_asiento_contable,
-      cuentaCodigo: linea.cuenta_contable.codigo,
-      cuentaNombre: linea.cuenta_contable.nombre,
-      cuentaTipo: linea.cuenta_contable.tipo,
-      descripcion: linea.descripcion ?? "",
-      debe: Number(linea.debito),
-      haber: Number(linea.credito),
+    const lines = entry.entryDetails.map((line) => ({
+      id: line.id,
+      cuentaCodigo: line.account.code,
+      cuentaNombre: line.account.name,
+      cuentaTipo: line.account.type,
+      descripcion: line.description ?? "",
+      debe: Number(line.debit),
+      haber: Number(line.credit),
     }));
 
-    const totalDebe = lineas.reduce((suma, l) => suma + l.debe, 0);
-    const totalHaber = lineas.reduce((suma, l) => suma + l.haber, 0);
+    const totalDebit = lines.reduce((sum, l) => sum + l.debe, 0);
+    const totalCredit = lines.reduce((sum, l) => sum + l.haber, 0);
 
     return Response.json({
-      id: asiento.id_asiento_contable,
-      numero: asiento.codigo,
-      fecha: fechaAISO(asiento.fecha_contable),
-      diario: asiento.diario,
-      concepto: asiento.glosa,
-      estado: asiento.estado ? "Registrado" : "Anulado",
-      responsable: asiento.responsable ?? "",
-      observacion: asiento.observacion ?? "",
-      fechaCreacion: asiento.fecha_creacion.toISOString(),
-      fechaActualizacion: asiento.fecha_actualizacion.toISOString(),
-      total: totalDebe,
-      cuadrado: Math.abs(totalDebe - totalHaber) < 0.005,
-      totales: { debe: totalDebe, haber: totalHaber },
-      lineas,
+      id: entry.id,
+      numero: entry.code,
+      fecha: formatDateToIso(entry.entryDate),
+      diario: entry.book,
+      concepto: entry.description,
+      estado: entry.status ? "Registrado" : "Anulado",
+      responsable: entry.responsible ?? "",
+      observacion: entry.observation ?? "",
+      fechaCreacion: entry.createdAt.toISOString(),
+      fechaActualizacion: entry.updatedAt.toISOString(),
+      total: totalDebit,
+      cuadrado: Math.abs(totalDebit - totalCredit) < 0.005,
+      totales: { debe: totalDebit, haber: totalCredit },
+      lineas: lines,
     });
   } catch (error) {
     console.error("[api/asientos/[id]] error al obtener el asiento:", error);

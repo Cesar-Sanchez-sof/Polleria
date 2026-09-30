@@ -21,39 +21,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ErrorApi,
-  registrarCuenta,
-  actualizarCuenta,
-  TIPOS_CUENTA,
-  type CuentaContable,
+  ErrorApi as ApiError,
+  registerAccount,
+  updateAccount,
+  ACCOUNT_TYPES,
+  type AccountingAccount,
 } from "@/lib/services/cuentas.service";
 
-/** Mismo formato que valida el servidor (`cuenta_contable.codigo` ≤ 10). */
-const CODIGO_RE = /^[A-Za-z0-9.-]{1,10}$/;
+/** Format validated on server (`AccountingAccount.code` ≤ 10). */
+const ACCOUNT_CODE_REGEX = /^[A-Za-z0-9.-]{1,10}$/;
 
-/** Valor del selector que significa "cuenta raíz" (sin padre). */
-const SIN_PADRE = "__raiz__";
+/** Selector sentinel value for root account (no parent). */
+const ROOT_ACCOUNT_VALUE = "__raiz__";
 
-interface Props {
-  /** El diálogo sólo se monta cuando está abierto: el estado nace con él. */
+interface CuentaDialogProps {
   abierto: boolean;
-  /** Cuenta en edición; `null` para dar de alta. */
-  cuenta: CuentaContable | null;
-  /** Cuenta padre preseleccionada desde el botón "añadir subcuenta". */
-  padreInicial: CuentaContable | null;
-  /** Plan completo, para elegir la cuenta padre. */
-  cuentas: CuentaContable[];
+  cuenta: AccountingAccount | null;
+  padreInicial: AccountingAccount | null;
+  cuentas: AccountingAccount[];
   onCerrar: () => void;
-  /** Se invoca con la cuenta guardada (para refrescar el listado). */
-  onGuardado: (cuenta: CuentaContable) => void;
+  onGuardado: (cuenta: AccountingAccount) => void;
 }
 
-/**
- * Alta y edición de una cuenta contable.
- *
- * Al elegir una cuenta padre, el tipo se hereda de ésta (una jerarquía
- * siempre comparte el tipo) y sólo se habilita el campo para cuentas raíz.
- */
 export function CuentaDialog({
   abierto,
   cuenta,
@@ -61,163 +50,158 @@ export function CuentaDialog({
   cuentas,
   onCerrar,
   onGuardado,
-}: Readonly<Props>) {
-  const [codigo, setCodigo] = useState<string>(() => (cuenta ? cuenta.codigo : ""));
-  const [nombre, setNombre] = useState<string>(() => (cuenta ? cuenta.nombre : ""));
-  const [idPadre, setIdPadre] = useState<string>(() => {
-    if (cuenta) return cuenta.idPadre === null ? SIN_PADRE : String(cuenta.idPadre);
+}: Readonly<CuentaDialogProps>) {
+  const [code, setCode] = useState<string>(() => (cuenta ? cuenta.codigo : ""));
+  const [name, setName] = useState<string>(() => (cuenta ? cuenta.nombre : ""));
+  const [parentId, setParentId] = useState<string>(() => {
+    if (cuenta) return cuenta.idPadre === null ? ROOT_ACCOUNT_VALUE : String(cuenta.idPadre);
     if (padreInicial) return String(padreInicial.id);
-    return SIN_PADRE;
+    return ROOT_ACCOUNT_VALUE;
   });
-  const [tipo, setTipo] = useState<string>(() => {
+  const [accountType, setAccountType] = useState<string>(() => {
     if (cuenta) return cuenta.tipo;
     if (padreInicial) return padreInicial.tipo;
     return "";
   });
-  const [activo, setActivo] = useState<boolean>(() => (cuenta ? cuenta.activo : true));
-  const [errores, setErrores] = useState<string[]>([]);
-  const [guardando, setGuardando] = useState<boolean>(false);
+  const [isActive, setIsActive] = useState<boolean>(() => (cuenta ? cuenta.activo : true));
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  const esEdicion = cuenta !== null;
-  const idPadreNumerico = idPadre === SIN_PADRE ? null : Number(idPadre);
-  // Con cuenta padre el tipo se hereda de la jerarquía y no se puede cambiar.
-  const tipoHeredado = idPadreNumerico !== null;
+  const isEditMode = cuenta !== null;
+  const numericParentId = parentId === ROOT_ACCOUNT_VALUE ? null : Number(parentId);
+  const isInheritedType = numericParentId !== null;
 
-  const cuentaPadre = useMemo(
-    () => (idPadreNumerico === null ? null : (cuentas.find((c) => c.id === idPadreNumerico) ?? null)),
-    [cuentas, idPadreNumerico]
+  const parentAccount = useMemo(
+    () => (numericParentId === null ? null : (cuentas.find((c) => c.id === numericParentId) ?? null)),
+    [cuentas, numericParentId]
   );
 
-  /** La cuenta en edición y sus subcuentas no pueden ser su propio padre. */
-  const excluidas = useMemo(() => {
-    const excluidos = new Set<number>();
-    if (!cuenta) return excluidos;
-    excluidos.add(cuenta.id);
-    let huboCambios = true;
-    while (huboCambios) {
-      huboCambios = false;
-      for (const candidata of cuentas) {
+  const excludedIds = useMemo(() => {
+    const excluded = new Set<number>();
+    if (!cuenta) return excluded;
+    excluded.add(cuenta.id);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const candidate of cuentas) {
         if (
-          !excluidos.has(candidata.id) &&
-          candidata.idPadre !== null &&
-          excluidos.has(candidata.idPadre)
+          !excluded.has(candidate.id) &&
+          candidate.idPadre !== null &&
+          excluded.has(candidate.idPadre)
         ) {
-          excluidos.add(candidata.id);
-          huboCambios = true;
+          excluded.add(candidate.id);
+          changed = true;
         }
       }
     }
-    return excluidos;
+    return excluded;
   }, [cuenta, cuentas]);
 
-  /** Cuentas que pueden ser padre: nunca inactivas salvo la actual. */
-  const opcionesPadre = useMemo(
+  const parentOptions = useMemo(
     () =>
       cuentas
-        .filter((c) => !excluidas.has(c.id) && (c.activo || c.id === idPadreNumerico))
+        .filter((c) => !excludedIds.has(c.id) && (c.activo || c.id === numericParentId))
         .slice()
         .sort((a, b) => a.codigo.localeCompare(b.codigo)),
-    [cuentas, excluidas, idPadreNumerico]
+    [cuentas, excludedIds, numericParentId]
   );
 
-  const opcionesTipo = useMemo(
-    () => TIPOS_CUENTA.map((valor) => ({ value: valor as string, label: valor })),
+  const typeOptions = useMemo(
+    () => ACCOUNT_TYPES.map((val) => ({ value: val as string, label: val })),
     []
   );
 
-  /** Al cambiar de padre se hereda el tipo de la nueva jerarquía. */
-  const cambiarPadre = (valor: string | null) => {
-    const nuevo = valor ?? SIN_PADRE;
-    setIdPadre(nuevo);
-    if (nuevo !== SIN_PADRE) {
-      const padre = cuentas.find((c) => String(c.id) === nuevo);
-      if (padre) setTipo(padre.tipo);
+  const handleParentChange = (value: string | null) => {
+    const nextParentId = value ?? ROOT_ACCOUNT_VALUE;
+    setParentId(nextParentId);
+    if (nextParentId !== ROOT_ACCOUNT_VALUE) {
+      const parent = cuentas.find((c) => String(c.id) === nextParentId);
+      if (parent) setAccountType(parent.tipo);
     }
   };
 
-  /** Validaciones del cliente; el servidor vuelve a validar todo. */
-  const validar = (): string[] => {
-    const lista: string[] = [];
-    const codigoLimpio = codigo.trim();
-    const nombreLimpio = nombre.trim();
+  const validateForm = (): string[] => {
+    const list: string[] = [];
+    const cleanCode = code.trim();
+    const cleanName = name.trim();
 
-    if (!codigoLimpio) lista.push("Escribe el código de la cuenta.");
-    else if (!CODIGO_RE.test(codigoLimpio)) {
-      lista.push(
+    if (!cleanCode) list.push("Escribe el código de la cuenta.");
+    else if (!ACCOUNT_CODE_REGEX.test(cleanCode)) {
+      list.push(
         "El código sólo puede tener hasta 10 caracteres con letras, números, punto o guion."
       );
     }
 
-    if (!nombreLimpio) lista.push("Escribe el nombre de la cuenta.");
-    else if (nombreLimpio.length > 100) {
-      lista.push("El nombre de la cuenta no puede superar los 100 caracteres.");
+    if (!cleanName) list.push("Escribe el nombre de la cuenta.");
+    else if (cleanName.length > 100) {
+      list.push("El nombre de la cuenta no puede superar los 100 caracteres.");
     }
 
-    if (!tipo) lista.push("Selecciona el tipo de cuenta.");
+    if (!accountType) list.push("Selecciona el tipo de cuenta.");
 
-    return lista;
+    return list;
   };
 
-  const manejarEnvio = async (evento: FormEvent<HTMLFormElement>) => {
-    evento.preventDefault();
-    if (guardando) return;
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSaving) return;
 
-    const validacion = validar();
-    if (validacion.length > 0) {
-      setErrores(validacion);
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
-    setErrores([]);
-    setGuardando(true);
+    setErrors([]);
+    setIsSaving(true);
     try {
-      const datos = {
-        codigo: codigo.trim(),
-        nombre: nombre.trim(),
-        tipo,
-        idPadre: idPadreNumerico,
-        ...(esEdicion ? { activo } : {}),
+      const payload = {
+        codigo: code.trim(),
+        nombre: name.trim(),
+        tipo: accountType,
+        idPadre: numericParentId,
+        ...(isEditMode ? { activo: isActive } : {}),
       };
-      const guardada = esEdicion
-        ? await actualizarCuenta(cuenta.id, datos)
-        : await registrarCuenta(datos);
-      onGuardado(guardada);
+      const savedAccount = isEditMode
+        ? await updateAccount(cuenta.id, payload)
+        : await registerAccount(payload);
+      onGuardado(savedAccount);
     } catch (error) {
-      setErrores(
-        error instanceof ErrorApi
-          ? error.errores
+      setErrors(
+        error instanceof ApiError
+          ? error.errors
           : [error instanceof Error ? error.message : "No se pudo guardar la cuenta."]
       );
     } finally {
-      setGuardando(false);
+      setIsSaving(false);
     }
   };
 
-  const etiquetaCampo = "text-[11px] font-bold uppercase tracking-wider text-slate-500";
-  const inputCampo = "h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-none";
+  const labelClasses = "text-[11px] font-bold uppercase tracking-wider text-slate-500";
+  const inputClasses = "h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-none";
 
   return (
     <Dialog open={abierto} onOpenChange={(open) => (open ? undefined : onCerrar())}>
       <DialogContent className="sm:max-w-xl max-h-[calc(100vh-4rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-slate-900">
-            {esEdicion
+            {isEditMode
               ? "Editar cuenta contable"
               : padreInicial
                 ? `Nueva subcuenta de ${padreInicial.codigo}`
                 : "Nueva cuenta contable"}
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500">
-            {esEdicion
+            {isEditMode
               ? "Modifica los datos de la cuenta. Si cambias el tipo, éste se aplica también a sus subcuentas."
               : "El código es único en todo el plan contable. Una subcuenta hereda el tipo de su cuenta padre."}
           </DialogDescription>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={(e) => void manejarEnvio(e)}>
+        <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label htmlFor="cuenta-codigo" className={etiquetaCampo}>
+              <label htmlFor="cuenta-codigo" className={labelClasses}>
                 Código
               </label>
               <Input
@@ -225,24 +209,24 @@ export function CuentaDialog({
                 type="text"
                 maxLength={10}
                 placeholder="Ej. 101"
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
-                className={`${inputCampo} font-mono tabular-nums`}
-                disabled={guardando}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className={`${inputClasses} font-mono tabular-nums`}
+                disabled={isSaving}
                 autoComplete="off"
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label id="cuenta-tipo-label" htmlFor="cuenta-tipo" className={etiquetaCampo}>
+              <label id="cuenta-tipo-label" htmlFor="cuenta-tipo" className={labelClasses}>
                 Tipo de cuenta
               </label>
               <Select
                 id="cuenta-tipo"
-                value={tipo}
-                items={opcionesTipo}
-                onValueChange={(valor) => setTipo(valor ?? "")}
-                disabled={guardando || tipoHeredado}
+                value={accountType}
+                items={typeOptions}
+                onValueChange={(val) => setAccountType(val ?? "")}
+                disabled={isSaving || isInheritedType}
               >
                 <SelectTrigger
                   className="w-full rounded-lg bg-white text-xs"
@@ -251,9 +235,9 @@ export function CuentaDialog({
                   <SelectValue placeholder="Seleccionar tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {opcionesTipo.map((opcion) => (
-                    <SelectItem key={opcion.value} value={opcion.value}>
-                      {opcion.label}
+                  {typeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -261,7 +245,7 @@ export function CuentaDialog({
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label htmlFor="cuenta-nombre" className={etiquetaCampo}>
+              <label htmlFor="cuenta-nombre" className={labelClasses}>
                 Nombre de la cuenta
               </label>
               <Input
@@ -269,30 +253,30 @@ export function CuentaDialog({
                 type="text"
                 maxLength={100}
                 placeholder="Ej. Caja"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className={inputCampo}
-                disabled={guardando}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClasses}
+                disabled={isSaving}
                 autoComplete="off"
               />
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label id="cuenta-padre-label" htmlFor="cuenta-padre" className={etiquetaCampo}>
+              <label id="cuenta-padre-label" htmlFor="cuenta-padre" className={labelClasses}>
                 Cuenta padre (subcuenta de)
               </label>
               <Select
                 id="cuenta-padre"
-                value={idPadre}
+                value={parentId}
                 items={[
-                  { value: SIN_PADRE, label: "Ninguna · es una cuenta raíz" },
-                  ...opcionesPadre.map((c) => ({
+                  { value: ROOT_ACCOUNT_VALUE, label: "Ninguna · es una cuenta raíz" },
+                  ...parentOptions.map((c) => ({
                     value: String(c.id),
                     label: `${c.codigo} · ${c.nombre}${c.activo ? "" : " (inactiva)"}`,
                   })),
                 ]}
-                onValueChange={cambiarPadre}
-                disabled={guardando}
+                onValueChange={handleParentChange}
+                disabled={isSaving}
               >
                 <SelectTrigger
                   className="w-full rounded-lg bg-white text-xs"
@@ -301,8 +285,8 @@ export function CuentaDialog({
                   <SelectValue placeholder="Seleccionar cuenta padre" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SIN_PADRE}>Ninguna · es una cuenta raíz</SelectItem>
-                  {opcionesPadre.map((c) => (
+                  <SelectItem value={ROOT_ACCOUNT_VALUE}>Ninguna · es una cuenta raíz</SelectItem>
+                  {parentOptions.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.codigo} · {c.nombre}
                       {c.activo ? "" : " (inactiva)"}
@@ -310,40 +294,38 @@ export function CuentaDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {tipoHeredado && (
+              {isInheritedType && (
                 <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                   <Info className="w-3.5 h-3.5 shrink-0" />
                   El tipo se hereda de{" "}
-                  <b className="text-slate-700">{cuentaPadre?.codigo ?? "la cuenta padre"}</b>.
+                  <b className="text-slate-700">{parentAccount?.codigo ?? "la cuenta padre"}</b>.
                 </p>
               )}
             </div>
           </div>
 
-          {/* Estado de la cuenta (sólo al editar; el alta siempre es activa) */}
-          {esEdicion && (
+          {isEditMode && (
             <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-xs font-semibold text-slate-800">Cuenta activa</span>
                 <span className="text-[11px] text-slate-500">
-                  {activo
+                  {isActive
                     ? "Disponible para registrar asientos contables."
                     : "Oculta para registrar asientos; los asientos existentes la conservan."}
                 </span>
               </div>
               <Switch
-                checked={activo}
-                onCheckedChange={(valor) => setActivo(!!valor)}
-                disabled={guardando}
+                checked={isActive}
+                onCheckedChange={(val) => setIsActive(!!val)}
+                disabled={isSaving}
                 aria-label="Estado activo de la cuenta"
               />
             </div>
           )}
 
-          {/* Uso actual de la cuenta */}
-          {esEdicion && cuenta.usos > 0 && (
+          {isEditMode && cuenta.usos > 0 && (
             <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
-              <span className={etiquetaCampo}>Uso actual</span>
+              <span className={labelClasses}>Uso actual</span>
               <p className="text-xs text-slate-600 mt-1">
                 La cuenta está en{" "}
                 <b className="text-slate-900 tabular-nums">
@@ -354,16 +336,15 @@ export function CuentaDialog({
             </div>
           )}
 
-          {/* Validaciones del cliente y del servidor */}
-          {errores.length > 0 && (
+          {errors.length > 0 && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">
               <p className="flex items-center gap-1.5 font-bold">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 Revisa lo siguiente para guardar la cuenta
               </p>
               <ul className="list-disc pl-5 mt-1.5 space-y-0.5">
-                {errores.map((error, indice) => (
-                  <li key={`${indice}-${error}`}>{error}</li>
+                {errors.map((err, idx) => (
+                  <li key={`${idx}-${err}`}>{err}</li>
                 ))}
               </ul>
             </div>
@@ -374,19 +355,19 @@ export function CuentaDialog({
               type="button"
               variant="outline"
               onClick={onCerrar}
-              disabled={guardando}
+              disabled={isSaving}
               className="rounded-lg border-slate-200 bg-white text-xs font-semibold shadow-none"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={guardando}
+              disabled={isSaving}
               className="rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold shadow-none"
             >
-              {guardando
+              {isSaving
                 ? "Guardando..."
-                : esEdicion
+                : isEditMode
                   ? "Guardar cambios"
                   : "Registrar cuenta"}
             </Button>

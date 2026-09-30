@@ -1,76 +1,70 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
-import { fechaUTC } from "@/lib/fechas";
+import { parseUtcDate } from "@/lib/fechas";
 
-// Los mocks se declaran con vi.hoisted porque vi.mock se evalúa antes que el
-// resto del archivo: así se pueden usar directamente en las aserciones.
-const { cuentaFindUniqueMock, detalleAggregateMock, detalleFindManyMock } = vi.hoisted(
+const { accountFindUniqueMock, detailAggregateMock, detailFindManyMock } = vi.hoisted(
   () => ({
-    cuentaFindUniqueMock: vi.fn(),
-    detalleAggregateMock: vi.fn(),
-    detalleFindManyMock: vi.fn(),
+    accountFindUniqueMock: vi.fn(),
+    detailAggregateMock: vi.fn(),
+    detailFindManyMock: vi.fn(),
   })
 );
 
-// Prisma se sustituye por mocks: estos tests no tocan la base de datos.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    cuenta_contable: { findUnique: cuentaFindUniqueMock },
-    detalle_asiento_contable: {
-      aggregate: detalleAggregateMock,
-      findMany: detalleFindManyMock,
+    accountingAccount: { findUnique: accountFindUniqueMock },
+    journalEntryDetail: {
+      aggregate: detailAggregateMock,
+      findMany: detailFindManyMock,
     },
   },
 }));
 
 import { GET } from "./route";
 
-/** Construye la mínima petición que necesita el handler (sólo lee `nextUrl`). */
-function solicitud(consulta = ""): NextRequest {
+function createRequest(query = ""): NextRequest {
   return {
-    nextUrl: new URL(`http://localhost/api/mayor${consulta}`),
+    nextUrl: new URL(`http://localhost/api/mayor${query}`),
   } as unknown as NextRequest;
 }
 
-/** Cuenta tal y como la devuelve `findUnique`. */
-function cuenta() {
-  return { id_cuenta_contable: 1, codigo: "101", nombre: "Caja", tipo: "Activo" };
+function createAccount() {
+  return { id: 1, code: "101", name: "Caja", type: "Activo" };
 }
 
-/** Movimiento tal y como lo devuelve `findMany` con el `select` del libro mayor. */
-function fila({
+function createDetailRow({
   id = 71,
-  idAsiento = 7,
-  fecha = "2025-06-18",
-  debito = 118,
-  credito = 0,
-  descripcion = "Cobro en efectivo",
-  asiento = {},
+  entryId = 7,
+  dateStr = "2025-06-18",
+  debit = 118,
+  credit = 0,
+  description = "Cobro en efectivo",
+  entryOverrides = {},
 }: {
   id?: number;
-  idAsiento?: number;
-  fecha?: string;
-  debito?: number;
-  credito?: number;
-  descripcion?: string;
-  asiento?: Record<string, unknown>;
+  entryId?: number;
+  dateStr?: string;
+  debit?: number;
+  credit?: number;
+  description?: string;
+  entryOverrides?: Record<string, unknown>;
 } = {}) {
   return {
-    id_detalle_asiento_contable: id,
-    descripcion,
-    debito,
-    credito,
-    asiento_contable: {
-      id_asiento_contable: idAsiento,
-      codigo: `MISC/2025/06/${String(idAsiento).padStart(4, "0")}`,
-      fecha_contable: new Date(`${fecha}T00:00:00.000Z`),
-      glosa: "Venta mostrador",
-      diario: "Facturas de cliente",
-      estado: true,
-      comprobante_venta: null,
-      comprobante_compra: null,
-      planilla: null,
-      ...asiento,
+    id,
+    description,
+    debit,
+    credit,
+    entry: {
+      id: entryId,
+      code: `MISC/2025/06/${String(entryId).padStart(4, "0")}`,
+      entryDate: new Date(`${dateStr}T00:00:00.000Z`),
+      description: "Venta mostrador",
+      book: "Facturas de cliente",
+      status: true,
+      salesInvoice: null,
+      purchaseInvoice: null,
+      payroll: null,
+      ...entryOverrides,
     },
   };
 }
@@ -79,65 +73,65 @@ describe("GET /api/mayor (libro mayor)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    cuentaFindUniqueMock.mockResolvedValue(cuenta());
-    detalleAggregateMock.mockResolvedValue({ _sum: { debito: 0, credito: 0 } });
-    detalleFindManyMock.mockResolvedValue([]);
+    accountFindUniqueMock.mockResolvedValue(createAccount());
+    detailAggregateMock.mockResolvedValue({ _sum: { debit: 0, credit: 0 } });
+    detailFindManyMock.mockResolvedValue([]);
   });
 
   it("exige la cuenta contable a consultar (C01)", async () => {
-    const respuesta = await GET(solicitud(""));
-    const cuerpo = await respuesta.json();
+    const response = await GET(createRequest(""));
+    const body = await response.json();
 
-    expect(respuesta.status).toBe(400);
-    expect(cuerpo).toEqual({ error: "Debe indicar la cuenta contable a consultar." });
-    expect(cuentaFindUniqueMock).not.toHaveBeenCalled();
-    expect(detalleFindManyMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: "Debe indicar la cuenta contable a consultar." });
+    expect(accountFindUniqueMock).not.toHaveBeenCalled();
+    expect(detailFindManyMock).not.toHaveBeenCalled();
   });
 
   it("responde 404 si la cuenta no existe (C01)", async () => {
-    cuentaFindUniqueMock.mockResolvedValueOnce(null);
+    accountFindUniqueMock.mockResolvedValueOnce(null);
 
-    const respuesta = await GET(solicitud("?codigo=999"));
-    const cuerpo = await respuesta.json();
+    const response = await GET(createRequest("?codigo=999"));
+    const body = await response.json();
 
-    expect(respuesta.status).toBe(404);
-    expect(cuerpo).toEqual({ error: "Cuenta contable no encontrada." });
-    expect(detalleFindManyMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: "Cuenta contable no encontrada." });
+    expect(detailFindManyMock).not.toHaveBeenCalled();
   });
 
   it("devuelve el código y la denominación de la cuenta (C02)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([fila()]);
+    detailFindManyMock.mockResolvedValueOnce([createDetailRow()]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(cuentaFindUniqueMock).toHaveBeenCalledWith({ where: { codigo: "101" } });
-    expect(cuerpo.cuenta).toEqual({ codigo: "101", nombre: "Caja", tipo: "Activo" });
+    expect(accountFindUniqueMock).toHaveBeenCalledWith({ where: { code: "101" } });
+    expect(body.cuenta).toEqual({ codigo: "101", nombre: "Caja", tipo: "Activo" });
   });
 
   it("consulta los movimientos ordenados cronológicamente (C03)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([]);
+    detailFindManyMock.mockResolvedValueOnce([]);
 
-    await GET(solicitud("?codigo=101"));
+    await GET(createRequest("?codigo=101"));
 
-    expect(detalleFindManyMock).toHaveBeenCalledWith(
+    expect(detailFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [
-          { asiento_contable: { fecha_contable: "asc" } },
-          { asiento_contable: { id_asiento_contable: "asc" } },
-          { id_detalle_asiento_contable: "asc" },
+          { entry: { entryDate: "asc" } },
+          { entry: { id: "asc" } },
+          { id: "asc" },
         ],
       })
     );
   });
 
   it("devuelve fecha, número de asiento y glosa de cada movimiento (C04-C06)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([
-      fila({ idAsiento: 3, fecha: "2025-06-18", descripcion: "Cobro en efectivo" }),
+    detailFindManyMock.mockResolvedValueOnce([
+      createDetailRow({ entryId: 3, dateStr: "2025-06-18", description: "Cobro en efectivo" }),
     ]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(cuerpo.movimientos[0]).toMatchObject({
+    expect(body.movimientos[0]).toMatchObject({
       id: 71,
       idAsiento: 3,
       numero: "MISC/2025/06/0003",
@@ -148,15 +142,15 @@ describe("GET /api/mayor (libro mayor)", () => {
   });
 
   it("coloca el importe en Debe o en Haber según corresponda (C07)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([
-      fila({ id: 71, debito: 118, credito: 0 }),
-      fila({ id: 72, debito: 0, credito: 118, descripcion: "Venta mercadería" }),
+    detailFindManyMock.mockResolvedValueOnce([
+      createDetailRow({ id: 71, debit: 118, credit: 0 }),
+      createDetailRow({ id: 72, debit: 0, credit: 118, description: "Venta mercadería" }),
     ]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(
-      cuerpo.movimientos.map((m: { debe: number; haber: number }) => [m.debe, m.haber])
+      body.movimientos.map((m: { debe: number; haber: number }) => [m.debe, m.haber])
     ).toEqual([
       [118, 0],
       [0, 118],
@@ -164,125 +158,124 @@ describe("GET /api/mayor (libro mayor)", () => {
   });
 
   it("calcula el saldo después de cada movimiento y si es deudor o acreedor (C08)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([
-      fila({ id: 71, debito: 118, credito: 0 }),
-      fila({ id: 72, debito: 0, credito: 200, descripcion: "Pago proveedor" }),
+    detailFindManyMock.mockResolvedValueOnce([
+      createDetailRow({ id: 71, debit: 118, credit: 0 }),
+      createDetailRow({ id: 72, debit: 0, credit: 200, description: "Pago proveedor" }),
     ]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(
-      cuerpo.movimientos.map(
+      body.movimientos.map(
         (m: { saldo: number; tipoSaldo: string | null }) => [m.saldo, m.tipoSaldo]
       )
     ).toEqual([
       [118, "deudor"],
       [-82, "acreedor"],
     ]);
-    expect(cuerpo.saldoFinal).toBe(-82);
+    expect(body.saldoFinal).toBe(-82);
   });
 
   it("parte del saldo anterior al periodo cuando se filtra (C08, C09)", async () => {
-    detalleAggregateMock.mockResolvedValueOnce({
-      _sum: { debito: "350", credito: "200" },
+    detailAggregateMock.mockResolvedValueOnce({
+      _sum: { debit: "350", credit: "200" },
     });
-    detalleFindManyMock.mockResolvedValueOnce([fila({ debito: 50, credito: 0 })]);
+    detailFindManyMock.mockResolvedValueOnce([createDetailRow({ debit: 50, credit: 0 })]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101&desde=2025-06-01"))).json();
+    const body = await (await GET(createRequest("?codigo=101&desde=2025-06-01"))).json();
 
-    // Saldo anterior = 350 - 200 = 150; con el movimiento de 50 queda en 200
-    expect(detalleAggregateMock).toHaveBeenCalledWith(
+    expect(detailAggregateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          id_cuenta_contable: 1,
-          asiento_contable: { fecha_contable: { lt: fechaUTC("2025-06-01") } },
+          accountId: 1,
+          entry: { entryDate: { lt: parseUtcDate("2025-06-01") } },
         },
       })
     );
-    expect(cuerpo.saldoAnterior).toBe(150);
-    expect(cuerpo.movimientos[0].saldo).toBe(200);
-    expect(cuerpo.saldoFinal).toBe(200);
+    expect(body.saldoAnterior).toBe(150);
+    expect(body.movimientos[0].saldo).toBe(200);
+    expect(body.saldoFinal).toBe(200);
   });
 
   it("toma el saldo anterior en 0 cuando no hay fecha inicial (C08)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([fila({ debito: 40, credito: 0 })]);
+    detailFindManyMock.mockResolvedValueOnce([createDetailRow({ debit: 40, credit: 0 })]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(detalleAggregateMock).not.toHaveBeenCalled();
-    expect(cuerpo.saldoAnterior).toBe(0);
-    expect(cuerpo.movimientos[0].saldo).toBe(40);
+    expect(detailAggregateMock).not.toHaveBeenCalled();
+    expect(body.saldoAnterior).toBe(0);
+    expect(body.movimientos[0].saldo).toBe(40);
   });
 
   it("filtra por el periodo indicado, inclusive en ambos extremos (C09, C10)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([]);
+    detailFindManyMock.mockResolvedValueOnce([]);
 
-    const respuesta = await GET(
-      solicitud("?codigo=101&desde=2025-05-01&hasta=2025-05-31")
+    const response = await GET(
+      createRequest("?codigo=101&desde=2025-05-01&hasta=2025-05-31")
     );
 
-    expect(respuesta.status).toBe(200);
-    const where = detalleFindManyMock.mock.calls[0][0].where as Record<string, unknown>;
-    expect(where.asiento_contable).toEqual({
-      fecha_contable: { gte: fechaUTC("2025-05-01"), lte: fechaUTC("2025-05-31") },
+    expect(response.status).toBe(200);
+    const where = detailFindManyMock.mock.calls[0][0].where as Record<string, unknown>;
+    expect(where.entry).toEqual({
+      entryDate: { gte: parseUtcDate("2025-05-01"), lte: parseUtcDate("2025-05-31") },
     });
-    expect(where.id_cuenta_contable).toBe(1);
+    expect(where.accountId).toBe(1);
   });
 
   it("muestra los totales de los movimientos consultados (C11)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([
-      fila({ id: 71, debito: 118, credito: 0 }),
-      fila({ id: 72, debito: 0, credito: 60, descripcion: "Cambio" }),
-      fila({ id: 73, debito: 2, credito: 0, descripcion: "Redondeo" }),
+    detailFindManyMock.mockResolvedValueOnce([
+      createDetailRow({ id: 71, debit: 118, credit: 0 }),
+      createDetailRow({ id: 72, debit: 0, credit: 60, description: "Cambio" }),
+      createDetailRow({ id: 73, debit: 2, credit: 0, description: "Redondeo" }),
     ]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(cuerpo.totales).toEqual({ debe: 120, haber: 60, movimientos: 3 });
-    expect(cuerpo.saldoFinal).toBe(60);
+    expect(body.totales).toEqual({ debe: 120, haber: 60, movimientos: 3 });
+    expect(body.saldoFinal).toBe(60);
   });
 
   it("incluye el módulo y la referencia de la operación origen (C12)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([
-      fila({
+    detailFindManyMock.mockResolvedValueOnce([
+      createDetailRow({
         id: 71,
-        asiento: {
-          diario: "Facturas de cliente",
-          comprobante_venta: { tipo_comprobante: "Factura", serie: "001", numero: 461 },
+        entryOverrides: {
+          book: "Facturas de cliente",
+          salesInvoice: { tipo_comprobante: "Factura", serie: "001", numero: 461 },
         },
       }),
-      fila({
+      createDetailRow({
         id: 72,
-        asiento: {
-          codigo: "COM/2025/05/0010",
-          diario: "Facturas de proveedor",
-          comprobante_venta: null,
-          comprobante_compra: { tipo_comprobante: "Factura", serie: "002", numero: 123 },
+        entryOverrides: {
+          code: "COM/2025/05/0010",
+          book: "Facturas de proveedor",
+          salesInvoice: null,
+          purchaseInvoice: { tipo_comprobante: "Factura", serie: "002", numero: 123 },
         },
       }),
-      fila({
+      createDetailRow({
         id: 73,
-        asiento: {
-          codigo: "PLAN/2025/06",
-          diario: "Operaciones varias",
-          comprobante_compra: null,
-          planilla: { mes: 6, anio: 2025 },
+        entryOverrides: {
+          code: "PLAN/2025/06",
+          book: "Operaciones varias",
+          purchaseInvoice: null,
+          payroll: { mes: 6, anio: 2025 },
         },
       }),
-      fila({
+      createDetailRow({
         id: 74,
-        asiento: {
-          codigo: "MISC/2025/06/0099",
-          diario: "Operaciones varias",
-          comprobante_venta: null,
+        entryOverrides: {
+          code: "MISC/2025/06/0099",
+          book: "Operaciones varias",
+          salesInvoice: null,
         },
       }),
     ]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(
-      cuerpo.movimientos.map(
+      body.movimientos.map(
         (m: { modulo: string; referencia: string | null }) => [
           m.modulo,
           m.referencia,
@@ -297,54 +290,54 @@ describe("GET /api/mayor (libro mayor)", () => {
   });
 
   it("devuelve la lista vacía cuando no hay movimientos (C14)", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([]);
+    detailFindManyMock.mockResolvedValueOnce([]);
 
-    const respuesta = await GET(
-      solicitud("?codigo=101&desde=2030-01-01&hasta=2030-12-31")
+    const response = await GET(
+      createRequest("?codigo=101&desde=2030-01-01&hasta=2030-12-31")
     );
-    const cuerpo = await respuesta.json();
+    const body = await response.json();
 
-    expect(respuesta.status).toBe(200);
-    expect(cuerpo.movimientos).toEqual([]);
-    expect(cuerpo.totales).toEqual({ debe: 0, haber: 0, movimientos: 0 });
-    expect(cuerpo.saldoFinal).toBe(cuerpo.saldoAnterior);
+    expect(response.status).toBe(200);
+    expect(body.movimientos).toEqual([]);
+    expect(body.totales).toEqual({ debe: 0, haber: 0, movimientos: 0 });
+    expect(body.saldoFinal).toBe(body.saldoAnterior);
   });
 
   it("marca como Anulado un movimiento de asiento anulado", async () => {
-    detalleFindManyMock.mockResolvedValueOnce([fila({ asiento: { estado: false } })]);
+    detailFindManyMock.mockResolvedValueOnce([createDetailRow({ entryOverrides: { status: false } })]);
 
-    const cuerpo = await (await GET(solicitud("?codigo=101"))).json();
+    const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(cuerpo.movimientos[0].estado).toBe("Anulado");
+    expect(body.movimientos[0].estado).toBe("Anulado");
   });
 
   it("rechaza una fecha con formato inválido (C09)", async () => {
-    const respuesta = await GET(solicitud("?codigo=101&desde=31/05/2025"));
-    const cuerpo = await respuesta.json();
+    const response = await GET(createRequest("?codigo=101&desde=31/05/2025"));
+    const body = await response.json();
 
-    expect(respuesta.status).toBe(400);
-    expect(cuerpo).toEqual({ error: "La fecha inicial debe tener el formato AAAA-MM-DD." });
-    expect(detalleFindManyMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: "La fecha inicial debe tener el formato AAAA-MM-DD." });
+    expect(detailFindManyMock).not.toHaveBeenCalled();
   });
 
   it("rechaza un periodo invertido (C09)", async () => {
-    const respuesta = await GET(solicitud("?codigo=101&desde=2025-06-30&hasta=2025-05-01"));
-    const cuerpo = await respuesta.json();
+    const response = await GET(createRequest("?codigo=101&desde=2025-06-30&hasta=2025-05-01"));
+    const body = await response.json();
 
-    expect(respuesta.status).toBe(400);
-    expect(cuerpo).toEqual({
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
       error: "La fecha inicial no puede ser posterior a la fecha final.",
     });
-    expect(detalleFindManyMock).not.toHaveBeenCalled();
+    expect(detailFindManyMock).not.toHaveBeenCalled();
   });
 
   it("responde 500 si la consulta a la base falla", async () => {
-    cuentaFindUniqueMock.mockRejectedValueOnce(new Error("sin conexión"));
+    accountFindUniqueMock.mockRejectedValueOnce(new Error("sin conexión"));
 
-    const respuesta = await GET(solicitud("?codigo=101"));
-    const cuerpo = await respuesta.json();
+    const response = await GET(createRequest("?codigo=101"));
+    const body = await response.json();
 
-    expect(respuesta.status).toBe(500);
-    expect(cuerpo).toEqual({ error: "No se pudo obtener el libro mayor." });
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "No se pudo obtener el libro mayor." });
   });
 });

@@ -5,272 +5,263 @@ import Sidebar from "../../../components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 
 import { DetalleAsientos } from "./DetalleAsientos";
-import { FiltrosAsientos, type FiltroChip } from "./FiltrosAsientos";
+import { JournalEntryFilters, type FilterChip } from "./FiltrosAsientos";
 import { NuevoAsientoDialog } from "./NuevoAsientoDialog";
-import { PaginacionAsientos } from "./PaginacionAsientos";
-import { TabsDiarioAsientos } from "./TabsDiarioAsientos";
-import { TablaAsientos } from "./TablaAsientos";
-import { ToolbarAsientos } from "./ToolbarAsientos";
+import { JournalEntryPagination } from "./PaginacionAsientos";
+import { JournalEntryTabs } from "./TabsDiarioAsientos";
+import { JournalEntryTable } from "./TablaAsientos";
+import { JournalEntryToolbar } from "./ToolbarAsientos";
 
 import {
-  listarAsientos,
-  obtenerAsiento,
-  obtenerOpcionesAsientos,
-  type AsientoDetalle,
-  type DireccionOrden,
-  type OrdenAsiento,
-  type OpcionesAsientos,
-  type PaginaAsientos,
+  listJournalEntries,
+  getJournalEntry,
+  getJournalEntriesOptions,
+  type JournalEntryDetail,
+  type SortDirection,
+  type JournalEntriesOptions,
+  type JournalEntriesPage,
+  type JournalEntrySort,
 } from "@/lib/services/asientos.service";
 
 /**
- * Pantalla de consulta de asientos contables.
- * La lógica de presentación vive en ./<Componente>Asientos.tsx y el acceso a
- * datos en lib/services/asientos.service.ts.
+ * Journal entries consultation screen.
+ * Presentation logic lives in ./<Component>Asientos.tsx and data access
+ * in lib/services/asientos.service.ts.
  */
 export default function AsientosPage() {
   // ---------------------------------------------------------------------
-  // Filtros (todos se aplican de forma simultánea)
+  // Filters (all applied simultaneously)
   // ---------------------------------------------------------------------
-  const [desde, setDesde] = useState<string>("");
-  const [hasta, setHasta] = useState<string>("");
-  const [diario, setDiario] = useState<string>("todos");
-  const [estadoFiltro, setEstadoFiltro] = useState<string>("todos");
-  const [q, setQ] = useState<string>("");
-  const [busqueda, setBusqueda] = useState<string>("");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
+  const [journal, setJournal] = useState<string>("todos");
+  const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
 
-  // Orden y paginación
-  const [orden, setOrden] = useState<{ campo: OrdenAsiento; dir: DireccionOrden }>({
-    campo: "fecha",
+  // Order and pagination
+  const [order, setOrder] = useState<{ field: JournalEntrySort; dir: SortDirection }>({
+    field: "fecha",
     dir: "desc",
   });
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Datos
-  const [pagina, setPagina] = useState<PaginaAsientos | null>(null);
-  const [opciones, setOpciones] = useState<OpcionesAsientos | null>(null);
-  const [cargando, setCargando] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // Data
+  const [pageData, setPageData] = useState<JournalEntriesPage | null>(null);
+  const [options, setOptions] = useState<JournalEntriesOptions | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Detalle del asiento seleccionado
-  const [detalleAbierto, setDetalleAbierto] = useState<boolean>(false);
-  const [detalleId, setDetalleId] = useState<number | null>(null);
-  const [detalle, setDetalle] = useState<AsientoDetalle | null>(null);
-  const [cargandoDetalle, setCargandoDetalle] = useState<boolean>(false);
-  const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
+  // Selected entry detail
+  const [detailOpen, setDetailOpen] = useState<boolean>(false);
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<JournalEntryDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
-  // Diálogo de alta manual
-  const [nuevoAbierto, setNuevoAbierto] = useState<boolean>(false);
+  // Manual entry modal
+  const [newOpen, setNewOpen] = useState<boolean>(false);
 
-  // Control de carreras: sólo la última petición puede escribir estado
-  const solicitudRef = useRef(0);
-  const detalleSolicitudRef = useRef(0);
+  // Race condition protection: only the latest request updates state
+  const requestRef = useRef(0);
+  const detailRequestRef = useRef(0);
 
-  // Selección de filas
+  // Row selection
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // Búsqueda con debounce para no disparar una petición por tecla
+  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setBusqueda((anterior) => (anterior === q ? anterior : q));
+      setSearch((prev) => (prev === searchQuery ? prev : searchQuery));
       setPage(1);
     }, 400);
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [searchQuery]);
 
-  // Opciones de filtro (diarios y estados)
+  // Options (journals and statuses)
   useEffect(() => {
-    let activo = true;
-    obtenerOpcionesAsientos()
-      .then((datos) => {
-        if (activo) setOpciones(datos);
+    let active = true;
+    getJournalEntriesOptions()
+      .then((data) => {
+        if (active) setOptions(data);
       })
       .catch(() => {
-        if (activo) setOpciones(null);
+        if (active) setOptions(null);
       });
     return () => {
-      activo = false;
+      active = false;
     };
   }, []);
 
-  // Un asiento recién creado puede aportar un diario nuevo a los filtros
-  const recargarOpciones = useCallback(() => {
-    obtenerOpcionesAsientos()
-      .then((datos) => setOpciones(datos))
-      .catch(() => setOpciones(null));
+  const reloadOptions = useCallback(() => {
+    getJournalEntriesOptions()
+      .then((data) => setOptions(data))
+      .catch(() => setOptions(null));
   }, []);
 
-  // Listado: se reconsulta cada vez que cambia un filtro, el orden o la página
-  const cargarListado = useCallback(async () => {
-    // Sólo la última petición puede escribir el estado (evita respuestas fuera de orden)
-    const solicitud = ++solicitudRef.current;
-    setCargando(true);
-    setError(null);
+  // Listing query
+  const loadEntries = useCallback(async () => {
+    const requestId = ++requestRef.current;
+    setLoading(true);
+    setErrorMessage(null);
     try {
-      const datos = await listarAsientos({
-        desde,
-        hasta,
-        diario: diario === "todos" ? "" : diario,
-        estado: estadoFiltro === "todos" ? "" : estadoFiltro,
-        q: busqueda,
+      const data = await listJournalEntries({
+        desde: from,
+        hasta: to,
+        diario: journal === "todos" ? "" : journal,
+        estado: statusFilter === "todos" ? "" : statusFilter,
+        q: search,
         page,
         pageSize,
-        orden: orden.campo,
-        dir: orden.dir,
+        orden: order.field,
+        dir: order.dir,
       });
-      if (solicitud !== solicitudRef.current) return;
-      setPagina(datos);
+      if (requestId !== requestRef.current) return;
+      setPageData(data);
     } catch (e) {
-      if (solicitud !== solicitudRef.current) return;
-      setPagina(null);
-      setError(e instanceof Error ? e.message : "No se pudo cargar el listado de asientos.");
+      if (requestId !== requestRef.current) return;
+      setPageData(null);
+      setErrorMessage(e instanceof Error ? e.message : "No se pudo cargar el listado de asientos.");
     } finally {
-      if (solicitud === solicitudRef.current) setCargando(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
-  }, [desde, hasta, diario, estadoFiltro, busqueda, page, pageSize, orden]);
+  }, [from, to, journal, statusFilter, search, page, pageSize, order]);
 
   useEffect(() => {
-    // Se difiere al siguiente tick para no invocar setState de forma síncrona
-    // dentro del cuerpo del efecto (regla react-hooks/set-state-in-effect).
-    // Si cambian los filtros, el cleanup cancela el disparo pendiente.
     const timer = setTimeout(() => {
-      void cargarListado();
+      void loadEntries();
     }, 0);
     return () => clearTimeout(timer);
-  }, [cargarListado]);
+  }, [loadEntries]);
 
   // ---------------------------------------------------------------------
-  // Acciones
+  // Actions
   // ---------------------------------------------------------------------
-  const hayFiltros =
-    Boolean(desde) ||
-    Boolean(hasta) ||
-    diario !== "todos" ||
-    estadoFiltro !== "todos" ||
-    busqueda.trim() !== "";
+  const hasFilters =
+    Boolean(from) ||
+    Boolean(to) ||
+    journal !== "todos" ||
+    statusFilter !== "todos" ||
+    searchQuery.trim() !== "";
 
-  const limpiarFiltros = () => {
-    setDesde("");
-    setHasta("");
-    setDiario("todos");
-    setEstadoFiltro("todos");
-    setQ("");
-    setBusqueda("");
+  const clearFilters = () => {
+    setFrom("");
+    setTo("");
+    setJournal("todos");
+    setStatusFilter("todos");
+    setSearchQuery("");
+    setSearch("");
     setPage(1);
   };
 
-  const limpiarBusqueda = () => {
-    setQ("");
-    setBusqueda("");
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearch("");
     setPage(1);
   };
 
-  const cambiarDiario = (valor: string) => {
-    setDiario(valor);
+  const changeJournal = (val: string) => {
+    setJournal(val);
     setPage(1);
   };
 
-  const cambiarEstado = (valor: string) => {
-    setEstadoFiltro(valor);
+  const changeStatus = (val: string) => {
+    setStatusFilter(val);
     setPage(1);
   };
 
-  const cambiarRango = (campo: "desde" | "hasta", valor: string) => {
-    if (campo === "desde") setDesde(valor);
-    else setHasta(valor);
+  const changeRange = (field: "from" | "to", val: string) => {
+    if (field === "from") setFrom(val);
+    else setTo(val);
     setPage(1);
   };
 
-  const quitarFiltro = (chip: FiltroChip) => {
+  const removeFilter = (chip: FilterChip) => {
     switch (chip) {
-      case "desde":
-        cambiarRango("desde", "");
+      case "from":
+        changeRange("from", "");
         break;
-      case "hasta":
-        cambiarRango("hasta", "");
+      case "to":
+        changeRange("to", "");
         break;
-      case "diario":
-        cambiarDiario("todos");
+      case "journal":
+        changeJournal("todos");
         break;
-      case "estado":
-        cambiarEstado("todos");
+      case "status":
+        changeStatus("todos");
         break;
       case "q":
-        limpiarBusqueda();
+        clearSearch();
         break;
     }
   };
 
-  const ordenarPor = (campo: OrdenAsiento) => {
-    setOrden((anterior) => {
-      if (anterior.campo === campo) {
-        return { campo, dir: anterior.dir === "asc" ? "desc" : "asc" };
+  const sortBy = (field: JournalEntrySort) => {
+    setOrder((prev) => {
+      if (prev.field === field) {
+        return { field, dir: prev.dir === "asc" ? "desc" : "asc" };
       }
-      const dirPorDefecto: DireccionOrden =
-        campo === "fecha" || campo === "total" ? "desc" : "asc";
-      return { campo, dir: dirPorDefecto };
+      const defaultDir: SortDirection =
+        field === "fecha" || field === "total" ? "desc" : "asc";
+      return { field, dir: defaultDir };
     });
     setPage(1);
   };
 
-  const cambiarPageSize = (valor: number) => {
-    setPageSize(valor);
+  const changePageSize = (val: number) => {
+    setPageSize(val);
     setPage(1);
   };
 
-  const cambiarPagina = (valor: number) => setPage(valor);
+  const changePage = (val: number) => setPage(val);
 
-  /** Tras registrar un asiento manual: refresca listado y opciones de filtro. */
-  const trasCrearAsiento = () => {
+  const handleCreatedEntry = () => {
     if (page !== 1) {
-      // Cambiar de página ya dispara la recarga del listado
       setPage(1);
     } else {
-      void cargarListado();
+      void loadEntries();
     }
-    recargarOpciones();
+    reloadOptions();
   };
 
-  const abrirDetalle = async (id: number) => {
-    const solicitud = ++detalleSolicitudRef.current;
-    setDetalleAbierto(true);
-    setDetalleId(id);
-    setDetalle(null);
-    setErrorDetalle(null);
-    setCargandoDetalle(true);
+  const openDetail = async (id: number) => {
+    const requestId = ++detailRequestRef.current;
+    setDetailOpen(true);
+    setDetailId(id);
+    setDetail(null);
+    setErrorDetail(null);
+    setLoadingDetail(true);
     try {
-      const datos = await obtenerAsiento(id);
-      if (solicitud !== detalleSolicitudRef.current) return;
-      setDetalle(datos);
+      const data = await getJournalEntry(id);
+      if (requestId !== detailRequestRef.current) return;
+      setDetail(data);
     } catch (e) {
-      if (solicitud !== detalleSolicitudRef.current) return;
-      setErrorDetalle(
-        e instanceof Error ? e.message : "No se pudo cargar el detalle del asiento."
-      );
+      if (requestId !== detailRequestRef.current) return;
+      setErrorDetail(e instanceof Error ? e.message : "No se pudo cargar el detalle del asiento.");
     } finally {
-      if (solicitud === detalleSolicitudRef.current) setCargandoDetalle(false);
+      if (requestId === detailRequestRef.current) setLoadingDetail(false);
     }
   };
 
-  const cerrarDetalle = () => {
-    setDetalleAbierto(false);
-    setDetalleId(null);
-    setDetalle(null);
-    setErrorDetalle(null);
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setDetailId(null);
+    setDetail(null);
+    setErrorDetail(null);
   };
 
-  const reintentarDetalle = () => {
-    if (detalleId !== null) void abrirDetalle(detalleId);
+  const retryDetail = () => {
+    if (detailId !== null) void openDetail(detailId);
   };
 
   const handleSelectAll = (checked: boolean) => {
-    const visibles = (pagina?.data ?? []).map((r) => r.id);
+    const visibleIds = (pageData?.data ?? []).map((r) => r.id);
     if (checked) {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibles])));
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
     } else {
-      const visiblesSet = new Set(visibles);
-      setSelectedIds((prev) => prev.filter((id) => !visiblesSet.has(id)));
+      const visibleSet = new Set(visibleIds);
+      setSelectedIds((prev) => prev.filter((id) => !visibleSet.has(id)));
     }
   };
 
@@ -279,20 +270,17 @@ export default function AsientosPage() {
   };
 
   // ---------------------------------------------------------------------
-  // Datos derivados
+  // Derived data
   // ---------------------------------------------------------------------
-  const filas = pagina?.data ?? [];
-  const meta = pagina?.meta;
+  const rows = pageData?.data ?? [];
+  const meta = pageData?.meta;
   const total = meta?.total ?? 0;
-  const totalPaginas = meta?.totalPaginas ?? 1;
+  const totalPages = meta?.totalPaginas ?? 1;
 
-  const desdeMostrado = total === 0 ? 0 : (Math.min(page, totalPaginas) - 1) * pageSize + 1;
-  const hastaMostrado = total === 0 ? 0 : Math.min(desdeMostrado + filas.length - 1, total);
+  const fromShown = total === 0 ? 0 : (Math.min(page, totalPages) - 1) * pageSize + 1;
+  const toShown = total === 0 ? 0 : Math.min(fromShown + rows.length - 1, total);
 
-  const porcentajeValidados =
-    total > 0 && meta ? Math.round((meta.registrados / total) * 100) : 0;
-
-  const diarios = opciones?.diarios ?? [];
+  const journals = options?.diarios ?? [];
 
   return (
     <>
@@ -301,82 +289,74 @@ export default function AsientosPage() {
         {/* Main Content */}
         <main className="relative flex-1 p-6">
           <div className="flex flex-col w-full gap-5">
-
-
             {/* MAIN LEDGER APPLICATION CARD */}
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <ToolbarAsientos
-                q={q}
-                onBuscar={setQ}
-                onLimpiarBusqueda={limpiarBusqueda}
-                onNuevo={() => setNuevoAbierto(true)}
-                desdeMostrado={desdeMostrado}
-                hastaMostrado={hastaMostrado}
+              <JournalEntryToolbar
+                q={searchQuery}
+                onSearch={setSearchQuery}
+                onClearSearch={clearSearch}
+                onNew={() => setNewOpen(true)}
+                fromShown={fromShown}
+                toShown={toShown}
                 total={total}
-                cargando={cargando}
+                loading={loading}
                 page={page}
-                totalPaginas={totalPaginas}
-                onPagina={cambiarPagina}
+                totalPages={totalPages}
+                onPage={changePage}
               />
             </Card>
-
-
-
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-
               <div className="flex flex-wrap gap-3">
-                <TabsDiarioAsientos
-                  diarios={diarios}
+                <JournalEntryTabs
+                  journals={journals}
                   total={total}
-                  diario={diario}
-                  onSeleccionar={cambiarDiario}
+                  journal={journal}
+                  onSelect={changeJournal}
                 />
 
-                <FiltrosAsientos
-                  desde={desde}
-                  hasta={hasta}
-                  diario={diario}
-                  estadoFiltro={estadoFiltro}
-                  busqueda={busqueda}
-                  opciones={opciones}
-                  hayFiltros={hayFiltros}
-                  onDesde={(valor) => cambiarRango("desde", valor)}
-                  onHasta={(valor) => cambiarRango("hasta", valor)}
-                  onEstado={cambiarEstado}
-                  onLimpiar={limpiarFiltros}
-                  onQuitar={quitarFiltro}
+                <JournalEntryFilters
+                  from={from}
+                  to={to}
+                  journal={journal}
+                  statusFilter={statusFilter}
+                  search={search}
+                  options={options}
+                  hasFilters={hasFilters}
+                  onFrom={(val) => changeRange("from", val)}
+                  onTo={(val) => changeRange("to", val)}
+                  onStatus={changeStatus}
+                  onClear={clearFilters}
+                  onRemove={removeFilter}
                 />
               </div>
 
-              <TablaAsientos
-                filas={filas}
-                cargando={cargando}
-                error={error}
-                hayFiltros={hayFiltros}
-                orden={orden}
+              <JournalEntryTable
+                rows={rows}
+                loading={loading}
+                error={errorMessage}
+                hasFilters={hasFilters}
+                order={order}
                 pageSize={pageSize}
                 selectedIds={selectedIds}
-                onOrdenar={ordenarPor}
-                onSeleccionarTodo={handleSelectAll}
-                onSeleccionarFila={handleSelectRow}
-                onAbrirDetalle={abrirDetalle}
-                onReintentar={() => void cargarListado()}
-                onLimpiarFiltros={limpiarFiltros}
+                onSort={sortBy}
+                onSelectAll={handleSelectAll}
+                onSelectRow={handleSelectRow}
+                onOpenDetail={openDetail}
+                onRetry={() => void loadEntries()}
+                onClearFilters={clearFilters}
               />
 
-
-
-              <PaginacionAsientos
+              <JournalEntryPagination
                 page={page}
-                totalPaginas={totalPaginas}
+                totalPages={totalPages}
                 pageSize={pageSize}
-                cargando={cargando}
-                desdeMostrado={desdeMostrado}
-                hastaMostrado={hastaMostrado}
+                loading={loading}
+                fromShown={fromShown}
+                toShown={toShown}
                 total={total}
-                seleccionados={selectedIds.length}
-                onPagina={cambiarPagina}
-                onPageSize={cambiarPageSize}
+                selectedCount={selectedIds.length}
+                onPage={changePage}
+                onPageSize={changePageSize}
               />
             </Card>
           </div>
@@ -385,20 +365,20 @@ export default function AsientosPage() {
 
       {/* DETALLE DEL ASIENTO SELECCIONADO */}
       <DetalleAsientos
-        abierto={detalleAbierto}
-        detalle={detalle}
-        cargando={cargandoDetalle}
-        error={errorDetalle}
-        onCerrar={cerrarDetalle}
-        onReintentar={reintentarDetalle}
+        open={detailOpen}
+        detail={detail}
+        loading={loadingDetail}
+        error={errorDetail}
+        onClose={closeDetail}
+        onRetry={retryDetail}
       />
 
       {/* ALTA MANUAL DE UN ASIENTO */}
       <NuevoAsientoDialog
-        abierto={nuevoAbierto}
-        diarios={opciones?.diarios ?? []}
-        onCerrar={() => setNuevoAbierto(false)}
-        onCreado={trasCrearAsiento}
+        abierto={newOpen}
+        diarios={options?.diarios ?? []}
+        onCerrar={() => setNewOpen(false)}
+        onCreado={handleCreatedEntry}
       />
     </>
   );

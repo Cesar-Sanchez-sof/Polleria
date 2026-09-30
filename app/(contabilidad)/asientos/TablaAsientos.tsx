@@ -26,66 +26,69 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  formatearFecha,
-  formatearMoneda,
+  formatDate,
+  formatCurrency,
   type AsientoResumen,
+  type JournalEntrySummary,
   type DireccionOrden,
+  type OrderDirection,
   type OrdenAsiento,
+  type JournalEntryOrder,
 } from "@/lib/services/asientos.service";
 
 interface Props {
-  filas: AsientoResumen[];
-  cargando: boolean;
+  rows: JournalEntrySummary[];
+  loading: boolean;
   error: string | null;
-  hayFiltros: boolean;
-  orden: { campo: OrdenAsiento; dir: DireccionOrden };
+  hasFilters: boolean;
+  order: { field: JournalEntryOrder; dir: OrderDirection };
   pageSize: number;
   selectedIds: number[];
-  onOrdenar: (campo: OrdenAsiento) => void;
-  onSeleccionarTodo: (checked: boolean) => void;
-  onSeleccionarFila: (id: number, checked: boolean) => void;
-  onAbrirDetalle: (id: number) => void;
-  onReintentar: () => void;
-  onLimpiarFiltros: () => void;
+  onSort: (field: JournalEntryOrder) => void;
+  onSelectAll: (checked: boolean) => void;
+  onSelectRow: (id: number, checked: boolean) => void;
+  onOpenDetail: (id: number) => void;
+  onRetry: () => void;
+  onClearFilters: () => void;
 }
 
-/** Encabezado de columna ordenable (fecha, número, total, etc.). */
-function ThOrden({
-  campo,
-  titulo,
-  ordenActual,
+/** Sortable column header (date, number, total, etc.). */
+function ThOrder({
+  field,
+  title,
+  currentOrder,
   dir,
-  onOrdenar,
+  onSort,
   children,
   className = "",
   align = "left",
 }: Readonly<{
-  campo: OrdenAsiento;
-  titulo: string;
-  ordenActual: OrdenAsiento;
-  dir: DireccionOrden;
-  onOrdenar: (campo: OrdenAsiento) => void;
+  field: JournalEntryOrder;
+  title: string;
+  currentOrder: JournalEntryOrder;
+  dir: OrderDirection;
+  onSort: (field: JournalEntryOrder) => void;
   children: ReactNode;
   className?: string;
   align?: "left" | "right" | "center";
 }>) {
-  const activo = ordenActual === campo;
-  const alineacion =
+  const isActive = currentOrder === field;
+  const alignment =
     align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
 
   return (
     <TableHead
       className={`py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] ${className}`}
-      aria-sort={activo ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      aria-sort={isActive ? (dir === "asc" ? "ascending" : "descending") : "none"}
     >
       <button
         type="button"
-        onClick={() => onOrdenar(campo)}
-        className={`w-full inline-flex items-center gap-1 uppercase cursor-pointer transition-colors hover:text-slate-900 ${alineacion} ${activo ? "text-red-700" : ""}`}
-        title={`Ordenar por ${titulo}`}
+        onClick={() => onSort(field)}
+        className={`w-full inline-flex items-center gap-1 uppercase cursor-pointer transition-colors hover:text-slate-900 ${alignment} ${isActive ? "text-red-700" : ""}`}
+        title={`Ordenar por ${title}`}
       >
         <span>{children}</span>
-        {activo ? (
+        {isActive ? (
           dir === "asc" ? (
             <ArrowUp className="w-3 h-3" />
           ) : (
@@ -99,29 +102,29 @@ function ThOrden({
   );
 }
 
-/** Listado de asientos: estados de carga/error/vacío, filas y selección. */
-export function TablaAsientos({
-  filas,
-  cargando,
+/** Journal entry list: loading/error/empty states, rows, and selection. */
+export function JournalEntryTable({
+  rows,
+  loading,
   error,
-  hayFiltros,
-  orden,
+  hasFilters,
+  order,
   pageSize,
   selectedIds,
-  onOrdenar,
-  onSeleccionarTodo,
-  onSeleccionarFila,
-  onAbrirDetalle,
-  onReintentar,
-  onLimpiarFiltros,
+  onSort,
+  onSelectAll,
+  onSelectRow,
+  onOpenDetail,
+  onRetry,
+  onClearFilters,
 }: Readonly<Props>) {
-  const esqueleto = cargando && filas.length === 0 && !error;
-  const vacio = !error && !cargando && filas.length === 0;
-  const allSelected = filas.length > 0 && filas.every((r) => selectedIds.includes(r.id));
+  const skeleton = loading && rows.length === 0 && !error;
+  const empty = !error && !loading && rows.length === 0;
+  const allSelected = rows.length > 0 && rows.every((r) => selectedIds.includes(r.id));
 
   return (
     <div
-      className={`w-full overflow-x-auto rounded-lg transition-opacity ${cargando && filas.length > 0 ? "opacity-60" : ""}`}
+      className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && rows.length > 0 ? "opacity-60" : ""}`}
     >
       <Table className="w-full text-left border-collapse min-w-245">
         <TableHeader>
@@ -130,65 +133,65 @@ export function TablaAsientos({
               <Checkbox
                 id="check-all"
                 checked={allSelected}
-                onCheckedChange={(checked) => onSeleccionarTodo(!!checked)}
+                onCheckedChange={(checked) => onSelectAll(!!checked)}
                 className="cursor-pointer"
               />
             </TableHead>
-            <ThOrden
-              campo="fecha"
-              titulo="Fecha"
-              ordenActual={orden.campo}
-              dir={orden.dir}
-              onOrdenar={onOrdenar}
+            <ThOrder
+              field="fecha"
+              title="Fecha"
+              currentOrder={order.field}
+              dir={order.dir}
+              onSort={onSort}
             >
               Fecha
-            </ThOrden>
-            <ThOrden
-              campo="numero"
-              titulo="Número"
-              ordenActual={orden.campo}
-              dir={orden.dir}
-              onOrdenar={onOrdenar}
+            </ThOrder>
+            <ThOrder
+              field="numero"
+              title="Número"
+              currentOrder={order.field}
+              dir={order.dir}
+              onSort={onSort}
             >
               Número
-            </ThOrden>
+            </ThOrder>
             <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">
               Concepto (glosa)
             </TableHead>
-            <ThOrden
-              campo="diario"
-              titulo="Diario"
-              ordenActual={orden.campo}
-              dir={orden.dir}
-              onOrdenar={onOrdenar}
+            <ThOrder
+              field="diario"
+              title="Diario"
+              currentOrder={order.field}
+              dir={order.dir}
+              onSort={onSort}
             >
               Diario
-            </ThOrden>
+            </ThOrder>
             <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">
               Responsable
             </TableHead>
-            <ThOrden
-              campo="total"
-              titulo="Total"
-              ordenActual={orden.campo}
-              dir={orden.dir}
-              onOrdenar={onOrdenar}
+            <ThOrder
+              field="total"
+              title="Total"
+              currentOrder={order.field}
+              dir={order.dir}
+              onSort={onSort}
               align="right"
               className="text-right"
             >
               Total
-            </ThOrden>
-            <ThOrden
-              campo="estado"
-              titulo="Estado"
-              ordenActual={orden.campo}
-              dir={orden.dir}
-              onOrdenar={onOrdenar}
+            </ThOrder>
+            <ThOrder
+              field="estado"
+              title="Estado"
+              currentOrder={order.field}
+              dir={order.dir}
+              onSort={onSort}
               align="center"
               className="text-center"
             >
               Estado
-            </ThOrden>
+            </ThOrder>
             <TableHead
               className="py-3 px-3 w-12 text-center text-slate-500"
               title="Personalizar columnas"
@@ -198,8 +201,8 @@ export function TablaAsientos({
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y divide-slate-100 text-sm text-slate-900">
-          {/* Cargando por primera vez */}
-          {esqueleto &&
+          {/* Skeleton loading */}
+          {skeleton &&
             Array.from({ length: Math.min(pageSize, 8) }).map((_, i) => (
               <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
                 <TableCell className="py-3 px-3">
@@ -232,8 +235,8 @@ export function TablaAsientos({
               </TableRow>
             ))}
 
-          {/* Error de carga */}
-          {error && !cargando && (
+          {/* Load error */}
+          {error && !loading && (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={9} className="py-10 text-center">
                 <div className="flex flex-col items-center gap-3 text-slate-600">
@@ -241,7 +244,7 @@ export function TablaAsientos({
                   <p className="text-sm font-semibold">{error}</p>
                   <Button
                     type="button"
-                    onClick={onReintentar}
+                    onClick={onRetry}
                     className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
@@ -252,8 +255,8 @@ export function TablaAsientos({
             </TableRow>
           )}
 
-          {/* Sin resultados */}
-          {vacio && (
+          {/* Empty state */}
+          {empty && (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={9} className="py-10 text-center">
                 <div className="flex flex-col items-center gap-3 text-slate-500">
@@ -264,10 +267,10 @@ export function TablaAsientos({
                   <p className="text-xs">
                     Ajusta el rango de fechas, el diario, el estado o la búsqueda.
                   </p>
-                  {hayFiltros && (
+                  {hasFilters && (
                     <Button
                       type="button"
-                      onClick={onLimpiarFiltros}
+                      onClick={onClearFilters}
                       className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -279,14 +282,14 @@ export function TablaAsientos({
             </TableRow>
           )}
 
-          {/* Filas */}
+          {/* Rows */}
           {!error &&
-            filas.map((row) => {
+            rows.map((row) => {
               const isSelected = selectedIds.includes(row.id);
               return (
                 <TableRow
                   key={row.id}
-                  onClick={() => void onAbrirDetalle(row.id)}
+                  onClick={() => void onOpenDetail(row.id)}
                   className={`hover:bg-(--color-background) transition-colors group cursor-pointer border-b border-slate-100 ${isSelected ? "bg-slate-100/75" : ""}`}
                   title="Ver detalle del asiento"
                 >
@@ -296,19 +299,19 @@ export function TablaAsientos({
                   >
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={(checked) => onSeleccionarFila(row.id, !!checked)}
+                      onCheckedChange={(checked) => onSelectRow(row.id, !!checked)}
                       className="cursor-pointer"
                     />
                   </TableCell>
                   <TableCell className="py-3 px-3 tabular-nums font-medium text-slate-800">
-                    {formatearFecha(row.fecha)}
+                    {formatDate(row.fecha)}
                   </TableCell>
                   <TableCell className="py-3 px-3 font-semibold text-red-700 hover:underline">
                     <Button
                       className="flex items-center gap-1.5"
                       onClick={(e) => {
                         e.stopPropagation();
-                        void onAbrirDetalle(row.id);
+                        void onOpenDetail(row.id);
                       }}
                     >
                       <span>{row.numero}</span>
@@ -325,7 +328,7 @@ export function TablaAsientos({
                     {row.responsable ?? "—"}
                   </TableCell>
                   <TableCell className="py-3 px-3 text-right tabular-nums font-bold text-slate-900">
-                    {formatearMoneda(row.total)}
+                    {formatCurrency(row.total)}
                   </TableCell>
                   <TableCell className="py-3 px-3 text-center">
                     <Badge
@@ -347,7 +350,7 @@ export function TablaAsientos({
                       className="p-1 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer h-7 w-7"
                       type="button"
                       title="Opciones"
-                      onClick={() => void onAbrirDetalle(row.id)}
+                      onClick={() => void onOpenDetail(row.id)}
                     >
                       <MoreVertical className="w-4 h-4" />
                     </Button>
@@ -360,3 +363,7 @@ export function TablaAsientos({
     </div>
   );
 }
+
+// Backwards compatibility alias
+export const TablaAsientos = JournalEntryTable;
+

@@ -166,7 +166,7 @@ model Planilla {
   fecha_pago         DateTime?          @db.Date
   estado             Boolean            @default(true)
   empleado           Empleado           @relation(fields: [id_empleado], references: [id_empleado], onDelete: Cascade)
-  asientos_contables Asiento_contable[]
+  journalEntries     JournalEntry[]
 
   @@unique([id_empleado, mes, anio], map: "uq_planilla_periodo")
   @@index([id_empleado], map: "idx_planilla_empleado")
@@ -322,8 +322,8 @@ model Comprobante_compra {
   estado                Boolean            @default(true)
   proveedor             Proveedor          @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: Restrict)
   recepcion             Recepcion_compra   @relation(fields: [id_recepcion], references: [id_recepcion], onDelete: Restrict)
-  pagos_compra          Pago_compra[]
-  asientos_contables    Asiento_contable[]
+  pagos_compra       Pago_compra[]
+  journalEntries     JournalEntry[]
 
   @@unique([id_proveedor, tipo_comprobante, serie, numero], map: "uq_comprobante_compra")
   @@index([id_proveedor], map: "idx_comprobcompra_proveedor")
@@ -501,8 +501,8 @@ model Comprobante_venta {
   estado               String             @default("Emitido") @db.VarChar(15)
   pedido               Pedido             @relation(fields: [id_pedido], references: [id_pedido], onDelete: Restrict)
   cliente              Cliente            @relation(fields: [id_cliente], references: [id_cliente], onDelete: Restrict)
-  pagos_venta          Pago_venta[]
-  asientos_contables   Asiento_contable[]
+  pagos_venta        Pago_venta[]
+  journalEntries     JournalEntry[]
 
   @@unique([tipo_comprobante, serie, numero], map: "uq_comprobante_venta")
   @@index([id_pedido], map: "idx_comprobventa_pedido")
@@ -525,65 +525,65 @@ model Pago_venta {
 }
 
 // =====================================================================
-// MÓDULO 5: CONTABILIDAD
+// MÓDULO 5: CONTABILIDAD (ACCOUNTING)
 // =====================================================================
 
-model Cuenta_contable {
-  id_cuenta_contable  Int                        @id @default(autoincrement())
-  id_cuenta_padre     Int?
-  codigo              String                     @unique @db.VarChar(10)
-  nombre              String                     @db.VarChar(100)
-  tipo                String                     @db.VarChar(20)
-  activo              Boolean                    @default(true)
-  fecha_creacion      DateTime                   @default(now()) @db.Timestamp(6)
-  fecha_actualizacion DateTime                   @default(now()) @db.Timestamp(6)
-  cuenta_padre        Cuenta_contable?           @relation("JerarquiaCuentas", fields: [id_cuenta_padre], references: [id_cuenta_contable], onDelete: Restrict)
-  cuentas_hijas       Cuenta_contable[]          @relation("JerarquiaCuentas")
-  detalles_asiento    Detalle_asiento_contable[]
+model AccountingAccount {
+  id                 Int                      @id @default(autoincrement()) @map("id_cuenta_contable")
+  parentId           Int?                     @map("id_cuenta_padre")
+  code               String                   @unique @db.VarChar(10) @map("codigo")
+  name               String                   @db.VarChar(100) @map("nombre")
+  type               String                   @db.VarChar(20) @map("tipo")
+  active             Boolean                  @default(true) @map("activo")
+  createdAt          DateTime                 @default(now()) @db.Timestamp(6) @map("fecha_creacion")
+  updatedAt          DateTime                 @default(now()) @db.Timestamp(6) @map("fecha_actualizacion")
+  parentAccount      AccountingAccount?       @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  childAccounts      AccountingAccount[]      @relation("AccountHierarchy")
+  entryDetails       JournalEntryDetail[]
 
-  @@index([id_cuenta_padre], map: "idx_cuentacontable_padre")
+  @@index([parentId], map: "idx_cuentacontable_padre")
   @@map("cuenta_contable")
 }
 
-model Asiento_contable {
-  id_asiento_contable   Int                        @id @default(autoincrement())
-  id_comprobante_venta  Int?
-  id_comprobante_compra Int?
-  id_planilla           Int?
-  fecha_contable        DateTime                   @default(now()) @db.Date
-  glosa                 String                     @db.VarChar(200)
-  diario                String                     @default("Operaciones varias") @db.VarChar(60)
-  responsable           String?                    @db.VarChar(100)
-  fecha_creacion        DateTime                   @default(now()) @db.Timestamp(6)
-  fecha_actualizacion   DateTime                   @default(now()) @db.Timestamp(6)
-  estado                Boolean                    @default(true)
-  codigo                String                     @unique @db.VarChar(20)
-  observacion           String?                    @db.VarChar(200)
-  comprobante_venta     Comprobante_venta?         @relation(fields: [id_comprobante_venta], references: [id_comprobante_venta], onDelete: Restrict)
-  comprobante_compra    Comprobante_compra?        @relation(fields: [id_comprobante_compra], references: [id_comprobante_compra], onDelete: Restrict)
-  planilla              Planilla?                  @relation(fields: [id_planilla], references: [id_planilla], onDelete: Restrict)
-  detalles_asiento      Detalle_asiento_contable[]
+model JournalEntry {
+  id                  Int                  @id @default(autoincrement()) @map("id_asiento_contable")
+  salesInvoiceId      Int?                 @map("id_comprobante_venta")
+  purchaseInvoiceId   Int?                 @map("id_comprobante_compra")
+  payrollId           Int?                 @map("id_planilla")
+  entryDate           DateTime             @default(now()) @db.Date @map("fecha_contable")
+  description         String               @db.VarChar(200) @map("glosa")
+  book                String               @default("Operaciones varias") @db.VarChar(60) @map("diario")
+  responsible         String?              @db.VarChar(100) @map("responsable")
+  createdAt           DateTime             @default(now()) @db.Timestamp(6) @map("fecha_creacion")
+  updatedAt           DateTime             @default(now()) @db.Timestamp(6) @map("fecha_actualizacion")
+  status              Boolean              @default(true) @map("estado")
+  code                String               @unique @db.VarChar(20) @map("codigo")
+  observation         String?              @db.VarChar(200) @map("observacion")
+  salesInvoice        Comprobante_venta?   @relation(fields: [salesInvoiceId], references: [id_comprobante_venta], onDelete: Restrict)
+  purchaseInvoice     Comprobante_compra?  @relation(fields: [purchaseInvoiceId], references: [id_comprobante_compra], onDelete: Restrict)
+  payroll             Planilla?            @relation(fields: [payrollId], references: [id_planilla], onDelete: Restrict)
+  entryDetails        JournalEntryDetail[]
 
-  @@index([id_comprobante_venta], map: "idx_asiento_compventa")
-  @@index([id_comprobante_compra], map: "idx_asiento_compcompra")
-  @@index([id_planilla], map: "idx_asiento_planilla")
-  @@index([fecha_contable], map: "idx_asiento_fecha")
-  @@index([diario], map: "idx_asiento_diario")
-  @@index([estado], map: "idx_asiento_estado")
+  @@index([salesInvoiceId], map: "idx_asiento_compventa")
+  @@index([purchaseInvoiceId], map: "idx_asiento_compcompra")
+  @@index([payrollId], map: "idx_asiento_planilla")
+  @@index([entryDate], map: "idx_asiento_fecha")
+  @@index([book], map: "idx_asiento_diario")
+  @@index([status], map: "idx_asiento_estado")
   @@map("asiento_contable")
 }
 
-model Detalle_asiento_contable {
-  id_detalle_asiento_contable Int              @id @default(autoincrement())
-  id_asiento_contable         Int
-  id_cuenta_contable          Int
-  descripcion                 String?          @db.VarChar(200)
-  debito                      Decimal          @default(0) @db.Decimal(12, 2)
-  credito                     Decimal          @default(0) @db.Decimal(12, 2)
-  asiento_contable            Asiento_contable @relation(fields: [id_asiento_contable], references: [id_asiento_contable], onDelete: Cascade)
-  cuenta_contable             Cuenta_contable  @relation(fields: [id_cuenta_contable], references: [id_cuenta_contable], onDelete: Restrict)
+model JournalEntryDetail {
+  id                  Int                @id @default(autoincrement()) @map("id_detalle_asiento_contable")
+  entryId             Int                @map("id_asiento_contable")
+  accountId           Int                @map("id_cuenta_contable")
+  description         String?            @db.VarChar(200) @map("descripcion")
+  debit               Decimal            @default(0) @db.Decimal(12, 2) @map("debito")
+  credit              Decimal            @default(0) @db.Decimal(12, 2) @map("credito")
+  entry               JournalEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account             AccountingAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
-  @@index([id_asiento_contable], map: "idx_detasiento_asiento")
-  @@index([id_cuenta_contable], map: "idx_detasiento_cuenta")
+  @@index([entryId], map: "idx_detasiento_asiento")
+  @@index([accountId], map: "idx_detasiento_cuenta")
   @@map("detalle_asiento_contable")
 }
