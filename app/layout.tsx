@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import Sidebar from "@/components/personalized/Sidebar";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={cn(
         "h-full w-full",
         "antialiased",
@@ -36,11 +38,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       )}
     >
       <body className="w-full min-h-full flex flex-col">
-        <div className="w-full min-w-full flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen overflow-x-hidden">
-          <Sidebar />
-          <div className="flex-1 w-full min-w-0">{children}</div>
-        </div>
-        <Toaster richColors position="top-right" />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className="w-full min-w-full flex bg-background text-sm text-foreground antialiased min-h-screen overflow-x-hidden">
+            <Sidebar />
+            <div className="flex-1 w-full min-w-0">{children}</div>
+          </div>
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );
