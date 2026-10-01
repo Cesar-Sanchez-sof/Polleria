@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="es"
       className={cn(
-        "h-full",
+        "h-full w-full",
         "antialiased",
         geistSans.variable,
         geistMono.variable,
@@ -35,10 +35,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         inter.variable,
       )}
     >
-      <body className="min-h-full flex flex-col">
-        <div className="relative bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen w-full min-w-0 overflow-x-hidden">
+      <body className="w-full min-h-full flex flex-col">
+        <div className="w-full min-w-full flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen overflow-x-hidden">
           <Sidebar />
-          <div className="w-full min-w-0">{children}</div>
+          <div className="flex-1 w-full min-w-0">{children}</div>
         </div>
         <Toaster richColors position="top-right" />
       </body>
