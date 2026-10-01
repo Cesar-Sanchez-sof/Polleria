@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { JournalBookOption } from "@/lib/services/asientos.service";
+import type { JournalBookOption } from "@/lib/services/journal-entries.service";
 
 interface Props {
   journals: JournalBookOption[];
@@ -42,7 +42,4 @@ export function JournalEntryTabs({ journals, total, journal, onSelect }: Readonl
     </div>
   );
 }
-
-// Backwards compatibility alias
-export const TabsDiarioAsientos = JournalEntryTabs;
 

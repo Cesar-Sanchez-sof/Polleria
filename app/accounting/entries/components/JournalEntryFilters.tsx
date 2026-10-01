@@ -7,12 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   formatDate,
   type JournalEntriesOptions,
-  type OpcionesAsientos,
-} from "@/lib/services/asientos.service";
+} from "@/lib/services/journal-entries.service";
 
 /** Identifier for each active filter chip. */
 export type FilterChip = "from" | "to" | "journal" | "status" | "q";
-export type FiltroChip = "desde" | "hasta" | "diario" | "estado" | "q" | FilterChip;
 
 interface Props {
   from: string;
@@ -77,13 +75,13 @@ export function JournalEntryFilters({
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-row gap-2">
             <label
-              htmlFor="filtro-desde"
+              htmlFor="filter-from"
               className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
             >
               De
             </label>
             <Input
-              id="filtro-desde"
+              id="filter-from"
               type="date"
               value={from}
               max={to || undefined}
@@ -91,13 +89,13 @@ export function JournalEntryFilters({
               className="h-9 w-34 rounded-lg border-slate-200 bg-white text-xs shadow-none"
             />
             <label
-              htmlFor="filtro-hasta"
+              htmlFor="filter-to"
               className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
             >
               A
             </label>
             <Input
-              id="filtro-hasta"
+              id="filter-to"
               type="date"
               value={to}
               min={from || undefined}
@@ -108,19 +106,19 @@ export function JournalEntryFilters({
 
           <div className="flex flex-row gap-2">
             <label
-              id="filtro-estado-label"
-              htmlFor="estadoFiltro"
+              id="filter-status-label"
+              htmlFor="statusFilter"
               className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
             >
               Estado
             </label>
             <Select
-              id="estadoFiltro"
+              id="statusFilter"
               value={statusFilter}
               items={statusOptions}
               onValueChange={(val) => onStatus(val ?? "todos")}
             >
-              <SelectTrigger className="w-36 rounded-lg bg-white text-xs" aria-labelledby="filtro-estado-label" />
+              <SelectTrigger className="w-36 rounded-lg bg-white text-xs" aria-labelledby="filter-status-label" />
               <SelectContent>
                 {statusOptions.map((op) => (
                   <SelectItem key={op.value} value={op.value}>
@@ -147,6 +145,3 @@ export function JournalEntryFilters({
     </>
   );
 }
-
-// Backwards compatibility aliases
-export const FiltrosAsientos = JournalEntryFilters;

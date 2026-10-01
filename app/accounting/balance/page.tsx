@@ -1,4 +1,4 @@
-import { KpisAsientos } from "./KpisAsientos";
+import { EntryKpis } from "./components/EntryKpis";
 
 export default function Balance() {
   return (
@@ -12,12 +12,12 @@ export default function Balance() {
       }}
     />
 /*
-  <KpisAsientos
-  cargandoInicial={cargando && !pagina}
+  <EntryKpis
+  initialLoading={loading && !pageData}
   total={total}
-  porcentaje={porcentajeValidados}
-  desde={desde}
-  hasta={hasta}
+  percentage={validatedPercentage}
+  from={from}
+  to={to}
   />
   */
   );

@@ -6,19 +6,19 @@ import { Card } from "@/components/ui/card";
 
 import { AccountDialog } from "./components/AccountDialog";
 import { AccountTable, type AccountTableRow } from "./components/AccountTable";
-import { ToolbarCuentas } from "./components/ToolbarCuentas";
+import { AccountsToolbar } from "./components/AccountsToolbar";
 
 import {
   updateAccount,
-  ErrorApi as ApiError,
+  ApiError,
   listAccounts,
   type AccountingAccount,
-} from "@/lib/services/cuentas.service";
+} from "@/lib/services/accounts.service";
 
 /**
  * Chart of accounts overview and creation page.
  */
-export default function CuentasPage() {
+export default function AccountsPage() {
   const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -191,18 +191,18 @@ export default function CuentasPage() {
         <main className="relative flex-1 p-6">
           <div className="flex flex-col w-full gap-5">
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <ToolbarCuentas
+              <AccountsToolbar
                 q={searchQuery}
-                onBuscar={setSearchQuery}
-                onLimpiarBusqueda={() => setSearchQuery("")}
-                tipo={typeFilter}
-                onTipo={setTypeFilter}
-                estado={statusFilter}
-                onEstado={setStatusFilter}
-                onNuevo={handleCreateAccount}
-                visibles={rows.length}
+                onSearch={setSearchQuery}
+                onClearSearch={() => setSearchQuery("")}
+                type={typeFilter}
+                onType={setTypeFilter}
+                status={statusFilter}
+                onStatus={setStatusFilter}
+                onNew={handleCreateAccount}
+                visible={rows.length}
                 total={accounts.length}
-                cargando={isLoading}
+                loading={isLoading}
               />
             </Card>
 

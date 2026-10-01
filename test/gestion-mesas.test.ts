@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
-  calcularTotales,
-  calcularVuelto,
-  validarDocumentoCliente,
-  puedeEditarPedido,
-  calcularResumenMesas,
-  calcularResumenVentasDiarias,
-} from "../lib/utils/ventas-helpers";
+  calculateTotals,
+  calculateChangeAmount,
+  validateCustomerDocument,
+  canEditOrder,
+  calculateTablesSummary,
+  calculateDailySalesSummary,
+} from "../lib/utils/sales-helpers";
 
 describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
   describe("1. Cálculos de Importes e IGV (18%)", () => {
@@ -17,7 +17,7 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
         { cantidad: 1, precioUnitario: 16.0 },
       ];
 
-      const resultado = calcularTotales(items);
+      const resultado = calculateTotals(items);
 
       expect(resultado.total).toBe(88.5);
       // Base imponible = 88.50 / 1.18 = 75.00
@@ -28,7 +28,7 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
     });
 
     it("debe retornar ceros cuando la lista de ítems está vacía", () => {
-      const resultado = calcularTotales([]);
+      const resultado = calculateTotals([]);
       expect(resultado.total).toBe(0);
       expect(resultado.subtotal).toBe(0);
       expect(resultado.igv).toBe(0);
@@ -37,7 +37,7 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
     it("debe manejar cantidades múltiples correctamente", () => {
       // 3 Mostritos a S/ 24.50 = S/ 73.50
       const items = [{ cantidad: 3, precioUnitario: 24.5 }];
-      const res = calcularTotales(items);
+      const res = calculateTotals(items);
       expect(res.total).toBe(73.5);
       expect(res.subtotal).toBe(62.29);
       expect(res.igv).toBe(11.21);
@@ -48,9 +48,9 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
     it("debe calcular el vuelto exacto cuando el cliente paga con un billete superior", () => {
       const total = 68.0;
       const recibido = 100.0;
-      const res = calcularVuelto(total, recibido);
+      const res = calculateChangeAmount(total, recibido);
 
-      expect(res.esValido).toBe(true);
+      expect(res.isValid).toBe(true);
       expect(res.vuelto).toBe(32.0);
       expect(res.error).toBeUndefined();
     });
@@ -58,18 +58,18 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
     it("debe dar vuelto 0 cuando el monto entregado es exacto", () => {
       const total = 45.5;
       const recibido = 45.5;
-      const res = calcularVuelto(total, recibido);
+      const res = calculateChangeAmount(total, recibido);
 
-      expect(res.esValido).toBe(true);
+      expect(res.isValid).toBe(true);
       expect(res.vuelto).toBe(0);
     });
 
     it("debe rechazar el cobro y dar mensaje explicativo si el efectivo es insuficiente", () => {
       const total = 50.0;
       const recibido = 30.0;
-      const res = calcularVuelto(total, recibido);
+      const res = calculateChangeAmount(total, recibido);
 
-      expect(res.esValido).toBe(false);
+      expect(res.isValid).toBe(false);
       expect(res.vuelto).toBe(0);
       expect(res.error).toContain("menor al total a pagar");
       expect(res.error).toContain("Faltan S/ 20.00");
@@ -78,46 +78,46 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
 
   describe("3. Validación de Documento de Cliente (DNI y RUC)", () => {
     it("debe validar un DNI válido de 8 dígitos para Persona Natural", () => {
-      const res = validarDocumentoCliente("Natural", "47829103");
-      expect(res.esValido).toBe(true);
+      const res = validateCustomerDocument("Natural", "47829103");
+      expect(res.isValid).toBe(true);
     });
 
     it("debe rechazar un DNI con longitud distinta a 8 dígitos o caracteres no numéricos", () => {
-      expect(validarDocumentoCliente("Natural", "4782910").esValido).toBe(false);
-      expect(validarDocumentoCliente("Natural", "478291039").esValido).toBe(false);
-      expect(validarDocumentoCliente("Natural", "4782910A").esValido).toBe(false);
+      expect(validateCustomerDocument("Natural", "4782910").isValid).toBe(false);
+      expect(validateCustomerDocument("Natural", "478291039").isValid).toBe(false);
+      expect(validateCustomerDocument("Natural", "4782910A").isValid).toBe(false);
     });
 
     it("debe validar un RUC válido de 11 dígitos que inicie con 10 o 20 para Persona Jurídica", () => {
-      const res = validarDocumentoCliente("Juridico", "20601234567");
-      expect(res.esValido).toBe(true);
+      const res = validateCustomerDocument("Juridico", "20601234567");
+      expect(res.isValid).toBe(true);
 
-      const res10 = validarDocumentoCliente("Juridico", "10478291031");
-      expect(res10.esValido).toBe(true);
+      const res10 = validateCustomerDocument("Juridico", "10478291031");
+      expect(res10.isValid).toBe(true);
     });
 
     it("debe rechazar un RUC que no tenga 11 dígitos o no inicie con 10, 15, 17 o 20", () => {
-      expect(validarDocumentoCliente("Juridico", "2060123456").esValido).toBe(false);
-      expect(validarDocumentoCliente("Juridico", "30601234567").esValido).toBe(false);
+      expect(validateCustomerDocument("Juridico", "2060123456").isValid).toBe(false);
+      expect(validateCustomerDocument("Juridico", "30601234567").isValid).toBe(false);
     });
 
     it("debe aceptar documento vacío o genérico para boleta simple a cliente anónimo", () => {
-      expect(validarDocumentoCliente("Natural", "").esValido).toBe(true);
-      expect(validarDocumentoCliente("Natural", "00000000").esValido).toBe(true);
+      expect(validateCustomerDocument("Natural", "").isValid).toBe(true);
+      expect(validateCustomerDocument("Natural", "00000000").isValid).toBe(true);
     });
   });
 
   describe("4. Reglas de Estado del Pedido y Edición de Comandas", () => {
     it("debe permitir editar cuando el pedido está en estado Recibido o Preparando", () => {
-      expect(puedeEditarPedido("Recibido")).toBe(true);
-      expect(puedeEditarPedido("Preparando")).toBe(true);
-      expect(puedeEditarPedido("Pendiente")).toBe(true);
+      expect(canEditOrder("Recibido")).toBe(true);
+      expect(canEditOrder("Preparando")).toBe(true);
+      expect(canEditOrder("Pendiente")).toBe(true);
     });
 
     it("debe bloquear la edición cuando el pedido ya está Servido o Cerrado", () => {
-      expect(puedeEditarPedido("Servido")).toBe(false);
-      expect(puedeEditarPedido("Cerrado")).toBe(false);
-      expect(puedeEditarPedido("Cancelado")).toBe(false);
+      expect(canEditOrder("Servido")).toBe(false);
+      expect(canEditOrder("Cerrado")).toBe(false);
+      expect(canEditOrder("Cancelado")).toBe(false);
     });
   });
 
@@ -131,7 +131,7 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
         { ocupada: false },
       ];
 
-      const resumen = calcularResumenMesas(mesas);
+      const resumen = calculateTablesSummary(mesas);
       expect(resumen.total).toBe(5);
       expect(resumen.ocupadas).toBe(2);
       expect(resumen.disponibles).toBe(3);
@@ -147,7 +147,7 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
         { monto_total: 40.0, metodo_pago: "Efectivo", tipo_comprobante: "Ticket" },
       ];
 
-      const resumen = calcularResumenVentasDiarias(ventas);
+      const resumen = calculateDailySalesSummary(ventas);
 
       expect(resumen.totalRecaudado).toBe(340.0);
       expect(resumen.cantidadVentas).toBe(4);

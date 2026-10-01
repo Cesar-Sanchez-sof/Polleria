@@ -8,7 +8,7 @@ import crypto from "crypto";
  * - Si aún no está configurado, funciona en modo "Simulación / Sandbox Local" para no consumir tokens ni bloquear el sistema.
  */
 
-export interface DatosCobroMercadoPago {
+export interface MercadoPagoChargeData {
   idPedido: number;
   codigoComanda: string;
   monto: number;
@@ -17,7 +17,7 @@ export interface DatosCobroMercadoPago {
   urlRetorno?: string;
 }
 
-export interface IntentoCobroResultado {
+export interface ChargeAttemptResult {
   modo: "tap_to_pay" | "point_device" | "qr" | "simulado";
   operacionId: string;
   estado: "pendiente" | "aprobado" | "simulado";
@@ -29,7 +29,7 @@ export interface IntentoCobroResultado {
 /**
  * Obtiene el Access Token desde las variables de entorno.
  */
-export function obtenerAccessToken(): string | null {
+export function getAccessToken(): string | null {
   return process.env.MERCADO_PAGO_ACCESS_TOKEN || null;
 }
 
@@ -37,34 +37,34 @@ export function obtenerAccessToken(): string | null {
  * Genera el enlace de apertura nativa (Deep Link) para que el celular del mozo
  * abra la app de Mercado Pago directamente en la pantalla de cobro con tarjeta (Tap to Pay / NFC).
  */
-export function generarDeepLinkTapToPay(datos: DatosCobroMercadoPago): string {
-  const monto = (Math.round(datos.monto * 100) / 100).toFixed(2);
+export function generateTapToPayDeepLink(data: MercadoPagoChargeData): string {
+  const amount = (Math.round(data.monto * 100) / 100).toFixed(2);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const urlRetorno = encodeURIComponent(
-    datos.urlRetorno || `${baseUrl}/ventas?tab=mesas&cobro_exitoso=${datos.idPedido}`
+  const returnUrl = encodeURIComponent(
+    data.urlRetorno || `${baseUrl}/sales?tab=tables&payment_success=${data.idPedido}`
   );
-  const desc = encodeURIComponent(`Polleria - Comanda ${datos.codigoComanda}`);
+  const desc = encodeURIComponent(`Polleria - Comanda ${data.codigoComanda}`);
 
   // Esquema nativo oficial de Mercado Pago para cobro en celular / Point
   // Al abrir esta URL en Android/iOS, se lanza la app de Mercado Pago con el monto precargado
-  return `mercadopago://point/pay?amount=${monto}&description=${desc}&success_url=${urlRetorno}&fail_url=${urlRetorno}`;
+  return `mercadopago://point/pay?amount=${amount}&description=${desc}&success_url=${returnUrl}&fail_url=${returnUrl}`;
 }
 
 /**
  * Inicia la intención de cobro con Mercado Pago.
  * Si no hay token de producción, genera el DeepLink y retorna modo preparado sin fallar.
  */
-export async function iniciarCobroMercadoPago(
-  datos: DatosCobroMercadoPago
-): Promise<IntentoCobroResultado> {
-  const token = obtenerAccessToken();
-  const deepLink = generarDeepLinkTapToPay(datos);
+export async function startMercadoPagoCharge(
+  data: MercadoPagoChargeData
+): Promise<ChargeAttemptResult> {
+  const token = getAccessToken();
+  const deepLink = generateTapToPayDeepLink(data);
 
   // MODO 1: Sin Token (Modo Preparado / Simulación Inteligente)
   if (!token || token.trim() === "" || token.includes("TU_ACCESS_TOKEN")) {
     return {
       modo: "tap_to_pay",
-      operacionId: `MP-SIM-${Date.now()}-${datos.idPedido}`,
+      operacionId: `MP-SIM-${Date.now()}-${data.idPedido}`,
       estado: "simulado",
       deepLinkApp: deepLink,
       mensaje:
@@ -75,9 +75,9 @@ export async function iniciarCobroMercadoPago(
   // MODO 2: Con Token de Mercado Pago (API Oficial)
   try {
     // Si se especificó un deviceId (Point Smart/Bluetooth)
-    if (datos.deviceId) {
+    if (data.deviceId) {
       const res = await fetch(
-        `https://api.mercadopago.com/point/integration-api/devices/${datos.deviceId}/payment-intents`,
+        `https://api.mercadopago.com/point/integration-api/devices/${data.deviceId}/payment-intents`,
         {
           method: "POST",
           headers: {
@@ -85,10 +85,10 @@ export async function iniciarCobroMercadoPago(
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: Math.round(datos.monto * 100), // En centavos para la API Point
-            description: `Comanda ${datos.codigoComanda}`,
+            amount: Math.round(data.monto * 100), // En centavos para la API Point
+            description: `Comanda ${data.codigoComanda}`,
             additional_info: {
-              external_reference: `PED-${datos.idPedido}`,
+              external_reference: `PED-${data.idPedido}`,
               print_on_terminal: true,
             },
           }),
@@ -110,7 +110,7 @@ export async function iniciarCobroMercadoPago(
     // Para Tap to Pay desde celular, el canal estándar es el Deep Link hacia la App de Mercado Pago
     return {
       modo: "tap_to_pay",
-      operacionId: `MP-LIVE-${Date.now()}-${datos.idPedido}`,
+      operacionId: `MP-LIVE-${Date.now()}-${data.idPedido}`,
       estado: "pendiente",
       deepLinkApp: deepLink,
       mensaje: "Enlace Tap to Pay generado listo para cobro en celular.",
@@ -130,8 +130,8 @@ export async function iniciarCobroMercadoPago(
 /**
  * Consulta el estado oficial de un pago en la API de Mercado Pago.
  */
-export async function consultarPagoMercadoPago(paymentId: string | number): Promise<any> {
-  const token = obtenerAccessToken();
+export async function getMercadoPagoPayment(paymentId: string | number): Promise<any> {
+  const token = getAccessToken();
   if (!token) {
     return { id: paymentId, status: "approved", status_detail: "simulated_without_token" };
   }
@@ -157,7 +157,7 @@ export async function consultarPagoMercadoPago(paymentId: string | number): Prom
 /**
  * Obtiene el Webhook Secret desde las variables de entorno.
  */
-export function obtenerWebhookSecret(): string | null {
+export function getWebhookSecret(): string | null {
   return process.env.MERCADO_PAGO_WEBHOOK_SECRET || null;
 }
 
@@ -165,42 +165,42 @@ export function obtenerWebhookSecret(): string | null {
  * Valida la firma criptográfica HMAC-SHA256 enviada en la cabecera x-signature por Mercado Pago.
  * Si MERCADO_PAGO_WEBHOOK_SECRET no está configurado, valida en modo tolerante (simulación / dev).
  */
-export function verificarFirmaWebhookMercadoPago(params: {
+export function verifyMercadoPagoWebhookSignature(params: {
   xSignatureHeader: string | null;
   xRequestIdHeader: string | null;
   dataId: string | null;
-}): { valida: boolean; razon?: string } {
-  const secret = obtenerWebhookSecret();
+}): { isValid: boolean; reason?: string } {
+  const secret = getWebhookSecret();
 
   // Modo seguro de desarrollo: Si no hay secreto configurado, acepta notificaciones sin bloquear
   if (!secret || secret.trim() === "" || secret.includes("TU_WEBHOOK_SECRET")) {
-    return { valida: true, razon: "Modo relajado: MERCADO_PAGO_WEBHOOK_SECRET no configurado" };
+    return { isValid: true, reason: "Modo relajado: MERCADO_PAGO_WEBHOOK_SECRET no configurado" };
   }
 
   if (!params.xSignatureHeader) {
-    return { valida: false, razon: "Cabecera x-signature ausente" };
+    return { isValid: false, reason: "Cabecera x-signature ausente" };
   }
 
   // Desglosar elementos de la cabecera: "ts=1700000000,v1=abc..."
-  const partes = params.xSignatureHeader.split(",");
+  const parts = params.xSignatureHeader.split(",");
   let ts = "";
   let v1 = "";
 
-  for (const parte of partes) {
-    const [clave, valor] = parte.trim().split("=");
-    if (clave === "ts") ts = valor;
-    if (clave === "v1") v1 = valor;
+  for (const part of parts) {
+    const [key, value] = part.trim().split("=");
+    if (key === "ts") ts = value;
+    if (key === "v1") v1 = value;
   }
 
   if (!ts || !v1) {
-    return { valida: false, razon: "Formato de x-signature inválido" };
+    return { isValid: false, reason: "Formato de x-signature inválido" };
   }
 
   // Prevenir ataques de repetición (tolerancia de 10 minutos)
-  const ahora = Math.floor(Date.now() / 1000);
-  const tiempoPeticion = parseInt(ts, 10);
-  if (!Number.isNaN(tiempoPeticion) && Math.abs(ahora - tiempoPeticion) > 600) {
-    return { valida: false, razon: "Firma expirada o timestamp desfasado" };
+  const now = Math.floor(Date.now() / 1000);
+  const requestTime = parseInt(ts, 10);
+  if (!Number.isNaN(requestTime) && Math.abs(now - requestTime) > 600) {
+    return { isValid: false, reason: "Firma expirada o timestamp desfasado" };
   }
 
   // Plantilla oficial: id:[data.id];request-id:[x-request-id];ts:[ts];
@@ -208,8 +208,8 @@ export function verificarFirmaWebhookMercadoPago(params: {
   const hmac = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
 
   if (hmac.toLowerCase() === v1.toLowerCase()) {
-    return { valida: true };
+    return { isValid: true };
   }
 
-  return { valida: false, razon: "Firma criptográfica HMAC no coincide" };
+  return { isValid: false, reason: "Firma criptográfica HMAC no coincide" };
 }

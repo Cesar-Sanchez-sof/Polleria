@@ -16,15 +16,7 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.errors = errors.length > 0 ? errors : [message];
   }
-
-  // Alias for backward compatibility
-  get errores(): string[] {
-    return this.errors;
-  }
 }
-
-/** Backward compatibility alias */
-export const ErrorApi = ApiError;
 
 /** Performs fetch request and returns JSON body; throws `ApiError` on failure. */
 export async function fetchJson<T>(url: string, options: RequestInit): Promise<T> {
@@ -73,9 +65,3 @@ export async function patchJson<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 }
-
-// Backward compatibility aliases
-export const pedir = fetchJson;
-export const obtenerJson = getJson;
-export const enviarJson = postJson;
-export const actualizarJson = patchJson;

@@ -23,7 +23,7 @@ import {
   formatDate,
   formatCurrency,
   type JournalEntryDetail,
-} from "@/lib/services/asientos.service";
+} from "@/lib/services/journal-entries.service";
 
 interface JournalEntryDetailProps {
   open: boolean;

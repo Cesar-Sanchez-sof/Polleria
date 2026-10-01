@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AccountingAccount } from "@/lib/services/cuentas.service";
+import type { AccountingAccount } from "@/lib/services/accounts.service";
 
 /** Tree row representing an account with depth and branch expansion state. */
 export interface AccountTableRow {
@@ -32,8 +32,6 @@ export interface AccountTableRow {
   hasChildren: boolean;
   expanded: boolean;
 }
-
-export type FilaCuenta = AccountTableRow;
 
 interface AccountTableProps {
   rows: AccountTableRow[];

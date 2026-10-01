@@ -1,16 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { consultarDocumentoIdentidad } from "../lib/services/consulta-documento.service";
+import { lookupIdentityDocument } from "../lib/services/document-lookup.service";
 import {
-  generarClaveS3Comprobante,
-  registrarComprobanteS3,
-  subirComprobantesEnLote,
-  obtenerNombreBucket,
+  buildVoucherS3Key,
+  uploadVoucherToS3,
+  uploadVouchersBatch,
+  getBucketName,
 } from "../lib/services/s3-storage.service";
 
 describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", () => {
   describe("1. Consulta de Documentos con json.pe", () => {
     it("debe consultar DNI en modo preparado retornando estructura con nombre y apellidos", async () => {
-      const res = await consultarDocumentoIdentidad("dni", "47829103");
+      const res = await lookupIdentityDocument("dni", "47829103");
 
       expect(res.tipo).toBe("dni");
       expect(res.numero).toBe("47829103");
@@ -19,7 +19,7 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
     });
 
     it("debe consultar RUC en modo preparado retornando razón social y estado", async () => {
-      const res = await consultarDocumentoIdentidad("ruc", "20601234567");
+      const res = await lookupIdentityDocument("ruc", "20601234567");
 
       expect(res.tipo).toBe("ruc");
       expect(res.numero).toBe("20601234567");
@@ -31,12 +31,12 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
 
   describe("2. Almacenamiento S3 de Comprobantes (Bucket 'comprobantes')", () => {
     it("debe usar el bucket 'comprobantes' por defecto", () => {
-      expect(obtenerNombreBucket()).toBe("comprobantes");
+      expect(getBucketName()).toBe("comprobantes");
     });
 
     it("debe generar la clave S3 con la estructura dinámica organizada por tipo, año, mes, día y serie", () => {
       const fechaPrueba = new Date("2026-09-29T12:00:00Z");
-      const clave = generarClaveS3Comprobante({
+      const clave = buildVoucherS3Key({
         idComprobante: 10,
         tipoComprobante: "Boleta",
         serie: "B001",
@@ -50,7 +50,7 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
 
     it("debe organizar las Facturas en la subcarpeta facturas dinámicamente con fecha", () => {
       const fechaPrueba = new Date("2026-09-29T14:30:00Z");
-      const clave = generarClaveS3Comprobante({
+      const clave = buildVoucherS3Key({
         idComprobante: 12,
         tipoComprobante: "Factura",
         serie: "F001",
@@ -63,7 +63,7 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
     });
 
     it("debe operar en modo seguro cuando no hay credenciales S3 en .env", async () => {
-      const resultado = await registrarComprobanteS3({
+      const resultado = await uploadVoucherToS3({
         idComprobante: 1,
         tipoComprobante: "Boleta",
         serie: "B001",
@@ -72,8 +72,8 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
 
       expect(resultado.estado).toBe("simulado");
       expect(resultado.bucket).toBe("comprobantes");
-      expect(resultado.claveS3).toBeDefined();
-      expect(resultado.urlPublica).toContain(resultado.claveS3);
+      expect(resultado.s3Key).toBeDefined();
+      expect(resultado.publicUrl).toContain(resultado.s3Key);
     });
 
     it("debe procesar y soportar 20 comprobantes almacenados simultáneamente a la vez sin fallar", async () => {
@@ -90,16 +90,16 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
       }));
 
       // Ejecutar con concurrencia máxima de 20 en paralelo
-      const resumen = await subirComprobantesEnLote(lote20, { concurrenciaMaxima: 20 });
+      const resumen = await uploadVouchersBatch(lote20, { maxConcurrency: 20 });
 
       expect(resumen.total).toBe(20);
-      expect(resumen.exitosos).toBe(20);
-      expect(resumen.fallidos).toBe(0);
-      expect(resumen.concurrenciaUsada).toBe(20);
-      expect(resumen.resultados.length).toBe(20);
+      expect(resumen.successful).toBe(20);
+      expect(resumen.failed).toBe(0);
+      expect(resumen.concurrencyUsed).toBe(20);
+      expect(resumen.results.length).toBe(20);
 
       // Verificar que cada uno tenga su ruta única organizada
-      const claves = resumen.resultados.map((r) => r.claveS3);
+      const claves = resumen.results.map((r) => r.s3Key);
       const clavesUnicas = new Set(claves);
       expect(clavesUnicas.size).toBe(20);
     });
@@ -112,7 +112,7 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
         process.env.AWS_ENDPOINT_URL_S3 = "https://s3.us-east-1.neon.tech";
         process.env.AWS_ACCESS_KEY_ID = "GH_SECRET_KEY_123";
 
-        const res = registrarComprobanteS3({
+        const res = uploadVoucherToS3({
           idComprobante: 99,
           tipoComprobante: "Boleta",
           serie: "B001",

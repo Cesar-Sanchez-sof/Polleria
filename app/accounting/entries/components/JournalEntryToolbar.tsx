@@ -116,6 +116,3 @@ export function JournalEntryToolbar({
   );
 }
 
-// Backwards compatibility alias
-export const ToolbarAsientos = JournalEntryToolbar;
-

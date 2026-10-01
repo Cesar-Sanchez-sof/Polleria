@@ -21,18 +21,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ErrorApi as ApiError,
+  ApiError,
   registerAccount,
   updateAccount,
   ACCOUNT_TYPES,
   type AccountingAccount,
-} from "@/lib/services/cuentas.service";
+} from "@/lib/services/accounts.service";
 
 /** Format validated on server (`AccountingAccount.code` ≤ 10). */
 const ACCOUNT_CODE_REGEX = /^[A-Za-z0-9.-]{1,10}$/;
 
 /** Selector sentinel value for root account (no parent). */
-const ROOT_ACCOUNT_VALUE = "__raiz__";
+const ROOT_ACCOUNT_VALUE = "__root__";
 
 interface AccountDialogProps {
   isOpen: boolean;
@@ -201,11 +201,11 @@ export function AccountDialog({
         <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label htmlFor="cuenta-codigo" className={labelClasses}>
+              <label htmlFor="account-code" className={labelClasses}>
                 Código
               </label>
               <Input
-                id="cuenta-codigo"
+                id="account-code"
                 type="text"
                 maxLength={10}
                 placeholder="Ej. 101"
@@ -218,11 +218,11 @@ export function AccountDialog({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label id="cuenta-tipo-label" htmlFor="cuenta-tipo" className={labelClasses}>
+              <label id="account-type-label" htmlFor="account-type" className={labelClasses}>
                 Tipo de cuenta
               </label>
               <Select
-                id="cuenta-tipo"
+                id="account-type"
                 value={accountType}
                 items={typeOptions}
                 onValueChange={(val) => setAccountType(val ?? "")}
@@ -230,7 +230,7 @@ export function AccountDialog({
               >
                 <SelectTrigger
                   className="w-full rounded-lg bg-white text-xs"
-                  aria-labelledby="cuenta-tipo-label"
+                  aria-labelledby="account-type-label"
                 >
                   <SelectValue placeholder="Seleccionar tipo" />
                 </SelectTrigger>
@@ -245,11 +245,11 @@ export function AccountDialog({
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label htmlFor="cuenta-nombre" className={labelClasses}>
+              <label htmlFor="account-name" className={labelClasses}>
                 Nombre de la cuenta
               </label>
               <Input
-                id="cuenta-nombre"
+                id="account-name"
                 type="text"
                 maxLength={100}
                 placeholder="Ej. Caja"
@@ -262,11 +262,11 @@ export function AccountDialog({
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label id="cuenta-padre-label" htmlFor="cuenta-padre" className={labelClasses}>
+              <label id="account-parent-label" htmlFor="account-parent" className={labelClasses}>
                 Cuenta padre (subcuenta de)
               </label>
               <Select
-                id="cuenta-padre"
+                id="account-parent"
                 value={parentId}
                 items={[
                   { value: ROOT_ACCOUNT_VALUE, label: "Ninguna · es una cuenta raíz" },
@@ -280,7 +280,7 @@ export function AccountDialog({
               >
                 <SelectTrigger
                   className="w-full rounded-lg bg-white text-xs"
-                  aria-labelledby="cuenta-padre-label"
+                  aria-labelledby="account-parent-label"
                 >
                   <SelectValue placeholder="Seleccionar cuenta padre" />
                 </SelectTrigger>

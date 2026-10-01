@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  consultarPagoMercadoPago,
-  verificarFirmaWebhookMercadoPago
+  getMercadoPagoPayment,
+  verifyMercadoPagoWebhookSignature
 } from "@/lib/services/mercadopago.service";
-import { registrarComprobanteS3 } from "@/lib/services/s3-storage.service";
+import { uploadVoucherToS3 } from "@/lib/services/s3-storage.service";
 
 export const dynamic = "force-dynamic";
 
@@ -42,16 +42,16 @@ export async function POST(request: NextRequest) {
     // Validar firma criptográfica si está configurado MERCADO_PAGO_WEBHOOK_SECRET
     const xSignature = request.headers.get("x-signature");
     const xRequestId = request.headers.get("x-request-id");
-    const validacionFirma = verificarFirmaWebhookMercadoPago({
+    const validacionFirma = verifyMercadoPagoWebhookSignature({
       xSignatureHeader: xSignature,
       xRequestIdHeader: xRequestId,
       dataId: String(paymentId),
     });
 
-    if (!validacionFirma.valida) {
-      console.warn(`[Webhook MercadoPago] Firma rechazada: ${validacionFirma.razon}`);
+    if (!validacionFirma.isValid) {
+      console.warn(`[Webhook MercadoPago] Firma rechazada: ${validacionFirma.reason}`);
       return Response.json(
-        { error: "Firma de webhook inválida.", detalle: validacionFirma.razon },
+        { error: "Firma de webhook inválida.", detalle: validacionFirma.reason },
         { status: 401 }
       );
     }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Webhook MercadoPago] Evento recibido: ${tipoEvento}, Payment ID: ${paymentId}`);
 
     // Consultar el estado del pago (si hay Access Token consulta la API, sino valida simulación)
-    const pagoMP = await consultarPagoMercadoPago(paymentId);
+    const pagoMP = await getMercadoPagoPayment(paymentId);
 
     if (!pagoMP || (pagoMP.status !== "approved" && pagoMP.status_detail !== "simulated_without_token")) {
       console.log(`[Webhook MercadoPago] El pago ${paymentId} aún no está aprobado (Estado: ${pagoMP?.status}).`);
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
 
     // Archivar automáticamente el comprobante en el Bucket S3 'comprobantes'
     if (idComprobanteCreado) {
-      await registrarComprobanteS3({
+      await uploadVoucherToS3({
         idComprobante: idComprobanteCreado,
         tipoComprobante: "Boleta",
         serie,

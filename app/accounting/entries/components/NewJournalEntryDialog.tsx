@@ -28,7 +28,7 @@ import {
   type JournalEntrySummary,
   type AccountingAccount,
   type JournalBookOption,
-} from "@/lib/services/asientos.service";
+} from "@/lib/services/journal-entries.service";
 
 const DEFAULT_BOOK = "Operaciones varias";
 const INITIAL_LINE_COUNT = 2;
@@ -62,17 +62,17 @@ function createEmptyLine(key: number): FormLine {
 }
 
 interface NewJournalEntryDialogProps {
-  abierto: boolean;
-  diarios: JournalBookOption[];
-  onCerrar: () => void;
-  onCreado: (asiento: JournalEntrySummary) => void;
+  open: boolean;
+  journals: JournalBookOption[];
+  onClose: () => void;
+  onCreated: (entry: JournalEntrySummary) => void;
 }
 
 export function NewJournalEntryDialog({
-  abierto,
-  diarios,
-  onCerrar,
-  onCreado,
+  open,
+  journals,
+  onClose,
+  onCreated,
 }: Readonly<NewJournalEntryDialogProps>) {
   const [entryDate, setEntryDate] = useState<string>(() => getTodayIsoDate());
   const [book, setBook] = useState<string>(DEFAULT_BOOK);
@@ -129,10 +129,10 @@ export function NewJournalEntryDialog({
 
   const bookOptions = useMemo(() => {
     const bookNames = Array.from(
-      new Set([DEFAULT_BOOK, ...diarios.map((d) => d.nombre)])
+      new Set([DEFAULT_BOOK, ...journals.map((d) => d.nombre)])
     );
     return bookNames.map((name) => ({ value: name, label: name }));
-  }, [diarios]);
+  }, [journals]);
 
   const totals = lines.reduce(
     (acc, line) => ({
@@ -156,10 +156,10 @@ export function NewJournalEntryDialog({
     setErrors([]);
   };
 
-  const handleOpenChange = (open: boolean) => {
-    if (open) return;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) return;
     resetForm();
-    onCerrar();
+    onClose();
   };
 
   const updateLine = (key: number, changes: Partial<FormLine>) => {
@@ -237,8 +237,8 @@ export function NewJournalEntryDialog({
         })),
       });
       resetForm();
-      onCreado(createdEntry);
-      onCerrar();
+      onCreated(createdEntry);
+      onClose();
     } catch (err) {
       setErrors(
         err instanceof ApiError
@@ -254,7 +254,7 @@ export function NewJournalEntryDialog({
   const inputClasses = "h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-none";
 
   return (
-    <Dialog open={abierto} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[calc(100vh-4rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-slate-900">
@@ -269,11 +269,11 @@ export function NewJournalEntryDialog({
         <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="flex flex-col gap-1">
-              <label htmlFor="asiento-fecha" className={labelClasses}>
+              <label htmlFor="entry-date" className={labelClasses}>
                 Fecha contable
               </label>
               <Input
-                id="asiento-fecha"
+                id="entry-date"
                 type="date"
                 value={entryDate}
                 onChange={(e) => setEntryDate(e.target.value)}
@@ -283,11 +283,11 @@ export function NewJournalEntryDialog({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label id="asiento-diario-label" htmlFor="asiento-diario" className={labelClasses}>
+              <label id="entry-journal-label" htmlFor="entry-journal" className={labelClasses}>
                 Diario
               </label>
               <Select
-                id="asiento-diario"
+                id="entry-journal"
                 value={book}
                 items={bookOptions}
                 onValueChange={(val) => setBook(val ?? DEFAULT_BOOK)}
@@ -295,7 +295,7 @@ export function NewJournalEntryDialog({
               >
                 <SelectTrigger
                   className="w-full rounded-lg bg-white text-xs"
-                  aria-labelledby="asiento-diario-label"
+                  aria-labelledby="entry-journal-label"
                 >
                   <SelectValue placeholder="Seleccionar diario" />
                 </SelectTrigger>
@@ -310,11 +310,11 @@ export function NewJournalEntryDialog({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="asiento-responsable" className={labelClasses}>
+              <label htmlFor="entry-responsible" className={labelClasses}>
                 Responsable (opcional)
               </label>
               <Input
-                id="asiento-responsable"
+                id="entry-responsible"
                 type="text"
                 maxLength={100}
                 value={responsible}
@@ -325,11 +325,11 @@ export function NewJournalEntryDialog({
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label htmlFor="asiento-glosa" className={labelClasses}>
+              <label htmlFor="entry-description" className={labelClasses}>
                 Concepto (glosa)
               </label>
               <Input
-                id="asiento-glosa"
+                id="entry-description"
                 type="text"
                 maxLength={200}
                 placeholder="Ej. Ajuste por diferencia de caja del mes"
@@ -341,11 +341,11 @@ export function NewJournalEntryDialog({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="asiento-observacion" className={labelClasses}>
+              <label htmlFor="entry-observation" className={labelClasses}>
                 Observación (opcional)
               </label>
               <Input
-                id="asiento-observacion"
+                id="entry-observation"
                 type="text"
                 maxLength={200}
                 value={observation}

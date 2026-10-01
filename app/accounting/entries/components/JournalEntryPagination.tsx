@@ -164,6 +164,3 @@ export function JournalEntryPagination({
   );
 }
 
-// Backwards compatibility alias
-export const PaginacionAsientos = JournalEntryPagination;
-

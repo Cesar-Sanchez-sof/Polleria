@@ -20,7 +20,7 @@ import {
   type JournalEntriesOptions,
   type JournalEntriesPage,
   type JournalEntrySort,
-} from "@/lib/services/asientos.service";
+} from "@/lib/services/journal-entries.service";
 
 /**
  * Journal entries consultation screen.
@@ -374,10 +374,10 @@ export default function AsientosPage() {
 
       {/* ALTA MANUAL DE UN ASIENTO */}
       <NewJournalEntryDialog
-        abierto={newOpen}
-        diarios={options?.diarios ?? []}
-        onCerrar={() => setNewOpen(false)}
-        onCreado={handleCreatedEntry}
+        open={newOpen}
+        journals={options?.diarios ?? []}
+        onClose={() => setNewOpen(false)}
+        onCreated={handleCreatedEntry}
       />
     </>
   );

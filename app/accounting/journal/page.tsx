@@ -4,159 +4,158 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { BookOpen } from "lucide-react";
 
-import { DetalleAsientos } from "../entries/components/JournalEntryDetail";
-import { PaginacionAsientos } from "../entries/components/JournalEntryPagination";
-import { FiltrosDiario } from "./FiltrosDiario";
-import { DailyJournalTable } from "./TablaDiario";
-
+import { JournalEntryDetail } from "../entries/components/JournalEntryDetail";
+import { JournalEntryPagination } from "../entries/components/JournalEntryPagination";
+import { DailyBookFilters } from "./components/DailyBookFilters";
+import { DailyJournalTable } from "./components/DailyJournalTable";
 import {
-  listarLibroDiario,
-  obtenerAsiento,
-  type AsientoDetalle,
-  type PaginaDiario,
-} from "@/lib/services/diario.service";
+  listDailyBookEntries,
+  getJournalEntry,
+  type JournalEntryDetail as EntryDetailData,
+  type DailyBookPage as DailyBookPageData,
+} from "@/lib/services/daily-book.service";
 
 /**
  * Pantalla del Libro Diario: asientos contables ordenados cronológicamente
  * (del más reciente al más antiguo) con sus líneas y totales, filtrables por
  * un periodo de fechas.
  *
- * La lógica de presentación vive en ./<Componente>Diario.tsx y el acceso a
- * datos en lib/services/diario.service.ts.
+ * La lógica de presentación vive en ./components/DailyBookFilters.tsx y
+ * ./components/DailyJournalTable.tsx; el acceso a datos en lib/services/diario.service.ts.
  */
-export default function LibroDiarioPage() {
+export default function DailyBookPage() {
   // ---------------------------------------------------------------------
   // Filtro de periodo (fechas inicial y final, ambas inclusive)
   // ---------------------------------------------------------------------
-  const [desde, setDesde] = useState<string>("");
-  const [hasta, setHasta] = useState<string>("");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
 
   // Paginación
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
   // Datos
-  const [pagina, setPagina] = useState<PaginaDiario | null>(null);
-  const [cargando, setCargando] = useState<boolean>(true);
+  const [pageData, setPageData] = useState<DailyBookPageData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Detalle del asiento seleccionado
-  const [detalleAbierto, setDetalleAbierto] = useState<boolean>(false);
-  const [detalleId, setDetalleId] = useState<number | null>(null);
-  const [detalle, setDetalle] = useState<AsientoDetalle | null>(null);
-  const [cargandoDetalle, setCargandoDetalle] = useState<boolean>(false);
-  const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState<boolean>(false);
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<EntryDetailData | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   // Control de carreras: sólo la última petición puede escribir estado
-  const solicitudRef = useRef(0);
-  const detalleSolicitudRef = useRef(0);
+  const requestRef = useRef(0);
+  const detailRequestRef = useRef(0);
 
-  const rangoInvalido = Boolean(desde && hasta && desde > hasta);
-  const hayFiltros = Boolean(desde) || Boolean(hasta);
+  const invalidRange = Boolean(from && to && from > to);
+  const hasFilters = Boolean(from) || Boolean(to);
 
   // Listado: se reconsulta cada vez que cambia el periodo o la página.
   // Un rango invertido no se consulta: el aviso se deriva del propio estado
-  // (`errorMostrado`), sin tocar el estado dentro del efecto.
-  const cargarListado = useCallback(async () => {
-    const solicitud = ++solicitudRef.current;
-    setCargando(true);
+  // (`displayedError`), sin tocar el estado dentro del efecto.
+  const loadList = useCallback(async () => {
+    const request = ++requestRef.current;
+    setLoading(true);
     setError(null);
     try {
-      const datos = await listarLibroDiario({ desde, hasta, page, pageSize });
-      if (solicitud !== solicitudRef.current) return;
-      setPagina(datos);
+      const data = await listDailyBookEntries({ desde: from, hasta: to, page, pageSize });
+      if (request !== requestRef.current) return;
+      setPageData(data);
     } catch (e) {
-      if (solicitud !== solicitudRef.current) return;
-      setPagina(null);
+      if (request !== requestRef.current) return;
+      setPageData(null);
       setError(e instanceof Error ? e.message : "No se pudo cargar el libro diario.");
     } finally {
-      if (solicitud === solicitudRef.current) setCargando(false);
+      if (request === requestRef.current) setLoading(false);
     }
-  }, [desde, hasta, page, pageSize]);
+  }, [from, to, page, pageSize]);
 
   useEffect(() => {
     // Se difiere al siguiente tick para no invocar setState de forma síncrona
     // dentro del cuerpo del efecto (regla react-hooks/set-state-in-effect).
     // Si cambia el periodo, el cleanup cancela el disparo pendiente.
-    if (rangoInvalido) return;
+    if (invalidRange) return;
     const timer = setTimeout(() => {
-      void cargarListado();
+      void loadList();
     }, 0);
     return () => clearTimeout(timer);
-  }, [cargarListado, rangoInvalido]);
+  }, [loadList, invalidRange]);
 
   // ---------------------------------------------------------------------
   // Acciones
   // ---------------------------------------------------------------------
-  const limpiarFiltros = () => {
-    setDesde("");
-    setHasta("");
+  const clearFilters = () => {
+    setFrom("");
+    setTo("");
     setPage(1);
   };
 
-  const cambiarRango = (campo: "desde" | "hasta", valor: string) => {
-    if (campo === "desde") setDesde(valor);
-    else setHasta(valor);
+  const changeRange = (field: "from" | "to", value: string) => {
+    if (field === "from") setFrom(value);
+    else setTo(value);
     setPage(1);
   };
 
-  const cambiarPageSize = (valor: number) => {
-    setPageSize(valor);
+  const changePageSize = (value: number) => {
+    setPageSize(value);
     setPage(1);
   };
 
-  const cambiarPagina = (valor: number) => setPage(valor);
+  const changePage = (value: number) => setPage(value);
 
-  const abrirDetalle = async (id: number) => {
-    const solicitud = ++detalleSolicitudRef.current;
-    setDetalleAbierto(true);
-    setDetalleId(id);
-    setDetalle(null);
-    setErrorDetalle(null);
-    setCargandoDetalle(true);
+  const openDetail = async (id: number) => {
+    const request = ++detailRequestRef.current;
+    setDetailOpen(true);
+    setDetailId(id);
+    setDetail(null);
+    setErrorDetail(null);
+    setLoadingDetail(true);
     try {
-      const datos = await obtenerAsiento(id);
-      if (solicitud !== detalleSolicitudRef.current) return;
-      setDetalle(datos);
+      const data = await getJournalEntry(id);
+      if (request !== detailRequestRef.current) return;
+      setDetail(data);
     } catch (e) {
-      if (solicitud !== detalleSolicitudRef.current) return;
-      setErrorDetalle(
+      if (request !== detailRequestRef.current) return;
+      setErrorDetail(
         e instanceof Error ? e.message : "No se pudo cargar el detalle del asiento."
       );
     } finally {
-      if (solicitud === detalleSolicitudRef.current) setCargandoDetalle(false);
+      if (request === detailRequestRef.current) setLoadingDetail(false);
     }
   };
 
-  const cerrarDetalle = () => {
-    setDetalleAbierto(false);
-    setDetalleId(null);
-    setDetalle(null);
-    setErrorDetalle(null);
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setDetailId(null);
+    setDetail(null);
+    setErrorDetail(null);
   };
 
-  const reintentarDetalle = () => {
-    if (detalleId !== null) void abrirDetalle(detalleId);
+  const retryDetail = () => {
+    if (detailId !== null) void openDetail(detailId);
   };
 
   // ---------------------------------------------------------------------
   // Datos derivados
   // ---------------------------------------------------------------------
-  const rows = pagina?.data ?? [];
-  const meta = pagina?.meta;
+  const rows = pageData?.data ?? [];
+  const meta = pageData?.meta;
   const total = meta?.total ?? 0;
-  const totalPaginas = meta?.totalPaginas ?? 1;
+  const totalPages = meta?.totalPaginas ?? 1;
 
   // Un rango invertido suspende la consulta: se muestra el aviso del filtro en
   // lugar de los datos del último periodo válido (todo se deriva del estado).
-  const errorMostrado = rangoInvalido
+  const displayedError = invalidRange
     ? "La fecha inicial no puede ser posterior a la fecha final."
     : error;
-  const enCarga = cargando && !rangoInvalido;
-  const totalMostrado = rangoInvalido ? 0 : total;
+  const isLoading = loading && !invalidRange;
+  const displayedTotal = invalidRange ? 0 : total;
 
-  const desdeMostrado = total === 0 ? 0 : (Math.min(page, totalPaginas) - 1) * pageSize + 1;
-  const hastaMostrado = total === 0 ? 0 : Math.min(desdeMostrado + filas.length - 1, total);
+  const fromShown = total === 0 ? 0 : (Math.min(page, totalPages) - 1) * pageSize + 1;
+  const toShown = total === 0 ? 0 : Math.min(fromShown + rows.length - 1, total);
 
   return (
     <>
@@ -184,10 +183,10 @@ export default function LibroDiarioPage() {
                 <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg">
                     <span className="tabular-nums font-semibold text-slate-900">
-                      {totalMostrado}
+                      {displayedTotal}
                     </span>{" "}
-                    asiento{totalMostrado === 1 ? "" : "s"}
-                    {hayFiltros && !rangoInvalido ? " en el periodo" : ""}
+                    asiento{displayedTotal === 1 ? "" : "s"}
+                    {hasFilters && !invalidRange ? " en el periodo" : ""}
                   </span>
                 </div>
               </div>
@@ -195,39 +194,39 @@ export default function LibroDiarioPage() {
 
             {/* FILTRO DE PERIODO Y TABLA */}
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <FiltrosDiario
-                from={desde}
-                to={hasta}
-                hasFilters={hayFiltros}
-                invalidRange={rangoInvalido}
-                onFrom={(valor) => cambiarRango("desde", valor)}
-                onTo={(valor) => cambiarRango("hasta", valor)}
-                onClear={limpiarFiltros}
+              <DailyBookFilters
+                from={from}
+                to={to}
+                hasFilters={hasFilters}
+                invalidRange={invalidRange}
+                onFrom={(value) => changeRange("from", value)}
+                onTo={(value) => changeRange("to", value)}
+                onClear={clearFilters}
               />
 
               <DailyJournalTable
                 rows={rows}
-                loading={enCarga}
-                error={errorMostrado}
-                hasFilters={hayFiltros}
-                invalidRange={rangoInvalido}
-                onOpenDetail={(id) => void abrirDetalle(id)}
-                onRetry={() => void cargarListado()}
-                onClearFilters={limpiarFiltros}
+                loading={isLoading}
+                error={displayedError}
+                hasFilters={hasFilters}
+                invalidRange={invalidRange}
+                onOpenDetail={(id) => void openDetail(id)}
+                onRetry={() => void loadList()}
+                onClearFilters={clearFilters}
               />
 
-              {!rangoInvalido && (
-                <PaginacionAsientos
+              {!invalidRange && (
+                <JournalEntryPagination
                   page={page}
-                  totalPaginas={totalPaginas}
+                  totalPages={totalPages}
                   pageSize={pageSize}
-                  cargando={cargando}
-                  desdeMostrado={desdeMostrado}
-                  hastaMostrado={hastaMostrado}
+                  loading={loading}
+                  fromShown={fromShown}
+                  toShown={toShown}
                   total={total}
-                  seleccionados={0}
-                  onPagina={cambiarPagina}
-                  onPageSize={cambiarPageSize}
+                  selectedCount={0}
+                  onPage={changePage}
+                  onPageSize={changePageSize}
                 />
               )}
             </Card>
@@ -236,13 +235,13 @@ export default function LibroDiarioPage() {
       </div>
 
       {/* DETALLE DEL ASIENTE SELECCIONADO */}
-      <DetalleAsientos
-        abierto={detalleAbierto}
-        detalle={detalle}
-        cargando={cargandoDetalle}
-        error={errorDetalle}
-        onCerrar={cerrarDetalle}
-        onReintentar={reintentarDetalle}
+      <JournalEntryDetail
+        open={detailOpen}
+        detail={detail}
+        loading={loadingDetail}
+        error={errorDetail}
+        onClose={closeDetail}
+        onRetry={retryDetail}
       />
     </>
   );

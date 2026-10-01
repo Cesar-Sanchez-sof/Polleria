@@ -31,7 +31,7 @@ import {
   type JournalEntrySummary,
   type JournalEntrySort,
   type SortDirection,
-} from "@/lib/services/asientos.service";
+} from "@/lib/services/journal-entries.service";
 
 interface Props {
   rows: JournalEntrySummary[];
@@ -360,7 +360,4 @@ export function JournalEntryTable({
     </div>
   );
 }
-
-// Backwards compatibility alias
-export const TablaAsientos = JournalEntryTable;
 
