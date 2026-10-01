@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
-import { Sun, Moon, Monitor, Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X, Menu } from "lucide-react";
+import { Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X, Menu } from "lucide-react";
 import Link from "next/link";
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -60,7 +61,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
         <button
           type="button"
           onClick={handleOpen}
-          className="fixed top-3 left-3 z-40 md:hidden p-2 rounded-xl bg-white/95 border border-slate-200 text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer"
+          className="fixed top-3 left-3 z-40 md:hidden p-2 rounded-xl bg-card/95 border border-border text-foreground shadow-xs hover:bg-muted cursor-pointer"
           aria-label="Abrir menú"
         >
           <Menu className="w-5 h-5" />
@@ -84,12 +85,12 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             <button
               type="button"
               onClick={handleClose}
-              className="absolute right-0 top-0 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden cursor-pointer"
+              className="absolute right-0 top-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted md:hidden cursor-pointer"
               aria-label="Cerrar menú lateral"
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950 flex items-center justify-center">
               <Component className="w-7 text-primary-container" />
             </div>
             <Link
@@ -105,27 +106,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             </span>
           </div>
 
-          {/* Theme toggle */}
-          <div className="flex items-center justify-center bg-surface-container-low rounded-full p-1 gap-1 mx-space-sm">
-            <button
-              className="flex-1 py-1 flex items-center justify-center rounded-full bg-surface-container-lowest text-primary-container shadow-sm hover:text-on-surface transition-colors"
-              type="button"
-            >
-              <Sun className="w-4 h-4" />
-            </button>
-            <button
-              className="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-              type="button"
-            >
-              <Moon className="w-4 h-4" />
-            </button>
-            <button
-              className="flex-1 py-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-              type="button"
-            >
-              <Monitor className="w-4 h-4" />
-            </button>
-          </div>
+          <ThemeToggle />
 
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs mt-space-xs">

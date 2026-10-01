@@ -21,7 +21,7 @@ export function ModuleHeader({
   children,
 }: Readonly<ModuleHeaderProps>) {
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between shadow-xs">
+    <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md border-b border-border pl-12 pr-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between shadow-xs">
       <div className="flex items-center gap-3 min-w-0">
         <div
           className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconClassName}`}
@@ -29,8 +29,8 @@ export function ModuleHeader({
           <Icon className="w-5 h-5" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-slate-900 leading-tight truncate">{title}</h1>
-          <p className="text-xs text-slate-500 truncate">{subtitle}</p>
+          <h1 className="text-base font-bold text-foreground leading-tight truncate">{title}</h1>
+          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
         </div>
       </div>
 
