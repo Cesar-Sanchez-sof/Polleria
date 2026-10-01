@@ -241,7 +241,7 @@ describe("GET /api/general-ledger (libro mayor)", () => {
         id: 71,
         entryOverrides: {
           book: "Facturas de cliente",
-          salesInvoice: { tipo_comprobante: "Factura", serie: "001", numero: 461 },
+          salesInvoice: { voucherType: "Factura", series: "001", number: 461 },
         },
       }),
       createDetailRow({
@@ -250,7 +250,7 @@ describe("GET /api/general-ledger (libro mayor)", () => {
           code: "COM/2025/05/0010",
           book: "Facturas de proveedor",
           salesInvoice: null,
-          purchaseInvoice: { tipo_comprobante: "Factura", serie: "002", numero: 123 },
+          purchaseInvoice: { voucherType: "Factura", series: "002", number: 123 },
         },
       }),
       createDetailRow({
@@ -259,7 +259,7 @@ describe("GET /api/general-ledger (libro mayor)", () => {
           code: "PLAN/2025/06",
           book: "Operaciones varias",
           purchaseInvoice: null,
-          payroll: { mes: 6, anio: 2025 },
+          payroll: { month: 6, year: 2025 },
         },
       }),
       createDetailRow({

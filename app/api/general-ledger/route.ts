@@ -9,16 +9,16 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Reference of the originating operation, if registered. */
 function getEntryReference(entry: {
-  salesInvoice: { tipo_comprobante: string; serie: string; numero: number } | null;
-  purchaseInvoice: { tipo_comprobante: string; serie: string; numero: number } | null;
-  payroll: { mes: number; anio: number } | null;
+  salesInvoice: { voucherType: string; series: string; number: number } | null;
+  purchaseInvoice: { voucherType: string; series: string; number: number } | null;
+  payroll: { month: number; year: number } | null;
 }): string | null {
   const sale = entry.salesInvoice;
-  if (sale) return `${sale.tipo_comprobante} ${sale.serie}-${sale.numero}`;
+  if (sale) return `${sale.voucherType} ${sale.series}-${sale.number}`;
   const purchase = entry.purchaseInvoice;
-  if (purchase) return `${purchase.tipo_comprobante} ${purchase.serie}-${purchase.numero}`;
+  if (purchase) return `${purchase.voucherType} ${purchase.series}-${purchase.number}`;
   const payroll = entry.payroll;
-  if (payroll) return `Planilla ${payroll.mes}/${payroll.anio}`;
+  if (payroll) return `Planilla ${payroll.month}/${payroll.year}`;
   return null;
 }
 
@@ -110,12 +110,12 @@ export async function GET(request: NextRequest) {
             book: true,
             status: true,
             salesInvoice: {
-              select: { tipo_comprobante: true, serie: true, numero: true },
+              select: { voucherType: true, series: true, number: true },
             },
             purchaseInvoice: {
-              select: { tipo_comprobante: true, serie: true, numero: true },
+              select: { voucherType: true, series: true, number: true },
             },
-            payroll: { select: { mes: true, anio: true } },
+            payroll: { select: { month: true, year: true } },
           },
         },
       },

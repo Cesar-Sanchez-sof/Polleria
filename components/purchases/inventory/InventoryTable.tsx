@@ -20,7 +20,7 @@ import { SupplyType } from "@prisma/client";
 interface Supply {
   id: number;
   name: string;
-  type: SupplyType | "RawMaterial" | "FinishedProduct";
+  type: SupplyType;
   unitOfMeasure: string;
   currentStock: number | string;
   minimumStock: number | string;
@@ -107,8 +107,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
                 const currentStock = Number(item.currentStock);
                 const minStock = Number(item.minimumStock);
                 const lowStock = currentStock <= minStock;
-                const isRawMaterial =
-                  item.type === SupplyType.RawMaterial || item.type === "RawMaterial";
+                const isRawMaterial = item.type === SupplyType.RawMaterial;
 
                 return (
                   <TableRow key={item.id}>
