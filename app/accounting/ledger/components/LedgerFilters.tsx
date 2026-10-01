@@ -86,12 +86,12 @@ export function LedgerFilters({
           </Select>
         </div>
 
-        <div className="flex flex-row items-end gap-2">
+        <div className="flex flex-row items-center gap-2 self-end pb-0">
           <label
             htmlFor="ledger-from"
             className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
           >
-            Desde
+            De
           </label>
           <Input
             id="ledger-from"
@@ -106,7 +106,7 @@ export function LedgerFilters({
             htmlFor="ledger-to"
             className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
           >
-            Hasta
+            A
           </label>
           <Input
             id="ledger-to"
@@ -119,11 +119,11 @@ export function LedgerFilters({
           />
         </div>
 
-        <span className="text-[11px] text-slate-400 pb-2.5">
+        <span className="text-[11px] text-slate-400 self-end pb-2.5">
           Sin fechas se muestran todos los movimientos de la cuenta.
         </span>
 
-        <div className="ml-auto">
+        <div className="ml-auto self-end">
           <Button
             variant="outline"
             type="button"

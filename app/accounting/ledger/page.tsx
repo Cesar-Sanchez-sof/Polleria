@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { BookMarked } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
 import { JournalEntryDetail } from "../entries/components/JournalEntryDetail";
 import { LedgerFilters } from "./components/LedgerFilters";
@@ -178,39 +179,24 @@ export default function GeneralLedgerPage() {
   return (
     <>
       {/* Main content area */}
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
+      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+        <ModuleHeader
+          title="Libro mayor"
+          subtitle="Movimientos de la cuenta seleccionada, en orden cronológico del más antiguo al más reciente."
+          icon={BookMarked}
+          iconClassName="bg-red-100 text-red-700"
+        >
+          <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
+            <span className="tabular-nums font-semibold text-slate-900">
+              {movementCount}
+            </span>{" "}
+            movimiento{movementCount === 1 ? "" : "s"}
+            {code && hasFilters && !invalidRange ? " en el periodo" : ""}
+          </span>
+        </ModuleHeader>
         {/* Main Content */}
-        <main className="relative flex-1 p-6">
+        <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
           <div className="flex flex-col w-full gap-5">
-
-            {/* HEADER */}
-            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <BookMarked className="w-7 h-7" />
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                      Libro mayor
-                    </h1>
-                    <p className="text-xs text-slate-500">
-                      Movimientos de la cuenta seleccionada, en orden cronológico del
-                      más antiguo al más reciente.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 text-xs text-slate-500">
-                  <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg">
-                    <span className="tabular-nums font-semibold text-slate-900">
-                      {movementCount}
-                    </span>{" "}
-                    movimiento{movementCount === 1 ? "" : "s"}
-                    {code && hasFilters && !invalidRange ? " en el periodo" : ""}
-                  </span>
-                </div>
-              </div>
-            </Card>
-
             {/* FILTROS Y TABLA */}
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
               <LedgerFilters

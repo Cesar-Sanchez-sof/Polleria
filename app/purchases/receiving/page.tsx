@@ -1,4 +1,6 @@
 import React from "react";
+import { PackageCheck } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getOrdersForReceiving } from "@/lib/services/purchases/receiving";
 import { ReceivingTable } from "@/components/purchases/receiving/ReceivingTable";
 
@@ -12,15 +14,18 @@ export default async function ReceivingPage() {
   const orders = await getOrdersForReceiving();
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Recepción de Mercadería / Compras</h1>
-        <p className="text-sm text-muted-foreground">
-          Ingresa la recepción de las órdenes de compra emitidas a proveedores. La recepción genera automáticamente los movimientos de ingreso en el inventario.
-        </p>
-      </div>
-
-      <ReceivingTable initialOrders={JSON.parse(JSON.stringify(orders))} />
-    </div>
+    <>
+      <ModuleHeader
+        title="Recepción de Mercadería"
+        subtitle="Ingresa recepciones de órdenes de compra; actualiza el inventario automáticamente"
+        icon={PackageCheck}
+        iconClassName="bg-sky-100 text-sky-800"
+      />
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <ReceivingTable initialOrders={JSON.parse(JSON.stringify(orders))} />
+        </div>
+      </main>
+    </>
   );
 }

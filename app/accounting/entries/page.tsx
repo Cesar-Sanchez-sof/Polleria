@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Calculator } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
 import { JournalEntryDetail } from "./components/JournalEntryDetail";
 import { JournalEntryFilters, type FilterChip } from "./components/JournalEntryFilters";
@@ -284,9 +286,15 @@ export default function AsientosPage() {
   return (
     <>
       {/* Main content area */}
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
+      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+        <ModuleHeader
+          title="Asientos contables"
+          subtitle="Registro y consulta de asientos del periodo"
+          icon={Calculator}
+          iconClassName="bg-red-100 text-red-700"
+        />
         {/* Main Content */}
-        <main className="relative flex-1 p-6">
+        <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
           <div className="flex flex-col w-full gap-5">
             {/* MAIN LEDGER APPLICATION CARD */}
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
@@ -305,7 +313,7 @@ export default function AsientosPage() {
               />
             </Card>
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <JournalEntryTabs
                   journals={journals}
                   total={total}

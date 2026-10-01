@@ -12,6 +12,7 @@ import {
   Receipt,
   ArrowRight,
 } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSuppliers } from "@/lib/services/purchases/supplier";
 import { getSupplies } from "@/lib/services/purchases/supply";
 import { getPurchaseOrders } from "@/lib/services/purchases/purchase-order";
@@ -96,47 +97,49 @@ export default async function PurchasesDashboardPage() {
   ];
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Módulo de Compras, Inventario y Proveedores</h1>
-        <p className="text-sm text-muted-foreground">
-          Gestión integral de abastecimiento, recepción de mercadería, facturación y control de inventarios.
-        </p>
-      </div>
-
-      {/* Submodules grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {modules.map((module) => {
-          const Icon = module.icon;
-          return (
-            <Card key={module.href} className="hover:shadow-md transition-all border group">
-              <CardHeader className="space-y-2 pb-3">
-                <div className="flex items-center justify-between">
-                  <div className={`p-2.5 rounded-lg border ${module.color}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-muted/40">
-                    {module.badge}
-                  </span>
-                </div>
-                <CardTitle className="text-base group-hover:text-primary transition-colors">
-                  {module.title}
-                </CardTitle>
-                <CardDescription className="text-xs line-clamp-2">
-                  {module.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Link href={module.href} className="block w-full">
-                  <Button variant="ghost" size="sm" className="w-full justify-between text-xs font-medium">
-                    Acceder al módulo <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
+    <>
+      <ModuleHeader
+        title="Compras, Inventario y Proveedores"
+        subtitle="Gestión integral de abastecimiento, recepción, facturación y control de inventarios"
+        icon={ShoppingCart}
+        iconClassName="bg-red-100 text-red-700"
+      />
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {modules.map((module) => {
+              const Icon = module.icon;
+              return (
+                <Card key={module.href} className="hover:shadow-md transition-all border group">
+                  <CardHeader className="space-y-2 pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className={`p-2.5 rounded-lg border ${module.color}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-muted/40">
+                        {module.badge}
+                      </span>
+                    </div>
+                    <CardTitle className="text-base group-hover:text-primary transition-colors">
+                      {module.title}
+                    </CardTitle>
+                    <CardDescription className="text-xs line-clamp-2">
+                      {module.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <Link href={module.href} className="block w-full">
+                      <Button variant="ghost" size="sm" className="w-full justify-between text-xs font-medium">
+                        Acceder al módulo <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FunnelX } from "lucide-react";
+import { FunnelX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -73,7 +73,7 @@ export function JournalEntryFilters({
     <>
       <div className="flex flex-col gap-3 bg-slate-50/70">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-row items-center gap-2">
             <label
               htmlFor="filter-from"
               className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"
@@ -104,7 +104,7 @@ export function JournalEntryFilters({
             />
           </div>
 
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-row items-center gap-2">
             <label
               id="filter-status-label"
               htmlFor="statusFilter"
@@ -118,7 +118,12 @@ export function JournalEntryFilters({
               items={statusOptions}
               onValueChange={(val) => onStatus(val ?? "todos")}
             >
-              <SelectTrigger className="w-36 rounded-lg bg-white text-xs" aria-labelledby="filter-status-label" />
+              <SelectTrigger
+                className="w-36 rounded-lg bg-white text-xs"
+                aria-labelledby="filter-status-label"
+              >
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {statusOptions.map((op) => (
                   <SelectItem key={op.value} value={op.value}>
@@ -130,17 +135,43 @@ export function JournalEntryFilters({
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            type="button"
-            onClick={onClear}
-            disabled={!hasFilters}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
-          >
-            <FunnelX className="w-5 h-5" />
-          </Button>
-        </div>
+        {/* Active filter chips (can be removed one by one)
+        {chips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-slate-200/80">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Filtros aplicados
+            </span>
+            {chips.map((chip) => (
+              <span
+                key={chip.id}
+                className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs"
+              >
+                <span>{chip.label}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemove(chip.id)}
+                  className="hover:text-purple-200 ml-0.5 text-sm leading-none cursor-pointer"
+                  title="Quitar filtro"
+                >
+                  <X className="w-3 h-3 inline" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        */}
+      </div>
+
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          type="button"
+          onClick={onClear}
+          disabled={!hasFilters}
+          className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
+        >
+          <FunnelX className="w-5 h-5" />
+        </Button>
       </div>
     </>
   );

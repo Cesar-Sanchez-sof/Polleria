@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   BarChart3,
-  Calculator,
   Clock,
   Download,
   Filter,
@@ -33,7 +32,7 @@ interface Props {
   onPage: (page: number) => void;
 }
 
-/** Top toolbar: title, search, page range and view selector. */
+/** Top toolbar: search, page range and view selector. */
 export function JournalEntryToolbar({
   q,
   onSearch,
@@ -58,16 +57,8 @@ export function JournalEntryToolbar({
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-      {/* LEFT: Title, Settings Icon & New Button */}
-      <div className="flex flex-col items-start gap-0">
-        <div className="flex justify-start items-center gap-2">
-          <Calculator className="w-7 h-7" />
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Asientos contables</h1>
-        </div>
-      </div>
-
-      {/* RIGHT: Search Bar & Actions */}
-      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+      {/* Search Bar & Actions */}
+      <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:ml-auto">
         {/* Search Composite Pill */}
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-60 md:min-w-70">
           <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
@@ -115,4 +106,3 @@ export function JournalEntryToolbar({
     </div>
   );
 }
-

@@ -1,4 +1,6 @@
 import React from "react";
+import { Boxes } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSupplies } from "@/lib/services/purchases/supply";
 import { InventoryTable } from "@/components/purchases/inventory/InventoryTable";
 
@@ -12,15 +14,18 @@ export default async function InventoryPage() {
   const supplies = await getSupplies();
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Kardex e Inventario de Insumos</h1>
-        <p className="text-sm text-muted-foreground">
-          Visualiza los stocks actuales de materias primas y productos terminados. El stock se actualiza automáticamente mediante movimientos de Kardex.
-        </p>
-      </div>
-
-      <InventoryTable initialSupplies={JSON.parse(JSON.stringify(supplies))} />
-    </div>
+    <>
+      <ModuleHeader
+        title="Kardex e Inventario de Insumos"
+        subtitle="Stocks de materias primas y productos terminados"
+        icon={Boxes}
+        iconClassName="bg-emerald-100 text-emerald-800"
+      />
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <InventoryTable initialSupplies={JSON.parse(JSON.stringify(supplies))} />
+        </div>
+      </main>
+    </>
   );
 }

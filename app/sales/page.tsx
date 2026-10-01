@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Sidebar from "@/components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,8 +38,6 @@ import {
   LayoutGrid,
   Clock,
   CircleDollarSign,
-  Menu,
-  X,
   Phone,
   Calendar,
   AlertCircle,
@@ -87,9 +84,6 @@ type TabType = "tables" | "payments" | "cashier" | "customers" | "invoices";
 
 function SalesManagementContent() {
   const searchParams = useSearchParams();
-
-  // Control de menú lateral en dispositivos móviles (smartphones/tablets)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   // Pestaña principal: "tables" | "payments" | "cashier" | "customers" | "invoices"
   const [activeTab, setActiveTab] = useState<TabType>("tables");
@@ -970,45 +964,30 @@ function SalesManagementContent() {
   };
 
   return (
-    <div className="flex bg-slate-50 text-sm text-slate-900 antialiased min-h-screen">
-      {/* Sidebar Fijo en Desktop y Desplegable en Móvil */}
-      <Sidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} />
-
-      {/* Contenedor Principal (pl-0 en móviles, pl-64 en desktop) */}
-      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-slate-50 w-full transition-all duration-300">
+    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-slate-50 w-full min-w-0 overflow-x-hidden">
         {/* Header Superior Responsivo */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            {/* Botón Hamburguesa para Móviles */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
-              aria-label="Abrir Menú ERP"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-700 flex items-center justify-center text-white shadow-xs shrink-0">
               <Utensils className="w-5 h-5" />
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">
                   Módulo de Ventas &amp; Salón
                 </h1>
-                <Badge className="hidden sm:inline-flex bg-red-100 text-red-800 text-[10px] font-bold border-none">
+                <Badge className="hidden sm:inline-flex bg-red-100 text-red-800 text-[10px] font-bold border-none shrink-0">
                   ERP Pollería
                 </Badge>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-1">
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
                 Mesas, Clientes, Ventas Diarias, Cobro Mozo &amp; Ventanilla
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Button
               onClick={openTakeawayOrder}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -1036,7 +1015,7 @@ function SalesManagementContent() {
         </header>
 
         {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
-        <div className="px-4 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
+        <div className="px-3 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
           {/* Pestaña 1: Mesas y Salón */}
           <button
             type="button"
@@ -1048,7 +1027,8 @@ function SalesManagementContent() {
             }`}
           >
             <LayoutGrid className="w-4 h-4 shrink-0" />
-            <span>Salón de Mesas ({summary.ocupadas}/{summary.total})</span>
+            <span className="sm:hidden">Mesas ({summary.ocupadas}/{summary.total})</span>
+            <span className="hidden sm:inline">Salón de Mesas ({summary.ocupadas}/{summary.total})</span>
           </button>
 
           {/* Pestaña 2: Cobros No Cobrados */}
@@ -1062,7 +1042,8 @@ function SalesManagementContent() {
             }`}
           >
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>Cobros No Cobrados ({uncollectedPayments.length})</span>
+            <span className="sm:hidden">Cobros ({uncollectedPayments.length})</span>
+            <span className="hidden sm:inline">Cobros No Cobrados ({uncollectedPayments.length})</span>
           </button>
 
           {/* Pestaña 3: Caja y Cobro en Ventanilla */}
@@ -1076,7 +1057,8 @@ function SalesManagementContent() {
             }`}
           >
             <CircleDollarSign className="w-4 h-4 shrink-0" />
-            <span>Caja y Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
+            <span className="sm:hidden">Caja {orderToCharge ? `(${paymentSource})` : ""}</span>
+            <span className="hidden sm:inline">Caja y Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
           </button>
 
           {/* Pestaña 4: Clientes */}
@@ -1104,7 +1086,8 @@ function SalesManagementContent() {
             }`}
           >
             <Receipt className="w-4 h-4 shrink-0" />
-            <span>Ventas Diarias &amp; Facturas ({saleVouchers.length})</span>
+            <span className="sm:hidden">Ventas ({saleVouchers.length})</span>
+            <span className="hidden sm:inline">Ventas Diarias &amp; Facturas ({saleVouchers.length})</span>
           </button>
         </div>
 
@@ -1112,7 +1095,7 @@ function SalesManagementContent() {
         {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
         {/* =================================================================== */}
         {activeTab === "tables" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
             {/* Barra de Filtros y Leyenda */}
             <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1181,7 +1164,7 @@ function SalesManagementContent() {
                     <div>
                       {/* Cabecera de la Mesa */}
                       <div
-                        className={`p-3.5 flex items-center justify-between border-b ${
+                        className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${
                           mesa.ocupada
                             ? "bg-red-50/80 border-red-100"
                             : "bg-emerald-50/50 border-slate-100"
@@ -1453,7 +1436,7 @@ function SalesManagementContent() {
         {/* PESTAÑA 2: COBROS NO COBRADOS (PENDIENTES EN SALA Y LLEVAR) */}
         {/* =================================================================== */}
         {activeTab === "payments" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
             {/* Banner de Resumen de Cuentas por Cobrar */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="bg-amber-500/10 border-amber-200 p-4 rounded-2xl flex items-center gap-3">
@@ -1626,7 +1609,7 @@ function SalesManagementContent() {
         {/* PESTAÑA 3: CAJA Y COBRO EN VENTANILLA */}
         {/* =================================================================== */}
         {activeTab === "cashier" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Columna Izquierda: Selección de Comanda a Cobrar */}
               <div className="lg:col-span-5 flex flex-col gap-4">
@@ -2180,7 +2163,7 @@ function SalesManagementContent() {
         {/* PESTAÑA 4: CLIENTES (LISTADO, BÚSQUEDA Y REGISTRO) */}
         {/* =================================================================== */}
         {activeTab === "customers" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
             <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
               {/* Barra Superior con Búsqueda y Botón Nuevo */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
@@ -2285,7 +2268,7 @@ function SalesManagementContent() {
         {/* PESTAÑA 5: VENTAS DIARIAS & FACTURAS DE VENTA */}
         {/* =================================================================== */}
         {activeTab === "invoices" && (
-          <main className="flex-1 p-3 sm:p-6 flex flex-col gap-5">
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
             {/* Tarjetas KPI de Resumen de Ventas Diarias */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
@@ -2474,7 +2457,6 @@ function SalesManagementContent() {
             </Card>
           </main>
         )}
-      </div>
 
       {/* =================================================================== */}
       {/* MODAL 1: TOMAR / EDITAR COMANDA (MESA O PARA LLEVAR) */}
@@ -2482,16 +2464,18 @@ function SalesManagementContent() {
       <Dialog open={orderModalOpen} onOpenChange={setOrderModalOpen}>
         <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6 bg-white">
           <DialogHeader className="pb-3 border-b border-slate-200">
-            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-8">
-              <span className="flex items-center gap-2">
-                <Utensils className="w-5 h-5 text-red-700" />
+            <DialogTitle className="text-base font-bold text-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pr-8">
+              <span className="flex items-center gap-2 min-w-0">
+                <Utensils className="w-5 h-5 text-red-700 shrink-0" />
+                <span className="truncate">
                 {isEditing
                   ? "Modificar Comanda Activa"
                   : isTakeaway
                   ? "Nuevo Pedido Para Llevar (Ventanilla)"
                   : `Comanda de Salón — Mesa ${selectedTable?.numero}`}
+                </span>
               </span>
-              <span className="text-xs font-mono font-bold text-red-700 bg-red-50 px-2 py-1 rounded-lg">
+              <span className="text-xs font-mono font-bold text-red-700 bg-red-50 px-2 py-1 rounded-lg shrink-0 self-start sm:self-auto">
                 Total: {formatCurrency(orderTotal)}
               </span>
             </DialogTitle>

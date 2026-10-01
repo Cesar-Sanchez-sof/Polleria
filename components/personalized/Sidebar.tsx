@@ -1,7 +1,7 @@
 "use client";
-import { useEffect } from 'react';
-import { Sun, Moon, Monitor, Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X } from 'lucide-react';
-import Link from 'next/link';
+import { useState } from "react";
+import { Sun, Moon, Monitor, Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X, Menu } from "lucide-react";
+import Link from "next/link";
 
 import React from "react";
 import { usePathname } from "next/navigation";
@@ -11,8 +11,11 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
-export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps = {}) {
+export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: SidebarProps = {}) {
   const pathname = usePathname();
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = typeof onCloseMobile === "function";
+  const mobileOpen = isControlled ? !!controlledOpen : internalOpen;
 
   const isLinkActive = (href: string) => {
     if (!pathname || href === "#") return false;
@@ -38,38 +41,54 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
     return "flex items-center gap-2 px-space-md py-1.5 rounded-lg text-[12px] font-semibold transition-all text-on-surface hover:bg-surface-container";
   };
 
+  const handleClose = () => {
+    if (isControlled) onCloseMobile?.();
+    else setInternalOpen(false);
+  };
+
+  const handleOpen = () => {
+    if (!isControlled) setInternalOpen(true);
+  };
+
   const handleLinkClick = () => {
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
+    handleClose();
   };
 
   return (
     <>
+      {!mobileOpen && (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="fixed top-3 left-3 z-40 md:hidden p-2 rounded-xl bg-white/95 border border-slate-200 text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer"
+          aria-label="Abrir menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity"
-          onClick={onCloseMobile}
+          onClick={handleClose}
           aria-hidden="true"
         />
       )}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-          }`}
+        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
       >
         <div className="flex flex-col gap-space-sm overflow-y-auto">
           {/* Header */}
           <div className="relative flex flex-col items-center justify-center p-space-sm gap-space-xs text-center">
-            {onCloseMobile && (
-              <button
-                type="button"
-                onClick={onCloseMobile}
-                className="absolute right-0 top-0 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden cursor-pointer"
-                aria-label="Cerrar menú lateral"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleClose}
+              className="absolute right-0 top-0 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden cursor-pointer"
+              aria-label="Cerrar menú lateral"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
               <Component className="w-7 text-primary-container" />
             </div>

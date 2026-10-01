@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import Sidebar from "@/components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import {
   Plus,
   Edit,
   CheckCircle2,
-  Clock,
   Search,
   Trash2,
   Send,
@@ -34,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { RestaurantHeader } from "@/components/shared/ModuleHeader";
 import {
   listTables,
   listDishes,
@@ -313,56 +312,40 @@ export default function DiningRoomTablesPage() {
   };
 
   return (
-    <div className="flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
-      {/* Sidebar fijo */}
-      <Sidebar />
+    <>
+    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+        <RestaurantHeader
+          title="Salón de Mesas & Comandas"
+          subtitle="Atención en Sala y Para Llevar • Pollería Central"
+          icon={Utensils}
+          iconClassName="bg-red-100 text-red-700"
+        >
+          <Button
+            onClick={openTakeawayOrder}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>+ Pedido Para Llevar</span>
+          </Button>
 
-      {/* Área principal */}
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
-        {/* Header superior */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-700">
-              <Utensils className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">
-                Salón de Mesas &amp; Comandas
-              </h1>
-              <p className="text-xs text-slate-500">
-                Atención en Sala y Para Llevar • Pollería Central
-              </p>
-            </div>
+          <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>{currentTime || "12:00:00"}</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={openTakeawayOrder}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>+ Pedido Para Llevar</span>
-            </Button>
-
-            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>{currentTime || "12:00:00"}</span>
-            </div>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => void loadData()}
-              title="Refrescar mesas"
-              className="h-9 w-9 rounded-xl cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-        </header>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => void loadData()}
+            title="Refrescar mesas"
+            className="h-9 w-9 rounded-xl cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </RestaurantHeader>
 
         {/* Contenido principal */}
-        <main className="flex-1 p-6 flex flex-col gap-6">
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 flex flex-col gap-5 md:gap-6">
           {/* Barra de Filtros y Leyenda de Estados */}
           <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-2 flex-wrap">
@@ -976,6 +959,6 @@ export default function DiningRoomTablesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

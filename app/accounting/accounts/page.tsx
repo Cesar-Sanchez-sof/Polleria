@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, BookOpen, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
 import { AccountDialog } from "./components/AccountDialog";
 import { AccountTable, type AccountTableRow } from "./components/AccountTable";
@@ -187,8 +188,14 @@ export default function AccountsPage() {
 
   return (
     <>
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
-        <main className="relative flex-1 p-6">
+      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+        <ModuleHeader
+          title="Cuentas contables"
+          subtitle="Plan de cuentas, jerarquía y estado de cada cuenta"
+          icon={BookOpen}
+          iconClassName="bg-red-100 text-red-700"
+        />
+        <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
           <div className="flex flex-col w-full gap-5">
             <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
               <AccountsToolbar

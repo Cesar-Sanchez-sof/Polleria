@@ -1,4 +1,6 @@
 import React from "react";
+import { FileText } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import {
   getPurchaseVouchers,
   getReceiptsWithoutVoucher,
@@ -20,19 +22,22 @@ export default async function SupplierInvoicesPage() {
   ]);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Comprobantes y Facturas de Supplier</h1>
-        <p className="text-sm text-muted-foreground">
-          Registra las facturas o boletas asociadas a las recepciones de mercadería y gestiona los pagos efectuados a proveedores.
-        </p>
-      </div>
-
-      <VouchersTable
-        initialVouchers={JSON.parse(JSON.stringify(vouchers))}
-        receiptsWithoutVoucher={JSON.parse(JSON.stringify(receipts))}
-        paymentTypes={JSON.parse(JSON.stringify(paymentTypes))}
+    <>
+      <ModuleHeader
+        title="Comprobantes y Facturas de Proveedor"
+        subtitle="Registra facturas/boletas y gestiona pagos a proveedores"
+        icon={FileText}
+        iconClassName="bg-violet-100 text-violet-800"
       />
-    </div>
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <VouchersTable
+            initialVouchers={JSON.parse(JSON.stringify(vouchers))}
+            receiptsWithoutVoucher={JSON.parse(JSON.stringify(receipts))}
+            paymentTypes={JSON.parse(JSON.stringify(paymentTypes))}
+          />
+        </div>
+      </main>
+    </>
   );
 }

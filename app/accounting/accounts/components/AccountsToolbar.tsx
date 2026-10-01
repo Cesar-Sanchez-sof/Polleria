@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Filter, Plus, Search, X } from "lucide-react";
+import { Filter, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,20 +51,14 @@ export function AccountsToolbar({
   loading,
 }: Readonly<AccountsToolbarProps>) {
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-      <div className="flex flex-col items-start gap-0">
-        <div className="flex justify-start items-center gap-2">
-          <BookOpen className="w-7 h-7" />
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cuentas contables</h1>
-        </div>
-        <p className="text-xs text-slate-500 mt-1">
-          {loading
-            ? "Cargando cuentas…"
-            : `${visible} de ${total} cuenta${total === 1 ? "" : "s"} en pantalla`}
-        </p>
-      </div>
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-slate-500">
+        {loading
+          ? "Cargando cuentas…"
+          : `${visible} de ${total} cuenta${total === 1 ? "" : "s"} en pantalla`}
+      </p>
 
-      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-55 md:min-w-70">
           <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
           <Input

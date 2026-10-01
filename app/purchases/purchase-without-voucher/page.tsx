@@ -1,4 +1,6 @@
 import React from "react";
+import { Receipt } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSupplies } from "@/lib/services/purchases/supply";
 import { getPurchasesWithoutVoucher } from "@/lib/services/purchases/purchase-without-voucher";
 import { PurchaseWithoutVoucherForm } from "@/components/purchases/manual-entry/PurchaseWithoutVoucherForm";
@@ -17,17 +19,19 @@ export default async function PurchaseWithoutVoucherPage() {
   ]);
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Compra Menor Sin Comprobante</h1>
-        <p className="text-sm text-muted-foreground">
-          Registra compras informales de insumos de bajo monto que ingresan directamente al inventario sin requerir factura o boleta formal.
-        </p>
-      </div>
-
-      <PurchaseWithoutVoucherForm supplies={JSON.parse(JSON.stringify(supplies))} />
-
-      <PurchasesWithoutVoucherTable purchases={JSON.parse(JSON.stringify(purchases))} />
-    </div>
+    <>
+      <ModuleHeader
+        title="Compra Menor Sin Comprobante"
+        subtitle="Compras informales de bajo monto que ingresan directo al inventario"
+        icon={Receipt}
+        iconClassName="bg-teal-100 text-teal-800"
+      />
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <PurchaseWithoutVoucherForm supplies={JSON.parse(JSON.stringify(supplies))} />
+          <PurchasesWithoutVoucherTable purchases={JSON.parse(JSON.stringify(purchases))} />
+        </div>
+      </main>
+    </>
   );
 }

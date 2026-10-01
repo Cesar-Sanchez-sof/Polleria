@@ -1,4 +1,6 @@
 import React from "react";
+import { Repeat } from "lucide-react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSupplies } from "@/lib/services/purchases/supply";
 import { getTransformations } from "@/lib/services/purchases/transformation";
 import { TransformationForm } from "@/components/purchases/transformation/TransformationForm";
@@ -17,17 +19,19 @@ export default async function TransformationPage() {
   ]);
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Transformación de Inventario (Mini-Producción)</h1>
-        <p className="text-sm text-muted-foreground">
-          Transforma materias primas (ej: pollo entero) en productos procesados o terminados (ej: pollo trozado, pechugas deshuesadas).
-        </p>
-      </div>
-
-      <TransformationForm supplies={JSON.parse(JSON.stringify(supplies))} />
-
-      <TransformationsTable transformations={JSON.parse(JSON.stringify(transformations))} />
-    </div>
+    <>
+      <ModuleHeader
+        title="Transformación de Inventario"
+        subtitle="Convierte materias primas en productos procesados o terminados"
+        icon={Repeat}
+        iconClassName="bg-orange-100 text-orange-800"
+      />
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <TransformationForm supplies={JSON.parse(JSON.stringify(supplies))} />
+          <TransformationsTable transformations={JSON.parse(JSON.stringify(transformations))} />
+        </div>
+      </main>
+    </>
   );
 }

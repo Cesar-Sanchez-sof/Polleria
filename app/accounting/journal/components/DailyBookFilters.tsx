@@ -30,13 +30,13 @@ export function DailyBookFilters({
 }: Readonly<Props>) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-end gap-3 bg-slate-50/70 rounded-lg px-3 py-2.5">
-        <div className="flex flex-row items-end gap-2">
+      <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 rounded-lg px-3 py-2.5">
+        <div className="flex flex-row items-center gap-2">
           <label
             htmlFor="journal-from"
             className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
           >
-            Desde
+            De
           </label>
           <Input
             id="journal-from"
@@ -51,7 +51,7 @@ export function DailyBookFilters({
             htmlFor="journal-to"
             className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
           >
-            Hasta
+            A
           </label>
           <Input
             id="journal-to"
@@ -64,11 +64,11 @@ export function DailyBookFilters({
           />
         </div>
 
-        <span className="text-[11px] text-slate-400 pb-2.5">
+        <span className="text-[11px] text-slate-400">
           Sin fechas se muestran todos los asientos.
         </span>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center">
           <Button
             variant="outline"
             type="button"
@@ -90,3 +90,6 @@ export function DailyBookFilters({
     </div>
   );
 }
+
+/** @deprecated Use DailyBookFilters */
+export const FiltrosDiario = DailyBookFilters;

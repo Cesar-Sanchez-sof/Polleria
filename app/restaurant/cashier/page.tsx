@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Sidebar from "@/components/personalized/Sidebar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +34,7 @@ import {
   FileCheck
 } from "lucide-react";
 import { toast } from "sonner";
+import { RestaurantHeader } from "@/components/shared/ModuleHeader";
 import {
   listTables,
   listOrders,
@@ -250,48 +250,32 @@ function CashierCheckoutContent() {
   };
 
   return (
-    <div className="flex bg-(--color-background) text-sm text-slate-900 antialiased min-h-screen">
-      {/* Sidebar fijo */}
-      <Sidebar />
-
-      {/* Área principal */}
-      <div className="pl-64 min-h-screen flex flex-col bg-(--color-background) w-full">
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">
-                Módulo de Caja y Facturación
-              </h1>
-              <p className="text-xs text-slate-500">
-                Cobro de Comandas, Métodos de Pago y Emisión de Comprobantes
-              </p>
-            </div>
+    <>
+    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+        <RestaurantHeader
+          title="Módulo de Caja y Facturación"
+          subtitle="Cobro de Comandas, Métodos de Pago y Emisión de Comprobantes"
+          icon={Receipt}
+          iconClassName="bg-slate-900 text-white"
+        >
+          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-full border border-emerald-200 text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Caja Principal Abierta</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-full border border-emerald-200 text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Caja Principal Abierta</span>
-            </div>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => void loadData()}
-              title="Refrescar comanda"
-              className="h-9 w-9 rounded-xl cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-        </header>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => void loadData()}
+            title="Refrescar comanda"
+            className="h-9 w-9 rounded-xl cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </RestaurantHeader>
 
         {/* Contenido dividido en 2 columnas: 1. Selección y Comanda | 2. Pagos y Emisión */}
-        <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
           {/* COLUMNA IZQUIERDA: 1. Elegir mesa + 2. Detalles del pedido (7 columnas) */}
           <div className="lg:col-span-7 flex flex-col gap-5">
             {/* PASO 1: Elegir Mesa u Orden Para Llevar */}
@@ -910,7 +894,7 @@ function CashierCheckoutContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
