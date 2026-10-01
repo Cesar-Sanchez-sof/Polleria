@@ -1,94 +1,94 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { EstadoOrdenCompraEnum } from "@prisma/client";
+import { PurchaseOrderStatus } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 
 export interface PurchaseOrderLineInput {
-  id_insumo: number;
-  cantidad_pedida: number;
-  precio_unitario: number;
+  supplyId: number;
+  quantityOrdered: number;
+  unitPrice: number;
 }
 
 export interface PurchaseOrderInput {
-  id_proveedor: number;
-  id_empleado?: number;
-  fecha_esperada?: Date | string | null;
-  observaciones?: string;
-  detalles: PurchaseOrderLineInput[];
+  supplierId: number;
+  employeeId?: number;
+  expectedAt?: Date | string | null;
+  notes?: string;
+  items: PurchaseOrderLineInput[];
 }
 
 export async function generateOrderNumber(): Promise<string> {
-  const count = await prisma.orden_compra.count();
+  const count = await prisma.purchaseOrder.count();
   const year = new Date().getFullYear();
   const num = (count + 1).toString().padStart(5, "0");
   return `OC-${year}-${num}`;
 }
 
 export async function createPurchaseOrder(data: PurchaseOrderInput) {
-  if (!data.id_proveedor) {
+  if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
   }
-  if (!data.detalles || data.detalles.length === 0) {
+  if (!data.items || data.items.length === 0) {
     throw new Error("La orden debe tener al menos una línea de insumo");
   }
 
-  for (const d of data.detalles) {
-    if (!d.id_insumo) {
+  for (const d of data.items) {
+    if (!d.supplyId) {
       throw new Error("Insumo no válido en una de las líneas");
     }
-    if (d.cantidad_pedida <= 0) {
+    if (d.quantityOrdered <= 0) {
       throw new Error("La cantidad pedida debe ser mayor a 0");
     }
-    if (d.precio_unitario < 0) {
+    if (d.unitPrice < 0) {
       throw new Error("El precio unitario no puede ser negativo");
     }
   }
 
   return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.id_empleado);
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.employeeId);
 
-    let numero_orden = await generateOrderNumber();
-    const existing = await tx.orden_compra.findUnique({ where: { numero_orden } });
+    let orderNumber = await generateOrderNumber();
+    const existing = await tx.purchaseOrder.findUnique({ where: { orderNumber } });
     if (existing) {
-      numero_orden = `${numero_orden}-${Math.floor(Math.random() * 1000)}`;
+      orderNumber = `${orderNumber}-${Math.floor(Math.random() * 1000)}`;
     }
 
     let subtotal = 0;
-    for (const d of data.detalles) {
-      subtotal += d.cantidad_pedida * d.precio_unitario;
+    for (const d of data.items) {
+      subtotal += d.quantityOrdered * d.unitPrice;
     }
     const igv = Math.round(subtotal * 0.18 * 100) / 100;
     const total = subtotal + igv;
 
-    const expectedDate = data.fecha_esperada ? new Date(data.fecha_esperada) : null;
+    const expectedDate = data.expectedAt ? new Date(data.expectedAt) : null;
 
-    const order = await tx.orden_compra.create({
+    const order = await tx.purchaseOrder.create({
       data: {
-        id_proveedor: data.id_proveedor,
-        id_empleado: validEmployeeId,
-        numero_orden,
-        fecha_emision: new Date(),
-        fecha_esperada: expectedDate,
-        estado: EstadoOrdenCompraEnum.Pendiente,
+        supplierId: data.supplierId,
+        employeeId: validEmployeeId,
+        orderNumber,
+        issuedAt: new Date(),
+        expectedAt: expectedDate,
+        status: PurchaseOrderStatus.Pending,
         subtotal,
         igv,
         total,
-        observaciones: data.observaciones?.trim() || null,
-        detalles_orden: {
-          create: data.detalles.map((d) => ({
-            id_insumo: d.id_insumo,
-            cantidad_pedida: d.cantidad_pedida,
-            precio_unitario: d.precio_unitario,
+        notes: data.notes?.trim() || null,
+        items: {
+          create: data.items.map((d) => ({
+            supplyId: d.supplyId,
+            quantityOrdered: d.quantityOrdered,
+            unitPrice: d.unitPrice,
           })),
         },
       },
       include: {
-        proveedor: true,
-        empleado: true,
-        detalles_orden: {
+        supplier: true,
+        employee: true,
+        items: {
           include: {
-            insumo: true,
+            supply: true,
           },
         },
       },
@@ -100,18 +100,18 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
 
 export async function getPurchaseOrders() {
   try {
-    return await prisma.orden_compra.findMany({
+    return await prisma.purchaseOrder.findMany({
       include: {
-        proveedor: true,
-        empleado: true,
-        detalles_orden: {
+        supplier: true,
+        employee: true,
+        items: {
           include: {
-            insumo: true,
+            supply: true,
           },
         },
-        recepciones_compra: true,
+        receipts: true,
       },
-      orderBy: { fecha_emision: "desc" },
+      orderBy: { issuedAt: "desc" },
     });
   } catch (error) {
     console.error("Error al obtener órdenes de compra:", error);
@@ -119,21 +119,21 @@ export async function getPurchaseOrders() {
   }
 }
 
-export async function getPurchaseOrderById(id_orden_compra: number) {
+export async function getPurchaseOrderById(id: number) {
   try {
-    return await prisma.orden_compra.findUnique({
-      where: { id_orden_compra },
+    return await prisma.purchaseOrder.findUnique({
+      where: { id },
       include: {
-        proveedor: true,
-        empleado: true,
-        detalles_orden: {
+        supplier: true,
+        employee: true,
+        items: {
           include: {
-            insumo: true,
+            supply: true,
           },
         },
-        recepciones_compra: {
+        receipts: {
           include: {
-            detalles_recepcion_compra: true,
+            items: true,
           },
         },
       },

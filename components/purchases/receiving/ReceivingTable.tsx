@@ -15,28 +15,29 @@ import { Input } from "@/components/ui/input";
 import { ReceivingSheet } from "./ReceivingSheet";
 import { Search, PackageCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { PurchaseOrderStatus } from "@prisma/client";
 
 interface PurchaseOrder {
-  id_orden_compra: number;
-  numero_orden: string;
-  fecha_emision: Date | string;
-  estado: "Pendiente" | "RecibidaParcial" | "RecibidaTotal" | "Cancelada";
+  id: number;
+  orderNumber: string;
+  issuedAt: Date | string;
+  status: PurchaseOrderStatus | "Pending" | "PartiallyReceived" | "FullyReceived" | "Cancelled";
   total: number | string;
-  proveedor: {
-    razon_social: string;
+  supplier: {
+    businessName: string;
     ruc: string;
   };
-  detalles_orden: Array<{
-    id_detalle_orden_compra: number;
-    id_insumo: number;
-    cantidad_pedida: number | string;
-    precio_unitario: number | string;
-    insumo: {
-      nombre: string;
-      unidad_medida: string;
+  items: Array<{
+    id: number;
+    supplyId: number;
+    quantityOrdered: number | string;
+    unitPrice: number | string;
+    supply: {
+      name: string;
+      unitOfMeasure: string;
     };
-    detalles_recepcion_compra?: Array<{
-      cantidad_recibida: number | string;
+    receiptItems?: Array<{
+      quantityReceived: number | string;
     }>;
   }>;
 }
@@ -44,6 +45,13 @@ interface PurchaseOrder {
 interface ReceivingTableProps {
   initialOrders: PurchaseOrder[];
 }
+
+const statusLabel: Record<string, string> = {
+  Pending: "Pendiente",
+  PartiallyReceived: "Recibida Parcial",
+  FullyReceived: "Recibida Total",
+  Cancelled: "Cancelada",
+};
 
 export function ReceivingTable({ initialOrders }: ReceivingTableProps) {
   const router = useRouter();
@@ -54,13 +62,13 @@ export function ReceivingTable({ initialOrders }: ReceivingTableProps) {
   const filtered = initialOrders.filter((o) => {
     const q = search.toLowerCase();
     return (
-      o.numero_orden.toLowerCase().includes(q) ||
-      o.proveedor.razon_social.toLowerCase().includes(q)
+      o.orderNumber.toLowerCase().includes(q) ||
+      o.supplier.businessName.toLowerCase().includes(q)
     );
   });
 
-  const handleReceiveClick = (orden: PurchaseOrder) => {
-    setSelectedOrder(orden);
+  const handleReceiveClick = (order: PurchaseOrder) => {
+    setSelectedOrder(order);
     setSheetOpen(true);
   };
 
@@ -86,10 +94,10 @@ export function ReceivingTable({ initialOrders }: ReceivingTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>N° Order</TableHead>
+              <TableHead>N° Orden</TableHead>
               <TableHead>Fecha Emisión</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Total Order</TableHead>
+              <TableHead>Proveedor</TableHead>
+              <TableHead>Total Orden</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acción</TableHead>
             </TableRow>
@@ -103,31 +111,28 @@ export function ReceivingTable({ initialOrders }: ReceivingTableProps) {
               </TableRow>
             ) : (
               filtered.map((o) => {
-                const date = new Date(o.fecha_emision).toLocaleDateString("es-PE");
+                const date = new Date(o.issuedAt).toLocaleDateString("es-PE");
                 const totalNum = Number(o.total);
+                const status = String(o.status);
 
                 return (
-                  <TableRow key={o.id_orden_compra}>
-                    <TableCell className="font-mono font-semibold">{o.numero_orden}</TableCell>
+                  <TableRow key={o.id}>
+                    <TableCell className="font-mono font-semibold">{o.orderNumber}</TableCell>
                     <TableCell>{date}</TableCell>
                     <TableCell>
-                      <span className="font-medium">{o.proveedor.razon_social}</span>
+                      <span className="font-medium">{o.supplier.businessName}</span>
                     </TableCell>
                     <TableCell className="font-semibold">S/ {totalNum.toFixed(2)}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={o.estado === "Pendiente" ? "outline" : "secondary"}
+                        variant={status === "Pending" ? "outline" : "secondary"}
                         className={
-                          o.estado === "RecibidaParcial"
+                          status === "PartiallyReceived"
                             ? "border-amber-400 bg-amber-50 text-amber-700"
                             : ""
                         }
                       >
-                        {o.estado === "Pendiente"
-                          ? "Pendiente"
-                          : o.estado === "RecibidaParcial"
-                          ? "Recibida Parcial"
-                          : o.estado}
+                        {statusLabel[status] || status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -150,7 +155,7 @@ export function ReceivingTable({ initialOrders }: ReceivingTableProps) {
       <ReceivingSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        orden={selectedOrder}
+        order={selectedOrder}
         onSuccess={handleSuccess}
       />
     </div>

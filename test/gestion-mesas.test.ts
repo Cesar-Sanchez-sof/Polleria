@@ -13,8 +13,8 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
     it("debe calcular correctamente el total, subtotal e IGV para ítems de carta", () => {
       // 1 Pollo a la Brasa (S/ 72.50) + 1 Jarra de Chicha (S/ 16.00) = S/ 88.50
       const items = [
-        { cantidad: 1, precioUnitario: 72.5 },
-        { cantidad: 1, precioUnitario: 16.0 },
+        { quantity: 1, unitPrice: 72.5 },
+        { quantity: 1, unitPrice: 16.0 },
       ];
 
       const resultado = calculateTotals(items);
@@ -36,7 +36,7 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
 
     it("debe manejar cantidades múltiples correctamente", () => {
       // 3 Mostritos a S/ 24.50 = S/ 73.50
-      const items = [{ cantidad: 3, precioUnitario: 24.5 }];
+      const items = [{ quantity: 3, unitPrice: 24.5 }];
       const res = calculateTotals(items);
       expect(res.total).toBe(73.5);
       expect(res.subtotal).toBe(62.29);
@@ -108,43 +108,48 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
   });
 
   describe("4. Reglas de Estado del Pedido y Edición de Comandas", () => {
-    it("debe permitir editar cuando el pedido está en estado Recibido o Preparando", () => {
+    it("debe permitir editar cuando el pedido está en estado Received o Preparing", () => {
+      expect(canEditOrder("Received")).toBe(true);
+      expect(canEditOrder("Preparing")).toBe(true);
+      expect(canEditOrder("Pending")).toBe(true);
+      // Compatibilidad con valores legacy en español
       expect(canEditOrder("Recibido")).toBe(true);
       expect(canEditOrder("Preparando")).toBe(true);
-      expect(canEditOrder("Pendiente")).toBe(true);
     });
 
-    it("debe bloquear la edición cuando el pedido ya está Servido o Cerrado", () => {
+    it("debe bloquear la edición cuando el pedido ya está Served o Closed", () => {
+      expect(canEditOrder("Served")).toBe(false);
+      expect(canEditOrder("Closed")).toBe(false);
+      expect(canEditOrder("Cancelled")).toBe(false);
       expect(canEditOrder("Servido")).toBe(false);
       expect(canEditOrder("Cerrado")).toBe(false);
-      expect(canEditOrder("Cancelado")).toBe(false);
     });
   });
 
   describe("5. Cálculo de Ocupación de Salón de Mesas", () => {
     it("debe calcular correctamente el aforo y estado del salón", () => {
-      const mesas = [
-        { ocupada: true },
-        { ocupada: false },
-        { ocupada: true },
-        { ocupada: false },
-        { ocupada: false },
+      const tables = [
+        { occupied: true },
+        { occupied: false },
+        { occupied: true },
+        { occupied: false },
+        { occupied: false },
       ];
 
-      const resumen = calculateTablesSummary(mesas);
+      const resumen = calculateTablesSummary(tables);
       expect(resumen.total).toBe(5);
-      expect(resumen.ocupadas).toBe(2);
-      expect(resumen.disponibles).toBe(3);
+      expect(resumen.occupied).toBe(2);
+      expect(resumen.available).toBe(3);
     });
   });
 
   describe("6. Resumen de Ventas Diarias y Cierre de Caja", () => {
     it("debe desglosar correctamente ingresos por Efectivo, Yape y Tarjeta POS", () => {
       const ventas = [
-        { monto_total: 100.0, metodo_pago: "Efectivo", tipo_comprobante: "Boleta" },
-        { monto_total: 50.0, metodo_pago: "Yape", tipo_comprobante: "Boleta" },
-        { monto_total: 150.0, metodo_pago: "Tarjeta POS (Tap to Pay)", tipo_comprobante: "Factura" },
-        { monto_total: 40.0, metodo_pago: "Efectivo", tipo_comprobante: "Ticket" },
+        { total: 100.0, paymentMethod: "Efectivo", voucherType: "Boleta" },
+        { total: 50.0, paymentMethod: "Yape", voucherType: "Boleta" },
+        { total: 150.0, paymentMethod: "Tarjeta POS (Tap to Pay)", voucherType: "Factura" },
+        { total: 40.0, paymentMethod: "Efectivo", voucherType: "Ticket" },
       ];
 
       const resumen = calculateDailySalesSummary(ventas);
@@ -163,9 +168,9 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
   describe("7. Cobros No Cobrados (Cuentas Abiertas en Salón y Ventanilla)", () => {
     it("debe calcular el importe total por cobrar sumando mesas ocupadas y comandas para llevar activas", () => {
       const cuentasPendientes = [
-        { tipo: "Mesa", total: 145.0, estadoCocina: "Servido" },
-        { tipo: "Mesa", total: 85.5, estadoCocina: "Preparando" },
-        { tipo: "Llevar", total: 42.0, estadoCocina: "Recibido" },
+        { tipo: "Mesa", total: 145.0, kitchenStatus: "Served" },
+        { tipo: "Mesa", total: 85.5, kitchenStatus: "Preparing" },
+        { tipo: "Llevar", total: 42.0, kitchenStatus: "Received" },
       ];
 
       const totalPorCobrar = cuentasPendientes.reduce((acc, c) => acc + c.total, 0);
@@ -175,14 +180,14 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
 
     it("debe excluir pedidos que ya fueron cerrados o cancelados de los cobros pendientes", () => {
       const todosLosPedidos = [
-        { id: 1, codigo: "PED-001", estado: "Servido", total: 72.5 },
-        { id: 2, codigo: "PED-002", estado: "Cerrado", total: 80.0 }, // Ya cobrado
-        { id: 3, codigo: "PED-003", estado: "Cancelado", total: 50.0 }, // Cancelado
-        { id: 4, codigo: "PED-004", estado: "Preparando", total: 45.0 },
+        { id: 1, code: "PED-001", status: "Served", total: 72.5 },
+        { id: 2, code: "PED-002", status: "Closed", total: 80.0 }, // Ya cobrado
+        { id: 3, code: "PED-003", status: "Cancelled", total: 50.0 }, // Cancelado
+        { id: 4, code: "PED-004", status: "Preparing", total: 45.0 },
       ];
 
       const noCobrados = todosLosPedidos.filter(
-        (p) => p.estado !== "Cerrado" && p.estado !== "Cancelado"
+        (p) => p.status !== "Closed" && p.status !== "Cancelled"
       );
 
       expect(noCobrados.length).toBe(2);
@@ -193,34 +198,33 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
   describe("8. Cobro desde el Mozo vs Cobro desde Ventanilla", () => {
     it("el cobro del mozo emite un comprobante de ticket rápido y admite Tap to Pay con celular", () => {
       const payloadCobroMozo = {
-        id_pedido: 10,
-        tipo_comprobante: "Ticket",
-        id_tipo_pago: 3, // POS / Tap to Pay
-        pasarela: {
-          proveedor: "mercado_pago",
-          modo: "tap_to_pay",
+        orderId: 10,
+        voucherType: "Ticket",
+        paymentTypeId: 3, // POS / Tap to Pay
+        gateway: {
+          provider: "mercado_pago",
+          mode: "tap_to_pay",
         },
       };
 
-      expect(payloadCobroMozo.tipo_comprobante).toBe("Ticket");
-      expect(payloadCobroMozo.pasarela.modo).toBe("tap_to_pay");
+      expect(payloadCobroMozo.voucherType).toBe("Ticket");
+      expect(payloadCobroMozo.gateway.mode).toBe("tap_to_pay");
     });
 
     it("el cobro en ventanilla permite facturar con RUC y desglose formal de IGV", () => {
       const payloadVentanilla = {
-        id_pedido: 12,
-        tipo_comprobante: "Factura",
-        cliente: {
-          nro_doc: "20601234567",
-          nombre: "DISTRIBUIDORA GASTRONÓMICA S.A.C.",
-          tipo_persona: "Juridico",
+        orderId: 12,
+        voucherType: "Factura",
+        customer: {
+          documentNumber: "20601234567",
+          firstName: "DISTRIBUIDORA GASTRONÓMICA S.A.C.",
+          personType: "Legal",
         },
       };
 
-      expect(payloadVentanilla.tipo_comprobante).toBe("Factura");
-      expect(payloadVentanilla.cliente.tipo_persona).toBe("Juridico");
-      expect(payloadVentanilla.cliente.nro_doc.length).toBe(11);
+      expect(payloadVentanilla.voucherType).toBe("Factura");
+      expect(payloadVentanilla.customer.personType).toBe("Legal");
+      expect(payloadVentanilla.customer.documentNumber.length).toBe(11);
     });
   });
 });
-

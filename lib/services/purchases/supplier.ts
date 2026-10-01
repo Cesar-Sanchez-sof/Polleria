@@ -3,20 +3,20 @@
 import { prisma } from "@/lib/prisma";
 
 export interface SupplierInput {
-  tipo_documento?: "RUC" | "DNI";
+  documentType?: "RUC" | "DNI";
   ruc: string;
-  razon_social: string;
-  persona_contacto?: string;
-  direccion?: string;
-  telefono?: string;
-  correo?: string;
-  estado?: boolean;
+  businessName: string;
+  contactPerson?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  active?: boolean;
 }
 
 export async function getSuppliers() {
   try {
-    return await prisma.proveedor.findMany({
-      orderBy: { razon_social: "asc" },
+    return await prisma.supplier.findMany({
+      orderBy: { businessName: "asc" },
     });
   } catch (error) {
     console.error("Error al obtener proveedores:", error);
@@ -29,50 +29,50 @@ export async function createSupplier(data: SupplierInput) {
   if (!document || (document.length !== 8 && document.length !== 11)) {
     throw new Error("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
   }
-  if (!data.razon_social || data.razon_social.trim() === "") {
+  if (!data.businessName || data.businessName.trim() === "") {
     throw new Error("La razón social o nombre es obligatorio");
   }
 
-  const existing = await prisma.proveedor.findUnique({
+  const existing = await prisma.supplier.findUnique({
     where: { ruc: document },
   });
   if (existing) {
     throw new Error(`Ya existe un proveedor registrado con el documento ${document}`);
   }
 
-  return await prisma.proveedor.create({
+  return await prisma.supplier.create({
     data: {
       ruc: document,
-      razon_social: data.razon_social.trim(),
-      nombre_comercial: null,
-      nombre: null,
-      persona_contacto: data.persona_contacto?.trim() || null,
-      direccion: data.direccion?.trim() || null,
-      telefono: data.telefono?.trim() || null,
-      correo: data.correo?.trim() || null,
-      estado: data.estado !== undefined ? data.estado : true,
+      businessName: data.businessName.trim(),
+      tradeName: null,
+      name: null,
+      contactPerson: data.contactPerson?.trim() || null,
+      address: data.address?.trim() || null,
+      phone: data.phone?.trim() || null,
+      email: data.email?.trim() || null,
+      active: data.active !== undefined ? data.active : true,
     },
   });
 }
 
-export async function updateSupplier(id_proveedor: number, data: SupplierInput) {
+export async function updateSupplier(id: number, data: SupplierInput) {
   const document = data.ruc ? data.ruc.trim() : "";
   if (!document || (document.length !== 8 && document.length !== 11)) {
     throw new Error("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
   }
-  if (!data.razon_social || data.razon_social.trim() === "") {
+  if (!data.businessName || data.businessName.trim() === "") {
     throw new Error("La razón social o nombre es obligatorio");
   }
 
-  const existingSupplier = await prisma.proveedor.findUnique({
-    where: { id_proveedor },
+  const existingSupplier = await prisma.supplier.findUnique({
+    where: { id },
   });
   if (!existingSupplier) {
     throw new Error("Proveedor no encontrado");
   }
 
   if (existingSupplier.ruc !== document) {
-    const duplicate = await prisma.proveedor.findUnique({
+    const duplicate = await prisma.supplier.findUnique({
       where: { ruc: document },
     });
     if (duplicate) {
@@ -80,25 +80,25 @@ export async function updateSupplier(id_proveedor: number, data: SupplierInput) 
     }
   }
 
-  return await prisma.proveedor.update({
-    where: { id_proveedor },
+  return await prisma.supplier.update({
+    where: { id },
     data: {
       ruc: document,
-      razon_social: data.razon_social.trim(),
-      nombre_comercial: null,
-      nombre: null,
-      persona_contacto: data.persona_contacto?.trim() || null,
-      direccion: data.direccion?.trim() || null,
-      telefono: data.telefono?.trim() || null,
-      correo: data.correo?.trim() || null,
-      estado: data.estado !== undefined ? data.estado : existingSupplier.estado,
+      businessName: data.businessName.trim(),
+      tradeName: null,
+      name: null,
+      contactPerson: data.contactPerson?.trim() || null,
+      address: data.address?.trim() || null,
+      phone: data.phone?.trim() || null,
+      email: data.email?.trim() || null,
+      active: data.active !== undefined ? data.active : existingSupplier.active,
     },
   });
 }
 
-export async function setSupplierStatus(id_proveedor: number, estado: boolean) {
-  return await prisma.proveedor.update({
-    where: { id_proveedor },
-    data: { estado },
+export async function setSupplierStatus(id: number, active: boolean) {
+  return await prisma.supplier.update({
+    where: { id },
+    data: { active },
   });
 }

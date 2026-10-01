@@ -15,15 +15,16 @@ import { Input } from "@/components/ui/input";
 import { SupplyDialog } from "./SupplyDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
 import { Plus, Search, SlidersHorizontal, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { SupplyType } from "@prisma/client";
 
 interface Supply {
-  id_insumo: number;
-  nombre: string;
-  tipo: "MateriaPrima" | "ProductoTerminado";
-  unidad_medida: string;
-  stock_actual: number | string;
-  stock_minimo: number | string;
-  estado: boolean;
+  id: number;
+  name: string;
+  type: SupplyType | "RawMaterial" | "FinishedProduct";
+  unitOfMeasure: string;
+  currentStock: number | string;
+  minimumStock: number | string;
+  active: boolean;
 }
 
 interface InventoryTableProps {
@@ -39,11 +40,11 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const filtered = supplies.filter((i) => {
     const q = search.toLowerCase();
-    const codigo = `INS-${i.id_insumo.toString().padStart(3, "0")}`.toLowerCase();
+    const code = `INS-${i.id.toString().padStart(3, "0")}`.toLowerCase();
     return (
-      i.nombre.toLowerCase().includes(q) ||
-      codigo.includes(q) ||
-      i.tipo.toLowerCase().includes(q)
+      i.name.toLowerCase().includes(q) ||
+      code.includes(q) ||
+      i.type.toLowerCase().includes(q)
     );
   });
 
@@ -53,12 +54,12 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const handleAdjustmentSuccess = (updated: Supply) => {
     setSupplies((prev) =>
-      prev.map((i) => (i.id_insumo === updated.id_insumo ? updated : i))
+      prev.map((i) => (i.id === updated.id ? updated : i))
     );
   };
 
-  const handleOpenAdjustment = (insumo: Supply) => {
-    setSupplyToAdjust(insumo);
+  const handleOpenAdjustment = (supply: Supply) => {
+    setSupplyToAdjust(supply);
     setAdjustmentDialogOpen(true);
   };
 
@@ -75,7 +76,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
           />
         </div>
         <Button onClick={() => setSupplyDialogOpen(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nuevo Supply
+          <Plus className="h-4 w-4" /> Nuevo Insumo
         </Button>
       </div>
 
@@ -84,7 +85,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Código</TableHead>
-              <TableHead>Nombre Supply</TableHead>
+              <TableHead>Nombre Insumo</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Unidad</TableHead>
               <TableHead className="text-right">Stock Actual</TableHead>
@@ -97,40 +98,42 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                  No se encontraron supplies en el inventario.
+                  No se encontraron insumos en el inventario.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((item) => {
-                const codigo = `INS-${item.id_insumo.toString().padStart(3, "0")}`;
-                const stActual = Number(item.stock_actual);
-                const stMin = Number(item.stock_minimo);
-                const bajoStock = stActual <= stMin;
+                const code = `INS-${item.id.toString().padStart(3, "0")}`;
+                const currentStock = Number(item.currentStock);
+                const minStock = Number(item.minimumStock);
+                const lowStock = currentStock <= minStock;
+                const isRawMaterial =
+                  item.type === SupplyType.RawMaterial || item.type === "RawMaterial";
 
                 return (
-                  <TableRow key={item.id_insumo}>
-                    <TableCell className="font-mono text-xs font-semibold">{codigo}</TableCell>
-                    <TableCell className="font-medium">{item.nombre}</TableCell>
+                  <TableRow key={item.id}>
+                    <TableCell className="font-mono text-xs font-semibold">{code}</TableCell>
+                    <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>
                       <Badge
                         className={
-                          item.tipo === "MateriaPrima"
+                          isRawMaterial
                             ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 font-medium"
                             : "bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 font-medium"
                         }
                       >
-                        {item.tipo === "MateriaPrima" ? "Materia Prima" : "Producto Terminado"}
+                        {isRawMaterial ? "Materia Prima" : "Producto Terminado"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{item.unidad_medida}</TableCell>
+                    <TableCell>{item.unitOfMeasure}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      {stActual.toFixed(2)}
+                      {currentStock.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {stMin.toFixed(2)}
+                      {minStock.toFixed(2)}
                     </TableCell>
                     <TableCell>
-                      {bajoStock ? (
+                      {lowStock ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
                           <AlertTriangle className="h-3 w-3" /> Bajo Stock
                         </span>
@@ -167,7 +170,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
       <AdjustmentDialog
         open={adjustmentDialogOpen}
         onOpenChange={setAdjustmentDialogOpen}
-        insumo={supplyToAdjust}
+        supply={supplyToAdjust}
         onSuccess={handleAdjustmentSuccess}
       />
     </div>

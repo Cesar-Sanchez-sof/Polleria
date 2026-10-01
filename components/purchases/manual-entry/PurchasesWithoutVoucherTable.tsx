@@ -10,43 +10,46 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface CompraSinComprobante {
-  id_compra_menor: number;
-  cantidad: number | string;
-  monto_pagado: number | string;
-  fecha: Date | string;
-  lugar_o_proveedor_informal?: string | null;
-  motivo?: string | null;
+interface InformalPurchase {
+  id: number;
+  quantity: number | string;
+  amountPaid: number | string;
+  date: Date | string;
+  informalPlaceOrVendor?: string | null;
   reason?: string | null;
-  insumo: {
-    nombre: string;
-    unidad_medida: string;
+  supply: {
+    name: string;
+    unitOfMeasure: string;
   };
-  empleado: {
-    primer_nombre: string;
-    apellido_paterno: string;
+  employee: {
+    firstName: string;
+    paternalLastName: string;
   };
 }
 
 interface PurchasesWithoutVoucherTableProps {
-  purchases: CompraSinComprobante[];
+  purchases: InformalPurchase[];
 }
 
-export function PurchasesWithoutVoucherTable({ purchases }: PurchasesWithoutVoucherTableProps) {
+export function PurchasesWithoutVoucherTable({
+  purchases,
+}: PurchasesWithoutVoucherTableProps) {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight">Historial de Compras Sin Comprobante</h2>
+      <h2 className="text-lg font-semibold tracking-tight">
+        Historial de Compras Sin Comprobante
+      </h2>
 
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Supply</TableHead>
+              <TableHead>Insumo</TableHead>
               <TableHead className="text-right">Cantidad</TableHead>
               <TableHead className="text-right">Monto Pagado</TableHead>
               <TableHead className="text-right">Costo Unit.</TableHead>
-              <TableHead>Lugar / Supplier</TableHead>
+              <TableHead>Lugar / Proveedor</TableHead>
               <TableHead>Motivo / Registro</TableHead>
             </TableRow>
           </TableHeader>
@@ -54,32 +57,32 @@ export function PurchasesWithoutVoucherTable({ purchases }: PurchasesWithoutVouc
             {purchases.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                  No se registran purchases menores sin comprobante.
+                  No se registran compras menores sin comprobante.
                 </TableCell>
               </TableRow>
             ) : (
               purchases.map((c) => {
-                const fechaStr = new Date(c.fecha).toLocaleDateString("es-PE");
-                const cant = Number(c.cantidad);
-                const amount = Number(c.monto_pagado);
-                const costoU = cant > 0 ? amount / cant : 0;
+                const dateStr = new Date(c.date).toLocaleDateString("es-PE");
+                const qty = Number(c.quantity);
+                const amount = Number(c.amountPaid);
+                const unitCost = qty > 0 ? amount / qty : 0;
 
                 return (
-                  <TableRow key={c.id_compra_menor}>
-                    <TableCell className="text-xs">{fechaStr}</TableCell>
-                    <TableCell className="font-medium">{c.insumo.nombre}</TableCell>
+                  <TableRow key={c.id}>
+                    <TableCell className="text-xs">{dateStr}</TableCell>
+                    <TableCell className="font-medium">{c.supply.name}</TableCell>
                     <TableCell className="text-right">
-                      {cant.toFixed(2)} {c.insumo.unidad_medida}
+                      {qty.toFixed(2)} {c.supply.unitOfMeasure}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       S/ {amount.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      S/ {costoU.toFixed(2)}
+                      S/ {unitCost.toFixed(2)}
                     </TableCell>
-                    <TableCell>{c.lugar_o_proveedor_informal || "-"}</TableCell>
+                    <TableCell>{c.informalPlaceOrVendor || "-"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {c.motivo || c.reason || "Compra menor de emergencia"}
+                      {c.reason || "Compra menor de emergencia"}
                     </TableCell>
                   </TableRow>
                 );

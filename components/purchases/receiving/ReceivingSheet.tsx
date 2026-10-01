@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -18,40 +18,40 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { PackageCheck } from "lucide-react";
 
-interface DetalleOrden {
-  id_detalle_orden_compra: number;
-  id_insumo: number;
-  cantidad_pedida: number | string;
-  precio_unitario: number | string;
-  insumo: {
-    nombre: string;
-    unidad_medida: string;
+interface OrderItem {
+  id: number;
+  supplyId: number;
+  quantityOrdered: number | string;
+  unitPrice: number | string;
+  supply: {
+    name: string;
+    unitOfMeasure: string;
   };
-  detalles_recepcion_compra?: Array<{
-    cantidad_recibida: number | string;
+  receiptItems?: Array<{
+    quantityReceived: number | string;
   }>;
 }
 
 interface PurchaseOrder {
-  id_orden_compra: number;
-  numero_orden: string;
-  proveedor: {
-    razon_social: string;
+  id: number;
+  orderNumber: string;
+  supplier: {
+    businessName: string;
   };
-  detalles_orden: DetalleOrden[];
+  items: OrderItem[];
 }
 
 interface ReceivingSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  orden: PurchaseOrder | null;
+  order: PurchaseOrder | null;
   onSuccess: () => void;
 }
 
 export function ReceivingSheet({
   open,
   onOpenChange,
-  orden,
+  order,
   onSuccess,
 }: ReceivingSheetProps) {
   const [loading, setLoading] = useState(false);
@@ -60,35 +60,35 @@ export function ReceivingSheet({
 
   const [prevOrder, setPrevOrder] = useState<{ id: number; open: boolean } | null>(null);
 
-  if (orden && (prevOrder?.id !== orden.id_orden_compra || prevOrder?.open !== open)) {
-    setPrevOrder({ id: orden.id_orden_compra, open });
-    const initCant: Record<number, number> = {};
-    orden.detalles_orden.forEach((d) => {
-      const ped = Number(d.cantidad_pedida);
-      const yaRecibido = (d.detalles_recepcion_compra || []).reduce(
-        (sum, r) => sum + Number(r.cantidad_recibida),
+  if (order && (prevOrder?.id !== order.id || prevOrder?.open !== open)) {
+    setPrevOrder({ id: order.id, open });
+    const initQty: Record<number, number> = {};
+    order.items.forEach((d) => {
+      const ordered = Number(d.quantityOrdered);
+      const alreadyReceived = (d.receiptItems || []).reduce(
+        (sum, r) => sum + Number(r.quantityReceived),
         0
       );
-      const pendiente = Math.max(0, ped - yaRecibido);
-      initCant[d.id_detalle_orden_compra] = pendiente;
+      const pending = Math.max(0, ordered - alreadyReceived);
+      initQty[d.id] = pending;
     });
-    setQuantities(initCant);
+    setQuantities(initQty);
     setNote("");
   }
 
-  if (!orden) return null;
+  if (!order) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const detallesAEnviar = Object.entries(quantities)
-      .map(([idStr, cant]) => ({
-        id_detalle_orden_compra: Number(idStr),
-        cantidad_recibida: Number(cant),
+    const itemsToSend = Object.entries(quantities)
+      .map(([idStr, qty]) => ({
+        purchaseOrderItemId: Number(idStr),
+        quantityReceived: Number(qty),
       }))
-      .filter((d) => d.cantidad_recibida > 0);
+      .filter((d) => d.quantityReceived > 0);
 
-    if (detallesAEnviar.length === 0) {
+    if (itemsToSend.length === 0) {
       toast.error("Debe ingresar al menos una cantidad recibida mayor a 0");
       return;
     }
@@ -96,11 +96,11 @@ export function ReceivingSheet({
     setLoading(true);
     try {
       await receivePurchase({
-        id_orden_compra: orden.id_orden_compra,
-        observacion: note || undefined,
-        detalles: detallesAEnviar,
+        purchaseOrderId: order.id,
+        notes: note || undefined,
+        items: itemsToSend,
       });
-      toast.success(`Recepción registrada para la orden ${orden.numero_orden}`);
+      toast.success(`Recepción registrada para la orden ${order.orderNumber}`);
       onSuccess();
       onOpenChange(false);
     } catch (err: unknown) {
@@ -116,63 +116,63 @@ export function ReceivingSheet({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <PackageCheck className="h-5 w-5 text-primary" />
-            Recepcionar Orden {orden.numero_orden}
+            Recepcionar Orden {order.orderNumber}
           </SheetTitle>
           <SheetDescription>
-            Proveedor: <strong>{orden.proveedor.razon_social}</strong>. Ingresa la
-            quantity física de supplies recibida en almacén.
+            Proveedor: <strong>{order.supplier.businessName}</strong>. Ingresa la
+            cantidad física de insumos recibida en almacén.
           </SheetDescription>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold border-b pb-1">Líneas de la Order</h3>
-            {orden.detalles_orden.map((d) => {
-              const pedida = Number(d.cantidad_pedida);
-              const yaRecibido = (d.detalles_recepcion_compra || []).reduce(
-                (sum, r) => sum + Number(r.cantidad_recibida),
+            <h3 className="text-sm font-semibold border-b pb-1">Líneas de la Orden</h3>
+            {order.items.map((d) => {
+              const ordered = Number(d.quantityOrdered);
+              const alreadyReceived = (d.receiptItems || []).reduce(
+                (sum, r) => sum + Number(r.quantityReceived),
                 0
               );
-              const pendiente = Math.max(0, pedida - yaRecibido);
+              const pending = Math.max(0, ordered - alreadyReceived);
 
               return (
                 <div
-                  key={d.id_detalle_orden_compra}
+                  key={d.id}
                   className="rounded-lg border bg-card p-3 space-y-2 text-sm"
                 >
                   <div className="flex justify-between font-medium">
-                    <span>{d.insumo.nombre}</span>
+                    <span>{d.supply.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      P.U: S/ {Number(d.precio_unitario).toFixed(2)}
+                      P.U: S/ {Number(d.unitPrice).toFixed(2)}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                    <div>Pedida: {pedida} {d.insumo.unidad_medida}</div>
-                    <div>Ya recibida: {yaRecibido} {d.insumo.unidad_medida}</div>
+                    <div>Pedida: {ordered} {d.supply.unitOfMeasure}</div>
+                    <div>Ya recibida: {alreadyReceived} {d.supply.unitOfMeasure}</div>
                     <div className="font-semibold text-foreground">
-                      Pendiente: {pendiente} {d.insumo.unidad_medida}
+                      Pendiente: {pending} {d.supply.unitOfMeasure}
                     </div>
                   </div>
 
                   <div className="pt-1 flex items-center gap-3">
                     <Label
-                      htmlFor={`cant-${d.id_detalle_orden_compra}`}
+                      htmlFor={`qty-${d.id}`}
                       className="text-xs font-semibold shrink-0"
                     >
-                      Cant. Recibida Ahora ({d.insumo.unidad_medida}):
+                      Cant. Recibida Ahora ({d.supply.unitOfMeasure}):
                     </Label>
                     <Input
-                      id={`cant-${d.id_detalle_orden_compra}`}
+                      id={`qty-${d.id}`}
                       type="number"
                       step="0.01"
                       min="0"
-                      max={pendiente}
-                      value={quantities[d.id_detalle_orden_compra] ?? 0}
+                      max={pending}
+                      value={quantities[d.id] ?? 0}
                       onChange={(e) =>
                         setQuantities({
                           ...quantities,
-                          [d.id_detalle_orden_compra]: parseFloat(e.target.value) || 0,
+                          [d.id]: parseFloat(e.target.value) || 0,
                         })
                       }
                       className="h-8"
@@ -184,9 +184,9 @@ export function ReceivingSheet({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="obs_recepcion">Observaciones de Recepción</Label>
+            <Label htmlFor="receiptNotes">Observaciones de Recepción</Label>
             <Textarea
-              id="obs_recepcion"
+              id="receiptNotes"
               placeholder="Ej: Empaque sellado, faltan 2 sacos de papa por deterioro..."
               value={note}
               onChange={(e) => setNote(e.target.value)}

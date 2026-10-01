@@ -5,20 +5,19 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_request: NextRequest) {
   try {
-    const paymentTypesDb = await prisma.tipo_pago.findMany({
-      where: { estado: true },
-      orderBy: { id_tipo_pago: "asc" }
+    const paymentTypesDb = await prisma.paymentType.findMany({
+      where: { active: true },
+      orderBy: { id: "asc" }
     });
 
     const data = paymentTypesDb.map((tp) => ({
-      id: tp.id_tipo_pago,
-      nombre: tp.nombre,
-      estado: tp.estado,
-      // Metadata preparada para futura integración con Mercado Pago
-      configPasarela: {
-        soportaTapToPay: tp.nombre.toLowerCase().includes("pos") || tp.nombre.toLowerCase().includes("tarjeta"),
-        soportaQr: tp.nombre.toLowerCase().includes("yape"),
-        proveedorPreparado: "mercado_pago"
+      id: tp.id,
+      name: tp.name,
+      active: tp.active,
+      gatewayConfig: {
+        supportsTapToPay: tp.name.toLowerCase().includes("pos") || tp.name.toLowerCase().includes("tarjeta"),
+        supportsQr: tp.name.toLowerCase().includes("yape"),
+        preparedProvider: "mercado_pago"
       }
     }));
 

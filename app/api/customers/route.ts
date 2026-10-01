@@ -4,40 +4,47 @@ import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
 
 export const dynamic = "force-dynamic";
 
+type PersonTypeValue = "Natural" | "Legal";
+
+function normalizePersonType(value: unknown): PersonTypeValue {
+  if (value === "Legal" || value === "Juridico") return "Legal";
+  return "Natural";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get("q") || "").trim();
 
-    const customers = await prisma.cliente.findMany({
+    const customers = await prisma.customer.findMany({
       where: search
         ? {
             OR: [
-              { nro_doc: { contains: search, mode: "insensitive" } },
-              { nombre: { contains: search, mode: "insensitive" } },
-              { apellido: { contains: search, mode: "insensitive" } },
+              { documentNumber: { contains: search, mode: "insensitive" } },
+              { firstName: { contains: search, mode: "insensitive" } },
+              { lastName: { contains: search, mode: "insensitive" } },
             ],
           }
         : undefined,
       include: {
         _count: {
-          select: { comprobantes_venta: true },
+          select: { salesInvoices: true },
         },
       },
-      orderBy: { id_cliente: "desc" },
+      orderBy: { id: "desc" },
       take: 100,
     });
 
     const result = customers.map((c) => ({
-      id: c.id_cliente,
-      nroDoc: c.nro_doc,
-      nombre: c.nombre,
-      apellido: c.apellido || "",
-      nombreCompleto: c.apellido ? `${c.nombre} ${c.apellido}`.trim() : c.nombre,
-      telefono: c.telefono || "",
-      tipoPersona: c.tipo_persona,
-      estado: c.estado,
-      totalCompras: c._count.comprobantes_venta,
+      id: c.id,
+      documentNumber: c.documentNumber,
+      firstName: c.firstName,
+      lastName: c.lastName || "",
+      fullName: c.lastName ? `${c.firstName} ${c.lastName}`.trim() : c.firstName,
+      phone: c.phone || "",
+      personType: c.personType,
+      active: c.active,
+      totalPurchases: c._count.salesInvoices,
     }));
 
     return Response.json({ data: result });
@@ -57,66 +64,67 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Datos del cliente no válidos." }, { status: 400 });
     }
 
-    const { nro_doc, nombre, apellido, telefono, tipo_persona } = body;
+    const documentNumber = (body.documentNumber ?? body.nro_doc ?? "").trim();
+    const firstName = (body.firstName ?? body.nombre ?? "").trim();
+    const lastName = body.lastName ?? body.apellido;
+    const phone = body.phone ?? body.telefono;
+    const personType = normalizePersonType(body.personType ?? body.tipo_persona);
 
-    if (!nombre || !nombre.trim()) {
+    if (!firstName) {
       return Response.json({ error: "El nombre o razón social es obligatorio." }, { status: 400 });
     }
 
-    const cleanDoc = (nro_doc || "").trim();
-    const tipo = tipo_persona === "Juridico" ? "Juridico" : "Natural";
-
     // Validar formato de documento según tipo de persona
-    const validation = validateCustomerDocument(tipo, cleanDoc);
+    const validation = validateCustomerDocument(personType, documentNumber);
     if (!validation.isValid) {
       return Response.json({ error: validation.error }, { status: 400 });
     }
 
-    // Verificar si ya existe cliente con este mismo tipo_persona y nro_doc (excepto cliente genérico)
-    if (cleanDoc && cleanDoc !== "00000000") {
-      const exists = await prisma.cliente.findUnique({
+    // Verificar si ya existe cliente con este mismo personType y documentNumber
+    if (documentNumber && documentNumber !== "00000000") {
+      const exists = await prisma.customer.findUnique({
         where: {
-          tipo_persona_nro_doc: {
-            tipo_persona: tipo,
-            nro_doc: cleanDoc,
+          personType_documentNumber: {
+            personType,
+            documentNumber,
           },
         },
       });
 
       if (exists) {
         return Response.json(
-          { error: `Ya existe un cliente registrado con el documento ${cleanDoc}.` },
+          { error: `Ya existe un cliente registrado con el documento ${documentNumber}.` },
           { status: 400 }
         );
       }
     }
 
-    const newCustomer = await prisma.cliente.create({
+    const newCustomer = await prisma.customer.create({
       data: {
-        nro_doc: cleanDoc || "00000000",
-        nombre: nombre.trim().toUpperCase(),
-        apellido: apellido ? apellido.trim().toUpperCase() : null,
-        telefono: telefono ? telefono.trim() : null,
-        tipo_persona: tipo,
-        estado: true,
+        documentNumber: documentNumber || "00000000",
+        firstName: firstName.toUpperCase(),
+        lastName: lastName ? String(lastName).trim().toUpperCase() : null,
+        phone: phone ? String(phone).trim() : null,
+        personType,
+        active: true,
       },
     });
 
     return Response.json(
       {
-        mensaje: "Cliente registrado con éxito.",
-        cliente: {
-          id: newCustomer.id_cliente,
-          nroDoc: newCustomer.nro_doc,
-          nombre: newCustomer.nombre,
-          apellido: newCustomer.apellido || "",
-          nombreCompleto: newCustomer.apellido
-            ? `${newCustomer.nombre} ${newCustomer.apellido}`.trim()
-            : newCustomer.nombre,
-          telefono: newCustomer.telefono || "",
-          tipoPersona: newCustomer.tipo_persona,
-          estado: newCustomer.estado,
-          totalCompras: 0,
+        message: "Cliente registrado con éxito.",
+        customer: {
+          id: newCustomer.id,
+          documentNumber: newCustomer.documentNumber,
+          firstName: newCustomer.firstName,
+          lastName: newCustomer.lastName || "",
+          fullName: newCustomer.lastName
+            ? `${newCustomer.firstName} ${newCustomer.lastName}`.trim()
+            : newCustomer.firstName,
+          phone: newCustomer.phone || "",
+          personType: newCustomer.personType,
+          active: newCustomer.active,
+          totalPurchases: 0,
         },
       },
       { status: 201 }

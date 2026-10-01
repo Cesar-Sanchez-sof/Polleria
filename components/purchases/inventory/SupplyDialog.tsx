@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createSupply, SupplyInput } from "@/lib/services/purchases/supply";
-import { TipoInsumoEnum } from "@prisma/client";
+import { SupplyType } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -28,35 +28,35 @@ interface SupplyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (createdSupply: any) => void;
-  prefilledNombre?: string;
-  prefilledTipo?: TipoInsumoEnum;
+  prefilledName?: string;
+  prefilledType?: SupplyType;
 }
 
 export function SupplyDialog({
   open,
   onOpenChange,
   onSuccess,
-  prefilledNombre = "",
-  prefilledTipo = TipoInsumoEnum.MateriaPrima,
+  prefilledName = "",
+  prefilledType = SupplyType.RawMaterial,
 }: SupplyDialogProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<SupplyInput>({
-    nombre: prefilledNombre,
-    tipo: prefilledTipo,
-    unidad_medida: "KG",
-    stock_minimo: 5,
+    name: prefilledName,
+    type: prefilledType,
+    unitOfMeasure: "KG",
+    minimumStock: 5,
   });
 
   React.useEffect(() => {
     if (open) {
       setFormData({
-        nombre: prefilledNombre,
-        tipo: prefilledTipo,
-        unidad_medida: "KG",
-        stock_minimo: 5,
+        name: prefilledName,
+        type: prefilledType,
+        unitOfMeasure: "KG",
+        minimumStock: 5,
       });
     }
-  }, [open, prefilledNombre, prefilledTipo]);
+  }, [open, prefilledName, prefilledType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,38 +77,38 @@ export function SupplyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
-          <DialogTitle>Nuevo Supply</DialogTitle>
+          <DialogTitle>Nuevo Insumo</DialogTitle>
           <DialogDescription>
-            Crea un created insumo. El stock inicial siempre comienza en 0.
+            Crea un nuevo insumo. El stock inicial siempre comienza en 0.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="nombre">Nombre del Supply *</Label>
+            <Label htmlFor="name">Nombre del Insumo *</Label>
             <Input
-              id="nombre"
+              id="name"
               placeholder="Ej: Pollo Entero, Papa Amarilla, Aceite"
-              value={formData.nombre}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="tipo">Tipo de Supply</Label>
+              <Label htmlFor="type">Tipo de Insumo</Label>
               <Select
-                value={formData.tipo}
+                value={formData.type}
                 onValueChange={(val) =>
-                  setFormData({ ...formData, tipo: val as TipoInsumoEnum })
+                  setFormData({ ...formData, type: val as SupplyType })
                 }
               >
-                <SelectTrigger id="tipo">
+                <SelectTrigger id="type">
                   <SelectValue placeholder="Seleccionar tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={TipoInsumoEnum.MateriaPrima}>Materia Prima</SelectItem>
-                  <SelectItem value={TipoInsumoEnum.ProductoTerminado}>
+                  <SelectItem value={SupplyType.RawMaterial}>Materia Prima</SelectItem>
+                  <SelectItem value={SupplyType.FinishedProduct}>
                     Producto Terminado
                   </SelectItem>
                 </SelectContent>
@@ -116,13 +116,13 @@ export function SupplyDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="unidad_medida">Unidad de Medida *</Label>
+              <Label htmlFor="unitOfMeasure">Unidad de Medida *</Label>
               <Input
-                id="unidad_medida"
+                id="unitOfMeasure"
                 placeholder="KG, UND, LT, PAQ"
-                value={formData.unidad_medida}
+                value={formData.unitOfMeasure}
                 onChange={(e) =>
-                  setFormData({ ...formData, unidad_medida: e.target.value.toUpperCase() })
+                  setFormData({ ...formData, unitOfMeasure: e.target.value.toUpperCase() })
                 }
                 required
               />
@@ -130,15 +130,15 @@ export function SupplyDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="stock_minimo">Stock Mínimo de Alerta</Label>
+            <Label htmlFor="minimumStock">Stock Mínimo de Alerta</Label>
             <Input
-              id="stock_minimo"
+              id="minimumStock"
               type="number"
               step="0.01"
               min="0"
-              value={formData.stock_minimo}
+              value={formData.minimumStock}
               onChange={(e) =>
-                setFormData({ ...formData, stock_minimo: parseFloat(e.target.value) || 0 })
+                setFormData({ ...formData, minimumStock: parseFloat(e.target.value) || 0 })
               }
             />
           </div>
@@ -154,7 +154,7 @@ export function SupplyDialog({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Spinner className="mr-2 h-4 w-4" />}
-              Guardar Supply
+              Guardar Insumo
             </Button>
           </DialogFooter>
         </form>

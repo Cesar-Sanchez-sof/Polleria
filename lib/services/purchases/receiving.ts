@@ -1,46 +1,46 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { EstadoOrdenCompraEnum, EstadoRecepcionCompraEnum, TipoMovimientoEnum } from "@prisma/client";
+import { PurchaseOrderStatus, PurchaseReceiptStatus, InventoryMovementType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 
 export interface ReceivingLineInput {
-  id_detalle_orden_compra: number;
-  cantidad_recibida: number;
-  observacion?: string;
+  purchaseOrderItemId: number;
+  quantityReceived: number;
+  notes?: string;
 }
 
 export interface PurchaseReceivingInput {
-  id_orden_compra: number;
-  id_empleado_recepcion?: number;
-  observacion?: string;
-  detalles: ReceivingLineInput[];
+  purchaseOrderId: number;
+  receivedById?: number;
+  notes?: string;
+  items: ReceivingLineInput[];
 }
 
 export async function getOrdersForReceiving() {
   try {
-    return await prisma.orden_compra.findMany({
+    return await prisma.purchaseOrder.findMany({
       where: {
-        estado: {
-          in: [EstadoOrdenCompraEnum.Pendiente, EstadoOrdenCompraEnum.RecibidaParcial],
+        status: {
+          in: [PurchaseOrderStatus.Pending, PurchaseOrderStatus.PartiallyReceived],
         },
       },
       include: {
-        proveedor: true,
-        empleado: true,
-        detalles_orden: {
+        supplier: true,
+        employee: true,
+        items: {
           include: {
-            insumo: true,
-            detalles_recepcion_compra: true,
+            supply: true,
+            receiptItems: true,
           },
         },
-        recepciones_compra: {
+        receipts: {
           include: {
-            detalles_recepcion_compra: true,
+            items: true,
           },
         },
       },
-      orderBy: { fecha_emision: "desc" },
+      orderBy: { issuedAt: "desc" },
     });
   } catch (error) {
     console.error("Error al obtener órdenes para recepción:", error);
@@ -49,22 +49,22 @@ export async function getOrdersForReceiving() {
 }
 
 export async function receivePurchase(data: PurchaseReceivingInput) {
-  if (!data.id_orden_compra) {
+  if (!data.purchaseOrderId) {
     throw new Error("Debe especificar la orden de compra");
   }
-  if (!data.detalles || data.detalles.length === 0) {
+  if (!data.items || data.items.length === 0) {
     throw new Error("Debe ingresar al menos un detalle de recepción");
   }
 
   return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.id_empleado_recepcion);
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.receivedById);
 
-    const order = await tx.orden_compra.findUnique({
-      where: { id_orden_compra: data.id_orden_compra },
+    const order = await tx.purchaseOrder.findUnique({
+      where: { id: data.purchaseOrderId },
       include: {
-        detalles_orden: {
+        items: {
           include: {
-            detalles_recepcion_compra: true,
+            receiptItems: true,
           },
         },
       },
@@ -73,84 +73,84 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
       throw new Error("Orden de compra no encontrada");
     }
 
-    const receipt = await tx.recepcion_compra.create({
+    const receipt = await tx.purchaseReceipt.create({
       data: {
-        id_orden_compra: data.id_orden_compra,
-        id_empleado_recepcion: validEmployeeId,
-        fecha_recepcion: new Date(),
-        observacion: data.observacion?.trim() || null,
-        estado: EstadoRecepcionCompraEnum.Confirmada,
+        purchaseOrderId: data.purchaseOrderId,
+        receivedById: validEmployeeId,
+        receivedAt: new Date(),
+        notes: data.notes?.trim() || null,
+        status: PurchaseReceiptStatus.Confirmed,
       },
     });
 
-    for (const d of data.detalles) {
-      if (d.cantidad_recibida <= 0) continue; // Skip lines with 0 received
+    for (const d of data.items) {
+      if (d.quantityReceived <= 0) continue; // Skip lines with 0 received
 
-      const orderLine = order.detalles_orden.find(
-        (doItem) => doItem.id_detalle_orden_compra === d.id_detalle_orden_compra
+      const orderLine = order.items.find(
+        (doItem) => doItem.id === d.purchaseOrderItemId
       );
       if (!orderLine) {
-        throw new Error(`Detalle de orden ID ${d.id_detalle_orden_compra} no pertenece a la orden`);
+        throw new Error(`Detalle de orden ID ${d.purchaseOrderItemId} no pertenece a la orden`);
       }
 
-      const receiptLine = await tx.detalle_recepcion_compra.create({
+      const receiptLine = await tx.purchaseReceiptItem.create({
         data: {
-          id_recepcion: receipt.id_recepcion,
-          id_detalle_orden_compra: d.id_detalle_orden_compra,
-          cantidad_recibida: d.cantidad_recibida,
-          obsevacion: d.observacion?.trim() || null,
+          receiptId: receipt.id,
+          purchaseOrderItemId: d.purchaseOrderItemId,
+          quantityReceived: d.quantityReceived,
+          notes: d.notes?.trim() || null,
         },
       });
 
-      // Stock invariant: create movimiento_inventario and update stock_actual
-      await tx.movimiento_inventario.create({
+      // Stock invariant: create inventoryMovement and update currentStock
+      await tx.inventoryMovement.create({
         data: {
-          id_insumo: orderLine.id_insumo,
-          id_detalle_recepcion_compra: receiptLine.id_detalle_recepcion_compra,
-          tipo_movimiento: TipoMovimientoEnum.Compra,
-          cantidad: d.cantidad_recibida,
-          costo_unitario: orderLine.precio_unitario,
-          motivo: `Recepción Orden #${order.numero_orden}`,
+          supplyId: orderLine.supplyId,
+          purchaseReceiptItemId: receiptLine.id,
+          movementType: InventoryMovementType.Purchase,
+          quantity: d.quantityReceived,
+          unitCost: orderLine.unitPrice,
+          reason: `Recepción Orden #${order.orderNumber}`,
         },
       });
 
-      const supply = await tx.insumo.findUnique({ where: { id_insumo: orderLine.id_insumo } });
+      const supply = await tx.supply.findUnique({ where: { id: orderLine.supplyId } });
       if (supply) {
-        const newStock = Number(supply.stock_actual) + d.cantidad_recibida;
-        await tx.insumo.update({
-          where: { id_insumo: orderLine.id_insumo },
-          data: { stock_actual: newStock },
+        const newStock = Number(supply.currentStock) + d.quantityReceived;
+        await tx.supply.update({
+          where: { id: orderLine.supplyId },
+          data: { currentStock: newStock },
         });
       }
     }
 
     // Check overall order reception status
-    const previousReceipts = await tx.detalle_recepcion_compra.findMany({
+    const previousReceipts = await tx.purchaseReceiptItem.findMany({
       where: {
-        recepcion: {
-          id_orden_compra: data.id_orden_compra,
+        receipt: {
+          purchaseOrderId: data.purchaseOrderId,
         },
       },
     });
 
     let completed = true;
-    for (const orderLine of order.detalles_orden) {
+    for (const orderLine of order.items) {
       const accumulated = previousReceipts
-        .filter((r) => r.id_detalle_orden_compra === orderLine.id_detalle_orden_compra)
-        .reduce((sum, r) => sum + Number(r.cantidad_recibida), 0);
-      if (accumulated < Number(orderLine.cantidad_pedida)) {
+        .filter((r) => r.purchaseOrderItemId === orderLine.id)
+        .reduce((sum, r) => sum + Number(r.quantityReceived), 0);
+      if (accumulated < Number(orderLine.quantityOrdered)) {
         completed = false;
         break;
       }
     }
 
     const newStatus = completed
-      ? EstadoOrdenCompraEnum.RecibidaTotal
-      : EstadoOrdenCompraEnum.RecibidaParcial;
+      ? PurchaseOrderStatus.FullyReceived
+      : PurchaseOrderStatus.PartiallyReceived;
 
-    await tx.orden_compra.update({
-      where: { id_orden_compra: data.id_orden_compra },
-      data: { estado: newStatus },
+    await tx.purchaseOrder.update({
+      where: { id: data.purchaseOrderId },
+      data: { status: newStatus },
     });
 
     return receipt;
@@ -159,26 +159,26 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
 
 export async function getPurchaseReceipts() {
   try {
-    return await prisma.recepcion_compra.findMany({
+    return await prisma.purchaseReceipt.findMany({
       include: {
-        orden_compra: {
+        purchaseOrder: {
           include: {
-            proveedor: true,
+            supplier: true,
           },
         },
-        empleado_recepcion: true,
-        detalles_recepcion_compra: {
+        receivedBy: true,
+        items: {
           include: {
-            detalle_orden_compra: {
+            purchaseOrderItem: {
               include: {
-                insumo: true,
+                supply: true,
               },
             },
           },
         },
-        comprobantes_compra: true,
+        invoices: true,
       },
-      orderBy: { fecha_recepcion: "desc" },
+      orderBy: { receivedAt: "desc" },
     });
   } catch (error) {
     console.error("Error al obtener recepciones de compra:", error);

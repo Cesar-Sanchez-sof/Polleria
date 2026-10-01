@@ -20,47 +20,49 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { registerInventoryAdjustment } from "@/lib/services/purchases/supply";
-import { TipoMovimientoEnum } from "@prisma/client";
+import { InventoryMovementType } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
 interface Supply {
-  id_insumo: number;
-  nombre: string;
-  unidad_medida: string;
-  stock_actual: number | string;
+  id: number;
+  name: string;
+  unitOfMeasure: string;
+  currentStock: number | string;
 }
 
 interface AdjustmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  insumo: Supply | null;
-  onSuccess: (updatedInsumo: any) => void;
+  supply: Supply | null;
+  onSuccess: (updatedSupply: any) => void;
 }
 
 export function AdjustmentDialog({
   open,
   onOpenChange,
-  insumo,
+  supply,
   onSuccess,
 }: AdjustmentDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [movementType, setMovementType] = useState<TipoMovimientoEnum>(TipoMovimientoEnum.Ajuste);
+  const [movementType, setMovementType] = useState<InventoryMovementType>(
+    InventoryMovementType.Adjustment
+  );
   const [actualQty, setActualQty] = useState<number>(0);
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    if (insumo) {
-      setActualQty(Number(insumo.stock_actual));
-      setMovementType(TipoMovimientoEnum.Ajuste);
+    if (supply) {
+      setActualQty(Number(supply.currentStock));
+      setMovementType(InventoryMovementType.Adjustment);
       setReason("");
     }
-  }, [insumo, open]);
+  }, [supply, open]);
 
-  if (!insumo) return null;
+  if (!supply) return null;
 
-  const currentStockNum = Number(insumo.stock_actual);
-  const diferencia = actualQty - currentStockNum;
+  const currentStockNum = Number(supply.currentStock);
+  const difference = actualQty - currentStockNum;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,13 +73,13 @@ export function AdjustmentDialog({
     setLoading(true);
     try {
       const { supply: updatedSupply } = await registerInventoryAdjustment(
-        insumo.id_insumo,
+        supply.id,
         actualQty,
         reason,
         movementType
       );
       toast.success(
-        `${movementType === TipoMovimientoEnum.Merma ? "Merma" : "Ajuste"} de inventario registrado correctamente`
+        `${movementType === InventoryMovementType.Shrinkage ? "Merma" : "Ajuste"} de inventario registrado correctamente`
       );
       onSuccess(updatedSupply);
       onOpenChange(false);
@@ -94,7 +96,7 @@ export function AdjustmentDialog({
         <DialogHeader>
           <DialogTitle>Registrar Ajuste / Merma de Inventario</DialogTitle>
           <DialogDescription>
-            Ajusta el stock real para el insumo <strong>{insumo.nombre}</strong>. Se
+            Ajusta el stock real para el insumo <strong>{supply.name}</strong>. Se
             generará un movimiento en el Kardex por la diferencia.
           </DialogDescription>
         </DialogHeader>
@@ -103,40 +105,40 @@ export function AdjustmentDialog({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Stock Sistema Actual:</span>
               <span className="font-semibold">
-                {currentStockNum.toFixed(2)} {insumo.unidad_medida}
+                {currentStockNum.toFixed(2)} {supply.unitOfMeasure}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Diferencia calculada:</span>
               <span
                 className={`font-semibold ${
-                  diferencia > 0
+                  difference > 0
                     ? "text-emerald-600"
-                    : diferencia < 0
+                    : difference < 0
                     ? "text-rose-600"
                     : "text-muted-foreground"
                 }`}
               >
-                {diferencia > 0 ? `+${diferencia.toFixed(2)}` : diferencia.toFixed(2)}{" "}
-                {insumo.unidad_medida}
+                {difference > 0 ? `+${difference.toFixed(2)}` : difference.toFixed(2)}{" "}
+                {supply.unitOfMeasure}
               </span>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="tipo_movimiento">Tipo de Registro *</Label>
+            <Label htmlFor="movementType">Tipo de Registro *</Label>
             <Select
               value={movementType}
-              onValueChange={(val) => setMovementType(val as TipoMovimientoEnum)}
+              onValueChange={(val) => setMovementType(val as InventoryMovementType)}
             >
-              <SelectTrigger id="tipo_movimiento">
+              <SelectTrigger id="movementType">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={TipoMovimientoEnum.Ajuste}>
+                <SelectItem value={InventoryMovementType.Adjustment}>
                   Ajuste de Inventario (Conteo físico / Diferencia)
                 </SelectItem>
-                <SelectItem value={TipoMovimientoEnum.Merma}>
+                <SelectItem value={InventoryMovementType.Shrinkage}>
                   Merma (Vencimiento / Deterioro / Rotura)
                 </SelectItem>
               </SelectContent>
@@ -144,9 +146,9 @@ export function AdjustmentDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="cantidad_real">Stock Físico Real Encontrado *</Label>
+            <Label htmlFor="actualQuantity">Stock Físico Real Encontrado *</Label>
             <Input
-              id="cantidad_real"
+              id="actualQuantity"
               type="number"
               step="0.01"
               min="0"
@@ -157,11 +159,11 @@ export function AdjustmentDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="motivo">Motivo / Justificación *</Label>
+            <Label htmlFor="reason">Motivo / Justificación *</Label>
             <Input
-              id="motivo"
+              id="reason"
               placeholder={
-                movementType === TipoMovimientoEnum.Merma
+                movementType === InventoryMovementType.Shrinkage
                   ? "Ej: Descomposición por corte de luz, envase quebrado"
                   : "Ej: Conteo físico mensual, corrección de inventario"
               }

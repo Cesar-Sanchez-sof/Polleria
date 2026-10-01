@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NewVoucherDialog } from "./NewVoucherDialog";
 import { RegisterPaymentDialog } from "./RegisterPaymentDialog";
@@ -18,38 +17,38 @@ import { Search, Plus, CreditCard, CheckCircle2, Clock, AlertCircle } from "luci
 import { useRouter } from "next/navigation";
 
 interface Voucher {
-  id_comprobante_compra: number;
-  tipo_comprobante: string;
-  serie: string;
-  numero: number;
-  fecha_emision: Date | string;
+  id: number;
+  voucherType: string;
+  series: string;
+  number: number;
+  issuedAt: Date | string;
   subtotal: number | string;
   igv: number | string;
-  monto_total: number | string;
+  totalAmount: number | string;
   totalPagado: number;
   saldoPendiente: number;
   estadoPago: "Pendiente" | "Parcial" | "Pagado";
-  proveedor: {
-    id_proveedor: number;
-    razon_social: string;
+  supplier: {
+    id: number;
+    businessName: string;
     ruc: string;
   };
-  recepcion: {
-    id_recepcion: number;
+  receipt: {
+    id: number;
   };
-  pagos_compra: Array<{
-    id_pago_compra: number;
-    monto: number | string;
-    fecha_pago: Date | string;
-    tipo_pago: {
-      nombre: string;
+  payments: Array<{
+    id: number;
+    amount: number | string;
+    paidAt: Date | string;
+    paymentType: {
+      name: string;
     };
   }>;
 }
 
 interface PaymentType {
-  id_tipo_pago: number;
-  nombre: string;
+  id: number;
+  name: string;
 }
 
 interface VouchersTableProps {
@@ -71,11 +70,11 @@ export function VouchersTable({
 
   const filtered = initialVouchers.filter((c) => {
     const q = search.toLowerCase();
-    const voucherLabel = `${c.tipo_comprobante} ${c.serie}-${c.numero}`.toLowerCase();
+    const voucherLabel = `${c.voucherType} ${c.series}-${c.number}`.toLowerCase();
     return (
       voucherLabel.includes(q) ||
-      c.proveedor.razon_social.toLowerCase().includes(q) ||
-      c.proveedor.ruc.includes(q)
+      c.supplier.businessName.toLowerCase().includes(q) ||
+      c.supplier.ruc.includes(q)
     );
   });
 
@@ -101,7 +100,7 @@ export function VouchersTable({
           />
         </div>
         <Button onClick={() => setNewDialogOpen(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Registrar Factura / Voucher
+          <Plus className="h-4 w-4" /> Registrar Factura / Comprobante
         </Button>
       </div>
 
@@ -109,8 +108,8 @@ export function VouchersTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Voucher</TableHead>
-              <TableHead>Supplier</TableHead>
+              <TableHead>Comprobante</TableHead>
+              <TableHead>Proveedor</TableHead>
               <TableHead>Emisión</TableHead>
               <TableHead className="text-right">Monto Total</TableHead>
               <TableHead className="text-right">Pagado</TableHead>
@@ -123,24 +122,24 @@ export function VouchersTable({
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                  No hay vouchers de compra registrados.
+                  No hay comprobantes de compra registrados.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((c) => {
-                const date = new Date(c.fecha_emision).toLocaleDateString("es-PE");
-                const totalNum = Number(c.monto_total);
+                const date = new Date(c.issuedAt).toLocaleDateString("es-PE");
+                const totalNum = Number(c.totalAmount);
 
                 return (
-                  <TableRow key={c.id_comprobante_compra}>
+                  <TableRow key={c.id}>
                     <TableCell className="font-mono font-semibold">
-                      {c.tipo_comprobante} {c.serie}-{c.numero}
+                      {c.voucherType} {c.series}-{c.number}
                     </TableCell>
                     <TableCell>
                       <div>
-                        <span className="font-medium">{c.proveedor.razon_social}</span>
+                        <span className="font-medium">{c.supplier.businessName}</span>
                         <span className="block text-xs font-mono text-muted-foreground">
-                          RUC: {c.proveedor.ruc}
+                          RUC: {c.supplier.ruc}
                         </span>
                       </div>
                     </TableCell>
@@ -204,7 +203,7 @@ export function VouchersTable({
       <RegisterPaymentDialog
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
-        comprobante={voucherToPay}
+        voucher={voucherToPay}
         paymentTypes={paymentTypes}
         onSuccess={handleSuccess}
       />

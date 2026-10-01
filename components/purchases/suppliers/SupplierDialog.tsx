@@ -24,14 +24,14 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
 interface Supplier {
-  id_proveedor: number;
+  id: number;
   ruc: string;
-  razon_social: string;
-  persona_contacto?: string | null;
-  direccion?: string | null;
-  telefono?: string | null;
-  correo?: string | null;
-  estado: boolean;
+  businessName: string;
+  contactPerson?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  active: boolean;
 }
 
 interface SupplierDialogProps {
@@ -51,11 +51,11 @@ export function SupplierDialog({
   const [documentType, setDocumentType] = useState<"RUC" | "DNI">("RUC");
   const [formData, setFormData] = useState<SupplierInput>({
     ruc: "",
-    razon_social: "",
-    persona_contacto: "",
-    direccion: "",
-    telefono: "",
-    correo: "",
+    businessName: "",
+    contactPerson: "",
+    address: "",
+    phone: "",
+    email: "",
   });
 
   useEffect(() => {
@@ -64,23 +64,23 @@ export function SupplierDialog({
       setDocumentType(doc.length === 8 ? "DNI" : "RUC");
       setFormData({
         ruc: doc,
-        razon_social: supplierToEdit.razon_social,
-        persona_contacto: supplierToEdit.persona_contacto || "",
-        direccion: supplierToEdit.direccion || "",
-        telefono: supplierToEdit.telefono || "",
-        correo: supplierToEdit.correo || "",
-        estado: supplierToEdit.estado,
+        businessName: supplierToEdit.businessName,
+        contactPerson: supplierToEdit.contactPerson || "",
+        address: supplierToEdit.address || "",
+        phone: supplierToEdit.phone || "",
+        email: supplierToEdit.email || "",
+        active: supplierToEdit.active,
       });
     } else {
       setDocumentType("RUC");
       setFormData({
         ruc: "",
-        razon_social: "",
-        persona_contacto: "",
-        direccion: "",
-        telefono: "",
-        correo: "",
-        estado: true,
+        businessName: "",
+        contactPerson: "",
+        address: "",
+        phone: "",
+        email: "",
+        active: true,
       });
     }
   }, [supplierToEdit, open]);
@@ -96,7 +96,7 @@ export function SupplierDialog({
     setLoading(true);
     try {
       if (supplierToEdit) {
-        const res = await updateSupplier(supplierToEdit.id_proveedor, formData);
+        const res = await updateSupplier(supplierToEdit.id, formData);
         toast.success("Proveedor actualizado exitosamente");
         onSuccess(res as unknown as Supplier);
       } else {
@@ -128,7 +128,7 @@ export function SupplierDialog({
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-4 space-y-1.5">
-              <Label htmlFor="tipo_doc">Tipo Documento *</Label>
+              <Label htmlFor="documentType">Tipo Documento *</Label>
               <Select
                 value={documentType}
                 onValueChange={(val) => {
@@ -139,7 +139,7 @@ export function SupplierDialog({
                   }
                 }}
               >
-                <SelectTrigger id="tipo_doc">
+                <SelectTrigger id="documentType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -150,11 +150,11 @@ export function SupplierDialog({
             </div>
 
             <div className="col-span-8 space-y-1.5">
-              <Label htmlFor="nro_doc">
+              <Label htmlFor="documentNumber">
                 N° Documento ({documentType}) *
               </Label>
               <Input
-                id="nro_doc"
+                id="documentNumber"
                 maxLength={documentType === "RUC" ? 11 : 8}
                 placeholder={documentType === "RUC" ? "20123456789" : "45678901"}
                 value={formData.ruc}
@@ -167,56 +167,56 @@ export function SupplierDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="razon_social">Razón Social / Nombre del Proveedor *</Label>
+            <Label htmlFor="businessName">Razón Social / Nombre del Proveedor *</Label>
             <Input
-              id="razon_social"
+              id="businessName"
               placeholder="Ej: Distribuidora Avícola San Fernando S.A.C."
-              value={formData.razon_social}
-              onChange={(e) => setFormData({ ...formData, razon_social: e.target.value })}
+              value={formData.businessName}
+              onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="persona_contacto">Persona de Contacto</Label>
+            <Label htmlFor="contactPerson">Persona de Contacto</Label>
             <Input
-              id="persona_contacto"
+              id="contactPerson"
               placeholder="Ej: Juan Carlos Pérez (Asesor Comercial)"
-              value={formData.persona_contacto}
-              onChange={(e) => setFormData({ ...formData, persona_contacto: e.target.value })}
+              value={formData.contactPerson}
+              onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="telefono">Teléfono / Celular</Label>
+              <Label htmlFor="phone">Teléfono / Celular</Label>
               <Input
-                id="telefono"
+                id="phone"
                 maxLength={9}
                 placeholder="987654321"
-                value={formData.telefono}
-                onChange={(e) => setFormData({ ...formData, telefono: e.target.value.replace(/\D/g, "") })}
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, "") })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="correo">Correo Electrónico</Label>
+              <Label htmlFor="email">Correo Electrónico</Label>
               <Input
-                id="correo"
+                id="email"
                 type="email"
                 placeholder="ventas@proveedor.com"
-                value={formData.correo}
-                onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="direccion">Dirección Fiscal / Ubicación</Label>
+            <Label htmlFor="address">Dirección Fiscal / Ubicación</Label>
             <Input
-              id="direccion"
+              id="address"
               placeholder="Av. Naranjal 456, Los Olivos, Lima"
-              value={formData.direccion}
-              onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
           </div>
 

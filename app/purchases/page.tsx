@@ -17,6 +17,7 @@ import { getSuppliers } from "@/lib/services/purchases/supplier";
 import { getSupplies } from "@/lib/services/purchases/supply";
 import { getPurchaseOrders } from "@/lib/services/purchases/purchase-order";
 import { getPurchaseVouchers } from "@/lib/services/purchases/invoices";
+import { PurchaseOrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -32,9 +33,15 @@ export default async function PurchasesDashboardPage() {
     getPurchaseVouchers().catch(() => []),
   ]);
 
-  const totalSuppliers = suppliers.filter((p) => p.estado).length;
-  const lowStockSupplies = supplies.filter((i) => Number(i.stock_actual) <= Number(i.stock_minimo)).length;
-  const pendingOrders = orders.filter((o) => o.estado === "Pendiente" || o.estado === "RecibidaParcial").length;
+  const totalSuppliers = suppliers.filter((p) => p.active).length;
+  const lowStockSupplies = supplies.filter(
+    (i) => Number(i.currentStock) <= Number(i.minimumStock)
+  ).length;
+  const pendingOrders = orders.filter(
+    (o) =>
+      o.status === PurchaseOrderStatus.Pending ||
+      o.status === PurchaseOrderStatus.PartiallyReceived
+  ).length;
   const pendingPaymentVouchers = vouchers.filter((c) => c.estadoPago !== "Pagado").length;
 
   const modules = [

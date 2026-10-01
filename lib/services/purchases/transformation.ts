@@ -1,18 +1,18 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { TipoMovimientoEnum } from "@prisma/client";
+import { InventoryMovementType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 
 export interface TransformationLineInput {
-  id_insumo: number;
-  cantidad: number;
-  costo_unitario?: number;
+  supplyId: number;
+  quantity: number;
+  unitCost?: number;
 }
 
 export interface TransformationInput {
-  id_empleado?: number;
-  observacion?: string;
+  employeeId?: number;
+  notes?: string;
   consumos: TransformationLineInput[];
   producidos: TransformationLineInput[];
 }
@@ -26,86 +26,86 @@ export async function registerTransformation(data: TransformationInput) {
   }
 
   for (const c of data.consumos) {
-    if (c.cantidad <= 0) throw new Error("La cantidad consumida debe ser mayor a 0");
+    if (c.quantity <= 0) throw new Error("La cantidad consumida debe ser mayor a 0");
   }
   for (const p of data.producidos) {
-    if (p.cantidad <= 0) throw new Error("La cantidad producida debe ser mayor a 0");
+    if (p.quantity <= 0) throw new Error("La cantidad producida debe ser mayor a 0");
   }
 
   return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.id_empleado);
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.employeeId);
 
-    const transformation = await tx.transformacion.create({
+    const transformation = await tx.transformation.create({
       data: {
-        id_empleado: validEmployeeId,
-        fecha: new Date(),
-        observacion: data.observacion?.trim() || null,
+        employeeId: validEmployeeId,
+        date: new Date(),
+        notes: data.notes?.trim() || null,
       },
     });
 
     // 1. Process Consumos (Salida)
     for (const c of data.consumos) {
-      const supply = await tx.insumo.findUnique({ where: { id_insumo: c.id_insumo } });
-      if (!supply) throw new Error(`Insumo ID ${c.id_insumo} no encontrado`);
+      const supply = await tx.supply.findUnique({ where: { id: c.supplyId } });
+      if (!supply) throw new Error(`Insumo ID ${c.supplyId} no encontrado`);
 
-      await tx.detalle_transformacion.create({
+      await tx.transformationItem.create({
         data: {
-          id_transformacion: transformation.id_transformacion,
-          id_insumo: c.id_insumo,
-          tipo_detalle: "Consumo",
-          cantidad: c.cantidad,
-          costo_unitario: c.costo_unitario || null,
+          transformationId: transformation.id,
+          supplyId: c.supplyId,
+          itemType: "Consumo",
+          quantity: c.quantity,
+          unitCost: c.unitCost || null,
         },
       });
 
-      // Stock invariant: create movimiento_inventario and update stock
-      await tx.movimiento_inventario.create({
+      // Stock invariant: create inventoryMovement and update stock
+      await tx.inventoryMovement.create({
         data: {
-          id_insumo: c.id_insumo,
-          tipo_movimiento: TipoMovimientoEnum.TransformacionSalida,
-          cantidad: c.cantidad,
-          costo_unitario: c.costo_unitario || null,
-          motivo: `Consumo Transformación #${transformation.id_transformacion}`,
+          supplyId: c.supplyId,
+          movementType: InventoryMovementType.TransformationOut,
+          quantity: c.quantity,
+          unitCost: c.unitCost || null,
+          reason: `Consumo Transformación #${transformation.id}`,
         },
       });
 
-      const newStock = Math.max(0, Number(supply.stock_actual) - c.cantidad);
-      await tx.insumo.update({
-        where: { id_insumo: c.id_insumo },
-        data: { stock_actual: newStock },
+      const newStock = Math.max(0, Number(supply.currentStock) - c.quantity);
+      await tx.supply.update({
+        where: { id: c.supplyId },
+        data: { currentStock: newStock },
       });
     }
 
     // 2. Process Producidos (Entrada)
     for (const p of data.producidos) {
-      const supply = await tx.insumo.findUnique({ where: { id_insumo: p.id_insumo } });
-      if (!supply) throw new Error(`Insumo ID ${p.id_insumo} no encontrado`);
+      const supply = await tx.supply.findUnique({ where: { id: p.supplyId } });
+      if (!supply) throw new Error(`Insumo ID ${p.supplyId} no encontrado`);
 
-      await tx.detalle_transformacion.create({
+      await tx.transformationItem.create({
         data: {
-          id_transformacion: transformation.id_transformacion,
-          id_insumo: p.id_insumo,
-          tipo_detalle: "Producido",
-          cantidad: p.cantidad,
-          costo_unitario: p.costo_unitario || null,
+          transformationId: transformation.id,
+          supplyId: p.supplyId,
+          itemType: "Producido",
+          quantity: p.quantity,
+          unitCost: p.unitCost || null,
         },
       });
 
-      // Stock invariant: create movimiento_inventario and update stock
-      await tx.movimiento_inventario.create({
+      // Stock invariant: create inventoryMovement and update stock
+      await tx.inventoryMovement.create({
         data: {
-          id_insumo: p.id_insumo,
-          tipo_movimiento: TipoMovimientoEnum.TransformacionEntrada,
-          cantidad: p.cantidad,
-          costo_unitario: p.costo_unitario || null,
-          motivo: `Producción Transformación #${transformation.id_transformacion}`,
+          supplyId: p.supplyId,
+          movementType: InventoryMovementType.TransformationIn,
+          quantity: p.quantity,
+          unitCost: p.unitCost || null,
+          reason: `Producción Transformación #${transformation.id}`,
         },
       });
 
-      const newStock = Number(supply.stock_actual) + p.cantidad;
-      await tx.insumo.update({
-        where: { id_insumo: p.id_insumo },
-        data: { stock_actual: newStock },
+      const newStock = Number(supply.currentStock) + p.quantity;
+      await tx.supply.update({
+        where: { id: p.supplyId },
+        data: { currentStock: newStock },
       });
     }
 
@@ -115,16 +115,16 @@ export async function registerTransformation(data: TransformationInput) {
 
 export async function getTransformations() {
   try {
-    return await prisma.transformacion.findMany({
+    return await prisma.transformation.findMany({
       include: {
-        empleado: true,
-        detalles_transformacion: {
+        employee: true,
+        items: {
           include: {
-            insumo: true,
+            supply: true,
           },
         },
       },
-      orderBy: { fecha: "desc" },
+      orderBy: { date: "desc" },
     });
   } catch (error) {
     console.error("Error al obtener transformaciones:", error);

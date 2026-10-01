@@ -25,26 +25,26 @@ import { Spinner } from "@/components/ui/spinner";
 import { CreditCard } from "lucide-react";
 
 interface Voucher {
-  id_comprobante_compra: number;
-  tipo_comprobante: string;
-  serie: string;
-  numero: number;
-  monto_total: number | string;
+  id: number;
+  voucherType: string;
+  series: string;
+  number: number;
+  totalAmount: number | string;
   saldoPendiente: number;
-  proveedor: {
-    razon_social: string;
+  supplier: {
+    businessName: string;
   };
 }
 
 interface PaymentType {
-  id_tipo_pago: number;
-  nombre: string;
+  id: number;
+  name: string;
 }
 
 interface RegisterPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  comprobante: Voucher | null;
+  voucher: Voucher | null;
   paymentTypes: PaymentType[];
   onSuccess: () => void;
 }
@@ -52,26 +52,26 @@ interface RegisterPaymentDialogProps {
 export function RegisterPaymentDialog({
   open,
   onOpenChange,
-  comprobante,
+  voucher,
   paymentTypes,
   onSuccess,
 }: RegisterPaymentDialogProps) {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState<number>(0);
   const [paymentTypeId, setPaymentTypeId] = useState<number | "">(
-    paymentTypes.length > 0 ? paymentTypes[0].id_tipo_pago : ""
+    paymentTypes.length > 0 ? paymentTypes[0].id : ""
   );
 
   useEffect(() => {
-    if (comprobante) {
-      setAmount(comprobante.saldoPendiente);
+    if (voucher) {
+      setAmount(voucher.saldoPendiente);
       if (paymentTypes.length > 0) {
-        setPaymentTypeId(paymentTypes[0].id_tipo_pago);
+        setPaymentTypeId(paymentTypes[0].id);
       }
     }
-  }, [comprobante, open, paymentTypes]);
+  }, [voucher, open, paymentTypes]);
 
-  if (!comprobante) return null;
+  if (!voucher) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +87,7 @@ export function RegisterPaymentDialog({
     setLoading(true);
     try {
       await registerPurchasePayment(
-        comprobante.id_comprobante_compra,
+        voucher.id,
         Number(paymentTypeId),
         amount
       );
@@ -109,35 +109,35 @@ export function RegisterPaymentDialog({
             <CreditCard className="h-5 w-5 text-primary" /> Registrar Pago a Proveedor
           </DialogTitle>
           <DialogDescription>
-            {comprobante.tipo_comprobante} {comprobante.serie}-{comprobante.numero} (
-            {comprobante.proveedor.razon_social})
+            {voucher.voucherType} {voucher.series}-{voucher.number} (
+            {voucher.supplier.businessName})
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Monto Total Voucher:</span>
+              <span className="text-muted-foreground">Monto Total Comprobante:</span>
               <span className="font-semibold">
-                S/ {Number(comprobante.monto_total).toFixed(2)}
+                S/ {Number(voucher.totalAmount).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Saldo Pendiente Actual:</span>
               <span className="font-semibold text-rose-600">
-                S/ {comprobante.saldoPendiente.toFixed(2)}
+                S/ {voucher.saldoPendiente.toFixed(2)}
               </span>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="monto_pago">Monto a Pagar (S/) *</Label>
+            <Label htmlFor="paymentAmount">Monto a Pagar (S/) *</Label>
             <Input
-              id="monto_pago"
+              id="paymentAmount"
               type="number"
               step="0.01"
               min="0.01"
-              max={comprobante.saldoPendiente}
+              max={voucher.saldoPendiente}
               value={amount}
               onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
               required
@@ -145,18 +145,18 @@ export function RegisterPaymentDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="tipo_pago_modal">Medio / Forma de Pago *</Label>
+            <Label htmlFor="paymentTypeModal">Medio / Forma de Pago *</Label>
             <Select
               value={paymentTypeId ? paymentTypeId.toString() : ""}
               onValueChange={(val) => setPaymentTypeId(Number(val))}
             >
-              <SelectTrigger id="tipo_pago_modal">
+              <SelectTrigger id="paymentTypeModal">
                 <SelectValue placeholder="Seleccionar tipo de pago" />
               </SelectTrigger>
               <SelectContent>
                 {paymentTypes.map((tp) => (
-                  <SelectItem key={tp.id_tipo_pago} value={tp.id_tipo_pago.toString()}>
-                    {tp.nombre}
+                  <SelectItem key={tp.id} value={tp.id.toString()}>
+                    {tp.name}
                   </SelectItem>
                 ))}
               </SelectContent>

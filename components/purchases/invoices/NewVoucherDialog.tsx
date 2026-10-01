@@ -19,43 +19,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createPurchaseVoucher, PurchaseVoucherInput } from "@/lib/services/purchases/invoices";
+import { createPurchaseVoucher } from "@/lib/services/purchases/invoices";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { FileCheck } from "lucide-react";
 
-interface RecepcionSinComprobante {
-  id_recepcion: number;
-  fecha_recepcion: Date | string;
-  orden_compra: {
-    numero_orden: string;
-    proveedor: {
-      id_proveedor: number;
-      razon_social: string;
+interface ReceiptWithoutVoucher {
+  id: number;
+  receivedAt: Date | string;
+  purchaseOrder: {
+    orderNumber: string;
+    supplier: {
+      id: number;
+      businessName: string;
       ruc: string;
     };
   };
-  detalles_recepcion_compra: Array<{
-    cantidad_recibida: number | string;
-    detalle_orden_compra: {
-      precio_unitario: number | string;
-      insumo: {
-        nombre: string;
-        unidad_medida: string;
+  items: Array<{
+    quantityReceived: number | string;
+    purchaseOrderItem: {
+      unitPrice: number | string;
+      supply: {
+        name: string;
+        unitOfMeasure: string;
       };
     };
   }>;
 }
 
 interface PaymentType {
-  id_tipo_pago: number;
-  nombre: string;
+  id: number;
+  name: string;
 }
 
 interface NewVoucherDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  receiptsWithoutVoucher: RecepcionSinComprobante[];
+  receiptsWithoutVoucher: ReceiptWithoutVoucher[];
   paymentTypes: PaymentType[];
   onSuccess: () => void;
 }
@@ -73,22 +73,21 @@ export function NewVoucherDialog({
   const [series, setSeries] = useState("");
   const [numberValue, setNumberValue] = useState<number | "">("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
-  const [paymentTerms, setPaymentTerms] = useState<"Contado" | "Credito">("Contado");
+  const [paymentCondition, setPaymentCondition] = useState<"Contado" | "Credito">("Contado");
   const [paymentTypeId, setPaymentTypeId] = useState<number | "">(
-    paymentTypes.length > 0 ? paymentTypes[0].id_tipo_pago : ""
+    paymentTypes.length > 0 ? paymentTypes[0].id : ""
   );
 
   const selectedReceipt = receiptsWithoutVoucher.find(
-    (r) => r.id_recepcion === Number(receiptId)
+    (r) => r.id === Number(receiptId)
   );
 
-  // Calculations for chosen reception
   let subtotal = 0;
   if (selectedReceipt) {
-    selectedReceipt.detalles_recepcion_compra.forEach((d) => {
-      const cant = Number(d.cantidad_recibida);
-      const prec = Number(d.detalle_orden_compra.precio_unitario);
-      subtotal += cant * prec;
+    selectedReceipt.items.forEach((d) => {
+      const qty = Number(d.quantityReceived);
+      const price = Number(d.purchaseOrderItem.unitPrice);
+      subtotal += qty * price;
     });
   }
   const igv = Math.round(subtotal * 0.18 * 100) / 100;
@@ -104,7 +103,7 @@ export function NewVoucherDialog({
       toast.error("Debe ingresar la serie y número del comprobante");
       return;
     }
-    if (paymentTerms === "Contado" && !paymentTypeId) {
+    if (paymentCondition === "Contado" && !paymentTypeId) {
       toast.error("Debe seleccionar el tipo de pago para venta al contado");
       return;
     }
@@ -112,14 +111,14 @@ export function NewVoucherDialog({
     setLoading(true);
     try {
       await createPurchaseVoucher({
-        id_proveedor: selectedReceipt.orden_compra.proveedor.id_proveedor,
-        id_recepcion: Number(receiptId),
-        tipo_comprobante: voucherType,
-        serie: series.toUpperCase().trim(),
-        numero: Number(numberValue),
-        fecha_emision: issueDate,
-        condicion_pago: paymentTerms,
-        id_tipo_pago: paymentTerms === "Contado" ? Number(paymentTypeId) : undefined,
+        supplierId: selectedReceipt.purchaseOrder.supplier.id,
+        receiptId: Number(receiptId),
+        voucherType,
+        series: series.toUpperCase().trim(),
+        number: Number(numberValue),
+        issuedAt: issueDate,
+        paymentCondition,
+        paymentTypeId: paymentCondition === "Contado" ? Number(paymentTypeId) : undefined,
       });
 
       toast.success(`${voucherType} registrada exitosamente`);
@@ -146,15 +145,15 @@ export function NewVoucherDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="recepcion">Recepción de Compra Confirmada *</Label>
+            <Label htmlFor="receipt">Recepción de Compra Confirmada *</Label>
             <Select
               value={receiptId ? receiptId.toString() : ""}
               onValueChange={(val) => setReceiptId(Number(val))}
             >
-              <SelectTrigger id="recepcion">
+              <SelectTrigger id="receipt">
                 <SelectValue placeholder="Seleccionar Recepción">
                   {selectedReceipt
-                    ? `Recepción #${selectedReceipt.id_recepcion} - ${selectedReceipt.orden_compra.proveedor.razon_social} (Ord #${selectedReceipt.orden_compra.numero_orden})`
+                    ? `Recepción #${selectedReceipt.id} - ${selectedReceipt.purchaseOrder.supplier.businessName} (Ord #${selectedReceipt.purchaseOrder.orderNumber})`
                     : undefined}
                 </SelectValue>
               </SelectTrigger>
@@ -165,8 +164,8 @@ export function NewVoucherDialog({
                   </SelectItem>
                 ) : (
                   receiptsWithoutVoucher.map((r) => (
-                    <SelectItem key={r.id_recepcion} value={r.id_recepcion.toString()}>
-                      Recepción #{r.id_recepcion} - {r.orden_compra.proveedor.razon_social} (Ord #{r.orden_compra.numero_orden})
+                    <SelectItem key={r.id} value={r.id.toString()}>
+                      Recepción #{r.id} - {r.purchaseOrder.supplier.businessName} (Ord #{r.purchaseOrder.orderNumber})
                     </SelectItem>
                   ))
                 )}
@@ -177,20 +176,20 @@ export function NewVoucherDialog({
           {selectedReceipt && (
             <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs">
               <div className="font-semibold text-sm border-b pb-1 text-foreground">
-                Insumos Recepcionados ({selectedReceipt.orden_compra.proveedor.razon_social}):
+                Insumos Recepcionados ({selectedReceipt.purchaseOrder.supplier.businessName}):
               </div>
               <div className="space-y-1">
-                {selectedReceipt.detalles_recepcion_compra.map((d, i) => (
+                {selectedReceipt.items.map((d, i) => (
                   <div key={i} className="flex justify-between">
                     <span>
-                      {d.detalle_orden_compra.insumo.nombre} (
-                      {Number(d.cantidad_recibida)} {d.detalle_orden_compra.insumo.unidad_medida})
+                      {d.purchaseOrderItem.supply.name} (
+                      {Number(d.quantityReceived)} {d.purchaseOrderItem.supply.unitOfMeasure})
                     </span>
                     <span className="font-mono">
                       S/{" "}
                       {(
-                        Number(d.cantidad_recibida) *
-                        Number(d.detalle_orden_compra.precio_unitario)
+                        Number(d.quantityReceived) *
+                        Number(d.purchaseOrderItem.unitPrice)
                       ).toFixed(2)}
                     </span>
                   </div>
@@ -201,9 +200,9 @@ export function NewVoucherDialog({
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="tipo_comp">Tipo Voucher</Label>
+              <Label htmlFor="voucherType">Tipo Comprobante</Label>
               <Select value={voucherType} onValueChange={(val) => setVoucherType(val ?? "Factura")}>
-                <SelectTrigger id="tipo_comp">
+                <SelectTrigger id="voucherType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -215,9 +214,9 @@ export function NewVoucherDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="serie">Serie *</Label>
+              <Label htmlFor="series">Serie *</Label>
               <Input
-                id="serie"
+                id="series"
                 placeholder="F001"
                 maxLength={4}
                 value={series}
@@ -227,9 +226,9 @@ export function NewVoucherDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="numero">Número *</Label>
+              <Label htmlFor="number">Número *</Label>
               <Input
-                id="numero"
+                id="number"
                 type="number"
                 placeholder="12345"
                 value={numberValue}
@@ -241,9 +240,9 @@ export function NewVoucherDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="fecha_emision">Fecha de Emisión *</Label>
+              <Label htmlFor="issuedAt">Fecha de Emisión *</Label>
               <Input
-                id="fecha_emision"
+                id="issuedAt"
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
@@ -252,12 +251,12 @@ export function NewVoucherDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="condicion_pago">Condición de Pago</Label>
+              <Label htmlFor="paymentCondition">Condición de Pago</Label>
               <Select
-                value={paymentTerms}
-                onValueChange={(val) => setPaymentTerms(val as "Contado" | "Credito")}
+                value={paymentCondition}
+                onValueChange={(val) => setPaymentCondition(val as "Contado" | "Credito")}
               >
-                <SelectTrigger id="condicion_pago">
+                <SelectTrigger id="paymentCondition">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -268,20 +267,20 @@ export function NewVoucherDialog({
             </div>
           </div>
 
-          {paymentTerms === "Contado" && (
+          {paymentCondition === "Contado" && (
             <div className="space-y-1.5">
-              <Label htmlFor="tipo_pago">Medio de Pago *</Label>
+              <Label htmlFor="paymentType">Medio de Pago *</Label>
               <Select
                 value={paymentTypeId ? paymentTypeId.toString() : ""}
                 onValueChange={(val) => setPaymentTypeId(Number(val))}
               >
-                <SelectTrigger id="tipo_pago">
+                <SelectTrigger id="paymentType">
                   <SelectValue placeholder="Seleccionar medio de pago" />
                 </SelectTrigger>
                 <SelectContent>
                   {paymentTypes.map((tp) => (
-                    <SelectItem key={tp.id_tipo_pago} value={tp.id_tipo_pago.toString()}>
-                      {tp.nombre}
+                    <SelectItem key={tp.id} value={tp.id.toString()}>
+                      {tp.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -289,7 +288,6 @@ export function NewVoucherDialog({
             </div>
           )}
 
-          {/* Readonly Totals */}
           <div className="rounded-lg border bg-card p-3 space-y-1 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal:</span>
@@ -300,7 +298,7 @@ export function NewVoucherDialog({
               <span>S/ {igv.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-base border-t pt-1">
-              <span>Monto Total Voucher:</span>
+              <span>Monto Total Comprobante:</span>
               <span className="text-primary">S/ {total.toFixed(2)}</span>
             </div>
           </div>
@@ -316,7 +314,7 @@ export function NewVoucherDialog({
             </Button>
             <Button type="submit" disabled={loading || !selectedReceipt}>
               {loading && <Spinner className="mr-2 h-4 w-4" />}
-              Guardar Voucher
+              Guardar Comprobante
             </Button>
           </DialogFooter>
         </form>

@@ -19,20 +19,20 @@ export const metadata: Metadata = {
 
 const QUICK_ACTIONS = [
   {
-    href: "/restaurant/tables",
-    label: "Mesas y salón",
+    href: "/sales?tab=tables",
+    label: "Salón de mesas",
     hint: "Tomar pedidos en piso",
     icon: Utensils,
   },
   {
-    href: "/restaurant/kitchen",
+    href: "/sales?tab=kitchen",
     label: "Cocina KDS",
     hint: "Comandas en preparación",
     icon: ChefHat,
   },
   {
-    href: "/restaurant/cashier",
-    label: "Caja y cobro",
+    href: "/sales?tab=cashier",
+    label: "Caja y ventanilla",
     hint: "Cerrar cuentas",
     icon: CreditCard,
   },
@@ -134,7 +134,7 @@ export default function HomePage() {
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
-                href="/restaurant/tables"
+                href="/sales?tab=tables"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary shadow-lg shadow-primary/30 transition hover:bg-primary-container active:scale-[0.98]"
               >
                 Abrir salón

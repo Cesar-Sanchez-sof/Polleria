@@ -13,577 +13,577 @@ datasource db {
 // ---------------------------------------------------------------------
 // ENUMS
 // ---------------------------------------------------------------------
-enum TipoPersonaEnum {
+enum PersonType {
   Natural
-  Juridico
+  Legal
 
-  @@map("tipo_persona_enum")
+  @@map("person_type")
 }
 
-enum EstadoOrdenCompraEnum {
-  Pendiente
-  RecibidaParcial
-  RecibidaTotal
-  Cancelada
+enum PurchaseOrderStatus {
+  Pending
+  PartiallyReceived
+  FullyReceived
+  Cancelled
 
-  @@map("estado_orden_compra_enum")
+  @@map("purchase_order_status")
 }
 
-enum EstadoRecepcionCompraEnum {
-  Confirmada
-  Anulada
+enum PurchaseReceiptStatus {
+  Confirmed
+  Voided
 
-  @@map("estado_recepcion_compra_enum")
+  @@map("purchase_receipt_status")
 }
 
-enum TipoInsumoEnum {
-  MateriaPrima
-  ProductoTerminado
+enum SupplyType {
+  RawMaterial
+  FinishedProduct
 
-  @@map("tipo_insumo_enum")
+  @@map("supply_type")
 }
 
-enum TipoMovimientoEnum {
-  Compra
-  TransformacionSalida
-  TransformacionEntrada
-  Venta
-  Merma
-  Ajuste
-  CompraSinComprobante
+enum InventoryMovementType {
+  Purchase
+  TransformationOut
+  TransformationIn
+  Sale
+  Shrinkage
+  Adjustment
+  InformalPurchase
 
-  @@map("tipo_movimiento_enum")
-}
-
-// =====================================================================
-// MÓDULO 1: SEGURIDAD Y CONTROL DE ACCESO
-// =====================================================================
-
-model Rol {
-  id_rol       Int           @id @default(autoincrement())
-  nombre       String        @db.VarChar(50)
-  descripcion  String?       @db.VarChar(150)
-  estado       Boolean       @default(true)
-  rol_permisos Rol_permiso[]
-  usuarios     Usuario[]
-
-  @@map("rol")
-}
-
-model Permisos {
-  id_permiso   Int           @id @default(autoincrement())
-  nombre       String        @db.VarChar(100)
-  rol_permisos Rol_permiso[]
-
-  @@map("permisos")
-}
-
-model Rol_permiso {
-  id_rolPermiso Int      @id @default(autoincrement())
-  id_permiso    Int
-  id_rol        Int
-  permiso       Permisos @relation(fields: [id_permiso], references: [id_permiso], onDelete: Cascade)
-  rol           Rol      @relation(fields: [id_rol], references: [id_rol], onDelete: Cascade)
-
-  @@unique([id_rol, id_permiso], map: "uq_rol_permiso")
-  @@index([id_rol], map: "idx_rolpermiso_rol")
-  @@index([id_permiso], map: "idx_rolpermiso_permiso")
-  @@map("rol_permiso")
-}
-
-model Turno {
-  id_turno    Int        @id @default(autoincrement())
-  nombre      String     @db.VarChar(30)
-  fecha       DateTime   @db.Date
-  hora_inicio DateTime   @db.Time
-  hora_fin    DateTime   @db.Time
-  empleados   Empleado[]
-
-  @@map("turno")
-}
-
-model Empleado {
-  id_empleado        Int                  @id @default(autoincrement())
-  id_turno           Int?
-  dni                String               @unique @db.VarChar(8)
-  primer_nombre      String               @db.VarChar(50)
-  segundo_nombre     String?              @db.VarChar(50)
-  apellido_paterno   String               @db.VarChar(50)
-  apellido_materno   String?              @db.VarChar(50)
-  telefono           String?              @db.VarChar(9)
-  direccion          String?              @db.VarChar(200)
-  fecha_nacimiento   DateTime?            @db.Date
-  fecha_ingreso      DateTime             @default(now()) @db.Date
-  cargo              String?              @db.VarChar(30)
-  area               String?              @db.VarChar(30)
-  tipo_contrato      String?              @db.VarChar(30)
-  sueldo_base        Decimal              @default(0) @db.Decimal(10, 2)
-  estado             Boolean              @default(true)
-  turno              Turno?               @relation(fields: [id_turno], references: [id_turno], onDelete: SetNull)
-  usuarios               Usuario[]
-  planillas              Planilla[]
-  ordenes_compra         Orden_compra[]
-  recepciones_compra     Recepcion_compra[]
-  transformaciones       Transformacion[]
-  compras_sin_comprobante Compra_sin_comprobante[]
-
-  @@index([id_turno], map: "idx_empleado_turno")
-  @@map("empleado")
-}
-
-model Usuario {
-  id_usuario        Int       @id @default(autoincrement())
-  id_empleado       Int
-  id_rol            Int
-  username          String    @unique @db.VarChar(20)
-  password          String    @db.VarChar(255)
-  intentos_fallidos Int       @default(0)
-  bloqueado         Boolean   @default(false)
-  fecha_bloqueo     DateTime? @db.Timestamp(6)
-  ultimo_acceso     DateTime? @db.Timestamp(6)
-  empleado          Empleado  @relation(fields: [id_empleado], references: [id_empleado], onDelete: Cascade)
-  rol               Rol       @relation(fields: [id_rol], references: [id_rol], onDelete: Restrict)
-
-  @@index([id_empleado], map: "idx_usuario_empleado")
-  @@index([id_rol], map: "idx_usuario_rol")
-  @@map("usuario")
+  @@map("inventory_movement_type")
 }
 
 // =====================================================================
-// MÓDULO 2: RECURSOS HUMANOS (PLANILLA)
+// MODULE 1: SECURITY & ACCESS CONTROL
 // =====================================================================
 
-model Planilla {
-  id_planilla        Int                @id @default(autoincrement())
-  id_empleado        Int
-  mes                Int                @db.SmallInt
-  anio               Int                @db.SmallInt
-  sueldo_base        Decimal            @db.Decimal(7, 2)
-  hora_extra         Decimal            @default(0) @db.Decimal(7, 2)
-  bonificacion       Decimal            @default(0) @db.Decimal(7, 2)
-  descuentos         Decimal            @default(0) @db.Decimal(7, 2)
-  neto_pagar         Decimal            @db.Decimal(7, 2)
-  fecha_pago         DateTime?          @db.Date
-  estado             Boolean            @default(true)
-  empleado           Empleado           @relation(fields: [id_empleado], references: [id_empleado], onDelete: Cascade)
-  journalEntries     JournalEntry[]
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @db.VarChar(50)
+  description String?          @db.VarChar(150)
+  active      Boolean          @default(true)
+  permissions RolePermission[]
+  users       User[]
 
-  @@unique([id_empleado, mes, anio], map: "uq_planilla_periodo")
-  @@index([id_empleado], map: "idx_planilla_empleado")
-  @@map("planilla")
+  @@map("role")
 }
 
-// =====================================================================
-// MÓDULO 3: COMPRAS Y PROVEEDORES
-// =====================================================================
+model Permission {
+  id    Int              @id @default(autoincrement())
+  name  String           @db.VarChar(100)
+  roles RolePermission[]
 
-model Proveedor {
-  id_proveedor        Int                  @id @default(autoincrement())
-  ruc                 String               @unique @db.VarChar(11)
-  nombre_comercial    String?              @db.VarChar(150)
-  razon_social        String               @db.VarChar(150)
-  nombre              String?              @db.VarChar(100)
-  persona_contacto    String?              @db.VarChar(100)
-  direccion           String?              @db.VarChar(150)
-  telefono            String?              @db.VarChar(9)
-  correo              String?              @db.VarChar(80)
-  estado              Boolean              @default(true)
-  ordenes_compra      Orden_compra[]
-  comprobantes_compra Comprobante_compra[]
-
-  @@map("proveedor")
+  @@map("permission")
 }
 
-model Tipo_pago {
-  id_tipo_pago Int           @id @default(autoincrement())
-  nombre       String        @db.VarChar(30)
-  estado       Boolean       @default(true)
-  pagos_compra Pago_compra[]
-  pagos_venta  Pago_venta[]
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  permissionId Int        @map("permission_id")
+  roleId       Int        @map("role_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@map("tipo_pago")
+  @@unique([roleId, permissionId], map: "uq_role_permission")
+  @@index([roleId], map: "idx_role_permission_role")
+  @@index([permissionId], map: "idx_role_permission_permission")
+  @@map("role_permission")
 }
 
-model Orden_compra {
-  id_orden_compra    Int                    @id @default(autoincrement())
-  id_proveedor       Int
-  id_empleado        Int
-  numero_orden       String                 @unique @db.VarChar(20)
-  fecha_emision      DateTime               @default(now()) @db.Date
-  fecha_esperada     DateTime?              @db.Date
-  estado             EstadoOrdenCompraEnum  @default(Pendiente)
-  subtotal           Decimal                @default(0) @db.Decimal(7, 2)
-  igv                Decimal                @default(0) @db.Decimal(7, 2)
-  total              Decimal                @default(0) @db.Decimal(7, 2)
-  observaciones      String?                @db.VarChar(200)
-  proveedor          Proveedor              @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: Restrict)
-  empleado           Empleado               @relation(fields: [id_empleado], references: [id_empleado], onDelete: Restrict)
-  detalles_orden     Detalle_orden_compra[]
-  recepciones_compra Recepcion_compra[]
+model Shift {
+  id        Int        @id @default(autoincrement())
+  name      String     @db.VarChar(30)
+  date      DateTime   @db.Date
+  startTime DateTime   @map("start_time") @db.Time
+  endTime   DateTime   @map("end_time") @db.Time
+  employees Employee[]
 
-  @@index([id_proveedor], map: "idx_ordencompra_proveedor")
-  @@index([id_empleado], map: "idx_ordencompra_empleado")
-  @@map("orden_compra")
+  @@map("shift")
 }
 
-model Insumo {
-  id_insumo               Int                      @id @default(autoincrement())
-  nombre                  String                   @db.VarChar(50)
-  tipo                    TipoInsumoEnum           @default(MateriaPrima)
-  unidad_medida           String                   @db.VarChar(10)
-  stock_actual            Decimal                  @default(0) @db.Decimal(10, 2)
-  stock_minimo            Decimal                  @default(0) @db.Decimal(10, 2)
-  estado                  Boolean                  @default(true)
-  detalles_orden_compra   Detalle_orden_compra[]
-  movimientos_inventario  Movimiento_inventario[]
-  detalles_transformacion Detalle_transformacion[]
-  compras_sin_comprobante Compra_sin_comprobante[]
-  recetas_plato           Receta_plato[]
+model Employee {
+  id                 Int                @id @default(autoincrement())
+  shiftId            Int?               @map("shift_id")
+  dni                String             @unique @db.VarChar(8)
+  firstName          String             @map("first_name") @db.VarChar(50)
+  middleName         String?            @map("middle_name") @db.VarChar(50)
+  paternalLastName   String             @map("paternal_last_name") @db.VarChar(50)
+  maternalLastName   String?            @map("maternal_last_name") @db.VarChar(50)
+  phone              String?            @db.VarChar(9)
+  address            String?            @db.VarChar(200)
+  birthDate          DateTime?          @map("birth_date") @db.Date
+  hireDate           DateTime           @default(now()) @map("hire_date") @db.Date
+  position           String?            @db.VarChar(30)
+  area               String?            @db.VarChar(30)
+  contractType       String?            @map("contract_type") @db.VarChar(30)
+  baseSalary         Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
+  active             Boolean            @default(true)
+  shift              Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  users              User[]
+  payrolls           Payroll[]
+  purchaseOrders     PurchaseOrder[]
+  purchaseReceipts   PurchaseReceipt[]
+  transformations    Transformation[]
+  informalPurchases  InformalPurchase[]
 
-  @@map("insumo")
+  @@index([shiftId], map: "idx_employee_shift")
+  @@map("employee")
 }
 
-model Detalle_orden_compra {
-  id_detalle_orden_compra   Int                        @id @default(autoincrement())
-  id_orden_compra           Int
-  id_insumo                 Int
-  cantidad_pedida           Decimal                    @db.Decimal(10, 2)
-  precio_unitario           Decimal                    @db.Decimal(10, 2)
-  orden_compra              Orden_compra               @relation(fields: [id_orden_compra], references: [id_orden_compra], onDelete: Cascade)
-  insumo                    Insumo                     @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
-  detalles_recepcion_compra Detalle_recepcion_compra[]
+model User {
+  id               Int       @id @default(autoincrement())
+  employeeId       Int       @map("employee_id")
+  roleId           Int       @map("role_id")
+  username         String    @unique @db.VarChar(20)
+  password         String    @db.VarChar(255)
+  failedAttempts   Int       @default(0) @map("failed_attempts")
+  locked           Boolean   @default(false)
+  lockedAt         DateTime? @map("locked_at") @db.Timestamp(6)
+  lastAccessAt     DateTime? @map("last_access_at") @db.Timestamp(6)
+  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role             Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
-  @@index([id_orden_compra], map: "idx_detordencompra_orden")
-  @@index([id_insumo], map: "idx_detordencompra_insumo")
-  @@map("detalle_orden_compra")
-}
-
-model Recepcion_compra {
-  id_recepcion              Int                        @id @default(autoincrement())
-  id_orden_compra           Int
-  id_empleado_recepcion     Int
-  fecha_recepcion           DateTime                   @default(now()) @db.Timestamp(6)
-  observacion               String?                    @db.VarChar(200)
-  estado                    EstadoRecepcionCompraEnum  @default(Confirmada)
-  orden_compra              Orden_compra               @relation(fields: [id_orden_compra], references: [id_orden_compra], onDelete: Restrict)
-  empleado_recepcion        Empleado                   @relation(fields: [id_empleado_recepcion], references: [id_empleado], onDelete: Restrict)
-  detalles_recepcion_compra Detalle_recepcion_compra[]
-  comprobantes_compra       Comprobante_compra[]
-
-  @@index([id_orden_compra], map: "idx_recepcioncompra_orden")
-  @@index([id_empleado_recepcion], map: "idx_recepcioncompra_empleado")
-  @@map("recepcion_compra")
-}
-
-model Detalle_recepcion_compra {
-  id_detalle_recepcion_compra Int                     @id @default(autoincrement())
-  id_recepcion                Int
-  id_detalle_orden_compra     Int
-  cantidad_recibida           Decimal                 @db.Decimal(10, 2)
-  obsevacion                  String?                 @db.VarChar(100)
-  recepcion                   Recepcion_compra        @relation(fields: [id_recepcion], references: [id_recepcion], onDelete: Cascade)
-  detalle_orden_compra        Detalle_orden_compra    @relation(fields: [id_detalle_orden_compra], references: [id_detalle_orden_compra], onDelete: Restrict)
-  movimientos_inventario      Movimiento_inventario[]
-
-  @@index([id_recepcion], map: "idx_detrecepcion_recepcion")
-  @@index([id_detalle_orden_compra], map: "idx_detrecepcion_detorden")
-  @@map("detalle_recepcion_compra")
-}
-
-model Movimiento_inventario {
-  id_movimiento_inventario    Int                       @id @default(autoincrement())
-  id_insumo                   Int
-  id_detalle_recepcion_compra Int?
-  tipo_movimiento             TipoMovimientoEnum
-  cantidad                    Decimal                   @db.Decimal(10, 2)
-  costo_unitario              Decimal?                  @db.Decimal(10, 2)
-  motivo                      String?                   @db.VarChar(100)
-  fecha_movimiento            DateTime                  @default(now()) @db.Timestamp(6)
-  insumo                      Insumo                    @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
-  detalle_recepcion_compra    Detalle_recepcion_compra? @relation(fields: [id_detalle_recepcion_compra], references: [id_detalle_recepcion_compra], onDelete: SetNull)
-
-  @@index([id_insumo], map: "idx_movinventario_insumo")
-  @@index([id_detalle_recepcion_compra], map: "idx_movinventario_detrecep")
-  @@map("movimiento_inventario")
-}
-
-model Comprobante_compra {
-  id_comprobante_compra Int                @id @default(autoincrement())
-  id_proveedor          Int
-  id_recepcion          Int
-  tipo_comprobante      String             @db.VarChar(10)
-  serie                 String             @db.VarChar(4)
-  numero                Int
-  fecha_emision         DateTime           @default(now()) @db.Date
-  subtotal              Decimal            @default(0) @db.Decimal(7, 2)
-  igv                   Decimal            @default(0) @db.Decimal(7, 2)
-  monto_total           Decimal            @default(0) @db.Decimal(7, 2)
-  created_at            DateTime           @default(now()) @db.Timestamp(6)
-  estado                Boolean            @default(true)
-  proveedor             Proveedor          @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: Restrict)
-  recepcion             Recepcion_compra   @relation(fields: [id_recepcion], references: [id_recepcion], onDelete: Restrict)
-  pagos_compra       Pago_compra[]
-  journalEntries     JournalEntry[]
-
-  @@unique([id_proveedor, tipo_comprobante, serie, numero], map: "uq_comprobante_compra")
-  @@index([id_proveedor], map: "idx_comprobcompra_proveedor")
-  @@index([id_recepcion], map: "idx_comprobcompra_recepcion")
-  @@map("comprobante_compra")
-}
-
-model Pago_compra {
-  id_pago_compra        Int                @id @default(autoincrement())
-  id_comprobante_compra Int
-  id_tipo_pago          Int
-  monto                 Decimal            @db.Decimal(10, 2)
-  fecha_pago            DateTime           @default(now()) @db.Timestamp(6)
-  comprobante_compra    Comprobante_compra @relation(fields: [id_comprobante_compra], references: [id_comprobante_compra], onDelete: Cascade)
-  tipo_pago             Tipo_pago          @relation(fields: [id_tipo_pago], references: [id_tipo_pago], onDelete: Restrict)
-
-  @@index([id_comprobante_compra], map: "idx_pagocompra_comprobante")
-  @@index([id_tipo_pago], map: "idx_pagocompra_tipopago")
-  @@map("pago_compra")
-}
-
-model Transformacion {
-  id_transformacion       Int                      @id @default(autoincrement())
-  id_empleado             Int
-  fecha                   DateTime                 @default(now()) @db.Timestamp(6)
-  observacion             String?                  @db.VarChar(200)
-  empleado                Empleado                 @relation(fields: [id_empleado], references: [id_empleado], onDelete: Restrict)
-  detalles_transformacion Detalle_transformacion[]
-
-  @@index([id_empleado], map: "idx_transformacion_empleado")
-  @@map("transformacion")
-}
-
-model Detalle_transformacion {
-  id_detalle_transformacion Int            @id @default(autoincrement())
-  id_transformacion         Int
-  id_insumo                 Int
-  tipo_detalle              String         @db.VarChar(10)
-  cantidad                  Decimal        @db.Decimal(10, 2)
-  costo_unitario            Decimal?       @db.Decimal(10, 2)
-  transformacion            Transformacion @relation(fields: [id_transformacion], references: [id_transformacion], onDelete: Cascade)
-  insumo                    Insumo         @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
-
-  @@index([id_transformacion], map: "idx_dettransf_transformacion")
-  @@index([id_insumo], map: "idx_dettransf_insumo")
-  @@map("detalle_transformacion")
-}
-
-model Compra_sin_comprobante {
-  id_compra_menor            Int      @id @default(autoincrement())
-  id_insumo                  Int
-  id_empleado                Int
-  cantidad                   Decimal  @db.Decimal(10, 2)
-  monto_pagado               Decimal  @db.Decimal(10, 2)
-  fecha                      DateTime @default(now()) @db.Date
-  lugar_o_proveedor_informal String?  @db.VarChar(150)
-  motivo                     String?  @db.VarChar(150)
-  insumo                     Insumo   @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
-  empleado                   Empleado @relation(fields: [id_empleado], references: [id_empleado], onDelete: Restrict)
-
-  @@index([id_insumo], map: "idx_comprasincomp_insumo")
-  @@index([id_empleado], map: "idx_comprasincomp_empleado")
-  @@map("compra_sin_comprobante")
+  @@index([employeeId], map: "idx_user_employee")
+  @@index([roleId], map: "idx_user_role")
+  @@map("app_user")
 }
 
 // =====================================================================
-// MÓDULO 4: VENTAS Y ATENCIÓN AL CLIENTE
+// MODULE 2: HUMAN RESOURCES (PAYROLL)
 // =====================================================================
 
-model Cliente {
-  id_cliente         Int                 @id @default(autoincrement())
-  nro_doc            String              @db.VarChar(11)
-  nombre             String              @db.VarChar(100)
-  apellido           String?             @db.VarChar(100)
-  telefono           String?             @db.VarChar(20)
-  tipo_persona       TipoPersonaEnum     @default(Natural)
-  estado             Boolean             @default(true)
-  comprobantes_venta Comprobante_venta[]
+model Payroll {
+  id             Int            @id @default(autoincrement())
+  employeeId     Int            @map("employee_id")
+  month          Int            @db.SmallInt
+  year           Int            @db.SmallInt
+  baseSalary     Decimal        @map("base_salary") @db.Decimal(7, 2)
+  overtimePay    Decimal        @default(0) @map("overtime_pay") @db.Decimal(7, 2)
+  bonus          Decimal        @default(0) @db.Decimal(7, 2)
+  deductions     Decimal        @default(0) @db.Decimal(7, 2)
+  netPay         Decimal        @map("net_pay") @db.Decimal(7, 2)
+  paymentDate    DateTime?      @map("payment_date") @db.Date
+  active         Boolean        @default(true)
+  employee       Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  journalEntries JournalEntry[]
 
-  @@unique([tipo_persona, nro_doc], map: "uq_cliente_doc")
-  @@map("cliente")
-}
-
-model Mesa {
-  id_mesa      Int           @id @default(autoincrement())
-  numero       Int           @unique @db.SmallInt
-  aforo        Int           @default(4) @db.SmallInt
-  estado       Boolean       @default(true)
-  pedidos_mesa Pedido_mesa[]
-
-  @@map("mesa")
-}
-
-model Plato {
-  id_plato        Int              @id @default(autoincrement())
-  nombre          String           @db.VarChar(100)
-  descripcion     String?          @db.Text
-  precio          Decimal          @db.Decimal(7, 2)
-  estado          Boolean          @default(true)
-  detalles_pedido Detalle_pedido[]
-  recetas_plato   Receta_plato[]
-
-  @@map("plato")
-}
-
-model Receta_plato {
-  id_receta_plato    Int     @id @default(autoincrement())
-  id_plato           Int
-  id_insumo          Int
-  cantidad_requerida Decimal @db.Decimal(10, 2)
-  plato              Plato   @relation(fields: [id_plato], references: [id_plato], onDelete: Cascade)
-  insumo             Insumo  @relation(fields: [id_insumo], references: [id_insumo], onDelete: Restrict)
-
-  @@unique([id_plato, id_insumo], map: "uq_receta_plato_insumo")
-  @@index([id_plato], map: "idx_recetaplato_plato")
-  @@index([id_insumo], map: "idx_recetaplato_insumo")
-  @@map("receta_plato")
-}
-
-model Pedido {
-  id_pedido          Int                 @id @default(autoincrement())
-  codigo             String              @unique @db.VarChar(20)
-  tipo_pedido        String              @db.VarChar(10)
-  fecha_pedido       DateTime            @default(now()) @db.Timestamp(6)
-  estado             String              @default("Pendiente") @db.VarChar(15)
-  pedidos_mesa       Pedido_mesa[]
-  detalles_pedido    Detalle_pedido[]
-  comprobantes_venta Comprobante_venta[]
-
-  @@map("pedido")
-}
-
-model Pedido_mesa {
-  id_pedido_mesa Int     @id @default(autoincrement())
-  id_mesa        Int
-  id_pedido      Int
-  observacion    String? @db.VarChar(100)
-  mesa           Mesa    @relation(fields: [id_mesa], references: [id_mesa], onDelete: Restrict)
-  pedido         Pedido  @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade)
-
-  @@index([id_mesa], map: "idx_pedidomesa_mesa")
-  @@index([id_pedido], map: "idx_pedidomesa_pedido")
-  @@map("pedido_mesa")
-}
-
-model Detalle_pedido {
-  id_detalle_pedido Int     @id @default(autoincrement())
-  id_pedido         Int
-  id_plato          Int
-  cantidad          Int     @db.SmallInt
-  precio_unitario   Decimal @db.Decimal(10, 2)
-  sub_total         Decimal @db.Decimal(10, 2)
-  estado_plato      String  @default("Pendiente") @db.VarChar(30)
-  observaciones     String? @db.VarChar(100)
-  pedido            Pedido  @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade)
-  plato             Plato   @relation(fields: [id_plato], references: [id_plato], onDelete: Restrict)
-
-  @@index([id_pedido], map: "idx_detpedido_pedido")
-  @@index([id_plato], map: "idx_detpedido_plato")
-  @@map("detalle_pedido")
-}
-
-model Comprobante_venta {
-  id_comprobante_venta Int                @id @default(autoincrement())
-  id_pedido            Int
-  id_cliente           Int
-  tipo_comprobante     String             @db.VarChar(10)
-  serie                String             @db.VarChar(4)
-  numero               Int
-  fecha_emision        DateTime           @default(now()) @db.Date
-  subtotal             Decimal            @default(0) @db.Decimal(10, 2)
-  igv                  Decimal            @default(0) @db.Decimal(10, 2)
-  monto_total          Decimal            @default(0) @db.Decimal(10, 2)
-  created_at           DateTime           @default(now()) @db.Timestamp(6)
-  estado               String             @default("Emitido") @db.VarChar(15)
-  pedido               Pedido             @relation(fields: [id_pedido], references: [id_pedido], onDelete: Restrict)
-  cliente              Cliente            @relation(fields: [id_cliente], references: [id_cliente], onDelete: Restrict)
-  pagos_venta        Pago_venta[]
-  journalEntries     JournalEntry[]
-
-  @@unique([tipo_comprobante, serie, numero], map: "uq_comprobante_venta")
-  @@index([id_pedido], map: "idx_comprobventa_pedido")
-  @@index([id_cliente], map: "idx_comprobventa_cliente")
-  @@map("comprobante_venta")
-}
-
-model Pago_venta {
-  id_pago_venta        Int               @id @default(autoincrement())
-  id_comprobante_venta Int
-  id_tipo_pago         Int
-  monto                Decimal           @db.Decimal(7, 2)
-  fecha_pago           DateTime          @default(now()) @db.Timestamp(6)
-  comprobante_venta    Comprobante_venta @relation(fields: [id_comprobante_venta], references: [id_comprobante_venta], onDelete: Cascade)
-  tipo_pago            Tipo_pago         @relation(fields: [id_tipo_pago], references: [id_tipo_pago], onDelete: Restrict)
-
-  @@index([id_comprobante_venta], map: "idx_pagoventa_comprobante")
-  @@index([id_tipo_pago], map: "idx_pagoventa_tipopago")
-  @@map("pago_venta")
+  @@unique([employeeId, month, year], map: "uq_payroll_period")
+  @@index([employeeId], map: "idx_payroll_employee")
+  @@map("payroll")
 }
 
 // =====================================================================
-// MÓDULO 5: CONTABILIDAD (ACCOUNTING)
+// MODULE 3: PURCHASES & SUPPLIERS
+// =====================================================================
+
+model Supplier {
+  id               Int              @id @default(autoincrement())
+  ruc              String           @unique @db.VarChar(11)
+  tradeName        String?          @map("trade_name") @db.VarChar(150)
+  businessName     String           @map("business_name") @db.VarChar(150)
+  name             String?          @db.VarChar(100)
+  contactPerson    String?          @map("contact_person") @db.VarChar(100)
+  address          String?          @db.VarChar(150)
+  phone            String?          @db.VarChar(9)
+  email            String?          @db.VarChar(80)
+  active           Boolean          @default(true)
+  purchaseOrders   PurchaseOrder[]
+  purchaseInvoices PurchaseInvoice[]
+
+  @@map("supplier")
+}
+
+model PaymentType {
+  id               Int               @id @default(autoincrement())
+  name             String            @db.VarChar(30)
+  active           Boolean           @default(true)
+  purchasePayments PurchasePayment[]
+  salesPayments    SalesPayment[]
+
+  @@map("payment_type")
+}
+
+model PurchaseOrder {
+  id            Int                 @id @default(autoincrement())
+  supplierId    Int                 @map("supplier_id")
+  employeeId    Int                 @map("employee_id")
+  orderNumber   String              @unique @map("order_number") @db.VarChar(20)
+  issuedAt      DateTime            @default(now()) @map("issued_at") @db.Date
+  expectedAt    DateTime?           @map("expected_at") @db.Date
+  status        PurchaseOrderStatus @default(Pending)
+  subtotal      Decimal             @default(0) @db.Decimal(7, 2)
+  igv           Decimal             @default(0) @db.Decimal(7, 2)
+  total         Decimal             @default(0) @db.Decimal(7, 2)
+  notes         String?             @db.VarChar(200)
+  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  items         PurchaseOrderItem[]
+  receipts      PurchaseReceipt[]
+
+  @@index([supplierId], map: "idx_purchase_order_supplier")
+  @@index([employeeId], map: "idx_purchase_order_employee")
+  @@map("purchase_order")
+}
+
+model Supply {
+  id                Int                 @id @default(autoincrement())
+  name              String              @db.VarChar(50)
+  type              SupplyType          @default(RawMaterial)
+  unitOfMeasure     String              @map("unit_of_measure") @db.VarChar(10)
+  currentStock      Decimal             @default(0) @map("current_stock") @db.Decimal(10, 2)
+  minimumStock      Decimal             @default(0) @map("minimum_stock") @db.Decimal(10, 2)
+  active            Boolean             @default(true)
+  purchaseOrderItems PurchaseOrderItem[]
+  inventoryMovements InventoryMovement[]
+  transformationItems TransformationItem[]
+  informalPurchases InformalPurchase[]
+  dishRecipes       DishRecipe[]
+
+  @@map("supply")
+}
+
+model PurchaseOrderItem {
+  id            Int                  @id @default(autoincrement())
+  purchaseOrderId Int                @map("purchase_order_id")
+  supplyId      Int                  @map("supply_id")
+  quantityOrdered Decimal            @map("quantity_ordered") @db.Decimal(10, 2)
+  unitPrice     Decimal              @map("unit_price") @db.Decimal(10, 2)
+  purchaseOrder PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  supply        Supply               @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  receiptItems  PurchaseReceiptItem[]
+
+  @@index([purchaseOrderId], map: "idx_purchase_order_item_order")
+  @@index([supplyId], map: "idx_purchase_order_item_supply")
+  @@map("purchase_order_item")
+}
+
+model PurchaseReceipt {
+  id              Int                   @id @default(autoincrement())
+  purchaseOrderId Int                   @map("purchase_order_id")
+  receivedById    Int                   @map("received_by_id")
+  receivedAt      DateTime              @default(now()) @map("received_at") @db.Timestamp(6)
+  notes           String?               @db.VarChar(200)
+  status          PurchaseReceiptStatus @default(Confirmed)
+  purchaseOrder   PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  receivedBy      Employee              @relation(fields: [receivedById], references: [id], onDelete: Restrict)
+  items           PurchaseReceiptItem[]
+  invoices        PurchaseInvoice[]
+
+  @@index([purchaseOrderId], map: "idx_purchase_receipt_order")
+  @@index([receivedById], map: "idx_purchase_receipt_employee")
+  @@map("purchase_receipt")
+}
+
+model PurchaseReceiptItem {
+  id                   Int                @id @default(autoincrement())
+  receiptId            Int                @map("receipt_id")
+  purchaseOrderItemId  Int                @map("purchase_order_item_id")
+  quantityReceived     Decimal            @map("quantity_received") @db.Decimal(10, 2)
+  notes                String?            @db.VarChar(100)
+  receipt              PurchaseReceipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem    PurchaseOrderItem  @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  inventoryMovements   InventoryMovement[]
+
+  @@index([receiptId], map: "idx_purchase_receipt_item_receipt")
+  @@index([purchaseOrderItemId], map: "idx_purchase_receipt_item_order_item")
+  @@map("purchase_receipt_item")
+}
+
+model InventoryMovement {
+  id                    Int                   @id @default(autoincrement())
+  supplyId              Int                   @map("supply_id")
+  purchaseReceiptItemId Int?                  @map("purchase_receipt_item_id")
+  movementType          InventoryMovementType @map("movement_type")
+  quantity              Decimal               @db.Decimal(10, 2)
+  unitCost              Decimal?              @map("unit_cost") @db.Decimal(10, 2)
+  reason                String?               @db.VarChar(100)
+  movedAt               DateTime              @default(now()) @map("moved_at") @db.Timestamp(6)
+  supply                Supply                @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  purchaseReceiptItem   PurchaseReceiptItem?  @relation(fields: [purchaseReceiptItemId], references: [id], onDelete: SetNull)
+
+  @@index([supplyId], map: "idx_inventory_movement_supply")
+  @@index([purchaseReceiptItemId], map: "idx_inventory_movement_receipt_item")
+  @@map("inventory_movement")
+}
+
+model PurchaseInvoice {
+  id             Int               @id @default(autoincrement())
+  supplierId     Int               @map("supplier_id")
+  receiptId      Int               @map("receipt_id")
+  voucherType    String            @map("voucher_type") @db.VarChar(10)
+  series         String            @db.VarChar(4)
+  number         Int
+  issuedAt       DateTime          @default(now()) @map("issued_at") @db.Date
+  subtotal       Decimal           @default(0) @db.Decimal(7, 2)
+  igv            Decimal           @default(0) @db.Decimal(7, 2)
+  totalAmount    Decimal           @default(0) @map("total_amount") @db.Decimal(7, 2)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  active         Boolean           @default(true)
+  supplier       Supplier          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  receipt        PurchaseReceipt   @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  payments       PurchasePayment[]
+  journalEntries JournalEntry[]
+
+  @@unique([supplierId, voucherType, series, number], map: "uq_purchase_invoice")
+  @@index([supplierId], map: "idx_purchase_invoice_supplier")
+  @@index([receiptId], map: "idx_purchase_invoice_receipt")
+  @@map("purchase_invoice")
+}
+
+model PurchasePayment {
+  id                Int             @id @default(autoincrement())
+  purchaseInvoiceId Int             @map("purchase_invoice_id")
+  paymentTypeId     Int             @map("payment_type_id")
+  amount            Decimal         @db.Decimal(10, 2)
+  paidAt            DateTime        @default(now()) @map("paid_at") @db.Timestamp(6)
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
+  paymentType       PaymentType     @relation(fields: [paymentTypeId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseInvoiceId], map: "idx_purchase_payment_invoice")
+  @@index([paymentTypeId], map: "idx_purchase_payment_type")
+  @@map("purchase_payment")
+}
+
+model Transformation {
+  id        Int                  @id @default(autoincrement())
+  employeeId Int                 @map("employee_id")
+  date      DateTime             @default(now()) @db.Timestamp(6)
+  notes     String?              @db.VarChar(200)
+  employee  Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  items     TransformationItem[]
+
+  @@index([employeeId], map: "idx_transformation_employee")
+  @@map("transformation")
+}
+
+model TransformationItem {
+  id               Int            @id @default(autoincrement())
+  transformationId Int            @map("transformation_id")
+  supplyId         Int            @map("supply_id")
+  itemType         String         @map("item_type") @db.VarChar(10)
+  quantity         Decimal        @db.Decimal(10, 2)
+  unitCost         Decimal?       @map("unit_cost") @db.Decimal(10, 2)
+  transformation   Transformation @relation(fields: [transformationId], references: [id], onDelete: Cascade)
+  supply           Supply         @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+
+  @@index([transformationId], map: "idx_transformation_item_transformation")
+  @@index([supplyId], map: "idx_transformation_item_supply")
+  @@map("transformation_item")
+}
+
+model InformalPurchase {
+  id                   Int      @id @default(autoincrement())
+  supplyId             Int      @map("supply_id")
+  employeeId           Int      @map("employee_id")
+  quantity             Decimal  @db.Decimal(10, 2)
+  amountPaid           Decimal  @map("amount_paid") @db.Decimal(10, 2)
+  date                 DateTime @default(now()) @db.Date
+  informalPlaceOrVendor String? @map("informal_place_or_vendor") @db.VarChar(150)
+  reason               String?  @db.VarChar(150)
+  supply               Supply   @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  employee             Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([supplyId], map: "idx_informal_purchase_supply")
+  @@index([employeeId], map: "idx_informal_purchase_employee")
+  @@map("informal_purchase")
+}
+
+// =====================================================================
+// MODULE 4: SALES & CUSTOMER SERVICE
+// =====================================================================
+
+model Customer {
+  id            Int            @id @default(autoincrement())
+  documentNumber String        @map("document_number") @db.VarChar(11)
+  firstName     String         @map("first_name") @db.VarChar(100)
+  lastName      String?        @map("last_name") @db.VarChar(100)
+  phone         String?        @db.VarChar(20)
+  personType    PersonType     @default(Natural) @map("person_type")
+  active        Boolean        @default(true)
+  salesInvoices SalesInvoice[]
+
+  @@unique([personType, documentNumber], map: "uq_customer_document")
+  @@map("customer")
+}
+
+model DiningTable {
+  id      Int          @id @default(autoincrement())
+  number  Int          @unique @db.SmallInt
+  capacity Int         @default(4) @db.SmallInt
+  active  Boolean      @default(true)
+  orders  OrderTable[]
+
+  @@map("dining_table")
+}
+
+model Dish {
+  id          Int         @id @default(autoincrement())
+  name        String      @db.VarChar(100)
+  description String?     @db.Text
+  price       Decimal     @db.Decimal(7, 2)
+  active      Boolean     @default(true)
+  orderItems  OrderItem[]
+  recipes     DishRecipe[]
+
+  @@map("dish")
+}
+
+model DishRecipe {
+  id               Int     @id @default(autoincrement())
+  dishId           Int     @map("dish_id")
+  supplyId         Int     @map("supply_id")
+  quantityRequired Decimal @map("quantity_required") @db.Decimal(10, 2)
+  dish             Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  supply           Supply  @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+
+  @@unique([dishId, supplyId], map: "uq_dish_recipe_supply")
+  @@index([dishId], map: "idx_dish_recipe_dish")
+  @@index([supplyId], map: "idx_dish_recipe_supply")
+  @@map("dish_recipe")
+}
+
+model SalesOrder {
+  id            Int            @id @default(autoincrement())
+  code          String         @unique @db.VarChar(20)
+  orderType     String         @map("order_type") @db.VarChar(10)
+  orderedAt     DateTime       @default(now()) @map("ordered_at") @db.Timestamp(6)
+  status        String         @default("Pending") @db.VarChar(15)
+  tables        OrderTable[]
+  items         OrderItem[]
+  salesInvoices SalesInvoice[]
+
+  @@map("sales_order")
+}
+
+model OrderTable {
+  id        Int         @id @default(autoincrement())
+  tableId   Int         @map("table_id")
+  orderId   Int         @map("order_id")
+  notes     String?     @db.VarChar(100)
+  table     DiningTable @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  order     SalesOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tableId], map: "idx_order_table_table")
+  @@index([orderId], map: "idx_order_table_order")
+  @@map("order_table")
+}
+
+model OrderItem {
+  id          Int        @id @default(autoincrement())
+  orderId     Int        @map("order_id")
+  dishId      Int        @map("dish_id")
+  quantity    Int        @db.SmallInt
+  unitPrice   Decimal    @map("unit_price") @db.Decimal(10, 2)
+  subtotal    Decimal    @db.Decimal(10, 2)
+  dishStatus  String     @default("Pending") @map("dish_status") @db.VarChar(30)
+  notes       String?    @db.VarChar(100)
+  order       SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dish        Dish       @relation(fields: [dishId], references: [id], onDelete: Restrict)
+
+  @@index([orderId], map: "idx_order_item_order")
+  @@index([dishId], map: "idx_order_item_dish")
+  @@map("order_item")
+}
+
+model SalesInvoice {
+  id             Int            @id @default(autoincrement())
+  orderId        Int            @map("order_id")
+  customerId     Int            @map("customer_id")
+  voucherType    String         @map("voucher_type") @db.VarChar(10)
+  series         String         @db.VarChar(4)
+  number         Int
+  issuedAt       DateTime       @default(now()) @map("issued_at") @db.Date
+  subtotal       Decimal        @default(0) @db.Decimal(10, 2)
+  igv            Decimal        @default(0) @db.Decimal(10, 2)
+  totalAmount    Decimal        @default(0) @map("total_amount") @db.Decimal(10, 2)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
+  status         String         @default("Issued") @db.VarChar(15)
+  order          SalesOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  payments       SalesPayment[]
+  journalEntries JournalEntry[]
+
+  @@unique([voucherType, series, number], map: "uq_sales_invoice")
+  @@index([orderId], map: "idx_sales_invoice_order")
+  @@index([customerId], map: "idx_sales_invoice_customer")
+  @@map("sales_invoice")
+}
+
+model SalesPayment {
+  id             Int          @id @default(autoincrement())
+  salesInvoiceId Int          @map("sales_invoice_id")
+  paymentTypeId  Int          @map("payment_type_id")
+  amount         Decimal      @db.Decimal(7, 2)
+  paidAt         DateTime     @default(now()) @map("paid_at") @db.Timestamp(6)
+  salesInvoice   SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+  paymentType    PaymentType  @relation(fields: [paymentTypeId], references: [id], onDelete: Restrict)
+
+  @@index([salesInvoiceId], map: "idx_sales_payment_invoice")
+  @@index([paymentTypeId], map: "idx_sales_payment_type")
+  @@map("sales_payment")
+}
+
+// =====================================================================
+// MODULE 5: ACCOUNTING
 // =====================================================================
 
 model AccountingAccount {
-  id                 Int                      @id @default(autoincrement()) @map("id_cuenta_contable")
-  parentId           Int?                     @map("id_cuenta_padre")
-  code               String                   @unique @db.VarChar(10) @map("codigo")
-  name               String                   @db.VarChar(100) @map("nombre")
-  type               String                   @db.VarChar(20) @map("tipo")
-  active             Boolean                  @default(true) @map("activo")
-  createdAt          DateTime                 @default(now()) @db.Timestamp(6) @map("fecha_creacion")
-  updatedAt          DateTime                 @default(now()) @db.Timestamp(6) @map("fecha_actualizacion")
-  parentAccount      AccountingAccount?       @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  childAccounts      AccountingAccount[]      @relation("AccountHierarchy")
-  entryDetails       JournalEntryDetail[]
+  id            Int                   @id @default(autoincrement())
+  parentId      Int?                  @map("parent_id")
+  code          String                @unique @db.VarChar(10)
+  name          String                @db.VarChar(100)
+  type          String                @db.VarChar(20)
+  active        Boolean               @default(true)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime              @default(now()) @map("updated_at") @db.Timestamp(6)
+  parentAccount AccountingAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  childAccounts AccountingAccount[]   @relation("AccountHierarchy")
+  entryDetails  JournalEntryDetail[]
 
-  @@index([parentId], map: "idx_cuentacontable_padre")
-  @@map("cuenta_contable")
+  @@index([parentId], map: "idx_accounting_account_parent")
+  @@map("accounting_account")
 }
 
 model JournalEntry {
-  id                  Int                  @id @default(autoincrement()) @map("id_asiento_contable")
-  salesInvoiceId      Int?                 @map("id_comprobante_venta")
-  purchaseInvoiceId   Int?                 @map("id_comprobante_compra")
-  payrollId           Int?                 @map("id_planilla")
-  entryDate           DateTime             @default(now()) @db.Date @map("fecha_contable")
-  description         String               @db.VarChar(200) @map("glosa")
-  book                String               @default("Operaciones varias") @db.VarChar(60) @map("diario")
-  responsible         String?              @db.VarChar(100) @map("responsable")
-  createdAt           DateTime             @default(now()) @db.Timestamp(6) @map("fecha_creacion")
-  updatedAt           DateTime             @default(now()) @db.Timestamp(6) @map("fecha_actualizacion")
-  status              Boolean              @default(true) @map("estado")
-  code                String               @unique @db.VarChar(20) @map("codigo")
-  observation         String?              @db.VarChar(200) @map("observacion")
-  salesInvoice        Comprobante_venta?   @relation(fields: [salesInvoiceId], references: [id_comprobante_venta], onDelete: Restrict)
-  purchaseInvoice     Comprobante_compra?  @relation(fields: [purchaseInvoiceId], references: [id_comprobante_compra], onDelete: Restrict)
-  payroll             Planilla?            @relation(fields: [payrollId], references: [id_planilla], onDelete: Restrict)
-  entryDetails        JournalEntryDetail[]
+  id                Int                  @id @default(autoincrement())
+  salesInvoiceId    Int?                 @map("sales_invoice_id")
+  purchaseInvoiceId Int?                 @map("purchase_invoice_id")
+  payrollId         Int?                 @map("payroll_id")
+  entryDate         DateTime             @default(now()) @map("entry_date") @db.Date
+  description       String               @db.VarChar(200)
+  book              String               @default("Operaciones varias") @db.VarChar(60)
+  responsible       String?              @db.VarChar(100)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime             @default(now()) @map("updated_at") @db.Timestamp(6)
+  status            Boolean              @default(true)
+  code              String               @unique @db.VarChar(20)
+  observation       String?              @db.VarChar(200)
+  salesInvoice      SalesInvoice?        @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
+  purchaseInvoice   PurchaseInvoice?     @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Restrict)
+  payroll           Payroll?             @relation(fields: [payrollId], references: [id], onDelete: Restrict)
+  entryDetails      JournalEntryDetail[]
 
-  @@index([salesInvoiceId], map: "idx_asiento_compventa")
-  @@index([purchaseInvoiceId], map: "idx_asiento_compcompra")
-  @@index([payrollId], map: "idx_asiento_planilla")
-  @@index([entryDate], map: "idx_asiento_fecha")
-  @@index([book], map: "idx_asiento_diario")
-  @@index([status], map: "idx_asiento_estado")
-  @@map("asiento_contable")
+  @@index([salesInvoiceId], map: "idx_journal_entry_sales_invoice")
+  @@index([purchaseInvoiceId], map: "idx_journal_entry_purchase_invoice")
+  @@index([payrollId], map: "idx_journal_entry_payroll")
+  @@index([entryDate], map: "idx_journal_entry_date")
+  @@index([book], map: "idx_journal_entry_book")
+  @@index([status], map: "idx_journal_entry_status")
+  @@map("journal_entry")
 }
 
 model JournalEntryDetail {
-  id                  Int                @id @default(autoincrement()) @map("id_detalle_asiento_contable")
-  entryId             Int                @map("id_asiento_contable")
-  accountId           Int                @map("id_cuenta_contable")
-  description         String?            @db.VarChar(200) @map("descripcion")
-  debit               Decimal            @default(0) @db.Decimal(12, 2) @map("debito")
-  credit              Decimal            @default(0) @db.Decimal(12, 2) @map("credito")
-  entry               JournalEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  account             AccountingAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  id          Int               @id @default(autoincrement())
+  entryId     Int               @map("entry_id")
+  accountId   Int               @map("account_id")
+  description String?           @db.VarChar(200)
+  debit       Decimal           @default(0) @db.Decimal(12, 2)
+  credit      Decimal           @default(0) @db.Decimal(12, 2)
+  entry       JournalEntry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account     AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
-  @@index([entryId], map: "idx_detasiento_asiento")
-  @@index([accountId], map: "idx_detasiento_cuenta")
-  @@map("detalle_asiento_contable")
+  @@index([entryId], map: "idx_journal_entry_detail_entry")
+  @@index([accountId], map: "idx_journal_entry_detail_account")
+  @@map("journal_entry_detail")
 }

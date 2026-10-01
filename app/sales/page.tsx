@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,19 +79,28 @@ import {
   validateCustomerDocument,
   canEditOrder,
 } from "@/lib/utils/sales-helpers";
+import { KitchenBoard } from "@/components/restaurant/KitchenBoard";
 
-type TabType = "tables" | "payments" | "cashier" | "customers" | "invoices";
+type TabType = "tables" | "kitchen" | "payments" | "cashier" | "customers" | "invoices";
+
+const SALES_TABS: TabType[] = ["tables", "kitchen", "payments", "cashier", "customers", "invoices"];
 
 function SalesManagementContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
-  // Pestaña principal: "tables" | "payments" | "cashier" | "customers" | "invoices"
+  // Pestaña principal del módulo de ventas
   const [activeTab, setActiveTab] = useState<TabType>("tables");
+
+  const goToTab = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    router.replace(`/sales?tab=${tab}`, { scroll: false });
+  }, [router]);
 
   // Sincronizar pestaña activa con parámetro de URL (?tab=...)
   useEffect(() => {
     const tabParam = searchParams.get("tab") as TabType | null;
-    if (tabParam && ["tables", "payments", "cashier", "customers", "invoices"].includes(tabParam)) {
+    if (tabParam && SALES_TABS.includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -113,7 +122,7 @@ function SalesManagementContent() {
   // DATOS GLOBALES
   // ---------------------------------------------------------------------------
   const [tables, setTables] = useState<TableItem[]>([]);
-  const [summary, setSummary] = useState<TablesSummary>({ total: 0, disponibles: 0, ocupadas: 0 });
+  const [summary, setSummary] = useState<TablesSummary>({ total: 0, available: 0, occupied: 0 });
   const [takeoutOrders, setTakeoutOrders] = useState<OrderSummary[]>([]);
   const [allOrders, setAllOrders] = useState<OrderSummary[]>([]);
   const [dishes, setDishes] = useState<MenuDish[]>([]);
@@ -143,22 +152,22 @@ function SalesManagementContent() {
       setLoading(true);
       const [tablesRes, takeoutRes, ordersRes, dishesRes, typesRes, customersRes, salesRes] = await Promise.all([
         listTables(),
-        listOrders({ tipo: "Llevar", estado: "activos" }),
+        listOrders({ orderType: "Llevar", status: "activos" }),
         listOrders(),
         listDishes(),
         listPaymentTypes(),
         listCustomers(),
         listDailySales(salesDateFilter),
       ]);
-      setTables(tablesRes.mesas);
-      setSummary(tablesRes.resumen);
+      setTables(tablesRes.tables);
+      setSummary(tablesRes.summary);
       setTakeoutOrders(takeoutRes);
       setAllOrders(ordersRes);
       setDishes(dishesRes);
       setPaymentTypes(typesRes);
       setCustomers(customersRes);
       setSaleVouchers(salesRes.data);
-      setDailySummary(salesRes.resumenDiario);
+      setDailySummary(salesRes.dailySummary);
     } catch (err: any) {
       toast.error(err.message || "Error al conectar con la base de datos.");
     } finally {
@@ -183,7 +192,7 @@ function SalesManagementContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
   const [dishSearch, setDishSearch] = useState<string>("");
   const [orderItems, setOrderItems] = useState<
-    Array<{ idPlato: number; nombre: string; precio: number; cantidad: number; observaciones: string }>
+    Array<{ dishId: number; name: string; unitPrice: number; quantity: number; notes: string }>
   >([]);
   const [savingOrder, setSavingOrder] = useState<boolean>(false);
 
@@ -243,7 +252,7 @@ function SalesManagementContent() {
   // ESTADO MODAL REGISTRO DE CLIENTE
   // ---------------------------------------------------------------------------
   const [newCustomerModalOpen, setNewCustomerModalOpen] = useState<boolean>(false);
-  const [newCustomerType, setNewCustomerType] = useState<"Natural" | "Juridico">("Natural");
+  const [newCustomerType, setNewCustomerType] = useState<"Natural" | "Legal">("Natural");
   const [newCustomerDoc, setNewCustomerDoc] = useState<string>("");
   const [newCustomerName, setNewCustomerName] = useState<string>("");
   const [newCustomerLastName, setNewCustomerLastName] = useState<string>("");
@@ -281,7 +290,7 @@ function SalesManagementContent() {
         if (tipo === "dni") {
           setNewCustomerName(data.nombres || data.nombreCompleto);
           setNewCustomerLastName(
-            `${data.apellidoPaterno || ""} ${data.apellidoMaterno || ""}`.trim()
+            `${data.lastNamePaterno || ""} ${data.lastNameMaterno || ""}`.trim()
           );
         } else {
           setNewCustomerName(data.razonSocial || data.nombreCompleto);
@@ -305,31 +314,31 @@ function SalesManagementContent() {
   // FILTRADOS Y CÁLCULOS
   // ---------------------------------------------------------------------------
   const filteredTables = useMemo(() => {
-    if (tableFilter === "disponibles") return tables.filter((m) => !m.ocupada);
-    if (tableFilter === "ocupadas") return tables.filter((m) => m.ocupada);
+    if (tableFilter === "disponibles") return tables.filter((m) => !m.occupied);
+    if (tableFilter === "ocupadas") return tables.filter((m) => m.occupied);
     return tables;
   }, [tables, tableFilter]);
 
   const filteredDishes = useMemo(() => {
     return dishes.filter((p) => {
-      const matchCat = selectedCategory === "todos" || p.categoria === selectedCategory;
+      const matchCat = selectedCategory === "todos" || p.category === selectedCategory;
       const matchText =
         !dishSearch.trim() ||
-        p.nombre.toLowerCase().includes(dishSearch.toLowerCase()) ||
-        p.descripcion.toLowerCase().includes(dishSearch.toLowerCase());
+        p.name.toLowerCase().includes(dishSearch.toLowerCase()) ||
+        p.description.toLowerCase().includes(dishSearch.toLowerCase());
       return matchCat && matchText;
     });
   }, [dishes, selectedCategory, dishSearch]);
 
   const orderTotal = useMemo(() => {
-    return orderItems.reduce((sum, it) => sum + it.precio * it.cantidad, 0);
+    return orderItems.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
   }, [orderItems]);
 
   // Cálculos para cobro en Ventanilla
   const counterPaymentTotal = orderToCharge ? orderToCharge.total : 0;
   const counterBreakdown = useMemo(() => {
     return calculateTotals(
-      orderToCharge ? orderToCharge.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precioUnitario })) : []
+      orderToCharge ? orderToCharge.items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice })) : []
     );
   }, [orderToCharge]);
 
@@ -350,66 +359,66 @@ function SalesManagementContent() {
   // Listado de cobros no cobrados (comandas activas de mesas ocupadas + comandas activas para llevar)
   const uncollectedPayments = useMemo(() => {
     const pendientes: Array<{
-      idPedido: number;
-      codigo: string;
+      orderId: number;
+      code: string;
       tipo: "Mesa" | "Llevar";
       identificador: string;
-      fecha: string;
-      estadoCocina: string;
+      orderedAt: string;
+      kitchenStatus: string;
       items: OrderLineItem[];
       total: number;
       editable: boolean;
-      mesaObj?: TableItem;
-      pedidoObj: OrderSummary;
+      tableObj?: TableItem;
+      orderObj: OrderSummary;
     }> = [];
 
     // Mesas ocupadas
     for (const m of tables) {
-      if (m.ocupada && m.pedidoActivo) {
+      if (m.occupied && m.activeOrder) {
         const pedObj: OrderSummary = {
-          id: m.pedidoActivo.id,
-          idPedidoMesa: m.pedidoActivo.idPedidoMesa,
-          codigo: m.pedidoActivo.codigo,
-          tipoPedido: "Mesa",
-          fecha: m.pedidoActivo.fecha,
-          estado: m.pedidoActivo.estado,
-          mesa: { id: m.id, numero: m.numero },
-          observacion: m.pedidoActivo.observacionMesa,
-          items: m.pedidoActivo.items,
-          total: m.pedidoActivo.total,
-          editable: m.pedidoActivo.editable,
+          id: m.activeOrder.id,
+          orderTableId: m.activeOrder.orderTableId,
+          code: m.activeOrder.code,
+          orderType: "Mesa",
+          orderedAt: m.activeOrder.orderedAt,
+          status: m.activeOrder.status,
+          table: { id: m.id, number: m.number },
+          notes: m.activeOrder.tableNotes,
+          items: m.activeOrder.items,
+          total: m.activeOrder.total,
+          editable: m.activeOrder.editable,
         };
 
         pendientes.push({
-          idPedido: m.pedidoActivo.id,
-          codigo: m.pedidoActivo.codigo,
+          orderId: m.activeOrder.id,
+          code: m.activeOrder.code,
           tipo: "Mesa",
-          identificador: `Mesa ${m.numero}`,
-          fecha: m.pedidoActivo.fecha,
-          estadoCocina: m.pedidoActivo.estado,
-          items: m.pedidoActivo.items,
-          total: m.pedidoActivo.total,
-          editable: m.pedidoActivo.editable,
-          mesaObj: m,
-          pedidoObj: pedObj,
+          identificador: `Mesa ${m.number}`,
+          orderedAt: m.activeOrder.orderedAt,
+          kitchenStatus: m.activeOrder.status,
+          items: m.activeOrder.items,
+          total: m.activeOrder.total,
+          editable: m.activeOrder.editable,
+          tableObj: m,
+          orderObj: pedObj,
         });
       }
     }
 
     // Pedidos para llevar que aún no se cobraron
     for (const p of takeoutOrders) {
-      if (p.estado !== "Cerrado" && p.estado !== "Cancelado") {
+      if (p.status !== "Closed" && p.status !== "Cancelled") {
         pendientes.push({
-          idPedido: p.id,
-          codigo: p.codigo,
+          orderId: p.id,
+          code: p.code,
           tipo: "Llevar",
-          identificador: `Para Llevar (${p.codigo})`,
-          fecha: p.fecha,
-          estadoCocina: p.estado,
+          identificador: `Para Llevar (${p.code})`,
+          orderedAt: p.orderedAt,
+          kitchenStatus: p.status,
           items: p.items,
           total: p.total,
           editable: p.editable,
-          pedidoObj: p,
+          orderObj: p,
         });
       }
     }
@@ -427,10 +436,10 @@ function SalesManagementContent() {
     const q = customerSearch.toLowerCase();
     return customers.filter(
       (c) =>
-        c.nroDoc.toLowerCase().includes(q) ||
-        c.nombre.toLowerCase().includes(q) ||
-        c.apellido.toLowerCase().includes(q) ||
-        c.nombreCompleto.toLowerCase().includes(q)
+        c.documentNumber.toLowerCase().includes(q) ||
+        c.firstName.toLowerCase().includes(q) ||
+        c.lastName.toLowerCase().includes(q) ||
+        c.fullName.toLowerCase().includes(q)
     );
   }, [customers, customerSearch]);
 
@@ -438,8 +447,8 @@ function SalesManagementContent() {
   // ACCIONES COMANDA
   // ---------------------------------------------------------------------------
   const openTakeTableOrder = (mesa: TableItem) => {
-    if (mesa.ocupada) {
-      toast.info(`La Mesa ${mesa.numero} ya tiene un pedido en curso.`);
+    if (mesa.occupied) {
+      toast.info(`La Mesa ${mesa.number} ya tiene un pedido en curso.`);
       return;
     }
     setIsEditing(false);
@@ -470,27 +479,27 @@ function SalesManagementContent() {
   const openEditOrder = (pedido: {
     id: number;
     tableNote?: string;
-    observacion?: string;
+    notes?: string;
     items: OrderLineItem[];
-    tipoPedido: string;
-    estado?: string;
+    orderType: string;
+    status?: string;
   }) => {
-    if (pedido.estado && !canEditOrder(pedido.estado)) {
+    if (pedido.status && !canEditOrder(pedido.status)) {
       toast.warning("El pedido no puede ser modificado porque ya fue servido o cerrado.");
       return;
     }
     setIsEditing(true);
     setEditingOrderId(pedido.id);
     setAdditionalTables([]);
-    setIsTakeaway(pedido.tipoPedido === "Llevar");
-    setTableNote(pedido.tableNote || pedido.observacion || "");
+    setIsTakeaway(pedido.orderType === "Llevar");
+    setTableNote(pedido.tableNote || pedido.notes || "");
     setOrderItems(
       pedido.items.map((it) => ({
-        idPlato: it.idPlato,
-        nombre: it.nombre,
-        precio: it.precioUnitario,
-        cantidad: it.cantidad,
-        observaciones: it.observaciones || "",
+        dishId: it.dishId,
+        name: it.name,
+        unitPrice: it.unitPrice,
+        quantity: it.quantity,
+        notes: it.notes || "",
       }))
     );
     setSelectedCategory("todos");
@@ -500,20 +509,20 @@ function SalesManagementContent() {
 
   const addOrderItem = (plato: MenuDish) => {
     setOrderItems((prev) => {
-      const idx = prev.findIndex((it) => it.idPlato === plato.id);
+      const idx = prev.findIndex((it) => it.dishId === plato.id);
       if (idx >= 0) {
         return prev.map((it, i) =>
-          i === idx ? { ...it, cantidad: it.cantidad + 1 } : it
+          i === idx ? { ...it, quantity: it.quantity + 1 } : it
         );
       }
       return [
         ...prev,
         {
-          idPlato: plato.id,
-          nombre: plato.nombre,
-          precio: plato.precio,
-          cantidad: 1,
-          observaciones: "",
+          dishId: plato.id,
+          name: plato.name,
+          unitPrice: plato.price,
+          quantity: 1,
+          notes: "",
         },
       ];
     });
@@ -521,12 +530,12 @@ function SalesManagementContent() {
 
   const changeItemQuantity = (index: number, delta: number) => {
     setOrderItems((prev) => {
-      const nextQty = prev[index].cantidad + delta;
+      const nextQty = prev[index].quantity + delta;
       if (nextQty <= 0) {
         return prev.filter((_, i) => i !== index);
       }
       return prev.map((it, i) =>
-        i === index ? { ...it, cantidad: nextQty } : it
+        i === index ? { ...it, quantity: nextQty } : it
       );
     });
   };
@@ -545,32 +554,32 @@ function SalesManagementContent() {
       setSavingOrder(true);
       if (isEditing && editingOrderId) {
         await editOrder(editingOrderId, {
-          observacion: tableNote,
+          notes: tableNote,
           items: orderItems.map((it) => ({
-            id_plato: it.idPlato,
-            cantidad: it.cantidad,
-            observaciones: it.observaciones,
+            dishId: it.dishId,
+            quantity: it.quantity,
+            notes: it.notes,
           })),
         });
         toast.success("Comanda actualizada correctamente.");
       } else {
         await createOrder({
-          tipo_pedido: isTakeaway ? "Llevar" : "Mesa",
-          id_mesa: isTakeaway ? undefined : selectedTable?.id,
-          mesas_adicionales: !isTakeaway && additionalTables.length > 0 ? additionalTables : undefined,
-          observacion: tableNote,
+          orderType: isTakeaway ? "Llevar" : "Mesa",
+          tableId: isTakeaway ? undefined : selectedTable?.id,
+          additionalTables: !isTakeaway && additionalTables.length > 0 ? additionalTables : undefined,
+          notes: tableNote,
           items: orderItems.map((it) => ({
-            id_plato: it.idPlato,
-            cantidad: it.cantidad,
-            observaciones: it.observaciones,
+            dishId: it.dishId,
+            quantity: it.quantity,
+            notes: it.notes,
           })),
         });
         toast.success(
           isTakeaway
             ? "Pedido para llevar registrado con éxito."
             : additionalTables.length > 0
-            ? `Mesa ${selectedTable?.numero} ocupada con ${additionalTables.length} mesa(s) unida(s). Comanda enviada a cocina.`
-            : `Mesa ${selectedTable?.numero} ocupada. Comanda enviada a cocina.`
+            ? `Mesa ${selectedTable?.number} ocupada con ${additionalTables.length} mesa(s) unida(s). Comanda enviada a cocina.`
+            : `Mesa ${selectedTable?.number} ocupada. Comanda enviada a cocina.`
         );
       }
 
@@ -583,10 +592,12 @@ function SalesManagementContent() {
     }
   };
 
-  const changeKitchenStatus = async (orderIdParam: number, newStatus: "Preparando" | "Servido") => {
+  const changeKitchenStatus = async (orderIdParam: number, newStatus: "Preparing" | "Served") => {
     try {
       await updateOrderStatus(orderIdParam, newStatus);
-      toast.success(`Pedido actualizado a estado: ${newStatus}`);
+      const statusLabel =
+        newStatus === "Preparing" ? "Preparando" : newStatus === "Served" ? "Servido" : newStatus;
+      toast.success(`Pedido actualizado a estado: ${statusLabel}`);
       await loadData();
     } catch (err: any) {
       toast.error(err.message || "No se pudo actualizar el estado.");
@@ -595,7 +606,7 @@ function SalesManagementContent() {
 
   // Cancelación de comanda con auditoría y liberación de mesas
   const openCancelModal = (pedido: OrderSummary) => {
-    if (pedido.estado === "Cerrado") {
+    if (pedido.status === "Closed") {
       toast.warning("No se puede cancelar un pedido que ya fue cobrado y cerrado.");
       return;
     }
@@ -619,7 +630,7 @@ function SalesManagementContent() {
         cancelReason.trim(),
         cancelUser.trim() || "Mozo Salón"
       );
-      toast.success(res.mensaje || "Pedido cancelado, mesa(s) liberada(s) y stock devuelto exitosamente.");
+      toast.success(res.message || "Pedido cancelado, mesa(s) liberada(s) y stock devuelto exitosamente.");
       setCancelModalOpen(false);
       setOrderToCancel(null);
       await loadData();
@@ -693,13 +704,13 @@ function SalesManagementContent() {
     setOrderToCharge(pedido);
     setPaymentSource(origen);
     setAmountGiven("");
-    const idEf = paymentTypes.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
-    const idYap = paymentTypes.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+    const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
+    const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
     setPaymentParts([
       { id: "p-1", paymentTypeId: idEf, monto: "" },
       { id: "p-2", paymentTypeId: idYap, monto: "" },
     ]);
-    setActiveTab("cashier");
+    goToTab("cashier");
   };
 
   const executeCounterPayment = async () => {
@@ -710,7 +721,7 @@ function SalesManagementContent() {
 
     // Validar documento si se ingresó
     if (customerDoc.trim()) {
-      const tipoPer = voucherType === "Factura" ? "Juridico" : "Natural";
+      const tipoPer = voucherType === "Factura" ? "Legal" : "Natural";
       const docValidation = validateCustomerDocument(tipoPer, customerDoc.trim());
       if (!docValidation.isValid) {
         toast.error(docValidation.error || "Documento de cliente no válido.");
@@ -719,30 +730,28 @@ function SalesManagementContent() {
     }
 
     const salePayload: any = {
-      id_pedido: orderToCharge.id,
-      tipo_comprobante: voucherType,
-      cliente: {
-        nro_doc: customerDoc.trim() || undefined,
-        nombre: customerName.trim() || (voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"),
-        tipo_persona: voucherType === "Factura" ? "Juridico" : "Natural",
-        telefono: customerPhone.trim() || undefined,
+      orderId: orderToCharge.id,
+      voucherType: voucherType,
+      customer: {
+        documentNumber: customerDoc.trim() || undefined,
+        firstName: customerName.trim() || (voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"),
+        personType: voucherType === "Factura" ? "Legal" : "Natural",
+        phone: customerPhone.trim() || undefined,
       },
     };
 
     if (paymentMethod === "mixto") {
       const isListValid = paymentParts
-        .map((p) => ({
-          id_tipo_pago: p.paymentTypeId,
-          monto: Math.round((Number(p.monto) || 0) * 100) / 100,
+        .map((p) => ({ paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
         }))
-        .filter((p) => p.monto > 0);
+        .filter((p) => p.amount > 0);
 
       if (isListValid.length < 2) {
         toast.error("Para pagar en partes debe ingresar al menos 2 formas de pago con montos mayores a S/ 0.");
         return;
       }
 
-      const partsSum = Math.round(isListValid.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+      const partsSum = Math.round(isListValid.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
 
       if (Math.abs(partsSum - counterPaymentTotal) > 0.05) {
         toast.error(
@@ -752,10 +761,10 @@ function SalesManagementContent() {
       }
 
       salePayload.pagos = isListValid;
-      salePayload.monto_recibido = counterPaymentTotal;
+      salePayload.amountReceived = counterPaymentTotal;
     } else {
       const tpObj = paymentTypes.find((t) => {
-        const n = t.nombre.toLowerCase();
+        const n = t.name.toLowerCase();
         if (paymentMethod === "efectivo") return n.includes("efectivo");
         if (paymentMethod === "yape") return n.includes("yape");
         if (paymentMethod === "pos") return n.includes("pos") || n.includes("tarjeta");
@@ -772,11 +781,11 @@ function SalesManagementContent() {
         }
       }
 
-      salePayload.id_tipo_pago = paymentTypeId;
-      salePayload.monto_recibido = paymentMethod === "efectivo" && amountGiven ? Number(amountGiven) : counterPaymentTotal;
-      salePayload.pasarela = {
-        proveedor: "mercado_pago",
-        modo: paymentMethod === "pos" ? "tap_to_pay" : paymentMethod === "yape" ? "qr" : "manual",
+      salePayload.paymentTypeId = paymentTypeId;
+      salePayload.amountReceived = paymentMethod === "efectivo" && amountGiven ? Number(amountGiven) : counterPaymentTotal;
+      salePayload.gateway = {
+        provider: "mercado_pago",
+        mode: paymentMethod === "pos" ? "tap_to_pay" : paymentMethod === "yape" ? "qr" : "manual",
       };
     }
 
@@ -784,15 +793,15 @@ function SalesManagementContent() {
       setProcessingSale(true);
       const res = await registerSale(salePayload);
 
-      toast.success(res.mensaje);
-      setIssuedVoucher(res.comprobante);
+      toast.success(res.message);
+      setIssuedVoucher(res.invoice);
       setTicketModalOpen(true);
 
       setOrderToCharge(null);
       setPaymentSource("");
       setAmountGiven("");
-      const idEf = paymentTypes.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
-      const idYap = paymentTypes.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+      const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
+      const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
       setPaymentParts([
         { id: "p-1", paymentTypeId: idEf, monto: "" },
         { id: "p-2", paymentTypeId: idYap, monto: "" },
@@ -816,8 +825,8 @@ function SalesManagementContent() {
     setWaiterPaymentMethod("pos");
     setWaiterAmountGiven("");
     setTapToPayDetectado(false);
-    const idEf = paymentTypes.find((t) => t.nombre.toLowerCase().includes("efectivo"))?.id ?? 1;
-    const idYap = paymentTypes.find((t) => t.nombre.toLowerCase().includes("yape"))?.id ?? 2;
+    const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
+    const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
     setWaiterPaymentParts([
       { id: "pm-1", paymentTypeId: idEf, monto: "" },
       { id: "pm-2", paymentTypeId: idYap, monto: "" },
@@ -832,18 +841,16 @@ function SalesManagementContent() {
 
     if (waiterPaymentMethod === "mixto") {
       const isListValid = waiterPaymentParts
-        .map((p) => ({
-          id_tipo_pago: p.paymentTypeId,
-          monto: Math.round((Number(p.monto) || 0) * 100) / 100,
+        .map((p) => ({ paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
         }))
-        .filter((p) => p.monto > 0);
+        .filter((p) => p.amount > 0);
 
       if (isListValid.length < 2) {
         toast.error("Para pagar en partes debe ingresar al menos 2 formas de pago con montos mayores a S/ 0.");
         return;
       }
 
-      const partsSum = Math.round(isListValid.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+      const partsSum = Math.round(isListValid.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
 
       if (Math.abs(partsSum - waiterPaymentTotal) > 0.05) {
         toast.error(
@@ -853,19 +860,19 @@ function SalesManagementContent() {
       }
 
       waiterSalePayload = {
-        id_pedido: waiterPaymentOrder.id,
-        tipo_comprobante: "Ticket",
-        cliente: {
-          nro_doc: "00000000",
-          nombre: "CLIENTE SALÓN",
-          tipo_persona: "Natural",
+        orderId: waiterPaymentOrder.id,
+        voucherType: "Ticket",
+        customer: {
+          documentNumber: "00000000",
+          firstName: "CLIENTE SALÓN",
+          personType: "Natural",
         },
-        pagos: isListValid,
-        monto_recibido: waiterPaymentTotal,
+        payments: isListValid,
+        amountReceived: waiterPaymentTotal,
       };
     } else {
       const tpObj = paymentTypes.find((t) => {
-        const n = t.nombre.toLowerCase();
+        const n = t.name.toLowerCase();
         if (waiterPaymentMethod === "efectivo") return n.includes("efectivo");
         if (waiterPaymentMethod === "yape") return n.includes("yape");
         if (waiterPaymentMethod === "pos") return n.includes("pos") || n.includes("tarjeta");
@@ -883,18 +890,18 @@ function SalesManagementContent() {
       }
 
       waiterSalePayload = {
-        id_pedido: waiterPaymentOrder.id,
-        id_tipo_pago: paymentTypeId,
-        tipo_comprobante: "Ticket",
-        cliente: {
-          nro_doc: "00000000",
-          nombre: "CLIENTE SALÓN",
-          tipo_persona: "Natural",
+        orderId: waiterPaymentOrder.id,
+        paymentTypeId: paymentTypeId,
+        voucherType: "Ticket",
+        customer: {
+          documentNumber: "00000000",
+          firstName: "CLIENTE SALÓN",
+          personType: "Natural",
         },
-        monto_recibido: waiterPaymentMethod === "efectivo" && waiterAmountGiven ? Number(waiterAmountGiven) : waiterPaymentTotal,
-        pasarela: {
-          proveedor: "mercado_pago",
-          modo: waiterPaymentMethod === "pos" ? "tap_to_pay" : waiterPaymentMethod === "yape" ? "qr" : "manual",
+        amountReceived: waiterPaymentMethod === "efectivo" && waiterAmountGiven ? Number(waiterAmountGiven) : waiterPaymentTotal,
+        gateway: {
+          provider: "mercado_pago",
+          mode: waiterPaymentMethod === "pos" ? "tap_to_pay" : waiterPaymentMethod === "yape" ? "qr" : "manual",
         },
       };
     }
@@ -904,7 +911,7 @@ function SalesManagementContent() {
       const res = await registerSale(waiterSalePayload);
 
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
-      setIssuedVoucher(res.comprobante);
+      setIssuedVoucher(res.invoice);
       setWaiterPaymentModalOpen(false);
       setTicketModalOpen(true);
       await loadData();
@@ -933,14 +940,14 @@ function SalesManagementContent() {
     try {
       setSavingCustomer(true);
       const res = await createCustomer({
-        tipo_persona: newCustomerType,
-        nro_doc: newCustomerDoc.trim() || undefined,
-        nombre: newCustomerName.trim(),
-        apellido: newCustomerType === "Natural" ? newCustomerLastName.trim() : undefined,
-        telefono: newCustomerPhone.trim() || undefined,
+        personType: newCustomerType,
+        documentNumber: newCustomerDoc.trim() || undefined,
+        firstName: newCustomerName.trim(),
+        lastName: newCustomerType === "Natural" ? newCustomerLastName.trim() : undefined,
+        phone: newCustomerPhone.trim() || undefined,
       });
 
-      toast.success(res.mensaje);
+      toast.success(res.message);
       setNewCustomerModalOpen(false);
       setNewCustomerDoc("");
       setNewCustomerName("");
@@ -955,12 +962,12 @@ function SalesManagementContent() {
   };
 
   const selectCustomerForSale = (cli: CustomerItem) => {
-    setCustomerDoc(cli.nroDoc);
-    setCustomerName(cli.nombreCompleto);
-    setCustomerPhone(cli.telefono);
-    setVoucherType(cli.tipoPersona === "Juridico" ? "Factura" : "Boleta");
-    setActiveTab("cashier");
-    toast.info(`Cliente ${cli.nombreCompleto} seleccionado para facturación.`);
+    setCustomerDoc(cli.documentNumber);
+    setCustomerName(cli.fullName);
+    setCustomerPhone(cli.phone);
+    setVoucherType(cli.personType === "Legal" ? "Factura" : "Boleta");
+    goToTab("cashier");
+    toast.info(`Cliente ${cli.fullName} seleccionado para facturación.`);
   };
 
   return (
@@ -1019,7 +1026,7 @@ function SalesManagementContent() {
           {/* Pestaña 1: Mesas y Salón */}
           <button
             type="button"
-            onClick={() => setActiveTab("tables")}
+            onClick={() => goToTab("tables")}
             className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === "tables"
                 ? "border-red-700 text-red-700 bg-red-50/60"
@@ -1027,14 +1034,28 @@ function SalesManagementContent() {
             }`}
           >
             <LayoutGrid className="w-4 h-4 shrink-0" />
-            <span className="sm:hidden">Mesas ({summary.ocupadas}/{summary.total})</span>
-            <span className="hidden sm:inline">Salón de Mesas ({summary.ocupadas}/{summary.total})</span>
+            <span className="sm:hidden">Mesas ({summary.occupied}/{summary.total})</span>
+            <span className="hidden sm:inline">Salón de Mesas ({summary.occupied}/{summary.total})</span>
+          </button>
+
+          {/* Pestaña: Cocina KDS */}
+          <button
+            type="button"
+            onClick={() => goToTab("kitchen")}
+            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeTab === "kitchen"
+                ? "border-red-700 text-red-700 bg-red-50/60"
+                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+          >
+            <ChefHat className="w-4 h-4 shrink-0" />
+            <span>Cocina</span>
           </button>
 
           {/* Pestaña 2: Cobros No Cobrados */}
           <button
             type="button"
-            onClick={() => setActiveTab("payments")}
+            onClick={() => goToTab("payments")}
             className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === "payments"
                 ? "border-red-700 text-red-700 bg-red-50/60"
@@ -1049,7 +1070,7 @@ function SalesManagementContent() {
           {/* Pestaña 3: Caja y Cobro en Ventanilla */}
           <button
             type="button"
-            onClick={() => setActiveTab("cashier")}
+            onClick={() => goToTab("cashier")}
             className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === "cashier"
                 ? "border-red-700 text-red-700 bg-red-50/60"
@@ -1064,7 +1085,7 @@ function SalesManagementContent() {
           {/* Pestaña 4: Clientes */}
           <button
             type="button"
-            onClick={() => setActiveTab("customers")}
+            onClick={() => goToTab("customers")}
             className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === "customers"
                 ? "border-red-700 text-red-700 bg-red-50/60"
@@ -1078,7 +1099,7 @@ function SalesManagementContent() {
           {/* Pestaña 5: Ventas Diarias & Facturas */}
           <button
             type="button"
-            onClick={() => setActiveTab("invoices")}
+            onClick={() => goToTab("invoices")}
             className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === "invoices"
                 ? "border-red-700 text-red-700 bg-red-50/60"
@@ -1118,7 +1139,7 @@ function SalesManagementContent() {
                     tableFilter === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""
                   }`}
                 >
-                  Disponibles ({summary.disponibles})
+                  Disponibles ({summary.available})
                 </Button>
                 <Button
                   size="sm"
@@ -1128,7 +1149,7 @@ function SalesManagementContent() {
                     tableFilter === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
                   }`}
                 >
-                  Ocupadas ({summary.ocupadas})
+                  Ocupadas ({summary.occupied})
                 </Button>
               </div>
 
@@ -1149,14 +1170,14 @@ function SalesManagementContent() {
             {/* Grid Responsivo de Mesas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredTables.map((mesa) => {
-                const hasOrder = mesa.ocupada && mesa.pedidoActivo;
-                const pedido = mesa.pedidoActivo;
+                const hasOrder = mesa.occupied && mesa.activeOrder;
+                const pedido = mesa.activeOrder;
 
                 return (
                   <Card
                     key={mesa.id}
                     className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${
-                      mesa.ocupada
+                      mesa.occupied
                         ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
                         : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
                     }`}
@@ -1165,7 +1186,7 @@ function SalesManagementContent() {
                       {/* Cabecera de la Mesa */}
                       <div
                         className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${
-                          mesa.ocupada
+                          mesa.occupied
                             ? "bg-red-50/80 border-red-100"
                             : "bg-emerald-50/50 border-slate-100"
                         }`}
@@ -1173,15 +1194,15 @@ function SalesManagementContent() {
                         <div className="flex items-center gap-2">
                           <span
                             className={`w-3 h-3 rounded-full ${
-                              mesa.ocupada ? "bg-red-600 animate-pulse" : "bg-emerald-500"
+                              mesa.occupied ? "bg-red-600 animate-pulse" : "bg-emerald-500"
                             }`}
                           />
                           <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                            Mesa {mesa.numero}
+                            Mesa {mesa.number}
                           </h3>
-                          {hasOrder && pedido?.observacionMesa?.includes("Mesas unidas:") && (
+                          {hasOrder && pedido?.tableNotes?.includes("Mesas unidas:") && (
                             <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
-                              {pedido.observacionMesa.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
+                              {pedido.tableNotes.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
                             </Badge>
                           )}
                         </div>
@@ -1192,16 +1213,16 @@ function SalesManagementContent() {
                             className="bg-white/80 text-[10px] font-semibold text-slate-600 border border-slate-200"
                           >
                             <Users className="w-3 h-3 mr-1 text-slate-400" />
-                            Aforo {mesa.aforo}
+                            Aforo {mesa.capacity}
                           </Badge>
                           <Badge
                             className={`text-[10px] font-bold border-none ${
-                              mesa.ocupada
+                              mesa.occupied
                                 ? "bg-red-600 text-white"
                                 : "bg-emerald-600 text-white"
                             }`}
                           >
-                            {mesa.ocupada ? "Ocupada" : "Libre"}
+                            {mesa.occupied ? "Ocupada" : "Libre"}
                           </Badge>
                         </div>
                       </div>
@@ -1213,11 +1234,11 @@ function SalesManagementContent() {
                             {/* Meta del pedido */}
                             <div className="flex items-center justify-between text-xs text-slate-500">
                               <span className="font-mono font-semibold text-slate-700">
-                                {pedido.codigo}
+                                {pedido.code}
                               </span>
                               <span className="flex items-center gap-1 text-[11px]">
                                 <Clock className="w-3 h-3 text-slate-400" />
-                                {new Date(pedido.fecha).toLocaleTimeString("es-PE", {
+                                {new Date(pedido.orderedAt).toLocaleTimeString("es-PE", {
                                   hour: "2-digit",
                                   minute: "2-digit",
                                 })}
@@ -1233,25 +1254,25 @@ function SalesManagementContent() {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1">
-                                {pedido.estado === "Recibido" && (
+                                {pedido.status === "Received" && (
                                   <button
-                                    onClick={() => changeKitchenStatus(pedido.id, "Preparando")}
+                                    onClick={() => changeKitchenStatus(pedido.id, "Preparing")}
                                     className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
                                     title="Pasar a Preparando"
                                   >
                                     Recibido → Iniciar
                                   </button>
                                 )}
-                                {pedido.estado === "Preparando" && (
+                                {pedido.status === "Preparing" && (
                                   <button
-                                    onClick={() => changeKitchenStatus(pedido.id, "Servido")}
+                                    onClick={() => changeKitchenStatus(pedido.id, "Served")}
                                     className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
                                     title="Marcar como Servido"
                                   >
                                     Preparando → Servir
                                   </button>
                                 )}
-                                {pedido.estado === "Servido" && (
+                                {pedido.status === "Served" && (
                                   <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
                                     ✓ Servido en Mesa
                                   </span>
@@ -1260,9 +1281,9 @@ function SalesManagementContent() {
                             </div>
 
                             {/* Observación de la mesa */}
-                            {pedido.observacionMesa && (
+                            {pedido.tableNotes && (
                               <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/60 italic line-clamp-1">
-                                💬 &quot;{pedido.observacionMesa}&quot;
+                                💬 &quot;{pedido.tableNotes}&quot;
                               </p>
                             )}
 
@@ -1275,12 +1296,12 @@ function SalesManagementContent() {
                                 >
                                   <span className="line-clamp-1">
                                     <strong className="text-red-700 mr-1.5 font-mono">
-                                      {item.cantidad}x
+                                      {item.quantity}x
                                     </strong>
-                                    {item.nombre}
+                                    {item.name}
                                   </span>
                                   <span className="font-semibold shrink-0 ml-2">
-                                    S/ {item.subTotal.toFixed(2)}
+                                    S/ {item.subtotal.toFixed(2)}
                                   </span>
                                 </div>
                               ))}
@@ -1315,20 +1336,20 @@ function SalesManagementContent() {
 
                     {/* Botones de Acción al pie de la tarjeta */}
                     <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-2">
-                      {mesa.ocupada && pedido ? (
+                      {mesa.occupied && pedido ? (
                         <>
                           {/* Botón para Cobro Móvil desde el Mozo */}
                           <Button
                             onClick={() =>
                               openWaiterPayment({
                                 id: pedido.id,
-                                idPedidoMesa: pedido.idPedidoMesa,
-                                codigo: pedido.codigo,
-                                tipoPedido: "Mesa",
-                                fecha: pedido.fecha,
-                                estado: pedido.estado,
-                                mesa: { id: mesa.id, numero: mesa.numero },
-                                observacion: pedido.observacionMesa,
+                                orderTableId: pedido.orderTableId,
+                                code: pedido.code,
+                                orderType: "Mesa",
+                                orderedAt: pedido.orderedAt,
+                                status: pedido.status,
+                                table: { id: mesa.id, number: mesa.number },
+                                notes: pedido.tableNotes,
                                 items: pedido.items,
                                 total: pedido.total,
                                 editable: pedido.editable,
@@ -1348,10 +1369,10 @@ function SalesManagementContent() {
                               onClick={() =>
                                 openEditOrder({
                                   id: pedido.id,
-                                  tableNote: pedido.observacionMesa,
+                                  tableNote: pedido.tableNotes,
                                   items: pedido.items,
-                                  tipoPedido: "Mesa",
-                                  estado: pedido.estado,
+                                  orderType: "Mesa",
+                                  status: pedido.status,
                                 })
                               }
                               disabled={!pedido.editable}
@@ -1369,18 +1390,18 @@ function SalesManagementContent() {
                                 goToCounterPayment(
                                   {
                                     id: pedido.id,
-                                    idPedidoMesa: pedido.idPedidoMesa,
-                                    codigo: pedido.codigo,
-                                    tipoPedido: "Mesa",
-                                    fecha: pedido.fecha,
-                                    estado: pedido.estado,
-                                    mesa: { id: mesa.id, numero: mesa.numero },
-                                    observacion: pedido.observacionMesa,
+                                    orderTableId: pedido.orderTableId,
+                                    code: pedido.code,
+                                    orderType: "Mesa",
+                                    orderedAt: pedido.orderedAt,
+                                    status: pedido.status,
+                                    table: { id: mesa.id, number: mesa.number },
+                                    notes: pedido.tableNotes,
                                     items: pedido.items,
                                     total: pedido.total,
                                     editable: pedido.editable,
                                   },
-                                  `Mesa ${mesa.numero}`
+                                  `Mesa ${mesa.number}`
                                 )
                               }
                               className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
@@ -1397,13 +1418,13 @@ function SalesManagementContent() {
                             onClick={() =>
                               openCancelModal({
                                 id: pedido.id,
-                                idPedidoMesa: pedido.idPedidoMesa,
-                                codigo: pedido.codigo,
-                                tipoPedido: "Mesa",
-                                fecha: pedido.fecha,
-                                estado: pedido.estado,
-                                mesa: { id: mesa.id, numero: mesa.numero },
-                                observacion: pedido.observacionMesa,
+                                orderTableId: pedido.orderTableId,
+                                code: pedido.code,
+                                orderType: "Mesa",
+                                orderedAt: pedido.orderedAt,
+                                status: pedido.status,
+                                table: { id: mesa.id, number: mesa.number },
+                                notes: pedido.tableNotes,
                                 items: pedido.items,
                                 total: pedido.total,
                                 editable: pedido.editable,
@@ -1429,6 +1450,15 @@ function SalesManagementContent() {
                 );
               })}
             </div>
+          </main>
+        )}
+
+        {/* =================================================================== */}
+        {/* PESTAÑA: COCINA (KDS) */}
+        {/* =================================================================== */}
+        {activeTab === "kitchen" && (
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+            <KitchenBoard />
           </main>
         )}
 
@@ -1508,7 +1538,7 @@ function SalesManagementContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {uncollectedPayments.map((cobro) => (
                     <Card
-                      key={cobro.idPedido}
+                      key={cobro.orderId}
                       className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between hover:shadow-md transition-shadow"
                     >
                       <div className="flex flex-col gap-2.5">
@@ -1523,21 +1553,27 @@ function SalesManagementContent() {
                           </span>
                           <Badge
                             className={`text-[10px] font-bold border-none ${
-                              cobro.estadoCocina === "Servido"
+                              cobro.kitchenStatus === "Served"
                                 ? "bg-emerald-100 text-emerald-800"
-                                : cobro.estadoCocina === "Preparando"
+                                : cobro.kitchenStatus === "Preparing"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-blue-100 text-blue-800"
                             }`}
                           >
-                            {cobro.estadoCocina}
+                            {cobro.kitchenStatus === "Served"
+                              ? "Servido"
+                              : cobro.kitchenStatus === "Preparing"
+                              ? "Preparando"
+                              : cobro.kitchenStatus === "Received"
+                              ? "Recibido"
+                              : cobro.kitchenStatus}
                           </Badge>
                         </div>
 
                         <div className="text-xs text-slate-500 flex items-center justify-between">
-                          <span className="font-mono">{cobro.codigo}</span>
+                          <span className="font-mono">{cobro.code}</span>
                           <span>
-                            {new Date(cobro.fecha).toLocaleTimeString("es-PE", {
+                            {new Date(cobro.orderedAt).toLocaleTimeString("es-PE", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
@@ -1549,10 +1585,10 @@ function SalesManagementContent() {
                           {cobro.items.map((it, idx) => (
                             <div key={idx} className="flex justify-between">
                               <span className="line-clamp-1">
-                                {it.cantidad}x {it.nombre}
+                                {it.quantity}x {it.name}
                               </span>
                               <span className="font-semibold ml-2">
-                                S/ {it.subTotal.toFixed(2)}
+                                S/ {it.subtotal.toFixed(2)}
                               </span>
                             </div>
                           ))}
@@ -1571,7 +1607,7 @@ function SalesManagementContent() {
                         {cobro.tipo === "Mesa" && (
                           <Button
                             size="sm"
-                            onClick={() => openWaiterPayment(cobro.pedidoObj)}
+                            onClick={() => openWaiterPayment(cobro.orderObj)}
                             className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-8 rounded-lg cursor-pointer"
                           >
                             <Smartphone className="w-3.5 h-3.5 mr-1" />
@@ -1581,7 +1617,7 @@ function SalesManagementContent() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => goToCounterPayment(cobro.pedidoObj, cobro.identificador)}
+                          onClick={() => goToCounterPayment(cobro.orderObj, cobro.identificador)}
                           className="flex-1 text-xs font-bold h-8 rounded-lg border-slate-300 hover:bg-slate-100 cursor-pointer"
                         >
                           <Receipt className="w-3.5 h-3.5 mr-1 text-slate-600" />
@@ -1590,7 +1626,7 @@ function SalesManagementContent() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => openCancelModal(cobro.pedidoObj)}
+                          onClick={() => openCancelModal(cobro.orderObj)}
                           title="Cancelar comanda"
                           className="text-xs font-bold h-8 px-2 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
                         >
@@ -1628,12 +1664,12 @@ function SalesManagementContent() {
                   ) : (
                     <div className="flex flex-col gap-2 max-h-[460px] overflow-y-auto pr-1">
                       {uncollectedPayments.map((c) => {
-                        const isSelected = orderToCharge?.id === c.idPedido;
+                        const isSelected = orderToCharge?.id === c.orderId;
                         return (
                           <div
-                            key={c.idPedido}
+                            key={c.orderId}
                             onClick={() => {
-                              setOrderToCharge(c.pedidoObj);
+                              setOrderToCharge(c.orderObj);
                               setPaymentSource(c.identificador);
                               setAmountGiven("");
                             }}
@@ -1657,7 +1693,7 @@ function SalesManagementContent() {
                               </span>
                             </div>
                             <div className="text-[11px] text-slate-500 flex justify-between">
-                              <span>Comanda {c.codigo}</span>
+                              <span>Comanda {c.code}</span>
                               <span>{c.items.length} productos</span>
                             </div>
                           </div>
@@ -1707,10 +1743,10 @@ function SalesManagementContent() {
                               className="flex justify-between py-1 border-b border-slate-200/50 last:border-none text-slate-700"
                             >
                               <span>
-                                {it.cantidad}x {it.nombre}
+                                {it.quantity}x {it.name}
                               </span>
                               <span className="font-semibold">
-                                S/ {it.subTotal.toFixed(2)}
+                                S/ {it.subtotal.toFixed(2)}
                               </span>
                             </div>
                           ))}
@@ -1920,7 +1956,7 @@ function SalesManagementContent() {
                           <div className="flex flex-col gap-2">
                             {paymentParts.map((parte, index) => {
                               const selectedPaymentType = paymentTypes.find((t) => t.id === parte.paymentTypeId);
-                              const esEfectivo = selectedPaymentType?.nombre.toLowerCase().includes("efectivo");
+                              const esEfectivo = selectedPaymentType?.name.toLowerCase().includes("efectivo");
 
                               // Calcular cuánto falta considerando las otras partes
                               const otherSum = paymentParts
@@ -1949,7 +1985,7 @@ function SalesManagementContent() {
                                       >
                                         {paymentTypes.map((tp) => (
                                           <option key={tp.id} value={tp.id}>
-                                            {tp.nombre}
+                                            {tp.name}
                                           </option>
                                         ))}
                                       </select>
@@ -2219,29 +2255,29 @@ function SalesManagementContent() {
                       filteredCustomers.map((cli) => (
                         <tr key={cli.id} className="hover:bg-slate-50 transition-colors">
                           <td className="py-3 px-3 font-mono font-bold text-slate-900">
-                            {cli.nroDoc}
+                            {cli.documentNumber}
                           </td>
                           <td className="py-3 px-3">
                             <Badge
                               variant="outline"
                               className={`text-[10px] ${
-                                cli.tipoPersona === "Juridico"
+                                cli.personType === "Legal"
                                   ? "border-blue-300 text-blue-800 bg-blue-50"
                                   : "border-slate-300 text-slate-700 bg-slate-100"
                               }`}
                             >
-                              {cli.tipoPersona}
+                              {cli.personType === "Legal" ? "Jurídica" : "Natural"}
                             </Badge>
                           </td>
                           <td className="py-3 px-3 font-semibold text-slate-800">
-                            {cli.nombreCompleto}
+                            {cli.fullName}
                           </td>
                           <td className="py-3 px-3 text-slate-600 font-mono">
-                            {cli.telefono || "—"}
+                            {cli.phone || "—"}
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                              {cli.totalCompras}
+                              {cli.totalPurchases}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-right">
@@ -2397,38 +2433,38 @@ function SalesManagementContent() {
                         <tr key={comp.id} className="hover:bg-slate-50 transition-colors">
                           <td className="py-3 px-3">
                             <span className="font-mono font-bold text-slate-900 block">
-                              {comp.codigoCompleto}
+                              {comp.fullCode}
                             </span>
                             <Badge
                               className={`text-[9px] font-bold border-none ${
-                                comp.tipo === "Factura"
+                                comp.voucherType === "Factura"
                                   ? "bg-blue-100 text-blue-800"
                                   : "bg-slate-100 text-slate-800"
                               }`}
                             >
-                              {comp.tipo}
+                              {comp.voucherType}
                             </Badge>
                           </td>
                           <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
-                            {new Date(comp.fecha).toLocaleString("es-PE", {
+                            {new Date(comp.issuedAt).toLocaleString("es-PE", {
                               dateStyle: "short",
                               timeStyle: "short",
                             })}
                           </td>
                           <td className="py-3 px-3">
                             <span className="font-semibold text-slate-800 block line-clamp-1">
-                              {comp.cliente.nombre}
+                              {comp.customer.firstName}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">
-                              Doc: {comp.cliente.nroDoc}
+                              Doc: {comp.customer.documentNumber}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-slate-600 font-semibold">
-                            {comp.origen}
+                            {comp.origin}
                           </td>
                           <td className="py-3 px-3">
                             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
-                              {comp.metodoPago}
+                              {comp.paymentMethod}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-right font-extrabold text-sm text-red-700 font-mono">
@@ -2472,7 +2508,7 @@ function SalesManagementContent() {
                   ? "Modificar Comanda Activa"
                   : isTakeaway
                   ? "Nuevo Pedido Para Llevar (Ventanilla)"
-                  : `Comanda de Salón — Mesa ${selectedTable?.numero}`}
+                  : `Comanda de Salón — Mesa ${selectedTable?.number}`}
                 </span>
               </span>
               <span className="text-xs font-mono font-bold text-red-700 bg-red-50 px-2 py-1 rounded-lg shrink-0 self-start sm:self-auto">
@@ -2497,7 +2533,7 @@ function SalesManagementContent() {
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {tables
-                  .filter((m) => !m.ocupada && m.id !== selectedTable.id)
+                  .filter((m) => !m.occupied && m.id !== selectedTable.id)
                   .map((m) => {
                     const isSelected = additionalTables.includes(m.id);
                     return (
@@ -2515,11 +2551,11 @@ function SalesManagementContent() {
                             : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
                         }`}
                       >
-                        + Mesa {m.numero} (Aforo {m.aforo})
+                        + Mesa {m.number} (Aforo {m.capacity})
                       </button>
                     );
                   })}
-                {tables.filter((m) => !m.ocupada && m.id !== selectedTable.id).length === 0 && (
+                {tables.filter((m) => !m.occupied && m.id !== selectedTable.id).length === 0 && (
                   <span className="text-[11px] text-slate-400 italic">No hay otras tables disponibles en el salón para unir.</span>
                 )}
               </div>
@@ -2573,15 +2609,15 @@ function SalesManagementContent() {
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900 line-clamp-1">
-                    {plato.nombre}
+                    {plato.name}
                   </h4>
                   <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
-                    {plato.descripcion}
+                    {plato.description}
                   </p>
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
                   <span className="font-bold text-xs text-red-700">
-                    S/ {plato.precio.toFixed(2)}
+                    S/ {plato.price.toFixed(2)}
                   </span>
                   <span className="text-[10px] font-bold text-white bg-red-700 px-1.5 py-0.5 rounded-md">
                     + Añadir
@@ -2609,22 +2645,22 @@ function SalesManagementContent() {
                   >
                     <div className="flex-1 mr-2">
                       <span className="font-bold text-slate-900 block line-clamp-1">
-                        {item.nombre}
+                        {item.name}
                       </span>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[11px] text-slate-500">
-                          Unit: S/ {item.precio.toFixed(2)}
+                          Unit: S/ {item.unitPrice.toFixed(2)}
                         </span>
-                        {item.observaciones && (
+                        {item.notes && (
                           <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded italic">
-                            &quot;{item.observaciones}&quot;
+                            &quot;{item.notes}&quot;
                           </span>
                         )}
                         <button
                           type="button"
                           onClick={() => {
                             setNoteIndex(idx);
-                            setNoteText(item.observaciones);
+                            setNoteText(item.notes);
                             setNotesModalOpen(true);
                           }}
                           className="text-[10px] text-blue-600 hover:underline cursor-pointer"
@@ -2644,7 +2680,7 @@ function SalesManagementContent() {
                           -
                         </button>
                         <span className="w-6 text-center font-bold font-mono">
-                          {item.cantidad}
+                          {item.quantity}
                         </span>
                         <button
                           type="button"
@@ -2656,7 +2692,7 @@ function SalesManagementContent() {
                       </div>
 
                       <span className="font-extrabold text-slate-900 w-16 text-right font-mono">
-                        S/ {(item.precio * item.cantidad).toFixed(2)}
+                        S/ {(item.unitPrice * item.quantity).toFixed(2)}
                       </span>
 
                       <button
@@ -2716,9 +2752,9 @@ function SalesManagementContent() {
                 <Smartphone className="w-5 h-5 text-emerald-600" />
                 <span>Cobro Móvil / Mozo</span>
               </span>
-              {waiterPaymentOrder?.mesa && (
+              {waiterPaymentOrder?.table && (
                 <Badge className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-xs">
-                  Mesa {waiterPaymentOrder.mesa.numero}
+                  Mesa {waiterPaymentOrder.table.number}
                 </Badge>
               )}
             </DialogTitle>
@@ -2735,7 +2771,7 @@ function SalesManagementContent() {
                   {formatCurrency(waiterPaymentOrder.total)}
                 </span>
                 <span className="text-[11px] text-slate-400 block mt-1">
-                  Comanda {waiterPaymentOrder.codigo} • {waiterPaymentOrder.items.length} dishes
+                  Comanda {waiterPaymentOrder.code} • {waiterPaymentOrder.items.length} dishes
                 </span>
               </div>
 
@@ -2907,7 +2943,7 @@ function SalesManagementContent() {
                           >
                             {paymentTypes.map((tp) => (
                               <option key={tp.id} value={tp.id}>
-                                {tp.nombre}
+                                {tp.name}
                               </option>
                             ))}
                           </select>
@@ -3059,9 +3095,9 @@ function SalesManagementContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setNewCustomerType("Juridico")}
+                  onClick={() => setNewCustomerType("Legal")}
                   className={`py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                    newCustomerType === "Juridico"
+                    newCustomerType === "Legal"
                       ? "bg-red-700 text-white border-red-700"
                       : "bg-slate-50 border-slate-200 text-slate-700"
                   }`}
@@ -3209,7 +3245,7 @@ function SalesManagementContent() {
                 if (noteIndex !== null) {
                   setOrderItems((prev) =>
                     prev.map((it, i) =>
-                      i === noteIndex ? { ...it, observaciones: noteText } : it
+                      i === noteIndex ? { ...it, notes: noteText } : it
                     )
                   );
                 }
@@ -3235,7 +3271,7 @@ function SalesManagementContent() {
                 <span>Comprobante Emitido</span>
               </span>
               <Badge className="bg-emerald-100 text-emerald-800 font-mono text-[10px]">
-                {issuedVoucher?.codigoCompleto}
+                {issuedVoucher?.fullCode}
               </Badge>
             </DialogTitle>
           </DialogHeader>
@@ -3256,31 +3292,31 @@ function SalesManagementContent() {
             <div className="flex flex-col gap-0.5 text-[10px] text-slate-600 pb-2 border-b border-dashed border-slate-300">
               <div className="flex justify-between">
                 <span>COMPROBANTE:</span>
-                <span className="font-bold text-slate-900">{issuedVoucher?.tipo}</span>
+                <span className="font-bold text-slate-900">{issuedVoucher?.voucherType}</span>
               </div>
               <div className="flex justify-between">
                 <span>NÚMERO:</span>
-                <span className="font-bold text-slate-900">{issuedVoucher?.codigoCompleto}</span>
+                <span className="font-bold text-slate-900">{issuedVoucher?.fullCode}</span>
               </div>
               <div className="flex justify-between">
                 <span>FECHA:</span>
                 <span>
-                  {issuedVoucher?.fecha
-                    ? new Date(issuedVoucher.fecha).toLocaleString("es-PE")
+                  {issuedVoucher?.issuedAt
+                    ? new Date(issuedVoucher.issuedAt).toLocaleString("es-PE")
                     : ""}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>CLIENTE:</span>
-                <span className="font-bold">{issuedVoucher?.cliente.nombre}</span>
+                <span className="font-bold">{issuedVoucher?.customer.firstName}</span>
               </div>
               <div className="flex justify-between">
                 <span>DOC:</span>
-                <span>{issuedVoucher?.cliente.nroDoc}</span>
+                <span>{issuedVoucher?.customer.documentNumber}</span>
               </div>
               <div className="flex justify-between">
                 <span>ORIGEN:</span>
-                <span>{issuedVoucher?.origen}</span>
+                <span>{issuedVoucher?.origin}</span>
               </div>
             </div>
 
@@ -3289,9 +3325,9 @@ function SalesManagementContent() {
               {issuedVoucher?.items.map((it, idx) => (
                 <div key={idx} className="flex justify-between text-[10px]">
                   <span className="line-clamp-1">
-                    {it.cantidad}x {it.nombre}
+                    {it.quantity}x {it.name}
                   </span>
-                  <span className="font-semibold">S/ {it.subTotal.toFixed(2)}</span>
+                  <span className="font-semibold">S/ {it.subtotal.toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -3315,12 +3351,12 @@ function SalesManagementContent() {
             <div className="flex flex-col gap-0.5 text-[10px]">
               <div className="flex justify-between">
                 <span>MÉTODO DE PAGO:</span>
-                <span className="font-bold">{issuedVoucher?.metodoPago}</span>
+                <span className="font-bold">{issuedVoucher?.paymentMethod}</span>
               </div>
-              {issuedVoucher?.vuelto ? (
+              {issuedVoucher?.change ? (
                 <div className="flex justify-between text-emerald-800 font-bold">
                   <span>VUELTO:</span>
-                  <span>S/ {issuedVoucher.vuelto.toFixed(2)}</span>
+                  <span>S/ {issuedVoucher.change.toFixed(2)}</span>
                 </div>
               ) : null}
             </div>
@@ -3360,7 +3396,7 @@ function SalesManagementContent() {
           <DialogHeader className="pb-3 border-b border-slate-200">
             <DialogTitle className="text-base font-bold text-rose-700 flex items-center gap-2">
               <XCircle className="w-5 h-5 text-rose-600" />
-              <span>Cancelar Comanda #{orderToCancel?.codigo}</span>
+              <span>Cancelar Comanda #{orderToCancel?.code}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -3383,11 +3419,11 @@ function SalesManagementContent() {
             {orderToCancel && (
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs flex flex-col gap-1">
                 <div className="flex justify-between font-semibold text-slate-800">
-                  <span>Origen: {orderToCancel.tipoPedido === "Mesa" && orderToCancel.mesa ? `Mesa ${orderToCancel.mesa.numero}` : "Para Llevar"}</span>
+                  <span>Origen: {orderToCancel.orderType === "Mesa" && orderToCancel.table ? `Mesa ${orderToCancel.table.number}` : "Para Llevar"}</span>
                   <span className="text-red-700 font-bold">Total: {formatCurrency(orderToCancel.total)}</span>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Items: {orderToCancel.items.map((i) => `${i.cantidad}x ${i.nombre}`).join(", ")}
+                  Items: {orderToCancel.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
                 </div>
               </div>
             )}

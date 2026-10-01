@@ -5,8 +5,8 @@ import { getDishStock } from "@/lib/services/redis-stock.service";
 export const dynamic = "force-dynamic";
 
 // Helper para categorizar platos según su nombre en la carta
-function determineCategory(nombre: string): string {
-  const n = nombre.toLowerCase();
+function determineCategory(name: string): string {
+  const n = name.toLowerCase();
   if (n.includes("pollo") || n.includes("mostrito")) return "pollos";
   if (n.includes("papas") || n.includes("tequeño") || n.includes("chaufa") || n.includes("ensalada") || n.includes("porción")) return "adicionales";
   if (n.includes("inka") || n.includes("chicha") || n.includes("gaseosa") || n.includes("bebida") || n.includes("agua")) return "bebidas";
@@ -17,29 +17,29 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const q = (searchParams.get("q") ?? "").trim().toLowerCase();
-    const categoria = searchParams.get("categoria") ?? "";
+    const category = searchParams.get("category") ?? searchParams.get("categoria") ?? "";
 
-    const dishesDb = await prisma.plato.findMany({
+    const dishesDb = await prisma.dish.findMany({
       where: {
-        estado: true,
-        ...(q ? { nombre: { contains: q, mode: "insensitive" } } : {})
+        active: true,
+        ...(q ? { name: { contains: q, mode: "insensitive" } } : {})
       },
-      orderBy: { id_plato: "asc" }
+      orderBy: { id: "asc" }
     });
 
     const filteredDishes = dishesDb
       .map((p) => {
-        const cat = determineCategory(p.nombre);
+        const cat = determineCategory(p.name);
         return {
-          id: p.id_plato,
-          nombre: p.nombre,
-          descripcion: p.descripcion ?? "",
-          precio: Number(p.precio),
-          categoria: cat,
-          estado: p.estado,
+          id: p.id,
+          name: p.name,
+          description: p.description ?? "",
+          price: Number(p.price),
+          category: cat,
+          active: p.active,
         };
       })
-      .filter((p) => !categoria || categoria === "todos" || p.categoria === categoria);
+      .filter((p) => !category || category === "todos" || p.category === category);
 
     // Obtener stock en tiempo real desde Redis Cloud para cada plato
     const dishesWithStock = await Promise.all(
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         return {
           ...p,
           stock,
-          disponible: stock > 0
+          available: stock > 0
         };
       })
     );

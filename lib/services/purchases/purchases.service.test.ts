@@ -8,65 +8,74 @@ import { createPurchaseVoucher } from "./invoices";
 import { registerTransformation } from "./transformation";
 import { registerPurchaseWithoutVoucher } from "./purchase-without-voucher";
 
+vi.mock("@/lib/services/accounting-posting.service", () => ({
+  postPurchaseJournalEntries: vi.fn().mockResolvedValue([1, 2, 3, 4]),
+  postPurchasePaymentJournalEntry: vi.fn().mockResolvedValue(10),
+}));
+
 // Mock Prisma Client
 vi.mock("@/lib/prisma", () => {
   const mockPrisma = {
-    proveedor: {
+    supplier: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
-    insumo: {
+    supply: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
-    orden_compra: {
+    purchaseOrder: {
       count: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
-    recepcion_compra: {
+    purchaseReceipt: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
     },
-    detalle_recepcion_compra: {
+    purchaseReceiptItem: {
       create: vi.fn(),
       findMany: vi.fn(),
     },
-    movimiento_inventario: {
+    inventoryMovement: {
       create: vi.fn(),
       findMany: vi.fn(),
     },
-    comprobante_compra: {
+    purchaseInvoice: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
     },
-    pago_compra: {
+    purchasePayment: {
       create: vi.fn(),
     },
-    transformacion: {
+    paymentType: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+    transformation: {
       create: vi.fn(),
       findMany: vi.fn(),
     },
-    detalle_transformacion: {
+    transformationItem: {
       create: vi.fn(),
     },
-    compra_sin_comprobante: {
+    informalPurchase: {
       create: vi.fn(),
       findMany: vi.fn(),
     },
-    empleado: {
-      findUnique: vi.fn().mockResolvedValue({ id_empleado: 1, primer_nombre: "Test" }),
-      findFirst: vi.fn().mockResolvedValue({ id_empleado: 1, primer_nombre: "Test" }),
-      upsert: vi.fn().mockResolvedValue({ id_empleado: 1, primer_nombre: "Test" }),
+    employee: {
+      findUnique: vi.fn().mockResolvedValue({ id: 1, firstName: "Test" }),
+      findFirst: vi.fn().mockResolvedValue({ id: 1, firstName: "Test" }),
+      upsert: vi.fn().mockResolvedValue({ id: 1, firstName: "Test" }),
     },
     $transaction: vi.fn((cb) => cb(mockPrisma)),
   };
@@ -82,189 +91,190 @@ describe("Modulo Compras Services", () => {
 
   describe("Módulo 1: Proveedores", () => {
     it("debe crear un proveedor si el RUC es válido y no duplicado", async () => {
-      (prisma.proveedor.findUnique as any).mockResolvedValue(null);
-      (prisma.proveedor.create as any).mockResolvedValue({
-        id_proveedor: 1,
+      (prisma.supplier.findUnique as any).mockResolvedValue(null);
+      (prisma.supplier.create as any).mockResolvedValue({
+        id: 1,
         ruc: "20123456789",
-        razon_social: "Distribuidora Beto S.A.C.",
+        businessName: "Distribuidora Beto S.A.C.",
       });
 
       const res = await createSupplier({
         ruc: "20123456789",
-        razon_social: "Distribuidora Beto S.A.C.",
+        businessName: "Distribuidora Beto S.A.C.",
       });
 
-      expect(res.id_proveedor).toBe(1);
-      expect(prisma.proveedor.create).toHaveBeenCalled();
+      expect(res.id).toBe(1);
+      expect(prisma.supplier.create).toHaveBeenCalled();
     });
 
     it("debe lanzar error si el documento no tiene 8 u 11 dígitos", async () => {
       await expect(
         createSupplier({
           ruc: "123",
-          razon_social: "Test",
+          businessName: "Test",
         })
       ).rejects.toThrow("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
     });
   });
 
   describe("Módulo 5: Insumos y Ajuste de Inventario", () => {
-    it("debe crear un insumo con stock_actual inicial en 0", async () => {
-      (prisma.insumo.create as any).mockResolvedValue({
-        id_insumo: 1,
-        nombre: "Pollo Entero",
-        stock_actual: 0,
+    it("debe crear un insumo con currentStock inicial en 0", async () => {
+      (prisma.supply.create as any).mockResolvedValue({
+        id: 1,
+        name: "Pollo Entero",
+        currentStock: 0,
       });
 
       await createSupply({
-        nombre: "Pollo Entero",
-        unidad_medida: "KG",
+        name: "Pollo Entero",
+        unitOfMeasure: "KG",
       });
 
-      expect(prisma.insumo.create).toHaveBeenCalledWith({
+      expect(prisma.supply.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          nombre: "Pollo Entero",
-          stock_actual: 0,
+          name: "Pollo Entero",
+          currentStock: 0,
         }),
       });
     });
 
     it("debe registrar un ajuste de inventario recalculando el stock", async () => {
-      (prisma.insumo.findUnique as any).mockResolvedValue({
-        id_insumo: 1,
-        stock_actual: 10,
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 1,
+        currentStock: 10,
       });
-      (prisma.movimiento_inventario.create as any).mockResolvedValue({ id: 1 });
-      (prisma.insumo.update as any).mockResolvedValue({
-        id_insumo: 1,
-        stock_actual: 15,
+      (prisma.inventoryMovement.create as any).mockResolvedValue({ id: 1 });
+      (prisma.supply.update as any).mockResolvedValue({
+        id: 1,
+        currentStock: 15,
       });
 
       const res = await registerInventoryAdjustment(1, 15, "Ajuste por conteo físico");
 
-      expect(prisma.movimiento_inventario.create).toHaveBeenCalledWith({
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          cantidad: 5,
-          motivo: "Ajuste por conteo físico",
+          quantity: 5,
+          reason: "Ajuste por conteo físico",
         }),
       });
-      expect(res.supply.stock_actual).toBe(15);
+      expect(res.supply.currentStock).toBe(15);
     });
   });
 
   describe("Módulo 2: Órdenes de Compra", () => {
-    it("debe crear una orden de compra en estado Pendiente", async () => {
-      (prisma.orden_compra.count as any).mockResolvedValue(0);
-      (prisma.orden_compra.findUnique as any).mockResolvedValue(null);
-      (prisma.orden_compra.create as any).mockResolvedValue({
-        id_orden_compra: 1,
-        numero_orden: "OC-2026-00001",
-        estado: "Pendiente",
+    it("debe crear una orden de compra en estado Pending", async () => {
+      (prisma.purchaseOrder.count as any).mockResolvedValue(0);
+      (prisma.purchaseOrder.findUnique as any).mockResolvedValue(null);
+      (prisma.purchaseOrder.create as any).mockResolvedValue({
+        id: 1,
+        orderNumber: "OC-2026-00001",
+        status: "Pending",
       });
 
       const res = await createPurchaseOrder({
-        id_proveedor: 1,
-        detalles: [{ id_insumo: 1, cantidad_pedida: 10, precio_unitario: 15 }],
+        supplierId: 1,
+        items: [{ supplyId: 1, quantityOrdered: 10, unitPrice: 15 }],
       });
 
-      expect(res.estado).toBe("Pendiente");
+      expect(res.status).toBe("Pending");
     });
   });
 
   describe("Módulo 3: Recepción de Compra", () => {
     it("debe recepcionar compra y actualizar stock", async () => {
-      (prisma.orden_compra.findUnique as any).mockResolvedValue({
-        id_orden_compra: 1,
-        numero_orden: "OC-2026-00001",
-        detalles_orden: [
-          { id_detalle_orden_compra: 10, id_insumo: 1, cantidad_pedida: 10, precio_unitario: 15 },
+      (prisma.purchaseOrder.findUnique as any).mockResolvedValue({
+        id: 1,
+        orderNumber: "OC-2026-00001",
+        items: [
+          { id: 10, supplyId: 1, quantityOrdered: 10, unitPrice: 15 },
         ],
       });
-      (prisma.recepcion_compra.create as any).mockResolvedValue({ id_recepcion: 100 });
-      (prisma.detalle_recepcion_compra.create as any).mockResolvedValue({ id_detalle_recepcion_compra: 1 });
-      (prisma.movimiento_inventario.create as any).mockResolvedValue({});
-      (prisma.insumo.findUnique as any).mockResolvedValue({ id_insumo: 1, stock_actual: 5 });
-      (prisma.insumo.update as any).mockResolvedValue({});
-      (prisma.detalle_recepcion_compra.findMany as any).mockResolvedValue([
-        { id_detalle_orden_compra: 10, cantidad_recibida: 10 },
+      (prisma.purchaseReceipt.create as any).mockResolvedValue({ id: 100 });
+      (prisma.purchaseReceiptItem.create as any).mockResolvedValue({ id: 1 });
+      (prisma.inventoryMovement.create as any).mockResolvedValue({});
+      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 5 });
+      (prisma.supply.update as any).mockResolvedValue({});
+      (prisma.purchaseReceiptItem.findMany as any).mockResolvedValue([
+        { purchaseOrderItemId: 10, quantityReceived: 10 },
       ]);
-      (prisma.orden_compra.update as any).mockResolvedValue({});
+      (prisma.purchaseOrder.update as any).mockResolvedValue({});
 
       const res = await receivePurchase({
-        id_orden_compra: 1,
-        detalles: [{ id_detalle_orden_compra: 10, cantidad_recibida: 10 }],
+        purchaseOrderId: 1,
+        items: [{ purchaseOrderItemId: 10, quantityReceived: 10 }],
       });
 
-      expect(res.id_recepcion).toBe(100);
-      expect(prisma.insumo.update).toHaveBeenCalledWith({
-        where: { id_insumo: 1 },
-        data: { stock_actual: 15 },
+      expect(res.id).toBe(100);
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { currentStock: 15 },
       });
     });
   });
 
   describe("Módulo 4: Comprobantes y Facturas", () => {
     it("debe crear comprobante al contado y generar su pago automático", async () => {
-      (prisma.comprobante_compra.findFirst as any).mockResolvedValue(null);
-      (prisma.recepcion_compra.findUnique as any).mockResolvedValue({
-        id_recepcion: 1,
-        detalles_recepcion_compra: [
-          { cantidad_recibida: 10, detalle_orden_compra: { precio_unitario: 10 } },
+      (prisma.purchaseInvoice.findFirst as any).mockResolvedValue(null);
+      (prisma.purchaseReceipt.findUnique as any).mockResolvedValue({
+        id: 1,
+        items: [
+          { quantityReceived: 10, purchaseOrderItem: { unitPrice: 10 } },
         ],
       });
-      (prisma.comprobante_compra.create as any).mockResolvedValue({ id_comprobante_compra: 5, monto_total: 118 });
+      (prisma.purchaseInvoice.create as any).mockResolvedValue({ id: 5, totalAmount: 118 });
+      (prisma.paymentType.findUnique as any).mockResolvedValue({ id: 1, name: "Efectivo" });
 
       await createPurchaseVoucher({
-        id_proveedor: 1,
-        id_recepcion: 1,
-        tipo_comprobante: "Factura",
-        serie: "F001",
-        numero: 123,
-        condicion_pago: "Contado",
-        id_tipo_pago: 1,
+        supplierId: 1,
+        receiptId: 1,
+        voucherType: "Factura",
+        series: "F001",
+        number: 123,
+        paymentCondition: "Contado",
+        paymentTypeId: 1,
       });
 
-      expect(prisma.pago_compra.create).toHaveBeenCalled();
+      expect(prisma.purchasePayment.create).toHaveBeenCalled();
     });
   });
 
   describe("Módulo 6: Transformación", () => {
     it("debe registrar transformación descontando materia prima e incrementando producto terminado", async () => {
-      (prisma.transformacion.create as any).mockResolvedValue({ id_transformacion: 50 });
-      (prisma.insumo.findUnique as any)
-        .mockResolvedValueOnce({ id_insumo: 1, stock_actual: 20 })
-        .mockResolvedValueOnce({ id_insumo: 2, stock_actual: 0 });
+      (prisma.transformation.create as any).mockResolvedValue({ id: 50 });
+      (prisma.supply.findUnique as any)
+        .mockResolvedValueOnce({ id: 1, currentStock: 20 })
+        .mockResolvedValueOnce({ id: 2, currentStock: 0 });
 
       await registerTransformation({
-        consumos: [{ id_insumo: 1, cantidad: 5 }],
-        producidos: [{ id_insumo: 2, cantidad: 4 }],
+        consumos: [{ supplyId: 1, quantity: 5 }],
+        producidos: [{ supplyId: 2, quantity: 4 }],
       });
 
-      expect(prisma.insumo.update).toHaveBeenCalledWith({
-        where: { id_insumo: 1 },
-        data: { stock_actual: 15 },
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { currentStock: 15 },
       });
-      expect(prisma.insumo.update).toHaveBeenCalledWith({
-        where: { id_insumo: 2 },
-        data: { stock_actual: 4 },
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 2 },
+        data: { currentStock: 4 },
       });
     });
   });
 
   describe("Módulo 7: Compra sin comprobante", () => {
     it("debe registrar compra sin comprobante y actualizar el inventario", async () => {
-      (prisma.insumo.findUnique as any).mockResolvedValue({ id_insumo: 1, stock_actual: 10 });
-      (prisma.compra_sin_comprobante.create as any).mockResolvedValue({ id_compra_menor: 1 });
+      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 10 });
+      (prisma.informalPurchase.create as any).mockResolvedValue({ id: 1 });
 
       await registerPurchaseWithoutVoucher({
-        id_insumo: 1,
-        cantidad: 5,
-        monto_pagado: 50,
+        supplyId: 1,
+        quantity: 5,
+        amountPaid: 50,
       });
 
-      expect(prisma.insumo.update).toHaveBeenCalledWith({
-        where: { id_insumo: 1 },
-        data: { stock_actual: 15 },
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { currentStock: 15 },
       });
     });
   });

@@ -3,8 +3,8 @@
  */
 
 export interface CalculationItem {
-  cantidad: number;
-  precioUnitario: number;
+  quantity: number;
+  unitPrice: number;
 }
 
 export interface CalculatedTotals {
@@ -23,8 +23,8 @@ export function calculateTotals(items: CalculationItem[]): CalculatedTotals {
   }
 
   const sum = items.reduce((acc, it) => {
-    const qty = Math.max(0, it.cantidad || 0);
-    const price = Math.max(0, it.precioUnitario || 0);
+    const qty = Math.max(0, it.quantity || 0);
+    const price = Math.max(0, it.unitPrice || 0);
     return acc + qty * price;
   }, 0);
 
@@ -64,17 +64,18 @@ export function calculateChangeAmount(
  * Valida los números de documento peruanos (DNI 8 dígitos, RUC 11 dígitos).
  */
 export function validateCustomerDocument(
-  tipoPersona: "Natural" | "Juridico",
-  nroDoc: string
+  personType: "Natural" | "Legal" | "Juridico",
+  documentNumber: string
 ): { isValid: boolean; error?: string } {
-  const document = (nroDoc || "").trim();
+  const document = (documentNumber || "").trim();
+  const normalizedType = personType === "Juridico" ? "Legal" : personType;
 
   // Cliente general sin documento
   if (document === "00000000" || document === "") {
     return { isValid: true };
   }
 
-  if (tipoPersona === "Natural") {
+  if (normalizedType === "Natural") {
     // DNI debe tener 8 dígitos numéricos
     if (!/^\d{8}$/.test(document)) {
       return {
@@ -85,7 +86,7 @@ export function validateCustomerDocument(
     return { isValid: true };
   }
 
-  if (tipoPersona === "Juridico") {
+  if (normalizedType === "Legal") {
     // RUC debe tener 11 dígitos numéricos y comenzar con 10, 15, 17 o 20
     if (!/^\d{11}$/.test(document)) {
       return {
@@ -107,39 +108,46 @@ export function validateCustomerDocument(
 
 /**
  * Regla de negocio para edición de pedidos:
- * - Un pedido solo se puede editar si está en estado 'Recibido' o 'Preparando'.
- * - Cuando pasa a 'Servido' o 'Cerrado', ya no puede modificarse por comandas.
+ * - Un pedido solo se puede editar si está en estado Received/Preparing/Pending.
+ * - Cuando pasa a Served o Closed, ya no puede modificarse por comandas.
  */
-export function canEditOrder(estado: string): boolean {
-  const status = (estado || "").toLowerCase();
-  return status === "recibido" || status === "preparando" || status === "pendiente";
+export function canEditOrder(statusValue: string): boolean {
+  const status = (statusValue || "").toLowerCase();
+  return (
+    status === "received" ||
+    status === "preparing" ||
+    status === "pending" ||
+    status === "recibido" ||
+    status === "preparando" ||
+    status === "pendiente"
+  );
 }
 
 /**
  * Calcula el resumen de ocupación de mesas en sala.
  */
-export function calculateTablesSummary(mesas: Array<{ ocupada: boolean }>): {
+export function calculateTablesSummary(tables: Array<{ occupied: boolean }>): {
   total: number;
-  disponibles: number;
-  ocupadas: number;
+  available: number;
+  occupied: number;
 } {
-  const total = mesas.length;
-  const ocupadas = mesas.filter((m) => m.ocupada).length;
-  const disponibles = total - ocupadas;
-  return { total, disponibles, ocupadas };
+  const total = tables.length;
+  const occupied = tables.filter((m) => m.occupied).length;
+  const available = total - occupied;
+  return { total, available, occupied };
 }
 
 export interface SaleRecordSummary {
-  monto_total: number;
-  metodo_pago?: string;
-  tipo_comprobante?: string;
-  fecha_emision?: string | Date;
+  total: number;
+  paymentMethod?: string;
+  voucherType?: string;
+  issuedAt?: string | Date;
 }
 
 /**
  * Calcula los totales y desgloses de ventas diarias para el arqueo de caja y facturación.
  */
-export function calculateDailySalesSummary(ventas: SaleRecordSummary[]) {
+export function calculateDailySalesSummary(sales: SaleRecordSummary[]) {
   let totalRecaudado = 0;
   let totalEfectivo = 0;
   let totalYape = 0;
@@ -150,11 +158,11 @@ export function calculateDailySalesSummary(ventas: SaleRecordSummary[]) {
   let facturasCount = 0;
   let ticketsCount = 0;
 
-  for (const v of ventas) {
-    const amount = Number(v.monto_total) || 0;
+  for (const v of sales) {
+    const amount = Number(v.total) || 0;
     totalRecaudado += amount;
 
-    const paymentMethod = (v.metodo_pago || "").toLowerCase();
+    const paymentMethod = (v.paymentMethod || "").toLowerCase();
     if (paymentMethod.includes("efectivo")) {
       totalEfectivo += amount;
     } else if (paymentMethod.includes("yape")) {
@@ -165,7 +173,7 @@ export function calculateDailySalesSummary(ventas: SaleRecordSummary[]) {
       totalOtros += amount;
     }
 
-    const voucherType = (v.tipo_comprobante || "").toLowerCase();
+    const voucherType = (v.voucherType || "").toLowerCase();
     if (voucherType.includes("factura")) {
       facturasCount++;
     } else if (voucherType.includes("ticket")) {
@@ -177,7 +185,7 @@ export function calculateDailySalesSummary(ventas: SaleRecordSummary[]) {
 
   return {
     totalRecaudado: Math.round(totalRecaudado * 100) / 100,
-    cantidadVentas: ventas.length,
+    cantidadVentas: sales.length,
     desgloseMetodos: {
       efectivo: Math.round(totalEfectivo * 100) / 100,
       yape: Math.round(totalYape * 100) / 100,

@@ -1,68 +1,68 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { TipoMovimientoEnum } from "@prisma/client";
+import { InventoryMovementType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 
 export interface PurchaseWithoutVoucherInput {
-  id_insumo: number;
-  id_empleado?: number;
-  cantidad: number;
-  monto_pagado: number;
-  fecha?: Date | string | null;
-  lugar_o_proveedor_informal?: string;
-  motivo?: string;
+  supplyId: number;
+  employeeId?: number;
+  quantity: number;
+  amountPaid: number;
+  date?: Date | string | null;
+  informalPlaceOrVendor?: string;
+  reason?: string;
 }
 
 export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVoucherInput) {
-  if (!data.id_insumo) {
+  if (!data.supplyId) {
     throw new Error("Debe seleccionar un insumo");
   }
-  if (!data.cantidad || data.cantidad <= 0) {
+  if (!data.quantity || data.quantity <= 0) {
     throw new Error("La cantidad debe ser mayor a 0");
   }
-  if (!data.monto_pagado || data.monto_pagado <= 0) {
+  if (!data.amountPaid || data.amountPaid <= 0) {
     throw new Error("El monto pagado debe ser mayor a 0");
   }
 
   return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.id_empleado);
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.employeeId);
 
-    const supply = await tx.insumo.findUnique({ where: { id_insumo: data.id_insumo } });
+    const supply = await tx.supply.findUnique({ where: { id: data.supplyId } });
     if (!supply) {
       throw new Error("Insumo no encontrado");
     }
 
-    const purchaseDate = data.fecha ? new Date(data.fecha) : new Date();
+    const purchaseDate = data.date ? new Date(data.date) : new Date();
 
-    const purchase = await tx.compra_sin_comprobante.create({
+    const purchase = await tx.informalPurchase.create({
       data: {
-        id_insumo: data.id_insumo,
-        id_empleado: validEmployeeId,
-        cantidad: data.cantidad,
-        monto_pagado: data.monto_pagado,
-        fecha: purchaseDate,
-        lugar_o_proveedor_informal: data.lugar_o_proveedor_informal?.trim() || null,
-        motivo: data.motivo?.trim() || null,
+        supplyId: data.supplyId,
+        employeeId: validEmployeeId,
+        quantity: data.quantity,
+        amountPaid: data.amountPaid,
+        date: purchaseDate,
+        informalPlaceOrVendor: data.informalPlaceOrVendor?.trim() || null,
+        reason: data.reason?.trim() || null,
       },
     });
 
-    const unitCost = data.monto_pagado / data.cantidad;
+    const unitCost = data.amountPaid / data.quantity;
 
-    await tx.movimiento_inventario.create({
+    await tx.inventoryMovement.create({
       data: {
-        id_insumo: data.id_insumo,
-        tipo_movimiento: TipoMovimientoEnum.CompraSinComprobante,
-        cantidad: data.cantidad,
-        costo_unitario: unitCost,
-        motivo: data.motivo?.trim() || `Compra menor sin comprobante #${purchase.id_compra_menor}`,
+        supplyId: data.supplyId,
+        movementType: InventoryMovementType.InformalPurchase,
+        quantity: data.quantity,
+        unitCost,
+        reason: data.reason?.trim() || `Compra menor sin comprobante #${purchase.id}`,
       },
     });
 
-    const newStock = Number(supply.stock_actual) + data.cantidad;
-    await tx.insumo.update({
-      where: { id_insumo: data.id_insumo },
-      data: { stock_actual: newStock },
+    const newStock = Number(supply.currentStock) + data.quantity;
+    await tx.supply.update({
+      where: { id: data.supplyId },
+      data: { currentStock: newStock },
     });
 
     return purchase;
@@ -71,12 +71,12 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
 
 export async function getPurchasesWithoutVoucher() {
   try {
-    return await prisma.compra_sin_comprobante.findMany({
+    return await prisma.informalPurchase.findMany({
       include: {
-        insumo: true,
-        empleado: true,
+        supply: true,
+        employee: true,
       },
-      orderBy: { fecha: "desc" },
+      orderBy: { date: "desc" },
     });
   } catch (error) {
     console.error("Error al obtener compras sin comprobante:", error);

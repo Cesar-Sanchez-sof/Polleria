@@ -5,68 +5,103 @@ import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.
 export const dynamic = "force-dynamic";
 
 interface OrderItemInput {
-  id_plato: number;
-  cantidad: number;
+  dishId?: number;
+  id_plato?: number;
+  quantity?: number;
+  cantidad?: number;
+  notes?: string;
   observaciones?: string;
+}
+
+const CLOSED_STATUSES = ["Closed", "Cancelled"];
+
+function resolveDishId(item: OrderItemInput): number {
+  return Number(item.dishId ?? item.id_plato);
+}
+
+function resolveQuantity(item: OrderItemInput): number {
+  return Number(item.quantity ?? item.cantidad);
+}
+
+function mapOrderResponse(p: {
+  id: number;
+  code: string;
+  orderType: string;
+  orderedAt: Date;
+  status: string;
+  tables: Array<{
+    notes: string | null;
+    table: { id: number; number: number };
+  }>;
+  items: Array<{
+    id: number;
+    dishId: number;
+    quantity: number;
+    unitPrice: { toString(): string } | number;
+    subtotal: { toString(): string } | number;
+    dishStatus: string;
+    notes: string | null;
+    dish: { name: string };
+  }>;
+}) {
+  const pm = p.tables[0] ?? null;
+  const items = p.items.map((d) => ({
+    id: d.id,
+    dishId: d.dishId,
+    name: d.dish.name,
+    quantity: d.quantity,
+    unitPrice: Number(d.unitPrice),
+    subtotal: Number(d.subtotal),
+    dishStatus: d.dishStatus,
+    notes: d.notes ?? ""
+  }));
+  const total = items.reduce((acc, it) => acc + it.subtotal, 0);
+
+  return {
+    id: p.id,
+    code: p.code,
+    orderType: p.orderType,
+    orderedAt: p.orderedAt.toISOString(),
+    status: p.status,
+    table: pm ? { id: pm.table.id, number: pm.table.number } : null,
+    notes: pm?.notes ?? "",
+    items,
+    total,
+    editable: p.status !== "Served" && p.status !== "Closed"
+  };
 }
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const tipo = searchParams.get("tipo"); // "Llevar" | "Mesa"
-    const estado = searchParams.get("estado"); // "activos" o específico
+    const orderType = searchParams.get("orderType") ?? searchParams.get("tipo");
+    const status = searchParams.get("status") ?? searchParams.get("estado");
 
-    const whereFilter: any = {};
-    if (tipo) {
-      whereFilter.tipo_pedido = tipo;
+    const whereFilter: Record<string, unknown> = {};
+    if (orderType) {
+      whereFilter.orderType = orderType;
     }
-    if (estado === "activos") {
-      whereFilter.estado = { notIn: ["Cerrado", "Cancelado"] };
-    } else if (estado) {
-      whereFilter.estado = estado;
+    if (status === "active" || status === "activos") {
+      whereFilter.status = { notIn: CLOSED_STATUSES };
+    } else if (status) {
+      whereFilter.status = status;
     }
 
-    const ordersDb = await prisma.pedido.findMany({
+    const ordersDb = await prisma.salesOrder.findMany({
       where: whereFilter,
-      orderBy: { id_pedido: "desc" },
+      orderBy: { id: "desc" },
       include: {
-        pedidos_mesa: {
-          include: { mesa: true }
+        tables: {
+          include: { table: true }
         },
-        detalles_pedido: {
-          include: { plato: true },
-          orderBy: { id_detalle_pedido: "asc" }
+        items: {
+          include: { dish: true },
+          orderBy: { id: "asc" }
         }
       }
     });
 
-    const orders = ordersDb.map((p) => {
-      const pm = p.pedidos_mesa[0] ?? null;
-      const items = p.detalles_pedido.map((d) => ({
-        idDetalle: d.id_detalle_pedido,
-        idPlato: d.id_plato,
-        nombre: d.plato.nombre,
-        cantidad: d.cantidad,
-        precioUnitario: Number(d.precio_unitario),
-        subTotal: Number(d.sub_total),
-        estadoPlato: d.estado_plato,
-        observaciones: d.observaciones ?? ""
-      }));
-      const total = items.reduce((acc, it) => acc + it.subTotal, 0);
-
-      return {
-        id: p.id_pedido,
-        codigo: p.codigo,
-        tipoPedido: p.tipo_pedido,
-        fecha: p.fecha_pedido.toISOString(),
-        estado: p.estado,
-        mesa: pm ? { id: pm.mesa.id_mesa, numero: pm.mesa.numero } : null,
-        observacion: pm?.observacion ?? "",
-        items,
-        total,
-        editable: p.estado !== "Servido" && p.estado !== "Cerrado"
-      };
-    });
+    const orders = ordersDb.map(mapOrderResponse);
 
     return Response.json({ data: orders });
   } catch (error) {
@@ -85,15 +120,19 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
     }
 
-    const tipoPedido = body.tipo_pedido === "Llevar" ? "Llevar" : "Mesa";
-    const idMesa = body.id_mesa ? Number(body.id_mesa) : null;
-    const additionalTables = Array.isArray(body.mesas_adicionales)
-      ? (body.mesas_adicionales.map(Number).filter((n: number) => !Number.isNaN(n) && n !== idMesa) as number[])
+    const rawOrderType = body.orderType ?? body.tipo_pedido;
+    const orderType = rawOrderType === "Llevar" ? "Llevar" : "Mesa";
+    const tableId = Number(body.tableId ?? body.id_mesa) || null;
+    const additionalTablesRaw = body.additionalTables ?? body.mesas_adicionales;
+    const additionalTables = Array.isArray(additionalTablesRaw)
+      ? (additionalTablesRaw.map(Number).filter((n: number) => !Number.isNaN(n) && n !== tableId) as number[])
       : [];
-    const tableNote = typeof body.observacion === "string" ? body.observacion.trim() : null;
+    const tableNote = typeof (body.notes ?? body.observacion) === "string"
+      ? String(body.notes ?? body.observacion).trim()
+      : null;
     const items = Array.isArray(body.items) ? (body.items as OrderItemInput[]) : [];
 
-    if (tipoPedido === "Mesa" && (!idMesa || Number.isNaN(idMesa))) {
+    if (orderType === "Mesa" && (!tableId || Number.isNaN(tableId))) {
       return Response.json({ error: "Debe seleccionar una mesa válida para el pedido en mesa." }, { status: 400 });
     }
 
@@ -102,40 +141,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Si es en mesa, verificar que la mesa principal existe y que no tiene un pedido activo ya registrado
-    if (tipoPedido === "Mesa" && idMesa) {
-      const mesa = await prisma.mesa.findUnique({
-        where: { id_mesa: idMesa },
+    if (orderType === "Mesa" && tableId) {
+      const table = await prisma.diningTable.findUnique({
+        where: { id: tableId },
         include: {
-          pedidos_mesa: {
+          orders: {
             where: {
-              pedido: {
-                estado: { notIn: ["Cerrado", "Cancelado"] }
+              order: {
+                status: { notIn: CLOSED_STATUSES }
               }
             }
           }
         }
       });
 
-      if (!mesa) {
+      if (!table) {
         return Response.json({ error: "La mesa especificada no existe." }, { status: 404 });
       }
 
-      if (mesa.pedidos_mesa.length > 0) {
+      if (table.orders.length > 0) {
         return Response.json(
-          { error: `La Mesa ${mesa.numero} ya tiene un pedido activo en curso.` },
+          { error: `La Mesa ${table.number} ya tiene un pedido activo en curso.` },
           { status: 400 }
         );
       }
 
       // Validar mesas adicionales unidas
       if (additionalTables.length > 0) {
-        const additionalTablesDb = await prisma.mesa.findMany({
-          where: { id_mesa: { in: additionalTables } },
+        const additionalTablesDb = await prisma.diningTable.findMany({
+          where: { id: { in: additionalTables } },
           include: {
-            pedidos_mesa: {
+            orders: {
               where: {
-                pedido: {
-                  estado: { notIn: ["Cerrado", "Cancelado"] }
+                order: {
+                  status: { notIn: CLOSED_STATUSES }
                 }
               }
             }
@@ -143,9 +182,9 @@ export async function POST(request: NextRequest) {
         });
 
         for (const m of additionalTablesDb) {
-          if (m.pedidos_mesa.length > 0 || !m.estado) {
+          if (m.orders.length > 0 || !m.active) {
             return Response.json(
-              { error: `La mesa adicional Mesa ${m.numero} ya está ocupada o tiene un pedido activo.` },
+              { error: `La mesa adicional Mesa ${m.number} ya está ocupada o tiene un pedido activo.` },
               { status: 400 }
             );
           }
@@ -154,21 +193,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar productos y obtener precios oficiales de la base de datos
-    const dishIds = items.map((it) => Number(it.id_plato));
-    const dishesDb = await prisma.plato.findMany({
-      where: { id_plato: { in: dishIds }, estado: true }
+    const dishIds = items.map((it) => resolveDishId(it));
+    const dishesDb = await prisma.dish.findMany({
+      where: { id: { in: dishIds }, active: true }
     });
 
-    const dishesMap = new Map(dishesDb.map((pl) => [pl.id_plato, pl]));
+    const dishesMap = new Map(dishesDb.map((pl) => [pl.id, pl]));
 
     for (const item of items) {
-      if (!dishesMap.has(Number(item.id_plato))) {
+      const dishId = resolveDishId(item);
+      const quantity = resolveQuantity(item);
+      if (!dishesMap.has(dishId)) {
         return Response.json(
-          { error: `El producto con ID ${item.id_plato} no existe o no está activo.` },
+          { error: `El producto con ID ${dishId} no existe o no está activo.` },
           { status: 400 }
         );
       }
-      if (!item.cantidad || item.cantidad < 1) {
+      if (!quantity || quantity < 1) {
         return Response.json(
           { error: "La cantidad de cada producto debe ser al menos 1." },
           { status: 400 }
@@ -176,12 +217,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Verificación y reserva atómica de stock en Redis Cloud (evita sobreventa concurrente entre mozos)
-    const reservationItems = items.map((it) => ({
-      idPlato: Number(it.id_plato),
-      cantidad: Math.floor(it.cantidad),
-      nombre: dishesMap.get(Number(it.id_plato))?.nombre,
-    }));
+    // Verificación y reserva atómica de stock en Redis Cloud
+    const reservationItems = items.map((it) => {
+      const dishId = resolveDishId(it);
+      return {
+        idPlato: dishId,
+        cantidad: Math.floor(resolveQuantity(it)),
+        nombre: dishesMap.get(dishId)?.name,
+      };
+    });
 
     const reservationResult = await reserveOrderStock(reservationItems);
     if (!reservationResult.success) {
@@ -194,72 +238,68 @@ export async function POST(request: NextRequest) {
     // Generar código único para el pedido (PED-XXXXXX)
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const codeTimestamp = Date.now().toString().slice(-4);
-    const codigo = `PED-${codeTimestamp}${randomSuffix}`;
+    const code = `PED-${codeTimestamp}${randomSuffix}`;
 
-    // Ejecución transaccional para garantizar integridad
     try {
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Crear el Pedido
-        const newOrder = await tx.pedido.create({
+        const newOrder = await tx.salesOrder.create({
           data: {
-            codigo,
-            tipo_pedido: tipoPedido,
-            estado: "Recibido",
-            fecha_pedido: new Date()
+            code,
+            orderType,
+            status: "Received",
+            orderedAt: new Date()
           }
         });
 
-        // 2. Asociar a mesa únicamente si es tipo Mesa
-        if (tipoPedido === "Mesa" && idMesa) {
+        if (orderType === "Mesa" && tableId) {
           let finalNote = tableNote;
           if (additionalTables.length > 0) {
-            const linkedTables = await tx.mesa.findMany({
-              where: { id_mesa: { in: additionalTables } },
-              select: { numero: true }
+            const linkedTables = await tx.diningTable.findMany({
+              where: { id: { in: additionalTables } },
+              select: { number: true }
             });
-            const nums = linkedTables.map((m) => m.numero).sort((a, b) => a - b).join(", ");
+            const nums = linkedTables.map((m) => m.number).sort((a, b) => a - b).join(", ");
             const tag = `[Mesas unidas: ${nums}]`;
             finalNote = tableNote ? `${tableNote} ${tag}` : tag;
           }
 
-          await tx.pedido_mesa.create({
+          await tx.orderTable.create({
             data: {
-              id_mesa: idMesa,
-              id_pedido: newOrder.id_pedido,
-              observacion: finalNote
+              tableId,
+              orderId: newOrder.id,
+              notes: finalNote
             }
           });
 
-          // Marcar la mesa principal como ocupada
-          await tx.mesa.update({
-            where: { id_mesa: idMesa },
-            data: { estado: false }
+          await tx.diningTable.update({
+            where: { id: tableId },
+            data: { active: false }
           });
 
-          // Marcar mesas adicionales como ocupadas
           if (additionalTables.length > 0) {
-            await tx.mesa.updateMany({
-              where: { id_mesa: { in: additionalTables } },
-              data: { estado: false }
+            await tx.diningTable.updateMany({
+              where: { id: { in: additionalTables } },
+              data: { active: false }
             });
           }
         }
 
-        // 3. Crear detalles del pedido con observaciones por producto
         for (const item of items) {
-          const plato = dishesMap.get(Number(item.id_plato))!;
-          const precioUnitario = Number(plato.precio);
-          const subTotal = Math.round(precioUnitario * item.cantidad * 100) / 100;
+          const dish = dishesMap.get(resolveDishId(item))!;
+          const quantity = Math.floor(resolveQuantity(item));
+          const unitPrice = Number(dish.price);
+          const subtotal = Math.round(unitPrice * quantity * 100) / 100;
+          const itemNotes = item.notes ?? item.observaciones;
 
-          await tx.detalle_pedido.create({
+          await tx.orderItem.create({
             data: {
-              id_pedido: newOrder.id_pedido,
-              id_plato: plato.id_plato,
-              cantidad: Math.floor(item.cantidad),
-              precio_unitario: precioUnitario,
-              sub_total: subTotal,
-              estado_plato: "Pendiente",
-              observaciones: item.observaciones ? item.observaciones.trim().slice(0, 100) : null
+              orderId: newOrder.id,
+              dishId: dish.id,
+              quantity,
+              unitPrice,
+              subtotal,
+              dishStatus: "Pending",
+              notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
             }
           });
         }
@@ -267,24 +307,22 @@ export async function POST(request: NextRequest) {
         return newOrder;
       });
 
-      // Consultar el pedido completo creado con sus relaciones
-      const fullOrder = await prisma.pedido.findUnique({
-        where: { id_pedido: result.id_pedido },
+      const fullOrder = await prisma.salesOrder.findUnique({
+        where: { id: result.id },
         include: {
-          pedidos_mesa: { include: { mesa: true } },
-          detalles_pedido: { include: { plato: true } }
+          tables: { include: { table: true } },
+          items: { include: { dish: true } }
         }
       });
 
       return Response.json(
         {
-          mensaje: "Pedido registrado con éxito.",
-          pedido: fullOrder
+          message: "Pedido registrado con éxito.",
+          order: fullOrder ? mapOrderResponse(fullOrder) : null
         },
         { status: 201 }
       );
     } catch (dbError) {
-      // ROLLBACK EN REDIS: Si la base de datos falla, liberamos el stock previamente reservado
       for (const item of reservationItems) {
         await releaseDishStock(item.idPlato, item.cantidad).catch(() => {});
       }

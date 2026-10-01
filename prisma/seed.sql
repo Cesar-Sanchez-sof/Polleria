@@ -4,12 +4,12 @@
 -- =====================================================================
 
 -- 1. CLIENTE GENÉRICO (Para ventas en caja y tickets sin DNI obligatorio)
-INSERT INTO cliente (nro_doc, nombre, apellido, telefono, tipo_persona, estado)
+INSERT INTO customer (document_number, first_name, last_name, phone, person_type, active)
 VALUES ('00000000', 'CLIENTES VARIOS', '', '000000000', 'Natural', true)
-ON CONFLICT (tipo_persona, nro_doc) DO NOTHING;
+ON CONFLICT (person_type, document_number) DO NOTHING;
 
 -- 2. TIPOS DE PAGO DISPONIBLES EN CAJA Y MOZO
-INSERT INTO tipo_pago (nombre, estado) VALUES
+INSERT INTO payment_type (name, active) VALUES
 ('Efectivo', true),
 ('Yape', true),
 ('Plin', true),
@@ -18,7 +18,7 @@ INSERT INTO tipo_pago (nombre, estado) VALUES
 ON CONFLICT DO NOTHING;
 
 -- 3. MESAS DEL SALÓN (12 mesas con diferentes capacidades)
-INSERT INTO mesa (numero, aforo, estado) VALUES
+INSERT INTO dining_table (number, capacity, active) VALUES
 (1, 2, true),
 (2, 2, true),
 (3, 4, true),
@@ -31,10 +31,10 @@ INSERT INTO mesa (numero, aforo, estado) VALUES
 (10, 8, true),
 (11, 8, true),
 (12, 10, true)
-ON CONFLICT (numero) DO UPDATE SET estado = true, aforo = EXCLUDED.aforo;
+ON CONFLICT (number) DO UPDATE SET active = true, capacity = EXCLUDED.capacity;
 
 -- 4. CARTA COMPLETA DE PLATOS Y BEBIDAS
-INSERT INTO plato (nombre, descripcion, precio, estado) VALUES
+INSERT INTO dish (name, description, price, active) VALUES
 ('1/4 Pollo a la Brasa', '1/4 de pollo a la brasa tradicional con papas fritas crocantes, ensalada clásica y cremas caseras.', 21.90, true),
 ('1/2 Pollo a la Brasa', '1/2 pollo a la brasa jugoso con papas fritas familiares, ensalada y cremas.', 39.90, true),
 ('1 Pollo a la Brasa Entero', '1 pollo entero a la brasa con porción familiar de papas fritas, ensalada grande y cremas surtidas.', 72.90, true),

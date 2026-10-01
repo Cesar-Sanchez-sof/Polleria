@@ -5,33 +5,33 @@
 
 export interface MenuDish {
   id: number;
-  nombre: string;
-  descripcion: string;
-  precio: number;
-  categoria: string; // "pollos" | "adicionales" | "bebidas" | "otros"
-  imagen: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string; // "pollos" | "adicionales" | "bebidas" | "otros"
+  image: string;
 }
 
 export interface OrderLineItem {
-  idDetalle?: number;
-  idPlato: number;
-  nombre: string;
-  cantidad: number;
-  precioUnitario: number;
-  subTotal: number;
-  estadoPlato?: string;
-  observaciones?: string;
+  id?: number;
+  dishId: number;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  dishStatus?: string;
+  notes?: string;
 }
 
 export interface OrderSummary {
   id: number;
-  idPedidoMesa?: number;
-  codigo: string;
-  tipoPedido: "Mesa" | "Llevar";
-  fecha: string;
-  estado: string; // "Recibido" | "Preparando" | "Servido" | "Cerrado" | "Cancelado"
-  mesa: { id: number; numero: number } | null;
-  observacion: string;
+  orderTableId?: number;
+  code: string;
+  orderType: "Mesa" | "Llevar";
+  orderedAt: string;
+  status: string; // "Received" | "Preparing" | "Served" | "Closed" | "Cancelled"
+  table: { id: number; number: number } | null;
+  notes: string;
   items: OrderLineItem[];
   total: number;
   editable: boolean;
@@ -39,17 +39,17 @@ export interface OrderSummary {
 
 export interface TableItem {
   id: number;
-  numero: number;
-  aforo: number;
-  ocupada: boolean;
-  pedidoActivo: {
+  number: number;
+  capacity: number;
+  occupied: boolean;
+  activeOrder: {
     id: number;
-    idPedidoMesa: number;
-    codigo: string;
-    tipoPedido: string;
-    fecha: string;
-    estado: string;
-    observacionMesa: string;
+    orderTableId: number;
+    code: string;
+    orderType: string;
+    orderedAt: string;
+    status: string;
+    tableNotes: string;
     items: OrderLineItem[];
     total: number;
     editable: boolean;
@@ -58,64 +58,64 @@ export interface TableItem {
 
 export interface TablesSummary {
   total: number;
-  disponibles: number;
-  ocupadas: number;
+  available: number;
+  occupied: number;
 }
 
 export interface PaymentMethodItem {
   id: number;
-  nombre: string;
-  estado: boolean;
-  configPasarela?: {
-    soportaTapToPay: boolean;
-    soportaQr: boolean;
-    proveedorPreparado: string;
+  name: string;
+  active: boolean;
+  gatewayConfig?: {
+    supportsTapToPay: boolean;
+    supportsQr: boolean;
+    preparedProvider: string;
   };
 }
 
 export interface IssuedVoucher {
   id: number;
-  tipo: "Boleta" | "Factura" | "Ticket";
-  serie: string;
-  numero: number;
-  codigoCompleto: string;
-  fecha: string;
+  voucherType: "Boleta" | "Factura" | "Ticket";
+  series: string;
+  number: number;
+  fullCode: string;
+  issuedAt: string;
   subtotal: number;
   igv: number;
   total: number;
-  metodoPago: string;
-  montoRecibido: number;
-  vuelto: number;
-  cliente: {
-    nombre: string;
-    nroDoc: string;
-    tipoPersona: string;
+  paymentMethod: string;
+  amountReceived: number;
+  change: number;
+  customer: {
+    firstName: string;
+    documentNumber: string;
+    personType: string;
   };
-  origen: string;
+  origin: string;
   items: Array<{
-    nombre: string;
-    cantidad: number;
-    precioUnitario: number;
-    subTotal: number;
-    observaciones: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    notes: string;
   }>;
-  pasarela?: {
-    proveedor: string;
-    modo: string;
-    estado: string;
+  gateway?: {
+    provider: string;
+    mode: string;
+    status: string;
   } | null;
 }
 
 export interface CustomerItem {
   id: number;
-  nroDoc: string;
-  nombre: string;
-  apellido: string;
-  nombreCompleto: string;
-  telefono: string;
-  tipoPersona: "Natural" | "Juridico";
-  estado: boolean;
-  totalCompras: number;
+  documentNumber: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string;
+  personType: "Natural" | "Legal";
+  active: boolean;
+  totalPurchases: number;
 }
 
 export interface DailySalesSummary {
@@ -169,34 +169,34 @@ export function formatCurrency(amount: number): string {
 // Peticiones API
 // ---------------------------------------------------------------------------
 
-export async function listTables(): Promise<{ mesas: TableItem[]; resumen: TablesSummary }> {
+export async function listTables(): Promise<{ tables: TableItem[]; summary: TablesSummary }> {
   const res = await fetch("/api/tables", { cache: "no-store" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "No se pudo cargar el listado de mesas.");
   }
   const json = await res.json();
-  return { mesas: json.data, resumen: json.resumen };
+  return { tables: json.data, summary: json.summary };
 }
 
 export async function listDishes(category?: string): Promise<MenuDish[]> {
-  const url = category && category !== "todos" ? `/api/dishes?categoria=${category}` : "/api/dishes";
+  const url = category && category !== "todos" ? `/api/dishes?category=${category}` : "/api/dishes";
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "No se pudo obtener la carta de productos.");
   }
   const json = await res.json();
-  return (json.data || []).map((p: any) => ({
+  return (json.data || []).map((p: MenuDish & { name: string }) => ({
     ...p,
-    imagen: getDishImage(p.nombre),
+    image: getDishImage(p.name),
   }));
 }
 
-export async function listOrders(filter?: { tipo?: string; estado?: string }): Promise<OrderSummary[]> {
+export async function listOrders(filter?: { orderType?: string; status?: string }): Promise<OrderSummary[]> {
   const params = new URLSearchParams();
-  if (filter?.tipo) params.set("tipo", filter.tipo);
-  if (filter?.estado) params.set("estado", filter.estado);
+  if (filter?.orderType) params.set("orderType", filter.orderType);
+  if (filter?.status) params.set("status", filter.status);
 
   const res = await fetch(`/api/orders?${params.toString()}`, { cache: "no-store" });
   if (!res.ok) {
@@ -217,12 +217,12 @@ export async function getOrder(id: number): Promise<OrderSummary> {
 }
 
 export async function createOrder(data: {
-  tipo_pedido: "Mesa" | "Llevar";
-  id_mesa?: number;
-  mesas_adicionales?: number[];
-  observacion?: string;
-  items: Array<{ id_plato: number; cantidad: number; observaciones?: string }>;
-}): Promise<any> {
+  orderType: "Mesa" | "Llevar";
+  tableId?: number;
+  additionalTables?: number[];
+  notes?: string;
+  items: Array<{ dishId: number; quantity: number; notes?: string }>;
+}): Promise<{ message: string; order: OrderSummary | null }> {
   const res = await fetch("/api/orders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -238,10 +238,10 @@ export async function createOrder(data: {
 export async function editOrder(
   id: number,
   data: {
-    observacion?: string;
-    items: Array<{ id_plato: number; cantidad: number; observaciones?: string }>;
+    notes?: string;
+    items: Array<{ dishId: number; quantity: number; notes?: string }>;
   }
-): Promise<any> {
+): Promise<{ message: string }> {
   const res = await fetch(`/api/orders/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -256,12 +256,12 @@ export async function editOrder(
 
 export async function updateOrderStatus(
   id: number,
-  estado: "Recibido" | "Preparando" | "Servido"
-): Promise<any> {
+  status: "Received" | "Preparing" | "Served"
+): Promise<{ message: string }> {
   const res = await fetch(`/api/orders/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ estado }),
+    body: JSON.stringify({ status }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -274,11 +274,11 @@ export async function cancelOrder(
   id: number,
   reason: string,
   user: string = "Mozo Salón"
-): Promise<{ mensaje: string }> {
+): Promise<{ message: string }> {
   const res = await fetch(`/api/orders/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ estado: "Cancelado", motivo: reason, usuario: user }),
+    body: JSON.stringify({ status: "Cancelled", reason, user }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -298,23 +298,23 @@ export async function listPaymentMethods(): Promise<PaymentMethodItem[]> {
 }
 
 export async function registerSale(data: {
-  id_pedido: number;
-  id_tipo_pago?: number;
-  pagos?: Array<{ id_tipo_pago: number; monto: number }>;
-  tipo_comprobante: "Boleta" | "Factura" | "Ticket";
-  cliente?: {
-    nro_doc?: string;
-    nombre: string;
-    tipo_persona?: "Natural" | "Juridico";
-    telefono?: string;
+  orderId: number;
+  paymentTypeId?: number;
+  payments?: Array<{ paymentTypeId: number; amount: number }>;
+  voucherType: "Boleta" | "Factura" | "Ticket";
+  customer?: {
+    documentNumber?: string;
+    firstName: string;
+    personType?: "Natural" | "Legal";
+    phone?: string;
   };
-  monto_recibido?: number;
-  pasarela?: {
-    proveedor?: string;
-    modo?: "tap_to_pay" | "qr" | "manual";
-    operacion_id?: string;
+  amountReceived?: number;
+  gateway?: {
+    provider?: string;
+    mode?: "tap_to_pay" | "qr" | "manual";
+    operationId?: string;
   };
-}): Promise<{ mensaje: string; comprobante: IssuedVoucher }> {
+}): Promise<{ message: string; invoice: IssuedVoucher }> {
   const res = await fetch("/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -339,12 +339,12 @@ export async function listCustomers(search?: string): Promise<CustomerItem[]> {
 }
 
 export async function createCustomer(data: {
-  nro_doc?: string;
-  nombre: string;
-  apellido?: string;
-  telefono?: string;
-  tipo_persona?: "Natural" | "Juridico";
-}): Promise<{ mensaje: string; cliente: CustomerItem }> {
+  documentNumber?: string;
+  firstName: string;
+  lastName?: string;
+  phone?: string;
+  personType?: "Natural" | "Legal";
+}): Promise<{ message: string; customer: CustomerItem }> {
   const res = await fetch("/api/customers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -358,13 +358,12 @@ export async function createCustomer(data: {
 }
 
 export async function listDailySales(
-  date: string = "hoy"
-): Promise<{ data: IssuedVoucher[]; resumenDiario: DailySalesSummary }> {
-  const res = await fetch(`/api/sales?fecha=${encodeURIComponent(date)}`, { cache: "no-store" });
+  date: string = "today"
+): Promise<{ data: IssuedVoucher[]; dailySummary: DailySalesSummary }> {
+  const res = await fetch(`/api/sales?date=${encodeURIComponent(date)}`, { cache: "no-store" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "No se pudieron obtener las ventas del día.");
   }
   return res.json();
 }
-

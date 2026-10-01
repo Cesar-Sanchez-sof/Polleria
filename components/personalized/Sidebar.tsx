@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
-import { Utensils, Component, CreditCardReader, ChefHat, User, LogOut, X, Menu } from "lucide-react";
+import { Component, User, LogOut, X, Menu } from "lucide-react";
 import Link from "next/link";
 
 import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface SidebarProps {
@@ -14,16 +14,42 @@ interface SidebarProps {
 
 export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: SidebarProps = {}) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = typeof onCloseMobile === "function";
   const mobileOpen = isControlled ? !!controlledOpen : internalOpen;
 
   const isLinkActive = (href: string) => {
     if (!pathname || href === "#") return false;
-    const cleanHref = href.split("?")[0];
+
+    const [hrefPath, hrefQuery = ""] = href.split("?");
+    const cleanHref = hrefPath || "/";
+
     if (cleanHref === "/") return pathname === "/";
-    if (pathname === cleanHref || pathname.startsWith(cleanHref + "/")) return true;
-    return false;
+    if (!(pathname === cleanHref || pathname.startsWith(cleanHref + "/"))) return false;
+
+    // Si el enlace trae query (p.ej. ?tab=tables), solo activo si coincide exactamente
+    if (hrefQuery) {
+      const wanted = new URLSearchParams(hrefQuery);
+      for (const [key, value] of wanted.entries()) {
+        const current = searchParams.get(key);
+        // /sales sin ?tab se trata como pestaña "tables" por defecto
+        if (key === "tab" && value === "tables" && cleanHref === "/sales") {
+          if (current && current !== "tables") return false;
+          continue;
+        }
+        if (current !== value) return false;
+      }
+      return true;
+    }
+
+    // Enlace sin query a /sales: activo solo si no hay tab o es el default "tables"
+    if (cleanHref === "/sales") {
+      const tab = searchParams.get("tab");
+      return !tab || tab === "tables";
+    }
+
+    return true;
   };
 
   const getLinkClass = (href: string) => {
@@ -32,14 +58,6 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
       return "justify-between flex items-center px-space-md py-1 rounded-lg text-[12px] font-bold transition-all bg-primary/10 text-primary shadow-xs";
     }
     return "justify-between flex items-center px-space-md py-1 rounded-lg text-[12px] font-medium transition-all text-on-surface-variant hover:bg-surface-container hover:text-on-surface";
-  };
-
-  const getIconLinkClass = (href: string) => {
-    const active = isLinkActive(href);
-    if (active) {
-      return "flex items-center gap-2 px-space-md py-1.5 rounded-lg text-[12px] font-bold transition-all bg-primary/10 text-primary shadow-xs";
-    }
-    return "flex items-center gap-2 px-space-md py-1.5 rounded-lg text-[12px] font-semibold transition-all text-on-surface hover:bg-surface-container";
   };
 
   const handleClose = () => {
@@ -75,9 +93,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
         />
       )}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
+        className={`fixed left-0 top-0 h-screen w-64 bg-surface z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high transition-transform duration-300 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          }`}
       >
         <div className="flex flex-col gap-space-sm overflow-y-auto">
           {/* Header */}
@@ -110,56 +127,11 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs mt-space-xs">
-            {/* RESTAURANTE & SALÓN Section */}
-            <div className="px-space-md pt-1 pb-0.5">
-              <span className="font-label text-[10px] uppercase text-outline font-bold tracking-wider">
-                Restaurante & Salón
-              </span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <Link
-                className={getIconLinkClass("/restaurant/tables")}
-                data-path="tables"
-                href="/restaurant/tables"
-                target="_top"
-                onClick={handleLinkClick}
-              >
-                <Utensils className="w-4.5 h-4.5 text-primary" />
-                <span>Mesas y Salón</span>
-              </Link>
-              <Link
-                className={getIconLinkClass("/restaurant/kitchen")}
-                data-path="kitchen"
-                href="/restaurant/kitchen"
-                target="_top"
-                onClick={handleLinkClick}
-              >
-                <ChefHat className="w-4.5 h-4.5 text-tertiary" />
-                <span>Cocina (KDS)</span>
-              </Link>
-              <Link
-                className={getIconLinkClass("/restaurant/cashier")}
-                data-path="cashier"
-                href="/restaurant/cashier"
-                target="_top"
-                onClick={handleLinkClick}
-              >
-                <CreditCardReader className="w-4.5 h-4.5 text-secondary" />
-                <span>Caja y Cobro</span>
-              </Link>
-            </div>
-
-            <div className="px-space-md pt-2 pb-0.5">
-              <span className="font-label text-[10px] uppercase text-outline font-bold tracking-wider">
-                Módulos ERP
-              </span>
-            </div>
-
             {/* VENTAS Section */}
             <div className="flex flex-col gap-0.5">
               <div className="px-space-md pt-1">
                 <span className="font-label text-[11px] font-bold text-on-surface">
-                  VENTAS
+                  VENTAS Y MESAS
                 </span>
               </div>
               <div className="flex flex-col pl-2 gap-0.5">
@@ -170,7 +142,25 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Gestión de Mesas y Ventas
+                  Salón de mesas
+                </Link>
+                <Link
+                  className={getLinkClass("/sales?tab=kitchen")}
+                  data-path="kitchen"
+                  href="/sales?tab=kitchen"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Cocina (KDS)
+                </Link>
+                <Link
+                  className={getLinkClass("/sales?tab=cashier")}
+                  data-path="caja-ventanilla"
+                  href="/sales?tab=cashier"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Caja y ventanilla
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=customers")}

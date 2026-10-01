@@ -7,52 +7,52 @@ export async function getOrCreateActiveEmployee(
   tx: PrismaTx = prisma,
   requestedEmployeeId?: number
 ): Promise<number> {
-  if (!tx || !tx.empleado) {
+  if (!tx || !tx.employee) {
     return requestedEmployeeId || 1;
   }
 
-  // 1. Si se solicita un id_empleado, verificar si existe
+  // 1. Si se solicita un employeeId, verificar si existe
   if (requestedEmployeeId) {
-    const employee = await tx.empleado.findUnique({
-      where: { id_empleado: requestedEmployeeId },
+    const employee = await tx.employee.findUnique({
+      where: { id: requestedEmployeeId },
     });
     if (employee) {
-      return employee.id_empleado;
+      return employee.id;
     }
   }
 
   // 2. Buscar cualquier empleado activo existente
-  const existingEmployee = await tx.empleado.findFirst({
-    where: { estado: true },
-    orderBy: { id_empleado: "asc" },
+  const existingEmployee = await tx.employee.findFirst({
+    where: { active: true },
+    orderBy: { id: "asc" },
   });
 
   if (existingEmployee) {
-    return existingEmployee.id_empleado;
+    return existingEmployee.id;
   }
 
   // 3. Si no existe ningún empleado activo, buscar cualquier empleado
-  const anyEmployee = await tx.empleado.findFirst({
-    orderBy: { id_empleado: "asc" },
+  const anyEmployee = await tx.employee.findFirst({
+    orderBy: { id: "asc" },
   });
 
   if (anyEmployee) {
-    return anyEmployee.id_empleado;
+    return anyEmployee.id;
   }
 
   // 4. Si no existe ningún empleado en la base de datos, crear uno por defecto
-  const newEmployee = await tx.empleado.upsert({
+  const newEmployee = await tx.employee.upsert({
     where: { dni: "00000000" },
-    update: { estado: true },
+    update: { active: true },
     create: {
       dni: "00000000",
-      primer_nombre: "Administrador",
-      apellido_paterno: "Sistema",
-      cargo: "Administrador",
+      firstName: "Administrador",
+      paternalLastName: "Sistema",
+      position: "Administrador",
       area: "Administración",
-      estado: true,
+      active: true,
     },
   });
 
-  return newEmployee.id_empleado;
+  return newEmployee.id;
 }

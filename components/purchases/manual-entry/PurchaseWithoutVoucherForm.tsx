@@ -20,16 +20,18 @@ import { Plus, Receipt } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 interface Supply {
-  id_insumo: number;
-  nombre: string;
-  unidad_medida: string;
+  id: number;
+  name: string;
+  unitOfMeasure: string;
 }
 
 interface PurchaseWithoutVoucherFormProps {
   supplies: Supply[];
 }
 
-export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: PurchaseWithoutVoucherFormProps) {
+export function PurchaseWithoutVoucherForm({
+  supplies: initialSupplies,
+}: PurchaseWithoutVoucherFormProps) {
   const router = useRouter();
   const [suppliesList, setSuppliesList] = useState<Supply[]>(initialSupplies);
   const [loading, setLoading] = useState(false);
@@ -38,12 +40,12 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
   const [quantity, setQuantity] = useState<number | "">(1);
   const [amountPaid, setAmountPaid] = useState<number | "">("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [informalSupplier, setInformalSupplier] = useState("");
+  const [informalPlaceOrVendor, setInformalPlaceOrVendor] = useState("");
   const [reason, setReason] = useState("");
 
   const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
 
-  const selectedSupply = suppliesList.find((i) => i.id_insumo === Number(supplyId));
+  const selectedSupply = suppliesList.find((i) => i.id === Number(supplyId));
   const calculatedUnitCost =
     Number(quantity) > 0 && Number(amountPaid) > 0
       ? Number(amountPaid) / Number(quantity)
@@ -67,12 +69,12 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
     setLoading(true);
     try {
       await registerPurchaseWithoutVoucher({
-        id_insumo: Number(supplyId),
-        cantidad: Number(quantity),
-        monto_pagado: Number(amountPaid),
-        fecha: date,
-        lugar_o_proveedor_informal: informalSupplier || undefined,
-        motivo: reason || undefined,
+        supplyId: Number(supplyId),
+        quantity: Number(quantity),
+        amountPaid: Number(amountPaid),
+        date,
+        informalPlaceOrVendor: informalPlaceOrVendor || undefined,
+        reason: reason || undefined,
       });
 
       toast.success("Compra menor registrada exitosamente");
@@ -80,7 +82,7 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
       setSupplyId("");
       setQuantity(1);
       setAmountPaid("");
-      setInformalSupplier("");
+      setInformalPlaceOrVendor("");
       setReason("");
     } catch (err: any) {
       toast.error(err.message || "Error al registrar la compra menor");
@@ -92,7 +94,7 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
   const handleSupplyCreated = (created: Supply) => {
     if (created) {
       setSuppliesList((prev) => [...prev, created]);
-      setSupplyId(created.id_insumo);
+      setSupplyId(created.id);
     }
   };
 
@@ -110,26 +112,26 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
           onClick={() => setSupplyDialogOpen(true)}
           className="h-7 text-xs flex items-center gap-1"
         >
-          <Plus className="h-3.5 w-3.5" /> + Crear Supply
+          <Plus className="h-3.5 w-3.5" /> + Crear Insumo
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1.5 md:col-span-1">
-          <Label htmlFor="insumo">Insumo Comprado *</Label>
+          <Label htmlFor="supply">Insumo Comprado *</Label>
           <Select
             value={supplyId ? supplyId.toString() : ""}
             onValueChange={(val) => setSupplyId(Number(val))}
           >
-            <SelectTrigger id="insumo">
+            <SelectTrigger id="supply">
               <SelectValue placeholder="Seleccionar insumo">
-                {selectedSupply ? selectedSupply.nombre : undefined}
+                {selectedSupply ? selectedSupply.name : undefined}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {suppliesList.map((i) => (
-                <SelectItem key={i.id_insumo} value={i.id_insumo.toString()}>
-                  {i.nombre} ({i.unidad_medida})
+                <SelectItem key={i.id} value={i.id.toString()}>
+                  {i.name} ({i.unitOfMeasure})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -137,11 +139,9 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="cantidad">
-            Cantidad *
-          </Label>
+          <Label htmlFor="quantity">Cantidad *</Label>
           <Input
-            id="cantidad"
+            id="quantity"
             type="number"
             step="0.01"
             min="0.01"
@@ -152,9 +152,9 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="monto_pagado">Monto Pagado Total (S/) *</Label>
+          <Label htmlFor="amountPaid">Monto Pagado Total (S/) *</Label>
           <Input
-            id="monto_pagado"
+            id="amountPaid"
             type="number"
             step="0.01"
             min="0.01"
@@ -168,9 +168,9 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="fecha">Fecha de Compra</Label>
+          <Label htmlFor="date">Fecha de Compra</Label>
           <Input
-            id="fecha"
+            id="date"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -178,20 +178,20 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="prov_informal">Lugar / Supplier Informal</Label>
+          <Label htmlFor="informalPlaceOrVendor">Lugar / Proveedor Informal</Label>
           <Input
-            id="prov_informal"
+            id="informalPlaceOrVendor"
             placeholder="Ej: Mercado Central, Bodega Don José, Vendedor Ambulante"
-            value={informalSupplier}
-            onChange={(e) => setInformalSupplier(e.target.value)}
+            value={informalPlaceOrVendor}
+            onChange={(e) => setInformalPlaceOrVendor(e.target.value)}
           />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="motivo">Motivo / Justificación</Label>
+        <Label htmlFor="reason">Motivo / Justificación</Label>
         <Textarea
-          id="motivo"
+          id="reason"
           placeholder="Ej: Faltó cilantro para el turno noche, compra de emergencia sin comprobante..."
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -203,7 +203,7 @@ export function PurchaseWithoutVoucherForm({ supplies: initialSupplies }: Purcha
         <div className="text-xs text-muted-foreground flex justify-between bg-muted/30 p-2 rounded border">
           <span>Costo unitario implícito:</span>
           <span className="font-semibold text-foreground">
-            S/ {calculatedUnitCost.toFixed(2)} / {selectedSupply?.unidad_medida || "unidad"}
+            S/ {calculatedUnitCost.toFixed(2)} / {selectedSupply?.unitOfMeasure || "unidad"}
           </span>
         </div>
       )}

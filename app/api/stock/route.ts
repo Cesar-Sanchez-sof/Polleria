@@ -12,44 +12,44 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/stock
  * Permite consultar el stock en tiempo real desde Redis Cloud.
- * Si se pasa ?id_plato=X retorna el stock de ese plato.
+ * Si se pasa ?dishId=X retorna el stock de ese plato.
  * Si no se pasa parámetro, retorna el stock de todos los platos activos.
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const idPlatoParam = searchParams.get("id_plato");
+    const dishIdParam = searchParams.get("dishId") ?? searchParams.get("id_plato");
 
-    if (idPlatoParam) {
-      const idPlato = Number.parseInt(idPlatoParam, 10);
-      if (Number.isNaN(idPlato)) {
+    if (dishIdParam) {
+      const dishId = Number.parseInt(dishIdParam, 10);
+      if (Number.isNaN(dishId)) {
         return Response.json({ error: "ID de plato inválido." }, { status: 400 });
       }
 
-      const stock = await getDishStock(idPlato);
-      return Response.json({ idPlato, stock, disponible: stock > 0 });
+      const stock = await getDishStock(dishId);
+      return Response.json({ dishId, stock, available: stock > 0 });
     }
 
     // Listar todos los platos activos y su stock actual en Redis
-    const platos = await prisma.plato.findMany({
-      where: { estado: true },
-      select: { id_plato: true, nombre: true, precio: true }
+    const dishes = await prisma.dish.findMany({
+      where: { active: true },
+      select: { id: true, name: true, price: true }
     });
 
-    const stockPlatos = await Promise.all(
-      platos.map(async (p) => {
-        const stock = await getDishStock(p.id_plato);
+    const stockDishes = await Promise.all(
+      dishes.map(async (p) => {
+        const stock = await getDishStock(p.id);
         return {
-          idPlato: p.id_plato,
-          nombre: p.nombre,
-          precio: Number(p.precio),
+          dishId: p.id,
+          name: p.name,
+          price: Number(p.price),
           stock,
-          disponible: stock > 0
+          available: stock > 0
         };
       })
     );
 
-    return Response.json({ data: stockPlatos, total: stockPlatos.length });
+    return Response.json({ data: stockDishes, total: stockDishes.length });
   } catch (error) {
     console.error("[api/stock] Error al consultar stock:", error);
     return Response.json(
@@ -62,40 +62,40 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/stock
  * Permite a Cocina o Administrador fijar el stock inicial del día en Redis Cloud.
- * Body: { id_plato: number, stock: number }
+ * Body: { dishId: number, stock: number }
  */
 export async function POST(request: NextRequest) {
   try {
-    const cuerpo = await request.json().catch(() => null);
-    if (!cuerpo || typeof cuerpo !== "object") {
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
     }
 
-    const idPlato = Number(cuerpo.id_plato);
-    const stock = Number(cuerpo.stock);
+    const dishId = Number(body.dishId ?? body.id_plato);
+    const stock = Number(body.stock);
 
-    if (Number.isNaN(idPlato) || Number.isNaN(stock) || stock < 0) {
+    if (Number.isNaN(dishId) || Number.isNaN(stock) || stock < 0) {
       return Response.json(
-        { error: "id_plato y stock numérico (>= 0) son obligatorios." },
+        { error: "dishId y stock numérico (>= 0) son obligatorios." },
         { status: 400 }
       );
     }
 
-    const plato = await prisma.plato.findUnique({
-      where: { id_plato: idPlato }
+    const dish = await prisma.dish.findUnique({
+      where: { id: dishId }
     });
 
-    if (!plato) {
+    if (!dish) {
       return Response.json({ error: "El plato especificado no existe." }, { status: 404 });
     }
 
-    const nuevoStock = await setDishStock(idPlato, stock);
+    const newStock = await setDishStock(dishId, stock);
 
     return Response.json({
-      mensaje: `Stock actualizado con éxito en Redis Cloud para '${plato.nombre}'.`,
-      idPlato,
-      plato: plato.nombre,
-      stock: nuevoStock
+      message: `Stock actualizado con éxito en Redis Cloud para '${dish.name}'.`,
+      dishId,
+      dish: dish.name,
+      stock: newStock
     });
   } catch (error) {
     console.error("[api/stock] Error al fijar stock:", error);
@@ -109,50 +109,50 @@ export async function POST(request: NextRequest) {
 /**
  * PATCH /api/stock
  * Permite incrementar o decrementar stock rápidamente (ej: reposición en cocina).
- * Body: { id_plato: number, cantidad: number, operacion: "agregar" | "reducir" }
+ * Body: { dishId: number, quantity: number, operation: "add" | "reduce" }
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const cuerpo = await request.json().catch(() => null);
-    if (!cuerpo || typeof cuerpo !== "object") {
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
     }
 
-    const idPlato = Number(cuerpo.id_plato);
-    const cantidad = Number(cuerpo.cantidad);
-    const operacion = cuerpo.operacion; // "agregar" o "reducir"
+    const dishId = Number(body.dishId ?? body.id_plato);
+    const quantity = Number(body.quantity ?? body.cantidad);
+    const operation = body.operation ?? body.operacion; // "add"/"agregar" o "reduce"/"reducir"
 
-    if (Number.isNaN(idPlato) || Number.isNaN(cantidad) || cantidad <= 0) {
+    if (Number.isNaN(dishId) || Number.isNaN(quantity) || quantity <= 0) {
       return Response.json(
-        { error: "id_plato y cantidad positiva son requeridos." },
+        { error: "dishId y quantity positiva son requeridos." },
         { status: 400 }
       );
     }
 
-    if (operacion === "agregar") {
-      const nuevoStock = await releaseDishStock(idPlato, cantidad);
+    if (operation === "add" || operation === "agregar") {
+      const newStock = await releaseDishStock(dishId, quantity);
       return Response.json({
-        mensaje: `Se agregaron ${cantidad} unidades al stock en Redis.`,
-        idPlato,
-        stock: nuevoStock
+        message: `Se agregaron ${quantity} unidades al stock en Redis.`,
+        dishId,
+        stock: newStock
       });
-    } else if (operacion === "reducir") {
-      const resultado = await reserveDishStock(idPlato, cantidad);
-      if (!resultado.success) {
+    } else if (operation === "reduce" || operation === "reducir") {
+      const result = await reserveDishStock(dishId, quantity);
+      if (!result.success) {
         return Response.json(
-          { error: resultado.message || "Stock insuficiente para reducir." },
+          { error: result.message || "Stock insuficiente para reducir." },
           { status: 400 }
         );
       }
       return Response.json({
-        mensaje: `Se descontaron ${cantidad} unidades en Redis.`,
-        idPlato,
-        stock: resultado.remainingStock
+        message: `Se descontaron ${quantity} unidades en Redis.`,
+        dishId,
+        stock: result.remainingStock
       });
     }
 
     return Response.json(
-      { error: "operacion debe ser 'agregar' o 'reducir'." },
+      { error: "operation debe ser 'add' o 'reduce'." },
       { status: 400 }
     );
   } catch (error) {

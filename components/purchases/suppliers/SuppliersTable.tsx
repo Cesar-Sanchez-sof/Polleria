@@ -18,16 +18,16 @@ import { toast } from "sonner";
 import { Plus, Search, Edit2, Power } from "lucide-react";
 
 interface Supplier {
-  id_proveedor: number;
+  id: number;
   ruc: string;
-  razon_social: string;
-  nombre_comercial?: string | null;
-  nombre?: string | null;
-  persona_contacto?: string | null;
-  direccion?: string | null;
-  telefono?: string | null;
-  correo?: string | null;
-  estado: boolean;
+  businessName: string;
+  tradeName?: string | null;
+  name?: string | null;
+  contactPerson?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  active: boolean;
 }
 
 interface SuppliersTableProps {
@@ -44,8 +44,8 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
     const q = search.toLowerCase();
     return (
       p.ruc.toLowerCase().includes(q) ||
-      p.razon_social.toLowerCase().includes(q) ||
-      (p.persona_contacto && p.persona_contacto.toLowerCase().includes(q))
+      p.businessName.toLowerCase().includes(q) ||
+      (p.contactPerson && p.contactPerson.toLowerCase().includes(q))
     );
   });
 
@@ -60,12 +60,12 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   };
 
   const handleToggleStatus = async (proveedor: Supplier) => {
-    const newStatus = !proveedor.estado;
+    const newStatus = !proveedor.active;
     try {
-      await setSupplierStatus(proveedor.id_proveedor, newStatus);
+      await setSupplierStatus(proveedor.id, newStatus);
       setSuppliers((prev) =>
         prev.map((p) =>
-          p.id_proveedor === proveedor.id_proveedor ? { ...p, estado: newStatus } : p
+          p.id === proveedor.id ? { ...p, active: newStatus } : p
         )
       );
       toast.success(
@@ -79,7 +79,7 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   const handleSuccess = (saved?: Supplier) => {
     if (!saved) return;
     setSuppliers((prev) => {
-      const idx = prev.findIndex((p) => p.id_proveedor === saved.id_proveedor);
+      const idx = prev.findIndex((p) => p.id === saved.id);
       if (idx >= 0) {
         const copy = [...prev];
         copy[idx] = saved;
@@ -102,7 +102,7 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
           />
         </div>
         <Button onClick={handleNew} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nuevo Supplier
+          <Plus className="h-4 w-4" /> Nuevo Proveedor
         </Button>
       </div>
 
@@ -111,7 +111,7 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>N° Documento</TableHead>
-              <TableHead>Razón Social / Supplier</TableHead>
+              <TableHead>Razón Social / Proveedor</TableHead>
               <TableHead>Contacto</TableHead>
               <TableHead>Teléfono / Correo</TableHead>
               <TableHead>Estado</TableHead>
@@ -122,12 +122,12 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                  No se encontraron suppliers registrados.
+                  No se encontraron proveedores registrados.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((p) => (
-                <TableRow key={p.id_proveedor}>
+                <TableRow key={p.id}>
                   <TableCell className="font-mono font-medium">
                     <span className="text-xs text-muted-foreground block">
                       {p.ruc.length === 8 ? "DNI" : "RUC"}
@@ -135,25 +135,25 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
                     {p.ruc}
                   </TableCell>
                   <TableCell>
-                    <span className="font-semibold text-foreground">{p.razon_social}</span>
+                    <span className="font-semibold text-foreground">{p.businessName}</span>
                   </TableCell>
-                  <TableCell>{p.persona_contacto || "-"}</TableCell>
+                  <TableCell>{p.contactPerson || "-"}</TableCell>
                   <TableCell>
                     <div className="text-xs">
-                      {p.telefono && <div>Tel: {p.telefono}</div>}
-                      {p.correo && <div className="text-muted-foreground">{p.correo}</div>}
-                      {!p.telefono && !p.correo && "-"}
+                      {p.phone && <div>Tel: {p.phone}</div>}
+                      {p.email && <div className="text-muted-foreground">{p.email}</div>}
+                      {!p.phone && !p.email && "-"}
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge
                       className={
-                        p.estado
+                        p.active
                           ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
                           : "bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200"
                       }
                     >
-                      {p.estado ? "Activo" : "Inactivo"}
+                      {p.active ? "Activo" : "Inactivo"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
@@ -169,8 +169,8 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleToggleStatus(p)}
-                      className={p.estado ? "text-destructive" : "text-emerald-600"}
-                      title={p.estado ? "Desactivar" : "Activar"}
+                      className={p.active ? "text-destructive" : "text-emerald-600"}
+                      title={p.active ? "Desactivar" : "Activar"}
                     >
                       <Power className="h-4 w-4" />
                     </Button>

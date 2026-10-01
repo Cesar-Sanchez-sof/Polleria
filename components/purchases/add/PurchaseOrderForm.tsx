@@ -21,15 +21,15 @@ import { Plus, Trash2, ShoppingCart, UserPlus } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 interface Supplier {
-  id_proveedor: number;
+  id: number;
   ruc: string;
-  razon_social: string;
+  businessName: string;
 }
 
 interface Supply {
-  id_insumo: number;
-  nombre: string;
-  unidad_medida: string;
+  id: number;
+  name: string;
+  unitOfMeasure: string;
 }
 
 interface PurchaseOrderFormProps {
@@ -38,9 +38,9 @@ interface PurchaseOrderFormProps {
 }
 
 interface LineForm {
-  id_insumo: number | "";
-  cantidad: number | "";
-  precio_unitario: number | "";
+  supplyId: number | "";
+  quantityOrdered: number | "";
+  unitPrice: number | "";
 }
 
 export function PurchaseOrderForm({
@@ -55,17 +55,16 @@ export function PurchaseOrderForm({
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<LineForm[]>([
-    { id_insumo: "", cantidad: 1, precio_unitario: 0 },
+    { supplyId: "", quantityOrdered: 1, unitPrice: 0 },
   ]);
   const [loading, setLoading] = useState(false);
 
-  // Dialog states for creating provider or insumo on the fly
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
   const [lineTargetSupply, setLineTargetSupply] = useState<number | null>(null);
 
   const handleAddLine = () => {
-    setLines((prev) => [...prev, { id_insumo: "", cantidad: 1, precio_unitario: 0 }]);
+    setLines((prev) => [...prev, { supplyId: "", quantityOrdered: 1, unitPrice: 0 }]);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -85,13 +84,12 @@ export function PurchaseOrderForm({
     });
   };
 
-  // Calculations
   const { subtotal, igv, total } = useMemo(() => {
     let sub = 0;
     lines.forEach((l) => {
-      const cant = Number(l.cantidad) || 0;
-      const prec = Number(l.precio_unitario) || 0;
-      sub += cant * prec;
+      const qty = Number(l.quantityOrdered) || 0;
+      const price = Number(l.unitPrice) || 0;
+      sub += qty * price;
     });
     const i = Math.round(sub * 0.18 * 100) / 100;
     const tot = sub + i;
@@ -104,10 +102,10 @@ export function PurchaseOrderForm({
       toast.error("Debe seleccionar un proveedor");
       return;
     }
-    const detallesValidos = lines.filter(
-      (l) => l.id_insumo !== "" && Number(l.cantidad) > 0
+    const validItems = lines.filter(
+      (l) => l.supplyId !== "" && Number(l.quantityOrdered) > 0
     );
-    if (detallesValidos.length === 0) {
+    if (validItems.length === 0) {
       toast.error("Debe ingresar al menos un insumo con cantidad válida");
       return;
     }
@@ -115,23 +113,22 @@ export function PurchaseOrderForm({
     setLoading(true);
     try {
       const res = await createPurchaseOrder({
-        id_proveedor: Number(supplierId),
-        fecha_esperada: expectedDate || null,
-        observaciones: notes || undefined,
-        detalles: detallesValidos.map((l) => ({
-          id_insumo: Number(l.id_insumo),
-          cantidad_pedida: Number(l.cantidad),
-          precio_unitario: Number(l.precio_unitario),
+        supplierId: Number(supplierId),
+        expectedAt: expectedDate || null,
+        notes: notes || undefined,
+        items: validItems.map((l) => ({
+          supplyId: Number(l.supplyId),
+          quantityOrdered: Number(l.quantityOrdered),
+          unitPrice: Number(l.unitPrice),
         })),
       });
 
-      toast.success(`Orden de Compra ${res.numero_orden} creada exitosamente`);
-      
-      // Limpiar casilleros
+      toast.success(`Orden de Compra ${res.orderNumber} creada exitosamente`);
+
       setSupplierId("");
       setExpectedDate("");
       setNotes("");
-      setLines([{ id_insumo: "", cantidad: 1, precio_unitario: 0 }]);
+      setLines([{ supplyId: "", quantityOrdered: 1, unitPrice: 0 }]);
 
       router.push("/purchases/receiving");
       router.refresh();
@@ -145,7 +142,7 @@ export function PurchaseOrderForm({
   const handleSupplierCreated = (created: any) => {
     if (created) {
       setSuppliers((prev) => [created, ...prev]);
-      setSupplierId(created.id_proveedor);
+      setSupplierId(created.id);
     }
   };
 
@@ -153,12 +150,12 @@ export function PurchaseOrderForm({
     if (created) {
       setSupplies((prev) => [created, ...prev]);
       if (lineTargetSupply !== null) {
-        handleLineChange(lineTargetSupply, "id_insumo", created.id_insumo);
+        handleLineChange(lineTargetSupply, "supplyId", created.id);
       }
     }
   };
 
-  const selectedSupplier = suppliers.find((p) => p.id_proveedor === Number(supplierId));
+  const selectedSupplier = suppliers.find((p) => p.id === Number(supplierId));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -167,7 +164,7 @@ export function PurchaseOrderForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="proveedor">Proveedor *</Label>
+              <Label htmlFor="supplier">Proveedor *</Label>
               <Button
                 type="button"
                 variant="ghost"
@@ -175,22 +172,22 @@ export function PurchaseOrderForm({
                 className="h-6 text-xs text-primary flex items-center gap-1"
                 onClick={() => setSupplierDialogOpen(true)}
               >
-                <UserPlus className="h-3 w-3" /> + Nuevo Supplier
+                <UserPlus className="h-3 w-3" /> + Nuevo Proveedor
               </Button>
             </div>
             <Select
               value={supplierId ? supplierId.toString() : ""}
               onValueChange={(val) => setSupplierId(Number(val))}
             >
-              <SelectTrigger id="proveedor">
+              <SelectTrigger id="supplier">
                 <SelectValue placeholder="Seleccionar Proveedor">
-                  {selectedSupplier ? selectedSupplier.razon_social : undefined}
+                  {selectedSupplier ? selectedSupplier.businessName : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {suppliers.map((p) => (
-                  <SelectItem key={p.id_proveedor} value={p.id_proveedor.toString()}>
-                    {p.razon_social}
+                  <SelectItem key={p.id} value={p.id.toString()}>
+                    {p.businessName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -198,9 +195,9 @@ export function PurchaseOrderForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="fecha_esperada">Fecha Esperada de Entrega</Label>
+            <Label htmlFor="expectedAt">Fecha Esperada de Entrega</Label>
             <Input
-              id="fecha_esperada"
+              id="expectedAt"
               type="date"
               value={expectedDate}
               onChange={(e) => setExpectedDate(e.target.value)}
@@ -209,9 +206,9 @@ export function PurchaseOrderForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="observaciones">Observaciones / Notas</Label>
+          <Label htmlFor="notes">Observaciones / Notas</Label>
           <Textarea
-            id="observaciones"
+            id="notes"
             placeholder="Especificaciones de entrega, horario o lugar..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -235,10 +232,10 @@ export function PurchaseOrderForm({
         </div>
 
         <div className="space-y-3">
-          {lines.map((linea, index) => {
-            const selectedSupply = supplies.find((i) => i.id_insumo === Number(linea.id_insumo));
-            const subtotalLinea =
-              (Number(linea.cantidad) || 0) * (Number(linea.precio_unitario) || 0);
+          {lines.map((line, index) => {
+            const selectedSupply = supplies.find((i) => i.id === Number(line.supplyId));
+            const lineSubtotal =
+              (Number(line.quantityOrdered) || 0) * (Number(line.unitPrice) || 0);
 
             return (
               <div
@@ -247,7 +244,7 @@ export function PurchaseOrderForm({
               >
                 <div className="col-span-12 md:col-span-5 space-y-1">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs">Supply #{index + 1}</Label>
+                    <Label className="text-xs">Insumo #{index + 1}</Label>
                     <button
                       type="button"
                       className="text-[11px] text-primary hover:underline"
@@ -256,24 +253,24 @@ export function PurchaseOrderForm({
                         setSupplyDialogOpen(true);
                       }}
                     >
-                      + Crear Supply
+                      + Crear Insumo
                     </button>
                   </div>
                   <Select
-                    value={linea.id_insumo ? linea.id_insumo.toString() : ""}
+                    value={line.supplyId ? line.supplyId.toString() : ""}
                     onValueChange={(val) =>
-                      handleLineChange(index, "id_insumo", Number(val))
+                      handleLineChange(index, "supplyId", Number(val))
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar insumo">
-                        {selectedSupply ? selectedSupply.nombre : undefined}
+                        {selectedSupply ? selectedSupply.name : undefined}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {supplies.map((i) => (
-                        <SelectItem key={i.id_insumo} value={i.id_insumo.toString()}>
-                          {i.nombre}
+                        <SelectItem key={i.id} value={i.id.toString()}>
+                          {i.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -281,16 +278,14 @@ export function PurchaseOrderForm({
                 </div>
 
                 <div className="col-span-6 md:col-span-2 space-y-1">
-                  <Label className="text-xs">
-                    Cantidad
-                  </Label>
+                  <Label className="text-xs">Cantidad</Label>
                   <Input
                     type="number"
                     step="0.01"
                     min="0.01"
-                    value={linea.cantidad}
+                    value={line.quantityOrdered}
                     onChange={(e) =>
-                      handleLineChange(index, "cantidad", parseFloat(e.target.value) || "")
+                      handleLineChange(index, "quantityOrdered", parseFloat(e.target.value) || "")
                     }
                   />
                 </div>
@@ -301,11 +296,11 @@ export function PurchaseOrderForm({
                     type="number"
                     step="0.01"
                     min="0"
-                    value={linea.precio_unitario}
+                    value={line.unitPrice}
                     onChange={(e) =>
                       handleLineChange(
                         index,
-                        "precio_unitario",
+                        "unitPrice",
                         parseFloat(e.target.value) || ""
                       )
                     }
@@ -315,7 +310,7 @@ export function PurchaseOrderForm({
                 <div className="col-span-10 md:col-span-2 space-y-1 text-right">
                   <Label className="text-xs text-muted-foreground">Subtotal</Label>
                   <div className="font-semibold text-sm py-1.5">
-                    S/ {subtotalLinea.toFixed(2)}
+                    S/ {lineSubtotal.toFixed(2)}
                   </div>
                 </div>
 
@@ -336,7 +331,6 @@ export function PurchaseOrderForm({
           })}
         </div>
 
-        {/* Resumen Totales */}
         <div className="flex justify-end pt-4 border-t">
           <div className="w-full max-w-xs space-y-2 text-sm">
             <div className="flex justify-between text-muted-foreground">
@@ -366,7 +360,7 @@ export function PurchaseOrderForm({
         </Button>
         <Button type="submit" disabled={loading} className="flex items-center gap-2">
           {loading ? <Spinner className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
-          Generar Order de Compra
+          Generar Orden de Compra
         </Button>
       </div>
 
