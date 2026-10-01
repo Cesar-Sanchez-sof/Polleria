@@ -154,7 +154,7 @@ export function NewVoucherDialog({
               <SelectTrigger id="recepcion">
                 <SelectValue placeholder="Seleccionar Recepción">
                   {selectedReceipt
-                    ? `Recepción #${recepcionSel.id_recepcion} - ${recepcionSel.orden_compra.proveedor.razon_social} (Ord #${recepcionSel.orden_compra.numero_orden})`
+                    ? `Recepción #${selectedReceipt.id_recepcion} - ${selectedReceipt.orden_compra.proveedor.razon_social} (Ord #${selectedReceipt.orden_compra.numero_orden})`
                     : undefined}
                 </SelectValue>
               </SelectTrigger>

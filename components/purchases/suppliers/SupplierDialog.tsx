@@ -89,7 +89,7 @@ export function SupplierDialog({
     e.preventDefault();
     const docLength = documentType === "RUC" ? 11 : 8;
     if (formData.ruc.trim().length !== docLength) {
-      toast.error(`El ${tipoDocumento} debe tener exactamente ${docLength} dígitos`);
+      toast.error(`El ${documentType} debe tener exactamente ${docLength} dígitos`);
       return;
     }
 

@@ -16,6 +16,7 @@ interface CompraSinComprobante {
   monto_pagado: number | string;
   fecha: Date | string;
   lugar_o_proveedor_informal?: string | null;
+  motivo?: string | null;
   reason?: string | null;
   insumo: {
     nombre: string;
@@ -28,7 +29,7 @@ interface CompraSinComprobante {
 }
 
 interface PurchasesWithoutVoucherTableProps {
-  compras: CompraSinComprobante[];
+  purchases: CompraSinComprobante[];
 }
 
 export function PurchasesWithoutVoucherTable({ purchases }: PurchasesWithoutVoucherTableProps) {
@@ -78,7 +79,7 @@ export function PurchasesWithoutVoucherTable({ purchases }: PurchasesWithoutVouc
                     </TableCell>
                     <TableCell>{c.lugar_o_proveedor_informal || "-"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {c.motivo || "Compra menor de emergencia"}
+                      {c.motivo || c.reason || "Compra menor de emergencia"}
                     </TableCell>
                   </TableRow>
                 );

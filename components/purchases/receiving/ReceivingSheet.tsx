@@ -171,7 +171,7 @@ export function ReceivingSheet({
                       value={quantities[d.id_detalle_orden_compra] ?? 0}
                       onChange={(e) =>
                         setQuantities({
-                          ...cantidades,
+                          ...quantities,
                           [d.id_detalle_orden_compra]: parseFloat(e.target.value) || 0,
                         })
                       }

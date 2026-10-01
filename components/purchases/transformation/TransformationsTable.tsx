@@ -25,6 +25,7 @@ interface Detalle {
 interface Transformation {
   id_transformacion: number;
   fecha: Date | string;
+  observacion?: string | null;
   note?: string | null;
   empleado: {
     primer_nombre: string;
@@ -107,9 +108,9 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                       <TableRow className="bg-muted/20">
                         <TableCell colSpan={6} className="p-4 border-b">
                           <div className="space-y-2 text-xs">
-                            {t.observacion && (
+                            {(t.note ?? t.observacion) && (
                               <div>
-                                <span className="font-semibold">Notas:</span> {t.observacion}
+                                <span className="font-semibold">Notas:</span> {t.note ?? t.observacion}
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-4 pt-1">
