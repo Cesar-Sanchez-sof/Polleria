@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  consultarStockPlato,
-  fijarStockPlato,
-  liberarStockPlato,
-  reservarStockPlato
+  getDishStock,
+  setDishStock,
+  releaseDishStock,
+  reserveDishStock
 } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         return Response.json({ error: "ID de plato inválido." }, { status: 400 });
       }
 
-      const stock = await consultarStockPlato(idPlato);
+      const stock = await getDishStock(idPlato);
       return Response.json({ idPlato, stock, disponible: stock > 0 });
     }
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     const stockPlatos = await Promise.all(
       platos.map(async (p) => {
-        const stock = await consultarStockPlato(p.id_plato);
+        const stock = await getDishStock(p.id_plato);
         return {
           idPlato: p.id_plato,
           nombre: p.nombre,
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "El plato especificado no existe." }, { status: 404 });
     }
 
-    const nuevoStock = await fijarStockPlato(idPlato, stock);
+    const nuevoStock = await setDishStock(idPlato, stock);
 
     return Response.json({
       mensaje: `Stock actualizado con éxito en Redis Cloud para '${plato.nombre}'.`,
@@ -130,24 +130,24 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (operacion === "agregar") {
-      const nuevoStock = await liberarStockPlato(idPlato, cantidad);
+      const nuevoStock = await releaseDishStock(idPlato, cantidad);
       return Response.json({
         mensaje: `Se agregaron ${cantidad} unidades al stock en Redis.`,
         idPlato,
         stock: nuevoStock
       });
     } else if (operacion === "reducir") {
-      const resultado = await reservarStockPlato(idPlato, cantidad);
-      if (!resultado.exito) {
+      const resultado = await reserveDishStock(idPlato, cantidad);
+      if (!resultado.success) {
         return Response.json(
-          { error: resultado.mensaje || "Stock insuficiente para reducir." },
+          { error: resultado.message || "Stock insuficiente para reducir." },
           { status: 400 }
         );
       }
       return Response.json({
         mensaje: `Se descontaron ${cantidad} unidades en Redis.`,
         idPlato,
-        stock: resultado.stockRestante
+        stock: resultado.remainingStock
       });
     }
 

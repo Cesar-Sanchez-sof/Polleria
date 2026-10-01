@@ -15,7 +15,7 @@
  * - Incluye reintentos exponenciales automáticos para asegurar integridad en horas punta.
  */
 
-export interface MetadatosArchivoComprobante {
+export interface VoucherFileMetadata {
   idComprobante: number;
   tipoComprobante: "Boleta" | "Factura" | "Ticket";
   serie: string;
@@ -24,32 +24,32 @@ export interface MetadatosArchivoComprobante {
   fecha?: Date | string;
 }
 
-export interface ResultadoSubidaS3 {
+export interface S3UploadResult {
   idComprobante: number;
-  claveS3: string;
-  urlPublica: string;
+  s3Key: string;
+  publicUrl: string;
   bucket: string;
   estado: "guardado" | "simulado" | "error";
-  mensaje: string;
-  tiempoMs?: number;
+  message: string;
+  timeMs?: number;
 }
 
-export interface ItemLoteS3 {
-  meta: MetadatosArchivoComprobante;
+export interface S3BatchItem {
+  meta: VoucherFileMetadata;
   contenido?: Buffer | Uint8Array | string;
   contentType?: string;
 }
 
-export interface ResumenLoteS3 {
+export interface S3BatchSummary {
   total: number;
-  exitosos: number;
-  fallidos: number;
-  concurrenciaUsada: number;
-  tiempoTotalMs: number;
-  resultados: ResultadoSubidaS3[];
+  successful: number;
+  failed: number;
+  concurrencyUsed: number;
+  totalTimeMs: number;
+  results: S3UploadResult[];
 }
 
-export function obtenerConfiguracionS3() {
+export function getS3Config() {
   const bucket =
     process.env.AWS_S3_BUCKET ||
     process.env.S3_BUCKET ||
@@ -84,55 +84,55 @@ export function obtenerConfiguracionS3() {
 /**
  * Obtiene el nombre del Bucket de S3. Por defecto usa "comprobantes".
  */
-export function obtenerNombreBucket(): string {
-  return obtenerConfiguracionS3().bucket;
+export function getBucketName(): string {
+  return getS3Config().bucket;
 }
 
 /**
  * Genera la clave/ruta dinámica organizada dentro del bucket "comprobantes".
  * Estructura: {tipo_comprobante}/{anio}/{mes}/{dia}/{serie}-{numeroPad}.{formato}
  */
-export function generarClaveS3Comprobante(meta: MetadatosArchivoComprobante): string {
+export function buildVoucherS3Key(meta: VoucherFileMetadata): string {
   const f = meta.fecha ? new Date(meta.fecha) : new Date();
-  const anio = f.getFullYear();
-  const mes = String(f.getMonth() + 1).padStart(2, "0");
-  const dia = String(f.getDate()).padStart(2, "0");
+  const year = f.getFullYear();
+  const month = String(f.getMonth() + 1).padStart(2, "0");
+  const day = String(f.getDate()).padStart(2, "0");
 
-  let tipoCarpeta = "boletas";
-  const tc = (meta.tipoComprobante || "").toLowerCase();
-  if (tc === "factura") tipoCarpeta = "facturas";
-  else if (tc === "ticket") tipoCarpeta = "tickets";
+  let folderType = "boletas";
+  const voucherType = (meta.tipoComprobante || "").toLowerCase();
+  if (voucherType === "factura") folderType = "facturas";
+  else if (voucherType === "ticket") folderType = "tickets";
 
   const numPad = String(meta.numero).padStart(6, "0");
   const extension = meta.formato || "pdf";
 
-  return `${tipoCarpeta}/${anio}/${mes}/${dia}/${meta.serie}-${numPad}.${extension}`;
+  return `${folderType}/${year}/${month}/${day}/${meta.serie}-${numPad}.${extension}`;
 }
 
 /**
  * Sube o registra un comprobante individual a S3.
  * Si las credenciales no están en .env o GitHub Secrets, opera en modo preparado/simulado.
  */
-export async function registrarComprobanteS3(
-  meta: MetadatosArchivoComprobante,
-  contenidoBinario?: Buffer | Uint8Array | string
-): Promise<ResultadoSubidaS3> {
-  const inicio = Date.now();
-  const { bucket, endpoint, accessKey, secretKey } = obtenerConfiguracionS3();
+export async function uploadVoucherToS3(
+  meta: VoucherFileMetadata,
+  binaryContent?: Buffer | Uint8Array | string
+): Promise<S3UploadResult> {
+  const startedAt = Date.now();
+  const { bucket, endpoint, accessKey, secretKey } = getS3Config();
 
-  const claveS3 = generarClaveS3Comprobante(meta);
-  const urlPublica = `${endpoint}/${bucket}/${claveS3}`;
+  const s3Key = buildVoucherS3Key(meta);
+  const publicUrl = `${endpoint}/${bucket}/${s3Key}`;
 
   // MODO 1: Sin credenciales configuradas (Modo preparado seguro)
   if (!accessKey || !secretKey || accessKey.includes("TU_KEY")) {
     return {
       idComprobante: meta.idComprobante,
-      claveS3,
-      urlPublica,
+      s3Key,
+      publicUrl,
       bucket,
       estado: "simulado",
-      mensaje: `Ubicación organizada en bucket '${bucket}' preparada exitosamente.`,
-      tiempoMs: Date.now() - inicio,
+      message: `Ubicación organizada en bucket '${bucket}' preparada exitosamente.`,
+      timeMs: Date.now() - startedAt,
     };
   }
 
@@ -146,16 +146,16 @@ export async function registrarComprobanteS3(
         : "application/pdf";
 
     // Petición HTTP PUT REST directa a la API de S3
-    const urlUpload = `${endpoint}/${bucket}/${claveS3}`;
-    const cuerpo = contenidoBinario || Buffer.from(`Comprobante ${meta.serie}-${meta.numero}`);
+    const uploadUrl = `${endpoint}/${bucket}/${s3Key}`;
+    const body = binaryContent || Buffer.from(`Comprobante ${meta.serie}-${meta.numero}`);
 
-    const res = await fetch(urlUpload, {
+    const res = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": contentType,
         "x-amz-acl": "public-read",
       },
-      body: cuerpo as any,
+      body: body as any,
     });
 
     if (!res.ok && res.status !== 200 && res.status !== 201) {
@@ -164,22 +164,22 @@ export async function registrarComprobanteS3(
 
     return {
       idComprobante: meta.idComprobante,
-      claveS3,
-      urlPublica,
+      s3Key,
+      publicUrl,
       bucket,
       estado: "guardado",
-      mensaje: `Comprobante archivado en ${bucket}/${claveS3}`,
-      tiempoMs: Date.now() - inicio,
+      message: `Comprobante archivado en ${bucket}/${s3Key}`,
+      timeMs: Date.now() - startedAt,
     };
   } catch (error: any) {
     return {
       idComprobante: meta.idComprobante,
-      claveS3,
-      urlPublica,
+      s3Key,
+      publicUrl,
       bucket,
       estado: "simulado",
-      mensaje: `Almacenado en modo fallback (${error.message || "Simulación activa"}).`,
-      tiempoMs: Date.now() - inicio,
+      message: `Almacenado en modo fallback (${error.message || "Simulación activa"}).`,
+      timeMs: Date.now() - startedAt,
     };
   }
 }
@@ -187,70 +187,70 @@ export async function registrarComprobanteS3(
 /**
  * Procesa y sube un lote de comprobantes con control de concurrencia.
  * 
- * Por defecto soporta 20 subidas en simultáneo a la vez (concurrenciaMaxima = 20),
+ * Por defecto soporta 20 subidas en simultáneo a la vez (maxConcurrency = 20),
  * evitando saturación y garantizando un alto throughput en momentos de alta demanda.
  */
-export async function subirComprobantesEnLote(
-  items: ItemLoteS3[],
-  opciones: { concurrenciaMaxima?: number; reintentos?: number } = {}
-): Promise<ResumenLoteS3> {
-  const inicioTotal = Date.now();
-  const limiteConcurrencia = Math.max(1, opciones.concurrenciaMaxima ?? 20);
-  const maxReintentos = opciones.reintentos ?? 2;
+export async function uploadVouchersBatch(
+  items: S3BatchItem[],
+  options: { maxConcurrency?: number; retries?: number } = {}
+): Promise<S3BatchSummary> {
+  const totalStartedAt = Date.now();
+  const concurrencyLimit = Math.max(1, options.maxConcurrency ?? 20);
+  const maxRetries = options.retries ?? 2;
 
-  const resultados: ResultadoSubidaS3[] = new Array(items.length);
-  let indiceActual = 0;
+  const results: S3UploadResult[] = new Array(items.length);
+  let currentIndex = 0;
 
   // Función worker para procesar ítems de la cola con el límite de concurrencia de 20
   async function worker() {
-    while (indiceActual < items.length) {
-      const idx = indiceActual++;
+    while (currentIndex < items.length) {
+      const idx = currentIndex++;
       const item = items[idx];
 
-      let intento = 0;
-      let resultado: ResultadoSubidaS3 | null = null;
+      let attempt = 0;
+      let result: S3UploadResult | null = null;
 
-      while (intento <= maxReintentos) {
+      while (attempt <= maxRetries) {
         try {
-          resultado = await registrarComprobanteS3(item.meta, item.contenido);
-          if (resultado.estado !== "error") break;
+          result = await uploadVoucherToS3(item.meta, item.contenido);
+          if (result.estado !== "error") break;
         } catch (err: any) {
-          intento++;
-          if (intento > maxReintentos) {
-            resultado = {
+          attempt++;
+          if (attempt > maxRetries) {
+            result = {
               idComprobante: item.meta.idComprobante,
-              claveS3: generarClaveS3Comprobante(item.meta),
-              urlPublica: "",
-              bucket: obtenerNombreBucket(),
+              s3Key: buildVoucherS3Key(item.meta),
+              publicUrl: "",
+              bucket: getBucketName(),
               estado: "error",
-              mensaje: `Fallo tras ${maxReintentos} reintentos: ${err.message}`,
+              message: `Fallo tras ${maxRetries} reintentos: ${err.message}`,
             };
           } else {
             // Breve espera exponencial antes de reintentar
-            await new Promise((r) => setTimeout(r, 50 * intento));
+            await new Promise((r) => setTimeout(r, 50 * attempt));
           }
         }
       }
 
-      resultados[idx] = resultado!;
+      results[idx] = result!;
     }
   }
 
-  // Lanzar simultáneamente hasta 'limiteConcurrencia' (20) workers en paralelo
-  const numeroWorkers = Math.min(items.length, limiteConcurrencia);
-  const workers = Array.from({ length: numeroWorkers }, () => worker());
+  // Lanzar simultáneamente hasta 'concurrencyLimit' (20) workers en paralelo
+  const workerCount = Math.min(items.length, concurrencyLimit);
+  const workers = Array.from({ length: workerCount }, () => worker());
 
   await Promise.all(workers);
 
-  const exitosos = resultados.filter((r) => r.estado !== "error").length;
-  const fallidos = resultados.length - exitosos;
+  const successful = results.filter((r) => r.estado !== "error").length;
+  const failed = results.length - successful;
 
   return {
     total: items.length,
-    exitosos,
-    fallidos,
-    concurrenciaUsada: numeroWorkers,
-    tiempoTotalMs: Date.now() - inicioTotal,
-    resultados,
+    successful,
+    failed,
+    concurrencyUsed: workerCount,
+    totalTimeMs: Date.now() - totalStartedAt,
+    results,
   };
 }

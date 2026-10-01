@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import crypto from "crypto";
 import {
-  generarDeepLinkTapToPay,
-  iniciarCobroMercadoPago,
-  verificarFirmaWebhookMercadoPago,
+  generateTapToPayDeepLink,
+  startMercadoPagoCharge,
+  verifyMercadoPagoWebhookSignature,
 } from "../lib/services/mercadopago.service";
 
 describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
@@ -22,10 +22,10 @@ describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
       idPedido: 15,
       codigoComanda: "PED-015",
       monto: 72.5,
-      urlRetorno: "http://localhost:3000/ventas?tab=mesas",
+      urlRetorno: "http://localhost:3000/sales?tab=tables",
     };
 
-    const deepLink = generarDeepLinkTapToPay(datos);
+    const deepLink = generateTapToPayDeepLink(datos);
 
     expect(deepLink).toContain("mercadopago://point/pay");
     expect(deepLink).toContain("amount=72.50");
@@ -35,7 +35,7 @@ describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
 
   it("debe operar en modo seguro 'simulado / preparado' cuando no se ha configurado Access Token en .env", async () => {
     delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
-    const resultado = await iniciarCobroMercadoPago({
+    const resultado = await startMercadoPagoCharge({
       idPedido: 20,
       codigoComanda: "PED-020",
       monto: 120.0,
@@ -48,7 +48,7 @@ describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
   });
 
   it("debe formatear los montos en dos decimales para el esquema de cobro", () => {
-    const deepLink = generarDeepLinkTapToPay({
+    const deepLink = generateTapToPayDeepLink({
       idPedido: 1,
       codigoComanda: "PED-001",
       monto: 45.555,
@@ -61,14 +61,14 @@ describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
     it("debe validar en modo relajado si no hay MERCADO_PAGO_WEBHOOK_SECRET configurado", () => {
       delete process.env.MERCADO_PAGO_WEBHOOK_SECRET;
 
-      const resultado = verificarFirmaWebhookMercadoPago({
+      const resultado = verifyMercadoPagoWebhookSignature({
         xSignatureHeader: null,
         xRequestIdHeader: null,
         dataId: "123456",
       });
 
-      expect(resultado.valida).toBe(true);
-      expect(resultado.razon).toContain("no configurado");
+      expect(resultado.isValid).toBe(true);
+      expect(resultado.reason).toContain("no configurado");
     });
 
     it("debe verificar exitosamente una firma legítima de Mercado Pago con el secret configurado", () => {
@@ -85,13 +85,13 @@ describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
 
       const xSignature = `ts=${ts},v1=${hashValido}`;
 
-      const res = verificarFirmaWebhookMercadoPago({
+      const res = verifyMercadoPagoWebhookSignature({
         xSignatureHeader: xSignature,
         xRequestIdHeader: requestId,
         dataId,
       });
 
-      expect(res.valida).toBe(true);
+      expect(res.isValid).toBe(true);
     });
 
     it("debe rechazar una notificación con firma HMAC alterada o maliciosa", () => {
@@ -101,14 +101,14 @@ describe("Módulo de Mercado Pago y Webhook - Pruebas Unitarias", () => {
       const ts = Math.floor(Date.now() / 1000).toString();
       const xSignatureFalsa = `ts=${ts},v1=hash_falso_completamente_invalido`;
 
-      const res = verificarFirmaWebhookMercadoPago({
+      const res = verifyMercadoPagoWebhookSignature({
         xSignatureHeader: xSignatureFalsa,
         xRequestIdHeader: "req-falso",
         dataId: "99887766",
       });
 
-      expect(res.valida).toBe(false);
-      expect(res.razon).toContain("no coincide");
+      expect(res.isValid).toBe(false);
+      expect(res.reason).toContain("no coincide");
     });
   });
 });

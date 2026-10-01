@@ -1,67 +1,67 @@
 /**
- * Helpers HTTP compartidos por los servicios de la API (`*.service.ts`).
+ * HTTP helpers shared by API services (`*.service.ts`).
  *
- * Todos los servicios hablan con rutas `app/api/**` que responden JSON:
- * en error devuelven `{ error, errores? }`, que aquí se convierte en un
- * `ErrorApi` con el mensaje principal y el detalle de cada validación.
+ * All services communicate with `app/api/**` JSON endpoints:
+ * errors return `{ error, errores? }`, converted here to `ApiError`
+ * with main message and detailed validation list.
  */
 
-/** Error de negocio devuelto por la API, con el detalle de cada validación. */
-export class ErrorApi extends Error {
-  /** Una entrada por cada validación fallida (la primera es la principal). */
-  readonly errores: string[];
+/** Business error returned by the API, with details for each validation. */
+export class ApiError extends Error {
+  /** One entry per failed validation (the first is the primary message). */
+  readonly errors: string[];
 
-  constructor(mensaje: string, errores: string[] = []) {
-    super(mensaje);
-    this.name = "ErrorApi";
-    this.errores = errores.length > 0 ? errores : [mensaje];
+  constructor(message: string, errors: string[] = []) {
+    super(message);
+    this.name = "ApiError";
+    this.errors = errors.length > 0 ? errors : [message];
   }
 }
 
-/** Ejecuta la petición y devuelve el cuerpo JSON; en error lanza `ErrorApi`. */
-export async function pedir<T>(url: string, opciones: RequestInit): Promise<T> {
-  let respuesta: Response;
+/** Performs fetch request and returns JSON body; throws `ApiError` on failure. */
+export async function fetchJson<T>(url: string, options: RequestInit): Promise<T> {
+  let response: Response;
   try {
-    respuesta = await fetch(url, opciones);
+    response = await fetch(url, options);
   } catch {
     throw new Error("No se pudo conectar con el servidor.");
   }
 
-  if (!respuesta.ok) {
-    let mensaje = "Error inesperado al consultar el servicio.";
-    let detalle: string[] = [];
+  if (!response.ok) {
+    let message = "Error inesperado al consultar el servicio.";
+    let details: string[] = [];
     try {
-      const cuerpo = (await respuesta.json()) as { error?: string; errores?: string[] };
-      if (cuerpo?.error) mensaje = cuerpo.error;
-      if (Array.isArray(cuerpo?.errores)) detalle = cuerpo.errores;
+      const body = (await response.json()) as { error?: string; errores?: string[] };
+      if (body?.error) message = body.error;
+      if (Array.isArray(body?.errores)) details = body.errores;
     } catch {
-      /* la respuesta no traía cuerpo JSON */
+      /* response did not contain JSON */
     }
-    throw new ErrorApi(mensaje, detalle);
+    throw new ApiError(message, details);
   }
 
-  return (await respuesta.json()) as T;
+  return (await response.json()) as T;
 }
 
-/** `GET` sin caché. */
-export async function obtenerJson<T>(url: string): Promise<T> {
-  return pedir<T>(url, { cache: "no-store" });
+/** `GET` request without cache. */
+export async function getJson<T>(url: string): Promise<T> {
+  return fetchJson<T>(url, { cache: "no-store" });
 }
 
-/** `POST` con cuerpo JSON. */
-export async function enviarJson<T>(url: string, cuerpo: unknown): Promise<T> {
-  return pedir<T>(url, {
+/** `POST` request with JSON body. */
+export async function postJson<T>(url: string, body: unknown): Promise<T> {
+  return fetchJson<T>(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cuerpo),
+    body: JSON.stringify(body),
   });
 }
 
-/** `PATCH` con cuerpo JSON. */
-export async function actualizarJson<T>(url: string, cuerpo: unknown): Promise<T> {
-  return pedir<T>(url, {
+/** `PATCH` request with JSON body. */
+export async function patchJson<T>(url: string, body: unknown): Promise<T> {
+  return fetchJson<T>(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cuerpo),
+    body: JSON.stringify(body),
   });
 }
