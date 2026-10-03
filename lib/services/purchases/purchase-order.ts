@@ -109,7 +109,7 @@ export async function getPurchaseOrders() {
             supply: true,
           },
         },
-        receipts: true,
+        invoices: true,
       },
       orderBy: { issuedAt: "desc" },
     });
@@ -131,9 +131,9 @@ export async function getPurchaseOrderById(id: number) {
             supply: true,
           },
         },
-        receipts: {
+        invoices: {
           include: {
-            items: true,
+            payments: true,
           },
         },
       },
