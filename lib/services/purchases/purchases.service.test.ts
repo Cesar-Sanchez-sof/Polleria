@@ -35,14 +35,11 @@ vi.mock("@/lib/prisma", () => {
       create: vi.fn(),
       update: vi.fn(),
     },
-    purchaseReceipt: {
+    purchaseOrderItem: {
+      create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-    purchaseReceiptItem: {
-      create: vi.fn(),
-      findMany: vi.fn(),
+      update: vi.fn(),
     },
     inventoryMovement: {
       create: vi.fn(),
@@ -186,25 +183,27 @@ describe("Modulo Compras Services", () => {
         id: 1,
         orderNumber: "OC-2026-00001",
         items: [
-          { id: 10, supplyId: 1, quantityOrdered: 10, unitPrice: 15 },
+          { id: 10, supplyId: 1, quantityOrdered: 10, quantityReceived: 0, unitPrice: 15 },
         ],
       });
-      (prisma.purchaseReceipt.create as any).mockResolvedValue({ id: 100 });
-      (prisma.purchaseReceiptItem.create as any).mockResolvedValue({ id: 1 });
+      (prisma.purchaseOrderItem.update as any).mockResolvedValue({ id: 10 });
       (prisma.inventoryMovement.create as any).mockResolvedValue({});
       (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 5 });
       (prisma.supply.update as any).mockResolvedValue({});
-      (prisma.purchaseReceiptItem.findMany as any).mockResolvedValue([
-        { purchaseOrderItemId: 10, quantityReceived: 10 },
+      (prisma.purchaseOrderItem.findMany as any).mockResolvedValue([
+        { id: 10, purchaseOrderId: 1, quantityOrdered: 10, quantityReceived: 10 },
       ]);
-      (prisma.purchaseOrder.update as any).mockResolvedValue({});
+      (prisma.purchaseOrder.update as any).mockResolvedValue({
+        id: 1,
+        status: "FullyReceived",
+      });
 
       const res = await receivePurchase({
         purchaseOrderId: 1,
         items: [{ purchaseOrderItemId: 10, quantityReceived: 10 }],
       });
 
-      expect(res.id).toBe(100);
+      expect(res.id).toBe(1);
       expect(prisma.supply.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { currentStock: 15 },
@@ -215,10 +214,10 @@ describe("Modulo Compras Services", () => {
   describe("Módulo 4: Comprobantes y Facturas", () => {
     it("debe crear comprobante al contado y generar su pago automático", async () => {
       (prisma.purchaseInvoice.findFirst as any).mockResolvedValue(null);
-      (prisma.purchaseReceipt.findUnique as any).mockResolvedValue({
+      (prisma.purchaseOrder.findUnique as any).mockResolvedValue({
         id: 1,
         items: [
-          { quantityReceived: 10, purchaseOrderItem: { unitPrice: 10 } },
+          { quantityReceived: 10, unitPrice: 10 },
         ],
       });
       (prisma.purchaseInvoice.create as any).mockResolvedValue({ id: 5, totalAmount: 118 });
@@ -226,7 +225,7 @@ describe("Modulo Compras Services", () => {
 
       await createPurchaseVoucher({
         supplierId: 1,
-        receiptId: 1,
+        purchaseOrderId: 1,
         voucherType: "Factura",
         series: "F001",
         number: 123,

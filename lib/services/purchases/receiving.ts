@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { PurchaseOrderStatus, PurchaseReceiptStatus, InventoryMovementType } from "@prisma/client";
+import { PurchaseOrderStatus, InventoryMovementType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 
 export interface ReceivingLineInput {
@@ -28,17 +28,14 @@ export async function getOrdersForReceiving() {
       include: {
         supplier: true,
         employee: true,
+        receivedBy: true,
         items: {
           include: {
             supply: true,
-            receiptItems: true,
+            inventoryMovements: true,
           },
         },
-        receipts: {
-          include: {
-            items: true,
-          },
-        },
+        invoices: true,
       },
       orderBy: { issuedAt: "desc" },
     });
@@ -62,26 +59,12 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
     const order = await tx.purchaseOrder.findUnique({
       where: { id: data.purchaseOrderId },
       include: {
-        items: {
-          include: {
-            receiptItems: true,
-          },
-        },
+        items: true,
       },
     });
     if (!order) {
       throw new Error("Orden de compra no encontrada");
     }
-
-    const receipt = await tx.purchaseReceipt.create({
-      data: {
-        purchaseOrderId: data.purchaseOrderId,
-        receivedById: validEmployeeId,
-        receivedAt: new Date(),
-        notes: data.notes?.trim() || null,
-        status: PurchaseReceiptStatus.Confirmed,
-      },
-    });
 
     for (const d of data.items) {
       if (d.quantityReceived <= 0) continue; // Skip lines with 0 received
@@ -93,12 +76,14 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
         throw new Error(`Detalle de orden ID ${d.purchaseOrderItemId} no pertenece a la orden`);
       }
 
-      const receiptLine = await tx.purchaseReceiptItem.create({
+      const currentReceived = Number(orderLine.quantityReceived || 0);
+      const newReceivedTotal = currentReceived + d.quantityReceived;
+
+      await tx.purchaseOrderItem.update({
+        where: { id: d.purchaseOrderItemId },
         data: {
-          receiptId: receipt.id,
-          purchaseOrderItemId: d.purchaseOrderItemId,
-          quantityReceived: d.quantityReceived,
-          notes: d.notes?.trim() || null,
+          quantityReceived: newReceivedTotal,
+          observation: d.notes?.trim() || orderLine.observation,
         },
       });
 
@@ -106,7 +91,7 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
       await tx.inventoryMovement.create({
         data: {
           supplyId: orderLine.supplyId,
-          purchaseReceiptItemId: receiptLine.id,
+          purchaseOrderItemId: orderLine.id,
           movementType: InventoryMovementType.Purchase,
           quantity: d.quantityReceived,
           unitCost: orderLine.unitPrice,
@@ -124,21 +109,14 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
       }
     }
 
-    // Check overall order reception status
-    const previousReceipts = await tx.purchaseReceiptItem.findMany({
-      where: {
-        receipt: {
-          purchaseOrderId: data.purchaseOrderId,
-        },
-      },
+    // Refresh items to calculate new order status
+    const updatedItems = await tx.purchaseOrderItem.findMany({
+      where: { purchaseOrderId: data.purchaseOrderId },
     });
 
     let completed = true;
-    for (const orderLine of order.items) {
-      const accumulated = previousReceipts
-        .filter((r) => r.purchaseOrderItemId === orderLine.id)
-        .reduce((sum, r) => sum + Number(r.quantityReceived), 0);
-      if (accumulated < Number(orderLine.quantityOrdered)) {
+    for (const item of updatedItems) {
+      if (Number(item.quantityReceived || 0) < Number(item.quantityOrdered)) {
         completed = false;
         break;
       }
@@ -148,32 +126,45 @@ export async function receivePurchase(data: PurchaseReceivingInput) {
       ? PurchaseOrderStatus.FullyReceived
       : PurchaseOrderStatus.PartiallyReceived;
 
-    await tx.purchaseOrder.update({
+    const updatedOrder = await tx.purchaseOrder.update({
       where: { id: data.purchaseOrderId },
-      data: { status: newStatus },
+      data: {
+        status: newStatus,
+        receivedById: validEmployeeId,
+        receivedAt: new Date(),
+        notes: data.notes?.trim() || order.notes,
+      },
+      include: {
+        supplier: true,
+        receivedBy: true,
+        items: {
+          include: {
+            supply: true,
+          },
+        },
+      },
     });
 
-    return receipt;
+    return updatedOrder;
   });
 }
 
 export async function getPurchaseReceipts() {
   try {
-    return await prisma.purchaseReceipt.findMany({
-      include: {
-        purchaseOrder: {
-          include: {
-            supplier: true,
-          },
+    return await prisma.purchaseOrder.findMany({
+      where: {
+        status: {
+          in: [PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.FullyReceived],
         },
+      },
+      include: {
+        supplier: true,
         receivedBy: true,
+        employee: true,
         items: {
           include: {
-            purchaseOrderItem: {
-              include: {
-                supply: true,
-              },
-            },
+            supply: true,
+            inventoryMovements: true,
           },
         },
         invoices: true,
