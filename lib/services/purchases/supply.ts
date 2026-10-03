@@ -89,9 +89,9 @@ export async function getInventoryMovements(supplyId?: number) {
       where: supplyId ? { supplyId } : undefined,
       include: {
         supply: true,
-        purchaseReceiptItem: {
+        purchaseOrderItem: {
           include: {
-            receipt: true,
+            purchaseOrder: true,
           },
         },
       },

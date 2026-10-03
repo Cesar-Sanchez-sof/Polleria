@@ -44,8 +44,6 @@ export async function createSupplier(data: SupplierInput) {
     data: {
       ruc: document,
       businessName: data.businessName.trim(),
-      tradeName: null,
-      name: null,
       contactPerson: data.contactPerson?.trim() || null,
       address: data.address?.trim() || null,
       phone: data.phone?.trim() || null,
@@ -85,8 +83,6 @@ export async function updateSupplier(id: number, data: SupplierInput) {
     data: {
       ruc: document,
       businessName: data.businessName.trim(),
-      tradeName: null,
-      name: null,
       contactPerson: data.contactPerson?.trim() || null,
       address: data.address?.trim() || null,
       phone: data.phone?.trim() || null,

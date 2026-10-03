@@ -8,7 +8,8 @@ import {
 
 export interface PurchaseVoucherInput {
   supplierId: number;
-  receiptId: number;
+  purchaseOrderId?: number;
+  receiptId?: number; // Backwards-compatible alias for purchaseOrderId
   voucherType: string; // 'Factura' | 'Boleta' | 'Guía'
   series: string;
   number: number;
@@ -19,25 +20,17 @@ export interface PurchaseVoucherInput {
 
 export async function getReceiptsWithoutVoucher() {
   try {
-    return await prisma.purchaseReceipt.findMany({
+    return await prisma.purchaseOrder.findMany({
       where: {
         invoices: {
           none: {},
         },
       },
       include: {
-        purchaseOrder: {
-          include: {
-            supplier: true,
-          },
-        },
+        supplier: true,
         items: {
           include: {
-            purchaseOrderItem: {
-              include: {
-                supply: true,
-              },
-            },
+            supply: true,
           },
         },
       },
@@ -50,11 +43,12 @@ export async function getReceiptsWithoutVoucher() {
 }
 
 export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
+  const purchaseOrderId = data.purchaseOrderId || data.receiptId;
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
   }
-  if (!data.receiptId) {
-    throw new Error("Debe seleccionar una recepción de compra");
+  if (!purchaseOrderId) {
+    throw new Error("Debe seleccionar una orden de compra");
   }
   if (!data.voucherType || data.voucherType.trim() === "") {
     throw new Error("El tipo de comprobante es obligatorio");
@@ -82,24 +76,20 @@ export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
       throw new Error(`El comprobante ${data.voucherType} ${data.series}-${data.number} ya existe para este proveedor`);
     }
 
-    const receipt = await tx.purchaseReceipt.findUnique({
-      where: { id: data.receiptId },
+    const order = await tx.purchaseOrder.findUnique({
+      where: { id: purchaseOrderId },
       include: {
-        items: {
-          include: {
-            purchaseOrderItem: true,
-          },
-        },
+        items: true,
       },
     });
-    if (!receipt) {
-      throw new Error("Recepción de compra no encontrada");
+    if (!order) {
+      throw new Error("Orden de compra no encontrada");
     }
 
     let subtotal = 0;
-    for (const d of receipt.items) {
-      const qty = Number(d.quantityReceived);
-      const price = Number(d.purchaseOrderItem.unitPrice);
+    for (const d of order.items) {
+      const qty = Number(d.quantityReceived ?? d.quantityOrdered);
+      const price = Number(d.unitPrice);
       subtotal += qty * price;
     }
     const igv = Math.round(subtotal * 0.18 * 100) / 100;
@@ -110,7 +100,7 @@ export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
     const voucher = await tx.purchaseInvoice.create({
       data: {
         supplierId: data.supplierId,
-        receiptId: data.receiptId,
+        purchaseOrderId: purchaseOrderId,
         voucherType: data.voucherType.trim(),
         series: data.series.trim(),
         number: Number(data.number),
@@ -161,15 +151,11 @@ export async function getPurchaseVouchers() {
     const invoices = await prisma.purchaseInvoice.findMany({
       include: {
         supplier: true,
-        receipt: {
+        purchaseOrder: {
           include: {
             items: {
               include: {
-                purchaseOrderItem: {
-                  include: {
-                    supply: true,
-                  },
-                },
+                supply: true,
               },
             },
           },
