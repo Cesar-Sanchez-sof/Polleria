@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Utensils,
   Warehouse,
+  Calendar,
 } from "lucide-react";
 
 export const metadata: Metadata = {

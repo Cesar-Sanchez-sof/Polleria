@@ -343,6 +343,15 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 >
                   Estado de Resultados
                 </Link>
+                <Link
+                  className={getLinkClass("/accounting/periods")}
+                  data-path="periodos-contables"
+                  href="/accounting/periods"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Periodos Contables
+                </Link>
               </div>
             </div>
           </nav>
