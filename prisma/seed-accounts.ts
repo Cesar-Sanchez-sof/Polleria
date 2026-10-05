@@ -13,57 +13,56 @@ export const CATALOGO_CUENTAS: CatalogRow[] = [
   // ACTIVO
   // =========================
   ["1", "Activo", "Activo", null],
+  ["2", "Pasivo", "Pasivo", null],
+  ["3", "Patrimonio", "Patrimonio", null],
+  ["4", "Ingresos", "Ingreso", null],
+  ["5", "Gastos", "Gasto", null],
+  ["6", "Costo de Ventas", "Costo", null],
+  ["7", "Ingresos", "Ingreso", null],
+  ["10", "Efectivo y equivalentes de efectivo", "Activo", "1"],
+  ["12", "Cuentas por Cobrar Comerciales - Terceros", "Activo", "1"],
+  ["20", "Mercaderías", "Activo", "2"],
+  ["24", "Materias Primas", "Activo", "2"],
+  ["25", "Materiales Auxiliares, Suministros y Repuestos", "Activo", "2"],
+  ["33", "Propiedad, Planta y Equipo", "Activo", "3"],
+  ["40", "Tributos por Pagar - IGV", "Pasivo", "4"],
+  ["41", "Remuneraciones por Pagar", "Pasivo", "4"],
+  ["42", "Cuentas por Pagar Comerciales - Terceros", "Pasivo", "4"],
+  ["46", "Cuentas por Pagar Diversas - Terceros", "Pasivo", "4"],
+  ["50", "Capital", "Patrimonio", "5"],
+  ["59", "Resultados Acumulados", "Patrimonio", "5"],
+  ["60", "Compras", "Gasto", "6"],
+  ["61", "Variación de inventarios", "Gasto", "6"],
+  ["62", "Gastos de Personal", "Gasto", "6"],
+  ["63", "Gastos de Servicios prestados por terceros", "Gasto", "6"],
+  ["69", "Costo de Ventas", "Gasto", "6"],
+  ["70", "Ventas de Mercaderías", "Ingreso", "7"],
   ["101", "Caja", "Activo", "1"],
   ["104", "Bancos - Cuentas Corrientes", "Activo", "1"],
   ["121", "Cuentas por Cobrar Comerciales - Terceros", "Activo", "1"],
   ["167", "Tributos por Acreditar - IGV", "Activo", "1"],
-  ["201", "Mercaderías", "Activo", "1"],
-  ["241", "Materias Primas", "Activo", "1"],
-  ["251", "Materiales Auxiliares, Suministros y Repuestos", "Activo", "1"],
-  ["331", "Propiedad, Planta y Equipo - Maquinaria y Equipos", "Activo", "1"],
-  ["395", "Depreciación Acumulada de Propiedad, Planta y Equipo", "Activo", "1"],
-
-  // =========================
-  // PASIVO
-  // =========================
-  ["2", "Pasivo", "Pasivo", null],
-  ["411", "Remuneraciones por Pagar", "Pasivo", "2"],
-  ["421", "Cuentas por Pagar Comerciales - Terceros", "Pasivo", "2"],
-  ["461", "Cuentas por Pagar Diversas - Terceros", "Pasivo", "2"],
-  ["401", "Tributos por Pagar - IGV", "Pasivo", "2"],
-
-  // =========================
-  // PATRIMONIO
-  // =========================
-  ["3", "Patrimonio", "Patrimonio", null],
-  ["501", "Capital", "Patrimonio", "3"],
-  ["591", "Resultados Acumulados", "Patrimonio", "3"],
-
-  // =========================
-  // INGRESOS
-  // =========================
-  ["4", "Ingresos", "Ingreso", null],
-  ["701", "Ventas de Mercaderías", "Ingreso", "4"],
-  ["704", "Prestación de Servicios", "Ingreso", "4"],
-
-  // =========================
-  // GASTOS
-  // =========================
-  ["5", "Gastos", "Gasto", null],
-  ["621", "Gastos de Personal", "Gasto", "5"],
-  ["631", "Gastos de Servicios Básicos", "Gasto", "5"],
-  ["635", "Gastos de Arrendamiento", "Gasto", "5"],
-  ["637", "Publicidad y Promociones", "Gasto", "5"],
-  ["634", "Gastos de Transporte y Delivery", "Gasto", "5"],
-  ["636", "Gastos de Mantenimiento", "Gasto", "5"],
-  ["659", "Otros Gastos de Gestión", "Gasto", "5"],
-  ["673", "Gastos Financieros", "Gasto", "5"],
-
-  // =========================
-  // COSTO DE VENTAS
-  // =========================
-  ["6", "Costo de Ventas", "Costo", null],
+  ["201", "Mercaderías", "Activo", "2"],
+  ["241", "Materias Primas", "Activo", "2"],
+  ["251", "Materiales Auxiliares, Suministros y Repuestos", "Activo", "2"],
+  ["331", "Propiedad, Planta y Equipo - Maquinaria y Equipos", "Activo", "3"],
+  ["395", "Depreciación Acumulada de Propiedad, Planta y Equipo", "Activo", "3"],
+  ["401", "Tributos por Pagar - IGV", "Pasivo", "4"],
+  ["411", "Remuneraciones por Pagar", "Pasivo", "4"],
+  ["421", "Cuentas por Pagar Comerciales - Terceros", "Pasivo", "4"],
+  ["461", "Cuentas por Pagar Diversas - Terceros", "Pasivo", "4"],
+  ["501", "Capital", "Patrimonio", "5"],
+  ["591", "Resultados Acumulados", "Patrimonio", "5"],
+  ["621", "Gastos de Personal", "Gasto", "6"],
+  ["631", "Gastos de Servicios Básicos", "Gasto", "6"],
+  ["634", "Gastos de Transporte y Delivery", "Gasto", "6"],
+  ["635", "Gastos de Arrendamiento", "Gasto", "6"],
+  ["636", "Gastos de Mantenimiento", "Gasto", "6"],
+  ["637", "Publicidad y Promociones", "Gasto", "6"],
+  ["659", "Otros Gastos de Gestión", "Gasto", "6"],
+  ["673", "Gastos Financieros", "Gasto", "6"],
   ["691", "Costo de Ventas de Mercaderías", "Costo", "6"],
+  ["701", "Ventas de Mercaderías", "Ingreso", "7"],
+  ["704", "Prestación de Servicios", "Ingreso", "7"]
 ];
 
 const ORDERED_RENAMES: Array<{ from: string; to: string }> = [

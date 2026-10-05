@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { seedCuentas } from "./seed-cuentas";
+import { seedCuentas } from "./seed-accounts";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -23,6 +24,45 @@ async function main() {
     });
   }
   console.log("✔ Cliente genérico '00000000' registrado.");
+
+  // 3. ADMIN USER CREATION
+  // Ensure admin role exists
+  const adminRole = await prisma.role.upsert({
+    where: { name: "ADMIN" },
+    update: {},
+    create: { name: "ADMIN", description: "Administrador del sistema", active: true },
+  });
+
+  // Ensure an employee record for admin exists
+  const adminEmployee = await prisma.employee.upsert({
+    where: { dni: "00000001" },
+    update: {},
+    create: {
+      dni: "00000001",
+      firstName: "Admin",
+      paternalLastName: "User",
+      birthDate: new Date("1990-01-01"),
+      hireDate: new Date(),
+      active: true,
+    },
+  });
+
+  // Create admin user if not exists
+  const existingAdmin = await prisma.user.findFirst({ where: { username: "admin" } });
+  if (!existingAdmin) {
+    const hashedPassword = await bcrypt.hash("admin", 10);
+    await prisma.user.create({
+      data: {
+        username: "admin",
+        password: hashedPassword,
+        employeeId: adminEmployee.id,
+        roleId: adminRole.id,
+        estado: true,
+      },
+    });
+    console.log("✔ Usuario admin creado.");
+  }
+
 
   // 2. MÉTODOS DE PAGO
   const paymentMethods = [

@@ -336,7 +336,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine the accounting period for the entry date
     const accountingDate = parseUtcDate(dateStr);
+    const period = await prisma.accountingPeriod.findFirst({
+      where: {
+        startDate: { lte: accountingDate },
+        endDate: { gte: accountingDate },
+      },
+    });
+    if (!period) {
+      return Response.json({ error: "No accounting period found for the given date." }, { status: 400 });
+    }
+    if (period.status === "CLOSED") {
+      return Response.json({ error: "Cannot register entries in a closed accounting period." }, { status: 400 });
+    }
 
     let createdEntry: JournalEntry | null = null;
     for (let attempt = 0; attempt < 3 && !createdEntry; attempt++) {
@@ -350,6 +363,7 @@ export async function POST(request: NextRequest) {
             responsible: responsible || null,
             observation: observation || null,
             status,
+            periodId: period.id,
             entryDetails: {
               create: validatedLines.map((line) => ({
                 accountId: line.accountId,

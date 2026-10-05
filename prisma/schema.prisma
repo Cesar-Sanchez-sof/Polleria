@@ -61,7 +61,7 @@ enum AffectationIgv {
 
 model Role {
   id          Int              @id @default(autoincrement())
-  name        String           @db.VarChar(50)
+  name        String           @unique @db.VarChar(50)
   description String?          @db.VarChar(150)
   active      Boolean          @default(true)
   permissions RolePermission[]
@@ -132,24 +132,27 @@ model Employee {
 }
 
 model User {
-  id             Int       @id @default(autoincrement())
-  employeeId     Int       @map("employee_id")
-  roleId         Int       @map("role_id")
-  username       String    @unique @db.VarChar(20)
-  correo            String?   @unique @db.VarChar(80)
-  password       String    @db.VarChar(255)
-  estado            Boolean   @default(true)
-  failedAttempts Int       @default(0) @map("failed_attempts")
-  locked         Boolean   @default(false)
-  lockedAt       DateTime? @map("locked_at") @db.Timestamp(6)
-  lastAccessAt   DateTime? @map("last_access_at") @db.Timestamp(6)
-  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role           Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  id                Int                @id @default(autoincrement())
+  employeeId        Int                @map("employee_id")
+  roleId            Int                @map("role_id")
+  username          String             @unique @db.VarChar(20)
+  correo            String?            @unique @db.VarChar(80)
+  password          String             @db.VarChar(255)
+  estado            Boolean            @default(true)
+  failedAttempts    Int                @default(0) @map("failed_attempts")
+  locked            Boolean            @default(false)
+  lockedAt          DateTime?          @map("locked_at") @db.Timestamp(6)
+  lastAccessAt      DateTime?          @map("last_access_at") @db.Timestamp(6)
+  employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role              Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  accountingPeriods AccountingPeriod[]
+  closedPeriods     AccountingPeriod[] @relation("ClosedPeriods")
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
   @@map("app_user")
 }
+
 // =====================================================================
 // MODULE 2: HUMAN RESOURCES (PAYROLL)
 // =====================================================================
@@ -204,24 +207,24 @@ model PaymentType {
 }
 
 model PurchaseOrder {
-  id            Int                 @id @default(autoincrement())
-  supplierId    Int                 @map("supplier_id")
-  employeeId    Int                 @map("employee_id")
-  receivedById  Int?                @map("received_by_id")
-  orderNumber   String              @unique @map("order_number") @db.VarChar(20)
-  issuedAt      DateTime            @default(now()) @map("issued_at") @db.Date
-  expectedAt    DateTime?           @map("expected_at") @db.Date
-  receivedAt    DateTime            @default(now()) @map("received_at") @db.Timestamp(6)
-  status        PurchaseOrderStatus @default(Pending)
-  subtotal      Decimal             @default(0) @db.Decimal(7, 2)
-  igv           Decimal             @default(0) @db.Decimal(7, 2)
-  total         Decimal             @default(0) @db.Decimal(7, 2)
-  notes         String?             @db.VarChar(200)
-  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  receivedBy    Employee?           @relation("ReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
-  items         PurchaseOrderItem[]
-  invoices      PurchaseInvoice[]
+  id           Int                 @id @default(autoincrement())
+  supplierId   Int                 @map("supplier_id")
+  employeeId   Int                 @map("employee_id")
+  receivedById Int?                @map("received_by_id")
+  orderNumber  String              @unique @map("order_number") @db.VarChar(20)
+  issuedAt     DateTime            @default(now()) @map("issued_at") @db.Date
+  expectedAt   DateTime?           @map("expected_at") @db.Date
+  receivedAt   DateTime            @default(now()) @map("received_at") @db.Timestamp(6)
+  status       PurchaseOrderStatus @default(Pending)
+  subtotal     Decimal             @default(0) @db.Decimal(7, 2)
+  igv          Decimal             @default(0) @db.Decimal(7, 2)
+  total        Decimal             @default(0) @db.Decimal(7, 2)
+  notes        String?             @db.VarChar(200)
+  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  employee     Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  receivedBy   Employee?           @relation("ReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+  items        PurchaseOrderItem[]
+  invoices     PurchaseInvoice[]
 
   @@index([supplierId], map: "idx_purchase_order_supplier")
   @@index([employeeId], map: "idx_purchase_order_employee")
@@ -539,20 +542,42 @@ model SalesPayment {
 // =====================================================================
 
 model AccountingAccount {
-  id            Int                   @id @default(autoincrement())
-  parentId      Int?                  @map("parent_id")
-  code          String                @unique @db.VarChar(10)
-  name          String                @db.VarChar(100)
-  type          String                @db.VarChar(20)
-  active        Boolean               @default(true)
-  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt     DateTime              @default(now()) @map("updated_at") @db.Timestamp(6)
-  parentAccount AccountingAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  childAccounts AccountingAccount[]   @relation("AccountHierarchy")
+  id            Int                  @id @default(autoincrement())
+  parentId      Int?                 @map("parent_id")
+  code          String               @unique @db.VarChar(10)
+  name          String               @db.VarChar(100)
+  type          String               @db.VarChar(20)
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime             @default(now()) @map("updated_at") @db.Timestamp(6)
+  parentAccount AccountingAccount?   @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  childAccounts AccountingAccount[]  @relation("AccountHierarchy")
   entryDetails  JournalEntryDetail[]
 
   @@index([parentId], map: "idx_accounting_account_parent")
   @@map("accounting_account")
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+model AccountingPeriod {
+  id             Int            @id @default(autoincrement())
+  startDate      DateTime       @map("start_date")
+  endDate        DateTime       @map("end_date")
+  status         PeriodStatus   @default(OPEN)
+  closedAt       DateTime?      @map("closed_at")
+  closedById     Int?           @map("closed_by_id")
+  closedBy       User?          @relation("ClosedPeriods", fields: [closedById], references: [id])
+  journalEntries JournalEntry[]
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at")
+  user           User?          @relation(fields: [userId], references: [id])
+  userId         Int?
+
+  @@map("accounting_period")
 }
 
 model JournalEntry {
@@ -561,6 +586,8 @@ model JournalEntry {
   purchaseInvoiceId Int?                 @map("purchase_invoice_id")
   payrollId         Int?                 @map("payroll_id")
   entryDate         DateTime             @default(now()) @map("entry_date") @db.Date
+  periodId          Int                  @map("period_id")
+  period            AccountingPeriod     @relation(fields: [periodId], references: [id])
   description       String               @db.VarChar(200)
   book              String               @default("Operaciones varias") @db.VarChar(60)
   responsible       String?              @db.VarChar(100)
@@ -576,6 +603,7 @@ model JournalEntry {
 
   @@index([salesInvoiceId], map: "idx_journal_entry_sales_invoice")
   @@index([purchaseInvoiceId], map: "idx_journal_entry_purchase_invoice")
+  @@index([periodId], map: "idx_journal_entry_period")
   @@index([payrollId], map: "idx_journal_entry_payroll")
   @@index([entryDate], map: "idx_journal_entry_date")
   @@index([book], map: "idx_journal_entry_book")
