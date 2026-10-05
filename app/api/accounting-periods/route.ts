@@ -74,6 +74,10 @@ export async function POST(request: NextRequest) {
     if (typeof year !== 'number' || year < 1970) errors.push('year must be a valid integer');
     if (errors.length) return Response.json({ errors }, { status: 400 });
 
+    // Ensure month and year are defined
+    if (month === undefined || year === undefined) {
+      return Response.json({ error: 'month and year are required' }, { status: 400 });
+    }
     // Compute start and end of the selected month (UTC)
     const start = new Date(Date.UTC(year, month - 1, 1));
     const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // last day of month
