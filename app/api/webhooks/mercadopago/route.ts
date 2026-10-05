@@ -1,20 +1,21 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  consultarPagoMercadoPago,
-  verificarFirmaWebhookMercadoPago
+  getMercadoPagoPayment,
+  verifyMercadoPagoWebhookSignature
 } from "@/lib/services/mercadopago.service";
-import { registrarComprobanteS3 } from "@/lib/services/s3-storage.service";
+import { uploadVoucherToS3 } from "@/lib/services/s3-storage.service";
+import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Webhook Receptor de Notificaciones de Mercado Pago (IPN / Webhooks v2).
- * 
+ *
  * Se activa automáticamente cuando:
  * 1. Un pago presencial (Tap to Pay o Point) es aprobado en el celular del mozo.
  * 2. Un cliente completa el pago mediante QR.
- * 
+ *
  * Funcionamiento idempotente:
  * - Valida el estado 'approved'.
  * - Si el pedido ya fue cerrado, responde 200 inmediatamente sin duplicar cobros.
@@ -25,165 +26,162 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const body = await request.json().catch(() => ({}));
 
-    // Mercado Pago puede enviar el ID por body (data.id) o por searchParams (id o data.id)
     const paymentId =
       body?.data?.id ||
       searchParams.get("data.id") ||
       searchParams.get("id") ||
       body?.id;
 
-    const tipoEvento = body?.type || searchParams.get("topic") || body?.action;
+    const eventType = body?.type || searchParams.get("topic") || body?.action;
 
-    // Responder 200 a eventos de prueba o pings de handshake
     if (!paymentId) {
-      return Response.json({ mensaje: "Webhook recibido sin ID de pago." }, { status: 200 });
+      return Response.json({ message: "Webhook recibido sin ID de pago." }, { status: 200 });
     }
 
-    // Validar firma criptográfica si está configurado MERCADO_PAGO_WEBHOOK_SECRET
     const xSignature = request.headers.get("x-signature");
     const xRequestId = request.headers.get("x-request-id");
-    const validacionFirma = verificarFirmaWebhookMercadoPago({
+    const signatureValidation = verifyMercadoPagoWebhookSignature({
       xSignatureHeader: xSignature,
       xRequestIdHeader: xRequestId,
       dataId: String(paymentId),
     });
 
-    if (!validacionFirma.valida) {
-      console.warn(`[Webhook MercadoPago] Firma rechazada: ${validacionFirma.razon}`);
+    if (!signatureValidation.isValid) {
+      console.warn(`[Webhook MercadoPago] Firma rechazada: ${signatureValidation.reason}`);
       return Response.json(
-        { error: "Firma de webhook inválida.", detalle: validacionFirma.razon },
+        { error: "Firma de webhook inválida.", detail: signatureValidation.reason },
         { status: 401 }
       );
     }
 
-    console.log(`[Webhook MercadoPago] Evento recibido: ${tipoEvento}, Payment ID: ${paymentId}`);
+    console.log(`[Webhook MercadoPago] Evento recibido: ${eventType}, Payment ID: ${paymentId}`);
 
-    // Consultar el estado del pago (si hay Access Token consulta la API, sino valida simulación)
-    const pagoMP = await consultarPagoMercadoPago(paymentId);
+    const mpPayment = await getMercadoPagoPayment(paymentId);
 
-    if (!pagoMP || (pagoMP.status !== "approved" && pagoMP.status_detail !== "simulated_without_token")) {
-      console.log(`[Webhook MercadoPago] El pago ${paymentId} aún no está aprobado (Estado: ${pagoMP?.status}).`);
-      return Response.json({ mensaje: "Pago no aprobado aún." }, { status: 200 });
+    if (!mpPayment || (mpPayment.status !== "approved" && mpPayment.status_detail !== "simulated_without_token")) {
+      console.log(`[Webhook MercadoPago] El pago ${paymentId} aún no está aprobado (Estado: ${mpPayment?.status}).`);
+      return Response.json({ message: "Pago no aprobado aún." }, { status: 200 });
     }
 
-    // Extraer referencia del pedido (ej: "PED-12" o id de comanda)
-    const extRef = pagoMP.external_reference || body?.external_reference || "";
-    let idPedido: number | null = null;
+    const extRef = mpPayment.external_reference || body?.external_reference || "";
+    let orderId: number | null = null;
 
     if (extRef && extRef.startsWith("PED-")) {
-      idPedido = Number(extRef.replace("PED-", ""));
+      orderId = Number(extRef.replace("PED-", ""));
     } else if (!Number.isNaN(Number(extRef))) {
-      idPedido = Number(extRef);
+      orderId = Number(extRef);
     }
 
-    if (!idPedido) {
-      // Si no viene en external_reference, buscar primer pedido activo de tipo Mesa o Llevar
-      return Response.json({ mensaje: "Pago verificado sin pedido asociado directo." }, { status: 200 });
+    if (!orderId) {
+      return Response.json({ message: "Pago verificado sin pedido asociado directo." }, { status: 200 });
     }
 
-    // Buscar el pedido en la base de datos
-    const pedido = await prisma.pedido.findUnique({
-      where: { id_pedido: idPedido },
+    const order = await prisma.salesOrder.findUnique({
+      where: { id: orderId },
       include: {
-        pedidos_mesa: { include: { mesa: true } },
-        detalles_pedido: true,
+        tables: { include: { table: true } },
+        items: true,
       },
     });
 
-    if (!pedido) {
-      return Response.json({ error: `Pedido ${idPedido} no encontrado.` }, { status: 200 });
+    if (!order) {
+      return Response.json({ error: `Pedido ${orderId} no encontrado.` }, { status: 200 });
     }
 
-    // Idempotencia: Si ya está cerrado, no volver a cobrar
-    if (pedido.estado === "Cerrado") {
-      return Response.json({ mensaje: "El pedido ya se encontraba cerrado." }, { status: 200 });
+    if (order.status === "Closed") {
+      return Response.json({ message: "El pedido ya se encontraba cerrado." }, { status: 200 });
     }
 
-    // Obtener método de pago Tarjeta/POS en el sistema
-    const tipoPagoTarjeta = await prisma.tipo_pago.findFirst({
+    const cardPaymentType = await prisma.paymentType.findFirst({
       where: {
         OR: [
-          { nombre: { contains: "POS", mode: "insensitive" } },
-          { nombre: { contains: "Tarjeta", mode: "insensitive" } },
+          { name: { contains: "POS", mode: "insensitive" } },
+          { name: { contains: "Tarjeta", mode: "insensitive" } },
         ],
       },
     });
 
-    const idTipoPago = tipoPagoTarjeta ? tipoPagoTarjeta.id_tipo_pago : 1;
+    const paymentTypeId = cardPaymentType ? cardPaymentType.id : 1;
 
-    // Calcular montos oficiales
-    const total = pedido.detalles_pedido.reduce((acc, it) => acc + Number(it.sub_total), 0);
-    const totalRedondeado = Math.round(total * 100) / 100;
-    const subtotal = Math.round((totalRedondeado / 1.18) * 100) / 100;
-    const igv = Math.round((totalRedondeado - subtotal) * 100) / 100;
+    const total = order.items.reduce((acc, it) => acc + Number(it.subtotal), 0);
+    const roundedTotal = Math.round(total * 100) / 100;
+    const subtotal = Math.round((roundedTotal / 1.18) * 100) / 100;
+    const igv = Math.round((roundedTotal - subtotal) * 100) / 100;
 
-    // Obtener cliente general
-    const clienteGeneral = await prisma.cliente.findFirst({
-      where: { nro_doc: "00000000" },
+    const generalCustomer = await prisma.customer.findFirst({
+      where: { documentNumber: "00000000" },
     });
 
-    const idCliente = clienteGeneral?.id_cliente || 1;
+    const customerId = generalCustomer?.id || 1;
 
-    // Generar serie y correlativo para Boleta/Ticket
-    const serie = "B001";
-    const ultimoComprobante = await prisma.comprobante_venta.findFirst({
-      where: { serie },
-      orderBy: { numero: "desc" },
+    const series = "B001";
+    const lastInvoice = await prisma.salesInvoice.findFirst({
+      where: { series },
+      orderBy: { number: "desc" },
     });
-    const correlativo = (ultimoComprobante?.numero ?? 0) + 1;
+    const sequentialNumber = (lastInvoice?.number ?? 0) + 1;
 
-    let idComprobanteCreado: number | null = null;
+    let createdInvoiceId: number | null = null;
 
-    // Transacción atómica: Crear Comprobante -> Registrar Pago -> Cerrar Pedido -> Liberar Mesa
     await prisma.$transaction(async (tx) => {
-      const comprobante = await tx.comprobante_venta.create({
+      const invoice = await tx.salesInvoice.create({
         data: {
-          id_pedido: pedido.id_pedido,
-          id_cliente: idCliente,
-          tipo_comprobante: "Boleta",
-          serie,
-          numero: correlativo,
+          orderId: order.id,
+          customerId,
+          voucherType: "Boleta",
+          series,
+          number: sequentialNumber,
           subtotal,
           igv,
-          monto_total: totalRedondeado,
-          estado: "Emitido",
-          fecha_emision: new Date(),
+          totalAmount: roundedTotal,
+          status: "Issued",
+          issuedAt: new Date(),
         },
       });
 
-      idComprobanteCreado = comprobante.id_comprobante_venta;
+      createdInvoiceId = invoice.id;
 
-      await tx.pago_venta.create({
+      await tx.salesPayment.create({
         data: {
-          id_comprobante_venta: comprobante.id_comprobante_venta,
-          id_tipo_pago: idTipoPago,
-          monto: totalRedondeado,
-          fecha_pago: new Date(),
+          salesInvoiceId: invoice.id,
+          paymentTypeId,
+          amount: roundedTotal,
+          paidAt: new Date(),
         },
       });
 
-      await tx.pedido.update({
-        where: { id_pedido: pedido.id_pedido },
-        data: { estado: "Cerrado" },
+      await tx.salesOrder.update({
+        where: { id: order.id },
+        data: { status: "Closed" },
       });
 
-      if (pedido.pedidos_mesa.length > 0) {
-        for (const pm of pedido.pedidos_mesa) {
-          await tx.mesa.update({
-            where: { id_mesa: pm.id_mesa },
-            data: { estado: true }, // Liberar mesa
+      if (order.tables.length > 0) {
+        for (const pm of order.tables) {
+          await tx.diningTable.update({
+            where: { id: pm.tableId },
+            data: { active: true },
           });
         }
       }
+
+      await postSaleJournalEntries(tx, {
+        salesInvoiceId: invoice.id,
+        voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
+        entryDate: invoice.issuedAt,
+        subtotal,
+        igv,
+        total: roundedTotal,
+        paymentMethodName: cardPaymentType?.name || "Tarjeta / POS",
+        responsible: "Mercado Pago",
+      });
     });
 
-    // Archivar automáticamente el comprobante en el Bucket S3 'comprobantes'
-    if (idComprobanteCreado) {
-      await registrarComprobanteS3({
-        idComprobante: idComprobanteCreado,
+    if (createdInvoiceId) {
+      await uploadVoucherToS3({
+        idComprobante: createdInvoiceId,
         tipoComprobante: "Boleta",
-        serie,
-        numero: correlativo,
+        serie: series,
+        numero: sequentialNumber,
         formato: "pdf",
         fecha: new Date(),
       }).catch((s3Err) => {
@@ -191,12 +189,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log(`[Webhook MercadoPago] Pedido ${idPedido} cerrado, mesa liberada y comprobante B001-${correlativo} archivado en S3.`);
-    return Response.json({ mensaje: "Pago procesado, mesa liberada y comprobante archivado con éxito." }, { status: 200 });
-  } catch (error: any) {
+    console.log(`[Webhook MercadoPago] Pedido ${orderId} cerrado, mesa liberada y comprobante B001-${sequentialNumber} archivado en S3.`);
+    return Response.json({ message: "Pago procesado, mesa liberada y comprobante archivado con éxito." }, { status: 200 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("[Webhook MercadoPago] Error al procesar notificación:", error);
-    // Siempre retornar 200 a Mercado Pago para evitar que reintente infinitamente
-    return Response.json({ mensaje: "Error registrado en servidor.", detalle: error.message }, { status: 200 });
+    return Response.json({ message: "Error registrado en servidor.", detail: message }, { status: 200 });
   }
 }
 
@@ -205,8 +203,8 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   return Response.json({
-    estado: "activo",
-    servicio: "Webhook Mercado Pago - Pollería ERP",
-    fecha: new Date().toISOString(),
+    status: "active",
+    service: "Webhook Mercado Pago - Pollería ERP",
+    date: new Date().toISOString(),
   });
 }
