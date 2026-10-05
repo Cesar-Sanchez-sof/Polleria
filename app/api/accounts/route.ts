@@ -13,8 +13,13 @@
  *               type: array
  *               items:
  *                 type: object
- *                 // Define properties as needed or reference a schema
- *
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   code:
+ *                     type: string
+ *                   name:
+ *                     type: string
  */
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";

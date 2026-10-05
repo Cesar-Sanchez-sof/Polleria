@@ -14,7 +14,7 @@ async function requireRole(request: NextRequest, allowedRoles: number[]): Promis
     throw new Error('Unauthorized: missing authentication token');
   }
   // For this demo, token is a dummy placeholder; map to admin user (id 1)
-  const user = await prisma.user.findUnique({ where: { id: 1 } });
+  const user = await prisma.user.findUnique({ where: { id: 3 } });
   if (!user) {
     throw new Error('Unauthorized: user not found');
   }
@@ -32,11 +32,22 @@ async function requireRole(request: NextRequest, allowedRoles: number[]): Promis
 export async function GET(request: NextRequest) {
   try {
     const status = request.nextUrl.searchParams.get("status");
+    const monthParam = request.nextUrl.searchParams.get("month");
+    const yearParam = request.nextUrl.searchParams.get("year");
+
     const where: Prisma.AccountingPeriodWhereInput = {};
     if (status) {
       if (status === "open") where.status = "OPEN";
       else if (status === "closed") where.status = "CLOSED";
     }
+    const month = monthParam ? Number(monthParam) : NaN;
+    const year = yearParam ? Number(yearParam) : new Date().getFullYear();
+    if (!isNaN(month) && month >= 1 && month <= 12) {
+      const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+      where.startDate = { gte: startOfMonth, lte: endOfMonth };
+    }
+
     const periods = await prisma.accountingPeriod.findMany({ where });
     return Response.json(periods);
   } catch (error) {
@@ -57,33 +68,76 @@ export async function POST(request: NextRequest) {
     const userId = await requireRole(request, [ADMIN_ROLE_ID]);
 
     const body = await request.json();
-    const { startDate, endDate } = body as { startDate?: string; endDate?: string };
+    const { month, year } = body as { month?: number; year?: number };
     const errors: string[] = [];
-    if (!startDate) errors.push("startDate is required");
-    if (!endDate) errors.push("endDate is required");
-    if (errors.length) {
-      return Response.json({ errors }, { status: 400 });
-    }
-    const start = new Date(startDate!); // startDate is validated above
-    const end = new Date(endDate!); // endDate is validated above
-    if (isNaN(start.getTime())) errors.push("Invalid startDate");
-    if (isNaN(end.getTime())) errors.push("Invalid endDate");
-    if (start >= end) errors.push("startDate must be before endDate");
-    if (errors.length) {
-      return Response.json({ errors }, { status: 400 });
-    }
+    if (typeof month !== 'number' || month < 1 || month > 12) errors.push('El mes debe ser un número entero entre 1 y 12');
+    if (typeof year !== 'number' || year < 1970) errors.push('year must be a valid integer');
+    if (errors.length) return Response.json({ errors }, { status: 400 });
+
+    // Compute start and end of the selected month (UTC)
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // last day of month
+
+    // Uniqueness: only one period per month/year
+    const existing = await prisma.accountingPeriod.findFirst({
+      where: {
+        startDate: { gte: start, lte: end },
+        endDate: { gte: start, lte: end },
+      },
+    });
+    if (existing) errors.push('Ya existe un período para el mes y año seleccionados');
+
+    if (errors.length) return Response.json({ errors }, { status: 400 });
 
     const period = await prisma.accountingPeriod.create({
       data: {
         startDate: start,
         endDate: end,
         status: "OPEN",
+        userId: userId,
       },
     });
     return Response.json(period, { status: 201 });
   } catch (error) {
     console.error("[api/accounting-periods] POST error:", error);
     const msg = error instanceof Error ? error.message : "Error creating period";
+    return Response.json({ error: msg }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/accounting-periods
+ * Close (or optionally re‑open) an accounting period.
+ * Body expects: { periodId: number, reopen?: boolean }
+ * Only ADMIN can perform this operation.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const userId = await requireRole(request, [ADMIN_ROLE_ID]);
+    const body = await request.json();
+    const { periodId, reopen } = body as { periodId?: number; reopen?: boolean };
+    if (!periodId) {
+      return Response.json({ error: "periodId is required" }, { status: 400 });
+    }
+    const period = await prisma.accountingPeriod.findUnique({ where: { id: periodId } });
+    if (!period) {
+      return Response.json({ error: "Period not found" }, { status: 404 });
+    }
+    if (period.status === "CLOSED" && !reopen) {
+      return Response.json({ error: "Period already closed" }, { status: 400 });
+    }
+    const updated = await prisma.accountingPeriod.update({
+      where: { id: periodId },
+      data: {
+        status: reopen ? "OPEN" : "CLOSED",
+        closedAt: reopen ? null : new Date(),
+        closedById: reopen ? null : userId,
+      },
+    });
+    return Response.json(updated);
+  } catch (error) {
+    console.error("[api/accounting-periods] PATCH error:", error);
+    const msg = error instanceof Error ? error.message : "Error closing period";
     return Response.json({ error: msg }, { status: 500 });
   }
 }

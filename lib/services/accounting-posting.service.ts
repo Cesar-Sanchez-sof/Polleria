@@ -118,36 +118,44 @@ async function createBalancedEntry(
   let createdId: number | null = null;
   for (let attempt = 0; attempt < 5 && createdId === null; attempt++) {
     try {
-      const entry = await tx.journalEntry.create({
-        data: {
-          code: await nextJournalCode(tx, input.date),
-          entryDate: input.date,
-          description: input.description.slice(0, 200),
-          book: input.book,
-          responsible: input.responsible ?? "Sistema ERP",
-          observation: input.observation?.slice(0, 200) ?? null,
-          status: true,
-          salesInvoiceId: input.salesInvoiceId ?? null,
-          purchaseInvoiceId: input.purchaseInvoiceId ?? null,
-          entryDetails: {
-            create: [
-              {
-                accountId: input.debitAccountId,
-                description: (input.debitLineDescription ?? input.description).slice(0, 200),
-                debit: amount,
-                credit: 0,
-              },
-              {
-                accountId: input.creditAccountId,
-                description: (input.creditLineDescription ?? input.description).slice(0, 200),
-                debit: 0,
-                credit: amount,
-              },
-            ],
-          },
+// Ensure accounting period exists and is open
+const period = await tx.accountingPeriod.findFirst({
+  where: { startDate: { lte: input.date }, endDate: { gte: input.date } },
+});
+if (!period) throw new Error('No se encontró período contable para la fecha del asiento');
+if (period.status !== 'OPEN') throw new Error('No se pueden registrar asientos en un período cerrado');
+
+const entry = await tx.journalEntry.create({
+  data: {
+    code: await nextJournalCode(tx, input.date),
+    entryDate: input.date,
+    description: input.description.slice(0, 200),
+    book: input.book,
+    responsible: input.responsible ?? "Sistema ERP",
+    observation: input.observation?.slice(0, 200) ?? null,
+    status: true,
+    periodId: period.id,
+    salesInvoiceId: input.salesInvoiceId ?? null,
+    purchaseInvoiceId: input.purchaseInvoiceId ?? null,
+    entryDetails: {
+      create: [
+        {
+          accountId: input.debitAccountId,
+          description: (input.debitLineDescription ?? input.description).slice(0, 200),
+          debit: amount,
+          credit: 0,
         },
-        select: { id: true },
-      });
+        {
+          accountId: input.creditAccountId,
+          description: (input.creditLineDescription ?? input.description).slice(0, 200),
+          debit: 0,
+          credit: amount,
+        },
+      ],
+    },
+  },
+  select: { id: true },
+});
       createdId = entry.id;
     } catch (err) {
       const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
