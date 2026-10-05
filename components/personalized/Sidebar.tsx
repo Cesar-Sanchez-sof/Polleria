@@ -279,6 +279,15 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </div>
               <div className="flex flex-col pl-2 gap-0.5">
                 <Link
+                  className={getLinkClass("/accounting/guide")}
+                  data-path="guide-contable"
+                  href="/accounting/guide"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Guía Contable
+                </Link>
+                <Link
                   className={getLinkClass("/accounting/entries")}
                   data-path="dashboard-contabilidad"
                   href="/accounting/entries"
