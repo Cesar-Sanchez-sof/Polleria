@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function AccountingGuidePage() {
   return (
-    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+    <>
       <ModuleHeader
         title="Guía Contable"
         subtitle="Reglas y procesos contables para la Pollería"
@@ -156,6 +156,6 @@ export default function AccountingGuidePage() {
 
         </div>
       </main>
-    </div>
+    </>
   );
 }

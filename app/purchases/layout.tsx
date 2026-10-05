@@ -15,8 +15,8 @@ export default function PurchasesLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="pl-0 md:pl-64 min-h-screen flex flex-col w-full min-w-0 overflow-x-hidden bg-background text-sm text-foreground">
+    <>
       {children}
-    </div>
+    </>
   );
 }

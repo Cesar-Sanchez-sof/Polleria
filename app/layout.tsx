@@ -49,7 +49,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Suspense fallback={null}>
               <Sidebar />
             </Suspense>
-            <div className="flex-1 w-full min-w-0">{children}</div>
+            <div className="flex-1 w-full min-w-0">
+              <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+                {children}
+              </div>
+            </div>
           </div>
           <Toaster richColors position="top-right" />
         </ThemeProvider>

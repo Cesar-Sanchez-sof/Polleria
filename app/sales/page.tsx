@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  } from "@/components/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Utensils,
   Plus,
@@ -47,7 +47,7 @@ import {
   Tag,
   ArrowRight,
   XCircle,
-  } from "lucide-react";
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   listTables,
@@ -578,8 +578,8 @@ function SalesManagementContent() {
           isTakeaway
             ? "Pedido para llevar registrado con éxito."
             : additionalTables.length > 0
-            ? `Mesa ${selectedTable?.number} ocupada con ${additionalTables.length} mesa(s) unida(s). Comanda enviada a cocina.`
-            : `Mesa ${selectedTable?.number} ocupada. Comanda enviada a cocina.`
+              ? `Mesa ${selectedTable?.number} ocupada con ${additionalTables.length} mesa(s) unida(s). Comanda enviada a cocina.`
+              : `Mesa ${selectedTable?.number} ocupada. Comanda enviada a cocina.`
         );
       }
 
@@ -742,7 +742,8 @@ function SalesManagementContent() {
 
     if (paymentMethod === "mixto") {
       const isListValid = paymentParts
-        .map((p) => ({ paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
+        .map((p) => ({
+          paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
         }))
         .filter((p) => p.amount > 0);
 
@@ -841,7 +842,8 @@ function SalesManagementContent() {
 
     if (waiterPaymentMethod === "mixto") {
       const isListValid = waiterPaymentParts
-        .map((p) => ({ paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
+        .map((p) => ({
+          paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
         }))
         .filter((p) => p.amount > 0);
 
@@ -971,1528 +973,1503 @@ function SalesManagementContent() {
   };
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-slate-50 w-full min-w-0 overflow-x-hidden">
-        {/* Header Superior Responsivo */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-700 flex items-center justify-center text-white shadow-xs shrink-0">
-              <Utensils className="w-5 h-5" />
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">
-                  Módulo de Ventas &amp; Salón
-                </h1>
-                <Badge className="hidden sm:inline-flex bg-red-100 text-red-800 text-[10px] font-bold border-none shrink-0">
-                  ERP Pollería
-                </Badge>
-              </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-                Mesas, Clientes, Ventas Diarias, Cobro Mozo &amp; Ventanilla
-              </p>
-            </div>
+    <>
+      {/* Header Superior Responsivo */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-700 flex items-center justify-center text-white shadow-xs shrink-0">
+            <Utensils className="w-5 h-5" />
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Button
-              onClick={openTakeawayOrder}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span className="hidden sm:inline">+ Para Llevar</span>
-              <span className="sm:hidden">+ Llevar</span>
-            </Button>
-
-            <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>{currentTime || "12:00:00"}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">
+                Módulo de Ventas &amp; Salón
+              </h1>
+              <Badge className="hidden sm:inline-flex bg-red-100 text-red-800 text-[10px] font-bold border-none shrink-0">
+                ERP Pollería
+              </Badge>
             </div>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => void loadData()}
-              title="Refrescar datos"
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </Button>
+            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+              Mesas, Clientes, Ventas Diarias, Cobro Mozo &amp; Ventanilla
+            </p>
           </div>
-        </header>
-
-        {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
-        <div className="px-3 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
-          {/* Pestaña 1: Mesas y Salón */}
-          <button
-            type="button"
-            onClick={() => goToTab("tables")}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === "tables"
-                ? "border-red-700 text-red-700 bg-red-50/60"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4 shrink-0" />
-            <span className="sm:hidden">Mesas ({summary.occupied}/{summary.total})</span>
-            <span className="hidden sm:inline">Salón de Mesas ({summary.occupied}/{summary.total})</span>
-          </button>
-
-          {/* Pestaña: Cocina KDS */}
-          <button
-            type="button"
-            onClick={() => goToTab("kitchen")}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === "kitchen"
-                ? "border-red-700 text-red-700 bg-red-50/60"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <ChefHat className="w-4 h-4 shrink-0" />
-            <span>Cocina</span>
-          </button>
-
-          {/* Pestaña 2: Cobros No Cobrados */}
-          <button
-            type="button"
-            onClick={() => goToTab("payments")}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === "payments"
-                ? "border-red-700 text-red-700 bg-red-50/60"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="sm:hidden">Cobros ({uncollectedPayments.length})</span>
-            <span className="hidden sm:inline">Cobros No Cobrados ({uncollectedPayments.length})</span>
-          </button>
-
-          {/* Pestaña 3: Caja y Cobro en Ventanilla */}
-          <button
-            type="button"
-            onClick={() => goToTab("cashier")}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === "cashier"
-                ? "border-red-700 text-red-700 bg-red-50/60"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <CircleDollarSign className="w-4 h-4 shrink-0" />
-            <span className="sm:hidden">Caja {orderToCharge ? `(${paymentSource})` : ""}</span>
-            <span className="hidden sm:inline">Caja y Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
-          </button>
-
-          {/* Pestaña 4: Clientes */}
-          <button
-            type="button"
-            onClick={() => goToTab("customers")}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === "customers"
-                ? "border-red-700 text-red-700 bg-red-50/60"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <Users className="w-4 h-4 shrink-0" />
-            <span>Clientes ({customers.length})</span>
-          </button>
-
-          {/* Pestaña 5: Ventas Diarias & Facturas */}
-          <button
-            type="button"
-            onClick={() => goToTab("invoices")}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === "invoices"
-                ? "border-red-700 text-red-700 bg-red-50/60"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <Receipt className="w-4 h-4 shrink-0" />
-            <span className="sm:hidden">Ventas ({saleVouchers.length})</span>
-            <span className="hidden sm:inline">Ventas Diarias &amp; Facturas ({saleVouchers.length})</span>
-          </button>
         </div>
 
-        {/* =================================================================== */}
-        {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
-        {/* =================================================================== */}
-        {activeTab === "tables" && (
-          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-            {/* Barra de Filtros y Leyenda */}
-            <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-slate-700 mr-1">Filtrar Salón:</span>
-                <Button
-                  size="sm"
-                  variant={tableFilter === "todas" ? "default" : "outline"}
-                  onClick={() => setTableFilter("todas")}
-                  className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${
-                    tableFilter === "todas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
-                  }`}
-                >
-                  Todas ({summary.total})
-                </Button>
-                <Button
-                  size="sm"
-                  variant={tableFilter === "disponibles" ? "default" : "outline"}
-                  onClick={() => setTableFilter("disponibles")}
-                  className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${
-                    tableFilter === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""
-                  }`}
-                >
-                  Disponibles ({summary.available})
-                </Button>
-                <Button
-                  size="sm"
-                  variant={tableFilter === "ocupadas" ? "default" : "outline"}
-                  onClick={() => setTableFilter("ocupadas")}
-                  className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${
-                    tableFilter === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
-                  }`}
-                >
-                  Ocupadas ({summary.occupied})
-                </Button>
-              </div>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Button
+            onClick={openTakeawayOrder}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span className="hidden sm:inline">+ Para Llevar</span>
+            <span className="sm:hidden">+ Llevar</span>
+          </Button>
 
-              <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap">
-                <span className="font-bold text-slate-500">Cocina:</span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Recibido
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin"></span> Preparando
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Servido
-                </span>
-              </div>
-            </Card>
+          <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>{currentTime || "12:00:00"}</span>
+          </div>
 
-            {/* Grid Responsivo de Mesas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredTables.map((mesa) => {
-                const hasOrder = mesa.occupied && mesa.activeOrder;
-                const pedido = mesa.activeOrder;
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => void loadData()}
+            title="Refrescar datos"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </header>
 
-                return (
-                  <Card
-                    key={mesa.id}
-                    className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${
-                      mesa.occupied
-                        ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
-                        : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
+      {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
+      <div className="px-3 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
+        {/* Pestaña 1: Mesas y Salón */}
+        <button
+          type="button"
+          onClick={() => goToTab("tables")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "tables"
+            ? "border-red-700 text-red-700 bg-red-50/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <LayoutGrid className="w-4 h-4 shrink-0" />
+          <span className="sm:hidden">Mesas ({summary.occupied}/{summary.total})</span>
+          <span className="hidden sm:inline">Salón de Mesas ({summary.occupied}/{summary.total})</span>
+        </button>
+
+        {/* Pestaña: Cocina KDS */}
+        <button
+          type="button"
+          onClick={() => goToTab("kitchen")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "kitchen"
+            ? "border-red-700 text-red-700 bg-red-50/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <ChefHat className="w-4 h-4 shrink-0" />
+          <span>Cocina</span>
+        </button>
+
+        {/* Pestaña 2: Cobros No Cobrados */}
+        <button
+          type="button"
+          onClick={() => goToTab("payments")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "payments"
+            ? "border-red-700 text-red-700 bg-red-50/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span className="sm:hidden">Cobros ({uncollectedPayments.length})</span>
+          <span className="hidden sm:inline">Cobros No Cobrados ({uncollectedPayments.length})</span>
+        </button>
+
+        {/* Pestaña 3: Caja y Cobro en Ventanilla */}
+        <button
+          type="button"
+          onClick={() => goToTab("cashier")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "cashier"
+            ? "border-red-700 text-red-700 bg-red-50/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <CircleDollarSign className="w-4 h-4 shrink-0" />
+          <span className="sm:hidden">Caja {orderToCharge ? `(${paymentSource})` : ""}</span>
+          <span className="hidden sm:inline">Caja y Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
+        </button>
+
+        {/* Pestaña 4: Clientes */}
+        <button
+          type="button"
+          onClick={() => goToTab("customers")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "customers"
+            ? "border-red-700 text-red-700 bg-red-50/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <Users className="w-4 h-4 shrink-0" />
+          <span>Clientes ({customers.length})</span>
+        </button>
+
+        {/* Pestaña 5: Ventas Diarias & Facturas */}
+        <button
+          type="button"
+          onClick={() => goToTab("invoices")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "invoices"
+            ? "border-red-700 text-red-700 bg-red-50/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <Receipt className="w-4 h-4 shrink-0" />
+          <span className="sm:hidden">Ventas ({saleVouchers.length})</span>
+          <span className="hidden sm:inline">Ventas Diarias &amp; Facturas ({saleVouchers.length})</span>
+        </button>
+      </div>
+
+      {/* =================================================================== */}
+      {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
+      {/* =================================================================== */}
+      {activeTab === "tables" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {/* Barra de Filtros y Leyenda */}
+          <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-slate-700 mr-1">Filtrar Salón:</span>
+              <Button
+                size="sm"
+                variant={tableFilter === "todas" ? "default" : "outline"}
+                onClick={() => setTableFilter("todas")}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "todas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
+                  }`}
+              >
+                Todas ({summary.total})
+              </Button>
+              <Button
+                size="sm"
+                variant={tableFilter === "disponibles" ? "default" : "outline"}
+                onClick={() => setTableFilter("disponibles")}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""
+                  }`}
+              >
+                Disponibles ({summary.available})
+              </Button>
+              <Button
+                size="sm"
+                variant={tableFilter === "ocupadas" ? "default" : "outline"}
+                onClick={() => setTableFilter("ocupadas")}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
+                  }`}
+              >
+                Ocupadas ({summary.occupied})
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap">
+              <span className="font-bold text-slate-500">Cocina:</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Recibido
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin"></span> Preparando
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Servido
+              </span>
+            </div>
+          </Card>
+
+          {/* Grid Responsivo de Mesas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredTables.map((mesa) => {
+              const hasOrder = mesa.occupied && mesa.activeOrder;
+              const pedido = mesa.activeOrder;
+
+              return (
+                <Card
+                  key={mesa.id}
+                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${mesa.occupied
+                    ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
+                    : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
                     }`}
-                  >
-                    <div>
-                      {/* Cabecera de la Mesa */}
-                      <div
-                        className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${
-                          mesa.occupied
-                            ? "bg-red-50/80 border-red-100"
-                            : "bg-emerald-50/50 border-slate-100"
+                >
+                  <div>
+                    {/* Cabecera de la Mesa */}
+                    <div
+                      className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${mesa.occupied
+                        ? "bg-red-50/80 border-red-100"
+                        : "bg-emerald-50/50 border-slate-100"
                         }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-3 h-3 rounded-full ${
-                              mesa.occupied ? "bg-red-600 animate-pulse" : "bg-emerald-500"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-3 h-3 rounded-full ${mesa.occupied ? "bg-red-600 animate-pulse" : "bg-emerald-500"
                             }`}
-                          />
-                          <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                            Mesa {mesa.number}
-                          </h3>
-                          {hasOrder && pedido?.tableNotes?.includes("Mesas unidas:") && (
-                            <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
-                              {pedido.tableNotes.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <Badge
-                            variant="secondary"
-                            className="bg-white/80 text-[10px] font-semibold text-slate-600 border border-slate-200"
-                          >
-                            <Users className="w-3 h-3 mr-1 text-slate-400" />
-                            Aforo {mesa.capacity}
+                        />
+                        <h3 className="font-bold text-sm sm:text-base text-slate-900">
+                          Mesa {mesa.number}
+                        </h3>
+                        {hasOrder && pedido?.tableNotes?.includes("Mesas unidas:") && (
+                          <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
+                            {pedido.tableNotes.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
                           </Badge>
-                          <Badge
-                            className={`text-[10px] font-bold border-none ${
-                              mesa.occupied
-                                ? "bg-red-600 text-white"
-                                : "bg-emerald-600 text-white"
-                            }`}
-                          >
-                            {mesa.occupied ? "Ocupada" : "Libre"}
-                          </Badge>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Cuerpo de la Mesa */}
-                      <div className="p-3.5">
-                        {hasOrder && pedido ? (
-                          <div className="flex flex-col gap-2.5">
-                            {/* Meta del pedido */}
-                            <div className="flex items-center justify-between text-xs text-slate-500">
-                              <span className="font-mono font-semibold text-slate-700">
-                                {pedido.code}
-                              </span>
-                              <span className="flex items-center gap-1 text-[11px]">
-                                <Clock className="w-3 h-3 text-slate-400" />
-                                {new Date(pedido.orderedAt).toLocaleTimeString("es-PE", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className="bg-white/80 text-[10px] font-semibold text-slate-600 border border-slate-200"
+                        >
+                          <Users className="w-3 h-3 mr-1 text-slate-400" />
+                          Aforo {mesa.capacity}
+                        </Badge>
+                        <Badge
+                          className={`text-[10px] font-bold border-none ${mesa.occupied
+                            ? "bg-red-600 text-white"
+                            : "bg-emerald-600 text-white"
+                            }`}
+                        >
+                          {mesa.occupied ? "Ocupada" : "Libre"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Cuerpo de la Mesa */}
+                    <div className="p-3.5">
+                      {hasOrder && pedido ? (
+                        <div className="flex flex-col gap-2.5">
+                          {/* Meta del pedido */}
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span className="font-mono font-semibold text-slate-700">
+                              {pedido.code}
+                            </span>
+                            <span className="flex items-center gap-1 text-[11px]">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {new Date(pedido.orderedAt).toLocaleTimeString("es-PE", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+
+                          {/* Estado de cocina interactivo */}
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                            <div className="flex items-center gap-1.5">
+                              <ChefHat className="w-4 h-4 text-slate-500" />
+                              <span className="text-xs font-semibold text-slate-700">
+                                Cocina:
                               </span>
                             </div>
+                            <div className="flex items-center gap-1">
+                              {pedido.status === "Received" && (
+                                <button
+                                  onClick={() => changeKitchenStatus(pedido.id, "Preparing")}
+                                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
+                                  title="Pasar a Preparando"
+                                >
+                                  Recibido → Iniciar
+                                </button>
+                              )}
+                              {pedido.status === "Preparing" && (
+                                <button
+                                  onClick={() => changeKitchenStatus(pedido.id, "Served")}
+                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
+                                  title="Marcar como Servido"
+                                >
+                                  Preparando → Servir
+                                </button>
+                              )}
+                              {pedido.status === "Served" && (
+                                <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                                  ✓ Servido en Mesa
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-                            {/* Estado de cocina interactivo */}
-                            <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200/80">
-                              <div className="flex items-center gap-1.5">
-                                <ChefHat className="w-4 h-4 text-slate-500" />
-                                <span className="text-xs font-semibold text-slate-700">
-                                  Cocina:
+                          {/* Observación de la mesa */}
+                          {pedido.tableNotes && (
+                            <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/60 italic line-clamp-1">
+                              💬 &quot;{pedido.tableNotes}&quot;
+                            </p>
+                          )}
+
+                          {/* Detalle rápido de platos */}
+                          <div className="bg-slate-50 rounded-xl p-2.5 max-h-32 overflow-y-auto border border-slate-100 flex flex-col gap-1">
+                            {pedido.items.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between text-xs text-slate-700 py-0.5 border-b border-slate-200/50 last:border-none"
+                              >
+                                <span className="line-clamp-1">
+                                  <strong className="text-red-700 mr-1.5 font-mono">
+                                    {item.quantity}x
+                                  </strong>
+                                  {item.name}
+                                </span>
+                                <span className="font-semibold shrink-0 ml-2">
+                                  S/ {item.subtotal.toFixed(2)}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                {pedido.status === "Received" && (
-                                  <button
-                                    onClick={() => changeKitchenStatus(pedido.id, "Preparing")}
-                                    className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
-                                    title="Pasar a Preparando"
-                                  >
-                                    Recibido → Iniciar
-                                  </button>
-                                )}
-                                {pedido.status === "Preparing" && (
-                                  <button
-                                    onClick={() => changeKitchenStatus(pedido.id, "Served")}
-                                    className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
-                                    title="Marcar como Servido"
-                                  >
-                                    Preparando → Servir
-                                  </button>
-                                )}
-                                {pedido.status === "Served" && (
-                                  <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                    ✓ Servido en Mesa
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Observación de la mesa */}
-                            {pedido.tableNotes && (
-                              <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/60 italic line-clamp-1">
-                                💬 &quot;{pedido.tableNotes}&quot;
-                              </p>
-                            )}
-
-                            {/* Detalle rápido de platos */}
-                            <div className="bg-slate-50 rounded-xl p-2.5 max-h-32 overflow-y-auto border border-slate-100 flex flex-col gap-1">
-                              {pedido.items.map((item, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center justify-between text-xs text-slate-700 py-0.5 border-b border-slate-200/50 last:border-none"
-                                >
-                                  <span className="line-clamp-1">
-                                    <strong className="text-red-700 mr-1.5 font-mono">
-                                      {item.quantity}x
-                                    </strong>
-                                    {item.name}
-                                  </span>
-                                  <span className="font-semibold shrink-0 ml-2">
-                                    S/ {item.subtotal.toFixed(2)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Total Consumido */}
-                            <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                              <span className="text-xs font-bold text-slate-600">Total Cuenta:</span>
-                              <span className="text-base font-extrabold text-red-700">
-                                {formatCurrency(pedido.total)}
-                              </span>
-                            </div>
+                            ))}
                           </div>
-                        ) : (
-                          <div
-                            onClick={() => openTakeTableOrder(mesa)}
-                            className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-700 transition-colors"
-                          >
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                              <Plus className="w-6 h-6" />
-                            </div>
-                            <span className="text-xs font-bold text-slate-600">
-                              Mesa Disponible
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Toca para tomar comanda
+
+                          {/* Total Consumido */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                            <span className="text-xs font-bold text-slate-600">Total Cuenta:</span>
+                            <span className="text-base font-extrabold text-red-700">
+                              {formatCurrency(pedido.total)}
                             </span>
                           </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Botones de Acción al pie de la tarjeta */}
-                    <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-2">
-                      {mesa.occupied && pedido ? (
-                        <>
-                          {/* Botón para Cobro Móvil desde el Mozo */}
-                          <Button
-                            onClick={() =>
-                              openWaiterPayment({
-                                id: pedido.id,
-                                orderTableId: pedido.orderTableId,
-                                code: pedido.code,
-                                orderType: "Mesa",
-                                orderedAt: pedido.orderedAt,
-                                status: pedido.status,
-                                table: { id: mesa.id, number: mesa.number },
-                                notes: pedido.tableNotes,
-                                items: pedido.items,
-                                total: pedido.total,
-                                editable: pedido.editable,
-                              })
-                            }
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            <Smartphone className="w-4 h-4" />
-                            <span>Cobrar en Mesa (Mozo)</span>
-                          </Button>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            {/* Modificar Comanda */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                openEditOrder({
-                                  id: pedido.id,
-                                  tableNote: pedido.tableNotes,
-                                  items: pedido.items,
-                                  orderType: "Mesa",
-                                  status: pedido.status,
-                                })
-                              }
-                              disabled={!pedido.editable}
-                              className="text-xs font-semibold h-8 rounded-lg border-slate-300 cursor-pointer"
-                            >
-                              <Edit className="w-3.5 h-3.5 mr-1" />
-                              Modificar
-                            </Button>
-
-                            {/* Enviar a Cobro en Ventanilla */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                goToCounterPayment(
-                                  {
-                                    id: pedido.id,
-                                    orderTableId: pedido.orderTableId,
-                                    code: pedido.code,
-                                    orderType: "Mesa",
-                                    orderedAt: pedido.orderedAt,
-                                    status: pedido.status,
-                                    table: { id: mesa.id, number: mesa.number },
-                                    notes: pedido.tableNotes,
-                                    items: pedido.items,
-                                    total: pedido.total,
-                                    editable: pedido.editable,
-                                  },
-                                  `Mesa ${mesa.number}`
-                                )
-                              }
-                              className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
-                            >
-                              <Receipt className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                              A Ventanilla
-                            </Button>
-                          </div>
-
-                          {/* Cancelar Comanda con trazabilidad */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              openCancelModal({
-                                id: pedido.id,
-                                orderTableId: pedido.orderTableId,
-                                code: pedido.code,
-                                orderType: "Mesa",
-                                orderedAt: pedido.orderedAt,
-                                status: pedido.status,
-                                table: { id: mesa.id, number: mesa.number },
-                                notes: pedido.tableNotes,
-                                items: pedido.items,
-                                total: pedido.total,
-                                editable: pedido.editable,
-                              })
-                            }
-                            className="w-full text-[11px] font-semibold h-7 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
-                          >
-                            <XCircle className="w-3.5 h-3.5 mr-1 text-rose-500" />
-                            Cancelar Comanda
-                          </Button>
-                        </>
+                        </div>
                       ) : (
-                        <Button
+                        <div
                           onClick={() => openTakeTableOrder(mesa)}
-                          className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                          className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-700 transition-colors"
                         >
-                          <Plus className="w-4 h-4" />
-                          <span>Tomar Pedido</span>
-                        </Button>
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <Plus className="w-6 h-6" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-600">
+                            Mesa Disponible
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Toca para tomar comanda
+                          </span>
+                        </div>
                       )}
                     </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </main>
-        )}
+                  </div>
 
-        {/* =================================================================== */}
-        {/* PESTAÑA: COCINA (KDS) */}
-        {/* =================================================================== */}
-        {activeTab === "kitchen" && (
-          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-            <KitchenBoard />
-          </main>
-        )}
+                  {/* Botones de Acción al pie de la tarjeta */}
+                  <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-2">
+                    {mesa.occupied && pedido ? (
+                      <>
+                        {/* Botón para Cobro Móvil desde el Mozo */}
+                        <Button
+                          onClick={() =>
+                            openWaiterPayment({
+                              id: pedido.id,
+                              orderTableId: pedido.orderTableId,
+                              code: pedido.code,
+                              orderType: "Mesa",
+                              orderedAt: pedido.orderedAt,
+                              status: pedido.status,
+                              table: { id: mesa.id, number: mesa.number },
+                              notes: pedido.tableNotes,
+                              items: pedido.items,
+                              total: pedido.total,
+                              editable: pedido.editable,
+                            })
+                          }
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <Smartphone className="w-4 h-4" />
+                          <span>Cobrar en Mesa (Mozo)</span>
+                        </Button>
 
-        {/* =================================================================== */}
-        {/* PESTAÑA 2: COBROS NO COBRADOS (PENDIENTES EN SALA Y LLEVAR) */}
-        {/* =================================================================== */}
-        {activeTab === "payments" && (
-          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-            {/* Banner de Resumen de Cuentas por Cobrar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="bg-amber-500/10 border-amber-200 p-4 rounded-2xl flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                  <AlertCircle className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-amber-900 uppercase">
-                    Comandas por Cobrar
-                  </span>
-                  <p className="text-2xl font-extrabold text-amber-950">
-                    {uncollectedPayments.length} Pendientes
-                  </p>
-                </div>
-              </Card>
-
-              <Card className="bg-red-500/10 border-red-200 p-4 rounded-2xl flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-red-700 text-white flex items-center justify-center shrink-0">
-                  <DollarSign className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-red-900 uppercase">
-                    Importe Total por Cobrar
-                  </span>
-                  <p className="text-2xl font-extrabold text-red-950">
-                    {formatCurrency(totalPorCobrar)}
-                  </p>
-                </div>
-              </Card>
-
-              <Card className="bg-emerald-500/10 border-emerald-200 p-4 rounded-2xl flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <Smartphone className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-emerald-900 uppercase">
-                    Canales de Cobro
-                  </span>
-                  <p className="text-xs font-semibold text-emerald-800 mt-0.5">
-                    Cobro con Mozo en Mesa ó Caja Ventanilla
-                  </p>
-                </div>
-              </Card>
-            </div>
-
-            {/* Listado de Comandas Pendientes */}
-            <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
-                  <span>Detalle de Comandas Activas Sin Cobrar</span>
-                </h3>
-                <span className="text-xs text-slate-500">
-                  Actualizado en tiempo real
-                </span>
-              </div>
-
-              {uncollectedPayments.length === 0 ? (
-                <div className="py-12 text-center flex flex-col items-center justify-center gap-2 text-slate-400">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-                  <span className="text-sm font-bold text-slate-700">
-                    ¡Al día! No hay cuentas pendientes de cobro
-                  </span>
-                  <p className="text-xs text-slate-500">
-                    Todas las tables y pedidos para llevar se encuentran cobrados y cerrados.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {uncollectedPayments.map((cobro) => (
-                    <Card
-                      key={cobro.orderId}
-                      className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
-                            {cobro.tipo === "Mesa" ? (
-                              <Utensils className="w-4 h-4 text-red-700" />
-                            ) : (
-                              <ShoppingBag className="w-4 h-4 text-amber-600" />
-                            )}
-                            {cobro.identificador}
-                          </span>
-                          <Badge
-                            className={`text-[10px] font-bold border-none ${
-                              cobro.kitchenStatus === "Served"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : cobro.kitchenStatus === "Preparing"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-blue-100 text-blue-800"
-                            }`}
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* Modificar Comanda */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              openEditOrder({
+                                id: pedido.id,
+                                tableNote: pedido.tableNotes,
+                                items: pedido.items,
+                                orderType: "Mesa",
+                                status: pedido.status,
+                              })
+                            }
+                            disabled={!pedido.editable}
+                            className="text-xs font-semibold h-8 rounded-lg border-slate-300 cursor-pointer"
                           >
-                            {cobro.kitchenStatus === "Served"
-                              ? "Servido"
-                              : cobro.kitchenStatus === "Preparing"
+                            <Edit className="w-3.5 h-3.5 mr-1" />
+                            Modificar
+                          </Button>
+
+                          {/* Enviar a Cobro en Ventanilla */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              goToCounterPayment(
+                                {
+                                  id: pedido.id,
+                                  orderTableId: pedido.orderTableId,
+                                  code: pedido.code,
+                                  orderType: "Mesa",
+                                  orderedAt: pedido.orderedAt,
+                                  status: pedido.status,
+                                  table: { id: mesa.id, number: mesa.number },
+                                  notes: pedido.tableNotes,
+                                  items: pedido.items,
+                                  total: pedido.total,
+                                  editable: pedido.editable,
+                                },
+                                `Mesa ${mesa.number}`
+                              )
+                            }
+                            className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                          >
+                            <Receipt className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                            A Ventanilla
+                          </Button>
+                        </div>
+
+                        {/* Cancelar Comanda con trazabilidad */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            openCancelModal({
+                              id: pedido.id,
+                              orderTableId: pedido.orderTableId,
+                              code: pedido.code,
+                              orderType: "Mesa",
+                              orderedAt: pedido.orderedAt,
+                              status: pedido.status,
+                              table: { id: mesa.id, number: mesa.number },
+                              notes: pedido.tableNotes,
+                              items: pedido.items,
+                              total: pedido.total,
+                              editable: pedido.editable,
+                            })
+                          }
+                          className="w-full text-[11px] font-semibold h-7 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5 mr-1 text-rose-500" />
+                          Cancelar Comanda
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={() => openTakeTableOrder(mesa)}
+                        className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Tomar Pedido</span>
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </main>
+      )}
+
+      {/* =================================================================== */}
+      {/* PESTAÑA: COCINA (KDS) */}
+      {/* =================================================================== */}
+      {activeTab === "kitchen" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          <KitchenBoard />
+        </main>
+      )}
+
+      {/* =================================================================== */}
+      {/* PESTAÑA 2: COBROS NO COBRADOS (PENDIENTES EN SALA Y LLEVAR) */}
+      {/* =================================================================== */}
+      {activeTab === "payments" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {/* Banner de Resumen de Cuentas por Cobrar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="bg-amber-500/10 border-amber-200 p-4 rounded-2xl flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-amber-900 uppercase">
+                  Comandas por Cobrar
+                </span>
+                <p className="text-2xl font-extrabold text-amber-950">
+                  {uncollectedPayments.length} Pendientes
+                </p>
+              </div>
+            </Card>
+
+            <Card className="bg-red-500/10 border-red-200 p-4 rounded-2xl flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-red-700 text-white flex items-center justify-center shrink-0">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-red-900 uppercase">
+                  Importe Total por Cobrar
+                </span>
+                <p className="text-2xl font-extrabold text-red-950">
+                  {formatCurrency(totalPorCobrar)}
+                </p>
+              </div>
+            </Card>
+
+            <Card className="bg-emerald-500/10 border-emerald-200 p-4 rounded-2xl flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-emerald-900 uppercase">
+                  Canales de Cobro
+                </span>
+                <p className="text-xs font-semibold text-emerald-800 mt-0.5">
+                  Cobro con Mozo en Mesa ó Caja Ventanilla
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Listado de Comandas Pendientes */}
+          <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <span>Detalle de Comandas Activas Sin Cobrar</span>
+              </h3>
+              <span className="text-xs text-slate-500">
+                Actualizado en tiempo real
+              </span>
+            </div>
+
+            {uncollectedPayments.length === 0 ? (
+              <div className="py-12 text-center flex flex-col items-center justify-center gap-2 text-slate-400">
+                <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+                <span className="text-sm font-bold text-slate-700">
+                  ¡Al día! No hay cuentas pendientes de cobro
+                </span>
+                <p className="text-xs text-slate-500">
+                  Todas las tables y pedidos para llevar se encuentran cobrados y cerrados.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {uncollectedPayments.map((cobro) => (
+                  <Card
+                    key={cobro.orderId}
+                    className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                          {cobro.tipo === "Mesa" ? (
+                            <Utensils className="w-4 h-4 text-red-700" />
+                          ) : (
+                            <ShoppingBag className="w-4 h-4 text-amber-600" />
+                          )}
+                          {cobro.identificador}
+                        </span>
+                        <Badge
+                          className={`text-[10px] font-bold border-none ${cobro.kitchenStatus === "Served"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : cobro.kitchenStatus === "Preparing"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-blue-100 text-blue-800"
+                            }`}
+                        >
+                          {cobro.kitchenStatus === "Served"
+                            ? "Servido"
+                            : cobro.kitchenStatus === "Preparing"
                               ? "Preparando"
                               : cobro.kitchenStatus === "Received"
-                              ? "Recibido"
-                              : cobro.kitchenStatus}
-                          </Badge>
-                        </div>
-
-                        <div className="text-xs text-slate-500 flex items-center justify-between">
-                          <span className="font-mono">{cobro.code}</span>
-                          <span>
-                            {new Date(cobro.orderedAt).toLocaleTimeString("es-PE", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-
-                        {/* Ítems pedidos */}
-                        <div className="bg-white p-2.5 rounded-lg border border-slate-200/80 max-h-24 overflow-y-auto text-xs text-slate-700 flex flex-col gap-1">
-                          {cobro.items.map((it, idx) => (
-                            <div key={idx} className="flex justify-between">
-                              <span className="line-clamp-1">
-                                {it.quantity}x {it.name}
-                              </span>
-                              <span className="font-semibold ml-2">
-                                S/ {it.subtotal.toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-slate-600">Total a Cobrar:</span>
-                          <span className="text-base font-extrabold text-red-700">
-                            {formatCurrency(cobro.total)}
-                          </span>
-                        </div>
+                                ? "Recibido"
+                                : cobro.kitchenStatus}
+                        </Badge>
                       </div>
 
-                      {/* Botones de cobro directo y cancelación */}
-                      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200">
-                        {cobro.tipo === "Mesa" && (
-                          <Button
-                            size="sm"
-                            onClick={() => openWaiterPayment(cobro.orderObj)}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-8 rounded-lg cursor-pointer"
-                          >
-                            <Smartphone className="w-3.5 h-3.5 mr-1" />
-                            Cobro Mozo
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => goToCounterPayment(cobro.orderObj, cobro.identificador)}
-                          className="flex-1 text-xs font-bold h-8 rounded-lg border-slate-300 hover:bg-slate-100 cursor-pointer"
-                        >
-                          <Receipt className="w-3.5 h-3.5 mr-1 text-slate-600" />
-                          Ventanilla
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openCancelModal(cobro.orderObj)}
-                          title="Cancelar comanda"
-                          className="text-xs font-bold h-8 px-2 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </main>
-        )}
-
-        {/* =================================================================== */}
-        {/* PESTAÑA 3: CAJA Y COBRO EN VENTANILLA */}
-        {/* =================================================================== */}
-        {activeTab === "cashier" && (
-          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Columna Izquierda: Selección de Comanda a Cobrar */}
-              <div className="lg:col-span-5 flex flex-col gap-4">
-                <Card className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-                  <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
-                    <span>1. Seleccionar Cuenta a Cobrar</span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {uncollectedPayments.length} Pendientes
-                    </Badge>
-                  </h3>
-
-                  {uncollectedPayments.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-400">
-                      No hay comandas activas pendientes de cobro.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 max-h-[460px] overflow-y-auto pr-1">
-                      {uncollectedPayments.map((c) => {
-                        const isSelected = orderToCharge?.id === c.orderId;
-                        return (
-                          <div
-                            key={c.orderId}
-                            onClick={() => {
-                              setOrderToCharge(c.orderObj);
-                              setPaymentSource(c.identificador);
-                              setAmountGiven("");
-                            }}
-                            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
-                              isSelected
-                                ? "bg-red-50/80 border-red-500 ring-2 ring-red-500/20 shadow-xs"
-                                : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-slate-100/70"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
-                              <span className="flex items-center gap-1.5">
-                                {c.tipo === "Mesa" ? (
-                                  <Utensils className="w-3.5 h-3.5 text-red-700" />
-                                ) : (
-                                  <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
-                                )}
-                                {c.identificador}
-                              </span>
-                              <span className="text-red-700 font-extrabold text-sm">
-                                {formatCurrency(c.total)}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-slate-500 flex justify-between">
-                              <span>Comanda {c.code}</span>
-                              <span>{c.items.length} productos</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Card>
-              </div>
-
-              {/* Columna Derecha: Proceso de Cobro y Facturación en Ventanilla */}
-              <div className="lg:col-span-7 flex flex-col gap-4">
-                <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-                  <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200 flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Receipt className="w-4 h-4 text-red-700" />
-                      <span>2. Facturación y Medio de Pago en Ventanilla</span>
-                    </span>
-                    {orderToCharge && (
-                      <Badge className="bg-red-700 text-white font-bold text-xs">
-                        {paymentSource}
-                      </Badge>
-                    )}
-                  </h3>
-
-                  {!orderToCharge ? (
-                    <div className="py-16 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
-                      <Receipt className="w-12 h-12 text-slate-300" />
-                      <span className="text-sm font-semibold text-slate-600">
-                        Selecciona una cuenta en la columna izquierda
-                      </span>
-                      <p className="text-xs text-slate-400">
-                        Elige la mesa o pedido para llevar que deseas facturar y cobrar.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-4">
-                      {/* Desglose de Productos */}
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
-                        <span className="font-bold text-slate-700 mb-2 block">
-                          Consumo de la Cuenta:
+                      <div className="text-xs text-slate-500 flex items-center justify-between">
+                        <span className="font-mono">{cobro.code}</span>
+                        <span>
+                          {new Date(cobro.orderedAt).toLocaleTimeString("es-PE", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
-                        <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
-                          {orderToCharge.items.map((it, idx) => (
-                            <div
-                              key={idx}
-                              className="flex justify-between py-1 border-b border-slate-200/50 last:border-none text-slate-700"
-                            >
-                              <span>
-                                {it.quantity}x {it.name}
-                              </span>
-                              <span className="font-semibold">
-                                S/ {it.subtotal.toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
                       </div>
 
-                      {/* Tipo de Comprobante Fiscal */}
-                      <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                          Tipo de Comprobante:
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {(["Boleta", "Factura", "Ticket"] as const).map((tipo) => (
-                            <button
-                              key={tipo}
-                              type="button"
-                              onClick={() => {
-                                setVoucherType(tipo);
-                                if (tipo === "Factura" && (!customerDoc || customerDoc.length !== 11)) {
-                                  setCustomerDoc("20601234567");
-                                  setCustomerName("EMPRESA GASTRONÓMICA S.A.C.");
-                                }
-                              }}
-                              className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                                voucherType === tipo
-                                  ? "bg-red-700 text-white border-red-700 shadow-xs"
-                                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                              }`}
-                            >
-                              {tipo}
-                            </button>
-                          ))}
-                        </div>
+                      {/* Ítems pedidos */}
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200/80 max-h-24 overflow-y-auto text-xs text-slate-700 flex flex-col gap-1">
+                        {cobro.items.map((it, idx) => (
+                          <div key={idx} className="flex justify-between">
+                            <span className="line-clamp-1">
+                              {it.quantity}x {it.name}
+                            </span>
+                            <span className="font-semibold ml-2">
+                              S/ {it.subtotal.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
 
-                      {/* Datos del Cliente */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <div>
-                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                            {voucherType === "Factura" ? "RUC (11 dígitos):" : "DNI / Documento:"}
-                          </label>
-                          <div className="flex gap-1.5">
-                            <Input
-                              placeholder={voucherType === "Factura" ? "Ej: 20601234567" : "Ej: 47829103"}
-                              value={customerDoc}
-                              onChange={(e) => setCustomerDoc(e.target.value)}
-                              className="bg-white text-xs h-9 rounded-lg"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={lookingUpDoc}
-                              onClick={() =>
-                                lookupIdentityDocument(
-                                  voucherType === "Factura" ? "ruc" : "dni",
-                                  customerDoc,
-                                  "caja"
-                                )
-                              }
-                              className="bg-slate-800 hover:bg-slate-900 text-white text-[11px] h-9 px-2.5 rounded-lg shrink-0 cursor-pointer shadow-xs"
-                              title="Consultar en RENIEC / SUNAT con json.pe"
-                            >
-                              {lookingUpDoc ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-xs font-bold text-slate-600">Total a Cobrar:</span>
+                        <span className="text-base font-extrabold text-red-700">
+                          {formatCurrency(cobro.total)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botones de cobro directo y cancelación */}
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200">
+                      {cobro.tipo === "Mesa" && (
+                        <Button
+                          size="sm"
+                          onClick={() => openWaiterPayment(cobro.orderObj)}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-8 rounded-lg cursor-pointer"
+                        >
+                          <Smartphone className="w-3.5 h-3.5 mr-1" />
+                          Cobro Mozo
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => goToCounterPayment(cobro.orderObj, cobro.identificador)}
+                        className="flex-1 text-xs font-bold h-8 rounded-lg border-slate-300 hover:bg-slate-100 cursor-pointer"
+                      >
+                        <Receipt className="w-3.5 h-3.5 mr-1 text-slate-600" />
+                        Ventanilla
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openCancelModal(cobro.orderObj)}
+                        title="Cancelar comanda"
+                        className="text-xs font-bold h-8 px-2 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </Card>
+        </main>
+      )}
+
+      {/* =================================================================== */}
+      {/* PESTAÑA 3: CAJA Y COBRO EN VENTANILLA */}
+      {/* =================================================================== */}
+      {activeTab === "cashier" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Columna Izquierda: Selección de Comanda a Cobrar */}
+            <div className="lg:col-span-5 flex flex-col gap-4">
+              <Card className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+                <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
+                  <span>1. Seleccionar Cuenta a Cobrar</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {uncollectedPayments.length} Pendientes
+                  </Badge>
+                </h3>
+
+                {uncollectedPayments.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    No hay comandas activas pendientes de cobro.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-[460px] overflow-y-auto pr-1">
+                    {uncollectedPayments.map((c) => {
+                      const isSelected = orderToCharge?.id === c.orderId;
+                      return (
+                        <div
+                          key={c.orderId}
+                          onClick={() => {
+                            setOrderToCharge(c.orderObj);
+                            setPaymentSource(c.identificador);
+                            setAmountGiven("");
+                          }}
+                          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${isSelected
+                            ? "bg-red-50/80 border-red-500 ring-2 ring-red-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-slate-100/70"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                            <span className="flex items-center gap-1.5">
+                              {c.tipo === "Mesa" ? (
+                                <Utensils className="w-3.5 h-3.5 text-red-700" />
                               ) : (
-                                <Search className="w-3.5 h-3.5" />
+                                <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
                               )}
-                              <span className="ml-1 hidden sm:inline">SUNAT/RENIEC</span>
-                            </Button>
+                              {c.identificador}
+                            </span>
+                            <span className="text-red-700 font-extrabold text-sm">
+                              {formatCurrency(c.total)}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex justify-between">
+                            <span>Comanda {c.code}</span>
+                            <span>{c.items.length} productos</span>
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </div>
 
-                        <div>
-                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                            {voucherType === "Factura" ? "Razón Social:" : "Nombre del Cliente:"}
-                          </label>
+            {/* Columna Derecha: Proceso de Cobro y Facturación en Ventanilla */}
+            <div className="lg:col-span-7 flex flex-col gap-4">
+              <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+                <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-red-700" />
+                    <span>2. Facturación y Medio de Pago en Ventanilla</span>
+                  </span>
+                  {orderToCharge && (
+                    <Badge className="bg-red-700 text-white font-bold text-xs">
+                      {paymentSource}
+                    </Badge>
+                  )}
+                </h3>
+
+                {!orderToCharge ? (
+                  <div className="py-16 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                    <Receipt className="w-12 h-12 text-slate-300" />
+                    <span className="text-sm font-semibold text-slate-600">
+                      Selecciona una cuenta en la columna izquierda
+                    </span>
+                    <p className="text-xs text-slate-400">
+                      Elige la mesa o pedido para llevar que deseas facturar y cobrar.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {/* Desglose de Productos */}
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
+                      <span className="font-bold text-slate-700 mb-2 block">
+                        Consumo de la Cuenta:
+                      </span>
+                      <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
+                        {orderToCharge.items.map((it, idx) => (
+                          <div
+                            key={idx}
+                            className="flex justify-between py-1 border-b border-slate-200/50 last:border-none text-slate-700"
+                          >
+                            <span>
+                              {it.quantity}x {it.name}
+                            </span>
+                            <span className="font-semibold">
+                              S/ {it.subtotal.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tipo de Comprobante Fiscal */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                        Tipo de Comprobante:
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["Boleta", "Factura", "Ticket"] as const).map((tipo) => (
+                          <button
+                            key={tipo}
+                            type="button"
+                            onClick={() => {
+                              setVoucherType(tipo);
+                              if (tipo === "Factura" && (!customerDoc || customerDoc.length !== 11)) {
+                                setCustomerDoc("20601234567");
+                                setCustomerName("EMPRESA GASTRONÓMICA S.A.C.");
+                              }
+                            }}
+                            className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${voucherType === tipo
+                              ? "bg-red-700 text-white border-red-700 shadow-xs"
+                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                              }`}
+                          >
+                            {tipo}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Datos del Cliente */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          {voucherType === "Factura" ? "RUC (11 dígitos):" : "DNI / Documento:"}
+                        </label>
+                        <div className="flex gap-1.5">
                           <Input
-                            placeholder={voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"}
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder={voucherType === "Factura" ? "Ej: 20601234567" : "Ej: 47829103"}
+                            value={customerDoc}
+                            onChange={(e) => setCustomerDoc(e.target.value)}
                             className="bg-white text-xs h-9 rounded-lg"
                           />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={lookingUpDoc}
+                            onClick={() =>
+                              lookupIdentityDocument(
+                                voucherType === "Factura" ? "ruc" : "dni",
+                                customerDoc,
+                                "caja"
+                              )
+                            }
+                            className="bg-slate-800 hover:bg-slate-900 text-white text-[11px] h-9 px-2.5 rounded-lg shrink-0 cursor-pointer shadow-xs"
+                            title="Consultar en RENIEC / SUNAT con json.pe"
+                          >
+                            {lookingUpDoc ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Search className="w-3.5 h-3.5" />
+                            )}
+                            <span className="ml-1 hidden sm:inline">SUNAT/RENIEC</span>
+                          </Button>
                         </div>
                       </div>
 
-                      {/* Selección de Método de Pago */}
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                          Método de Pago:
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          {voucherType === "Factura" ? "Razón Social:" : "Nombre del Cliente:"}
                         </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("efectivo")}
-                            className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
-                              paymentMethod === "efectivo"
-                                ? "bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                            }`}
-                          >
-                            <Banknote className="w-5 h-5 text-emerald-600" />
-                            <span>Efectivo</span>
-                          </button>
+                        <Input
+                          placeholder={voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"}
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          className="bg-white text-xs h-9 rounded-lg"
+                        />
+                      </div>
+                    </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("yape")}
-                            className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
-                              paymentMethod === "yape"
-                                ? "bg-purple-50 border-purple-500 text-purple-800 ring-2 ring-purple-500/20"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                    {/* Selección de Método de Pago */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                        Método de Pago:
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("efectivo")}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${paymentMethod === "efectivo"
+                            ? "bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                             }`}
-                          >
-                            <QrCode className="w-5 h-5 text-purple-600" />
-                            <span>Yape QR</span>
-                          </button>
+                        >
+                          <Banknote className="w-5 h-5 text-emerald-600" />
+                          <span>Efectivo</span>
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("pos")}
-                            className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
-                              paymentMethod === "pos"
-                                ? "bg-blue-50 border-blue-500 text-blue-800 ring-2 ring-blue-500/20"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("yape")}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${paymentMethod === "yape"
+                            ? "bg-purple-50 border-purple-500 text-purple-800 ring-2 ring-purple-500/20"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                             }`}
-                          >
-                            <CreditCard className="w-5 h-5 text-blue-600" />
-                            <span>Tarjeta / POS</span>
-                          </button>
+                        >
+                          <QrCode className="w-5 h-5 text-purple-600" />
+                          <span>Yape QR</span>
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("mixto")}
-                            className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
-                              paymentMethod === "mixto"
-                                ? "bg-amber-50 border-amber-500 text-amber-800 ring-2 ring-amber-500/20"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("pos")}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${paymentMethod === "pos"
+                            ? "bg-blue-50 border-blue-500 text-blue-800 ring-2 ring-blue-500/20"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                             }`}
-                          >
-                            <CircleDollarSign className="w-5 h-5 text-amber-600" />
-                            <span>Pagar en Partes</span>
-                          </button>
+                        >
+                          <CreditCard className="w-5 h-5 text-blue-600" />
+                          <span>Tarjeta / POS</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("mixto")}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold transition-all cursor-pointer ${paymentMethod === "mixto"
+                            ? "bg-amber-50 border-amber-500 text-amber-800 ring-2 ring-amber-500/20"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                            }`}
+                        >
+                          <CircleDollarSign className="w-5 h-5 text-amber-600" />
+                          <span>Pagar en Partes</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Campo de vuelto para pago en efectivo */}
+                    {paymentMethod === "efectivo" && (
+                      <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-emerald-900 block mb-1">
+                            Monto Entregado por el Cliente:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder={`Ej: ${counterPaymentTotal}`}
+                              value={amountGiven}
+                              onChange={(e) => setAmountGiven(e.target.value)}
+                              className="bg-white text-xs h-9 w-36 rounded-lg font-bold"
+                            />
+                            <div className="flex gap-1">
+                              {[20, 50, 100, 200].map((billete) => (
+                                <button
+                                  key={billete}
+                                  type="button"
+                                  onClick={() => setAmountGiven(String(billete))}
+                                  className="px-2 py-1 bg-white border border-emerald-300 rounded text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 cursor-pointer"
+                                >
+                                  S/{billete}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[11px] font-bold text-emerald-800 block">
+                            Vuelto a Entregar:
+                          </span>
+                          <span className="text-xl font-extrabold text-emerald-700">
+                            S/ {counterChangeDue.toFixed(2)}
+                          </span>
                         </div>
                       </div>
+                    )}
 
-                      {/* Campo de vuelto para pago en efectivo */}
-                      {paymentMethod === "efectivo" && (
-                        <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    {/* Configuración de Pagar en Partes (Múltiples Medios de Pago) */}
+                    {paymentMethod === "mixto" && (
+                      <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 flex flex-col gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-amber-200/80">
                           <div>
-                            <label className="text-xs font-bold text-emerald-900 block mb-1">
-                              Monto Entregado por el Cliente:
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                step="any"
-                                placeholder={`Ej: ${counterPaymentTotal}`}
-                                value={amountGiven}
-                                onChange={(e) => setAmountGiven(e.target.value)}
-                                className="bg-white text-xs h-9 w-36 rounded-lg font-bold"
-                              />
-                              <div className="flex gap-1">
-                                {[20, 50, 100, 200].map((billete) => (
-                                  <button
-                                    key={billete}
-                                    type="button"
-                                    onClick={() => setAmountGiven(String(billete))}
-                                    className="px-2 py-1 bg-white border border-emerald-300 rounded text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 cursor-pointer"
-                                  >
-                                    S/{billete}
-                                  </button>
-                                ))}
-                              </div>
+                            <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                              <CircleDollarSign className="w-4 h-4 text-amber-600" />
+                              <span>Pagar en Partes (Múltiples Medios de Pago)</span>
                             </div>
+                            <p className="text-[11px] text-amber-800">
+                              Divide el total de la cuenta en 2 o más partes con cualquier medio de pago (Efectivo, Yape, Tarjeta, Plin).
+                            </p>
                           </div>
-
-                          <div className="text-right">
-                            <span className="text-[11px] font-bold text-emerald-800 block">
-                              Vuelto a Entregar:
-                            </span>
-                            <span className="text-xl font-extrabold text-emerald-700">
-                              S/ {counterChangeDue.toFixed(2)}
-                            </span>
+                          <div className="text-xs font-bold text-slate-800 bg-white px-3 py-1 rounded-xl border border-amber-200 shrink-0 self-start sm:self-auto">
+                            Total de la Cuenta: <span className="text-red-700 text-sm font-extrabold">{formatCurrency(counterPaymentTotal)}</span>
                           </div>
                         </div>
-                      )}
 
-                      {/* Configuración de Pagar en Partes (Múltiples Medios de Pago) */}
-                      {paymentMethod === "mixto" && (
-                        <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 flex flex-col gap-3">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-amber-200/80">
-                            <div>
-                              <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                                <CircleDollarSign className="w-4 h-4 text-amber-600" />
-                                <span>Pagar en Partes (Múltiples Medios de Pago)</span>
-                              </div>
-                              <p className="text-[11px] text-amber-800">
-                                Divide el total de la cuenta en 2 o más partes con cualquier medio de pago (Efectivo, Yape, Tarjeta, Plin).
-                              </p>
-                            </div>
-                            <div className="text-xs font-bold text-slate-800 bg-white px-3 py-1 rounded-xl border border-amber-200 shrink-0 self-start sm:self-auto">
-                              Total de la Cuenta: <span className="text-red-700 text-sm font-extrabold">{formatCurrency(counterPaymentTotal)}</span>
-                            </div>
-                          </div>
+                        {/* Listado dinámico de partes de pago */}
+                        <div className="flex flex-col gap-2">
+                          {paymentParts.map((parte, index) => {
+                            const selectedPaymentType = paymentTypes.find((t) => t.id === parte.paymentTypeId);
+                            const esEfectivo = selectedPaymentType?.name.toLowerCase().includes("efectivo");
 
-                          {/* Listado dinámico de partes de pago */}
-                          <div className="flex flex-col gap-2">
-                            {paymentParts.map((parte, index) => {
-                              const selectedPaymentType = paymentTypes.find((t) => t.id === parte.paymentTypeId);
-                              const esEfectivo = selectedPaymentType?.name.toLowerCase().includes("efectivo");
+                            // Calcular cuánto falta considerando las otras partes
+                            const otherSum = paymentParts
+                              .filter((p) => p.id !== parte.id)
+                              .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                            const remainingForThis = Math.max(0, Math.round((counterPaymentTotal - otherSum) * 100) / 100);
 
-                              // Calcular cuánto falta considerando las otras partes
-                              const otherSum = paymentParts
-                                .filter((p) => p.id !== parte.id)
-                                .reduce((s, p) => s + (Number(p.monto) || 0), 0);
-                              const remainingForThis = Math.max(0, Math.round((counterPaymentTotal - otherSum) * 100) / 100);
+                            return (
+                              <div
+                                key={parte.id}
+                                className="bg-white p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col gap-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center shrink-0">
+                                    #{index + 1}
+                                  </span>
 
-                              return (
-                                <div
-                                  key={parte.id}
-                                  className="bg-white p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col gap-2"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center shrink-0">
-                                      #{index + 1}
+                                  {/* Selector de método de pago */}
+                                  <div className="flex-1 min-w-[130px]">
+                                    <select
+                                      value={parte.paymentTypeId}
+                                      onChange={(e) =>
+                                        updatePaymentPart(parte.id, "paymentTypeId", Number(e.target.value), "caja")
+                                      }
+                                      className="w-full h-8 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                                    >
+                                      {paymentTypes.map((tp) => (
+                                        <option key={tp.id} value={tp.id}>
+                                          {tp.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Input del monto de la parte */}
+                                  <div className="w-32 shrink-0 relative">
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">
+                                      S/
                                     </span>
+                                    <Input
+                                      type="number"
+                                      step="any"
+                                      placeholder="0.00"
+                                      value={parte.monto}
+                                      onChange={(e) =>
+                                        updatePaymentPart(parte.id, "monto", e.target.value, "caja")
+                                      }
+                                      className="h-8 pl-7 text-xs font-bold text-slate-900 rounded-lg bg-slate-50"
+                                    />
+                                  </div>
 
-                                    {/* Selector de método de pago */}
-                                    <div className="flex-1 min-w-[130px]">
-                                      <select
-                                        value={parte.paymentTypeId}
-                                        onChange={(e) =>
-                                          updatePaymentPart(parte.id, "paymentTypeId", Number(e.target.value), "caja")
-                                        }
-                                        className="w-full h-8 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                                      >
-                                        {paymentTypes.map((tp) => (
-                                          <option key={tp.id} value={tp.id}>
-                                            {tp.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
+                                  {/* Botón rápido para autocompletar lo que resta para esta parte */}
+                                  {remainingForThis > 0 && Number(parte.monto) !== remainingForThis && (
+                                    <button
+                                      type="button"
+                                      onClick={() => autofillRemaining(parte.id, counterPaymentTotal, "caja")}
+                                      className="text-[10px] font-bold px-2 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors cursor-pointer shrink-0 hidden sm:inline"
+                                      title={`Asignar el saldo restante de S/ ${remainingForThis.toFixed(2)}`}
+                                    >
+                                      = S/ {remainingForThis.toFixed(2)}
+                                    </button>
+                                  )}
 
-                                    {/* Input del monto de la parte */}
-                                    <div className="w-32 shrink-0 relative">
-                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">
-                                        S/
-                                      </span>
+                                  {/* Botón eliminar parte (si hay más de 2) */}
+                                  {paymentParts.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removePaymentPart(parte.id, "caja")}
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                                      title="Eliminar esta parte"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Helper para Efectivo: Vuelto si el cliente entrega un billete más grande */}
+                                {esEfectivo && Number(parte.monto) > 0 && (
+                                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-600">
+                                    <span className="text-[10px] text-slate-500 font-semibold">
+                                      ¿Cliente paga con billete mayor?
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
                                       <Input
                                         type="number"
                                         step="any"
-                                        placeholder="0.00"
-                                        value={parte.monto}
+                                        placeholder="Billete (ej: 20)"
+                                        value={parte.cashGiven || ""}
                                         onChange={(e) =>
-                                          updatePaymentPart(parte.id, "monto", e.target.value, "caja")
+                                          updatePaymentPart(parte.id, "cashGiven", e.target.value, "caja")
                                         }
-                                        className="h-8 pl-7 text-xs font-bold text-slate-900 rounded-lg bg-slate-50"
+                                        className="h-6 w-24 text-[10px] rounded px-1.5 bg-slate-50"
                                       />
+                                      {Number(parte.cashGiven) > Number(parte.monto) && (
+                                        <span className="text-emerald-700 font-bold text-[10px]">
+                                          Vuelto: S/ {(Number(parte.cashGiven) - Number(parte.monto)).toFixed(2)}
+                                        </span>
+                                      )}
                                     </div>
-
-                                    {/* Botón rápido para autocompletar lo que resta para esta parte */}
-                                    {remainingForThis > 0 && Number(parte.monto) !== remainingForThis && (
-                                      <button
-                                        type="button"
-                                        onClick={() => autofillRemaining(parte.id, counterPaymentTotal, "caja")}
-                                        className="text-[10px] font-bold px-2 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors cursor-pointer shrink-0 hidden sm:inline"
-                                        title={`Asignar el saldo restante de S/ ${remainingForThis.toFixed(2)}`}
-                                      >
-                                        = S/ {remainingForThis.toFixed(2)}
-                                      </button>
-                                    )}
-
-                                    {/* Botón eliminar parte (si hay más de 2) */}
-                                    {paymentParts.length > 2 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => removePaymentPart(parte.id, "caja")}
-                                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
-                                        title="Eliminar esta parte"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    )}
                                   </div>
-
-                                  {/* Helper para Efectivo: Vuelto si el cliente entrega un billete más grande */}
-                                  {esEfectivo && Number(parte.monto) > 0 && (
-                                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-600">
-                                      <span className="text-[10px] text-slate-500 font-semibold">
-                                        ¿Cliente paga con billete mayor?
-                                      </span>
-                                      <div className="flex items-center gap-1.5">
-                                        <Input
-                                          type="number"
-                                          step="any"
-                                          placeholder="Billete (ej: 20)"
-                                          value={parte.cashGiven || ""}
-                                          onChange={(e) =>
-                                            updatePaymentPart(parte.id, "cashGiven", e.target.value, "caja")
-                                          }
-                                          className="h-6 w-24 text-[10px] rounded px-1.5 bg-slate-50"
-                                        />
-                                        {Number(parte.cashGiven) > Number(parte.monto) && (
-                                          <span className="text-emerald-700 font-bold text-[10px]">
-                                            Vuelto: S/ {(Number(parte.cashGiven) - Number(parte.monto)).toFixed(2)}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Botón para agregar una nueva parte */}
-                          <div className="flex items-center justify-between pt-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addPaymentPart("caja")}
-                              className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-8 rounded-xl cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5 mr-1" />
-                              <span>Agregar otra forma de pago</span>
-                            </Button>
-
-                            <span className="text-[10px] text-amber-800 hidden sm:inline">
-                              Ingresa montos hasta cubrir el 100% de la cuenta.
-                            </span>
-                          </div>
-
-                          {/* Balance y validación en tiempo real */}
-                          {(() => {
-                            const cubierto = Math.round(
-                              paymentParts.reduce((sum, p) => sum + (Number(p.monto) || 0), 0) * 100
-                            ) / 100;
-                            const diferencia = Math.round((counterPaymentTotal - cubierto) * 100) / 100;
-                            const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
-                            const porcentaje = counterPaymentTotal > 0
-                              ? Math.min(100, Math.round((cubierto / counterPaymentTotal) * 100))
-                              : 0;
-
-                            return (
-                              <div className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-2 text-xs">
-                                {/* Barra visual de progreso */}
-                                <div>
-                                  <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                                    <span>Progreso del Pago: {porcentaje}%</span>
-                                    <span>
-                                      Suma de Partes: <strong className="text-slate-900">S/ {cubierto.toFixed(2)}</strong> de{" "}
-                                      <strong className="text-red-700">{formatCurrency(counterPaymentTotal)}</strong>
-                                    </span>
-                                  </div>
-                                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
-                                    <div
-                                      className={`h-full transition-all duration-300 ${
-                                        esExacto ? "bg-emerald-500" : diferencia > 0 ? "bg-amber-500" : "bg-rose-500"
-                                      }`}
-                                      style={{ width: `${Math.min(100, porcentaje)}%` }}
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                                  {esExacto ? (
-                                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                      <span>¡Excelente! Cuenta 100% cubierta con las partes indicadas.</span>
-                                    </div>
-                                  ) : diferencia > 0 ? (
-                                    <div className="flex items-center gap-1.5 text-amber-800 font-bold">
-                                      <AlertCircle className="w-4 h-4 text-amber-600" />
-                                      <span>Falta cubrir: S/ {diferencia.toFixed(2)}</span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-1.5 text-rose-700 font-bold">
-                                      <AlertCircle className="w-4 h-4 text-rose-600" />
-                                      <span>Las partes exceden el total por: S/ {Math.abs(diferencia).toFixed(2)}</span>
-                                    </div>
-                                  )}
-
-                                  {esExacto ? (
-                                    <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
-                                      Listo para cobrar
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-[10px] text-slate-500">
-                                      Ajuste requerido
-                                    </Badge>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             );
-                          })()}
+                          })}
                         </div>
-                      )}
 
-                      {/* Totales con desglose de IGV (18%) */}
-                      <div className="bg-slate-100 p-3.5 rounded-xl border border-slate-200 flex flex-col gap-1 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>Subtotal Base Imponible:</span>
-                          <span className="font-semibold">
-                            S/ {counterBreakdown.subtotal.toFixed(2)}
+                        {/* Botón para agregar una nueva parte */}
+                        <div className="flex items-center justify-between pt-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addPaymentPart("caja")}
+                            className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-8 rounded-xl cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            <span>Agregar otra forma de pago</span>
+                          </Button>
+
+                          <span className="text-[10px] text-amber-800 hidden sm:inline">
+                            Ingresa montos hasta cubrir el 100% de la cuenta.
                           </span>
                         </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>IGV (18% incluido):</span>
-                          <span className="font-semibold">
-                            S/ {counterBreakdown.igv.toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-slate-900 font-extrabold text-base pt-1 border-t border-slate-200 mt-1">
-                          <span>TOTAL A PAGAR:</span>
-                          <span className="text-red-700">
-                            {formatCurrency(counterPaymentTotal)}
-                          </span>
-                        </div>
+
+                        {/* Balance y validación en tiempo real */}
+                        {(() => {
+                          const cubierto = Math.round(
+                            paymentParts.reduce((sum, p) => sum + (Number(p.monto) || 0), 0) * 100
+                          ) / 100;
+                          const diferencia = Math.round((counterPaymentTotal - cubierto) * 100) / 100;
+                          const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
+                          const porcentaje = counterPaymentTotal > 0
+                            ? Math.min(100, Math.round((cubierto / counterPaymentTotal) * 100))
+                            : 0;
+
+                          return (
+                            <div className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-2 text-xs">
+                              {/* Barra visual de progreso */}
+                              <div>
+                                <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                  <span>Progreso del Pago: {porcentaje}%</span>
+                                  <span>
+                                    Suma de Partes: <strong className="text-slate-900">S/ {cubierto.toFixed(2)}</strong> de{" "}
+                                    <strong className="text-red-700">{formatCurrency(counterPaymentTotal)}</strong>
+                                  </span>
+                                </div>
+                                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${esExacto ? "bg-emerald-500" : diferencia > 0 ? "bg-amber-500" : "bg-rose-500"
+                                      }`}
+                                    style={{ width: `${Math.min(100, porcentaje)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                {esExacto ? (
+                                  <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    <span>¡Excelente! Cuenta 100% cubierta con las partes indicadas.</span>
+                                  </div>
+                                ) : diferencia > 0 ? (
+                                  <div className="flex items-center gap-1.5 text-amber-800 font-bold">
+                                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                                    <span>Falta cubrir: S/ {diferencia.toFixed(2)}</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 text-rose-700 font-bold">
+                                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                                    <span>Las partes exceden el total por: S/ {Math.abs(diferencia).toFixed(2)}</span>
+                                  </div>
+                                )}
+
+                                {esExacto ? (
+                                  <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                                    Listo para cobrar
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] text-slate-500">
+                                    Ajuste requerido
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
+                    )}
 
-                      {/* Botón de Confirmación y Cierre de Venta */}
-                      <Button
-                        onClick={executeCounterPayment}
-                        disabled={processingSale}
-                        className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-sm h-11 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
-                      >
-                        {processingSale ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Procesando Venta y Liberando Mesa...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-5 h-5" />
-                            <span>Emitir Comprobante y Cobrar en Ventanilla</span>
-                          </>
-                        )}
-                      </Button>
+                    {/* Totales con desglose de IGV (18%) */}
+                    <div className="bg-slate-100 p-3.5 rounded-xl border border-slate-200 flex flex-col gap-1 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Subtotal Base Imponible:</span>
+                        <span className="font-semibold">
+                          S/ {counterBreakdown.subtotal.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>IGV (18% incluido):</span>
+                        <span className="font-semibold">
+                          S/ {counterBreakdown.igv.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-slate-900 font-extrabold text-base pt-1 border-t border-slate-200 mt-1">
+                        <span>TOTAL A PAGAR:</span>
+                        <span className="text-red-700">
+                          {formatCurrency(counterPaymentTotal)}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </Card>
-              </div>
-            </div>
-          </main>
-        )}
 
-        {/* =================================================================== */}
-        {/* PESTAÑA 4: CLIENTES (LISTADO, BÚSQUEDA Y REGISTRO) */}
-        {/* =================================================================== */}
-        {activeTab === "customers" && (
-          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-            <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-              {/* Barra Superior con Búsqueda y Botón Nuevo */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
-                <div className="flex items-center gap-2 w-full sm:w-80">
-                  <div className="relative w-full">
-                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                    <Input
-                      placeholder="Buscar por DNI, RUC o Nombre..."
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="pl-9 bg-slate-50 text-xs h-9 rounded-xl"
-                    />
+                    {/* Botón de Confirmación y Cierre de Venta */}
+                    <Button
+                      onClick={executeCounterPayment}
+                      disabled={processingSale}
+                      className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-sm h-11 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                    >
+                      {processingSale ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Procesando Venta y Liberando Mesa...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span>Emitir Comprobante y Cobrar en Ventanilla</span>
+                        </>
+                      )}
+                    </Button>
                   </div>
-                </div>
+                )}
+              </Card>
+            </div>
+          </div>
+        </main>
+      )}
 
+      {/* =================================================================== */}
+      {/* PESTAÑA 4: CLIENTES (LISTADO, BÚSQUEDA Y REGISTRO) */}
+      {/* =================================================================== */}
+      {activeTab === "customers" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+            {/* Barra Superior con Búsqueda y Botón Nuevo */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-2 w-full sm:w-80">
+                <div className="relative w-full">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <Input
+                    placeholder="Buscar por DNI, RUC o Nombre..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    className="pl-9 bg-slate-50 text-xs h-9 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={() => {
+                  setNewCustomerType("Natural");
+                  setNewCustomerDoc("");
+                  setNewCustomerName("");
+                  setNewCustomerLastName("");
+                  setNewCustomerPhone("");
+                  setNewCustomerModalOpen(true);
+                }}
+                className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Nuevo Cliente</span>
+              </Button>
+            </div>
+
+            {/* Tabla Responsiva de Clientes */}
+            <div className="overflow-x-auto mt-4">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70">
+                    <th className="py-2.5 px-3">Documento</th>
+                    <th className="py-2.5 px-3">Tipo</th>
+                    <th className="py-2.5 px-3">Cliente / Razón Social</th>
+                    <th className="py-2.5 px-3">Teléfono</th>
+                    <th className="py-2.5 px-3 text-center">Compras</th>
+                    <th className="py-2.5 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredCustomers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        No se encontraron customers registrados.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCustomers.map((cli) => (
+                      <tr key={cli.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                          {cli.documentNumber}
+                        </td>
+                        <td className="py-3 px-3">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] ${cli.personType === "Legal"
+                              ? "border-blue-300 text-blue-800 bg-blue-50"
+                              : "border-slate-300 text-slate-700 bg-slate-100"
+                              }`}
+                          >
+                            {cli.personType === "Legal" ? "Jurídica" : "Natural"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-slate-800">
+                          {cli.fullName}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 font-mono">
+                          {cli.phone || "—"}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                            {cli.totalPurchases}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => selectCustomerForSale(cli)}
+                            className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
+                          >
+                            Facturar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </main>
+      )}
+
+      {/* =================================================================== */}
+      {/* PESTAÑA 5: VENTAS DIARIAS & FACTURAS DE VENTA */}
+      {/* =================================================================== */}
+      {activeTab === "invoices" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {/* Tarjetas KPI de Resumen de Ventas Diarias */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-bold uppercase">Total Recaudado</span>
+                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-slate-900">
+                {formatCurrency(dailySummary.totalRecaudado)}
+              </p>
+              <span className="text-[11px] text-slate-500 mt-1">
+                {dailySummary.cantidadVentas} comprobantes emitidos
+              </span>
+            </Card>
+
+            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-emerald-700 mb-1">
+                <span className="text-xs font-bold uppercase">Efectivo en Caja</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Banknote className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-emerald-700">
+                {formatCurrency(dailySummary.desgloseMetodos.efectivo)}
+              </p>
+              <span className="text-[11px] text-slate-500 mt-1">
+                Dinero físico availableId
+              </span>
+            </Card>
+
+            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-purple-700 mb-1">
+                <span className="text-xs font-bold uppercase">Yape QR</span>
+                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <QrCode className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-purple-700">
+                {formatCurrency(dailySummary.desgloseMetodos.yape)}
+              </p>
+              <span className="text-[11px] text-slate-500 mt-1">
+                Pagos digitales QR
+              </span>
+            </Card>
+
+            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-blue-700 mb-1">
+                <span className="text-xs font-bold uppercase">POS / Tap to Pay</span>
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-blue-700">
+                {formatCurrency(dailySummary.desgloseMetodos.tarjeta)}
+              </p>
+              <span className="text-[11px] text-slate-500 mt-1">
+                Mercado Pago &amp; Tarjetas
+              </span>
+            </Card>
+          </div>
+
+          {/* Listado y Filtro de Comprobantes Emitidos */}
+          <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-red-700" />
+                  <span>Comprobantes de Venta Emitidos</span>
+                </h3>
+                <Badge variant="outline" className="text-[10px]">
+                  {saleVouchers.length} Emitidos
+                </Badge>
+              </div>
+
+              {/* Filtro de Fecha */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-semibold">Filtrar:</span>
                 <Button
-                  onClick={() => {
-                    setNewCustomerType("Natural");
-                    setNewCustomerDoc("");
-                    setNewCustomerName("");
-                    setNewCustomerLastName("");
-                    setNewCustomerPhone("");
-                    setNewCustomerModalOpen(true);
-                  }}
-                  className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  size="sm"
+                  variant={salesDateFilter === "hoy" ? "default" : "outline"}
+                  onClick={() => setSalesDateFilter("hoy")}
+                  className={`text-xs h-7 rounded-lg cursor-pointer ${salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""
+                    }`}
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Nuevo Cliente</span>
+                  Hoy
+                </Button>
+                <Button
+                  size="sm"
+                  variant={salesDateFilter === "todas" ? "default" : "outline"}
+                  onClick={() => setSalesDateFilter("todas")}
+                  className={`text-xs h-7 rounded-lg cursor-pointer ${salesDateFilter === "todas" ? "bg-red-700 text-white" : ""
+                    }`}
+                >
+                  Todas las Fechas
                 </Button>
               </div>
-
-              {/* Tabla Responsiva de Clientes */}
-              <div className="overflow-x-auto mt-4">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70">
-                      <th className="py-2.5 px-3">Documento</th>
-                      <th className="py-2.5 px-3">Tipo</th>
-                      <th className="py-2.5 px-3">Cliente / Razón Social</th>
-                      <th className="py-2.5 px-3">Teléfono</th>
-                      <th className="py-2.5 px-3 text-center">Compras</th>
-                      <th className="py-2.5 px-3 text-right">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredCustomers.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-400">
-                          No se encontraron customers registrados.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredCustomers.map((cli) => (
-                        <tr key={cli.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-3 font-mono font-bold text-slate-900">
-                            {cli.documentNumber}
-                          </td>
-                          <td className="py-3 px-3">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] ${
-                                cli.personType === "Legal"
-                                  ? "border-blue-300 text-blue-800 bg-blue-50"
-                                  : "border-slate-300 text-slate-700 bg-slate-100"
-                              }`}
-                            >
-                              {cli.personType === "Legal" ? "Jurídica" : "Natural"}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-3 font-semibold text-slate-800">
-                            {cli.fullName}
-                          </td>
-                          <td className="py-3 px-3 text-slate-600 font-mono">
-                            {cli.phone || "—"}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                              {cli.totalPurchases}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => selectCustomerForSale(cli)}
-                              className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
-                            >
-                              Facturar
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </main>
-        )}
-
-        {/* =================================================================== */}
-        {/* PESTAÑA 5: VENTAS DIARIAS & FACTURAS DE VENTA */}
-        {/* =================================================================== */}
-        {activeTab === "invoices" && (
-          <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-            {/* Tarjetas KPI de Resumen de Ventas Diarias */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-500 mb-1">
-                  <span className="text-xs font-bold uppercase">Total Recaudado</span>
-                  <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-xl sm:text-2xl font-extrabold text-slate-900">
-                  {formatCurrency(dailySummary.totalRecaudado)}
-                </p>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  {dailySummary.cantidadVentas} comprobantes emitidos
-                </span>
-              </Card>
-
-              <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-emerald-700 mb-1">
-                  <span className="text-xs font-bold uppercase">Efectivo en Caja</span>
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Banknote className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-xl sm:text-2xl font-extrabold text-emerald-700">
-                  {formatCurrency(dailySummary.desgloseMetodos.efectivo)}
-                </p>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  Dinero físico availableId
-                </span>
-              </Card>
-
-              <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-purple-700 mb-1">
-                  <span className="text-xs font-bold uppercase">Yape QR</span>
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-                    <QrCode className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-xl sm:text-2xl font-extrabold text-purple-700">
-                  {formatCurrency(dailySummary.desgloseMetodos.yape)}
-                </p>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  Pagos digitales QR
-                </span>
-              </Card>
-
-              <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-blue-700 mb-1">
-                  <span className="text-xs font-bold uppercase">POS / Tap to Pay</span>
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                    <CreditCard className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-xl sm:text-2xl font-extrabold text-blue-700">
-                  {formatCurrency(dailySummary.desgloseMetodos.tarjeta)}
-                </p>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  Mercado Pago &amp; Tarjetas
-                </span>
-              </Card>
             </div>
 
-            {/* Listado y Filtro de Comprobantes Emitidos */}
-            <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                    <Receipt className="w-4 h-4 text-red-700" />
-                    <span>Comprobantes de Venta Emitidos</span>
-                  </h3>
-                  <Badge variant="outline" className="text-[10px]">
-                    {saleVouchers.length} Emitidos
-                  </Badge>
-                </div>
-
-                {/* Filtro de Fecha */}
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-500 font-semibold">Filtrar:</span>
-                  <Button
-                    size="sm"
-                    variant={salesDateFilter === "hoy" ? "default" : "outline"}
-                    onClick={() => setSalesDateFilter("hoy")}
-                    className={`text-xs h-7 rounded-lg cursor-pointer ${
-                      salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""
-                    }`}
-                  >
-                    Hoy
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={salesDateFilter === "todas" ? "default" : "outline"}
-                    onClick={() => setSalesDateFilter("todas")}
-                    className={`text-xs h-7 rounded-lg cursor-pointer ${
-                      salesDateFilter === "todas" ? "bg-red-700 text-white" : ""
-                    }`}
-                  >
-                    Todas las Fechas
-                  </Button>
-                </div>
-              </div>
-
-              {/* Tabla de Facturas y Boletas */}
-              <div className="overflow-x-auto mt-4">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70">
-                      <th className="py-2.5 px-3">Comprobante</th>
-                      <th className="py-2.5 px-3">Fecha y Hora</th>
-                      <th className="py-2.5 px-3">Cliente</th>
-                      <th className="py-2.5 px-3">Origen</th>
-                      <th className="py-2.5 px-3">Método Pago</th>
-                      <th className="py-2.5 px-3 text-right">Total</th>
-                      <th className="py-2.5 px-3 text-center">Acción</th>
+            {/* Tabla de Facturas y Boletas */}
+            <div className="overflow-x-auto mt-4">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70">
+                    <th className="py-2.5 px-3">Comprobante</th>
+                    <th className="py-2.5 px-3">Fecha y Hora</th>
+                    <th className="py-2.5 px-3">Cliente</th>
+                    <th className="py-2.5 px-3">Origen</th>
+                    <th className="py-2.5 px-3">Método Pago</th>
+                    <th className="py-2.5 px-3 text-right">Total</th>
+                    <th className="py-2.5 px-3 text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {saleVouchers.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        No se han emitido comprobantes para la fecha seleccionada.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {saleVouchers.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400">
-                          No se han emitido comprobantes para la fecha seleccionada.
+                  ) : (
+                    saleVouchers.map((comp) => (
+                      <tr key={comp.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3">
+                          <span className="font-mono font-bold text-slate-900 block">
+                            {comp.fullCode}
+                          </span>
+                          <Badge
+                            className={`text-[9px] font-bold border-none ${comp.voucherType === "Factura"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-slate-100 text-slate-800"
+                              }`}
+                          >
+                            {comp.voucherType}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
+                          {new Date(comp.issuedAt).toLocaleString("es-PE", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="font-semibold text-slate-800 block line-clamp-1">
+                            {comp.customer.firstName}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            Doc: {comp.customer.documentNumber}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 font-semibold">
+                          {comp.origin}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {comp.paymentMethod}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right font-extrabold text-sm text-red-700 font-mono">
+                          {formatCurrency(comp.total)}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setIssuedVoucher(comp);
+                              setTicketModalOpen(true);
+                            }}
+                            className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5 mr-1" />
+                            Ver Ticket
+                          </Button>
                         </td>
                       </tr>
-                    ) : (
-                      saleVouchers.map((comp) => (
-                        <tr key={comp.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-3">
-                            <span className="font-mono font-bold text-slate-900 block">
-                              {comp.fullCode}
-                            </span>
-                            <Badge
-                              className={`text-[9px] font-bold border-none ${
-                                comp.voucherType === "Factura"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-slate-100 text-slate-800"
-                              }`}
-                            >
-                              {comp.voucherType}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
-                            {new Date(comp.issuedAt).toLocaleString("es-PE", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })}
-                          </td>
-                          <td className="py-3 px-3">
-                            <span className="font-semibold text-slate-800 block line-clamp-1">
-                              {comp.customer.firstName}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              Doc: {comp.customer.documentNumber}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-slate-600 font-semibold">
-                            {comp.origin}
-                          </td>
-                          <td className="py-3 px-3">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
-                              {comp.paymentMethod}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-right font-extrabold text-sm text-red-700 font-mono">
-                            {formatCurrency(comp.total)}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setIssuedVoucher(comp);
-                                setTicketModalOpen(true);
-                              }}
-                              className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
-                            >
-                              <Printer className="w-3.5 h-3.5 mr-1" />
-                              Ver Ticket
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </main>
-        )}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </main>
+      )}
 
       {/* =================================================================== */}
       {/* MODAL 1: TOMAR / EDITAR COMANDA (MESA O PARA LLEVAR) */}
@@ -2504,11 +2481,11 @@ function SalesManagementContent() {
               <span className="flex items-center gap-2 min-w-0">
                 <Utensils className="w-5 h-5 text-red-700 shrink-0" />
                 <span className="truncate">
-                {isEditing
-                  ? "Modificar Comanda Activa"
-                  : isTakeaway
-                  ? "Nuevo Pedido Para Llevar (Ventanilla)"
-                  : `Comanda de Salón — Mesa ${selectedTable?.number}`}
+                  {isEditing
+                    ? "Modificar Comanda Activa"
+                    : isTakeaway
+                      ? "Nuevo Pedido Para Llevar (Ventanilla)"
+                      : `Comanda de Salón — Mesa ${selectedTable?.number}`}
                 </span>
               </span>
               <span className="text-xs font-mono font-bold text-red-700 bg-red-50 px-2 py-1 rounded-lg shrink-0 self-start sm:self-auto">
@@ -2545,11 +2522,10 @@ function SalesManagementContent() {
                             isSelected ? prev.filter((id) => id !== m.id) : [...prev, m.id]
                           );
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-amber-500 text-white border-amber-600 shadow-xs ring-2 ring-amber-300"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${isSelected
+                          ? "bg-amber-500 text-white border-amber-600 shadow-xs ring-2 ring-amber-300"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
                       >
                         + Mesa {m.number} (Aforo {m.capacity})
                       </button>
@@ -2588,11 +2564,10 @@ function SalesManagementContent() {
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedCategory === cat.id
-                    ? "bg-red-700 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${selectedCategory === cat.id
+                  ? "bg-red-700 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
               >
                 {cat.label}
               </button>
@@ -2784,11 +2759,10 @@ function SalesManagementContent() {
                   <button
                     type="button"
                     onClick={() => setWaiterPaymentMethod("pos")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${
-                      waiterPaymentMethod === "pos"
-                        ? "bg-blue-50 border-blue-500 text-blue-900 ring-2 ring-blue-500/20 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600"
-                    }`}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "pos"
+                      ? "bg-blue-50 border-blue-500 text-blue-900 ring-2 ring-blue-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
                   >
                     <Smartphone className="w-5 h-5 text-blue-600" />
                     <span>Tap to Pay</span>
@@ -2797,11 +2771,10 @@ function SalesManagementContent() {
                   <button
                     type="button"
                     onClick={() => setWaiterPaymentMethod("yape")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${
-                      waiterPaymentMethod === "yape"
-                        ? "bg-purple-50 border-purple-500 text-purple-900 ring-2 ring-purple-500/20 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600"
-                    }`}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "yape"
+                      ? "bg-purple-50 border-purple-500 text-purple-900 ring-2 ring-purple-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
                   >
                     <QrCode className="w-5 h-5 text-purple-600" />
                     <span>Yape QR</span>
@@ -2810,11 +2783,10 @@ function SalesManagementContent() {
                   <button
                     type="button"
                     onClick={() => setWaiterPaymentMethod("efectivo")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${
-                      waiterPaymentMethod === "efectivo"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600"
-                    }`}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "efectivo"
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
                   >
                     <Banknote className="w-5 h-5 text-emerald-600" />
                     <span>Efectivo</span>
@@ -2823,11 +2795,10 @@ function SalesManagementContent() {
                   <button
                     type="button"
                     onClick={() => setWaiterPaymentMethod("mixto")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${
-                      waiterPaymentMethod === "mixto"
-                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600"
-                    }`}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "mixto"
+                      ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
                   >
                     <CircleDollarSign className="w-5 h-5 text-amber-600" />
                     <span>En Partes</span>
@@ -3085,22 +3056,20 @@ function SalesManagementContent() {
                 <button
                   type="button"
                   onClick={() => setNewCustomerType("Natural")}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                    newCustomerType === "Natural"
-                      ? "bg-red-700 text-white border-red-700"
-                      : "bg-slate-50 border-slate-200 text-slate-700"
-                  }`}
+                  className={`py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${newCustomerType === "Natural"
+                    ? "bg-red-700 text-white border-red-700"
+                    : "bg-slate-50 border-slate-200 text-slate-700"
+                    }`}
                 >
                   Persona Natural (DNI)
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewCustomerType("Legal")}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                    newCustomerType === "Legal"
-                      ? "bg-red-700 text-white border-red-700"
-                      : "bg-slate-50 border-slate-200 text-slate-700"
-                  }`}
+                  className={`py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${newCustomerType === "Legal"
+                    ? "bg-red-700 text-white border-red-700"
+                    : "bg-slate-50 border-slate-200 text-slate-700"
+                    }`}
                 >
                   Persona Jurídica (RUC)
                 </button>
@@ -3507,7 +3476,7 @@ function SalesManagementContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

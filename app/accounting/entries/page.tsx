@@ -286,89 +286,87 @@ export default function AsientosPage() {
   return (
     <>
       {/* Main content area */}
-      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
-        <ModuleHeader
-          title="Asientos contables"
-          subtitle="Registro y consulta de asientos del periodo"
-          icon={Calculator}
-          iconClassName="bg-red-100 text-red-700"
-        />
-        {/* Main Content */}
-        <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
-          <div className="flex flex-col w-full gap-5">
-            {/* MAIN LEDGER APPLICATION CARD */}
-            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <JournalEntryToolbar
-                q={searchQuery}
-                onSearch={setSearchQuery}
-                onClearSearch={clearSearch}
-                onNew={() => setNewOpen(true)}
-                fromShown={fromShown}
-                toShown={toShown}
+      <ModuleHeader
+        title="Asientos / Libro Diario"
+        subtitle="Registro y consulta de asientos del periodo"
+        icon={Calculator}
+        iconClassName="bg-red-100 text-red-700"
+      />
+      {/* Main Content */}
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          {/* MAIN LEDGER APPLICATION CARD */}
+          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
+            <JournalEntryToolbar
+              q={searchQuery}
+              onSearch={setSearchQuery}
+              onClearSearch={clearSearch}
+              onNew={() => setNewOpen(true)}
+              fromShown={fromShown}
+              toShown={toShown}
+              total={total}
+              loading={loading}
+              page={page}
+              totalPages={totalPages}
+              onPage={changePage}
+            />
+          </Card>
+          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <JournalEntryTabs
+                journals={journals}
                 total={total}
-                loading={loading}
-                page={page}
-                totalPages={totalPages}
-                onPage={changePage}
+                journal={journal}
+                onSelect={changeJournal}
               />
-            </Card>
-            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <div className="flex flex-wrap items-center gap-3">
-                <JournalEntryTabs
-                  journals={journals}
-                  total={total}
-                  journal={journal}
-                  onSelect={changeJournal}
-                />
 
-                <JournalEntryFilters
-                  from={from}
-                  to={to}
-                  journal={journal}
-                  statusFilter={statusFilter}
-                  search={search}
-                  options={options}
-                  hasFilters={hasFilters}
-                  onFrom={(val) => changeRange("from", val)}
-                  onTo={(val) => changeRange("to", val)}
-                  onStatus={changeStatus}
-                  onClear={clearFilters}
-                  onRemove={removeFilter}
-                />
-              </div>
-
-              <JournalEntryTable
-                rows={rows}
-                loading={loading}
-                error={errorMessage}
+              <JournalEntryFilters
+                from={from}
+                to={to}
+                journal={journal}
+                statusFilter={statusFilter}
+                search={search}
+                options={options}
                 hasFilters={hasFilters}
-                order={order}
-                pageSize={pageSize}
-                selectedIds={selectedIds}
-                onSort={sortBy}
-                onSelectAll={handleSelectAll}
-                onSelectRow={handleSelectRow}
-                onOpenDetail={openDetail}
-                onRetry={() => void loadEntries()}
-                onClearFilters={clearFilters}
+                onFrom={(val) => changeRange("from", val)}
+                onTo={(val) => changeRange("to", val)}
+                onStatus={changeStatus}
+                onClear={clearFilters}
+                onRemove={removeFilter}
               />
+            </div>
 
-              <JournalEntryPagination
-                page={page}
-                totalPages={totalPages}
-                pageSize={pageSize}
-                loading={loading}
-                fromShown={fromShown}
-                toShown={toShown}
-                total={total}
-                selectedCount={selectedIds.length}
-                onPage={changePage}
-                onPageSize={changePageSize}
-              />
-            </Card>
-          </div>
-        </main>
-      </div>
+            <JournalEntryTable
+              rows={rows}
+              loading={loading}
+              error={errorMessage}
+              hasFilters={hasFilters}
+              order={order}
+              pageSize={pageSize}
+              selectedIds={selectedIds}
+              onSort={sortBy}
+              onSelectAll={handleSelectAll}
+              onSelectRow={handleSelectRow}
+              onOpenDetail={openDetail}
+              onRetry={() => void loadEntries()}
+              onClearFilters={clearFilters}
+            />
+
+            <JournalEntryPagination
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              loading={loading}
+              fromShown={fromShown}
+              toShown={toShown}
+              total={total}
+              selectedCount={selectedIds.length}
+              onPage={changePage}
+              onPageSize={changePageSize}
+            />
+          </Card>
+        </div>
+      </main>
 
       {/* DETALLE DEL ASIENTO SELECCIONADO */}
       <JournalEntryDetail

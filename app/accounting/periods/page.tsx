@@ -73,7 +73,7 @@ export default function AccountingPeriodsPage() {
   };
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+    <>
       <ModuleHeader
         title="Periodos Contables"
         subtitle="Lista de periodos abiertos y cerrados"
@@ -141,6 +141,6 @@ export default function AccountingPeriodsPage() {
           </Card>
         </div>
       </main>
-    </div>
+    </>
   );
 }

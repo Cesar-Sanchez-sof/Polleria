@@ -1,3 +1,21 @@
+/**
+ * @openapi
+ * /api/accounts:
+ *   get:
+ *     summary: Lista todas las cuentas contables
+ *     operationId: listAccounts
+ *     responses:
+ *       '200':
+ *         description: Lista de cuentas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 // Define properties as needed or reference a schema
+ *
+ */
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {

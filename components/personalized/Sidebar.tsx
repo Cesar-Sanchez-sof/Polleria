@@ -294,7 +294,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Asientos contables
+                  Asientos / Libro Diario
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
@@ -306,15 +306,6 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 >
                   <span>Cuentas contables</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/journal")}
-                  data-path="libro-diario"
-                  href="/accounting/journal"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Libro Diario
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/ledger")}
@@ -351,6 +342,26 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Periodos Contables
+                </Link>
+              </div>
+            </div>
+
+            {/* DOCUMENTACIÓN Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  DOCUMENTACIÓN
+                </span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className={getLinkClass("/swagger")}
+                  data-path="endpoints"
+                  href="/swagger"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Endpoints
                 </Link>
               </div>
             </div>
