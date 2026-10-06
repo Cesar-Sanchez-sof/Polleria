@@ -211,25 +211,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Órdenes de Compra
+                  Añadir Compra
                 </Link>
                 <Link
-                  className={getLinkClass("/purchases/receiving")}
-                  data-path="receiving"
-                  href="/purchases/receiving"
+                  className={getLinkClass("/purchases/list")}
+                  data-path="list"
+                  href="/purchases/list"
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Recepción de Compra
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/supplier-invoices")}
-                  data-path="supplier-invoices"
-                  href="/purchases/supplier-invoices"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Facturas y Pagos
+                  Listar Compras
                 </Link>
                 <Link
                   className={getLinkClass("/purchases/inventory")}

@@ -143,8 +143,8 @@ export function SupplierDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="RUC">RUC (11 dígitos)</SelectItem>
-                  <SelectItem value="DNI">DNI (8 dígitos)</SelectItem>
+                  <SelectItem value="RUC">RUC</SelectItem>
+                  <SelectItem value="DNI">DNI</SelectItem>
                 </SelectContent>
               </Select>
             </div>

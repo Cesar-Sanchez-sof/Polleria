@@ -114,13 +114,14 @@ stock 10 → crea un movimiento con `quantity: 5` y el insumo queda en 15.
 - **No existe edición de insumos**: no hay `updateSupply` ni botón de modificar/desactivar;
   nombre, tipo, unidad y stock mínimo son **inmutables** después del alta (sólo cambia
   `currentStock`, y sólo por los caminos de inventario).
-- **`active` siempre `true`**: no hay ninguna función que ponga un insumo inactivo; el campo
-  existe en el modelo pero no se explota.
+- **`active` editable desde la lista**: el stock mínimo y el estado activo son editables
+  inline desde la tabla de inventario (si no se ha implementado aún, documentarlo como
+  pendiente).
 - **Kardex sin pantalla**: la página se titula "Kardex e Inventario de Insumos" y existe
   `getInventoryMovements(supplyId?)`, pero **ningún componente la consume** → la lista de
   movimientos no está visible en la UI.
 - **Stock inicial en 0**: crear un insumo no deja cargar cantidad inicial; el stock debe
-  venir después de una recepción, transformación, compra sin comprobante o ajuste.
+  venir después de una compra unificada, transformación, compra sin comprobante o ajuste.
 - **Código derivado**: `INS-###` se calcula en cliente a partir del `id` (`padStart(3, "0")`);
   con más de 999 insumos el código supera los 3 dígitos.
 - **Números en el diálogo**: el campo de stock físico usa `parseFloat(e.target.value) || 0`,
@@ -137,7 +138,11 @@ stock 10 → crea un movimiento con `quantity: 5` y el insumo queda en 15.
   Transformación (con `prefilledType={FinishedProduct}`) y Compra sin Comprobante; el insumo
   creado allí queda con stock 0 y no aparece en esa lista hasta que se refresque.
 - **Sin control de acceso**: ni la página ni los Server Actions validan sesión, cookie ni rol.
-
+- **Costos actualizados por compras**: `lastCost` y `averageCost` del insumo se actualizan
+  automáticamente al registrar compras (unificada, sin comprobante) y transformaciones.
+  No son editables manualmente.
+- **Atributo `affectationIgv`**: cada insumo tiene una afectación IGV (Included/Excluded)
+  que define cómo se calcula el impuesto al comprarlo. Se hereda al detalle de cada compra.
 ---
 
 ## Functionalidades / Functionalities
@@ -165,6 +170,9 @@ stock 10 → crea un movimiento con `quantity: 5` y el insumo queda en 15.
 | BR-7 | **Estado de stock** | "Bajo Stock" cuando `currentStock <= minimumStock`; en otro caso "Óptimo". |
 | BR-8 | **Tipos de registro** | La UI ofrece sólo `Adjustment` y `Shrinkage`; el servicio acepta cualquier `InventoryMovementType` y por defecto usa `Adjustment`. |
 | BR-9 | **Sin control de acceso** | Ninguna acción valida sesión ni rol. |
+| BR-10 | **Afectación IGV del insumo** | Cada insumo tiene `affectationIgv` (Included/Excluded) que determina si su precio incluye IGV. |
+| BR-11 | **Costos derivados** | `lastCost` y `averageCost` se actualizan por compras/transformaciones; no son editables directamente. |
+| BR-12 | **Stock mínimo editable** | El stock mínimo puede editarse después de creado el insumo. |
 
 ## Endpoint / Transporte
 
@@ -264,6 +272,10 @@ los campos numéricos; bloqueo extra de motivo vacío con
 - **SC-004**: Todos los rechazos muestran el mensaje exacto documentado.
 - **SC-005**: El inventario se consulta sin paginación ni recargas adicionales para verlo
   completo.
+- **SC-006**: El insumo tiene `affectationIgv` configurada (default Excluded) y se usa en
+  el cálculo de impuestos en cada compra.
+- **SC-007**: Los costos `lastCost` y `averageCost` se actualizan automáticamente al
+  registrar compras y no requieren intervención manual.
 
 ---
 
@@ -298,12 +310,13 @@ los campos numéricos; bloqueo extra de motivo vacío con
 | Badge del dashboard (`bajo stock` / `insumos`) | `app/purchases/page.tsx` líneas 37-39, 80-87 |
 | Enlace "Inventario / Insumos" del sidebar | `components/personalized/Sidebar.tsx` líneas 234-242 |
 | Pruebas (stock inicial 0 y ajuste recalculando stock) | `lib/services/purchases/purchases.service.test.ts` líneas 117-159 |
-| Otros caminos que modifican el stock | `lib/services/purchases/receiving.ts` 105, `transformation.ts` 73/106, `purchase-without-voucher.ts` 63 |
+| Otros caminos que modifican el stock | `lib/services/purchases/purchase-order.ts`, `transformation.ts` 73/106, `purchase-without-voucher.ts` 63 |
 
 **No existen pruebas de `getSupplies` ni de `getInventoryMovements`.**
 
-**Fuera de alcance**: órdenes de compra, recepción de mercadería, transformación de insumos,
-compra sin comprobante y cualquier ajuste contable del inventario.
+**Fuera de alcance**: el detalle de compras unificadas (spec `021`), listar compras (spec
+`022`), transformación (spec `023`), compra sin comprobante (spec `017`) y cualquier
+asiento contable derivado del inventario.
 
 ---
 
