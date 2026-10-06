@@ -1,11 +1,12 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { SupplyType, InventoryMovementType } from "@prisma/client";
+import { SupplyType, InventoryMovementType, AffectationIgv } from "@prisma/client";
 
 export interface SupplyInput {
   name: string;
   type?: SupplyType;
+  affectationIgv?: AffectationIgv;
   unitOfMeasure: string;
   minimumStock?: number;
 }
@@ -33,10 +34,32 @@ export async function createSupply(data: SupplyInput) {
     data: {
       name: data.name.trim(),
       type: data.type || SupplyType.RawMaterial,
+      affectationIgv: data.affectationIgv || AffectationIgv.Excluded,
       unitOfMeasure: data.unitOfMeasure.trim(),
       currentStock: 0,
       minimumStock: data.minimumStock || 0,
       active: true,
+    },
+  });
+}
+
+export async function updateSupplyMinimum(supplyId: number, minimumStock: number) {
+  if (minimumStock < 0) {
+    throw new Error("El stock mínimo no puede ser negativo");
+  }
+
+  const supply = await prisma.supply.findUnique({
+    where: { id: supplyId },
+  });
+
+  if (!supply) {
+    throw new Error("Insumo no encontrado");
+  }
+
+  return await prisma.supply.update({
+    where: { id: supplyId },
+    data: {
+      minimumStock,
     },
   });
 }
@@ -80,6 +103,21 @@ export async function registerInventoryAdjustment(
     });
 
     return { movement, supply: updatedSupply };
+  });
+}
+
+export async function setSupplyStatus(supplyId: number, active: boolean) {
+  const supply = await prisma.supply.findUnique({
+    where: { id: supplyId },
+  });
+
+  if (!supply) {
+    throw new Error("Insumo no encontrado");
+  }
+
+  return await prisma.supply.update({
+    where: { id: supplyId },
+    data: { active },
   });
 }
 
