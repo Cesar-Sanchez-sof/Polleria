@@ -91,7 +91,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-surface text-on-surface">
       {/* Hero — brand first, one composition */}
-      <section className="relative min-h-[72vh] overflow-hidden">
+      <section className="relative min-h-[70vh] overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
@@ -118,7 +118,7 @@ export default function HomePage() {
           aria-hidden
         />
 
-        <div className="relative z-10 flex min-h-[72vh] flex-col justify-end px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
+        <div className="relative z-10 flex min-h-[70vh] flex-col justify-end px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
           <div className="max-w-3xl space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-700">
             <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-200/90">
               <Flame className="h-3.5 w-3.5 text-amber-300" />
@@ -129,8 +129,8 @@ export default function HomePage() {
               Pollería
             </h1>
 
-            <p className="max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
-              Operá el salón, la cocina, las compras y la contabilidad desde un solo lugar.
+            <p className="max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
+              Opera el salón, la cocina, las compras y la contabilidad desde un solo lugar.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -154,14 +154,13 @@ export default function HomePage() {
 
       {/* Accesos rápidos operativos */}
       <section className="px-6 py-8 sm:px-10 lg:px-14">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="font-headline text-lg font-bold text-on-surface">Operación de hoy</h2>
-            <p className="text-sm text-outline">Atajos al flujo del restaurante</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="font-headline text-lg font-bold text-on-surface">Operación de hoy</h2>
+              <p className="text-sm text-outline">Atajos al flujo del restaurante</p>
+            </div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {QUICK_ACTIONS.map((action, index) => {
             const Icon = action.icon;
             return (
@@ -184,22 +183,20 @@ export default function HomePage() {
           })}
         </div>
       </section>
-
       {/* Módulos ERP */}
-      <section className="px-6 pb-12 sm:px-10 lg:px-14">
-        <div className="mb-5">
-          <h2 className="font-headline text-lg font-bold text-on-surface">Módulos del sistema</h2>
-          <p className="text-sm text-outline">Administración comercial, logística y financiera</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <section className="px-6 pb-4 sm:px-10 lg:px-14">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+          <div className="mb-5">
+            <h2 className="font-headline text-lg font-bold text-on-surface">Módulos del sistema</h2>
+            <p className="text-sm text-outline">Administración comercial, logística y financiera</p>
+          </div>
           {MODULES.map((module) => {
             const Icon = module.icon;
             return (
               <Link
                 key={module.href}
                 href={module.href}
-                className="group relative overflow-hidden rounded-2xl border border-surface-container-high bg-surface-container-lowest p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                className="group relative overflow-hidden rounded-2xl border border-surface-container-high bg-surface-container-lowest p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div
                   className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/5 blur-2xl transition group-hover:bg-primary/10"
@@ -207,7 +204,7 @@ export default function HomePage() {
                 />
                 <div className="relative flex items-start gap-4">
                   <span
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${module.accent}`}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${module.accent}`}
                   >
                     <Icon className="h-5 w-5" />
                   </span>
@@ -218,7 +215,7 @@ export default function HomePage() {
                       </h3>
                       <ArrowRight className="h-4 w-4 shrink-0 text-outline transition group-hover:translate-x-1 group-hover:text-primary" />
                     </div>
-                    <p className="mt-1.5 text-sm leading-relaxed text-outline">
+                    <p className="mt-1.5 text-xs leading-relaxed text-outline">
                       {module.description}
                     </p>
                   </div>
