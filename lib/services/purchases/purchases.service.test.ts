@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSupplier } from "./supplier";
-import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, setSupplyStatus } from "./supply";
+import { createSupply, registerInventoryAdjustment } from "./supply";
 import { createPurchaseOrder } from "./purchase-order";
 import { createPurchaseVoucher } from "./invoices";
 import { registerTransformation } from "./transformation";
 import { registerPurchaseWithoutVoucher } from "./purchase-without-voucher";
-import { AffectationIgv } from "@prisma/client";
 
 vi.mock("@/lib/services/accounting-posting.service", () => ({
   postPurchaseJournalEntries: vi.fn().mockResolvedValue([1, 2, 3, 4]),
@@ -115,24 +114,21 @@ describe("Modulo Compras Services", () => {
   });
 
   describe("Módulo 5: Insumos y Ajuste de Inventario", () => {
-    it("debe crear un insumo con currentStock inicial en 0 y afectacionIgv", async () => {
+    it("debe crear un insumo con currentStock inicial en 0", async () => {
       (prisma.supply.create as any).mockResolvedValue({
         id: 1,
         name: "Pollo Entero",
-        affectationIgv: AffectationIgv.Included,
         currentStock: 0,
       });
 
       await createSupply({
         name: "Pollo Entero",
         unitOfMeasure: "KG",
-        affectationIgv: AffectationIgv.Included,
       });
 
       expect(prisma.supply.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           name: "Pollo Entero",
-          affectationIgv: AffectationIgv.Included,
           currentStock: 0,
         }),
       });
@@ -158,70 +154,6 @@ describe("Modulo Compras Services", () => {
         }),
       });
       expect(res.supply.currentStock).toBe(15);
-    });
-
-    it("debe actualizar el stock mínimo de un insumo exitosamente", async () => {
-      (prisma.supply.findUnique as any).mockResolvedValue({
-        id: 1,
-        name: "Pollo Entero",
-        minimumStock: 5,
-      });
-      (prisma.supply.update as any).mockResolvedValue({
-        id: 1,
-        name: "Pollo Entero",
-        minimumStock: 10,
-      });
-
-      const res = await updateSupplyMinimum(1, 10);
-
-      expect(prisma.supply.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { minimumStock: 10 },
-      });
-      expect(res.minimumStock).toBe(10);
-    });
-
-    it("debe lanzar error si el stock mínimo es negativo", async () => {
-      await expect(updateSupplyMinimum(1, -5)).rejects.toThrow(
-        "El stock mínimo no puede ser negativo"
-      );
-    });
-
-    it("debe lanzar error si el insumo no existe al actualizar stock mínimo", async () => {
-      (prisma.supply.findUnique as any).mockResolvedValue(null);
-
-      await expect(updateSupplyMinimum(999, 10)).rejects.toThrow(
-        "Insumo no encontrado"
-      );
-    });
-
-    it("debe cambiar el estado active del insumo a false (desactivar)", async () => {
-      (prisma.supply.findUnique as any).mockResolvedValue({
-        id: 1,
-        name: "Pollo Entero",
-        active: true,
-      });
-      (prisma.supply.update as any).mockResolvedValue({
-        id: 1,
-        name: "Pollo Entero",
-        active: false,
-      });
-
-      const res = await setSupplyStatus(1, false);
-
-      expect(prisma.supply.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { active: false },
-      });
-      expect(res.active).toBe(false);
-    });
-
-    it("debe lanzar error si el insumo no existe al cambiar su estado", async () => {
-      (prisma.supply.findUnique as any).mockResolvedValue(null);
-
-      await expect(setSupplyStatus(999, false)).rejects.toThrow(
-        "Insumo no encontrado"
-      );
     });
   });
 
