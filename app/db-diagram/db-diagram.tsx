@@ -41,6 +41,8 @@ interface RelationDef {
 	source: string;
 	target: string;
 	label?: string;
+	sourceHandle?: string;
+	targetHandle?: string;
 }
 
 type EntityNodeData = EntityDef & Record<string, unknown>;
@@ -376,50 +378,53 @@ const ENTITIES: EntityDef[] = [
 ];
 
 const RELATIONS: RelationDef[] = [
-	{ id: 're-rp-role', source: 'Role', target: 'RolePermission', label: 'has' },
-	{ id: 're-rp-perm', source: 'Permission', target: 'RolePermission', label: 'has' },
+	{ id: 're-rp-role', source: 'RolePermission', target: 'Role', label: 'has' }, //sourceHandle: 'AccountingPeriod-right', targetHandle: 'JournalEntry-left', },
+	{ id: 're-rp-perm', source: 'RolePermission', target: 'Permission', label: 'has' },
 	{ id: 're-user-role', source: 'Role', target: 'User', label: 'has' },
 	{ id: 're-user-emp', source: 'Employee', target: 'User', label: 'has' },
 	{ id: 're-emp-shift', source: 'Shift', target: 'Employee', label: 'works_in' },
 	{ id: 're-payroll-emp', source: 'Employee', target: 'Payroll', label: 'earns' },
-	{ id: 're-po-supplier', source: 'Supplier', target: 'PurchaseOrder', label: 'supplies' },
+	{ id: 're-po-supplier', source: 'PurchaseOrder', target: 'Supplier', label: 'supplies' },
 	{ id: 're-po-emp', source: 'Employee', target: 'PurchaseOrder', label: 'creates' },
-	{ id: 're-poi-po', source: 'PurchaseOrder', target: 'PurchaseOrderItem', label: 'contains' },
+	{ id: 're-poi-po', source: 'PurchaseOrderItem', target: 'PurchaseOrder', label: 'contains' },
 	{ id: 're-poi-supply', source: 'Supply', target: 'PurchaseOrderItem', label: 'used_in' },
 	{ id: 're-inv-supply', source: 'Supply', target: 'InventoryMovement', label: 'moved_by' },
-	{ id: 're-inv-poi', source: 'PurchaseOrderItem', target: 'InventoryMovement', label: 'tracks' },
+	{ id: 're-inv-poi', source: 'InventoryMovement', target: 'PurchaseOrderItem', label: 'tracks' },
 	{ id: 're-pinv-supplier', source: 'Supplier', target: 'PurchaseInvoice', label: 'invoices' },
 	{ id: 're-pinv-po', source: 'PurchaseOrder', target: 'PurchaseInvoice', label: 'billed_by' },
-	{ id: 're-transf-emp', source: 'Employee', target: 'Transformation', label: 'performs' },
+	{ id: 're-emp-transf', source: 'Transformation', target: 'Employee', label: 'performs' },
 	{ id: 're-inf-supply', source: 'Supply', target: 'InformalPurchase', label: 'purchased_as' },
 	{ id: 're-inf-emp', source: 'Employee', target: 'InformalPurchase', label: 'registers' },
-	{ id: 're-recipe-dish', source: 'Dish', target: 'DishRecipe', label: 'has_ingredients' },
-	{ id: 're-recipe-supply', source: 'Supply', target: 'DishRecipe', label: 'ingredient_of' },
-	{ id: 're-oi-order', source: 'SalesOrder', target: 'OrderItem', label: 'includes' },
+	{ id: 're-recipe-dish', source: 'DishRecipe', target: 'Dish', label: 'has_ingredients' },
+	{ id: 're-recipe-supply', source: 'DishRecipe', target: 'Supply', label: 'ingredient_of' },
+	{ id: 're-oi-order', source: 'OrderItem', target: 'SalesOrder', label: 'includes' },
 	{ id: 're-oi-dish', source: 'Dish', target: 'OrderItem', label: 'ordered_in' },
-	{ id: 're-inv-oi', source: 'OrderItem', target: 'InventoryMovement', label: 'consumes' },
-	{ id: 're-sinv-order', source: 'SalesOrder', target: 'SalesInvoice', label: 'billed_by' },
-	{ id: 're-sinv-customer', source: 'Customer', target: 'SalesInvoice', label: 'receives' },
+	{ id: 're-inv-oi', source: 'InventoryMovement', target: 'OrderItem', label: 'consumes' },
+	{ id: 're-sinv-order', source: 'SalesOrder', target: 'SalesInvoice', label: 'from' },
+	{ id: 're-sinv-customer', source: 'SalesInvoice', target: 'Customer', label: 'receives' },
 	{ id: 're-sinv-session', source: 'CashSession', target: 'SalesInvoice', label: 'in_session' },
-	{ id: 're-je-period', source: 'AccountingPeriod', target: 'JournalEntry', label: 'contains' },
+	{ id: 're-je-period', source: 'JournalEntry', target: 'AccountingPeriod', label: 'contains' },
 	{ id: 're-je-sinv', source: 'SalesInvoice', target: 'JournalEntry', label: 'generates' },
 	{ id: 're-je-pinv', source: 'PurchaseInvoice', target: 'JournalEntry', label: 'generates' },
 	{ id: 're-je-payroll', source: 'Payroll', target: 'JournalEntry', label: 'generates' },
 	{ id: 're-jed-je', source: 'JournalEntry', target: 'JournalEntryDetail', label: 'has' },
-	{ id: 're-jed-acc', source: 'AccountingAccount', target: 'JournalEntryDetail', label: 'records' },
+	{ id: 're-jed-acc', source: 'JournalEntryDetail', target: 'AccountingAccount', label: 'records' },
 	{ id: 're-session-reg', source: 'CashRegister', target: 'CashSession', label: 'has' },
 	{ id: 're-session-open', source: 'User', target: 'CashSession', label: 'opens' },
 	{ id: 're-movement-session', source: 'CashSession', target: 'CashMovement', label: 'has' },
 ];
 
 const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
-	S: { col: -1, rows: ['RolePermission'] },
-	Seguridad: { col: 0, rows: ['Role', 'Permission', 'Shift', 'Employee', 'User'] },
-	RRHH: { col: 1, rows: ['Payroll'] },
-	Compras: { col: 2, rows: ['Supplier', 'PurchaseOrder', 'PurchaseOrderItem', 'Supply', 'InventoryMovement', 'PurchaseInvoice', 'PaymentType', 'Transformation', 'InformalPurchase'] },
-	Ventas: { col: 3, rows: ['Customer', 'DiningTable', 'Dish', 'DishRecipe', 'SalesOrder', 'OrderItem', 'SalesInvoice'] },
-	Contabilidad: { col: 4, rows: ['AccountingAccount', 'AccountingPeriod', 'JournalEntry', 'JournalEntryDetail'] },
-	Caja: { col: 5, rows: ['CashRegister', 'CashSession', 'CashMovement'] },
+	S1: { col: -3, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'DishRecipe'] },
+	S2: { col: -2, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'Shift', 'Transformation', 'Supply',] },
+	S: { col: -1, rows: ['RolePermission', '__SPACER__', '__SPACER__', 'Employee', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'InventoryMovement', '__SPACER__', '__SPACER__', 'Dish'] },
+	Seguridad: { col: 0, rows: ['Permission', 'Role', '__SPACER__', '__SPACER__', '__SPACER__', 'InformalPurchase', 'PurchaseOrderItem',] },
+	RRHH: { col: 1, rows: ['CashRegister', 'User', 'Payroll', 'PurchaseOrder', '__SPACER__', '__SPACER__', 'OrderItem',] },
+	Compras: { col: 2, rows: ['CashSession', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'Supplier', 'SalesOrder'] },
+	Ventas: { col: 3, rows: ['CashMovement', '__SPACER__', '__SPACER__', '__SPACER__', 'SalesInvoice', 'PurchaseInvoice'] },
+	Contabilidad: { col: 4, rows: ['DiningTable', 'Customer', 'JournalEntry', '__SPACER__', 'JournalEntryDetail',] },
+	Caja: { col: 5, rows: ['PaymentType', '__SPACER__', 'AccountingPeriod', '__SPACER__', '__SPACER__', 'AccountingAccount'] },
+	C3: { col: 6, rows: [''] }
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -447,6 +452,11 @@ function buildInitialNodes(): EntityNode[] {
 	for (const [, layout] of Object.entries(MODULE_LAYOUT)) {
 		let y = ROW_START;
 		for (const entityId of layout.rows) {
+			if (entityId === '__SPACER__') {
+				y += 100;
+				continue;
+			}
+
 			const entity = ENTITIES.find((e) => e.id === entityId);
 			if (!entity) continue;
 			nodes.push({
@@ -610,7 +620,7 @@ export function DbDiagram() {
 						<Controls
 							position="bottom-right"
 							showInteractive={false}
-							className="!border !border-border !bg-surface-raised !shadow-xs [&>button]:!border-border [&>button]:!bg-surface-raised [&>button]:!text-text [&>button:hover]:!bg-surface"
+							className="border! border-border! bg-surface-raised! !shadow-xs [&>button]:!bg-surface-raised [&>button]:!text-text [&>button:hover]:!bg-surface"
 						/>
 						<MiniMap
 							position="top-right"
@@ -620,7 +630,7 @@ export function DbDiagram() {
 							maskStrokeWidth={1.5}
 							nodeColor={() => 'var(--color-border)'}
 							nodeStrokeColor="transparent"
-							className="!border !border-border !bg-surface-raised !shadow-sm"
+							className="!border border-border! !bg-surface-raised !shadow-sm"
 						/>
 					</ReactFlow>
 				</ReactFlowProvider>
