@@ -11,6 +11,35 @@ function normalizePersonType(value: unknown): PersonTypeValue {
   return "Natural";
 }
 
+/**
+ * @openapi
+ * /api/customers:
+ *   get:
+ *     tags:
+ *       - Customers
+ *     summary: Lista clientes
+ *     description: Obtiene una lista de clientes con sus datos básicos y total de compras.
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Texto de búsqueda para nombre, apellido o documento.
+ *     responses:
+ *       200:
+ *         description: Lista de clientes.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Customer'
+ *       500:
+ *         description: Error interno del servidor.
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -19,12 +48,12 @@ export async function GET(request: NextRequest) {
     const customers = await prisma.customer.findMany({
       where: search
         ? {
-            OR: [
-              { documentNumber: { contains: search, mode: "insensitive" } },
-              { firstName: { contains: search, mode: "insensitive" } },
-              { lastName: { contains: search, mode: "insensitive" } },
-            ],
-          }
+          OR: [
+            { documentNumber: { contains: search, mode: "insensitive" } },
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
+          ],
+        }
         : undefined,
       include: {
         _count: {
@@ -57,6 +86,32 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * @openapi
+ * /api/customers:
+ *   post:
+ *     tags: 
+ *        - Customers
+ *     summary: Crear nuevo cliente
+ *     description: Registra un cliente con datos validados.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewCustomer'
+ *     responses:
+ *       201:
+ *         description: Cliente creado exitosamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Customer'
+ *       400:
+ *         description: Datos de solicitud inválidos.
+ *       500:
+ *         description: Error interno al crear cliente.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null);

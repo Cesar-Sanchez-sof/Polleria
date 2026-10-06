@@ -1,16 +1,15 @@
 /**
  * Automatic journal posting for sales and purchases (PCGE / SUNAT academic model).
  *
- * Sale → 5 journal entries:
- *  1. Accounts receivable vs Sales (net of IGV)
- *  2. Accounts receivable vs IGV payable
- *  3. Cash/Banks vs Accounts receivable (collection)
- *  4. Cost of sales vs Merchandise inventory
- *  5. Cost of sales vs Raw materials inventory
+ * Sale → 3 journal entries:
+ *  1. Provisión de la venta: 12 (DEBE) / 40 IGV + 70 Ventas (HABER)
+ *  2. Costo de ventas: 69 (DEBE) / 20 Inventario (HABER)
+ *  3. Cobro: 10 Caja/Bancos (DEBE) / 12 (HABER)
  *
- * Purchase voucher:
- *  Contado → 4 entries (insumos + mercaderías + IGV + pago)
- *  Crédito → 3 entries (insumos + mercaderías + IGV); pago al registrar el pago
+ * Purchase voucher → 3 journal entries:
+ *  1. Provisión de la compra: 60 Compras + 40 IGV crédito (DEBE) / 42 Cuentas por pagar (HABER)
+ *  2. Destino / ingreso al almacén: 20 Inventario (DEBE) / 61 Variación de inventarios (HABER)
+ *  3. Pago (solo Contado o al registrar el pago en crédito): 42 (DEBE) / 10 Caja/Bancos (HABER)
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -21,11 +20,13 @@ const ACCOUNT_CODES = {
   cash: "101",
   banks: "104",
   receivables: "121",
-  igvCredit: "167",
+  igvPayable: "401",
   merchandise: "201",
   rawMaterials: "241",
+  purchases: "601",       // Compras (Elemento 6)
+  inventoryVariation: "611", // Variación de inventarios (Elemento 6 — cuenta correctora)
   payables: "421",
-  igvPayable: "401",
+  igvCredit: "167",       // IGV crédito fiscal (Elemento 1)
   sales: "701",
   costOfSales: "691",
 } as const;
@@ -92,6 +93,31 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
   return map;
 }
 
+async function ensureOpenPeriod(tx: Tx, date: Date): Promise<number> {
+  let period = await tx.accountingPeriod.findFirst({
+    where: { startDate: { lte: date }, endDate: { gte: date } },
+  });
+  if (!period) {
+    period = await tx.accountingPeriod.findFirst({
+      where: { status: "OPEN" },
+      orderBy: { startDate: "desc" },
+    });
+  }
+  if (!period) {
+    const d = new Date(date);
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+    period = await tx.accountingPeriod.create({
+      data: {
+        startDate: start,
+        endDate: end,
+        status: "OPEN",
+      },
+    });
+  }
+  return period.id;
+}
+
 async function createBalancedEntry(
   tx: Tx,
   input: {
@@ -117,6 +143,8 @@ async function createBalancedEntry(
   let createdId: number | null = null;
   for (let attempt = 0; attempt < 5 && createdId === null; attempt++) {
     try {
+      const periodId = await ensureOpenPeriod(tx, input.date);
+
       const entry = await tx.journalEntry.create({
         data: {
           code: await nextJournalCode(tx, input.date),
@@ -126,27 +154,28 @@ async function createBalancedEntry(
           responsible: input.responsible ?? "Sistema ERP",
           observation: input.observation?.slice(0, 200) ?? null,
           status: true,
+          periodId,
           salesInvoiceId: input.salesInvoiceId ?? null,
           purchaseInvoiceId: input.purchaseInvoiceId ?? null,
-          entryDetails: {
-            create: [
-              {
-                accountId: input.debitAccountId,
-                description: (input.debitLineDescription ?? input.description).slice(0, 200),
-                debit: amount,
-                credit: 0,
-              },
-              {
-                accountId: input.creditAccountId,
-                description: (input.creditLineDescription ?? input.description).slice(0, 200),
-                debit: 0,
-                credit: amount,
-              },
-            ],
-          },
+    entryDetails: {
+      create: [
+        {
+          accountId: input.debitAccountId,
+          description: (input.debitLineDescription ?? input.description).slice(0, 200),
+          debit: amount,
+          credit: 0,
         },
-        select: { id: true },
-      });
+        {
+          accountId: input.creditAccountId,
+          description: (input.creditLineDescription ?? input.description).slice(0, 200),
+          debit: 0,
+          credit: amount,
+        },
+      ],
+    },
+  },
+  select: { id: true },
+});
       createdId = entry.id;
     } catch (err) {
       const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
@@ -207,42 +236,48 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherCode;
   const ids: number[] = [];
+  const periodId = await ensureOpenPeriod(tx, date);
 
-  // 1) Venta neta
-  ids.push(
-    await createBalancedEntry(tx, {
-      date,
-      description: `Venta neta ${ref}`,
+  // 1) Provisión de la venta (Facturación) – registra derecho de cobro, IGV y venta neta en una sola partida
+  const provisionEntry = await tx.journalEntry.create({
+    data: {
+      code: await nextJournalCode(tx, date),
+      entryDate: date,
+      periodId,
+      description: `Provisión de la venta ${ref}`,
       book: BOOK_SALES,
       responsible: input.responsible,
       salesInvoiceId: input.salesInvoiceId,
-      observation: "Asiento 1/5 — Reconocimiento de ingreso (base imponible)",
-      debitAccountId: accounts.get(ACCOUNT_CODES.receivables)!,
-      creditAccountId: accounts.get(ACCOUNT_CODES.sales)!,
-      amount: subtotal,
-      debitLineDescription: "Cuentas por cobrar por venta",
-      creditLineDescription: "Ventas de mercaderías / servicios",
-    }),
-  );
+      observation: "Asiento 1/5 — Provisión de la venta (incluye IGV y venta neta)",
+      status: true,
+      entryDetails: {
+        create: [
+          {
+            accountId: accounts.get(ACCOUNT_CODES.receivables)!,
+            description: "Cuentas por cobrar comerciales – total venta (incluye IGV)",
+            debit: total,
+            credit: 0,
+          },
+          {
+            accountId: accounts.get(ACCOUNT_CODES.igvPayable)!,
+            description: "IGV por pagar",
+            debit: 0,
+            credit: igv,
+          },
+          {
+            accountId: accounts.get(ACCOUNT_CODES.sales)!,
+            description: "Ventas netas",
+            debit: 0,
+            credit: subtotal,
+          },
+        ],
+      },
+    },
+    select: { id: true },
+  });
+  ids.push(provisionEntry.id);
 
-  // 2) IGV débito fiscal
-  ids.push(
-    await createBalancedEntry(tx, {
-      date,
-      description: `IGV ventas ${ref}`,
-      book: BOOK_SALES,
-      responsible: input.responsible,
-      salesInvoiceId: input.salesInvoiceId,
-      observation: "Asiento 2/5 — IGV débito fiscal (SUNAT 18%)",
-      debitAccountId: accounts.get(ACCOUNT_CODES.receivables)!,
-      creditAccountId: accounts.get(ACCOUNT_CODES.igvPayable)!,
-      amount: igv > 0 ? igv : round2(total - subtotal),
-      debitLineDescription: "IGV facturado por cobrar",
-      creditLineDescription: "Tributos por pagar - IGV",
-    }),
-  );
-
-  // 3) Cobro
+  // 2) Cobro
   const cashAccountId = pickCashOrBankAccountId(accounts, input.paymentMethodName);
   ids.push(
     await createBalancedEntry(tx, {
@@ -251,16 +286,16 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
       book: BOOK_CASH,
       responsible: input.responsible,
       salesInvoiceId: input.salesInvoiceId,
-      observation: `Asiento 3/5 — Cobro (${input.paymentMethodName || "pago"})`,
+      observation: `Asiento 2/5 — Cobro (${input.paymentMethodName || "pago"})`,
       debitAccountId: cashAccountId,
       creditAccountId: accounts.get(ACCOUNT_CODES.receivables)!,
       amount: total,
       debitLineDescription: "Ingreso a caja / bancos",
       creditLineDescription: "Cancelación de cuenta por cobrar",
-    }),
+    })
   );
 
-  // Estimated COGS split across merchandise + raw materials (asientos 4 y 5)
+  // 3) Costo de ventas — mercaderías y materias primas (asientos 4 y 5)
   const totalCost = round2(subtotal * SALE_COST_RATIO);
   const merchandiseCost = round2(totalCost * SALE_COST_MERCHANDISE_SHARE);
   const rawMaterialsCost = round2(totalCost - merchandiseCost);
@@ -280,7 +315,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
         amount: merchandiseCost,
         debitLineDescription: "Costo de ventas de mercaderías",
         creditLineDescription: "Salida de inventario de mercaderías",
-      }),
+      })
     );
   }
 
@@ -299,7 +334,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
         amount: rawMaterialsCost,
         debitLineDescription: "Costo de ventas — consumo de insumos",
         creditLineDescription: "Salida de inventario de materias primas",
-      }),
+      })
     );
   }
 
@@ -338,78 +373,87 @@ export async function postPurchaseJournalEntries(
   const accounts = await resolveAccountIds(tx, [
     ACCOUNT_CODES.cash,
     ACCOUNT_CODES.banks,
+    ACCOUNT_CODES.purchases,
     ACCOUNT_CODES.igvCredit,
     ACCOUNT_CODES.merchandise,
-    ACCOUNT_CODES.rawMaterials,
+    ACCOUNT_CODES.inventoryVariation,
     ACCOUNT_CODES.payables,
   ]);
 
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherLabel;
   const ids: number[] = [];
+  const periodId = await ensureOpenPeriod(tx, date);
 
-  // Split purchase into raw materials (majority) + merchandise (minor) → asientos 1 y 2
-  const rawShare = round2(subtotal * 0.8);
-  const merchShare = round2(subtotal - rawShare);
+  // -----------------------------------------------------------------------
+  // 1) Provisión de la compra (Factura del proveedor)
+  //    DEBE: 60 Compras (valor neto) + 40 IGV crédito fiscal
+  //    HABER: 42 Cuentas por pagar comerciales (precio total)
+  // -----------------------------------------------------------------------
+  const provisionPurchaseEntry = await tx.journalEntry.create({
+    data: {
+      code: await nextJournalCode(tx, date),
+      entryDate: date,
+      periodId,
+      description: `Provisión de la compra ${ref}`,
+      book: BOOK_PURCHASES,
+      responsible: input.responsible ?? "Sistema ERP",
+      purchaseInvoiceId: input.purchaseInvoiceId,
+      observation: "Asiento 1/3 — Provisión de la compra (incluye IGV crédito fiscal)",
+      status: true,
+      entryDetails: {
+        create: [
+          {
+            accountId: accounts.get(ACCOUNT_CODES.purchases)!,
+            description: "Compras — valor neto sin impuestos",
+            debit: subtotal,
+            credit: 0,
+          },
+          {
+            accountId: accounts.get(ACCOUNT_CODES.igvCredit)!,
+            description: "IGV crédito fiscal (18%)",
+            debit: igv,
+            credit: 0,
+          },
+          {
+            accountId: accounts.get(ACCOUNT_CODES.payables)!,
+            description: "Cuentas por pagar comerciales — precio total al proveedor",
+            debit: 0,
+            credit: total,
+          },
+        ],
+      },
+    },
+    select: { id: true },
+  });
+  ids.push(provisionPurchaseEntry.id);
 
-  // 1) Compra materias primas
-  if (rawShare > 0) {
-    ids.push(
-      await createBalancedEntry(tx, {
-        date,
-        description: `Compra insumos ${ref}`,
-        book: BOOK_PURCHASES,
-        responsible: input.responsible,
-        purchaseInvoiceId: input.purchaseInvoiceId,
-        observation: "Asiento 1 — Compra de materias primas / insumos",
-        debitAccountId: accounts.get(ACCOUNT_CODES.rawMaterials)!,
-        creditAccountId: accounts.get(ACCOUNT_CODES.payables)!,
-        amount: rawShare,
-        debitLineDescription: "Ingreso de materias primas a almacén",
-        creditLineDescription: "Cuentas por pagar comerciales",
-      }),
-    );
-  }
+  // -----------------------------------------------------------------------
+  // 2) Destino / Ingreso al almacén
+  //    DEBE: 20 Mercaderías (inventario)
+  //    HABER: 61 Variación de inventarios (cuenta correctora del Elemento 6)
+  // -----------------------------------------------------------------------
+  ids.push(
+    await createBalancedEntry(tx, {
+      date,
+      description: `Ingreso al almacén ${ref}`,
+      book: BOOK_PURCHASES,
+      responsible: input.responsible,
+      purchaseInvoiceId: input.purchaseInvoiceId,
+      observation: "Asiento 2/3 — Destino: ingreso físico de bienes al inventario",
+      debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+      creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+      amount: subtotal,
+      debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
+      creditLineDescription: "Variación de inventarios (cuenta correctora)",
+    }),
+  );
 
-  // 2) Compra mercaderías
-  if (merchShare > 0) {
-    ids.push(
-      await createBalancedEntry(tx, {
-        date,
-        description: `Compra mercaderías ${ref}`,
-        book: BOOK_PURCHASES,
-        responsible: input.responsible,
-        purchaseInvoiceId: input.purchaseInvoiceId,
-        observation: "Asiento 2 — Compra de mercaderías",
-        debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
-        creditAccountId: accounts.get(ACCOUNT_CODES.payables)!,
-        amount: merchShare,
-        debitLineDescription: "Ingreso de mercaderías a almacén",
-        creditLineDescription: "Cuentas por pagar comerciales",
-      }),
-    );
-  }
-
-  // 3) IGV crédito fiscal
-  if (igv > 0) {
-    ids.push(
-      await createBalancedEntry(tx, {
-        date,
-        description: `IGV compras ${ref}`,
-        book: BOOK_PURCHASES,
-        responsible: input.responsible,
-        purchaseInvoiceId: input.purchaseInvoiceId,
-        observation: "Asiento 3 — IGV crédito fiscal (SUNAT)",
-        debitAccountId: accounts.get(ACCOUNT_CODES.igvCredit)!,
-        creditAccountId: accounts.get(ACCOUNT_CODES.payables)!,
-        amount: igv,
-        debitLineDescription: "Tributos por acreditar - IGV",
-        creditLineDescription: "IGV en cuentas por pagar",
-      }),
-    );
-  }
-
-  // 4) Pago al contado (cancela toda la obligación)
+  // -----------------------------------------------------------------------
+  // 3) Pago al contado (cancela la obligación con el proveedor)
+  //    DEBE: 42 Cuentas por pagar
+  //    HABER: 10 Caja/Bancos
+  // -----------------------------------------------------------------------
   if (input.paymentCondition === "Contado") {
     const cashAccountId = pickCashOrBankAccountId(
       accounts,
@@ -422,12 +466,12 @@ export async function postPurchaseJournalEntries(
         book: BOOK_CASH,
         responsible: input.responsible,
         purchaseInvoiceId: input.purchaseInvoiceId,
-        observation: "Asiento 4 — Cancelación de cuenta por pagar (contado)",
+        observation: "Asiento 3/3 — Cancelación de cuenta por pagar (contado)",
         debitAccountId: accounts.get(ACCOUNT_CODES.payables)!,
         creditAccountId: cashAccountId,
         amount: total,
-        debitLineDescription: "Cancelación de cuentas por pagar",
-        creditLineDescription: "Salida de caja / bancos",
+        debitLineDescription: "Cancelación de cuentas por pagar al proveedor",
+        creditLineDescription: "Salida de efectivo / bancos",
       }),
     );
   }

@@ -61,7 +61,7 @@ enum AffectationIgv {
 
 model Role {
   id          Int              @id @default(autoincrement())
-  name        String           @db.VarChar(50)
+  name        String           @unique @db.VarChar(50)
   description String?          @db.VarChar(150)
   active      Boolean          @default(true)
   permissions RolePermission[]
@@ -132,17 +132,23 @@ model Employee {
 }
 
 model User {
-  id             Int       @id @default(autoincrement())
-  employeeId     Int       @map("employee_id")
-  roleId         Int       @map("role_id")
-  username       String    @unique @db.VarChar(20)
-  password       String    @db.VarChar(255)
-  failedAttempts Int       @default(0) @map("failed_attempts")
-  locked         Boolean   @default(false)
-  lockedAt       DateTime? @map("locked_at") @db.Timestamp(6)
-  lastAccessAt   DateTime? @map("last_access_at") @db.Timestamp(6)
-  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role           Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  id                Int                @id @default(autoincrement())
+  employeeId        Int                @map("employee_id")
+  roleId            Int                @map("role_id")
+  username          String             @unique @db.VarChar(20)
+  correo            String?            @unique @db.VarChar(80)
+  password          String             @db.VarChar(255)
+  estado            Boolean            @default(true)
+  failedAttempts    Int                @default(0) @map("failed_attempts")
+  locked            Boolean            @default(false)
+  lockedAt          DateTime?          @map("locked_at") @db.Timestamp(6)
+  lastAccessAt      DateTime?          @map("last_access_at") @db.Timestamp(6)
+  employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role              Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  accountingPeriods  AccountingPeriod[]
+  closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
+  cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
+  cashSessionsClosed CashSession[]      @relation("CashSessionClosedBy")
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -203,24 +209,24 @@ model PaymentType {
 }
 
 model PurchaseOrder {
-  id            Int                 @id @default(autoincrement())
-  supplierId    Int                 @map("supplier_id")
-  employeeId    Int                 @map("employee_id")
-  receivedById  Int?                @map("received_by_id")
-  orderNumber   String              @unique @map("order_number") @db.VarChar(20)
-  issuedAt      DateTime            @default(now()) @map("issued_at") @db.Date
-  expectedAt    DateTime?           @map("expected_at") @db.Date
-  receivedAt    DateTime            @default(now()) @map("received_at") @db.Timestamp(6)
-  status        PurchaseOrderStatus @default(Pending)
-  subtotal      Decimal             @default(0) @db.Decimal(7, 2)
-  igv           Decimal             @default(0) @db.Decimal(7, 2)
-  total         Decimal             @default(0) @db.Decimal(7, 2)
-  notes         String?             @db.VarChar(200)
-  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  receivedBy    Employee?           @relation("ReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
-  items         PurchaseOrderItem[]
-  invoices      PurchaseInvoice[]
+  id           Int                 @id @default(autoincrement())
+  supplierId   Int                 @map("supplier_id")
+  employeeId   Int                 @map("employee_id")
+  receivedById Int?                @map("received_by_id")
+  orderNumber  String              @unique @map("order_number") @db.VarChar(20)
+  issuedAt     DateTime            @default(now()) @map("issued_at") @db.Date
+  expectedAt   DateTime?           @map("expected_at") @db.Date
+  receivedAt   DateTime            @default(now()) @map("received_at") @db.Timestamp(6)
+  status       PurchaseOrderStatus @default(Pending)
+  subtotal     Decimal             @default(0) @db.Decimal(7, 2)
+  igv          Decimal             @default(0) @db.Decimal(7, 2)
+  total        Decimal             @default(0) @db.Decimal(7, 2)
+  notes        String?             @db.VarChar(200)
+  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  employee     Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  receivedBy   Employee?           @relation("ReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+  items        PurchaseOrderItem[]
+  invoices     PurchaseInvoice[]
 
   @@index([supplierId], map: "idx_purchase_order_supplier")
   @@index([employeeId], map: "idx_purchase_order_employee")
@@ -508,14 +514,18 @@ model SalesInvoice {
   totalAmount    Decimal        @default(0) @map("total_amount") @db.Decimal(10, 2)
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
   status         String         @default("Issued") @db.VarChar(15)
+  s3Url          String?        @map("s3_url") @db.VarChar(300)
   order          SalesOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
   customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
   payments       SalesPayment[]
   journalEntries JournalEntry[]
+  cashSessionId  Int?           @map("cash_session_id")
+  cashSession    CashSession?   @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
 
   @@unique([voucherType, series, number], map: "uq_sales_invoice")
   @@index([orderId], map: "idx_sales_invoice_order")
   @@index([customerId], map: "idx_sales_invoice_customer")
+  @@index([cashSessionId], map: "idx_sales_invoice_cash_session")
   @@map("sales_invoice")
 }
 
@@ -538,20 +548,42 @@ model SalesPayment {
 // =====================================================================
 
 model AccountingAccount {
-  id            Int                   @id @default(autoincrement())
-  parentId      Int?                  @map("parent_id")
-  code          String                @unique @db.VarChar(10)
-  name          String                @db.VarChar(100)
-  type          String                @db.VarChar(20)
-  active        Boolean               @default(true)
-  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt     DateTime              @default(now()) @map("updated_at") @db.Timestamp(6)
-  parentAccount AccountingAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  childAccounts AccountingAccount[]   @relation("AccountHierarchy")
+  id            Int                  @id @default(autoincrement())
+  parentId      Int?                 @map("parent_id")
+  code          String               @unique @db.VarChar(10)
+  name          String               @db.VarChar(100)
+  type          String               @db.VarChar(20)
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime             @default(now()) @map("updated_at") @db.Timestamp(6)
+  parentAccount AccountingAccount?   @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  childAccounts AccountingAccount[]  @relation("AccountHierarchy")
   entryDetails  JournalEntryDetail[]
 
   @@index([parentId], map: "idx_accounting_account_parent")
   @@map("accounting_account")
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+model AccountingPeriod {
+  id             Int            @id @default(autoincrement())
+  startDate      DateTime       @map("start_date")
+  endDate        DateTime       @map("end_date")
+  status         PeriodStatus   @default(OPEN)
+  closedAt       DateTime?      @map("closed_at")
+  closedById     Int?           @map("closed_by_id")
+  closedBy       User?          @relation("ClosedPeriods", fields: [closedById], references: [id])
+  journalEntries JournalEntry[]
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at")
+  user           User?          @relation(fields: [userId], references: [id])
+  userId         Int?
+
+  @@map("accounting_period")
 }
 
 model JournalEntry {
@@ -560,6 +592,8 @@ model JournalEntry {
   purchaseInvoiceId Int?                 @map("purchase_invoice_id")
   payrollId         Int?                 @map("payroll_id")
   entryDate         DateTime             @default(now()) @map("entry_date") @db.Date
+  periodId          Int                  @map("period_id")
+  period            AccountingPeriod     @relation(fields: [periodId], references: [id])
   description       String               @db.VarChar(200)
   book              String               @default("Operaciones varias") @db.VarChar(60)
   responsible       String?              @db.VarChar(100)
@@ -575,6 +609,7 @@ model JournalEntry {
 
   @@index([salesInvoiceId], map: "idx_journal_entry_sales_invoice")
   @@index([purchaseInvoiceId], map: "idx_journal_entry_purchase_invoice")
+  @@index([periodId], map: "idx_journal_entry_period")
   @@index([payrollId], map: "idx_journal_entry_payroll")
   @@index([entryDate], map: "idx_journal_entry_date")
   @@index([book], map: "idx_journal_entry_book")
@@ -596,3 +631,76 @@ model JournalEntryDetail {
   @@index([accountId], map: "idx_journal_entry_detail_account")
   @@map("journal_entry_detail")
 }
+
+// =====================================================================
+// MODULE 6: CASH REGISTER & CASH SESSIONS (APERTURA Y CIERRE DE CAJA)
+// =====================================================================
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+
+  @@map("cash_session_status")
+}
+
+enum CashMovementType {
+  INCOME
+  EXPENSE
+
+  @@map("cash_movement_type")
+}
+
+model CashRegister {
+  id          Int           @id @default(autoincrement())
+  name        String        @db.VarChar(50)
+  code        String        @unique @db.VarChar(20)
+  description String?       @db.VarChar(150)
+  active      Boolean       @default(true)
+  sessions    CashSession[]
+
+  @@map("cash_register")
+}
+
+model CashSession {
+  id             Int               @id @default(autoincrement())
+  cashRegisterId Int               @map("cash_register_id")
+  openedById     Int               @map("opened_by_id")
+  closedById     Int?              @map("closed_by_id")
+  openedAt       DateTime          @default(now()) @map("opened_at") @db.Timestamp(6)
+  closedAt       DateTime?         @map("closed_at") @db.Timestamp(6)
+  initialAmount  Decimal           @default(0) @map("initial_amount") @db.Decimal(10, 2)
+  salesCash      Decimal           @default(0) @map("sales_cash") @db.Decimal(10, 2)
+  salesOther     Decimal           @default(0) @map("sales_other") @db.Decimal(10, 2)
+  totalSales     Decimal           @default(0) @map("total_sales") @db.Decimal(10, 2)
+  expectedAmount Decimal?          @map("expected_amount") @db.Decimal(10, 2)
+  countedAmount  Decimal?          @map("counted_amount") @db.Decimal(10, 2)
+  difference     Decimal?          @map("difference") @db.Decimal(10, 2)
+  status         CashSessionStatus @default(OPEN)
+  notesOpening   String?           @map("notes_opening") @db.VarChar(255)
+  notesClosing   String?           @map("notes_closing") @db.VarChar(255)
+
+  cashRegister   CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  openedBy       User              @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy       User?             @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  movements      CashMovement[]
+  salesInvoices  SalesInvoice[]
+
+  @@index([cashRegisterId], map: "idx_cash_session_register")
+  @@index([openedById], map: "idx_cash_session_opened_by")
+  @@index([status], map: "idx_cash_session_status")
+  @@map("cash_session")
+}
+
+model CashMovement {
+  id        Int              @id @default(autoincrement())
+  sessionId Int              @map("session_id")
+  type      CashMovementType
+  amount    Decimal          @db.Decimal(10, 2)
+  reason    String           @db.VarChar(150)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  session   CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId], map: "idx_cash_movement_session")
+  @@map("cash_movement")
+}
+

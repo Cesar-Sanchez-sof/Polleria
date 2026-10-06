@@ -27,6 +27,35 @@ const SELECT_NODE = {
 } as const;
 
 /** Individual account lookup (detail or edit baseline). */
+/**
+ * @openapi
+ * /api/accounts/{id}:
+ *   get:
+ *     tags:
+ *       - Accounts
+ *     summary: Obtener detalle de cuenta contable
+ *     description: Recupera la información completa de una cuenta contable por su identificador.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Identificador numérico de la cuenta.
+ *     responses:
+ *       200:
+ *         description: Detalle de la cuenta contable.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Account'
+ *       400:
+ *         description: Identificador inválido.
+ *       404:
+ *         description: Cuenta no encontrada.
+ *       500:
+ *         description: Error interno.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -60,6 +89,56 @@ export async function GET(
 
 /**
  * Modifies an existing account: code, name, type, hierarchy, or status.
+ */
+/**
+ * @openapi
+ * /api/accounts/{id}:
+ *   patch:
+ *     tags:
+ *       - Accounts
+ *     summary: Actualizar cuenta contable
+ *     description: Modifica una cuenta contable existente. Requiere permisos de administrador.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Identificador numérico de la cuenta.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: ["ACTIVO", "PASIVO", "PATRIMONIO", "INGRESOS", "GASTOS"]
+ *               parentId:
+ *                 type: integer
+ *                 nullable: true
+ *               active:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Cuenta actualizada exitosamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Account'
+ *       400:
+ *         description: Datos de la solicitud inválidos.
+ *       404:
+ *         description: Cuenta no encontrada.
+ *       409:
+ *         description: Código de cuenta duplicado.
+ *       500:
+ *         description: Error interno al actualizar la cuenta.
  */
 export async function PATCH(
   request: NextRequest,
@@ -132,9 +211,9 @@ export async function PATCH(
 
     const parentAccount = needsParentValidation
       ? await prisma.accountingAccount.findUnique({
-          where: { id: finalParentId as number },
-          select: SELECT_PARENT,
-        })
+        where: { id: finalParentId as number },
+        select: SELECT_PARENT,
+      })
       : null;
 
     if (needsParentValidation && !parentAccount) {

@@ -66,7 +66,7 @@ export default function BalanceSheetPage() {
   const clearToToday = () => setAsOf(today);
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
+    <>
       <ModuleHeader
         title="Balance General"
         subtitle="Estado de Situación Financiera conforme al PCGE (activo, pasivo y patrimonio)."
@@ -93,6 +93,6 @@ export default function BalanceSheetPage() {
           </Card>
         </div>
       </main>
-    </div>
+    </>
   );
 }

@@ -8,6 +8,14 @@ import { uploadVoucherToS3 } from "@/lib/services/s3-storage.service";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/webhooks/mercadopago:
+ *   post:
+ *     tags:
+ *       - Webhooks
+ *     summary: Recepcionar notificaciones de Mercado Pago
+ */
 
 /**
  * Webhook Receptor de Notificaciones de Mercado Pago (IPN / Webhooks v2).
@@ -199,7 +207,28 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Handshake GET para verificación de URL en el Panel de Desarrolladores de Mercado Pago.
+ * @openapi
+ * /api/webhooks/mercadopago:
+ *   get:
+ *     tags:
+ *       - Webhooks
+ *     summary: Verificación de URL del webhook de Mercado Pago
+ *     description: Endpoint de handshake necesario para validar la URL del webhook en el panel de desarrolladores de Mercado Pago.
+ *     responses:
+ *       200:
+ *         description: Respuesta de confirmación de que el webhook está activo.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 service:
+ *                   type: string
+ *                 date:
+ *                   type: string
+ *                   format: date-time
  */
 export async function GET() {
   return Response.json({

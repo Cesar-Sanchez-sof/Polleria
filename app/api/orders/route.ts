@@ -3,6 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/orders:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: Listar pedidos
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Crear un nuevo pedido
+ */
 
 interface OrderItemInput {
   dishId?: number;
@@ -118,6 +130,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
+    }
+
+    // Validar que exista una sesión de caja abierta antes de registrar pedidos
+    const activeCashSession = await (prisma as any).cashSession.findFirst({
+      where: { status: "OPEN" },
+    }).catch(() => null);
+
+    if (!activeCashSession) {
+      return Response.json(
+        { error: "No se puede registrar pedidos porque la caja se encuentra cerrada. Debe realizar la apertura de turno primero." },
+        { status: 400 }
+      );
     }
 
     const rawOrderType = body.orderType ?? body.tipo_pedido;

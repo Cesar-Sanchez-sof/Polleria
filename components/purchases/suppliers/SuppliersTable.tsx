@@ -12,6 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SupplierDialog } from "./SupplierDialog";
 import { setSupplierStatus } from "@/lib/services/purchases/supplier";
 import { toast } from "sonner";
@@ -21,8 +28,6 @@ interface Supplier {
   id: number;
   ruc: string;
   businessName: string;
-  tradeName?: string | null;
-  name?: string | null;
   contactPerson?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -37,16 +42,23 @@ interface SuppliersTableProps {
 export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
 
   const filtered = suppliers.filter((p) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       p.ruc.toLowerCase().includes(q) ||
       p.businessName.toLowerCase().includes(q) ||
-      (p.contactPerson && p.contactPerson.toLowerCase().includes(q))
-    );
+      (p.contactPerson && p.contactPerson.toLowerCase().includes(q));
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && p.active) ||
+      (statusFilter === "inactive" && !p.active);
+
+    return matchesSearch && matchesStatus;
   });
 
   const handleNew = () => {
@@ -92,14 +104,29 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por RUC, Razón Social o Contacto..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-          />
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por RUC, Razón Social o Contacto..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Select
+            value={statusFilter}
+            onValueChange={(val) => setStatusFilter(val ?? "all")}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Solo activos</SelectItem>
+              <SelectItem value="inactive">Solo inactivos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={handleNew} className="flex items-center gap-2">
           <Plus className="h-4 w-4" /> Nuevo Proveedor

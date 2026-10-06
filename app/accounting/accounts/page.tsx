@@ -188,69 +188,67 @@ export default function AccountsPage() {
 
   return (
     <>
-      <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
-        <ModuleHeader
-          title="Cuentas contables"
-          subtitle="Plan de cuentas, jerarquía y estado de cada cuenta"
-          icon={BookOpen}
-          iconClassName="bg-red-100 text-red-700"
-        />
-        <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
-          <div className="flex flex-col w-full gap-5">
-            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              <AccountsToolbar
-                q={searchQuery}
-                onSearch={setSearchQuery}
-                onClearSearch={() => setSearchQuery("")}
-                type={typeFilter}
-                onType={setTypeFilter}
-                status={statusFilter}
-                onStatus={setStatusFilter}
-                onNew={handleCreateAccount}
-                visible={rows.length}
-                total={accounts.length}
-                loading={isLoading}
-              />
-            </Card>
+      <ModuleHeader
+        title="Cuentas contables"
+        subtitle="Plan de cuentas, jerarquía y estado de cada cuenta"
+        icon={BookOpen}
+        iconClassName="bg-red-100 text-red-700"
+      />
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col w-full gap-5">
+          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
+            <AccountsToolbar
+              q={searchQuery}
+              onSearch={setSearchQuery}
+              onClearSearch={() => setSearchQuery("")}
+              type={typeFilter}
+              onType={setTypeFilter}
+              status={statusFilter}
+              onStatus={setStatusFilter}
+              onNew={handleCreateAccount}
+              visible={rows.length}
+              total={accounts.length}
+              loading={isLoading}
+            />
+          </Card>
 
-            <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-              {noticeMessage && (
-                <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-                  <p className="flex items-start gap-1.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{noticeMessage}</span>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setNoticeMessage(null)}
-                    className="text-amber-500 hover:text-amber-800 cursor-pointer shrink-0"
-                    title="Descartar aviso"
-                    aria-label="Descartar aviso"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
+            {noticeMessage && (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                <p className="flex items-start gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{noticeMessage}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setNoticeMessage(null)}
+                  className="text-amber-500 hover:text-amber-800 cursor-pointer shrink-0"
+                  title="Descartar aviso"
+                  aria-label="Descartar aviso"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
-              <AccountTable
-                rows={rows}
-                loading={isLoading}
-                error={errorMessage}
-                hasFilters={hasActiveFilters}
-                actionId={actionAccountId}
-                onToggleBranch={handleToggleBranch}
-                onExpandAll={handleExpandAll}
-                onCollapseAll={handleCollapseAll}
-                onEdit={handleEditAccount}
-                onCreateChild={handleCreateSubaccount}
-                onToggleStatus={handleToggleStatus}
-                onRetry={loadAccounts}
-                onClearFilters={handleClearFilters}
-              />
-            </Card>
-          </div>
-        </main>
-      </div>
+            <AccountTable
+              rows={rows}
+              loading={isLoading}
+              error={errorMessage}
+              hasFilters={hasActiveFilters}
+              actionId={actionAccountId}
+              onToggleBranch={handleToggleBranch}
+              onExpandAll={handleExpandAll}
+              onCollapseAll={handleCollapseAll}
+              onEdit={handleEditAccount}
+              onCreateChild={handleCreateSubaccount}
+              onToggleStatus={handleToggleStatus}
+              onRetry={loadAccounts}
+              onClearFilters={handleClearFilters}
+            />
+          </Card>
+        </div>
+      </main>
 
       {isDialogOpen && (
         <AccountDialog

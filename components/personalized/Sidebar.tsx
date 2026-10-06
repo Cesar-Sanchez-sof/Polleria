@@ -211,25 +211,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Órdenes de Compra
+                  Añadir Compra
                 </Link>
                 <Link
-                  className={getLinkClass("/purchases/receiving")}
-                  data-path="receiving"
-                  href="/purchases/receiving"
+                  className={getLinkClass("/purchases/list")}
+                  data-path="list"
+                  href="/purchases/list"
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Recepción de Compra
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/supplier-invoices")}
-                  data-path="supplier-invoices"
-                  href="/purchases/supplier-invoices"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Facturas y Pagos
+                  Listar Compras
                 </Link>
                 <Link
                   className={getLinkClass("/purchases/inventory")}
@@ -279,13 +270,22 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </div>
               <div className="flex flex-col pl-2 gap-0.5">
                 <Link
+                  className={getLinkClass("/accounting/guide")}
+                  data-path="guide-contable"
+                  href="/accounting/guide"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Guía Contable
+                </Link>
+                <Link
                   className={getLinkClass("/accounting/entries")}
                   data-path="dashboard-contabilidad"
                   href="/accounting/entries"
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Asientos contables
+                  Asientos / Libro Diario
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
@@ -297,15 +297,6 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 >
                   <span>Cuentas contables</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/journal")}
-                  data-path="libro-diario"
-                  href="/accounting/journal"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Libro Diario
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/ledger")}
@@ -333,6 +324,35 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Estado de Resultados
+                </Link>
+                <Link
+                  className={getLinkClass("/accounting/periods")}
+                  data-path="periodos-contables"
+                  href="/accounting/periods"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Periodos Contables
+                </Link>
+              </div>
+            </div>
+
+            {/* DOCUMENTACIÓN Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  DOCUMENTACIÓN
+                </span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className={getLinkClass("/swagger")}
+                  data-path="endpoints"
+                  href="/swagger"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Endpoints
                 </Link>
               </div>
             </div>

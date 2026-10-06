@@ -18,6 +18,54 @@ function parseInteger(value: string | null, defaultValue: number, min: number, m
  * General Journal (Libro Diario): journal entries in reverse chronological order
  * with all their line items and totals.
  */
+/**
+ * @openapi
+ * /api/daily-book:
+ *   get:
+ *     tags:
+ *       - Accounts
+ *     summary: Libro diario
+ *     description: Obtiene entradas del libro diario con filtros de fecha y paginación.
+ *     parameters:
+ *       - in: query
+ *         name: desde
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Fecha inicial (AAAA-MM-DD).
+ *       - in: query
+ *         name: hasta
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Fecha final (AAAA-MM-DD).
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Número de página.
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *         description: Tamaño de página.
+ *     responses:
+ *       200:
+ *         description: Lista de entradas del libro diario.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/JournalEntry'
+ *                 meta:
+ *                   type: object
+ *       500:
+ *         description: Error interno del servidor.
+ */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

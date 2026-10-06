@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Utensils,
   Warehouse,
+  Calendar,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -88,7 +89,7 @@ export default function HomePage() {
   const today = formatToday();
 
   return (
-    <main className="pl-0 md:pl-64 min-h-screen w-full min-w-0 overflow-x-hidden bg-surface text-on-surface">
+    <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-surface text-on-surface">
       {/* Hero — brand first, one composition */}
       <section className="relative min-h-[72vh] overflow-hidden">
         <div

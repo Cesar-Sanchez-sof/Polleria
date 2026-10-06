@@ -13,6 +13,42 @@ function determineCategory(name: string): string {
   return "otros";
 }
 
+/**
+ * @openapi
+ * /api/dishes:
+ *   get:
+ *     tags:
+ *       - Sales
+ *     summary: Lista platos
+ *     description: Obtiene la carta de platos, con opción de filtrado por texto y categoría.
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Texto de búsqueda para nombre del plato.
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Categoría del plato (ej. pollos, adicionales, bebidas, otros).
+ *     responses:
+ *       200:
+ *         description: Lista de platos.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Dish'
+ *                 total:
+ *                   type: integer
+ *       500:
+ *         description: Error interno del servidor.
+ */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

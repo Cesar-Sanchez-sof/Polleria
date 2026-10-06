@@ -1,6 +1,37 @@
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/journal-entries/accounts:
+ *   get:
+ *     tags:
+ *       - JournalEntries
+ *     summary: Obtener lista de cuentas para asientos manuales
+ *     description: Devuelve la lista de cuentas contables activas, ordenadas por código, para ser usadas al crear asientos manuales.
+ *     responses:
+ *       200:
+ *         description: Lista de cuentas contables.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       codigo:
+ *                         type: string
+ *                       nombre:
+ *                         type: string
+ *                       tipo:
+ *                         type: string
+ *       500:
+ *         description: Error interno del servidor.
+ */
 
 /**
  * Chart of accounts available to build lines in a manual journal entry.

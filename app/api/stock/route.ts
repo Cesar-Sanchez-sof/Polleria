@@ -8,6 +8,22 @@ import {
 } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/stock:
+ *   get:
+ *     tags:
+ *       - Stock
+ *     summary: Obtener stock de platos
+ *   post:
+ *     tags:
+ *       - Stock
+ *     summary: Establecer stock inicial de un plato
+ *   patch:
+ *     tags:
+ *       - Stock
+ *     summary: Ajustar stock de un plato (incrementar o reducir)
+ */
 
 /**
  * GET /api/stock
