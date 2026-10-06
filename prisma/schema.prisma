@@ -145,8 +145,10 @@ model User {
   lastAccessAt      DateTime?          @map("last_access_at") @db.Timestamp(6)
   employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   role              Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  accountingPeriods AccountingPeriod[]
-  closedPeriods     AccountingPeriod[] @relation("ClosedPeriods")
+  accountingPeriods  AccountingPeriod[]
+  closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
+  cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
+  cashSessionsClosed CashSession[]      @relation("CashSessionClosedBy")
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -512,14 +514,18 @@ model SalesInvoice {
   totalAmount    Decimal        @default(0) @map("total_amount") @db.Decimal(10, 2)
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
   status         String         @default("Issued") @db.VarChar(15)
+  s3Url          String?        @map("s3_url") @db.VarChar(300)
   order          SalesOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
   customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
   payments       SalesPayment[]
   journalEntries JournalEntry[]
+  cashSessionId  Int?           @map("cash_session_id")
+  cashSession    CashSession?   @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
 
   @@unique([voucherType, series, number], map: "uq_sales_invoice")
   @@index([orderId], map: "idx_sales_invoice_order")
   @@index([customerId], map: "idx_sales_invoice_customer")
+  @@index([cashSessionId], map: "idx_sales_invoice_cash_session")
   @@map("sales_invoice")
 }
 
@@ -625,3 +631,76 @@ model JournalEntryDetail {
   @@index([accountId], map: "idx_journal_entry_detail_account")
   @@map("journal_entry_detail")
 }
+
+// =====================================================================
+// MODULE 6: CASH REGISTER & CASH SESSIONS (APERTURA Y CIERRE DE CAJA)
+// =====================================================================
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+
+  @@map("cash_session_status")
+}
+
+enum CashMovementType {
+  INCOME
+  EXPENSE
+
+  @@map("cash_movement_type")
+}
+
+model CashRegister {
+  id          Int           @id @default(autoincrement())
+  name        String        @db.VarChar(50)
+  code        String        @unique @db.VarChar(20)
+  description String?       @db.VarChar(150)
+  active      Boolean       @default(true)
+  sessions    CashSession[]
+
+  @@map("cash_register")
+}
+
+model CashSession {
+  id             Int               @id @default(autoincrement())
+  cashRegisterId Int               @map("cash_register_id")
+  openedById     Int               @map("opened_by_id")
+  closedById     Int?              @map("closed_by_id")
+  openedAt       DateTime          @default(now()) @map("opened_at") @db.Timestamp(6)
+  closedAt       DateTime?         @map("closed_at") @db.Timestamp(6)
+  initialAmount  Decimal           @default(0) @map("initial_amount") @db.Decimal(10, 2)
+  salesCash      Decimal           @default(0) @map("sales_cash") @db.Decimal(10, 2)
+  salesOther     Decimal           @default(0) @map("sales_other") @db.Decimal(10, 2)
+  totalSales     Decimal           @default(0) @map("total_sales") @db.Decimal(10, 2)
+  expectedAmount Decimal?          @map("expected_amount") @db.Decimal(10, 2)
+  countedAmount  Decimal?          @map("counted_amount") @db.Decimal(10, 2)
+  difference     Decimal?          @map("difference") @db.Decimal(10, 2)
+  status         CashSessionStatus @default(OPEN)
+  notesOpening   String?           @map("notes_opening") @db.VarChar(255)
+  notesClosing   String?           @map("notes_closing") @db.VarChar(255)
+
+  cashRegister   CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  openedBy       User              @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy       User?             @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  movements      CashMovement[]
+  salesInvoices  SalesInvoice[]
+
+  @@index([cashRegisterId], map: "idx_cash_session_register")
+  @@index([openedById], map: "idx_cash_session_opened_by")
+  @@index([status], map: "idx_cash_session_status")
+  @@map("cash_session")
+}
+
+model CashMovement {
+  id        Int              @id @default(autoincrement())
+  sessionId Int              @map("session_id")
+  type      CashMovementType
+  amount    Decimal          @db.Decimal(10, 2)
+  reason    String           @db.VarChar(150)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  session   CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId], map: "idx_cash_movement_session")
+  @@map("cash_movement")
+}
+

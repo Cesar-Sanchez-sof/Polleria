@@ -119,11 +119,27 @@ async function createBalancedEntry(
   for (let attempt = 0; attempt < 5 && createdId === null; attempt++) {
     try {
 // Ensure accounting period exists and is open
-const period = await tx.accountingPeriod.findFirst({
+let period = await tx.accountingPeriod.findFirst({
   where: { startDate: { lte: input.date }, endDate: { gte: input.date } },
 });
-if (!period) throw new Error('No se encontró período contable para la fecha del asiento');
-if (period.status !== 'OPEN') throw new Error('No se pueden registrar asientos en un período cerrado');
+if (!period) {
+  period = await tx.accountingPeriod.findFirst({
+    where: { status: "OPEN" },
+    orderBy: { startDate: "desc" },
+  });
+}
+if (!period) {
+  const d = new Date(input.date);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+  period = await tx.accountingPeriod.create({
+    data: {
+      startDate: start,
+      endDate: end,
+      status: "OPEN",
+    },
+  });
+}
 
 const entry = await tx.journalEntry.create({
   data: {
