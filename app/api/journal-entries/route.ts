@@ -96,6 +96,81 @@ async function getTotalsByEntryId(entryIds: number[]): Promise<Map<number, numbe
   return new Map(sums.map((s) => [s.entryId, Number(s._sum.debit ?? 0)]));
 }
 
+/**
+ * @openapi
+ * /api/journal-entries:
+ *   get:
+ *     tags:
+ *       - JournalEntries
+ *     summary: Listar asientos contables
+ *     description: Obtiene una lista paginada de asientos con filtros de fecha, diario, estado y búsqueda.
+ *     parameters:
+ *       - in: query
+ *         name: desde
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Fecha inicial (AAAA-MM-DD).
+ *       - in: query
+ *         name: hasta
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Fecha final (AAAA-MM-DD).
+ *       - in: query
+ *         name: diario
+ *         schema:
+ *           type: string
+ *         description: Diario (libro) a filtrar.
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [registrado, anulado]
+ *         description: Estado del asiento.
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Texto de búsqueda.
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Número de página.
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *         description: Tamaño de página.
+ *       - in: query
+ *         name: orden
+ *         schema:
+ *           type: string
+ *         description: Campo de ordenación.
+ *       - in: query
+ *         name: dir
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Dirección de ordenación.
+ *     responses:
+ *       200:
+ *         description: Lista de asientos.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/JournalEntry'
+ *                 meta:
+ *                   type: object
+ *       500:
+ *         description: Error interno del servidor.
+ */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -219,6 +294,32 @@ function isDuplicateCode(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+/**
+ * @openapi
+ * /api/journal-entries:
+ *   post:
+ *     tags:
+ *       - JournalEntries
+ *     summary: Registrar un nuevo asiento contable
+ *     description: Crea un asiento con sus líneas, valida la integridad y asigna número de asiento.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewJournalEntry'
+ *     responses:
+ *       201:
+ *         description: Asiento creado exitosamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/JournalEntry'
+ *       400:
+ *         description: Datos de solicitud inválidos o validación fallida.
+ *       500:
+ *         description: Error interno al registrar el asiento.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

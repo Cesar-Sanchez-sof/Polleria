@@ -2,7 +2,35 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso } from "@/lib/dates";
 
-export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/journal-entries/{id}:
+ *   get:
+ *     tags:
+ *       - JournalEntries
+ *     summary: Obtener detalle de asiento contable
+ *     description: Obtiene el detalle completo de un asiento contable especificado por su identificador.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Identificador del asiento contable.
+ *     responses:
+ *       200:
+ *         description: Detalle del asiento contable.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/JournalEntryDetail'
+ *       400:
+ *         description: Identificador inválido.
+ *       404:
+ *         description: Asiento no encontrado.
+ *       500:
+ *         description: Error interno del servidor.
+ */
 
 export async function GET(
   _request: NextRequest,

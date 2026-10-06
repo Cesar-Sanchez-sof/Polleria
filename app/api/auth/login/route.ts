@@ -4,6 +4,33 @@ import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
 
+/**
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Iniciar sesión de usuario
+ *     description: Verifica credenciales y devuelve un token de autenticación.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login exitoso con token.
+ *       400:
+ *         description: Falta username o password.
+ *       401:
+ *         description: Credenciales inválidas.
+ */
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();

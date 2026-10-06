@@ -4,6 +4,62 @@ import { sesionActual } from "@/lib/auth/sesion-actual";
 import { actualizarUsuario, cambiarEstadoUsuario, type DatosUsuario } from "@/lib/services/usuarios.service";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/usuarios/{id}:
+ *   put:
+ *     tags:
+ *       - Usuarios
+ *     summary: Actualizar datos del usuario
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Identificador del usuario
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UsuarioUpdate'
+ *     responses:
+ *       200:
+ *         description: Usuario actualizado exitosamente
+ *       400:
+ *         description: Petición inválida
+ *       401:
+ *         description: No autorizado
+ *   patch:
+ *     tags:
+ *       - Usuarios
+ *     summary: Cambiar estado del usuario
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Identificador del usuario
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               activo:
+ *                 type: boolean
+ *                 description: Nuevo estado activo del usuario
+ *     responses:
+ *       200:
+ *         description: Estado del usuario actualizado
+ *       400:
+ *         description: Petición inválida
+ *       401:
+ *         description: No autorizado
+ */
 
 type Contexto = { params: Promise<{ id: string }> };
 

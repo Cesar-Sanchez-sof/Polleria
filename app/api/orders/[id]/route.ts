@@ -3,6 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { releaseDishStock } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/orders/{id}:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: Obtener detalle de pedido por ID
+ *   put:
+ *     tags:
+ *       - Orders
+ *     summary: Actualizar pedido existente
+ *   patch:
+ *     tags:
+ *       - Orders
+ *     summary: Cambiar estado del pedido
+ */
 
 interface OrderItemInput {
   dishId?: number;

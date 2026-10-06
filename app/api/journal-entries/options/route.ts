@@ -1,10 +1,41 @@
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
-
 /**
- * Filter options available for journal entries list:
- * existing journal books and statuses, with respective counts.
+ * @openapi
+ * /api/journal-entries/options:
+ *   get:
+ *     tags:
+ *       - JournalEntries
+ *     summary: Obtener opciones de filtrado para asientos
+ *     description: Obtiene los valores de filtrado disponibles para la lista de asientos contables, incluyendo los libros de diarios y los estados con sus totales.
+ *     responses:
+ *       200:
+ *         description: Opciones de filtrado de asientos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 diarios:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       nombre:
+ *                         type: string
+ *                       total:
+ *                         type: integer
+ *                 estados:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       valor:
+ *                         type: string
+ *                       etiqueta:
+ *                         type: string
+ *                       total:
+ *                         type: integer
  */
 export async function GET() {
   try {

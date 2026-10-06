@@ -20,11 +20,12 @@ async function addDiscoveredPaths(spec: any) {
         if (entry.name === 'openapi') continue;
         await walk(fullPath);
       } else if (entry.isFile() && entry.name.endsWith('.ts')) {
-        const relative = path.relative(apiRoot, fullPath);
-        let urlPath = '/' + relative.replace(/\\/g, '/');
+        let urlPath = '/' + path.relative(apiRoot, fullPath).replace(/\\/g, '/');
         urlPath = urlPath.replace(/\/route\.ts$/i, '').replace(/\/index\.ts$/i, '');
         if (!urlPath.startsWith('/api')) urlPath = '/api' + urlPath;
         urlPath = urlPath.replace(/\/+$/, '');
+        // Next.js dynamic segments `[id]` are OpenAPI path templates `{id}`.
+        urlPath = urlPath.replace(/\[([^\]]+)\]/g, '{$1}');
         const content = await fs.readFile(fullPath, 'utf8');
         const methods: string[] = [];
         if (/export\s+(?:const|async\s+function|function)\s+GET\b/.test(content)) methods.push('get');
@@ -35,11 +36,14 @@ async function addDiscoveredPaths(spec: any) {
         if (methods.length === 0) continue;
         spec.paths = spec.paths ?? {};
         spec.paths[urlPath] = spec.paths[urlPath] ?? {};
+        const operationBase = urlPath
+          .replace(/[^A-Za-z0-9]+(.)/g, (_, c: string) => c.toUpperCase())
+          .replace(/[^A-Za-z0-9]/g, '');
         for (const m of methods) {
           if (!spec.paths[urlPath][m]) {
             spec.paths[urlPath][m] = {
               summary: "Auto-generated endpoint",
-              operationId: `${m}`,
+              operationId: `${m}${operationBase}`,
               responses: { '200': { description: 'Successful response' } },
             };
           }

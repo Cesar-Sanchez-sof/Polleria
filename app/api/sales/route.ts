@@ -4,6 +4,18 @@ import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/sales:
+ *   post:
+ *     tags:
+ *       - Sales
+ *     summary: Registrar una venta
+ *   get:
+ *     tags:
+ *       - Sales
+ *     summary: Listar ventas
+ */
 
 type PersonTypeValue = "Natural" | "Legal";
 

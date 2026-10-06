@@ -4,6 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/general-ledger:
+ *   get:
+ *     tags:
+ *       - Reports
+ *     summary: Obtener libro mayor (General Ledger)
+ */
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 

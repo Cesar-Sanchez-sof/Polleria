@@ -172,13 +172,40 @@ filtros y chips de resumen.
 
 ### Request
 
+- **Endpoint**: `GET /api/balance-sheet`
+- **Description**: Genera el Estado de Situación Financiera (Balance General) a la fecha indicada.
+
+#### Query Parameters
+
 | Parámetro | Tipo | Requerido | Default | Descripción |
 |-----------|------|-----------|---------|-------------|
-| `hasta` | string `YYYY-MM-DD` | No | hoy (UTC) | Fecha de corte (inclusive). |
+| `hasta` | `string` (formato `YYYY-MM-DD`) | No | Hoy (UTC) | Fecha de corte (incluyente). Si se omite, se usa la fecha actual en UTC. |
 
-Sin cuerpo. Otros query strings se ignoran.
+> El endpoint no acepta cuerpo de petición; cualquier otro query string es ignorado.
+
+#### Validaciones del Servidor
+
+- El parámetro `hasta` debe coincidir con la expresión regular `^\d{4}-\d{2}-\d{2}$`. En caso contrario se devuelve **400 Bad Request**.
+
+---
 
 ### Response (200)
+
+#### Cabecera del Payload
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `asOf` | `string` (`YYYY-MM-DD`) | Fecha de corte utilizada para el reporte. |
+| `currency` | `string` | Código ISO de la moneda (ej. `PEN`). |
+| `companyName` | `string` | Nombre de la empresa (valor por variable de entorno o fallback). |
+| `reportTitle` | `string` | Título del reporte (`Estado de Situación Financiera`). |
+| `normativeNote` | `string` | Texto legal‑normativo basado en PCGE. |
+| `lines` | `array` | Colección jerárquica de secciones, subsecciones y cuentas con sus saldos. |
+| `totals` | `object` | Totales calculados por categoría (Activos, Pasivos, Patrimonio, etc.). |
+| `balanced` | `boolean` | Indica si el balance cuadra (Activo = Pasivo + Patrimonio). |
+| `difference` | `number` | Diferencia en soles cuando `balanced` es `false`. |
+
+#### Ejemplo de Payload (JSON)
 
 ```json
 {
@@ -216,6 +243,35 @@ Sin cuerpo. Otros query strings se ignoran.
   "difference": 0
 }
 ```
+
+> `lines` contiene objetos con los atributos `key`, `code`, `label`, `amount`, `kind` y `indent`. El campo `kind` indica el tipo de fila (sección, subsección, cuenta, subtotal, total o nota). El campo `indent` controla la sangría visual (0 = principal, 1 = subsección, 2 = cuenta).
+
+---
+
+### Errors
+
+| Código | Condición | Cuerpo de respuesta |
+|--------|-----------|---------------------|
+| 400 | `hasta` no coincide con `^\d{4}-\d{2}-\d{2}$` | `{ "error": "La fecha de corte (hasta) debe tener el formato YYYY-MM-DD." }` |
+| 404 | No existen cuentas contables activas | `{ "error": "No hay cuentas contables activas para elaborar el balance." }` |
+| 500 | Error inesperado (ej. falla de Prisma) | `{ "error": "No se pudo generar el Estado de Situación Financiera." }` |
+
+> No se devuelve **401** o **403** porque la ruta es pública y no requiere autenticación.
+
+---
+
+### Permissions
+
+- **Ninguno**: la ruta no verifica sesión, cookies ni roles. Cualquier cliente que pueda alcanzar la API podrá obtener el balance.
+
+---
+
+### Validations (Cliente y Servidor)
+
+- **Servidor**: valida el formato del parámetro `hasta` mediante regex. No verifica existencia del calendario ni que la fecha sea anterior a hoy.
+- **Cliente**: realiza la misma validación antes de llamar a la API, mostrando el mensaje `La fecha de corte debe tener el formato válido.` y evitando la petición.
+
+---
 
 > El ejemplo trunca `lines[]` por brevedad; la respuesta real incluye todas las secciones
 > (`ACTIVO`, `PASIVO`, `PATRIMONIO`), sus subsecciones y subtotales. Los importes provienen del

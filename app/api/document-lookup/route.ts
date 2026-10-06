@@ -3,6 +3,18 @@ import { lookupIdentityDocument } from "@/lib/services/document-lookup.service";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/document-lookup:
+ *   get:
+ *     tags:
+ *       - DocumentLookup
+ *     summary: Consultar documento de identidad (GET)
+ *   post:
+ *     tags:
+ *       - DocumentLookup
+ *     summary: Consultar documento de identidad (POST)
+ */
 
 export async function GET(request: NextRequest) {
   try {

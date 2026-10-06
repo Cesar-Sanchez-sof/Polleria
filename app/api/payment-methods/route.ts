@@ -2,6 +2,14 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/payment-methods:
+ *   get:
+ *     tags:
+ *       - PaymentMethods
+ *     summary: Listar métodos de pago disponibles
+ */
 
 export async function GET(_request: NextRequest) {
   try {

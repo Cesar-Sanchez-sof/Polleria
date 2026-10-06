@@ -29,6 +29,43 @@ async function requireRole(request: NextRequest, allowedRoles: number[]): Promis
  * Returns a list of accounting periods. Accepts optional query parameters:
  *   ?status=open|closed – filter by status
  */
+/**
+ * @openapi
+ * /api/accounting-periods:
+ *   get:
+ *     tags:
+ *       - AccountingPeriods
+ *     summary: Listar periodos contables
+ *     description: Obtiene una lista de periodos contables, opcionalmente filtrados por estado, mes y año.
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [open, closed]
+ *         description: Filtrar por estado del periodo.
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: integer
+ *         description: Mes (1-12) para filtrar por rango de fechas.
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *         description: Año para filtrar por rango de fechas.
+ *     responses:
+ *       200:
+ *         description: Lista de periodos contables.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/AccountingPeriod'
+ *       500:
+ *         description: Error interno.
+ */
 export async function GET(request: NextRequest) {
   try {
     const status = request.nextUrl.searchParams.get("status");
@@ -57,10 +94,31 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/accounting-periods
- * Creates a new accounting period. Body expects:
- *   { startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD" }
- * Only users with role "ADMIN" (or any role you configure) may create periods.
+ * @openapi
+ * /api/accounting-periods:
+ *   post:
+ *     tags:
+ *       - AccountingPeriods
+ *     summary: Crear nuevo período contable
+ *     description: Crea un nuevo período contable especificando mes y año.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               month:
+ *                 type: integer
+ *               year:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Período creado
+ *       400:
+ *         description: Error de validación
+ *       500:
+ *         description: Error del servidor
  */
 export async function POST(request: NextRequest) {
   try {
@@ -110,10 +168,33 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/accounting-periods
- * Close (or optionally re‑open) an accounting period.
- * Body expects: { periodId: number, reopen?: boolean }
- * Only ADMIN can perform this operation.
+ * @openapi
+ * /api/accounting-periods:
+ *   patch:
+ *     tags:
+ *       - AccountingPeriods
+ *     summary: Cerrar o reabrir un período contable
+ *     description: Cierra o reabre un período contable según el cuerpo de la solicitud.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               periodId:
+ *                 type: integer
+ *               reopen:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Período actualizado
+ *       400:
+ *         description: Error de validación
+ *       404:
+ *         description: Período no encontrado
+ *       500:
+ *         description: Error del servidor
  */
 export async function PATCH(request: NextRequest) {
   try {

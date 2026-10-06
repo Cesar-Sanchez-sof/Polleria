@@ -4,22 +4,50 @@
  *   get:
  *     summary: Lista todas las cuentas contables
  *     operationId: listAccounts
+ *     tags:
+ *       - Accounts
  *     responses:
  *       '200':
- *         description: Lista de cuentas
+ *         description: Lista de cuentas contables activas
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                   code:
- *                     type: string
- *                   name:
- *                     type: string
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       code:
+ *                         type: string
+ *                         example: "101"
+ *                       name:
+ *                         type: string
+ *                         example: "Caja"
+ *                       type:
+ *                         type: string
+ *                         example: "Activo"
+ *                       active:
+ *                         type: boolean
+ *                         example: true
+ *                       parentId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
+ *       '500':
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "No se pudo obtener el plan contable."
  */
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -59,6 +87,34 @@ export async function GET() {
  *
  * Body: `{ codigo, nombre, tipo, idPadre?, activo? }`. Code is unique across
  * the table and a subaccount inherits its parent's type.
+ */
+/**
+ * @openapi
+ * /api/accounts:
+ *   post:
+ *     tags:
+ *       - Accounts
+ *     summary: Crear una nueva cuenta contable
+ *     description: Registra una cuenta contable con código único y opcionalmente la asigna a una cuenta padre.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewAccount'
+ *     responses:
+ *       201:
+ *         description: Cuenta creada exitosamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Account'
+ *       400:
+ *         description: Datos de la solicitud inválidos.
+ *       409:
+ *         description: Código de cuenta duplicado.
+ *       500:
+ *         description: Error interno al crear la cuenta.
  */
 export async function POST(request: NextRequest) {
   try {

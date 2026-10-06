@@ -2,6 +2,14 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+/**
+ * @openapi
+ * /api/tables:
+ *   get:
+ *     tags:
+ *       - Tables
+ *     summary: Listar mesas del salón
+ */
 
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 

@@ -30,6 +30,33 @@ function todayIsoUtc(): string {
  * - Cuentas de balance: saldos acumulados hasta `hasta` (inclusive).
  * - Resultado del ejercicio: P&L desde el 01-ene del año de `hasta` hasta `hasta`.
  */
+/**
+ * @openapi
+ * /api/balance-sheet:
+ *   get:
+ *     tags:
+ *       - Balance Sheet
+ *     summary: Obtener balance general
+ *     description: Genera el Estado de Situación Financiera a una fecha de corte.
+ *     parameters:
+ *       - in: query
+ *         name: hasta
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Fecha de corte (YYYY-MM-DD). Si no se envía, se usa la fecha actual.
+ *     responses:
+ *       200:
+ *         description: Balance general generado.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BalanceSheet'
+ *       400:
+ *         description: Parámetro de fecha inválido.
+ *       500:
+ *         description: Error interno al generar el balance.
+ */
 export async function GET(request: NextRequest) {
   try {
     const rawAsOf = (request.nextUrl.searchParams.get("hasta") ?? "").trim() || todayIsoUtc();
