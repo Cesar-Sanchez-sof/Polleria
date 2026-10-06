@@ -47,6 +47,10 @@ import {
   Tag,
   ArrowRight,
   XCircle,
+  Lock,
+  Unlock,
+  Coins,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -80,6 +84,13 @@ import {
   canEditOrder,
 } from "@/lib/utils/sales-helpers";
 import { KitchenBoard } from "@/components/restaurant/KitchenBoard";
+import {
+  getCashSessionStatus,
+  openCashSession,
+  closeCashSession,
+  type CashRegisterStatus,
+  type CloseCashAudit,
+} from "@/lib/services/cash-register.service";
 
 type TabType = "tables" | "kitchen" | "payments" | "cashier" | "customers" | "invoices";
 
@@ -168,6 +179,14 @@ function SalesManagementContent() {
       setCustomers(customersRes);
       setSaleVouchers(salesRes.data);
       setDailySummary(salesRes.dailySummary);
+
+      // Cargar estado de sesión de caja
+      try {
+        const cashStatus = await getCashSessionStatus();
+        setCashSessionState(cashStatus);
+      } catch (e) {
+        console.warn("Estado de caja no disponible:", e);
+      }
     } catch (err: any) {
       toast.error(err.message || "Error al conectar con la base de datos.");
     } finally {
@@ -226,11 +245,29 @@ function SalesManagementContent() {
   ]);
 
   const [voucherModalOpen, setVoucherModalOpen] = useState<boolean>(false);
-  const [voucherType, setVoucherType] = useState<"Boleta" | "Factura" | "Ticket">("Boleta");
+  const [voucherType, setVoucherType] = useState<"Boleta" | "Factura">("Boleta");
   const [customerDoc, setCustomerDoc] = useState<string>("");
   const [customerName, setCustomerName] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
   const [processingSale, setProcessingSale] = useState<boolean>(false);
+
+  // ---------------------------------------------------------------------------
+  // ESTADO APERTURA Y CIERRE DE CAJA
+  // ---------------------------------------------------------------------------
+  const [cashSessionState, setCashSessionState] = useState<CashRegisterStatus>({
+    isOpened: false,
+    register: null,
+    activeSession: null,
+  });
+  const [openCashModal, setOpenCashModal] = useState<boolean>(false);
+  const [closeCashModal, setCloseCashModal] = useState<boolean>(false);
+  const [initialCashInput, setInitialCashInput] = useState<string>("100.00");
+  const [openNotesInput, setOpenNotesInput] = useState<string>("");
+  const [countedCashInput, setCountedCashInput] = useState<string>("");
+  const [closeNotesInput, setCloseNotesInput] = useState<string>("");
+  const [savingCashSession, setSavingCashSession] = useState<boolean>(false);
+  const [lastClosedAudit, setLastClosedAudit] = useState<CloseCashAudit | null>(null);
+  const [auditModalOpen, setAuditModalOpen] = useState<boolean>(false);
 
   // ---------------------------------------------------------------------------
   // ESTADO COBRO MÓVIL / MOZO (COBRO CON CELULAR / TAP TO PAY / YAPE / PARTES)
@@ -289,9 +326,12 @@ function SalesManagementContent() {
       } else {
         if (tipo === "dni") {
           setNewCustomerName(data.nombres || data.nombreCompleto);
-          setNewCustomerLastName(
-            `${data.lastNamePaterno || ""} ${data.lastNameMaterno || ""}`.trim()
-          );
+          const apellidos =
+            [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(" ") ||
+            data.apellidos ||
+            data.lastNamePaterno ||
+            "";
+          setNewCustomerLastName(apellidos);
         } else {
           setNewCustomerName(data.razonSocial || data.nombreCompleto);
         }
@@ -447,6 +487,12 @@ function SalesManagementContent() {
   // ACCIONES COMANDA
   // ---------------------------------------------------------------------------
   const openTakeTableOrder = (mesa: TableItem) => {
+    if (!cashSessionState.isOpened) {
+      toast.error("La caja se encuentra cerrada. Debe aperturar el turno en Caja antes de tomar pedidos.");
+      setActiveTab("cashier");
+      setOpenCashModal(true);
+      return;
+    }
     if (mesa.occupied) {
       toast.info(`La Mesa ${mesa.number} ya tiene un pedido en curso.`);
       return;
@@ -464,6 +510,12 @@ function SalesManagementContent() {
   };
 
   const openTakeawayOrder = () => {
+    if (!cashSessionState.isOpened) {
+      toast.error("La caja se encuentra cerrada. Debe aperturar el turno en Caja antes de tomar pedidos.");
+      setActiveTab("cashier");
+      setOpenCashModal(true);
+      return;
+    }
     setIsEditing(false);
     setEditingOrderId(null);
     setSelectedTable(null);
@@ -545,6 +597,13 @@ function SalesManagementContent() {
   };
 
   const saveOrder = async () => {
+    if (!cashSessionState.isOpened && !isEditing) {
+      toast.error("La caja se encuentra cerrada. Debe aperturar el turno en Caja antes de registrar pedidos.");
+      setActiveTab("cashier");
+      setOpenCashModal(true);
+      return;
+    }
+
     if (orderItems.length === 0) {
       toast.warning("Debe agregar al menos un plato a la comanda.");
       return;
@@ -719,6 +778,12 @@ function SalesManagementContent() {
       return;
     }
 
+    if (!cashSessionState.isOpened) {
+      toast.error("La caja se encuentra cerrada. Debe aperturar el turno antes de cobrar.");
+      setOpenCashModal(true);
+      return;
+    }
+
     // Validar documento si se ingresó
     if (customerDoc.trim()) {
       const tipoPer = voucherType === "Factura" ? "Legal" : "Natural";
@@ -731,6 +796,7 @@ function SalesManagementContent() {
 
     const salePayload: any = {
       orderId: orderToCharge.id,
+      cashSessionId: cashSessionState.activeSession?.id,
       voucherType: voucherType,
       customer: {
         documentNumber: customerDoc.trim() || undefined,
@@ -863,7 +929,8 @@ function SalesManagementContent() {
 
       waiterSalePayload = {
         orderId: waiterPaymentOrder.id,
-        voucherType: "Ticket",
+        cashSessionId: cashSessionState.activeSession?.id,
+        voucherType: "Boleta",
         customer: {
           documentNumber: "00000000",
           firstName: "CLIENTE SALÓN",
@@ -893,8 +960,9 @@ function SalesManagementContent() {
 
       waiterSalePayload = {
         orderId: waiterPaymentOrder.id,
+        cashSessionId: cashSessionState.activeSession?.id,
         paymentTypeId: paymentTypeId,
-        voucherType: "Ticket",
+        voucherType: "Boleta",
         customer: {
           documentNumber: "00000000",
           firstName: "CLIENTE SALÓN",
@@ -921,6 +989,58 @@ function SalesManagementContent() {
       toast.error(err.message || "Error al procesar el cobro móvil.");
     } finally {
       setProcessingWaiterPayment(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // ACCIONES APERTURA Y CIERRE DE CAJA
+  // ---------------------------------------------------------------------------
+  const handleOpenCashSession = async () => {
+    const initAmt = parseFloat(initialCashInput);
+    if (isNaN(initAmt) || initAmt < 0) {
+      toast.error("Ingrese un monto inicial válido mayor o igual a 0.");
+      return;
+    }
+    try {
+      setSavingCashSession(true);
+      const res = await openCashSession({
+        initialAmount: initAmt,
+        notesOpening: openNotesInput.trim(),
+      });
+      toast.success(res.message);
+      setOpenCashModal(false);
+      const updatedStatus = await getCashSessionStatus();
+      setCashSessionState(updatedStatus);
+    } catch (err: any) {
+      toast.error(err.message || "Error al abrir la caja.");
+    } finally {
+      setSavingCashSession(false);
+    }
+  };
+
+  const handleCloseCashSession = async () => {
+    if (!cashSessionState.activeSession) return;
+    const counted = parseFloat(countedCashInput);
+    if (isNaN(counted) || counted < 0) {
+      toast.error("Ingrese un monto contado válido.");
+      return;
+    }
+    try {
+      setSavingCashSession(true);
+      const res = await closeCashSession(cashSessionState.activeSession.id, {
+        countedAmount: counted,
+        notesClosing: closeNotesInput.trim(),
+      });
+      toast.success(res.message);
+      setLastClosedAudit(res.audit);
+      setCloseCashModal(false);
+      setAuditModalOpen(true);
+      const updatedStatus = await getCashSessionStatus();
+      setCashSessionState(updatedStatus);
+    } catch (err: any) {
+      toast.error(err.message || "Error al cerrar la caja.");
+    } finally {
+      setSavingCashSession(false);
     }
   };
 
@@ -1113,6 +1233,28 @@ function SalesManagementContent() {
       {/* =================================================================== */}
       {activeTab === "tables" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {/* Alerta si la caja está cerrada */}
+          {!cashSessionState.isOpened && (
+            <div className="p-3 bg-amber-50/90 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-900 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Caja Cerrada:</strong> Debe aperturar el turno de caja antes de poder abrir comandas y tomar pedidos.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setActiveTab("cashier");
+                  setOpenCashModal(true);
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-7 rounded-lg shadow-xs cursor-pointer shrink-0 self-end sm:self-auto"
+              >
+                Abrir Caja Ahora
+              </Button>
+            </div>
+          )}
+
           {/* Barra de Filtros y Leyenda */}
           <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1634,6 +1776,125 @@ function SalesManagementContent() {
       {/* =================================================================== */}
       {activeTab === "cashier" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {/* BANNER DE CONTROL DE APERTURA / CIERRE DE CAJA */}
+          <Card
+            className={`p-4 rounded-2xl border transition-all ${
+              cashSessionState.isOpened
+                ? "bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 border-emerald-200 shadow-xs"
+                : "bg-gradient-to-r from-amber-50/80 via-white to-red-50/40 border-amber-300 shadow-xs"
+            }`}
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3">
+                <div
+                  className={`p-2.5 rounded-xl flex items-center justify-center ${
+                    cashSessionState.isOpened
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-amber-500 text-white shadow-sm"
+                  }`}
+                >
+                  {cashSessionState.isOpened ? (
+                    <Unlock className="w-5 h-5" />
+                  ) : (
+                    <Lock className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-extrabold text-slate-800">
+                      {cashSessionState.register?.name || "Caja Principal - Salón"}
+                    </span>
+                    <Badge
+                      className={
+                        cashSessionState.isOpened
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold"
+                          : "bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold"
+                      }
+                    >
+                      {cashSessionState.isOpened ? "TURNO ABIERTO" : "TURNO CERRADO"}
+                    </Badge>
+                    {cashSessionState.activeSession && (
+                      <span className="text-xs text-slate-500 font-medium">
+                        Cajero:{" "}
+                        <strong className="text-slate-700">
+                          {cashSessionState.activeSession.openedBy || "Cajero Principal"}
+                        </strong>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {cashSessionState.isOpened
+                      ? `Turno iniciado a las ${new Date(
+                          cashSessionState.activeSession?.openedAt || Date.now()
+                        ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • Listo para emisión de Boletas y Facturas.`
+                      : "La caja se encuentra cerrada. Debe realizar la apertura de turno antes de cobrar comandas."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap justify-end">
+                {cashSessionState.isOpened && cashSessionState.activeSession && (
+                  <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Fondo Apertura</div>
+                      <div className="font-extrabold text-slate-700">
+                        {formatCurrency(cashSessionState.activeSession.initialAmount)}
+                      </div>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200" />
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Ventas Efectivo</div>
+                      <div className="font-extrabold text-emerald-600">
+                        {formatCurrency(cashSessionState.activeSession.salesCash)}
+                      </div>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200" />
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Digital (Yape/POS)</div>
+                      <div className="font-extrabold text-blue-600">
+                        {formatCurrency(cashSessionState.activeSession.salesOther)}
+                      </div>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200" />
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Total en Gaveta</div>
+                      <div className="font-extrabold text-red-700">
+                        {formatCurrency(cashSessionState.activeSession.expectedAmount)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {cashSessionState.isOpened ? (
+                  <Button
+                    onClick={() => {
+                      setCountedCashInput("");
+                      setCloseNotesInput("");
+                      setCloseCashModal(true);
+                    }}
+                    variant="outline"
+                    className="border-red-300 hover:bg-red-50 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Cerrar / Arqueo de Caja</span>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setInitialCashInput("100.00");
+                      setOpenNotesInput("");
+                      setOpenCashModal(true);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>Abrir Turno de Caja</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Columna Izquierda: Selección de Comanda a Cobrar */}
             <div className="lg:col-span-5 flex flex-col gap-4">
@@ -1745,8 +2006,8 @@ function SalesManagementContent() {
                       <label className="text-xs font-bold text-slate-700 block mb-1.5">
                         Tipo de Comprobante:
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(["Boleta", "Factura", "Ticket"] as const).map((tipo) => (
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["Boleta", "Factura"] as const).map((tipo) => (
                           <button
                             key={tipo}
                             type="button"
@@ -2448,18 +2709,32 @@ function SalesManagementContent() {
                           {formatCurrency(comp.total)}
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setIssuedVoucher(comp);
-                              setTicketModalOpen(true);
-                            }}
-                            className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
-                          >
-                            <Printer className="w-3.5 h-3.5 mr-1" />
-                            Ver Ticket
-                          </Button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setIssuedVoucher(comp);
+                                setTicketModalOpen(true);
+                              }}
+                              className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
+                            >
+                              <Printer className="w-3.5 h-3.5 mr-1" />
+                              Ver Ticket
+                            </Button>
+                            {comp.s3Url && (
+                              <a
+                                href={`/api/sales/voucher/${comp.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center text-[11px] h-7 px-2.5 rounded-lg border border-blue-200 hover:bg-blue-100 font-semibold text-blue-700 bg-blue-50 cursor-pointer transition-colors"
+                                title="Ver archivo en S3"
+                              >
+                                <FileText className="w-3.5 h-3.5 mr-1" />
+                                S3
+                              </a>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -3336,7 +3611,7 @@ function SalesManagementContent() {
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2 pt-2 border-t border-slate-200 no-print">
+          <DialogFooter className="flex flex-wrap gap-2 pt-2 border-t border-slate-200 no-print">
             <Button
               variant="outline"
               size="sm"
@@ -3345,6 +3620,18 @@ function SalesManagementContent() {
             >
               Cerrar
             </Button>
+            {issuedVoucher?.s3Url && (
+              <a
+                href={`/api/sales/voucher/${issuedVoucher.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors shadow-2xs"
+                title="Ver archivo del comprobante en S3"
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>Ver / Descargar S3</span>
+              </a>
+            )}
             <Button
               size="sm"
               onClick={() => window.print()}
@@ -3472,6 +3759,365 @@ function SalesManagementContent() {
                   <span>Confirmar Cancelación</span>
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL 1: APERTURA DE TURNO DE CAJA */}
+      {/* =================================================================== */}
+      <Dialog open={openCashModal} onOpenChange={setOpenCashModal}>
+        <DialogContent className="sm:max-w-md bg-white rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                <Unlock className="w-5 h-5" />
+              </div>
+              <span>Apertura de Turno de Caja</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
+              <p className="font-semibold text-slate-800">
+                {cashSessionState.register?.name || "Caja Principal - Salón"}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Al aperturar la caja, se habilitará el cobro de comandas y la emisión de Boletas y Facturas.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Fondo Inicial en Gaveta / Sencillo (S/.)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                  S/
+                </span>
+                <Input
+                  type="number"
+                  step="0.10"
+                  min="0"
+                  value={initialCashInput}
+                  onChange={(e) => setInitialCashInput(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-8 text-sm font-bold text-slate-800 rounded-xl"
+                  autoFocus
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Monto en efectivo con el que inicia la jornada para cambio/vuelto.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Observaciones de Apertura (Opcional)
+              </label>
+              <textarea
+                value={openNotesInput}
+                onChange={(e) => setOpenNotesInput(e.target.value)}
+                placeholder="Ej. Billetes de 20 y monedas variadas recibidas de administración..."
+                rows={2}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setOpenCashModal(false)}
+              disabled={savingCashSession}
+              className="text-xs font-semibold rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleOpenCashSession}
+              disabled={savingCashSession}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              {savingCashSession ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" />
+                  <span>Aperturando...</span>
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-3.5 h-3.5 mr-1" />
+                  <span>Confirmar Apertura</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL 2: CIERRE Y ARQUEO DE CAJA */}
+      {/* =================================================================== */}
+      <Dialog open={closeCashModal} onOpenChange={setCloseCashModal}>
+        <DialogContent className="sm:max-w-lg bg-white rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <div className="p-2 bg-red-100 text-red-700 rounded-xl">
+                <Lock className="w-5 h-5" />
+              </div>
+              <span>Cierre y Arqueo de Caja</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {cashSessionState.activeSession && (() => {
+            const exp = cashSessionState.activeSession.expectedAmount;
+            const counted = parseFloat(countedCashInput);
+            const hasCounted = !isNaN(counted) && countedCashInput.trim() !== "";
+            const diff = hasCounted ? Math.round((counted - exp) * 100) / 100 : 0;
+
+            return (
+              <div className="space-y-4 py-2 text-xs">
+                {/* Desglose de ingresos */}
+                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Fondo Apertura</span>
+                    <span className="text-xs font-bold text-slate-700">
+                      {formatCurrency(cashSessionState.activeSession.initialAmount)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Ventas en Efectivo</span>
+                    <span className="text-xs font-bold text-emerald-600">
+                      + {formatCurrency(cashSessionState.activeSession.salesCash)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Digital (Yape/POS)</span>
+                    <span className="text-xs font-bold text-blue-600">
+                      {formatCurrency(cashSessionState.activeSession.salesOther)}
+                    </span>
+                  </div>
+                  <div className="border-t pt-1.5 col-span-2 flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-800">Total Esperado en Gaveta:</span>
+                    <span className="text-sm font-extrabold text-red-700">
+                      {formatCurrency(exp)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Input de Efectivo Contado Físicamente */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Efectivo Real Contado en Gaveta (S/.) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                      S/
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.10"
+                      min="0"
+                      value={countedCashInput}
+                      onChange={(e) => setCountedCashInput(e.target.value)}
+                      placeholder="0.00"
+                      className="pl-8 text-sm font-bold text-slate-800 rounded-xl"
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Cuente físicamente los billetes y monedas que se encuentran en el cajón de dinero.
+                  </p>
+                </div>
+
+                {/* Comparador y cálculo de discrepancia */}
+                {hasCounted && (
+                  <div
+                    className={`p-3 rounded-xl border flex items-center justify-between ${
+                      diff === 0
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                        : diff > 0
+                        ? "bg-blue-50 border-blue-200 text-blue-800"
+                        : "bg-rose-50 border-rose-200 text-rose-800"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {diff === 0 ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <AlertCircle className={`w-4 h-4 ${diff > 0 ? "text-blue-600" : "text-rose-600"}`} />
+                      )}
+                      <div>
+                        <div className="font-bold text-xs">
+                          {diff === 0
+                            ? "Caja Cuadrada Perfecta"
+                            : diff > 0
+                            ? "Sobrante de Caja"
+                            : "Faltante de Caja"}
+                        </div>
+                        <div className="text-[11px] opacity-80">
+                          {diff === 0
+                            ? "El dinero contado coincide con el esperado."
+                            : diff > 0
+                            ? "Hay más dinero en gaveta del registrado por el sistema."
+                            : "Hay menos dinero en gaveta del esperado por el sistema."}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-extrabold block">
+                        {diff >= 0 ? `+S/ ${diff.toFixed(2)}` : `-S/ ${Math.abs(diff).toFixed(2)}`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Observaciones de Cierre */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Observaciones / Motivo de Discrepancia {diff !== 0 && hasCounted ? "(Recomendado)" : "(Opcional)"}
+                  </label>
+                  <textarea
+                    value={closeNotesInput}
+                    onChange={(e) => setCloseNotesInput(e.target.value)}
+                    placeholder="Indique notas de cierre o justificación si existió faltante o sobrante..."
+                    rows={2}
+                    className="w-full text-xs rounded-xl border border-slate-200 p-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
+          <DialogFooter className="flex gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCloseCashModal(false)}
+              disabled={savingCashSession}
+              className="text-xs font-semibold rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCloseCashSession}
+              disabled={savingCashSession || !countedCashInput.trim()}
+              className="bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              {savingCashSession ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" />
+                  <span>Procesando Arqueo...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 mr-1" />
+                  <span>Confirmar Cierre y Arqueo</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL 3: AUDITORÍA Y COMPROBANTE DE ARQUEO DE CAJA */}
+      {/* =================================================================== */}
+      <Dialog open={auditModalOpen} onOpenChange={setAuditModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <span>Reporte de Cierre de Caja</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {lastClosedAudit && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <span className="font-extrabold text-slate-800">{lastClosedAudit.registerName}</span>
+                  <Badge className="bg-slate-700 text-white text-[10px]">CERRADA</Badge>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Apertura:</span>
+                  <span className="font-medium text-slate-800">
+                    {new Date(lastClosedAudit.openedAt).toLocaleString()} ({lastClosedAudit.openedBy})
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Cierre:</span>
+                  <span className="font-medium text-slate-800">
+                    {new Date(lastClosedAudit.closedAt).toLocaleString()} ({lastClosedAudit.closedBy})
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Fondo Inicial:</span>
+                  <span className="font-medium text-slate-800">{formatCurrency(lastClosedAudit.initialAmount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Ventas en Efectivo:</span>
+                  <span className="font-semibold text-emerald-600">+{formatCurrency(lastClosedAudit.salesCash)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Ventas Digitales:</span>
+                  <span className="font-semibold text-blue-600">{formatCurrency(lastClosedAudit.salesOther)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-slate-200">
+                  <span>Efectivo Esperado:</span>
+                  <span>{formatCurrency(lastClosedAudit.expectedAmount)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-800">
+                  <span>Efectivo Contado:</span>
+                  <span>{formatCurrency(lastClosedAudit.countedAmount)}</span>
+                </div>
+                <div className={`flex justify-between font-extrabold text-xs pt-1.5 border-t ${
+                  lastClosedAudit.difference === 0
+                    ? "text-emerald-700"
+                    : lastClosedAudit.difference > 0
+                    ? "text-blue-700"
+                    : "text-rose-700"
+                }`}>
+                  <span>Diferencia (Arqueo):</span>
+                  <span>
+                    {lastClosedAudit.difference === 0
+                      ? "S/ 0.00 (Exacto)"
+                      : lastClosedAudit.difference > 0
+                      ? `+S/ ${lastClosedAudit.difference.toFixed(2)} (Sobrante)`
+                      : `-S/ ${Math.abs(lastClosedAudit.difference).toFixed(2)} (Faltante)`}
+                  </span>
+                </div>
+                {lastClosedAudit.notesClosing && (
+                  <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200 italic">
+                    Notas: &ldquo;{lastClosedAudit.notesClosing}&rdquo;
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="text-xs font-semibold rounded-xl flex items-center gap-1.5"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Imprimir</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setAuditModalOpen(false)}
+              className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <span>Entendido y Cerrar</span>
             </Button>
           </DialogFooter>
         </DialogContent>

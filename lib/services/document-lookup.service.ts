@@ -17,6 +17,7 @@ export interface DocumentLookupResult {
   nombres?: string;
   apellidoPaterno?: string;
   apellidoMaterno?: string;
+  apellidos?: string;
   razonSocial?: string;
   direccion?: string;
   estado?: string;
@@ -61,11 +62,13 @@ export async function lookupIdentityDocument(
 
         if (tipo === "dni") {
           const nombres = data?.nombres || "";
-          const apePat = data?.apellido_paterno || "";
-          const apeMat = data?.apellido_materno || "";
+          const apePat = data?.apellido_paterno || data?.apellidoPaterno || "";
+          const apeMat = data?.apellido_materno || data?.apellidoMaterno || "";
+          const apellidos = data?.apellidos || `${apePat} ${apeMat}`.trim();
           const nombreCompleto =
             data?.nombre_completo ||
-            `${nombres} ${apePat} ${apeMat}`.trim() ||
+            data?.nombreCompleto ||
+            `${nombres} ${apellidos}`.trim() ||
             "CLIENTE ENCONTRADO";
 
           return {
@@ -75,6 +78,7 @@ export async function lookupIdentityDocument(
             nombres,
             apellidoPaterno: apePat,
             apellidoMaterno: apeMat,
+            apellidos,
             direccion: data?.direccion || data?.direccion_completa || "",
             fuente: "json.pe",
           };
@@ -101,19 +105,36 @@ export async function lookupIdentityDocument(
   // MODO 2: Modo Preparado / Simulado Inteligente (cuando aún no se ingresa la clave en .env)
   if (tipo === "dni") {
     // Si es DNI de prueba común o ingresado
-    const simulatedName =
-      cleanNumber === "47829103"
-        ? "JUAN CARLOS PÉREZ RODRÍGUEZ"
-        : cleanNumber === "12345678"
-        ? "MARÍA ELENA GONZALES CHÁVEZ"
-        : `CLIENTE DNI ${cleanNumber}`;
+    let simulatedName = `CLIENTE GENERAL ${cleanNumber}`;
+    let nombres = "CLIENTE";
+    let apePat = "PÉREZ";
+    let apeMat = "RODRÍGUEZ";
+
+    if (cleanNumber === "47829103") {
+      simulatedName = "JUAN CARLOS PÉREZ RODRÍGUEZ";
+      nombres = "JUAN CARLOS";
+      apePat = "PÉREZ";
+      apeMat = "RODRÍGUEZ";
+    } else if (cleanNumber === "12345678") {
+      simulatedName = "MARÍA ELENA GONZALES CHÁVEZ";
+      nombres = "MARÍA ELENA";
+      apePat = "GONZALES";
+      apeMat = "CHÁVEZ";
+    } else {
+      nombres = `CLIENTE ${cleanNumber.slice(-4)}`;
+      apePat = "VENTAS";
+      apeMat = "SALÓN";
+      simulatedName = `${nombres} ${apePat} ${apeMat}`;
+    }
 
     return {
       tipo: "dni",
       numero: cleanNumber,
       nombreCompleto: simulatedName,
-      nombres: simulatedName.split(" ")[0] || "CLIENTE",
-      apellidoPaterno: simulatedName.split(" ")[1] || "NATURAL",
+      nombres,
+      apellidoPaterno: apePat,
+      apellidoMaterno: apeMat,
+      apellidos: `${apePat} ${apeMat}`.trim(),
       fuente: "simulado",
     };
   } else {

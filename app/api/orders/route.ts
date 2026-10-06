@@ -132,6 +132,18 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
     }
 
+    // Validar que exista una sesión de caja abierta antes de registrar pedidos
+    const activeCashSession = await (prisma as any).cashSession.findFirst({
+      where: { status: "OPEN" },
+    }).catch(() => null);
+
+    if (!activeCashSession) {
+      return Response.json(
+        { error: "No se puede registrar pedidos porque la caja se encuentra cerrada. Debe realizar la apertura de turno primero." },
+        { status: 400 }
+      );
+    }
+
     const rawOrderType = body.orderType ?? body.tipo_pedido;
     const orderType = rawOrderType === "Llevar" ? "Llevar" : "Mesa";
     const tableId = Number(body.tableId ?? body.id_mesa) || null;

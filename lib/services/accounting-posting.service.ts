@@ -93,6 +93,31 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
   return map;
 }
 
+async function ensureOpenPeriod(tx: Tx, date: Date): Promise<number> {
+  let period = await tx.accountingPeriod.findFirst({
+    where: { startDate: { lte: date }, endDate: { gte: date } },
+  });
+  if (!period) {
+    period = await tx.accountingPeriod.findFirst({
+      where: { status: "OPEN" },
+      orderBy: { startDate: "desc" },
+    });
+  }
+  if (!period) {
+    const d = new Date(date);
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+    period = await tx.accountingPeriod.create({
+      data: {
+        startDate: start,
+        endDate: end,
+        status: "OPEN",
+      },
+    });
+  }
+  return period.id;
+}
+
 async function createBalancedEntry(
   tx: Tx,
   input: {
@@ -118,25 +143,20 @@ async function createBalancedEntry(
   let createdId: number | null = null;
   for (let attempt = 0; attempt < 5 && createdId === null; attempt++) {
     try {
-// Ensure accounting period exists and is open
-const period = await tx.accountingPeriod.findFirst({
-  where: { startDate: { lte: input.date }, endDate: { gte: input.date } },
-});
-if (!period) throw new Error('No se encontró período contable para la fecha del asiento');
-if (period.status !== 'OPEN') throw new Error('No se pueden registrar asientos en un período cerrado');
+      const periodId = await ensureOpenPeriod(tx, input.date);
 
-const entry = await tx.journalEntry.create({
-  data: {
-    code: await nextJournalCode(tx, input.date),
-    entryDate: input.date,
-    description: input.description.slice(0, 200),
-    book: input.book,
-    responsible: input.responsible ?? "Sistema ERP",
-    observation: input.observation?.slice(0, 200) ?? null,
-    status: true,
-    periodId: period.id,
-    salesInvoiceId: input.salesInvoiceId ?? null,
-    purchaseInvoiceId: input.purchaseInvoiceId ?? null,
+      const entry = await tx.journalEntry.create({
+        data: {
+          code: await nextJournalCode(tx, input.date),
+          entryDate: input.date,
+          description: input.description.slice(0, 200),
+          book: input.book,
+          responsible: input.responsible ?? "Sistema ERP",
+          observation: input.observation?.slice(0, 200) ?? null,
+          status: true,
+          periodId,
+          salesInvoiceId: input.salesInvoiceId ?? null,
+          purchaseInvoiceId: input.purchaseInvoiceId ?? null,
     entryDetails: {
       create: [
         {
@@ -216,12 +236,14 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherCode;
   const ids: number[] = [];
+  const periodId = await ensureOpenPeriod(tx, date);
 
   // 1) Provisión de la venta (Facturación) – registra derecho de cobro, IGV y venta neta en una sola partida
   const provisionEntry = await tx.journalEntry.create({
     data: {
       code: await nextJournalCode(tx, date),
       entryDate: date,
+      periodId,
       description: `Provisión de la venta ${ref}`,
       book: BOOK_SALES,
       responsible: input.responsible,
@@ -361,6 +383,7 @@ export async function postPurchaseJournalEntries(
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherLabel;
   const ids: number[] = [];
+  const periodId = await ensureOpenPeriod(tx, date);
 
   // -----------------------------------------------------------------------
   // 1) Provisión de la compra (Factura del proveedor)
@@ -371,6 +394,7 @@ export async function postPurchaseJournalEntries(
     data: {
       code: await nextJournalCode(tx, date),
       entryDate: date,
+      periodId,
       description: `Provisión de la compra ${ref}`,
       book: BOOK_PURCHASES,
       responsible: input.responsible ?? "Sistema ERP",

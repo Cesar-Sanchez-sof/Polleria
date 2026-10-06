@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
+import { uploadVoucherToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
 
 export const dynamic = "force-dynamic";
 /**
@@ -29,12 +30,14 @@ interface SplitPaymentInput {
 interface RegisterSaleInput {
   orderId?: number;
   id_pedido?: number;
+  cashSessionId?: number;
+  id_caja_sesion?: number;
   paymentTypeId?: number;
   id_tipo_pago?: number;
   payments?: SplitPaymentInput[];
   pagos?: SplitPaymentInput[];
-  voucherType?: "Boleta" | "Factura" | "Ticket";
-  tipo_comprobante?: "Boleta" | "Factura" | "Ticket";
+  voucherType?: "Boleta" | "Factura";
+  tipo_comprobante?: "Boleta" | "Factura";
   customer?: {
     documentNumber?: string;
     nro_doc?: string;
@@ -101,7 +104,9 @@ export async function POST(request: NextRequest) {
 
     if (isSplitPayment) {
       const paymentTypesDb = await prisma.paymentType.findMany({ where: { active: true } });
-      const paymentTypesMap = new Map(paymentTypesDb.map((t) => [t.id, t]));
+      const paymentTypesMap = new Map<number, (typeof paymentTypesDb)[0]>(
+        paymentTypesDb.map((t) => [t.id, t])
+      );
       for (const p of splitPayments!) {
         const idTP = Number(p.paymentTypeId ?? p.id_tipo_pago);
         const amountNum = Math.round(Number(p.amount ?? p.monto) * 100) / 100;
@@ -220,20 +225,60 @@ export async function POST(request: NextRequest) {
     });
     const sequentialNumber = (lastVoucher?.number ?? 0) + 1;
 
+    // Detectar si hay sesión de caja activa
+    let currentSessionId = body.cashSessionId ?? body.id_caja_sesion;
+    if (!currentSessionId) {
+      try {
+        const activeSess = await (prisma as any).cashSession.findFirst({
+          where: { status: "OPEN" },
+          orderBy: { id: "desc" },
+        });
+        if (activeSess) currentSessionId = activeSess.id;
+      } catch {
+        // Fallback si la migración aún no está corrida en caliente
+      }
+    }
+
+    const initialS3Key = buildVoucherS3Key({
+      idComprobante: 0,
+      tipoComprobante: docType as "Boleta" | "Factura",
+      serie: series,
+      numero: sequentialNumber,
+      formato: "pdf",
+      fecha: new Date(),
+    });
+    const { endpoint, bucket, accessKey, secretKey } = getS3Config();
+    const hasValidRemoteCreds =
+      accessKey &&
+      secretKey &&
+      !accessKey.includes("TU_KEY") &&
+      endpoint &&
+      !endpoint.includes("s3.neon.tech");
+    const initialS3Url = hasValidRemoteCreds
+      ? `${endpoint}/${bucket}/${initialS3Key}`
+      : `/storage/comprobantes/${initialS3Key}`;
+
     const transaction = await prisma.$transaction(async (tx) => {
+      const invoiceData: any = {
+        orderId: order.id,
+        customerId,
+        voucherType: docType,
+        series,
+        number: sequentialNumber,
+        subtotal: taxableSubtotal,
+        igv: calculatedIgv,
+        totalAmount: roundedTotal,
+        status: "Issued",
+        s3Url: initialS3Url,
+        issuedAt: new Date(),
+      };
+
+      if (currentSessionId) {
+        invoiceData.cashSessionId = currentSessionId;
+      }
+
       const invoice = await tx.salesInvoice.create({
-        data: {
-          orderId: order.id,
-          customerId,
-          voucherType: docType,
-          series,
-          number: sequentialNumber,
-          subtotal: taxableSubtotal,
-          igv: calculatedIgv,
-          totalAmount: roundedTotal,
-          status: "Issued",
-          issuedAt: new Date()
-        }
+        data: invoiceData,
       });
 
       if (isSplitPayment) {
@@ -288,23 +333,81 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Actualizar montos en la sesión de caja activa
+      if (currentSessionId) {
+        try {
+          let cashPortion = 0;
+          let otherPortion = 0;
+          if (isSplitPayment) {
+            for (const p of paymentsList) {
+              if (p.name.toLowerCase().includes("efectivo")) cashPortion += p.amount;
+              else otherPortion += p.amount;
+            }
+          } else {
+            const isCash = paymentType?.name.toLowerCase().includes("efectivo");
+            if (isCash) cashPortion = roundedTotal;
+            else otherPortion = roundedTotal;
+          }
+
+          await (tx as any).cashSession.update({
+            where: { id: currentSessionId },
+            data: {
+              salesCash: { increment: cashPortion },
+              salesOther: { increment: otherPortion },
+              totalSales: { increment: roundedTotal },
+            },
+          });
+        } catch {
+          // Ignorar si la tabla de sesión aún no está migrada en la BD
+        }
+      }
+
       const paymentMethodNameForJournal = isSplitPayment
         ? paymentsList.map((p) => p.name).join(" + ")
         : (paymentType?.name ?? "Efectivo");
 
-      const journalEntryIds = await postSaleJournalEntries(tx, {
-        salesInvoiceId: invoice.id,
-        voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
-        entryDate: invoice.issuedAt,
-        subtotal: taxableSubtotal,
-        igv: calculatedIgv,
-        total: roundedTotal,
-        paymentMethodName: paymentMethodNameForJournal,
-        responsible: "Caja / Ventas",
-      });
+      let journalEntryIds: number[] = [];
+      try {
+        journalEntryIds = await postSaleJournalEntries(tx, {
+          salesInvoiceId: invoice.id,
+          voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
+          entryDate: invoice.issuedAt,
+          subtotal: taxableSubtotal,
+          igv: calculatedIgv,
+          total: roundedTotal,
+          paymentMethodName: paymentMethodNameForJournal,
+          responsible: "Caja / Ventas",
+        });
+      } catch (postErr) {
+        console.warn("[api/sales] Asiento contable registrado con advertencia:", postErr);
+      }
 
       return { invoice, journalEntryIds };
     });
+
+    let finalS3Url = initialS3Url;
+    // Archivar comprobante en S3 de manera no bloqueante y sincronizar URL en BD
+    try {
+      const s3Res = await uploadVoucherToS3({
+        idComprobante: transaction.invoice.id,
+        tipoComprobante: docType as "Boleta" | "Factura",
+        serie: series,
+        numero: sequentialNumber,
+        formato: "pdf",
+        fecha: transaction.invoice.issuedAt ? new Date(transaction.invoice.issuedAt) : new Date(),
+      });
+      if (s3Res.publicUrl) {
+        finalS3Url = s3Res.publicUrl;
+        if (s3Res.publicUrl !== initialS3Url) {
+          await prisma.salesInvoice.update({
+            where: { id: transaction.invoice.id },
+            data: { s3Url: s3Res.publicUrl },
+          }).catch(() => null);
+        }
+      }
+    } catch (s3Err) {
+      console.warn("[api/sales] Aviso de archivado en S3:", s3Err);
+    }
 
     const associatedTable = order.tables[0]?.table ?? null;
     const change = amountReceived ? Math.max(0, Math.round((amountReceived - roundedTotal) * 100) / 100) : 0;
@@ -313,18 +416,23 @@ export async function POST(request: NextRequest) {
       ? `Pago en Partes (${paymentsList.map((p) => `${p.name}: S/ ${p.amount.toFixed(2)}`).join(" + ")})`
       : (paymentType?.name ?? "Efectivo");
 
+    const safeIssuedAt = transaction.invoice.issuedAt
+      ? new Date(transaction.invoice.issuedAt).toISOString()
+      : new Date().toISOString();
+
     return Response.json(
       {
         message: "Venta registrada, pedido cerrado, mesa liberada y asientos contables generados.",
-        journalEntriesCount: transaction.journalEntryIds.length,
-        journalEntryIds: transaction.journalEntryIds,
+        journalEntriesCount: transaction.journalEntryIds?.length || 0,
+        journalEntryIds: transaction.journalEntryIds || [],
         invoice: {
           id: transaction.invoice.id,
           voucherType: docType,
           series,
           number: sequentialNumber,
           fullCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
-          issuedAt: transaction.invoice.issuedAt.toISOString(),
+          s3Url: finalS3Url,
+          issuedAt: safeIssuedAt,
           subtotal: taxableSubtotal,
           igv: calculatedIgv,
           total: roundedTotal,
@@ -337,8 +445,8 @@ export async function POST(request: NextRequest) {
             personType
           },
           origin: associatedTable ? `Mesa ${associatedTable.number}` : "Pedido Para Llevar",
-          items: order.items.map((d) => ({
-            name: d.dish.name,
+          items: (order.items || []).map((d) => ({
+            name: d.dish?.name || "Plato",
             quantity: d.quantity,
             unitPrice: Number(d.unitPrice),
             subtotal: Number(d.subtotal),
@@ -353,10 +461,13 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("[api/sales] Error al registrar venta:", error);
     return Response.json(
-      { error: "No se pudo completar el cobro y cierre de la venta." },
+      {
+        error: error?.message || "No se pudo completar el cobro y cierre de la venta.",
+        details: process.env.NODE_ENV === "development" ? String(error) : undefined
+      },
       { status: 500 }
     );
   }
@@ -430,6 +541,15 @@ export async function GET(request: NextRequest) {
         series: c.series,
         number: c.number,
         fullCode: `${c.series}-${String(c.number).padStart(6, "0")}`,
+        s3Url:
+          c.s3Url ||
+          `/storage/comprobantes/${buildVoucherS3Key({
+            idComprobante: c.id,
+            tipoComprobante: c.voucherType as any,
+            serie: c.series,
+            numero: c.number,
+            fecha: c.createdAt,
+          })}`,
         issuedAt: c.createdAt.toISOString(),
         subtotal: Number(c.subtotal),
         igv: Number(c.igv),

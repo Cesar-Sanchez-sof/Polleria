@@ -79,6 +79,7 @@ export interface IssuedVoucher {
   series: string;
   number: number;
   fullCode: string;
+  s3Url?: string;
   issuedAt: string;
   subtotal: number;
   igv: number;

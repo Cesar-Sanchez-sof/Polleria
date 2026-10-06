@@ -1,4 +1,4 @@
-import type { OpenAPIV3 } from 'swagger-jsdoc';
+import type { OpenAPIV3 } from 'openapi-types';
 
 /**
  * Base OpenAPI definition used by swagger-jsdoc.
@@ -11,6 +11,7 @@ export const swaggerDefinition: OpenAPIV3.Document = {
     version: '1.0.0',
     description: 'Documentación automática de todos los endpoints de la aplicación Polleria',
   },
+  paths: {},
   servers: [{ url: '/' }],
   tags: [
     { name: 'Auth', description: 'Sesión de usuario: inicio y cierre de sesión.' },
