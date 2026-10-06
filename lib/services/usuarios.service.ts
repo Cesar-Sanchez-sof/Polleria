@@ -25,27 +25,50 @@ export interface DatosUsuario {
   id_rol: number;
 }
 
+export interface UsuarioFilaDto {
+  id_usuario: number;
+  username: string;
+  correo: string | null;
+  estado: boolean;
+  ultimo_acceso: string | null;
+  rol: {
+    id_rol: number;
+    nombre: string;
+  };
+  empleado: {
+    id_empleado: number;
+    dni: string;
+    primer_nombre: string;
+    segundo_nombre: string | null;
+    apellido_paterno: string;
+    apellido_materno: string | null;
+  };
+}
+
 const RE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RE_USERNAME = /^[a-z0-9._-]{3,20}$/;
 
-const usuarioSelect = {
-  id_usuario: true,
-  username: true,
-  correo: true,
-  estado: true,
-  ultimo_acceso: true,
-  rol: { select: { id_rol: true, nombre: true } },
-  empleado: {
-    select: {
-      id_empleado: true,
-      dni: true,
-      primer_nombre: true,
-      segundo_nombre: true,
-      apellido_paterno: true,
-      apellido_materno: true,
+function mapearUsuarioADto(u: any): UsuarioFilaDto {
+  return {
+    id_usuario: u.id,
+    username: u.username,
+    correo: u.correo,
+    estado: Boolean(u.estado),
+    ultimo_acceso: u.lastAccessAt ? new Date(u.lastAccessAt).toISOString() : null,
+    rol: {
+      id_rol: u.role.id,
+      nombre: u.role.name,
     },
-  },
-} satisfies Prisma.UsuarioSelect;
+    empleado: {
+      id_empleado: u.employee.id,
+      dni: u.employee.dni,
+      primer_nombre: u.employee.firstName,
+      segundo_nombre: u.employee.middleName ?? null,
+      apellido_paterno: u.employee.paternalLastName,
+      apellido_materno: u.employee.maternalLastName ?? null,
+    },
+  };
+}
 
 /** Hash de relleno para que el login tarde igual exista o no el usuario. */
 const HASH_RELLENO = "$2b$12$1efU1XxeuoovsRSuwQ.YM.2uDaqq/I5nwHjtrWlZNpvK.VxcdCEym";
@@ -98,15 +121,15 @@ function normalizar(datos: DatosUsuario) {
 
 /** Comprueba que usuario, correo y documento no estén tomados por otra persona. */
 async function verificarDuplicados(
-  db: Pick<typeof prisma, "usuario" | "empleado">,
+  db: Prisma.TransactionClient,
   d: { username: string; correo: string; dni: string },
   excluirUsuario?: number,
   excluirEmpleado?: number,
 ) {
-  const porUsuario = await db.usuario.findFirst({
+  const porUsuario = await db.user.findFirst({
     where: {
       OR: [{ username: d.username }, { correo: d.correo }],
-      ...(excluirUsuario ? { NOT: { id_usuario: excluirUsuario } } : {}),
+      ...(excluirUsuario ? { NOT: { id: excluirUsuario } } : {}),
     },
     select: { username: true },
   });
@@ -118,9 +141,9 @@ async function verificarDuplicados(
       409,
     );
   }
-  const porDni = await db.empleado.findFirst({
-    where: { dni: d.dni, ...(excluirEmpleado ? { NOT: { id_empleado: excluirEmpleado } } : {}) },
-    select: { id_empleado: true },
+  const porDni = await db.employee.findFirst({
+    where: { dni: d.dni, ...(excluirEmpleado ? { NOT: { id: excluirEmpleado } } : {}) },
+    select: { id: true },
   });
   if (porDni) throw new ErrorUsuario("Ya existe un empleado con ese documento", 409);
 }
@@ -133,20 +156,25 @@ function traducirError(e: unknown): never {
   throw e;
 }
 
-export async function listarUsuarios() {
-  return prisma.usuario.findMany({ select: usuarioSelect, orderBy: { id_usuario: "asc" } });
+export async function listarUsuarios(): Promise<UsuarioFilaDto[]> {
+  const usuarios = await prisma.user.findMany({
+    include: { employee: true, role: true },
+    orderBy: { id: "asc" },
+  });
+  return usuarios.map(mapearUsuarioADto);
 }
 
-export async function listarRoles() {
-  return prisma.rol.findMany({
-    where: { estado: true },
-    select: { id_rol: true, nombre: true },
-    orderBy: { nombre: "asc" },
+export async function listarRoles(): Promise<Array<{ id_rol: number; nombre: string }>> {
+  const roles = await prisma.role.findMany({
+    where: { active: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
   });
+  return roles.map((r) => ({ id_rol: r.id, nombre: r.name }));
 }
 
 /** Registra empleado y usuario en una sola transacción. */
-export async function crearUsuario(datos: DatosUsuario) {
+export async function crearUsuario(datos: DatosUsuario): Promise<UsuarioFilaDto> {
   const n = normalizar(datos);
   const password = textoObligatorio(datos.password, "La contraseña");
   validarPassword(password);
@@ -155,17 +183,28 @@ export async function crearUsuario(datos: DatosUsuario) {
   try {
     return await prisma.$transaction(async (tx) => {
       await verificarDuplicados(tx, { username: n.username, correo: n.correo, dni: n.empleado.dni });
-      const empleado = await tx.empleado.create({ data: n.empleado });
-      return tx.usuario.create({
+      const empleado = await tx.employee.create({
         data: {
-          id_empleado: empleado.id_empleado,
-          id_rol: n.id_rol,
+          dni: n.empleado.dni,
+          firstName: n.empleado.primer_nombre,
+          middleName: n.empleado.segundo_nombre,
+          paternalLastName: n.empleado.apellido_paterno,
+          maternalLastName: n.empleado.apellido_materno,
+          active: true,
+        },
+      });
+      const usuario = await tx.user.create({
+        data: {
+          employeeId: empleado.id,
+          roleId: n.id_rol,
           username: n.username,
           correo: n.correo,
           password: hash,
+          estado: true,
         },
-        select: usuarioSelect,
+        include: { employee: true, role: true },
       });
+      return mapearUsuarioADto(usuario);
     });
   } catch (e) {
     return traducirError(e);
@@ -173,7 +212,7 @@ export async function crearUsuario(datos: DatosUsuario) {
 }
 
 /** Modifica los datos del usuario y de su empleado; la contraseña solo cambia si se envía una nueva. */
-export async function actualizarUsuario(idUsuario: number, datos: DatosUsuario) {
+export async function actualizarUsuario(idUsuario: number, datos: DatosUsuario): Promise<UsuarioFilaDto> {
   const n = normalizar(datos);
   let hash: string | undefined;
   if (datos.password) {
@@ -183,9 +222,9 @@ export async function actualizarUsuario(idUsuario: number, datos: DatosUsuario) 
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const actual = await tx.usuario.findUnique({
-        where: { id_usuario: idUsuario },
-        select: { id_empleado: true },
+      const actual = await tx.user.findUnique({
+        where: { id: idUsuario },
+        select: { employeeId: true },
       });
       if (!actual) throw new ErrorUsuario("Usuario no encontrado", 404);
 
@@ -193,32 +232,43 @@ export async function actualizarUsuario(idUsuario: number, datos: DatosUsuario) 
         tx,
         { username: n.username, correo: n.correo, dni: n.empleado.dni },
         idUsuario,
-        actual.id_empleado,
+        actual.employeeId,
       );
-      await tx.empleado.update({ where: { id_empleado: actual.id_empleado }, data: n.empleado });
-      return tx.usuario.update({
-        where: { id_usuario: idUsuario },
+      await tx.employee.update({
+        where: { id: actual.employeeId },
+        data: {
+          dni: n.empleado.dni,
+          firstName: n.empleado.primer_nombre,
+          middleName: n.empleado.segundo_nombre,
+          paternalLastName: n.empleado.apellido_paterno,
+          maternalLastName: n.empleado.apellido_materno,
+        },
+      });
+      const usuario = await tx.user.update({
+        where: { id: idUsuario },
         data: {
           username: n.username,
           correo: n.correo,
-          id_rol: n.id_rol,
+          roleId: n.id_rol,
           ...(hash ? { password: hash } : {}),
         },
-        select: usuarioSelect,
+        include: { employee: true, role: true },
       });
+      return mapearUsuarioADto(usuario);
     });
   } catch (e) {
     return traducirError(e);
   }
 }
 
-export async function cambiarEstadoUsuario(idUsuario: number, estado: boolean) {
+export async function cambiarEstadoUsuario(idUsuario: number, estado: boolean): Promise<UsuarioFilaDto> {
   try {
-    return await prisma.usuario.update({
-      where: { id_usuario: idUsuario },
+    const usuario = await prisma.user.update({
+      where: { id: idUsuario },
       data: { estado },
-      select: usuarioSelect,
+      include: { employee: true, role: true },
     });
+    return mapearUsuarioADto(usuario);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       throw new ErrorUsuario("Usuario no encontrado", 404);
@@ -235,9 +285,9 @@ export async function cambiarEstadoUsuario(idUsuario: number, estado: boolean) {
 export async function autenticar(identificador: string, password: string) {
   const id = identificador.trim().toLowerCase();
   const usuario = id
-    ? await prisma.usuario.findFirst({
+    ? await prisma.user.findFirst({
         where: { OR: [{ username: id }, { correo: id }] },
-        select: { id_usuario: true, username: true, password: true, estado: true, rol: { select: { nombre: true } } },
+        include: { role: true },
       })
     : null;
 
@@ -245,15 +295,15 @@ export async function autenticar(identificador: string, password: string) {
   if (!usuario || !valido) throw new ErrorUsuario("Usuario o contraseña incorrectos", 401);
   if (!usuario.estado) throw new ErrorUsuario("Tu usuario está desactivado. Contacta al administrador", 403);
 
-  await prisma.usuario.update({
-    where: { id_usuario: usuario.id_usuario },
-    data: { ultimo_acceso: new Date() },
+  await prisma.user.update({
+    where: { id: usuario.id },
+    data: { lastAccessAt: new Date() },
   });
-  return { idUsuario: usuario.id_usuario, username: usuario.username, rol: usuario.rol.nombre };
+  return { idUsuario: usuario.id, username: usuario.username, rol: usuario.role.name };
 }
 
 /** ¿Sigue activo el usuario de la sesión? Permite que desactivar corte accesos ya abiertos. */
 export async function usuarioActivo(idUsuario: number): Promise<boolean> {
-  const u = await prisma.usuario.findUnique({ where: { id_usuario: idUsuario }, select: { estado: true } });
+  const u = await prisma.user.findUnique({ where: { id: idUsuario }, select: { estado: true } });
   return u?.estado === true;
 }
