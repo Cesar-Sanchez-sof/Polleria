@@ -53,6 +53,10 @@ con `currentStock: 0` y `active: true`.
    ("Materia Prima").
 5. **Given** el diálogo se abre con "Stock Mínimo de Alerta" = 5, **When** se guarda sin
    tocarlo, **Then** `minimumStock` persiste en 5 (o `0` si el valor se vacía).
+6. **Given** el diálogo abierto, **When** se guarda sin tocar la 
+   "Afectación IGV", **Then** el insumo queda con `affectationIgv: "Excluded"`.
+7. **Given** el usuario selecciona "Incluido" en afectación IGV, 
+   **When** se crea, **Then** el insumo queda con `affectationIgv: "Included"`.
 
 ---
 
@@ -77,6 +81,12 @@ Compras.
    coincidencias de nombre, código derivado o tipo.
 4. **Given** no hay insumos (o la carga falló), **When** se muestra, **Then** aparece "No se
    encontraron insumos en el inventario."
+5. **Given** la tabla cargada, **When** se muestra cada fila, **Then** 
+   aparece una columna "Afectación" con badge "Incluido" / "Excluido", 
+   una columna "Último Costo" y "Costo Promedio" con 2 decimales.
+6. **Given** una fila con `type: "RawMaterial"`, **When** se muestra, 
+   **Then** el tipo dice "Materia Prima" (no "RawMaterial"). Si es 
+   `FinishedProduct`, dice "Producto Terminado".
 
 ---
 
@@ -108,6 +118,52 @@ stock 10 → crea un movimiento con `quantity: 5` y el insumo queda en 15.
    con `quantity: 0` (no hay validación de diferencia).
 
 ---
+
+### User Story 4 - Editar stock mínimo inline (Priority: P2)
+
+Como usuario, quiero modificar el stock mínimo de un insumo directamente 
+desde la tabla, sin abrir diálogos.
+
+**Why this priority**: agiliza la corrección de umbrales de alerta.
+
+**Independent Test**: click en el stock mínimo → se vuelve input → blur 
+guarda vía `updateSupplyMinimum`.
+
+**Acceptance Scenarios**:
+
+1. **Given** la fila con stock mínimo = 5, **When** el usuario hace click 
+   en el número, **Then** se convierte en un input de número.
+2. **Given** el input activo con el valor 8, **When** el usuario hace 
+   blur o presiona Enter, **Then** se guarda vía `updateSupplyMinimum` y 
+   aparece el toast "Stock mínimo actualizado".
+3. **Given** el input activo, **When** el usuario presiona Escape, 
+   **Then** se cancela y vuelve al valor anterior.
+4. **Given** un valor negativo, **When** el usuario intenta guardar, 
+   **Then** se rechaza con "El stock mínimo no puede ser negativo".
+
+### User Story 5 - Desactivar un insumo (Priority: P2)
+
+Como administrador, quiero desactivar un insumo que ya no se usa para 
+que no aparezca en las listas principales, sin perder su historial de 
+movimientos.
+
+**Why this priority**: es la única forma de "eliminar" un insumo sin 
+romper la trazabilidad del Kardex.
+
+**Independent Test**: `setSupplyStatus(id, false)` → el insumo queda 
+`active: false` y el toast dice "Insumo desactivado exitosamente".
+
+**Acceptance Scenarios**:
+
+1. **Given** un insumo activo, **When** se pulsa el ícono de energía, 
+   **Then** pasa a `active: false` y el badge cambia a "Inactivo".
+2. **Given** un insumo inactivo, **When** se pulsa de nuevo, **Then** 
+   vuelve a `active: true`.
+3. **Given** un insumo inactivo, **When** se lista el inventario con 
+   filtro "Solo activos", **Then** no aparece.
+4. **Given** un insumo con movimientos de inventario, **When** se 
+   intenta eliminar físicamente, **Then** el sistema NO lo permite 
+   (usa `Restrict` en las FKs); solo se puede desactivar.
 
 ### Edge Cases
 
@@ -143,6 +199,9 @@ stock 10 → crea un movimiento con `quantity: 5` y el insumo queda en 15.
   No son editables manualmente.
 - **Atributo `affectationIgv`**: cada insumo tiene una afectación IGV (Included/Excluded)
   que define cómo se calcula el impuesto al comprarlo. Se hereda al detalle de cada compra.
+- **No hay eliminación física**: los insumos con movimientos de 
+  inventario, compras, recetas o transformaciones no se pueden borrar 
+  por `onDelete: Restrict`. La única "baja" es desactivar (`active: false`).
 ---
 
 ## Functionalidades / Functionalities
@@ -173,6 +232,12 @@ stock 10 → crea un movimiento con `quantity: 5` y el insumo queda en 15.
 | BR-10 | **Afectación IGV del insumo** | Cada insumo tiene `affectationIgv` (Included/Excluded) que determina si su precio incluye IGV. |
 | BR-11 | **Costos derivados** | `lastCost` y `averageCost` se actualizan por compras/transformaciones; no son editables directamente. |
 | BR-12 | **Stock mínimo editable** | El stock mínimo puede editarse después de creado el insumo. |
+| BR-13 | **Afectación IGV seleccionable** | El usuario puede elegir entre "Incluido" y "Excluido" al crear o editar un insumo. Default: Excluded. |
+| BR-14 | **Stock mínimo editable inline** | El stock mínimo se edita directamente en la tabla; se persiste vía `updateSupplyMinimum`. |
+| BR-15 | **Costos visibles** | `lastCost` y `averageCost` se muestran en la tabla (solo lectura). |
+| BR-16 | **Etiquetas en español** | RawMaterial → "Materia Prima"; FinishedProduct → "Producto Terminado"; Included → "Incluido"; Excluded → "Excluido". |
+| BR-17 | **Baja lógica** | Los insumos no se eliminan físicamente; solo se alterna `active`. |
+| BR-18 | **Filtro de estado** | La tabla permite filtrar por "Todos", "Solo activos" o "Solo inactivos". |
 
 ## Endpoint / Transporte
 
@@ -249,6 +314,14 @@ los campos numéricos; bloqueo extra de motivo vacío con
 - **FR-005**: Ofrecer búsqueda local por nombre, código y tipo.
 - **FR-006**: Mantener el estado local sincronizado tras crear un insumo o aplicar un ajuste.
 - **FR-007**: Publicar en el dashboard de Compras el conteo de insumos en bajo stock.
+- **FR-008**: Permitir elegir la afectación IGV al crear un insumo.
+- **FR-009**: Mostrar afectación IGV, último costo y costo promedio en 
+  la tabla de inventario.
+- **FR-010**: Permitir editar inline el stock mínimo.
+- **FR-011**: Traducir al español los valores de enums en la UI.
+- **FR-012**: Permitir alternar el estado activo/inactivo de un insumo 
+  desde la tabla.
+- **FR-013**: Ofrecer filtro por estado en la tabla de inventario.
 
 ### Non-Functional Requirements
 

@@ -22,7 +22,7 @@ import {
 import { SupplierDialog } from "./SupplierDialog";
 import { setSupplierStatus } from "@/lib/services/purchases/supplier";
 import { toast } from "sonner";
-import { Plus, Search, Edit2, Power } from "lucide-react";
+import { Plus, Search, Edit2, Power, Users, UserCheck, UserX, FileText } from "lucide-react";
 
 interface Supplier {
   id: number;
@@ -39,12 +39,24 @@ interface SuppliersTableProps {
   initialSuppliers: Supplier[];
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  all: "Todos",
+  active: "Solo activos",
+  inactive: "Solo inactivos",
+};
+
 export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
+
+  // KPI calculations (over full suppliers list, not filtered)
+  const totalSuppliers = suppliers.length;
+  const activeSuppliers = suppliers.filter((p) => p.active).length;
+  const inactiveSuppliers = suppliers.filter((p) => !p.active).length;
+  const withRuc = suppliers.filter((p) => p.ruc.length === 11).length;
 
   const filtered = suppliers.filter((p) => {
     const q = search.toLowerCase();
@@ -60,6 +72,8 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
 
     return matchesSearch && matchesStatus;
   });
+
+  const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
   const handleNew = () => {
     setSupplierToEdit(null);
@@ -103,6 +117,47 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
 
   return (
     <div className="space-y-4">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
+          <div className="rounded-full bg-blue-100 p-2 shrink-0">
+            <Users className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold leading-none">{totalSuppliers}</p>
+            <p className="text-xs text-muted-foreground mt-1">Total proveedores</p>
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
+          <div className="rounded-full bg-emerald-100 p-2 shrink-0">
+            <UserCheck className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold leading-none text-emerald-700">{activeSuppliers}</p>
+            <p className="text-xs text-muted-foreground mt-1">Activos</p>
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
+          <div className="rounded-full bg-rose-100 p-2 shrink-0">
+            <UserX className="h-5 w-5 text-rose-600" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold leading-none text-rose-700">{inactiveSuppliers}</p>
+            <p className="text-xs text-muted-foreground mt-1">Inactivos</p>
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
+          <div className="rounded-full bg-amber-100 p-2 shrink-0">
+            <FileText className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold leading-none text-amber-700">{withRuc}</p>
+            <p className="text-xs text-muted-foreground mt-1">Con RUC</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <div className="relative flex-1">
@@ -116,10 +171,10 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
           </div>
           <Select
             value={statusFilter}
-            onValueChange={(val) => setStatusFilter(val ?? "all")}
+            onValueChange={(val) => setStatusFilter((val as "all" | "active" | "inactive") ?? "all")}
           >
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Estado" />
+              <SelectValue>{STATUS_LABELS[statusFilter]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
@@ -148,8 +203,33 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                  No se encontraron proveedores registrados.
+                <TableCell colSpan={6} className="py-12">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="rounded-full bg-muted p-4">
+                      {hasActiveFilter ? (
+                        <Search className="h-7 w-7 text-muted-foreground" />
+                      ) : (
+                        <Users className="h-7 w-7 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">
+                        {hasActiveFilter
+                          ? "No se encontraron coincidencias"
+                          : "No hay proveedores registrados"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {hasActiveFilter
+                          ? "Prueba con otros términos o cambia el filtro de estado."
+                          : "Registra tu primer proveedor para comenzar."}
+                      </p>
+                    </div>
+                    {!hasActiveFilter && (
+                      <Button size="sm" onClick={handleNew} className="mt-1 flex items-center gap-1.5">
+                        <Plus className="h-3.5 w-3.5" /> Nuevo Proveedor
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
