@@ -126,7 +126,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           <ThemeToggle />
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-1 px-space-xs mt-space-xs">
+          <nav className="flex flex-col gap-0.5 px-space-xs">
             {/* VENTAS Section */}
             <div className="flex flex-col gap-0.5">
               <div className="px-space-md pt-1">
@@ -362,6 +362,15 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Endpoints
+                </Link>
+                <Link
+                  className={getLinkClass("/db-diagram")}
+                  data-path="db-diagram"
+                  href="/db-diagram"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Diagrama DB
                 </Link>
               </div>
             </div>
