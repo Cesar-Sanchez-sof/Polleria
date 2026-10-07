@@ -70,7 +70,7 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
         numero: 1,
       });
 
-      expect(resultado.estado).toBe("simulado");
+      expect(resultado.estado).toBe("guardado");
       expect(resultado.bucket).toBe("comprobantes");
       expect(resultado.s3Key).toBeDefined();
       expect(resultado.publicUrl).toContain(resultado.s3Key);

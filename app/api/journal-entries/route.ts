@@ -3,6 +3,7 @@ import { Prisma, type JournalEntry } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import { generateJournalEntryCode } from "@/lib/journal-entry-code";
+import { vi } from "vitest";
 
 export const dynamic = "force-dynamic";
 
@@ -476,7 +477,14 @@ export async function POST(request: NextRequest) {
           },
         });
       } catch (err) {
-        if (!isDuplicateCode(err)) throw err;
+        if (!isDuplicateCode(err)) {
+          console.error("[api/journal-entries] error al crear el asiento:", err);
+
+          return Response.json(
+            { error: "No se pudo asignar un número de asiento, intente nuevamente." },
+            { status: 500 }
+          );
+        }
       }
     }
 

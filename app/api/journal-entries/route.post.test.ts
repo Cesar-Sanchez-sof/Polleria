@@ -3,8 +3,14 @@ import { Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { parseUtcDate } from "@/lib/dates";
 
-const { accountFindManyMock, createMock, generateCodeMock } = vi.hoisted(() => ({
+const {
+  accountFindManyMock,
+  accountingPeriodFindFirstMock,
+  createMock,
+  generateCodeMock,
+} = vi.hoisted(() => ({
   accountFindManyMock: vi.fn(),
+  accountingPeriodFindFirstMock: vi.fn(),
   createMock: vi.fn(),
   generateCodeMock: vi.fn(),
 }));
@@ -12,6 +18,7 @@ const { accountFindManyMock, createMock, generateCodeMock } = vi.hoisted(() => (
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     accountingAccount: { findMany: accountFindManyMock },
+    accountingPeriod: { findFirst: accountingPeriodFindFirstMock },
     journalEntry: { create: createMock },
   },
 }));
@@ -68,6 +75,12 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
       { id: SALES_ACCOUNT_ID },
       { id: VAT_ACCOUNT_ID },
     ]);
+
+    accountingPeriodFindFirstMock.mockResolvedValue({
+      id: 1,
+      status: "OPEN",
+    });
+
     createMock.mockImplementation(async (arg: { data: Record<string, unknown> }) => ({
       id: 501,
       ...arg.data,
@@ -431,7 +444,7 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({
-      error: "No se pudo registrar el asiento contable.",
+      error: "No se pudo asignar un número de asiento, intente nuevamente.",
     });
     expect(createMock).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalled();
