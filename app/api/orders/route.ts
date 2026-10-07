@@ -79,7 +79,7 @@ function mapOrderResponse(p: {
     notes: pm?.notes ?? "",
     items,
     total,
-    editable: p.status !== "Served" && p.status !== "Closed"
+    editable: !CLOSED_STATUSES.includes(p.status)
   };
 }
 
@@ -294,18 +294,8 @@ export async function POST(request: NextRequest) {
               notes: finalNote
             }
           });
-
-          await tx.diningTable.update({
-            where: { id: tableId },
-            data: { active: false }
-          });
-
-          if (additionalTables.length > 0) {
-            await tx.diningTable.updateMany({
-              where: { id: { in: additionalTables } },
-              data: { active: false }
-            });
-          }
+          // La mesa permanece activa en el salón (active: true);
+          // su estado ocupado se determina por tener una comanda activa vinculada.
         }
 
         for (const item of items) {

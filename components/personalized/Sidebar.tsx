@@ -49,6 +49,12 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
       return !tab || tab === "tables";
     }
 
+    // Enlace sin query a /accounting/entries: activo solo si no hay journal especificado
+    if (cleanHref === "/accounting/entries" && !hrefQuery) {
+      const journal = searchParams.get("journal");
+      return !journal;
+    }
+
     return true;
   };
 
@@ -131,7 +137,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             <div className="flex flex-col gap-0.5">
               <div className="px-space-md pt-1">
                 <span className="font-label text-[11px] font-bold text-on-surface">
-                  VENTAS Y MESAS
+                  VENTAS
                 </span>
               </div>
               <div className="flex flex-col pl-2 gap-0.5">
@@ -151,7 +157,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Cocina (KDS)
+                  Pedidos Listos
+                </Link>
+                <Link
+                  className={getLinkClass("/sales?tab=payments")}
+                  data-path="cobros-pendientes"
+                  href="/sales?tab=payments"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Cobros No Cobrados
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=cashier")}
@@ -180,14 +195,44 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 >
                   Facturas de Venta
                 </Link>
+                
+              </div>
+            </div>
+
+            {/* COCINA Y RESTAURANTE Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  COCINA
+                </span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
                 <Link
-                  className={getLinkClass("/sales?tab=payments")}
-                  data-path="cobros-pendientes"
-                  href="/sales?tab=payments"
+                  className={getLinkClass("/restaurant/kitchen")}
+                  data-path="cocina-kds"
+                  href="/restaurant/kitchen"
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Cobros No Cobrados
+                  Cocina (KDS)
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/dishes")}
+                  data-path="platos-recetas"
+                  href="/restaurant/dishes"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Platos e Ingredientes (Carta)
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/tables")}
+                  data-path="gestion-mesas"
+                  href="/restaurant/tables"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Registrar y Gestionar Mesas
                 </Link>
               </div>
             </div>
@@ -297,6 +342,17 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   Asientos / Libro Diario
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
+                <Link
+                  className={getLinkClass("/accounting/entries?journal=Caja%20y%20bancos")}
+                  data-path="contabilidad-caja"
+                  href="/accounting/entries?journal=Caja%20y%20bancos"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Contabilidad Caja
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                </Link>
+
                 <Link
                   className={getLinkClass("/accounting/accounts")}
                   data-path="dashboard-contabilidad"

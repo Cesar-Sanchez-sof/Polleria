@@ -63,17 +63,33 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
     });
 
     it("debe operar en modo seguro cuando no hay credenciales S3 en .env", async () => {
-      const resultado = await uploadVoucherToS3({
-        idComprobante: 1,
-        tipoComprobante: "Boleta",
-        serie: "B001",
-        numero: 1,
-      });
+      const prevKey = process.env.AWS_ACCESS_KEY_ID;
+      const prevSecret = process.env.AWS_SECRET_ACCESS_KEY;
+      const prevS3Key = process.env.S3_ACCESS_KEY_ID;
+      const prevS3Secret = process.env.S3_SECRET_ACCESS_KEY;
+      delete process.env.AWS_ACCESS_KEY_ID;
+      delete process.env.AWS_SECRET_ACCESS_KEY;
+      delete process.env.S3_ACCESS_KEY_ID;
+      delete process.env.S3_SECRET_ACCESS_KEY;
 
-      expect(resultado.estado).toBe("simulado");
-      expect(resultado.bucket).toBe("comprobantes");
-      expect(resultado.s3Key).toBeDefined();
-      expect(resultado.publicUrl).toContain(resultado.s3Key);
+      try {
+        const resultado = await uploadVoucherToS3({
+          idComprobante: 1,
+          tipoComprobante: "Boleta",
+          serie: "B001",
+          numero: 1,
+        });
+
+        expect(resultado.estado).toBe("guardado");
+        expect(resultado.bucket).toBe("comprobantes");
+        expect(resultado.s3Key).toBeDefined();
+        expect(resultado.publicUrl).toContain(resultado.s3Key);
+      } finally {
+        if (prevKey) process.env.AWS_ACCESS_KEY_ID = prevKey;
+        if (prevSecret) process.env.AWS_SECRET_ACCESS_KEY = prevSecret;
+        if (prevS3Key) process.env.S3_ACCESS_KEY_ID = prevS3Key;
+        if (prevS3Secret) process.env.S3_SECRET_ACCESS_KEY = prevS3Secret;
+      }
     });
 
     it("debe procesar y soportar 20 comprobantes almacenados simultáneamente a la vez sin fallar", async () => {

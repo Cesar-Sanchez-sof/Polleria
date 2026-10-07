@@ -20,6 +20,8 @@ export const dynamic = "force-dynamic";
  *     summary: Cambiar estado del pedido
  */
 
+const CLOSED_STATUSES = ["Closed", "Cancelled"];
+
 interface OrderItemInput {
   dishId?: number;
   id_plato?: number;
@@ -86,7 +88,7 @@ export async function GET(
       notes: pm?.notes ?? "",
       items,
       total,
-      editable: order.status !== "Served" && order.status !== "Closed"
+      editable: !CLOSED_STATUSES.includes(order.status)
     });
   } catch (error) {
     console.error("[api/orders/[id]] Error al obtener pedido:", error);
@@ -125,12 +127,6 @@ export async function PUT(
       return Response.json({ error: "El pedido no existe." }, { status: 404 });
     }
 
-    if (existingOrder.status === "Served") {
-      return Response.json(
-        { error: "Operación rechazada: No se puede editar un pedido que ya ha sido servido." },
-        { status: 400 }
-      );
-    }
     if (existingOrder.status === "Closed" || existingOrder.status === "Cancelled") {
       return Response.json(
         { error: "Operación rechazada: El pedido ya se encuentra cerrado o cancelado." },
@@ -156,6 +152,17 @@ export async function PUT(
     }
 
     await prisma.$transaction(async (tx) => {
+      // Si el pedido ya estaba Servido y se adicionan o modifican platos,
+      // actualizamos el estado del pedido a Preparing para avisar a Cocina/Despacho
+      let newOrderStatus = existingOrder.status;
+      if (existingOrder.status === "Served") {
+        newOrderStatus = "Preparing";
+        await tx.salesOrder.update({
+          where: { id },
+          data: { status: newOrderStatus }
+        });
+      }
+
       await tx.orderItem.deleteMany({
         where: { orderId: id }
       });
@@ -166,6 +173,7 @@ export async function PUT(
         const unitPrice = Number(dish.price);
         const subtotal = Math.round(unitPrice * quantity * 100) / 100;
         const itemNotes = item.notes ?? item.observaciones;
+        const itemDishStatus = (item as any).dishStatus;
 
         await tx.orderItem.create({
           data: {
@@ -174,7 +182,7 @@ export async function PUT(
             quantity,
             unitPrice,
             subtotal,
-            dishStatus: existingOrder.status,
+            dishStatus: itemDishStatus || (existingOrder.status === "Served" ? "Pending" : existingOrder.status),
             notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
           }
         });

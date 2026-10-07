@@ -1,6 +1,6 @@
 "use client";
 
-import { FunnelX } from "lucide-react";
+import { Download, FunnelX, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -14,6 +14,8 @@ interface Props {
   onFrom: (value: string) => void;
   onTo: (value: string) => void;
   onClear: () => void;
+  onExport?: () => void;
+  exporting?: boolean;
 }
 
 /**
@@ -27,6 +29,8 @@ export function DailyBookFilters({
   onFrom,
   onTo,
   onClear,
+  onExport,
+  exporting = false,
 }: Readonly<Props>) {
   return (
     <div className="flex flex-col gap-2">
@@ -68,7 +72,24 @@ export function DailyBookFilters({
           Sin fechas se muestran todos los asientos.
         </span>
 
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex items-center gap-2">
+          {onExport && (
+            <Button
+              variant="outline"
+              type="button"
+              onClick={onExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer h-9"
+            >
+              {exporting ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{exporting ? "Exportando..." : "Exportar XLSX"}</span>
+            </Button>
+          )}
+
           <Button
             variant="outline"
             type="button"
