@@ -51,6 +51,8 @@
  */
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
+import { actorActual } from "@/lib/auth/actor-auditoria";
 import {
   ACCOUNT_SELECT,
   duplicateCodeResponse,
@@ -170,7 +172,16 @@ export async function POST(request: NextRequest) {
         },
         select: ACCOUNT_SELECT,
       });
-
+            await registrarAuditoria({
+        actor: await actorActual(),
+        action: "CREATE",
+        module: "Contabilidad",
+        entity: "Cuenta contable",
+        entityId: createdAccount.id,
+        description: `Creó la cuenta contable ${code} - ${values.name}`,
+        details: { despues: { code, name: values.name, type, parentId, active: values.active ?? true } },
+        ipAddress: ipDeSolicitud(request),
+      });
       return Response.json(toAccountApi(createdAccount), { status: 201 });
     } catch (error) {
       if (isDuplicateCodeError(error)) return duplicateCodeResponse(code);

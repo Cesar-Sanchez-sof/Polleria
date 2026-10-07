@@ -1,9 +1,12 @@
 import type { NextRequest } from "next/server";
 import { Prisma, type JournalEntry } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
+import { actorActual } from "@/lib/auth/actor-auditoria";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import { generateJournalEntryCode } from "@/lib/journal-entry-code";
 import { vi } from "vitest";
+
 
 export const dynamic = "force-dynamic";
 
@@ -488,12 +491,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!createdEntry) {
+       if (!createdEntry) {
       return Response.json(
         { error: "No se pudo asignar un número de asiento, intente nuevamente." },
         { status: 500 }
       );
     }
+
+    // ▼▼▼ NUEVO: registro de auditoría ▼▼▼
+    await registrarAuditoria({
+      actor: await actorActual(),
+      action: "CREATE",
+      module: "Contabilidad",
+      entity: "Asiento contable",
+      entityId: createdEntry.id,
+      description: `Registró el asiento ${createdEntry.code}`,
+      details: { despues: { codigo: createdEntry.code, diario: createdEntry.book, concepto: createdEntry.description } },
+      ipAddress: ipDeSolicitud(request),
+    });
+    // ▲▲▲ FIN NUEVO ▲▲▲
 
     return Response.json(
       {

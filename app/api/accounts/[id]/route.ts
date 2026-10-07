@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
+import { actorActual } from "@/lib/auth/actor-auditoria";
 import {
   ACCOUNT_SELECT,
   duplicateCodeResponse,
@@ -276,7 +278,16 @@ export async function PATCH(
 
       return modified;
     });
-
+        await registrarAuditoria({
+      actor: await actorActual(),
+      action: "UPDATE",
+      module: "Contabilidad",
+      entity: "Cuenta contable",
+      entityId: accountId,
+      description: `Modificó la cuenta contable ${updated.code} - ${updated.name}`,
+      details: { antes: currentAccount, despues: updated },
+      ipAddress: ipDeSolicitud(request),
+    });
     return Response.json(toAccountApi(updated));
   } catch (error) {
     if (isDuplicateCodeError(error)) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { leerJson, noAutorizado, respuestaError } from "@/lib/auth/respuestas";
 import { sesionActual } from "@/lib/auth/sesion-actual";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 import { actualizarUsuario, cambiarEstadoUsuario, type DatosUsuario } from "@/lib/services/usuarios.service";
 
 export const dynamic = "force-dynamic";
@@ -70,12 +71,27 @@ async function leerId(ctx: Contexto): Promise<number | null> {
 
 /** Modifica los datos del usuario. */
 export async function PUT(request: NextRequest, ctx: Contexto) {
-  if (!(await sesionActual())) return noAutorizado();
+  const sesion = await sesionActual();
+  if (!sesion) return noAutorizado();
   const id = await leerId(ctx);
   const cuerpo = await leerJson(request);
   if (!id || !cuerpo) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
   try {
-    return NextResponse.json(await actualizarUsuario(id, { ...cuerpo, id_rol: Number(cuerpo.id_rol) } as DatosUsuario));
+        const actualizado = await actualizarUsuario(id, { ...cuerpo, id_rol: Number(cuerpo.id_rol) } as DatosUsuario);
+    await registrarAuditoria({
+      actor: { userId: sesion.idUsuario, username: sesion.username },
+      action: "UPDATE",
+      module: "Usuarios",
+      entity: "Usuario",
+      entityId: id,
+      description: `Modificó el usuario ${actualizado.username}`,
+      details: {
+        despues: { username: actualizado.username, correo: actualizado.correo, rol: actualizado.rol.nombre },
+        passwordCambiada: Boolean(cuerpo.password),
+      },
+      ipAddress: ipDeSolicitud(request),
+    });
+    return NextResponse.json(actualizado);
   } catch (e) {
     return respuestaError(e);
   }
@@ -94,7 +110,18 @@ export async function PATCH(request: NextRequest, ctx: Contexto) {
     return NextResponse.json({ error: "No puedes desactivar tu propio usuario" }, { status: 400 });
   }
   try {
-    return NextResponse.json(await cambiarEstadoUsuario(id, cuerpo.estado));
+        const actualizado = await cambiarEstadoUsuario(id, cuerpo.estado);
+    await registrarAuditoria({
+      actor: { userId: sesion.idUsuario, username: sesion.username },
+      action: "STATUS_CHANGE",
+      module: "Usuarios",
+      entity: "Usuario",
+      entityId: id,
+      description: `${cuerpo.estado ? "Activó" : "Desactivó"} al usuario ${actualizado.username}`,
+      details: { antes: { estado: !cuerpo.estado }, despues: { estado: cuerpo.estado } },
+      ipAddress: ipDeSolicitud(request),
+    });
+    return NextResponse.json(actualizado);
   } catch (e) {
     return respuestaError(e);
   }

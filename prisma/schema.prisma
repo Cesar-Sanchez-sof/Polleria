@@ -48,6 +48,18 @@ enum InventoryMovementType {
   @@map("inventory_movement_type")
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+
+  @@map("audit_action")
+}
+
 enum AffectationIgv {
   Included
   Excluded
@@ -149,7 +161,7 @@ model User {
   closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
   cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
   cashSessionsClosed CashSession[]      @relation("CashSessionClosedBy")
-
+  auditLogs          AuditLog[]
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
   @@map("app_user")
@@ -704,3 +716,30 @@ model CashMovement {
   @@map("cash_movement")
 }
 
+
+// =====================================================================
+// MODULE: AUDIT (registro de cambios)
+// =====================================================================
+
+/// Bitácora inmutable: una fila por cada movimiento relevante del sistema.
+model AuditLog {
+  id          Int         @id @default(autoincrement())
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  userId      Int?        @map("user_id")
+  /// Copia del username al momento del hecho (se conserva aunque el usuario cambie).
+  username    String      @db.VarChar(50)
+  action      AuditAction
+  module      String      @db.VarChar(50)
+  entity      String      @db.VarChar(50)
+  entityId    String?     @map("entity_id") @db.VarChar(50)
+  description String      @db.VarChar(255)
+  /// Detalle del cambio: { antes, despues } u otros datos del movimiento.
+  details     Json?
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt], map: "idx_audit_log_created_at")
+  @@index([userId], map: "idx_audit_log_user")
+  @@index([module, entity], map: "idx_audit_log_module_entity")
+  @@map("audit_log")
+}

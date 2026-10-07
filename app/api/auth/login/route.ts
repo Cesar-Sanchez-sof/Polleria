@@ -1,8 +1,10 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import { firmarSesion, COOKIE_SESION, OPCIONES_COOKIE } from "@/lib/auth/session";
+import { leerJson, respuestaError } from "@/lib/auth/respuestas";
+import { autenticar, ErrorUsuario } from "@/lib/services/usuarios.service";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 
-const prisma = new PrismaClient();
+export const dynamic = "force-dynamic";
 
 /**
  * @openapi
@@ -11,7 +13,7 @@ const prisma = new PrismaClient();
  *     tags:
  *       - Auth
  *     summary: Iniciar sesión de usuario
- *     description: Verifica credenciales y devuelve un token de autenticación.
+ *     description: Verifica credenciales (usuario o correo) y crea la cookie de sesión firmada.
  *     requestBody:
  *       required: true
  *       content:
@@ -25,34 +27,54 @@ const prisma = new PrismaClient();
  *                 type: string
  *     responses:
  *       200:
- *         description: Login exitoso con token.
+ *         description: Login exitoso.
  *       400:
  *         description: Falta username o password.
  *       401:
  *         description: Credenciales inválidas.
+ *       403:
+ *         description: Usuario desactivado.
  */
 export async function POST(request: Request) {
+  const cuerpo = await leerJson(request);
+  const username = typeof cuerpo?.username === "string" ? cuerpo.username.trim() : "";
+  const password = typeof cuerpo?.password === "string" ? cuerpo.password : "";
+  if (!username || !password) {
+    return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
+  }
+
+  const ip = ipDeSolicitud(request);
   try {
-    const { username, password } = await request.json();
-    if (!username || !password) {
-      return NextResponse.json({ error: "username and password required" }, { status: 400 });
+    const sesion = await autenticar(username, password);
+    const token = await firmarSesion(sesion);
+
+    await registrarAuditoria({
+      actor: { userId: sesion.idUsuario, username: sesion.username },
+      action: "LOGIN",
+      module: "Seguridad",
+      entity: "Sesión",
+      entityId: sesion.idUsuario,
+      description: `Inicio de sesión de ${sesion.username}`,
+      ipAddress: ip,
+    });
+
+    const respuesta = NextResponse.json({ idUsuario: sesion.idUsuario, username: sesion.username, rol: sesion.rol });
+    respuesta.cookies.set(COOKIE_SESION, token, OPCIONES_COOKIE);
+    // Compatibilidad: algunas rutas antiguas (períodos contables) aún leen esta cookie.
+    respuesta.cookies.set("auth-token", token, OPCIONES_COOKIE);
+    return respuesta;
+  } catch (e) {
+    if (e instanceof ErrorUsuario) {
+      await registrarAuditoria({
+        actor: { userId: null, username },
+        action: "LOGIN_FAILED",
+        module: "Seguridad",
+        entity: "Sesión",
+        description: `Intento de inicio de sesión fallido para "${username}"`,
+        details: { motivo: e.message },
+        ipAddress: ip,
+      });
     }
-    const user = await prisma.user.findUnique({ where: { username } });
-    if (!user) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-    // Optionally generate a token (simple placeholder)
-    const token = "dummy-token"; // replace with JWT in production
-    const response = NextResponse.json({ message: "Login successful", token }, { status: 200 });
-    // Set auth cookie (httpOnly for security)
-    response.cookies.set('auth-token', token, { httpOnly: true, path: '/', sameSite: 'lax' });
-    return response;
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return respuestaError(e);
   }
 }

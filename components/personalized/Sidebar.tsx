@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Component, User, LogOut, X, Menu } from "lucide-react";
 import Link from "next/link";
 
@@ -16,6 +16,19 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [internalOpen, setInternalOpen] = useState(false);
+    const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((datos) => setUsuario(datos))
+      .catch(() => setUsuario(null));
+  }, [pathname]);
+
+  async function cerrarSesion() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    window.location.href = "/login";
+  }
   const isControlled = typeof onCloseMobile === "function";
   const mobileOpen = isControlled ? !!controlledOpen : internalOpen;
 
@@ -78,6 +91,9 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const handleLinkClick = () => {
     handleClose();
   };
+
+  // La pantalla de login se muestra sin menú lateral.
+  if (pathname === "/login") return null;
 
   return (
     <>
@@ -392,6 +408,34 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 </Link>
               </div>
             </div>
+            {/* SEGURIDAD Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  SEGURIDAD
+                </span>
+              </div>
+                <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className={getLinkClass("/usuarios")}
+                  data-path="usuarios"
+                  href="/usuarios"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Usuarios
+                </Link>
+                <Link
+                  className={getLinkClass("/audit")}
+                  data-path="auditoria"
+                  href="/audit"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Auditoría
+                </Link>
+              </div>
+            </div>
 
             {/* DOCUMENTACIÓN Section */}
             <div className="flex flex-col gap-0.5 mt-1">
@@ -432,16 +476,19 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             </div>
             <div className="flex flex-col">
               <span className="font-label text-[11px] font-bold text-on-surface leading-tight">
-                Admin User
+                {usuario?.username ?? "Sin sesión"}
               </span>
               <span className="font-label text-[10px] text-on-surface-variant leading-tight">
-                Pollería Central
+                {usuario?.rol ?? "Inicia sesión"}
               </span>
             </div>
           </div>
           <button
-            className="text-on-surface-variant hover:text-error transition-colors p-1"
+            className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
             type="button"
+            title={usuario ? "Cerrar sesión" : "Iniciar sesión"}
+            aria-label={usuario ? "Cerrar sesión" : "Iniciar sesión"}
+            onClick={usuario ? cerrarSesion : () => (window.location.href = "/login")}
           >
             <LogOut className="w-4.5 h-4.5" />
           </button>
