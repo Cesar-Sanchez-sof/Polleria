@@ -203,8 +203,13 @@ mediante pruebas automatizadas. El endpoint se deja como trabajo posterior expl�
 **Rationale**: la spec declara la exposición web fuera de alcance (Supuestos), por lo que crear
 una ruta sería violar el alcance aprobado.
 
-**Alternatives considered**: crear la ruta "por si acaso" — genera código sin validación de
+**Alternatives considered**: crear la ruta "por si acaso" - genera código sin validación de
 alcance y documentación Swagger pendiente.
+
+**Actualización (2026-10-06)**: el usuario pidió explícitamente la vista del reporte, por lo que
+el alcance se amplió. Hoy sí existen `app/api/income-statement` (orquesta `getIncomeStatement`) y
+la pantalla `app/accounting/income-statement/page.tsx`; la ruta queda documentada en Swagger con
+tag `Reports` y esquema `IncomeStatement`, cubriendo la objeción de la alternativa descartada.
 
 ---
 

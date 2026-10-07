@@ -129,7 +129,7 @@ Registrado durante la ejecución de `tasks.md` (T001, T002 y T022):
 | `npm test` sí estaba verde | 208 tests al iniciar | Se cumple el estado de partida |
 | Regla de detalle corregida (**D6** revisada) | Se verificó `prisma/seed-accounts.ts`: ninguna cuenta de 2 dígitos tiene hijos (`parentId` apunta al elemento), así que `70`, `69`, `94`, `95`, `88` son hojas reales | `isDetailAccount()` = longitud ≥ 2; sólo se excluyen cabeceras de 1 dígito. Documentado en `research.md` → D6 |
 | Catálogo sin cuentas `94`, `95`, `88`, `75`, `77x`, `776`/`676` | Los gastos hoy se imputan en `62x`/`63x` y no existen ingresos financieros (`673` sí está) | Es una **dependencia de datos**, no un defecto: esas líneas resolverán `0.00` (FR-020) hasta crear las cuentas. Sin migraciones (D11) |
-| Sin endpoint HTTP ni pantalla | D11 | Sin cambios: `app/api/` intacto |
+| ~~Sin endpoint HTTP ni pantalla~~ (D11 superado) | El usuario pidió la vista del reporte: existen `GET /api/income-statement` y `app/accounting/income-statement/page.tsx`, con Swagger (tag `Reports`, esquema `IncomeStatement`) | Alcance ampliado; D11 actualizado en `research.md` |
 | SC-004 se cumple sin reconciliación | `computePeriodResult()` (balance-sheet) y `net_profit` coinciden en el test de paridad → **T019 no fue necesario** | — |
 
 **Resultado final**: 18 archivos de test / **249 tests verdes** (+41 nuevos), lint sin regresiones,

@@ -158,11 +158,14 @@ Con los mismos movimientos del escenario §2:
 
 ---
 
-## 5. Fuera de alcance en esta iteración
+## 5. Alcance de la iteración
 
-- **Endpoint HTTP** y documentación Swagger del reporte (D11): no existe
-  `app/api/income-statement`; validar manualmente en navegador **no aplica** todavía.
-- **Pantalla** de presentación del reporte.
+- **Endpoint HTTP** `GET /api/income-statement?desde=YYYY-MM-DD&hasta=YYYY-MM-DD` y su
+  documentación Swagger (tag `Reports`, esquema `IncomeStatement`): añadidos al implementar la
+  vista (D11 quedó superado; ver `research.md`).
+- **Pantalla** `app/accounting/income-statement/page.tsx`: periodo por defecto (mes en curso),
+  filtros de fechas, tabla PCGE con columna de cuentas, chips de resumen y estilo de impresión.
+  La validación en navegador ya aplica.
 - Migraciones de base de datos: ninguna.
 
 ---
