@@ -164,3 +164,21 @@ Con los mismos movimientos del escenario §2:
   `app/api/income-statement`; validar manualmente en navegador **no aplica** todavía.
 - **Pantalla** de presentación del reporte.
 - Migraciones de base de datos: ninguna.
+
+---
+
+## 6. Estado de verificación (post-implementación)
+
+| Paso | Estado |
+|---|---|
+| §3.1 sólo ventas (todas las demás líneas en `0.00`, sin nulos) | ✅ test `tolerancia a datos ausentes → 3.1` |
+| §3.2 sólo ventas y costo de ventas | ✅ test `3.2` |
+| §3.3 sólo compras (Cuenta 60 fuera del costo de ventas) | ✅ test `3.3` |
+| §3.5 Escenario de referencia (resultado **770.00**) | ✅ test `escenario de referencia` |
+| §3.6 SC-004 contra `computePeriodResult` (balance-sheet) | ✅ test `SC-004` |
+| SC-006 con 100.000 movimientos (< 3 s) | ✅ test de rendimiento |
+| SC-008 subarrendamiento = `0.00` | ✅ aserción en invariantes |
+
+Servicio (`lib/services/income-statement.service.ts`): validación de periodo 400, filtro de asientos
+activos y rango UTC, movimientos precargados sin tocar la BD y errores 500 — cubiertos por
+`lib/services/income-statement.service.test.ts` (11 tests).

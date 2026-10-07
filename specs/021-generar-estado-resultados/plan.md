@@ -116,3 +116,21 @@ crea ningún proyecto ni paquete nuevo.
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | — | No hay violaciones de constitución/convenciones que justificar | — |
+
+---
+
+## Implementation Notes (post `/speckit.implement`)
+
+Registrado durante la ejecución de `tasks.md` (T001, T002 y T022):
+
+| Discrepancia / hallazgo | Detalle | Acción |
+|---|---|---|
+| `npm run lint` **no estaba verde** en la línea base | 100 problemas preexistentes (64 errors / 36 warnings) en archivos ajenos a la feature (`hooks/use-mobile.ts`, `lib/services/mercadopago.service.ts`, `lib/services/s3-storage.service.ts`, …) | Fuera de alcance. Criterio de aceptación de T020 ajustado: **0 problemas nuevos** (verificado: sigue en 100, y `eslint` sobre los 4 archivos de la feature sale `exit 0`). |
+| `npm test` sí estaba verde | 208 tests al iniciar | Se cumple el estado de partida |
+| Regla de detalle corregida (**D6** revisada) | Se verificó `prisma/seed-accounts.ts`: ninguna cuenta de 2 dígitos tiene hijos (`parentId` apunta al elemento), así que `70`, `69`, `94`, `95`, `88` son hojas reales | `isDetailAccount()` = longitud ≥ 2; sólo se excluyen cabeceras de 1 dígito. Documentado en `research.md` → D6 |
+| Catálogo sin cuentas `94`, `95`, `88`, `75`, `77x`, `776`/`676` | Los gastos hoy se imputan en `62x`/`63x` y no existen ingresos financieros (`673` sí está) | Es una **dependencia de datos**, no un defecto: esas líneas resolverán `0.00` (FR-020) hasta crear las cuentas. Sin migraciones (D11) |
+| Sin endpoint HTTP ni pantalla | D11 | Sin cambios: `app/api/` intacto |
+| SC-004 se cumple sin reconciliación | `computePeriodResult()` (balance-sheet) y `net_profit` coinciden en el test de paridad → **T019 no fue necesario** | — |
+
+**Resultado final**: 18 archivos de test / **249 tests verdes** (+41 nuevos), lint sin regresiones,
+commit `feat(021): Estado de Resultados por Función (PCGE 2019)`.

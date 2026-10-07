@@ -159,9 +159,9 @@ en menos de 3 segundos.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T020 [P] Ejecutar `npm run lint` y `npx vitest run lib/accounting/income-statement.test.ts lib/services/income-statement.service.test.ts` y dejar ambas suites en verde
-- [ ] T021 [P] Actualizar `specs/021-generar-estado-resultados/quickstart.md` (Â§4) marcando los escenarios ejecutados y corrigiendo cualquier discrepancia con el comportamiento real
-- [ ] T022 Revisar `specs/021-generar-estado-resultados/checklists/requirements.md` y `plan.md` por si la implementaciÃ³n alterÃ³ alcance, supuestos o supuestos tÃ©cnicos; documentar la decisiÃ³n en `specs/021-generar-estado-resultados/research.md`
+- [X] T020 [P] Ejecutar `npm run lint` y `npx vitest run lib/accounting/income-statement.test.ts lib/services/income-statement.service.test.ts` y dejar ambas suites en verde
+- [X] T021 [P] Actualizar `specs/021-generar-estado-resultados/quickstart.md` (Â§4) marcando los escenarios ejecutados y corrigiendo cualquier discrepancia con el comportamiento real
+- [X] T022 Revisar `specs/021-generar-estado-resultados/checklists/requirements.md` y `plan.md` por si la implementaciÃ³n alterÃ³ alcance, supuestos o supuestos tÃ©cnicos; documentar la decisiÃ³n en `specs/021-generar-estado-resultados/research.md`
 
 ---
 

@@ -113,16 +113,27 @@ descuenta 709 dos veces y duplica la 75 — descartada por el propio interesado.
 
 ## D6 — Cuentas cabecera vs. subcuentas (doble conteo)
 
-**Decision**: excluir del agregado los códigos de cabecera de elemento/grupo (longitud 1–2 sin
-subcuenta) y sumar sólo códigos de detalle, tal como hace `isDetailAccount()` en
-`balance-sheet.ts` (longitud ≥ 2). Los prefijos se evalúan sobre el código completo de la
-subcuenta.
+**Decision**: incluir en el agregado toda cuenta cuyo código tenga longitud ≥ 2 (la misma regla
+que `isDetailAccount()` en `balance-sheet.ts`) y excluir **sólo** las cabeceras de elemento de 1
+dígito (`6`, `7`, `9`, …). Los prefijos se evalúan sobre el código completo de la cuenta.
 
-**Rationale**: en el plan contable existen tanto la cuenta `70` como `701`; sumar ambas duplicaría
-los ingresos.
+**Rationale** (verificado en `prisma/seed-accounts.ts` durante la implementación): en este plan
+contable **ninguna cuenta de 2 dígitos tiene hijos**: `parentId` de `701`, `704` y `691` apunta
+directamente al elemento (`7`, `6`), así que `70`, `69`, `94`, `95` y `88` son cuentas hoja reales
+con movimientos propios. Además, cada movimiento pertenece a una única cuenta: agrupar por prefijo
+suma cada saldo exactamente una vez, por lo que no puede haber doble conteo.
 
-**Alternatives considered**: confiar en `parentId` para poblar sólo hojas — depende de que el dato
-esté completo en BD y complica el cálculo puro (que recibe códigos, no árbol).
+**Alternatives considered**: excluir los códigos de 2 dígitos por ser "cabeceras de grupo" —
+descartada tras verificar el catálogo (quedarían vacías la Cuenta 70 y las líneas 94/95/88);
+confiar en `parentId` para poblar sólo hojas — depende de que el dato esté completo en BD y
+complica el cálculo puro (que recibe códigos, no árbol).
+
+**Hallazgo de datos (no es un defecto del cálculo)**: el catálogo sembrado no incluye las cuentas
+`94`, `95`, `88`, `75`, `77x` ni `776`/`676`, porque hoy los gastos se registran en `62x`/`63x` y
+los ingresos financieros en `77x` no existen (`673` sí, y sí alimenta *gastos financieros*). Mientras
+esas cuentas no se creen en el plan contable, las líneas gastos de distribución/administración,
+impuesto a la renta, otros ingresos y otros ingresos financieros resolverán `0.00` — comportamiento
+esperado por FR-020 y no por la regla de clasificación D5.
 
 ---
 
