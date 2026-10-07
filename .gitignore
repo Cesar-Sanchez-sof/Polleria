@@ -41,3 +41,18 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# local storage
+/public/storage/
+
+# AI tools & agents
+.agents/
+.claude/
+.cursor/
+.devin/
+.opencode/
+.specify/
+.windsurf/
+CLAUDE.md
+skills-lock.json
+

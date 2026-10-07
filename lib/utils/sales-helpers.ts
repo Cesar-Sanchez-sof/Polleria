@@ -108,18 +108,18 @@ export function validateCustomerDocument(
 
 /**
  * Regla de negocio para edición de pedidos:
- * - Un pedido solo se puede editar si está en estado Received/Preparing/Pending.
- * - Cuando pasa a Served o Closed, ya no puede modificarse por comandas.
+ * - Un pedido activo en mesa o ventanilla se puede editar y recibir platos adicionales
+ *   en todo momento mientras no esté cerrado (cobrado) o cancelado.
  */
 export function canEditOrder(statusValue: string): boolean {
-  const status = (statusValue || "").toLowerCase();
+  const status = (statusValue || "").trim().toLowerCase();
+  if (!status) return true;
   return (
-    status === "received" ||
-    status === "preparing" ||
-    status === "pending" ||
-    status === "recibido" ||
-    status === "preparando" ||
-    status === "pendiente"
+    status !== "closed" &&
+    status !== "cancelled" &&
+    status !== "cerrado" &&
+    status !== "cancelado" &&
+    status !== "anulado"
   );
 }
 

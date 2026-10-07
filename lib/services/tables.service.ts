@@ -16,6 +16,7 @@ export interface OrderLineItem {
   id?: number;
   dishId: number;
   name: string;
+  dishName?: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;

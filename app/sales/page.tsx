@@ -17,6 +17,7 @@ import {
   Utensils,
   Plus,
   Edit,
+  Eye,
   CheckCircle2,
   Search,
   Trash2,
@@ -26,6 +27,10 @@ import {
   Users,
   CreditCard,
   ChefHat,
+  BellRing,
+  PackageCheck,
+  Flame,
+  Check,
   MessageSquare,
   Receipt,
   Banknote,
@@ -51,6 +56,8 @@ import {
   Unlock,
   Coins,
   ShieldAlert,
+  ArrowDownCircle,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -88,9 +95,16 @@ import {
   getCashSessionStatus,
   openCashSession,
   closeCashSession,
+  registerCashMovement,
   type CashRegisterStatus,
   type CloseCashAudit,
+  type CashDenominations,
+  type CashMovementItem,
+  INITIAL_DENOMINATIONS,
+  calculateDenominationsTotal,
+  formatDenominationsSummary,
 } from "@/lib/services/cash-register.service";
+import { DenominationsCounter } from "@/components/restaurant/DenominationsCounter";
 
 type TabType = "tables" | "kitchen" | "payments" | "cashier" | "customers" | "invoices";
 
@@ -156,6 +170,12 @@ function SalesManagementContent() {
 
   // Búsqueda de clientes
   const [customerSearch, setCustomerSearch] = useState<string>("");
+
+  // Estados para vista de Pedidos Listos (Meseros / Despacho)
+  const [readySearch, setReadySearch] = useState<string>("");
+  const [readyFilter, setReadyFilter] = useState<"todos" | "mesas" | "llevar">("todos");
+  const [readyStatusMode, setReadyStatusMode] = useState<"solo-listos" | "todos-activos">("solo-listos");
+  const [deliveredOrderIds, setDeliveredOrderIds] = useState<Set<number>>(new Set());
 
   // Carga general de datos desde la API
   const loadData = useCallback(async () => {
@@ -230,6 +250,19 @@ function SalesManagementContent() {
   const [cancellingOrder, setCancellingOrder] = useState<boolean>(false);
 
   // ---------------------------------------------------------------------------
+  // ESTADO MODAL VISTA DETALLADA DE COMANDA (CONSULTA DE CONSUMO EN TODO MOMENTO)
+  // ---------------------------------------------------------------------------
+  const [viewOrderModal, setViewOrderModal] = useState<{
+    open: boolean;
+    order: OrderSummary | null;
+    tableName?: string;
+  }>({
+    open: false,
+    order: null,
+    tableName: "",
+  });
+
+  // ---------------------------------------------------------------------------
   // ESTADO CAJA Y COBRO EN VENTANILLA
   // ---------------------------------------------------------------------------
   const [orderToCharge, setOrderToCharge] = useState<OrderSummary | null>(null);
@@ -268,6 +301,16 @@ function SalesManagementContent() {
   const [savingCashSession, setSavingCashSession] = useState<boolean>(false);
   const [lastClosedAudit, setLastClosedAudit] = useState<CloseCashAudit | null>(null);
   const [auditModalOpen, setAuditModalOpen] = useState<boolean>(false);
+
+  // Estados Arqueo detallado de Billetes y Monedas
+  const [openDenominations, setOpenDenominations] = useState<CashDenominations>(INITIAL_DENOMINATIONS);
+  const [closeDenominations, setCloseDenominations] = useState<CashDenominations>(INITIAL_DENOMINATIONS);
+
+  // Estados para Registro de Salida de Dinero / Emergencia (Egreso de Caja)
+  const [expenseModalOpen, setExpenseModalOpen] = useState<boolean>(false);
+  const [expenseAmount, setExpenseAmount] = useState<string>("");
+  const [expenseReason, setExpenseReason] = useState<string>("");
+  const [savingExpense, setSavingExpense] = useState<boolean>(false);
 
   // ---------------------------------------------------------------------------
   // ESTADO COBRO MÓVIL / MOZO (COBRO CON CELULAR / TAP TO PAY / YAPE / PARTES)
@@ -466,6 +509,148 @@ function SalesManagementContent() {
     return pendientes;
   }, [tables, takeoutOrders]);
 
+  const readyOrdersForDelivery = useMemo(() => {
+    const list: Array<{
+      orderId: number;
+      code: string;
+      tipo: "Mesa" | "Llevar";
+      identificador: string;
+      clienteOInfo: string;
+      tableNumber?: number;
+      orderedAt: string;
+      kitchenStatus: string;
+      items: OrderLineItem[];
+      total: number;
+      notes: string;
+      orderObj: OrderSummary;
+      isDelivered: boolean;
+    }> = [];
+
+    // 1. Comandas de Mesas en Salón
+    for (const m of tables) {
+      if (m.occupied && m.activeOrder) {
+        const pedObj: OrderSummary = {
+          id: m.activeOrder.id,
+          orderTableId: m.activeOrder.orderTableId,
+          code: m.activeOrder.code,
+          orderType: "Mesa",
+          orderedAt: m.activeOrder.orderedAt,
+          status: m.activeOrder.status,
+          table: { id: m.id, number: m.number },
+          notes: m.activeOrder.tableNotes,
+          items: m.activeOrder.items,
+          total: m.activeOrder.total,
+          editable: m.activeOrder.editable,
+        };
+
+        const isDelivered = deliveredOrderIds.has(m.activeOrder.id);
+
+        list.push({
+          orderId: m.activeOrder.id,
+          code: m.activeOrder.code,
+          tipo: "Mesa",
+          identificador: `Mesa #${m.number}`,
+          clienteOInfo: m.activeOrder.tableNotes
+            ? m.activeOrder.tableNotes
+            : `Mesa en Salón (${m.capacity} comensales)`,
+          tableNumber: m.number,
+          orderedAt: m.activeOrder.orderedAt,
+          kitchenStatus: m.activeOrder.status,
+          items: m.activeOrder.items,
+          total: m.activeOrder.total,
+          notes: m.activeOrder.tableNotes,
+          orderObj: pedObj,
+          isDelivered,
+        });
+      }
+    }
+
+    // 2. Comandas Para Llevar en Ventanilla
+    for (const p of takeoutOrders) {
+      if (p.status !== "Closed" && p.status !== "Cancelled") {
+        let clientName = p.notes || "Cliente en mostrador";
+        if (clientName.toLowerCase().startsWith("cliente:")) {
+          clientName = clientName.substring(8).trim();
+        }
+
+        const isDelivered = deliveredOrderIds.has(p.id);
+
+        list.push({
+          orderId: p.id,
+          code: p.code,
+          tipo: "Llevar",
+          identificador: `Para Llevar — ${p.code}`,
+          clienteOInfo: clientName,
+          orderedAt: p.orderedAt,
+          kitchenStatus: p.status,
+          items: p.items,
+          total: p.total,
+          notes: p.notes,
+          orderObj: p,
+          isDelivered,
+        });
+      }
+    }
+
+    // Ordenar: Los que están "Served" (Listos para entregar) y no entregados van primero
+    return list.sort((a, b) => {
+      const aReady = a.kitchenStatus === "Served" && !a.isDelivered;
+      const bReady = b.kitchenStatus === "Served" && !b.isDelivered;
+      if (aReady && !bReady) return -1;
+      if (!aReady && bReady) return 1;
+      return new Date(a.orderedAt).getTime() - new Date(b.orderedAt).getTime();
+    });
+  }, [tables, takeoutOrders, deliveredOrderIds]);
+
+  const onlyReadyCount = useMemo(() => {
+    return readyOrdersForDelivery.filter(
+      (o) => o.kitchenStatus === "Served" && !o.isDelivered
+    ).length;
+  }, [readyOrdersForDelivery]);
+
+  const displayedDeliveryOrders = useMemo(() => {
+    return readyOrdersForDelivery.filter((ord) => {
+      // Filtro de estado de entrega
+      if (readyStatusMode === "solo-listos") {
+        if (ord.kitchenStatus !== "Served" || ord.isDelivered) {
+          return false;
+        }
+      }
+
+      // Filtro de origen
+      if (readyFilter === "mesas" && ord.tipo !== "Mesa") return false;
+      if (readyFilter === "llevar" && ord.tipo !== "Llevar") return false;
+
+      // Búsqueda textual
+      if (readySearch.trim()) {
+        const q = readySearch.toLowerCase();
+        const matchCode = ord.code.toLowerCase().includes(q);
+        const matchIdent = ord.identificador.toLowerCase().includes(q);
+        const matchClient = ord.clienteOInfo.toLowerCase().includes(q);
+        const matchItems = ord.items.some((i) => (i.name || i.dishName || "").toLowerCase().includes(q));
+        if (!matchCode && !matchIdent && !matchClient && !matchItems) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [readyOrdersForDelivery, readyStatusMode, readyFilter, readySearch]);
+
+  const toggleDelivered = (orderId: number, identificador: string) => {
+    setDeliveredOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+        toast.info(`Comanda ${identificador} marcada como pendiente de entrega.`);
+      } else {
+        next.add(orderId);
+        toast.success(`¡Comanda ${identificador} entregada con éxito!`);
+      }
+      return next;
+    });
+  };
+
   const totalPorCobrar = useMemo(() => {
     return uncollectedPayments.reduce((sum, c) => sum + c.total, 0);
   }, [uncollectedPayments]);
@@ -494,6 +679,17 @@ function SalesManagementContent() {
       return;
     }
     if (mesa.occupied) {
+      if (mesa.activeOrder) {
+        openEditOrder({
+          id: mesa.activeOrder.id,
+          tableNote: mesa.activeOrder.tableNotes,
+          items: mesa.activeOrder.items,
+          orderType: "Mesa",
+          status: mesa.activeOrder.status,
+          table: { id: mesa.id, number: mesa.number },
+        });
+        return;
+      }
       toast.info(`La Mesa ${mesa.number} ya tiene un pedido en curso.`);
       return;
     }
@@ -535,23 +731,34 @@ function SalesManagementContent() {
     items: OrderLineItem[];
     orderType: string;
     status?: string;
+    table?: { id: number; number: number } | null;
   }) => {
     if (pedido.status && !canEditOrder(pedido.status)) {
-      toast.warning("El pedido no puede ser modificado porque ya fue servido o cerrado.");
+      toast.warning("El pedido no puede ser modificado porque ya fue cerrado o cancelado.");
       return;
     }
     setIsEditing(true);
     setEditingOrderId(pedido.id);
+    if (pedido.table) {
+      setSelectedTable({
+        id: pedido.table.id,
+        number: pedido.table.number,
+        capacity: 4,
+        occupied: true,
+        activeOrder: null,
+      });
+    }
     setAdditionalTables([]);
     setIsTakeaway(pedido.orderType === "Llevar");
     setTableNote(pedido.tableNote || pedido.notes || "");
     setOrderItems(
       pedido.items.map((it) => ({
         dishId: it.dishId,
-        name: it.name,
+        name: it.name || (it as any).dishName || "",
         unitPrice: it.unitPrice,
         quantity: it.quantity,
         notes: it.notes || "",
+        dishStatus: it.dishStatus,
       }))
     );
     setSelectedCategory("todos");
@@ -618,9 +825,10 @@ function SalesManagementContent() {
             dishId: it.dishId,
             quantity: it.quantity,
             notes: it.notes,
+            dishStatus: (it as any).dishStatus,
           })),
         });
-        toast.success("Comanda actualizada correctamente.");
+        toast.success("Comanda actualizada. Nuevos platos registrados y enviados.");
       } else {
         await createOrder({
           orderType: isTakeaway ? "Llevar" : "Mesa",
@@ -1006,6 +1214,7 @@ function SalesManagementContent() {
       const res = await openCashSession({
         initialAmount: initAmt,
         notesOpening: openNotesInput.trim(),
+        denominations: openDenominations,
       });
       toast.success(res.message);
       setOpenCashModal(false);
@@ -1030,6 +1239,7 @@ function SalesManagementContent() {
       const res = await closeCashSession(cashSessionState.activeSession.id, {
         countedAmount: counted,
         notesClosing: closeNotesInput.trim(),
+        denominations: closeDenominations,
       });
       toast.success(res.message);
       setLastClosedAudit(res.audit);
@@ -1041,6 +1251,41 @@ function SalesManagementContent() {
       toast.error(err.message || "Error al cerrar la caja.");
     } finally {
       setSavingCashSession(false);
+    }
+  };
+
+  const handleRegisterExpense = async () => {
+    if (!cashSessionState.activeSession) {
+      toast.error("No hay una sesión de caja activa.");
+      return;
+    }
+    const amt = parseFloat(expenseAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Ingrese un monto válido mayor a S/ 0.00.");
+      return;
+    }
+    if (!expenseReason.trim() || expenseReason.trim().length < 3) {
+      toast.error("Indique el motivo o justificación de la salida de dinero.");
+      return;
+    }
+    try {
+      setSavingExpense(true);
+      const res = await registerCashMovement({
+        sessionId: cashSessionState.activeSession.id,
+        type: "EXPENSE",
+        amount: amt,
+        reason: expenseReason.trim(),
+      });
+      toast.success(res.message);
+      setExpenseModalOpen(false);
+      setExpenseAmount("");
+      setExpenseReason("");
+      const updatedStatus = await getCashSessionStatus();
+      setCashSessionState(updatedStatus);
+    } catch (err: any) {
+      toast.error(err.message || "Error al registrar la salida de dinero.");
+    } finally {
+      setSavingExpense(false);
     }
   };
 
@@ -1159,7 +1404,7 @@ function SalesManagementContent() {
           <span className="hidden sm:inline">Salón de Mesas ({summary.occupied}/{summary.total})</span>
         </button>
 
-        {/* Pestaña: Cocina KDS */}
+        {/* Pestaña: Pedidos Listos para Entrega */}
         <button
           type="button"
           onClick={() => goToTab("kitchen")}
@@ -1168,8 +1413,14 @@ function SalesManagementContent() {
             : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
-          <ChefHat className="w-4 h-4 shrink-0" />
-          <span>Cocina</span>
+          <BellRing className={`w-4 h-4 shrink-0 ${onlyReadyCount > 0 ? "text-red-600 animate-bounce" : ""}`} />
+          <span className="sm:hidden">Listos {onlyReadyCount > 0 ? `(${onlyReadyCount})` : ""}</span>
+          <span className="hidden sm:inline">Pedidos Listos {onlyReadyCount > 0 ? `(${onlyReadyCount})` : ""}</span>
+          {onlyReadyCount > 0 && (
+            <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-red-600 text-white shadow-xs">
+              {onlyReadyCount}
+            </span>
+          )}
         </button>
 
         {/* Pestaña 2: Cobros No Cobrados */}
@@ -1419,19 +1670,24 @@ function SalesManagementContent() {
                           )}
 
                           {/* Detalle rápido de platos */}
-                          <div className="bg-slate-50 rounded-xl p-2.5 max-h-32 overflow-y-auto border border-slate-100 flex flex-col gap-1">
+                          <div className="bg-slate-50 rounded-xl p-2.5 max-h-36 overflow-y-auto border border-slate-100 flex flex-col gap-1">
                             {pedido.items.map((item, idx) => (
                               <div
                                 key={idx}
                                 className="flex items-center justify-between text-xs text-slate-700 py-0.5 border-b border-slate-200/50 last:border-none"
                               >
-                                <span className="line-clamp-1">
+                                <span className="line-clamp-1 flex-1 pr-1">
                                   <strong className="text-red-700 mr-1.5 font-mono">
                                     {item.quantity}x
                                   </strong>
                                   {item.name}
+                                  {item.notes && (
+                                    <span className="text-[10px] text-amber-700 italic ml-1">
+                                      ({item.notes})
+                                    </span>
+                                  )}
                                 </span>
-                                <span className="font-semibold shrink-0 ml-2">
+                                <span className="font-semibold shrink-0 ml-1">
                                   S/ {item.subtotal.toFixed(2)}
                                 </span>
                               </div>
@@ -1449,7 +1705,7 @@ function SalesManagementContent() {
                       ) : (
                         <div
                           onClick={() => openTakeTableOrder(mesa)}
-                          className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-700 transition-colors"
+                          className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-700 transition-colors cursor-pointer"
                         >
                           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                             <Plus className="w-6 h-6" />
@@ -1469,6 +1725,24 @@ function SalesManagementContent() {
                   <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-2">
                     {mesa.occupied && pedido ? (
                       <>
+                        {/* Botón principal: Adicionar / Agregar más platos al pedido */}
+                        <Button
+                          onClick={() =>
+                            openEditOrder({
+                              id: pedido.id,
+                              tableNote: pedido.tableNotes,
+                              items: pedido.items,
+                              orderType: "Mesa",
+                              status: pedido.status,
+                              table: { id: mesa.id, number: mesa.number },
+                            })
+                          }
+                          className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>+ Adicionar / Agregar Platos</span>
+                        </Button>
+
                         {/* Botón para Cobro Móvil desde el Mozo */}
                         <Button
                           onClick={() =>
@@ -1493,24 +1767,33 @@ function SalesManagementContent() {
                         </Button>
 
                         <div className="grid grid-cols-2 gap-2">
-                          {/* Modificar Comanda */}
+                          {/* Ver Detalle Completo de la Comanda */}
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              openEditOrder({
-                                id: pedido.id,
-                                tableNote: pedido.tableNotes,
-                                items: pedido.items,
-                                orderType: "Mesa",
-                                status: pedido.status,
+                              setViewOrderModal({
+                                open: true,
+                                order: {
+                                  id: pedido.id,
+                                  orderTableId: pedido.orderTableId,
+                                  code: pedido.code,
+                                  orderType: "Mesa",
+                                  orderedAt: pedido.orderedAt,
+                                  status: pedido.status,
+                                  table: { id: mesa.id, number: mesa.number },
+                                  notes: pedido.tableNotes,
+                                  items: pedido.items,
+                                  total: pedido.total,
+                                  editable: pedido.editable,
+                                },
+                                tableName: `Mesa ${mesa.number}`,
                               })
                             }
-                            disabled={!pedido.editable}
-                            className="text-xs font-semibold h-8 rounded-lg border-slate-300 cursor-pointer"
+                            className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
-                            <Edit className="w-3.5 h-3.5 mr-1" />
-                            Modificar
+                            <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                            Ver Detalle
                           </Button>
 
                           {/* Enviar a Cobro en Ventanilla */}
@@ -1585,11 +1868,382 @@ function SalesManagementContent() {
       )}
 
       {/* =================================================================== */}
-      {/* PESTAÑA: COCINA (KDS) */}
+      {/* PESTAÑA: PEDIDOS LISTOS PARA ENTREGA (MOZOS Y DESPACHO) */}
       {/* =================================================================== */}
       {activeTab === "kitchen" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
-          <KitchenBoard />
+          {/* Tarjetas resumen de estado de entrega */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <Card className="bg-emerald-50 border-emerald-200 p-4 rounded-2xl flex items-center gap-3 shadow-xs">
+              <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <BellRing className={`w-6 h-6 ${onlyReadyCount > 0 ? "animate-bounce" : ""}`} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
+                  Listos para Servir
+                </span>
+                <p className="text-2xl font-black text-emerald-950">
+                  {onlyReadyCount} {onlyReadyCount === 1 ? "Comanda" : "Comandas"}
+                </p>
+                <p className="text-[11px] text-emerald-700 font-medium truncate">
+                  {onlyReadyCount > 0 ? "Esperando que el mozo las retire" : "Sin platos pendientes en mostrador"}
+                </p>
+              </div>
+            </Card>
+
+            <Card className="bg-amber-50 border-amber-200 p-4 rounded-2xl flex items-center gap-3 shadow-xs">
+              <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <ChefHat className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
+                  En Cocina (Preparando)
+                </span>
+                <p className="text-2xl font-black text-amber-950">
+                  {readyOrdersForDelivery.filter((o) => o.kitchenStatus === "Preparing" || o.kitchenStatus === "Received").length} Comandas
+                </p>
+                <p className="text-[11px] text-amber-700 font-medium truncate">
+                  El personal de cocina está cocinando
+                </p>
+              </div>
+            </Card>
+
+            <Card className="bg-slate-50 border-slate-200 p-4 rounded-2xl flex items-center gap-3 shadow-xs">
+              <div className="w-12 h-12 rounded-xl bg-slate-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <PackageCheck className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Entregados a Mesas
+                </span>
+                <p className="text-2xl font-black text-slate-900">
+                  {deliveredOrderIds.size} Entregas
+                </p>
+                <p className="text-[11px] text-slate-600 font-medium truncate">
+                  Confirmados por el mesero en salón
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Barra de Filtros y Controles de Despacho */}
+          <Card className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 md:items-center justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Filtro: Modo de visualización */}
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setReadyStatusMode("solo-listos")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    readyStatusMode === "solo-listos"
+                      ? "bg-white text-emerald-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Flame className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Solo Listos ({onlyReadyCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReadyStatusMode("todos-activos")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    readyStatusMode === "todos-activos"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span>Todos los Activos ({readyOrdersForDelivery.length})</span>
+                </button>
+              </div>
+
+              {/* Filtro: Tipo de Pedido */}
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setReadyFilter("todos")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    readyFilter === "todos"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReadyFilter("mesas")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    readyFilter === "mesas"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Mesas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReadyFilter("llevar")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    readyFilter === "llevar"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Para Llevar
+                </button>
+              </div>
+            </div>
+
+            {/* Búsqueda y Botón Refrescar */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  value={readySearch}
+                  onChange={(e) => setReadySearch(e.target.value)}
+                  placeholder="Buscar mesa, código o cliente..."
+                  className="pl-9 h-9 rounded-xl text-xs bg-slate-50 border-slate-200 focus:bg-white"
+                />
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void loadData()}
+                disabled={loading}
+                className="h-9 px-3 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer font-bold text-xs shrink-0"
+                title="Actualizar estado de comandas"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline ml-1">Actualizar</span>
+              </Button>
+            </div>
+          </Card>
+
+          {/* Listado de tarjetas de entrega */}
+          {displayedDeliveryOrders.length === 0 ? (
+            <Card className="p-12 text-center rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                {readyStatusMode === "solo-listos"
+                  ? "¡No hay comandas esperando entrega!"
+                  : "No se encontraron comandas con los filtros actuales"}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mt-1 mb-4">
+                {readyStatusMode === "solo-listos"
+                  ? "Todos los platos que la cocina ha terminado han sido entregados a sus mesas o clientes."
+                  : "Intenta cambiar el criterio de búsqueda o el tipo de pedido seleccionado."}
+              </p>
+              {readyStatusMode === "solo-listos" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setReadyStatusMode("todos-activos")}
+                  className="text-xs font-bold rounded-xl border-slate-200 cursor-pointer"
+                >
+                  Ver todos los pedidos en cocina ({readyOrdersForDelivery.length})
+                </Button>
+              )}
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {displayedDeliveryOrders.map((order) => {
+                const isReady = order.kitchenStatus === "Served";
+                const isDelivered = order.isDelivered;
+
+                return (
+                  <Card
+                    key={`delivery-${order.tipo}-${order.orderId}`}
+                    className={`rounded-2xl border transition-all overflow-hidden flex flex-col ${
+                      isReady && !isDelivered
+                        ? "border-emerald-400 bg-white shadow-md ring-2 ring-emerald-500/20"
+                        : isDelivered
+                        ? "border-slate-200 bg-slate-50/70 opacity-80"
+                        : "border-slate-200 bg-white shadow-xs"
+                    }`}
+                  >
+                    {/* Header de la Tarjeta */}
+                    <div
+                      className={`p-3.5 border-b flex items-center justify-between ${
+                        isReady && !isDelivered
+                          ? "bg-emerald-50/70 border-emerald-100"
+                          : isDelivered
+                          ? "bg-slate-100/70 border-slate-200"
+                          : "bg-slate-50 border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {order.tipo === "Mesa" ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-red-700 text-white shadow-xs">
+                              {order.identificador}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-blue-600 text-white shadow-xs flex items-center gap-1">
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                              Para Llevar
+                            </span>
+                          </div>
+                        )}
+                        <span className="text-[11px] font-bold text-slate-500">
+                          #{order.code}
+                        </span>
+                      </div>
+
+                      {/* Estado Cocina Badge */}
+                      {isDelivered ? (
+                        <Badge className="bg-slate-200 text-slate-800 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1">
+                          <Check className="w-3 h-3 text-slate-600" />
+                          Entregado
+                        </Badge>
+                      ) : isReady ? (
+                        <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[10px] animate-pulse flex items-center gap-1">
+                          <Flame className="w-3 h-3" />
+                          LISTO PARA SERVIR
+                        </Badge>
+                      ) : order.kitchenStatus === "Preparing" ? (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100 font-bold text-[10px]">
+                          En Cocina
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100 font-bold text-[10px]">
+                          Recibido
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Información Destino / Cliente */}
+                    <div className="px-4 pt-3 pb-2 flex items-center justify-between text-xs border-b border-slate-100 bg-white">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 truncate">
+                        {order.tipo === "Mesa" ? (
+                          <>
+                            <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{order.clienteOInfo}</span>
+                          </>
+                        ) : (
+                          <>
+                            <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span className="text-blue-900 truncate">
+                              Cliente: {order.clienteOInfo}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0 ml-2">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          {new Date(order.orderedAt).toLocaleTimeString("es-PE", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Lista de Platos de la Comanda */}
+                    <div className="p-4 flex-1 flex flex-col gap-2">
+                      <div className="space-y-1.5">
+                        {order.items.map((item, idx) => (
+                          <div
+                            key={`item-${order.orderId}-${idx}`}
+                            className="flex items-start justify-between text-xs py-1 px-2 rounded-lg bg-slate-50 border border-slate-100"
+                          >
+                            <div className="flex-1 pr-2">
+                              <span className="font-bold text-slate-900 mr-1.5">
+                                {item.quantity}x
+                              </span>
+                              <span className="text-slate-800 font-medium">
+                                {item.name || item.dishName}
+                              </span>
+                              {item.notes && (
+                                <p className="text-[10px] text-amber-700 italic mt-0.5 font-medium">
+                                  Nota: {item.notes}
+                                </p>
+                              )}
+                            </div>
+                            <span className="font-bold text-slate-600 shrink-0 text-[11px]">
+                              S/ {(item.quantity * item.unitPrice).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {order.notes && order.tipo === "Mesa" && (
+                        <p className="text-[11px] text-slate-500 bg-amber-50/60 border border-amber-200/60 p-2 rounded-lg italic mt-1">
+                          Nota comanda: {order.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Pie de Tarjeta con Total y Botones de Acción para Mozo */}
+                    <div className="p-3.5 bg-slate-50/80 border-t border-slate-200 mt-auto flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500 uppercase">
+                          Total Comanda:
+                        </span>
+                        <span className="text-base font-black text-slate-900">
+                          S/ {order.total.toFixed(2)}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {/* Botón 1: Marcar Entregado */}
+                        <Button
+                          onClick={() => toggleDelivered(order.orderId, order.identificador)}
+                          size="sm"
+                          className={`w-full font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer col-span-2 ${
+                            isDelivered
+                              ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                              : isReady
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                              : "bg-slate-800 hover:bg-slate-900 text-white"
+                          }`}
+                        >
+                          {isDelivered ? (
+                            <>
+                              <Check className="w-4 h-4 text-emerald-600" />
+                              <span>Entregado a Mesa (Deshacer)</span>
+                            </>
+                          ) : (
+                            <>
+                              <PackageCheck className="w-4 h-4" />
+                              <span>Marcar como Entregado</span>
+                            </>
+                          )}
+                        </Button>
+
+                        {/* Botón 2: Cobro Mozo Móvil */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openWaiterPayment(order.orderObj)}
+                          className="w-full bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-300 border-slate-200 text-slate-700 font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Smartphone className="w-3.5 h-3.5 text-red-600" />
+                          <span>Cobro Mozo</span>
+                        </Button>
+
+                        {/* Botón 3: Enviar a Ventanilla / Caja */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToCounterPayment(order.orderObj, order.identificador)}
+                          className="w-full bg-white hover:bg-slate-100 border-slate-200 text-slate-700 font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Ir a Caja</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </main>
       )}
 
@@ -1834,7 +2488,7 @@ function SalesManagementContent() {
 
               <div className="flex items-center gap-3 flex-wrap justify-end">
                 {cashSessionState.isOpened && cashSessionState.activeSession && (
-                  <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
+                  <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
                     <div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Fondo Apertura</div>
                       <div className="font-extrabold text-slate-700">
@@ -1845,9 +2499,20 @@ function SalesManagementContent() {
                     <div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Ventas Efectivo</div>
                       <div className="font-extrabold text-emerald-600">
-                        {formatCurrency(cashSessionState.activeSession.salesCash)}
+                        +{formatCurrency(cashSessionState.activeSession.salesCash)}
                       </div>
                     </div>
+                    {Number(cashSessionState.activeSession.totalExpenses) > 0 && (
+                      <>
+                        <div className="h-6 w-px bg-slate-200" />
+                        <div>
+                          <div className="text-[10px] text-rose-500 font-bold uppercase">Salidas Emerg.</div>
+                          <div className="font-extrabold text-rose-600">
+                            -{formatCurrency(cashSessionState.activeSession.totalExpenses)}
+                          </div>
+                        </div>
+                      </>
+                    )}
                     <div className="h-6 w-px bg-slate-200" />
                     <div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Digital (Yape/POS)</div>
@@ -1857,7 +2522,7 @@ function SalesManagementContent() {
                     </div>
                     <div className="h-6 w-px bg-slate-200" />
                     <div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Total en Gaveta</div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Efectivo en Gaveta</div>
                       <div className="font-extrabold text-red-700">
                         {formatCurrency(cashSessionState.activeSession.expectedAmount)}
                       </div>
@@ -1866,23 +2531,39 @@ function SalesManagementContent() {
                 )}
 
                 {cashSessionState.isOpened ? (
-                  <Button
-                    onClick={() => {
-                      setCountedCashInput("");
-                      setCloseNotesInput("");
-                      setCloseCashModal(true);
-                    }}
-                    variant="outline"
-                    className="border-red-300 hover:bg-red-50 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Cerrar / Arqueo de Caja</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => {
+                        setExpenseAmount("");
+                        setExpenseReason("");
+                        setExpenseModalOpen(true);
+                      }}
+                      variant="outline"
+                      className="border-amber-300 hover:bg-amber-50 text-amber-800 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <ArrowDownCircle className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Salida de Emergencia</span>
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setCountedCashInput("");
+                        setCloseNotesInput("");
+                        setCloseDenominations(INITIAL_DENOMINATIONS);
+                        setCloseCashModal(true);
+                      }}
+                      variant="outline"
+                      className="border-red-300 hover:bg-red-50 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Cerrar / Arqueo de Caja</span>
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     onClick={() => {
-                      setInitialCashInput("100.00");
+                      setInitialCashInput("0.00");
                       setOpenNotesInput("");
+                      setOpenDenominations(INITIAL_DENOMINATIONS);
                       setOpenCashModal(true);
                     }}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -1894,6 +2575,54 @@ function SalesManagementContent() {
               </div>
             </div>
           </Card>
+
+          {/* Tarjeta de Salidas y Movimientos de Emergencia de la Caja */}
+          {cashSessionState.isOpened &&
+            cashSessionState.activeSession?.movements &&
+            cashSessionState.activeSession.movements.length > 0 && (
+              <Card className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 shadow-xs">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-amber-200/80">
+                  <div className="flex items-center gap-2">
+                    <ArrowDownCircle className="w-4 h-4 text-amber-700" />
+                    <span className="text-xs font-bold text-amber-950">
+                      Salidas de Emergencia y Egresos de Caja ({cashSessionState.activeSession.movements.length})
+                    </span>
+                  </div>
+                  <span className="text-xs font-black text-rose-700">
+                    Total Retirado: -S/ {cashSessionState.activeSession.totalExpenses.toFixed(2)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {cashSessionState.activeSession.movements.map((mov) => (
+                    <div
+                      key={`mov-${mov.id}`}
+                      className="p-2.5 rounded-xl bg-white border border-amber-200 text-xs flex flex-col justify-between shadow-2xs"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="text-rose-700 font-extrabold">
+                            -S/ {mov.amount.toFixed(2)}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            {new Date(mov.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-700 mt-1 font-medium">
+                          {mov.reason}
+                        </p>
+                      </div>
+                      <div className="mt-2 pt-1 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                        <span className="text-emerald-700 font-semibold">Asiento Contable ✔</span>
+                        <span>Caja Chica</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Columna Izquierda: Selección de Comanda a Cobrar */}
@@ -1940,9 +2669,29 @@ function SalesManagementContent() {
                               {formatCurrency(c.total)}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-500 flex justify-between">
+                          <div className="text-[11px] text-slate-500 flex justify-between mb-1.5">
                             <span>Comanda {c.code}</span>
                             <span>{c.items.length} productos</span>
+                          </div>
+
+                          {/* Vista previa de lo ordenado para control de caja */}
+                          <div className="bg-white/80 p-2 rounded-lg border border-slate-200/60 flex flex-col gap-1">
+                            {c.items.map((it, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-[11px]">
+                                <span className="truncate pr-2">
+                                  <strong className="text-red-700 font-mono mr-1">{it.quantity}x</strong>
+                                  {it.name || (it as any).dishName}
+                                  {it.notes && (
+                                    <span className="text-[10px] text-amber-700 italic ml-1">
+                                      ({it.notes})
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-semibold shrink-0 text-slate-700">
+                                  S/ {it.subtotal.toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );
@@ -1981,19 +2730,68 @@ function SalesManagementContent() {
                   <div className="flex flex-col gap-4">
                     {/* Desglose de Productos */}
                     <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
-                      <span className="font-bold text-slate-700 mb-2 block">
-                        Consumo de la Cuenta:
-                      </span>
-                      <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-slate-800">
+                          Consumo de la Cuenta ({orderToCharge.items.length} productos):
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              openEditOrder({
+                                id: orderToCharge.id,
+                                tableNote: orderToCharge.notes,
+                                items: orderToCharge.items,
+                                orderType: orderToCharge.orderType,
+                                status: orderToCharge.status,
+                                table: orderToCharge.table,
+                              })
+                            }
+                            className="h-7 text-[11px] font-bold text-red-700 border-red-200 hover:bg-red-50 rounded-lg cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            + Adicionar Platos
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setViewOrderModal({
+                                open: true,
+                                order: orderToCharge,
+                                tableName: paymentSource,
+                              })
+                            }
+                            className="h-7 text-[11px] font-semibold text-slate-600 hover:text-slate-900 rounded-lg cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            Ver Todo
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 max-h-44 overflow-y-auto pr-1">
                         {orderToCharge.items.map((it, idx) => (
                           <div
                             key={idx}
-                            className="flex justify-between py-1 border-b border-slate-200/50 last:border-none text-slate-700"
+                            className="flex justify-between py-1.5 border-b border-slate-200/50 last:border-none text-slate-700"
                           >
-                            <span>
-                              {it.quantity}x {it.name}
-                            </span>
-                            <span className="font-semibold">
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <span className="font-medium">
+                                <strong className="text-red-700 font-mono mr-1.5">
+                                  {it.quantity}x
+                                </strong>
+                                {it.name || (it as any).dishName}
+                              </span>
+                              {it.notes && (
+                                <span className="text-[10px] text-amber-700 italic">
+                                  Nota: &quot;{it.notes}&quot;
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-bold shrink-0 text-slate-900">
                               S/ {it.subtotal.toFixed(2)}
                             </span>
                           </div>
@@ -2992,6 +3790,160 @@ function SalesManagementContent() {
       </Dialog>
 
       {/* =================================================================== */}
+      {/* MODAL: VER DETALLE COMPLETO DE COMANDA EN TODO MOMENTO */}
+      {/* =================================================================== */}
+      <Dialog
+        open={viewOrderModal.open}
+        onOpenChange={(open) => setViewOrderModal((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl p-4 sm:p-6 bg-white">
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-8">
+              <span className="flex items-center gap-2">
+                <Utensils className="w-5 h-5 text-red-700" />
+                <span>
+                  {viewOrderModal.tableName ||
+                    (viewOrderModal.order?.table
+                      ? `Mesa #${viewOrderModal.order.table.number}`
+                      : "Pedido")}
+                </span>
+              </span>
+              {viewOrderModal.order && (
+                <Badge
+                  className={
+                    viewOrderModal.order.status === "Served"
+                      ? "bg-emerald-600 text-white"
+                      : viewOrderModal.order.status === "Preparing"
+                      ? "bg-amber-500 text-white"
+                      : "bg-blue-600 text-white"
+                  }
+                >
+                  {viewOrderModal.order.status === "Served"
+                    ? "Servido"
+                    : viewOrderModal.order.status === "Preparing"
+                    ? "En Preparación"
+                    : "Recibido"}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewOrderModal.order && (
+            <div className="flex flex-col gap-4 mt-2">
+              <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <span className="font-mono font-bold text-slate-800">
+                  Comanda: {viewOrderModal.order.code}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  {new Date(viewOrderModal.order.orderedAt).toLocaleTimeString("es-PE", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+
+              {viewOrderModal.order.notes && (
+                <div className="text-xs bg-amber-50 border border-amber-200/80 p-2.5 rounded-xl text-amber-900">
+                  <strong className="block text-[11px] uppercase tracking-wider text-amber-800 mb-0.5">
+                    Observación de la Mesa:
+                  </strong>
+                  &quot;{viewOrderModal.order.notes}&quot;
+                </div>
+              )}
+
+              <div>
+                <span className="text-xs font-bold text-slate-800 block mb-2">
+                  Platos y Productos Ordenados ({viewOrderModal.order.items.length}):
+                </span>
+                <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1">
+                  {viewOrderModal.order.items.map((it, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs"
+                    >
+                      <div className="flex-1 mr-2">
+                        <span className="font-bold text-slate-900 block">
+                          <span className="text-red-700 mr-1.5 font-mono">
+                            {it.quantity}x
+                          </span>
+                          {it.name || (it as any).dishName}
+                        </span>
+                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                          <span>Unitario: S/ {it.unitPrice.toFixed(2)}</span>
+                          {it.notes && (
+                            <span className="text-[10px] text-amber-700 bg-amber-100/60 px-1.5 py-0.2 rounded italic">
+                              &quot;{it.notes}&quot;
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="font-bold text-slate-900 font-mono text-sm shrink-0">
+                        S/ {it.subtotal.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 flex flex-col gap-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal Base (sin IGV):</span>
+                  <span className="font-semibold">
+                    S/ {(viewOrderModal.order.total / 1.18).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>IGV (18% incluido):</span>
+                  <span className="font-semibold">
+                    S/ {(viewOrderModal.order.total - viewOrderModal.order.total / 1.18).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-900 font-extrabold text-base pt-1 border-t border-slate-200 mt-1">
+                  <span>TOTAL DE LA CUENTA:</span>
+                  <span className="text-red-700">
+                    {formatCurrency(viewOrderModal.order.total)}
+                  </span>
+                </div>
+              </div>
+
+              <DialogFooter className="flex gap-2 pt-2 border-t border-slate-200">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewOrderModal((prev) => ({ ...prev, open: false }))}
+                  className="text-xs font-semibold rounded-xl"
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const ord = viewOrderModal.order;
+                    setViewOrderModal({ open: false, order: null });
+                    if (ord) {
+                      openEditOrder({
+                        id: ord.id,
+                        tableNote: ord.notes,
+                        items: ord.items,
+                        orderType: ord.orderType,
+                        status: ord.status,
+                        table: ord.table,
+                      });
+                    }
+                  }}
+                  className="bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Adicionar más platos</span>
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
       {/* MODAL 2: COBRO MÓVIL DEL MOZO (CON CELULAR / TAP TO PAY / YAPE) */}
       {/* =================================================================== */}
       <Dialog open={waiterPaymentModalOpen} onOpenChange={setWaiterPaymentModalOpen}>
@@ -3765,32 +4717,62 @@ function SalesManagementContent() {
       </Dialog>
 
       {/* =================================================================== */}
-      {/* MODAL 1: APERTURA DE TURNO DE CAJA */}
+      {/* MODAL 1: APERTURA DE TURNO DE CAJA CON ARQUEO DE BILLETES Y MONEDAS */}
       {/* =================================================================== */}
       <Dialog open={openCashModal} onOpenChange={setOpenCashModal}>
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl p-6">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-5 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
-                <Unlock className="w-5 h-5" />
+            <DialogTitle className="text-base font-bold text-slate-800 flex items-center justify-between pr-6">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                  <Unlock className="w-5 h-5" />
+                </div>
+                <span>Apertura de Turno de Caja</span>
               </div>
-              <span>Apertura de Turno de Caja</span>
+              <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                Conectado a Contabilidad
+              </Badge>
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
-              <p className="font-semibold text-slate-800">
-                {cashSessionState.register?.name || "Caja Principal - Salón"}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Al aperturar la caja, se habilitará el cobro de comandas y la emisión de Boletas y Facturas.
-              </p>
+            <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl text-emerald-900 flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-emerald-950">
+                  {cashSessionState.register?.name || "Caja Principal - Salón"}
+                </p>
+                <p className="text-[11px] text-emerald-800 mt-0.5">
+                  El arqueo inicial quedará registrado en el Libro Diario contable (Asiento de Caja y Bancos) para el control del contador.
+                </p>
+              </div>
             </div>
 
+            {/* Contador Interactivo de Billetes y Monedas */}
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-emerald-600" />
+                  <span>Arqueo de Billetes y Monedas (Sencillo de Inicio)</span>
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  Total calculado: <strong className="text-emerald-700 font-extrabold">S/ {initialCashInput}</strong>
+                </span>
+              </div>
+
+              <DenominationsCounter
+                value={openDenominations}
+                onChange={(updated, total) => {
+                  setOpenDenominations(updated);
+                  setInitialCashInput(total.toFixed(2));
+                }}
+              />
+            </div>
+
+            {/* Input Manual / Ajuste del Fondo */}
+            <div className="pt-1">
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Fondo Inicial en Gaveta / Sencillo (S/.)
+                Monto Inicial Total en Gaveta (S/.)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
@@ -3803,15 +4785,15 @@ function SalesManagementContent() {
                   value={initialCashInput}
                   onChange={(e) => setInitialCashInput(e.target.value)}
                   placeholder="0.00"
-                  className="pl-8 text-sm font-bold text-slate-800 rounded-xl"
-                  autoFocus
+                  className="pl-8 text-sm font-bold text-slate-800 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
                 />
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
-                Monto en efectivo con el que inicia la jornada para cambio/vuelto.
+                Puedes ajustar el total directamente o contar las unidades arriba.
               </p>
             </div>
 
+            {/* Observaciones de Apertura */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 Observaciones de Apertura (Opcional)
@@ -3819,7 +4801,7 @@ function SalesManagementContent() {
               <textarea
                 value={openNotesInput}
                 onChange={(e) => setOpenNotesInput(e.target.value)}
-                placeholder="Ej. Billetes de 20 y monedas variadas recibidas de administración..."
+                placeholder="Ej. Recibido de administración para turno mañana..."
                 rows={2}
                 className="w-full text-xs rounded-xl border border-slate-200 p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
@@ -3859,16 +4841,21 @@ function SalesManagementContent() {
       </Dialog>
 
       {/* =================================================================== */}
-      {/* MODAL 2: CIERRE Y ARQUEO DE CAJA */}
+      {/* MODAL 2: CIERRE Y ARQUEO DE CAJA CON BILLETES Y MONEDAS */}
       {/* =================================================================== */}
       <Dialog open={closeCashModal} onOpenChange={setCloseCashModal}>
-        <DialogContent className="sm:max-w-lg bg-white rounded-2xl p-6">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-5 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <div className="p-2 bg-red-100 text-red-700 rounded-xl">
-                <Lock className="w-5 h-5" />
+            <DialogTitle className="text-base font-bold text-slate-800 flex items-center justify-between pr-6">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-red-100 text-red-700 rounded-xl">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <span>Cierre y Arqueo de Caja</span>
               </div>
-              <span>Cierre y Arqueo de Caja</span>
+              <Badge className="bg-red-100 text-red-800 text-[10px] font-bold">
+                Asiento Contable SUNAT
+              </Badge>
             </DialogTitle>
           </DialogHeader>
 
@@ -3880,18 +4867,24 @@ function SalesManagementContent() {
 
             return (
               <div className="space-y-4 py-2 text-xs">
-                {/* Desglose de ingresos */}
-                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                {/* Desglose de ingresos y egresos de la sesión */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                   <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Fondo Apertura</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Fondo Inicio</span>
                     <span className="text-xs font-bold text-slate-700">
                       {formatCurrency(cashSessionState.activeSession.initialAmount)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Ventas en Efectivo</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Ventas Efectivo</span>
                     <span className="text-xs font-bold text-emerald-600">
-                      + {formatCurrency(cashSessionState.activeSession.salesCash)}
+                      +{formatCurrency(cashSessionState.activeSession.salesCash)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Salidas Emerg.</span>
+                    <span className="text-xs font-bold text-rose-600">
+                      -{formatCurrency(cashSessionState.activeSession.totalExpenses || 0)}
                     </span>
                   </div>
                   <div>
@@ -3900,18 +4893,39 @@ function SalesManagementContent() {
                       {formatCurrency(cashSessionState.activeSession.salesOther)}
                     </span>
                   </div>
-                  <div className="border-t pt-1.5 col-span-2 flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-slate-800">Total Esperado en Gaveta:</span>
-                    <span className="text-sm font-extrabold text-red-700">
+                  <div className="border-t pt-2 col-span-2 sm:col-span-4 flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-800">Efectivo Real Esperado en Gaveta:</span>
+                    <span className="text-sm font-black text-red-700">
                       {formatCurrency(exp)}
                     </span>
                   </div>
                 </div>
 
-                {/* Input de Efectivo Contado Físicamente */}
+                {/* Arqueo Detallado de Billetes y Monedas */}
                 <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Banknote className="w-4 h-4 text-emerald-600" />
+                      <span>Conteo Físico de Billetes y Monedas</span>
+                    </label>
+                    <span className="text-[11px] text-slate-500">
+                      Total Contado: <strong className="text-red-700 font-extrabold">S/ {countedCashInput || "0.00"}</strong>
+                    </span>
+                  </div>
+
+                  <DenominationsCounter
+                    value={closeDenominations}
+                    onChange={(updated, total) => {
+                      setCloseDenominations(updated);
+                      setCountedCashInput(total.toFixed(2));
+                    }}
+                  />
+                </div>
+
+                {/* Input de Efectivo Contado Físicamente */}
+                <div className="pt-1">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Efectivo Real Contado en Gaveta (S/.) *
+                    Efectivo Total Contado en Gaveta (S/.) *
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
@@ -3924,13 +4938,9 @@ function SalesManagementContent() {
                       value={countedCashInput}
                       onChange={(e) => setCountedCashInput(e.target.value)}
                       placeholder="0.00"
-                      className="pl-8 text-sm font-bold text-slate-800 rounded-xl"
-                      autoFocus
+                      className="pl-8 text-sm font-bold text-slate-800 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Cuente físicamente los billetes y monedas que se encuentran en el cajón de dinero.
-                  </p>
                 </div>
 
                 {/* Comparador y cálculo de discrepancia */}
@@ -4025,10 +5035,151 @@ function SalesManagementContent() {
       </Dialog>
 
       {/* =================================================================== */}
+      {/* MODAL 7: SALIDA DE DINERO POR EMERGENCIA (EGRESO DE CAJA) */}
+      {/* =================================================================== */}
+      <Dialog open={expenseModalOpen} onOpenChange={setExpenseModalOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-md bg-white rounded-2xl p-5 sm:p-6">
+          <DialogHeader className="pb-2 border-b border-slate-200">
+            <DialogTitle className="text-base font-bold text-amber-900 flex items-center gap-2">
+              <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                <ArrowDownCircle className="w-5 h-5" />
+              </div>
+              <span>Salida de Caja por Emergencia</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3 text-xs">
+            {/* Alerta de Contabilidad */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-amber-950">
+                  Descuento de Gaveta e Integración Contable
+                </p>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  El monto retirado se descontará del saldo esperado en caja y generará automáticamente un asiento de gasto menor en el Libro Diario para el contador.
+                </p>
+              </div>
+            </div>
+
+            {/* Saldo actual en gaveta */}
+            {cashSessionState.activeSession && (
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Saldo actual en gaveta:</span>
+                <span className="text-sm font-black text-slate-800">
+                  {formatCurrency(cashSessionState.activeSession.expectedAmount)}
+                </span>
+              </div>
+            )}
+
+            {/* Input Monto */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                ¿Cuánto dinero sacaste? (S/.) *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                  S/
+                </span>
+                <Input
+                  type="number"
+                  step="0.50"
+                  min="0.10"
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-8 text-sm font-bold text-slate-800 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
+                  autoFocus
+                />
+              </div>
+
+              {/* Botones rápidos de monto */}
+              <div className="flex gap-1.5 pt-2">
+                {["10.00", "20.00", "30.00", "50.00", "100.00"].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setExpenseAmount(preset)}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200"
+                  >
+                    S/ {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Input Motivo */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                ¿Por qué lo sacaste? (Motivo o Justificación) *
+              </label>
+              <textarea
+                value={expenseReason}
+                onChange={(e) => setExpenseReason(e.target.value)}
+                placeholder="Ej. Balón de gas de cocina se terminó, compra urgente de bolsas y envases, delivery de emergencia..."
+                rows={3}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+
+              {/* Botones rápidos de motivos comunes */}
+              <div className="flex flex-wrap gap-1.5 pt-1.5">
+                {[
+                  "Compra urgente de balón de gas",
+                  "Compra de verduras e insumos frescos",
+                  "Bolsas y envases descartables",
+                  "Pago de delivery / transporte de emergencia",
+                  "Mantenimiento o reparación urgente",
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setExpenseReason(preset)}
+                    className="text-[10px] px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-colors cursor-pointer"
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExpenseModalOpen(false)}
+              disabled={savingExpense}
+              className="text-xs font-semibold rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRegisterExpense}
+              disabled={savingExpense || !expenseAmount || !expenseReason.trim()}
+              className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              {savingExpense ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" />
+                  <span>Registrando...</span>
+                </>
+              ) : (
+                <>
+                  <ArrowDownCircle className="w-3.5 h-3.5 mr-1" />
+                  <span>Confirmar Salida</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
       {/* MODAL 3: AUDITORÍA Y COMPROBANTE DE ARQUEO DE CAJA */}
       {/* =================================================================== */}
       <Dialog open={auditModalOpen} onOpenChange={setAuditModalOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl p-6">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
               <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
@@ -4065,6 +5216,12 @@ function SalesManagementContent() {
                   <span>Ventas en Efectivo:</span>
                   <span className="font-semibold text-emerald-600">+{formatCurrency(lastClosedAudit.salesCash)}</span>
                 </div>
+                {Number(lastClosedAudit.totalExpenses) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Salidas de Emergencia:</span>
+                    <span className="font-semibold text-rose-600">-{formatCurrency(lastClosedAudit.totalExpenses)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-slate-600">
                   <span>Ventas Digitales:</span>
                   <span className="font-semibold text-blue-600">{formatCurrency(lastClosedAudit.salesOther)}</span>
@@ -4093,11 +5250,21 @@ function SalesManagementContent() {
                       : `-S/ ${Math.abs(lastClosedAudit.difference).toFixed(2)} (Faltante)`}
                   </span>
                 </div>
+                {lastClosedAudit.denominationsSummary && (
+                  <div className="text-[11px] text-slate-600 pt-2 border-t border-slate-200">
+                    <span className="font-bold text-slate-700 block mb-0.5">Desglose físico:</span>
+                    <span>{lastClosedAudit.denominationsSummary}</span>
+                  </div>
+                )}
                 {lastClosedAudit.notesClosing && (
                   <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200 italic">
                     Notas: &ldquo;{lastClosedAudit.notesClosing}&rdquo;
                   </div>
                 )}
+                <div className="mt-2 pt-2 border-t border-emerald-200/60 bg-emerald-50/50 p-2 rounded-lg text-[10px] text-emerald-800 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Asientos contables comunicados y registrados en el Libro Diario para el contador.</span>
+                </div>
               </div>
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Calculator } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
@@ -23,22 +24,33 @@ import {
   type JournalEntriesPage,
   type JournalEntrySort,
 } from "@/lib/services/journal-entries.service";
+import { exportJournalEntriesToExcel } from "@/lib/services/accounting-export.service";
 
 /**
  * Journal entries consultation screen.
  * Presentation logic lives in ./<Component>Asientos.tsx and data access
  * in lib/services/asientos.service.ts.
  */
-export default function AsientosPage() {
+function AsientosPageContent() {
+  const searchParams = useSearchParams();
+  const journalParam = searchParams.get("journal");
+
   // ---------------------------------------------------------------------
   // Filters (all applied simultaneously)
   // ---------------------------------------------------------------------
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-  const [journal, setJournal] = useState<string>("todos");
+  const [journal, setJournal] = useState<string>(journalParam || "todos");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+
+  useEffect(() => {
+    if (journalParam) {
+      setJournal(journalParam);
+      setPage(1);
+    }
+  }, [journalParam]);
 
   // Order and pagination
   const [order, setOrder] = useState<{ field: JournalEntrySort; dir: SortDirection }>({
@@ -70,6 +82,27 @@ export default function AsientosPage() {
 
   // Row selection
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [exporting, setExporting] = useState<boolean>(false);
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      await exportJournalEntriesToExcel({
+        filters: {
+          desde: from,
+          hasta: to,
+          diario: journal === "todos" ? "" : journal,
+          estado: statusFilter === "todos" ? "" : statusFilter,
+          q: search,
+          orden: order.field,
+          dir: order.dir,
+        },
+        journalTitle: journal,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Debounced search
   useEffect(() => {
@@ -302,6 +335,8 @@ export default function AsientosPage() {
               onSearch={setSearchQuery}
               onClearSearch={clearSearch}
               onNew={() => setNewOpen(true)}
+              onExport={handleExport}
+              exporting={exporting}
               fromShown={fromShown}
               toShown={toShown}
               total={total}
@@ -388,3 +423,18 @@ export default function AsientosPage() {
     </>
   );
 }
+
+export default function AsientosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 p-6 flex items-center justify-center text-xs text-slate-400">
+          Cargando asientos contables...
+        </div>
+      }
+    >
+      <AsientosPageContent />
+    </Suspense>
+  );
+}
+
