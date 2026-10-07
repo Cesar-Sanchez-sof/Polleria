@@ -62,7 +62,7 @@ export function AccountsToolbar({
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-55 md:min-w-70">
           <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
           <Input
-            className="bg-transparent border-none outline-none text-xs placeholder:text-slate-400 w-full focus-visible:ring-0 shadow-none h-6 py-0 px-0"
+            className="bg-transparent dark:bg-transparent border-none outline-none text-xs placeholder:text-slate-400 w-full focus-visible:ring-0 shadow-none h-6 py-0 px-0"
             placeholder="Código, nombre o tipo de cuenta..."
             type="text"
             value={q}

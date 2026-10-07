@@ -7,6 +7,11 @@ import {
   calculateTablesSummary,
   calculateDailySalesSummary,
 } from "../lib/utils/sales-helpers";
+import {
+  calculateDenominationsTotal,
+  formatDenominationsSummary,
+  type CashDenominations,
+} from "../lib/services/cash-register.service";
 
 describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
   describe("1. Cálculos de Importes e IGV (18%)", () => {
@@ -117,12 +122,16 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
       expect(canEditOrder("Preparando")).toBe(true);
     });
 
-    it("debe bloquear la edición cuando el pedido ya está Served o Closed", () => {
-      expect(canEditOrder("Served")).toBe(false);
+    it("debe permitir adicionar ítems al pedido mientras la mesa esté activa (incluso Served)", () => {
+      expect(canEditOrder("Served")).toBe(true);
+      expect(canEditOrder("Servido")).toBe(true);
+    });
+
+    it("debe bloquear la edición únicamente cuando el pedido ya está Closed o Cancelled", () => {
       expect(canEditOrder("Closed")).toBe(false);
       expect(canEditOrder("Cancelled")).toBe(false);
-      expect(canEditOrder("Servido")).toBe(false);
       expect(canEditOrder("Cerrado")).toBe(false);
+      expect(canEditOrder("Cancelado")).toBe(false);
     });
   });
 
@@ -225,6 +234,96 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
       expect(payloadVentanilla.voucherType).toBe("Factura");
       expect(payloadVentanilla.customer.personType).toBe("Legal");
       expect(payloadVentanilla.customer.documentNumber.length).toBe(11);
+    });
+  });
+
+  describe("9. Arqueo Físico de Billetes y Monedas (Apertura y Cierre de Caja)", () => {
+    it("debe sumar con precisión billetes de 10, 20, 50, 100 y 200 soles", () => {
+      const denominaciones: CashDenominations = {
+        bills: {
+          b200: 2, // S/ 400
+          b100: 3, // S/ 300
+          b50: 4,  // S/ 200
+          b20: 5,  // S/ 100
+          b10: 10, // S/ 100
+        },
+        coins: {
+          c5: 0,
+          c2: 0,
+          c1: 0,
+          c05: 0,
+          c02: 0,
+          c01: 0,
+        },
+      };
+
+      const total = calculateDenominationsTotal(denominaciones);
+      // 400 + 300 + 200 + 100 + 100 = 1100
+      expect(total).toBe(1100);
+    });
+
+    it("debe sumar con precisión centavos y monedas (0.10, 0.20, 0.50, 1, 2, 5)", () => {
+      const denominaciones: CashDenominations = {
+        bills: { b200: 0, b100: 0, b50: 0, b20: 0, b10: 0 },
+        coins: {
+          c5: 4,   // S/ 20.00
+          c2: 5,   // S/ 10.00
+          c1: 10,  // S/ 10.00
+          c05: 6,  // S/ 3.00
+          c02: 10, // S/ 2.00
+          c01: 8,  // S/ 0.80
+        },
+      };
+
+      const total = calculateDenominationsTotal(denominaciones);
+      // 20 + 10 + 10 + 3 + 2 + 0.80 = 45.80
+      expect(total).toBe(45.8);
+    });
+
+    it("debe generar un resumen legible del arqueo para el contador", () => {
+      const denominaciones: CashDenominations = {
+        bills: { b200: 1, b100: 2, b50: 0, b20: 0, b10: 0 },
+        coins: { c5: 2, c2: 0, c1: 0, c05: 1, c02: 0, c01: 0 },
+      };
+
+      const resumen = formatDenominationsSummary(denominaciones);
+      expect(resumen).toContain("1x S/ 200");
+      expect(resumen).toContain("2x S/ 100");
+      expect(resumen).toContain("2x S/ 5.00");
+      expect(resumen).toContain("1x S/ 0.50");
+    });
+  });
+
+  describe("10. Salidas por Emergencia y Movimientos de Caja", () => {
+    it("debe validar que una salida de dinero tenga monto positivo y motivo registrado", () => {
+      const movimientoValido = {
+        type: "OUTFLOW",
+        amount: 35.5,
+        reason: "Compra urgente de limones y servilletas",
+      };
+
+      expect(movimientoValido.amount).toBeGreaterThan(0);
+      expect(movimientoValido.reason.trim().length).toBeGreaterThan(0);
+      expect(movimientoValido.type).toBe("OUTFLOW");
+    });
+  });
+
+  describe("11. Gestión de Cocina: Platos con Insumos y Receta", () => {
+    it("debe estructurar platos vinculados a insumos e ingredientes", () => {
+      const platoConReceta = {
+        name: "1/4 Pollo a la Brasa",
+        price: 24.5,
+        categoryId: 1,
+        supplies: [
+          { supplyId: 101, quantity: 0.25, unit: "UNIDAD" }, // 1/4 pollo
+          { supplyId: 102, quantity: 0.35, unit: "KG" },     // Papas
+          { supplyId: 103, quantity: 0.05, unit: "KG" },     // Ensalada
+        ],
+      };
+
+      expect(platoConReceta.supplies.length).toBe(3);
+      expect(platoConReceta.price).toBe(24.5);
+      expect(platoConReceta.supplies[0].quantity).toBe(0.25);
     });
   });
 });

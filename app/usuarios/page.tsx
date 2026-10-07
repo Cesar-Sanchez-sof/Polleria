@@ -83,8 +83,8 @@ export default function UsuariosPage() {
       )}
 
       <Table>
-        <TableHeader>
-          <TableRow>
+        <TableHeader >
+          <TableRow className="dark:bg-slate-800/75">
             <TableHead>Nombre</TableHead>
             <TableHead>Documento</TableHead>
             <TableHead>Usuario</TableHead>

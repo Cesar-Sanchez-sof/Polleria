@@ -22,7 +22,7 @@ export function BalanceSheetFilters({
 }: Readonly<Props>) {
   return (
     <div className="flex flex-col gap-2 print:hidden">
-      <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 rounded-lg px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 dark:bg-slate-800/75 rounded-lg px-3 py-2.5">
         <div className="flex flex-row items-center gap-2">
           <label
             htmlFor="balance-as-of"

@@ -159,7 +159,7 @@ export function JournalEntryDetail({
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <Table className="w-full text-left border-collapse min-w-160">
                   <TableHeader>
-                    <TableRow className="bg-slate-50/75 hover:bg-slate-50/75 text-slate-900">
+                    <TableRow className="bg-slate-50/75 hover:bg-slate-50/75 text-slate-900 dark:bg-slate-800/75">
                       <TableHead className="py-2.5 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">Cuenta contable</TableHead>
                       <TableHead className="py-2.5 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">Descripción</TableHead>
                       <TableHead className="py-2.5 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] text-right">Debe</TableHead>

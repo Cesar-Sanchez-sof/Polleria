@@ -29,6 +29,8 @@ const ACCOUNT_CODES = {
   igvCredit: "167",       // IGV crédito fiscal (Elemento 1)
   sales: "701",
   costOfSales: "691",
+  otherExpenses: "659",   // Otros Gastos de Gestión (salidas de caja chica / emergencias / faltantes)
+  otherIncomes: "701",    // Ventas / Otros ingresos (sobrantes de caja)
 } as const;
 
 /** Estimated COGS as % of net sales when there is no recipe/BOM costing. */
@@ -86,9 +88,22 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
   const map = new Map(accounts.map((a) => [a.code, a.id]));
   const missing = unique.filter((c) => !map.has(c));
   if (missing.length > 0) {
-    throw new Error(
-      `Faltan cuentas contables activas en el plan (${missing.join(", ")}). Ejecuta el seed de cuentas.`,
-    );
+    for (const code of missing) {
+      const defaultName =
+        code === "659" ? "Otros Gastos de Gestión" :
+        code === "101" ? "Caja" :
+        code === "104" ? "Bancos - Cuentas Corrientes" :
+        code === "701" ? "Ventas de Mercaderías" :
+        `Cuenta ${code}`;
+      const defaultType = code.startsWith("1") ? "Activo" : code.startsWith("6") ? "Gasto" : "Ingreso";
+      const created = await tx.accountingAccount.upsert({
+        where: { code },
+        update: { active: true },
+        create: { code, name: defaultName, type: defaultType, active: true },
+        select: { id: true, code: true },
+      });
+      map.set(created.code, created.id);
+    }
   }
   return map;
 }
@@ -524,4 +539,177 @@ export async function postSaleJournalEntriesStandalone(
   input: PostSaleJournalInput,
 ): Promise<number[]> {
   return prisma.$transaction((tx) => postSaleJournalEntries(tx, input));
+}
+
+export interface PostCashSessionOpeningInput {
+  sessionId: number;
+  initialAmount: number;
+  entryDate?: Date;
+  responsible?: string;
+  denominationsSummary?: string;
+}
+
+/**
+ * Registra asiento contable de apertura de caja (habilitación de fondo fijo).
+ * Libro: Caja y bancos
+ * DEBE: 101 Caja (ingreso de efectivo a gaveta)
+ * HABER: 104 Bancos / Fondos (salida de cuenta central)
+ */
+export async function postCashSessionOpeningJournalEntry(
+  tx: Tx,
+  input: PostCashSessionOpeningInput,
+): Promise<number | null> {
+  const amount = round2(input.initialAmount);
+  if (amount <= 0) return null;
+
+  const accounts = await resolveAccountIds(tx, [
+    ACCOUNT_CODES.cash,
+    ACCOUNT_CODES.banks,
+  ]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  const observation = input.denominationsSummary
+    ? `Apertura de turno de caja #${input.sessionId}. Arqueo inicial: ${input.denominationsSummary}`
+    : `Apertura de turno de caja #${input.sessionId}.`;
+
+  return createBalancedEntry(tx, {
+    date,
+    description: `Apertura de caja - Fondo inicial S/ ${amount.toFixed(2)} (Turno #${input.sessionId})`,
+    book: BOOK_CASH,
+    responsible: input.responsible ?? "Cajero",
+    observation,
+    debitAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+    creditAccountId: accounts.get(ACCOUNT_CODES.banks)!,
+    amount,
+    debitLineDescription: "Ingreso de efectivo a caja de salón (Fondo inicial)",
+    creditLineDescription: "Habilitación de fondos para caja",
+  });
+}
+
+export interface PostCashMovementExpenseInput {
+  sessionId: number;
+  amount: number;
+  reason: string;
+  entryDate?: Date;
+  responsible?: string;
+}
+
+/**
+ * Registra asiento contable por salida de caja por emergencia o gasto menor.
+ * Libro: Caja y bancos
+ * DEBE: 659 Otros Gastos de Gestión
+ * HABER: 101 Caja
+ */
+export async function postCashMovementExpenseJournalEntry(
+  tx: Tx,
+  input: PostCashMovementExpenseInput,
+): Promise<number> {
+  const amount = round2(input.amount);
+  if (amount <= 0) throw new Error("El monto de la salida de caja debe ser mayor a 0.");
+
+  const accounts = await resolveAccountIds(tx, [
+    ACCOUNT_CODES.otherExpenses,
+    ACCOUNT_CODES.cash,
+  ]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  return createBalancedEntry(tx, {
+    date,
+    description: `Salida de caja por emergencia: ${input.reason.slice(0, 100)} (Turno #${input.sessionId})`,
+    book: BOOK_CASH,
+    responsible: input.responsible ?? "Cajero",
+    observation: `Egreso de caja chica - Motivo: ${input.reason}`,
+    debitAccountId: accounts.get(ACCOUNT_CODES.otherExpenses)!,
+    creditAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+    amount,
+    debitLineDescription: `Gasto de emergencia: ${input.reason.slice(0, 150)}`,
+    creditLineDescription: "Salida de efectivo de gaveta",
+  });
+}
+
+export interface PostCashSessionClosingInput {
+  sessionId: number;
+  countedAmount: number;
+  expectedAmount: number;
+  difference: number;
+  entryDate?: Date;
+  responsible?: string;
+  denominationsSummary?: string;
+}
+
+/**
+ * Registra asiento contable por cierre y arqueo de caja registradora.
+ * 1. Depósito / traslado de recaudación a Banco (104 Debe / 101 Haber).
+ * 2. Si hay faltante (difference < 0): 659 Debe / 101 Haber.
+ * 3. Si hay sobrante (difference > 0): 101 Debe / 701 Haber.
+ */
+export async function postCashSessionClosingJournalEntries(
+  tx: Tx,
+  input: PostCashSessionClosingInput,
+): Promise<number[]> {
+  const entryIds: number[] = [];
+  const counted = round2(input.countedAmount);
+  const diff = round2(input.difference);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  const accounts = await resolveAccountIds(tx, [
+    ACCOUNT_CODES.cash,
+    ACCOUNT_CODES.banks,
+    ACCOUNT_CODES.otherExpenses,
+    ACCOUNT_CODES.otherIncomes,
+  ]);
+
+  // 1. Depósito o arqueo de cierre a Banco/Custodia
+  if (counted > 0) {
+    const depositEntryId = await createBalancedEntry(tx, {
+      date,
+      description: `Cierre y arqueo de caja - Recaudación depositada/custodia S/ ${counted.toFixed(2)} (Turno #${input.sessionId})`,
+      book: BOOK_CASH,
+      responsible: input.responsible ?? "Cajero",
+      observation: input.denominationsSummary
+        ? `Arqueo físico de cierre: ${input.denominationsSummary}`
+        : `Cierre de turno #${input.sessionId}`,
+      debitAccountId: accounts.get(ACCOUNT_CODES.banks)!,
+      creditAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+      amount: counted,
+      debitLineDescription: "Traslado / Depósito de efectivo recaudado",
+      creditLineDescription: "Liquidación y descarga de efectivo de caja",
+    });
+    entryIds.push(depositEntryId);
+  }
+
+  // 2. Registro de Faltante
+  if (diff < -0.01) {
+    const absDiff = Math.abs(diff);
+    const faltanteId = await createBalancedEntry(tx, {
+      date,
+      description: `Ajuste por Faltante de caja en arqueo S/ ${absDiff.toFixed(2)} (Turno #${input.sessionId})`,
+      book: BOOK_CASH,
+      responsible: input.responsible ?? "Cajero",
+      observation: `Descuadre en arqueo de cierre: Faltante de S/ ${absDiff.toFixed(2)}`,
+      debitAccountId: accounts.get(ACCOUNT_CODES.otherExpenses)!,
+      creditAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+      amount: absDiff,
+      debitLineDescription: "Faltante de caja registrado en arqueo",
+      creditLineDescription: "Ajuste de faltante en caja",
+    });
+    entryIds.push(faltanteId);
+  } else if (diff > 0.01) {
+    // 3. Registro de Sobrante
+    const sobranteId = await createBalancedEntry(tx, {
+      date,
+      description: `Ajuste por Sobrante de caja en arqueo S/ ${diff.toFixed(2)} (Turno #${input.sessionId})`,
+      book: BOOK_CASH,
+      responsible: input.responsible ?? "Cajero",
+      observation: `Descuadre en arqueo de cierre: Sobrante de S/ ${diff.toFixed(2)}`,
+      debitAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+      creditAccountId: accounts.get(ACCOUNT_CODES.otherIncomes)!,
+      amount: diff,
+      debitLineDescription: "Ajuste de sobrante en caja",
+      creditLineDescription: "Sobrante de caja registrado en arqueo",
+    });
+    entryIds.push(sobranteId);
+  }
+
+  return entryIds;
 }

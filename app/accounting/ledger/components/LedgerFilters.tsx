@@ -52,7 +52,7 @@ export function LedgerFilters({
 }: Readonly<Props>) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-end gap-3 bg-slate-50/70 rounded-lg px-3 py-2.5">
+      <div className="flex flex-wrap items-end gap-3 rounded-lg px-3 py-2.5">
         <div className="flex flex-col gap-1">
           <label
             htmlFor="ledger-account"
