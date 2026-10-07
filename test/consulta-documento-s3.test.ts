@@ -72,6 +72,7 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
       delete process.env.S3_ACCESS_KEY_ID;
       delete process.env.S3_SECRET_ACCESS_KEY;
 
+<<<<<<< HEAD
       try {
         const resultado = await uploadVoucherToS3({
           idComprobante: 1,
@@ -90,6 +91,12 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
         if (prevS3Key) process.env.S3_ACCESS_KEY_ID = prevS3Key;
         if (prevS3Secret) process.env.S3_SECRET_ACCESS_KEY = prevS3Secret;
       }
+=======
+      expect(resultado.estado).toBe("guardado");
+      expect(resultado.bucket).toBe("comprobantes");
+      expect(resultado.s3Key).toBeDefined();
+      expect(resultado.publicUrl).toContain(resultado.s3Key);
+>>>>>>> origin/develop
     });
 
     it("debe procesar y soportar 20 comprobantes almacenados simultáneamente a la vez sin fallar", async () => {

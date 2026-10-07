@@ -12,19 +12,28 @@ const m = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => {
   const db = {
-    usuario: {
+    user: {
       findFirst: m.usuarioFindFirst,
       findUnique: m.usuarioFindUnique,
       create: m.usuarioCreate,
       update: m.usuarioUpdate,
     },
-    empleado: { findFirst: m.empleadoFindFirst, create: m.empleadoCreate },
+    employee: {
+      findFirst: m.empleadoFindFirst,
+      create: m.empleadoCreate,
+    },
     $transaction: (fn: (tx: unknown) => unknown) => fn(db),
   };
+
   return { prisma: db };
 });
 
-import { autenticar, crearUsuario, ErrorUsuario, type DatosUsuario } from "./usuarios.service";
+import {
+  autenticar,
+  crearUsuario,
+  ErrorUsuario,
+  type DatosUsuario,
+} from "./usuarios.service";
 
 const datos: DatosUsuario = {
   primer_nombre: "Ana",
@@ -38,10 +47,29 @@ const datos: DatosUsuario = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   m.usuarioFindFirst.mockResolvedValue(null);
   m.empleadoFindFirst.mockResolvedValue(null);
-  m.empleadoCreate.mockResolvedValue({ id_empleado: 9 });
-  m.usuarioCreate.mockResolvedValue({ id_usuario: 1 });
+
+  m.empleadoCreate.mockResolvedValue({
+    id_empleado: 9,
+  });
+
+  m.usuarioCreate.mockResolvedValue({
+    id_usuario: 1,
+    username: "ana.perez",
+    correo: "ana@correo.com",
+    role: {
+      id: 1,
+      name: "Cajero",
+    },
+    employee: {
+      id: 9,
+      dni: "12345678",
+      firstName: "Ana",
+      lastName: "Pérez",
+    },
+  });
 });
 
 describe("crearUsuario", () => {
@@ -84,7 +112,17 @@ describe("crearUsuario", () => {
 
 describe("autenticar", () => {
   const hash = bcrypt.hashSync("Secreta123", 4);
-  const fila = (estado: boolean) => ({ id_usuario: 1, username: "ana", password: hash, estado, rol: { nombre: "Cajero" } });
+  const fila = (estado: boolean) => ({
+    id: 1,
+    id_usuario: 1,
+    username: "ana",
+    password: hash,
+    estado,
+    role: {
+      id: 1,
+      name: "Cajero",
+    },
+  });
 
   it("permite ingresar a un usuario activo por usuario o correo", async () => {
     m.usuarioFindFirst.mockResolvedValue(fila(true));

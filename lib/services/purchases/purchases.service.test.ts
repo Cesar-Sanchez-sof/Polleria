@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSupplier } from "./supplier";
 import { createSupply, registerInventoryAdjustment } from "./supply";
 import { createPurchaseOrder } from "./purchase-order";
-import { receivePurchase } from "./receiving";
 import { createPurchaseVoucher } from "./invoices";
 import { registerTransformation } from "./transformation";
 import { registerPurchaseWithoutVoucher } from "./purchase-without-voucher";
@@ -174,40 +173,6 @@ describe("Modulo Compras Services", () => {
       });
 
       expect(res.status).toBe("Pending");
-    });
-  });
-
-  describe("Módulo 3: Recepción de Compra", () => {
-    it("debe recepcionar compra y actualizar stock", async () => {
-      (prisma.purchaseOrder.findUnique as any).mockResolvedValue({
-        id: 1,
-        orderNumber: "OC-2026-00001",
-        items: [
-          { id: 10, supplyId: 1, quantityOrdered: 10, quantityReceived: 0, unitPrice: 15 },
-        ],
-      });
-      (prisma.purchaseOrderItem.update as any).mockResolvedValue({ id: 10 });
-      (prisma.inventoryMovement.create as any).mockResolvedValue({});
-      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 5 });
-      (prisma.supply.update as any).mockResolvedValue({});
-      (prisma.purchaseOrderItem.findMany as any).mockResolvedValue([
-        { id: 10, purchaseOrderId: 1, quantityOrdered: 10, quantityReceived: 10 },
-      ]);
-      (prisma.purchaseOrder.update as any).mockResolvedValue({
-        id: 1,
-        status: "FullyReceived",
-      });
-
-      const res = await receivePurchase({
-        purchaseOrderId: 1,
-        items: [{ purchaseOrderItemId: 10, quantityReceived: 10 }],
-      });
-
-      expect(res.id).toBe(1);
-      expect(prisma.supply.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { currentStock: 15 },
-      });
     });
   });
 

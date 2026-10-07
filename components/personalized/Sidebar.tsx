@@ -132,7 +132,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           <ThemeToggle />
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-1 px-space-xs mt-space-xs">
+          <nav className="flex flex-col gap-0.5 px-space-xs">
             {/* VENTAS Section */}
             <div className="flex flex-col gap-0.5">
               <div className="px-space-md pt-1">
@@ -256,25 +256,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Órdenes de Compra
+                  Añadir Compra
                 </Link>
                 <Link
-                  className={getLinkClass("/purchases/receiving")}
-                  data-path="receiving"
-                  href="/purchases/receiving"
+                  className={getLinkClass("/purchases/list")}
+                  data-path="list"
+                  href="/purchases/list"
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Recepción de Compra
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/supplier-invoices")}
-                  data-path="supplier-invoices"
-                  href="/purchases/supplier-invoices"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Facturas y Pagos
+                  Listar Compras
                 </Link>
                 <Link
                   className={getLinkClass("/purchases/inventory")}
@@ -418,6 +409,15 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Endpoints
+                </Link>
+                <Link
+                  className={getLinkClass("/db-diagram")}
+                  data-path="db-diagram"
+                  href="/db-diagram"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Diagrama DB
                 </Link>
               </div>
             </div>
