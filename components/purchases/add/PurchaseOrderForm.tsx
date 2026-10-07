@@ -285,13 +285,19 @@ export function PurchaseOrderForm({
         affectationIgv: l.affectationIgv === AffectationIgv.Included ? ("Included" as const) : ("Excluded" as const),
       }));
 
+    const numVal = parseInt(number, 10);
+    if (isNaN(numVal) || numVal <= 0 || numVal > 99999999) {
+      toast.error("El número de comprobante debe tener un máximo de 8 dígitos");
+      return;
+    }
+
     setLoading(true);
     try {
       await registerUnifiedPurchase({
         supplierId: Number(supplierId),
         voucherType,
         series: series.trim().toUpperCase(),
-        number: Number(number),
+        number: numVal,
         issuedAt: issuedAt ? new Date(issuedAt) : new Date(),
         paymentCondition,
         paymentTypeId: Number(paymentTypeId),
@@ -299,7 +305,7 @@ export function PurchaseOrderForm({
       });
 
       toast.success("Compra registrada exitosamente");
-      router.push("/purchases");
+      router.push("/purchases/list");
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Error al registrar la compra");
@@ -524,11 +530,15 @@ export function PurchaseOrderForm({
                 </Label>
                 <Input
                   id="number"
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
                   placeholder="Ej: 0012345"
                   value={number}
-                  onChange={(e) => setNumber(e.target.value)}
+                  onChange={(e) => {
+                    const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 8);
+                    setNumber(onlyDigits);
+                  }}
                   className="h-9 font-mono text-xs bg-background font-semibold"
                 />
               </div>
