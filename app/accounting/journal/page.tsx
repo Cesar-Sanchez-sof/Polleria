@@ -15,6 +15,7 @@ import {
   type JournalEntryDetail as EntryDetailData,
   type DailyBookPage as DailyBookPageData,
 } from "@/lib/services/daily-book.service";
+import { exportJournalEntriesToExcel } from "@/lib/services/accounting-export.service";
 
 /**
  * Pantalla del Libro Diario: asientos contables ordenados cronológicamente
@@ -30,6 +31,7 @@ export default function DailyBookPage() {
   // ---------------------------------------------------------------------
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [exporting, setExporting] = useState<boolean>(false);
 
   // Paginación
   const [page, setPage] = useState<number>(1);
@@ -88,6 +90,18 @@ export default function DailyBookPage() {
   // ---------------------------------------------------------------------
   // Acciones
   // ---------------------------------------------------------------------
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      await exportJournalEntriesToExcel({
+        filters: { desde: from, hasta: to },
+        journalTitle: "Libro Diario",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const clearFilters = () => {
     setFrom("");
     setTo("");
@@ -188,6 +202,8 @@ export default function DailyBookPage() {
               onFrom={(value) => changeRange("from", value)}
               onTo={(value) => changeRange("to", value)}
               onClear={clearFilters}
+              onExport={handleExport}
+              exporting={exporting}
             />
 
             <DailyJournalTable

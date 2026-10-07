@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sesionActual } from "@/lib/auth/sesion-actual";
+import { postCashSessionOpeningJournalEntry } from "@/lib/services/accounting-posting.service";
+import { formatDenominationsSummary } from "@/lib/services/cash-register.service";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +12,11 @@ export const dynamic = "force-dynamic";
  *   get:
  *     tags:
  *       - CashRegister
- *     summary: Obtener estado de la caja y sesión activa
+ *     summary: Obtener estado de la caja y sesión activa con movimientos
  *   post:
  *     tags:
  *       - CashRegister
- *     summary: Abrir una nueva sesión de caja
+ *     summary: Abrir una nueva sesión de caja con arqueo inicial y asiento contable
  */
 
 export async function GET(_request: NextRequest) {
@@ -35,7 +37,6 @@ export async function GET(_request: NextRequest) {
           },
         });
       } catch {
-        // En caso de que la tabla aún no exista
         return Response.json({
           activeSession: null,
           register: null,
@@ -54,7 +55,9 @@ export async function GET(_request: NextRequest) {
         openedBy: {
           select: { id: true, username: true },
         },
-        movements: true,
+        movements: {
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: { id: "desc" },
     }).catch(() => null);
@@ -71,7 +74,27 @@ export async function GET(_request: NextRequest) {
     const salesCash = Number(activeSession.salesCash) || 0;
     const salesOther = Number(activeSession.salesOther) || 0;
     const totalSales = Number(activeSession.totalSales) || (salesCash + salesOther);
-    const expectedAmount = Math.round((initialAmount + salesCash) * 100) / 100;
+
+    // Calcular egresos e ingresos de caja (movimientos de emergencia)
+    const rawMovements = activeSession.movements || [];
+    const totalExpenses = rawMovements
+      .filter((m: any) => m.type === "EXPENSE")
+      .reduce((sum: number, m: any) => sum + (Number(m.amount) || 0), 0);
+    const totalIncomes = rawMovements
+      .filter((m: any) => m.type === "INCOME")
+      .reduce((sum: number, m: any) => sum + (Number(m.amount) || 0), 0);
+
+    // Efectivo real esperado en gaveta: Fondo Inicial + Ventas Efectivo + Ingresos extra - Salidas de emergencia
+    const expectedAmount = Math.round((initialAmount + salesCash + totalIncomes - totalExpenses) * 100) / 100;
+
+    const formattedMovements = rawMovements.map((m: any) => ({
+      id: m.id,
+      sessionId: m.sessionId,
+      type: m.type,
+      amount: Number(m.amount),
+      reason: m.reason,
+      createdAt: m.createdAt.toISOString(),
+    }));
 
     return Response.json({
       isOpened: true,
@@ -85,9 +108,12 @@ export async function GET(_request: NextRequest) {
         salesCash,
         salesOther,
         totalSales,
+        totalExpenses: Math.round(totalExpenses * 100) / 100,
+        totalIncomes: Math.round(totalIncomes * 100) / 100,
         expectedAmount,
         notesOpening: activeSession.notesOpening || "",
         status: activeSession.status,
+        movements: formattedMovements,
       },
     });
   } catch (error: any) {
@@ -104,7 +130,6 @@ export async function POST(request: NextRequest) {
     const sesion = await sesionActual().catch(() => null);
     let userId = sesion?.idUsuario;
 
-    // Verificar si el usuario de la sesión existe realmente en la base de datos
     if (userId) {
       const userExists = await prisma.user.findUnique({
         where: { id: userId },
@@ -115,7 +140,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Si no hay sesión o el id no existe en BD, usar el primer usuario activo registrado
     if (!userId) {
       const fallbackUser =
         (await prisma.user.findFirst({
@@ -137,7 +161,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const initialAmount = Math.max(0, Number(body.initialAmount ?? body.montoInicial ?? 0));
-    const notesOpening = (body.notesOpening ?? body.observaciones ?? "").trim();
+    let notesOpening = (body.notesOpening ?? body.observaciones ?? "").trim();
+    const denominations = body.denominations;
+
+    let denominationsSummary = "";
+    if (denominations && typeof denominations === "object") {
+      denominationsSummary = formatDenominationsSummary(denominations);
+      if (denominationsSummary && denominationsSummary !== "Sin desglose") {
+        notesOpening = notesOpening
+          ? `${notesOpening} | Arqueo: ${denominationsSummary}`
+          : `Arqueo Inicial: ${denominationsSummary}`;
+      }
+    }
 
     // 1. Obtener o crear la caja principal
     let register = await (prisma as any).cashRegister.findFirst({
@@ -155,7 +190,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. Validar que la caja no tenga ya una sesión abierta (Regla: Evitar aperturas múltiples simultáneas)
+    // 2. Validar que la caja no tenga ya una sesión abierta
     const existingOpenSession = await (prisma as any).cashSession.findFirst({
       where: {
         cashRegisterId: register.id,
@@ -192,9 +227,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // 4. Asiento Contable Automático de Apertura de Caja para el Contador
+    let journalEntryId: number | null = null;
+    try {
+      if (initialAmount > 0) {
+        journalEntryId = await postCashSessionOpeningJournalEntry(prisma as any, {
+          sessionId: newSession.id,
+          initialAmount,
+          entryDate: newSession.openedAt,
+          responsible: newSession.openedBy?.username || "Cajero",
+          denominationsSummary: denominationsSummary || undefined,
+        });
+      }
+    } catch (journalErr) {
+      console.warn("[api/cash-sessions] Aviso al generar asiento contable de apertura:", journalErr);
+    }
+
     return Response.json(
       {
-        message: "Caja abierta exitosamente.",
+        message: "Caja abierta exitosamente y comunicada a contabilidad.",
+        journalEntryId,
         session: {
           id: newSession.id,
           cashRegisterId: newSession.cashRegisterId,
@@ -203,6 +255,10 @@ export async function POST(request: NextRequest) {
           initialAmount: Number(newSession.initialAmount),
           status: newSession.status,
           notesOpening: newSession.notesOpening || "",
+          movements: [],
+          totalExpenses: 0,
+          totalIncomes: 0,
+          expectedAmount: Number(newSession.initialAmount),
         },
       },
       { status: 201 }

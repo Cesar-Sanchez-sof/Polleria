@@ -91,7 +91,7 @@ export default function AccountingPeriodsPage() {
               {!loading && !error && (
                 <table className="w-full table-auto">
                   <thead>
-                    <tr className="bg-gray-100">
+                    <tr className="bg-gray-100 dark:bg-slate-800/75">
                       <th className="p-2 text-left">ID</th>
                       <th className="p-2 text-left">Inicio</th>
                       <th className="p-2 text-left">Fin</th>

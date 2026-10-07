@@ -9,6 +9,7 @@ import {
   Kanban,
   List,
   Plus,
+  RefreshCw,
   Search,
   X,
 } from "lucide-react";
@@ -22,6 +23,9 @@ interface Props {
   onClearSearch: () => void;
   /** Opens dialog to register a manual journal entry. */
   onNew: () => void;
+  /** Triggers Excel export. */
+  onExport?: () => void;
+  exporting?: boolean;
   /** Range of visible rows (e.g. 1-10 of 36). */
   fromShown: number;
   toShown: number;
@@ -38,6 +42,8 @@ export function JournalEntryToolbar({
   onSearch,
   onClearSearch,
   onNew,
+  onExport,
+  exporting = false,
   fromShown,
   toShown,
   total,
@@ -63,7 +69,7 @@ export function JournalEntryToolbar({
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-60 md:min-w-70">
           <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
           <Input
-            className="bg-transparent border-none outline-none text-xs placeholder:text-slate-400 w-full focus-visible:ring-0 shadow-none h-6 py-0 px-0"
+            className="bg-transparent dark:bg-transparent border-none outline-none text-xs placeholder:text-slate-400 w-full focus-visible:ring-0 shadow-none h-6 py-0 px-0"
             placeholder="Número, concepto o cuenta..."
             type="text"
             value={q}
@@ -98,9 +104,15 @@ export function JournalEntryToolbar({
           variant="outline"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors border-none shadow-none cursor-pointer h-8"
           type="button"
+          onClick={onExport}
+          disabled={exporting}
         >
-          <Download className="w-4 h-4" />
-          <span>Exportar XLSX</span>
+          {exporting ? (
+            <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          <span>{exporting ? "Exportando..." : "Exportar XLSX"}</span>
         </Button>
       </div>
     </div>

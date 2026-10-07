@@ -96,7 +96,7 @@ export function AccountTable({
       >
         <Table className="w-full text-left border-collapse min-w-30">
           <TableHeader>
-            <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 hover:bg-slate-50/75">
+            <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 dark:bg-slate-800/75 hover:bg-slate-50/75">
               <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] w-24">
                 Código
               </TableHead>
