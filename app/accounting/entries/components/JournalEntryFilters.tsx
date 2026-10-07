@@ -71,7 +71,7 @@ export function JournalEntryFilters({
 
   return (
     <>
-      <div className="flex flex-col gap-3 bg-slate-50/70">
+      <div className="flex flex-col gap-3 ">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-row items-center gap-2">
             <label

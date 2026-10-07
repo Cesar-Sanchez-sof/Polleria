@@ -75,7 +75,7 @@ function ThOrder({
 
   return (
     <TableHead
-      className={`py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] ${className}`}
+      className={`py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] ${className} dark:bg-slate-800/75`}
       aria-sort={isActive ? (dir === "asc" ? "ascending" : "descending") : "none"}
     >
       <button
@@ -125,7 +125,7 @@ export function JournalEntryTable({
     >
       <Table className="w-full text-left border-collapse min-w-245">
         <TableHeader>
-          <TableRow className="text-slate-900 text-xs font-semibold  bg-slate-50/75 hover:bg-slate-50/75">
+          <TableRow className="text-slate-900 text-xs font-semibold  bg-slate-50/75 hover:bg-slate-50/75 dark:bg-slate-800/75">
             <TableHead className="py-3 px-3 w-10 text-center">
               <Checkbox
                 id="check-all"
@@ -152,7 +152,7 @@ export function JournalEntryTable({
             >
               Número
             </ThOrder>
-            <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">
+            <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] dark:bg-slate-800/75">
               Concepto (glosa)
             </TableHead>
             <ThOrder
@@ -164,7 +164,7 @@ export function JournalEntryTable({
             >
               Diario
             </ThOrder>
-            <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px]">
+            <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] dark:bg-slate-800/75">
               Responsable
             </TableHead>
             <ThOrder

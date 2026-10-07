@@ -114,7 +114,7 @@ export function BalanceSheetTable({ statement, loading, error }: Readonly<Props>
             {statement.lines.map((line) => {
               if (line.kind === "note") {
                 return (
-                  <tr key={line.key} className="bg-slate-50/80">
+                  <tr key={line.key} className="bg-slate-50/80 dark:bg-slate-800/75">
                     <td colSpan={3} className="px-3 py-1.5 text-[10px] italic text-slate-500">
                       <span style={{ paddingLeft: `${line.indent * 12}px` }}>{line.label}</span>
                     </td>

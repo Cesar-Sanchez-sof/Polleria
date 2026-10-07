@@ -40,9 +40,8 @@ function Th({
 }: Readonly<{ children: ReactNode; align?: "left" | "right" }>) {
   return (
     <TableHead
-      className={`py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] ${
-        align === "right" ? "text-right" : ""
-      }`}
+      className={`py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] dark:bg-slate-800/75 ${align === "right" ? "text-right" : ""
+        }`}
     >
       {children}
     </TableHead>
@@ -103,7 +102,7 @@ export function LedgerTable({
     <div className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && ledger ? "opacity-60" : ""}`}>
       {/* C02: consulted account */}
       {ledger && (
-        <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 rounded-lg px-3 py-2.5 mb-3">
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 dark:bg-slate-800/70 rounded-lg px-3 py-2.5 mb-3">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Account</span>
           <span className="text-sm font-bold text-red-700 tabular-nums">{ledger.cuenta.codigo}</span>
           <span className="text-sm font-semibold text-slate-900">{ledger.cuenta.nombre}</span>

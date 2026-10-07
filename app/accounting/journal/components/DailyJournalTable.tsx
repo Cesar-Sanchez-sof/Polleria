@@ -65,7 +65,7 @@ export function DailyJournalTable({
     >
       <Table className="w-full text-left border-collapse min-w-175">
         <TableHeader>
-          <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 hover:bg-slate-50/75">
+          <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 hover:bg-slate-50/75 dark:bg-slate-800/75">
             <Th>Fecha</Th>
             <Th>Número</Th>
             <Th>Concepto (glosa)</Th>
