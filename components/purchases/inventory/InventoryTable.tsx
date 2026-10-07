@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -31,6 +31,9 @@ import {
   Package,
   Wheat,
   UtensilsCrossed,
+  TrendingDown,
+  ShieldAlert,
+  Boxes,
 } from "lucide-react";
 import { SupplyType, AffectationIgv } from "@prisma/client";
 import { updateSupplyMinimum, setSupplyStatus } from "@/lib/services/purchases/supply";
@@ -75,9 +78,30 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
   const totalSupplies = supplies.length;
   const rawMaterials = supplies.filter((s) => s.type === SupplyType.RawMaterial).length;
   const finishedProducts = supplies.filter((s) => s.type === SupplyType.FinishedProduct).length;
-  const lowStockCount = supplies.filter(
-    (s) => Number(s.currentStock) <= Number(s.minimumStock)
-  ).length;
+
+  const lowStockItems = useMemo(
+    () => supplies.filter((s) => Number(s.currentStock) <= Number(s.minimumStock)),
+    [supplies]
+  );
+  const lowStockCount = lowStockItems.length;
+
+  // Valor estimado del inventario (stock actual × costo promedio)
+  const inventoryValue = useMemo(
+    () =>
+      supplies.reduce((sum, s) => {
+        const stock = Number(s.currentStock);
+        const cost = Number(s.averageCost || s.lastCost || 0);
+        return sum + stock * cost;
+      }, 0),
+    [supplies]
+  );
+
+  // Salud general: % de insumos cuyo stock supera su mínimo
+  const healthPct = totalSupplies === 0
+    ? 100
+    : Math.round(((totalSupplies - lowStockCount) / totalSupplies) * 100);
+
+  const rawPct = totalSupplies === 0 ? 0 : Math.round((rawMaterials / totalSupplies) * 100);
 
   const filtered = supplies.filter((i) => {
     const q = search.toLowerCase();
@@ -189,46 +213,172 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
   return (
     <div className="space-y-4">
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
-          <div className="rounded-full bg-blue-100 p-2 shrink-0">
-            <Package className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold leading-none">{totalSupplies}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total insumos</p>
-          </div>
-        </div>
+      {/* ── Panel de Control Operativo ── */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-card shadow-xs overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200/80 dark:divide-slate-800">
 
-        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
-          <div className="rounded-full bg-amber-100 p-2 shrink-0">
-            <Wheat className="h-5 w-5 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold leading-none text-amber-700">{rawMaterials}</p>
-            <p className="text-xs text-muted-foreground mt-1">Materias Primas</p>
-          </div>
-        </div>
+          {/* Sección 1 — Salud del Almacén */}
+          <div className="p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <Boxes className="h-4 w-4" />
+              </div>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Salud del Almacén
+              </span>
+            </div>
 
-        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
-          <div className="rounded-full bg-orange-100 p-2 shrink-0">
-            <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+            {/* Indicador principal */}
+            <div className="flex items-center gap-5">
+              {/* Anillo circular SVG */}
+              <div className="relative shrink-0 h-16 w-16">
+                <svg viewBox="0 0 56 56" className="h-full w-full -rotate-90">
+                  <circle cx="28" cy="28" r="22" fill="none" stroke="currentColor"
+                    className="text-slate-100 dark:text-slate-800" strokeWidth="6" />
+                  <circle cx="28" cy="28" r="22" fill="none"
+                    stroke={healthPct >= 80 ? "#10b981" : healthPct >= 50 ? "#f59e0b" : "#f43f5e"}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(healthPct / 100) * 138.2} 138.2`} />
+                </svg>
+                <span className={`absolute inset-0 flex items-center justify-center text-sm font-black font-mono rotate-0 ${
+                  healthPct >= 80 ? "text-emerald-700 dark:text-emerald-400"
+                  : healthPct >= 50 ? "text-amber-700 dark:text-amber-400"
+                  : "text-rose-700 dark:text-rose-400"
+                }`}>
+                  {healthPct}%
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground leading-tight">
+                  {healthPct >= 80 ? "Stock saludable" : healthPct >= 50 ? "Atención requerida" : "Estado crítico"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {totalSupplies - lowStockCount} de {totalSupplies} insumos sobre mínimo
+                </p>
+                <p className="text-xs text-muted-foreground mt-2 font-semibold font-mono">
+                  Valor est. almacén:{" "}
+                  <span className="text-foreground">S/ {inventoryValue.toFixed(2)}</span>
+                </p>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold leading-none text-orange-700">{finishedProducts}</p>
-            <p className="text-xs text-muted-foreground mt-1">Prod. Terminados</p>
-          </div>
-        </div>
 
-        <div className="rounded-lg border bg-card p-4 flex items-center gap-3">
-          <div className="rounded-full bg-rose-100 p-2 shrink-0">
-            <AlertTriangle className="h-5 w-5 text-rose-600" />
+          {/* Sección 2 — Distribución por Categoría */}
+          <div className="p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Wheat className="h-4 w-4" />
+              </div>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Distribución por Categoría
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {/* Materia Prima */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
+                    <Wheat className="h-3 w-3" /> Materias Primas
+                  </span>
+                  <span className="font-bold font-mono text-amber-800 dark:text-amber-300">
+                    {rawMaterials} <span className="font-normal text-muted-foreground">/ {totalSupplies}</span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-amber-100 dark:bg-amber-950/40 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-amber-400 dark:bg-amber-500 transition-all duration-700"
+                    style={{ width: `${rawPct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Productos Terminados */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-orange-800 dark:text-orange-300">
+                    <UtensilsCrossed className="h-3 w-3" /> Prod. Terminados
+                  </span>
+                  <span className="font-bold font-mono text-orange-800 dark:text-orange-300">
+                    {finishedProducts} <span className="font-normal text-muted-foreground">/ {totalSupplies}</span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-orange-100 dark:bg-orange-950/40 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-orange-400 dark:bg-orange-500 transition-all duration-700"
+                    style={{ width: `${100 - rawPct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Mini resumen */}
+              <p className="text-[11px] text-muted-foreground pt-1 border-t border-slate-100 dark:border-slate-800">
+                {rawPct}% materias primas · {100 - rawPct}% terminados
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold leading-none text-rose-700">{lowStockCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">Bajo Stock</p>
+
+          {/* Sección 3 — Alertas de Stock */}
+          <div className="p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${
+                  lowStockCount > 0
+                    ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
+                    : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400"
+                }`}>
+                  {lowStockCount > 0
+                    ? <ShieldAlert className="h-4 w-4" />
+                    : <CheckCircle2 className="h-4 w-4" />
+                  }
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Alertas de Reabastecimiento
+                </span>
+              </div>
+              {lowStockCount > 0 && (
+                <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full">
+                  {lowStockCount} crítico{lowStockCount > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {lowStockCount === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4 text-center">
+                <CheckCircle2 className="h-8 w-8 text-emerald-400 dark:text-emerald-500" />
+                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  Todo bajo control
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Ningún insumo está por debajo de su nivel mínimo.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200">
+                {lowStockItems.map((s) => {
+                  const deficit = Number(s.minimumStock) - Number(s.currentStock);
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40 px-2.5 py-1.5"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <TrendingDown className="h-3 w-3 text-rose-500 shrink-0" />
+                        <span className="text-xs font-semibold text-rose-900 dark:text-rose-200 truncate">
+                          {s.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-rose-700 dark:text-rose-300 shrink-0 bg-rose-100 dark:bg-rose-900/50 px-1.5 rounded">
+                        -{deficit.toFixed(1)} {s.unitOfMeasure}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
         </div>
       </div>
 

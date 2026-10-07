@@ -125,6 +125,9 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
   if (!data.voucherType || !data.series || !data.number) {
     throw new Error("Faltan datos del comprobante");
   }
+  if (data.number <= 0 || data.number > 99999999) {
+    throw new Error("El número de comprobante debe ser un número válido entre 1 y 99999999 (máximo 8 dígitos)");
+  }
 
   for (const item of data.items) {
     if (item.quantity <= 0) {
@@ -300,13 +303,15 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
       }
     }
 
-    return await tx.purchaseOrder.findUnique({
+    const createdOrder = await tx.purchaseOrder.findUnique({
       where: { id: order.id },
       include: {
         items: true,
         invoices: true,
       },
     });
+
+    return JSON.parse(JSON.stringify(createdOrder));
   });
 }
 
