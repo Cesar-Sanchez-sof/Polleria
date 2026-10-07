@@ -39,6 +39,7 @@ interface SupplierDialogProps {
   onOpenChange: (open: boolean) => void;
   supplierToEdit?: Supplier | null;
   onSuccess: (createdSupplier?: Supplier) => void;
+  prefilledRucOrName?: string;
 }
 
 export function SupplierDialog({
@@ -46,6 +47,7 @@ export function SupplierDialog({
   onOpenChange,
   supplierToEdit,
   onSuccess,
+  prefilledRucOrName = "",
 }: SupplierDialogProps) {
   const [loading, setLoading] = useState(false);
   const [documentType, setDocumentType] = useState<"RUC" | "DNI">("RUC");
@@ -72,10 +74,12 @@ export function SupplierDialog({
         active: supplierToEdit.active,
       });
     } else {
-      setDocumentType("RUC");
+      const isNumeric = /^\d+$/.test(prefilledRucOrName.trim());
+      const isDni = isNumeric && prefilledRucOrName.trim().length === 8;
+      setDocumentType(isDni ? "DNI" : "RUC");
       setFormData({
-        ruc: "",
-        businessName: "",
+        ruc: isNumeric ? prefilledRucOrName.trim().slice(0, 11) : "",
+        businessName: !isNumeric ? prefilledRucOrName.trim() : "",
         contactPerson: "",
         address: "",
         phone: "",
@@ -83,7 +87,7 @@ export function SupplierDialog({
         active: true,
       });
     }
-  }, [supplierToEdit, open]);
+  }, [supplierToEdit, open, prefilledRucOrName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
