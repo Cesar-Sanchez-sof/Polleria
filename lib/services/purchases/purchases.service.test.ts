@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSupplier } from "./supplier";
 import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, setSupplyStatus } from "./supply";
-import { createPurchaseOrder } from "./purchase-order";
+import { createPurchaseOrder, registerUnifiedPurchase } from "./purchase-order";
 import { createPurchaseVoucher } from "./invoices";
 import { registerTransformation } from "./transformation";
 import { registerPurchaseWithoutVoucher } from "./purchase-without-voucher";
@@ -308,6 +308,141 @@ describe("Modulo Compras Services", () => {
         where: { id: 1 },
         data: { currentStock: 15 },
       });
+    });
+  });
+
+  describe("Módulo 2b: Añadir Compra Unificada", () => {
+    it("compra al contado con 1 insumo Included", async () => {
+      (prisma.purchaseInvoice.findUnique as any).mockResolvedValue(null);
+      (prisma.purchaseOrder.findUnique as any).mockResolvedValue(null);
+      (prisma.purchaseOrder.create as any).mockResolvedValue({
+        id: 1,
+        status: "FullyReceived",
+        items: [{ id: 10, supplyId: 1, quantityReceived: 5, unitPrice: 10 }],
+      });
+      (prisma.purchaseInvoice.create as any).mockResolvedValue({ id: 1 });
+      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 10, averageCost: 9 });
+
+      await registerUnifiedPurchase({
+        supplierId: 1,
+        voucherType: "Factura",
+        series: "F001",
+        number: 123,
+        issuedAt: new Date(),
+        paymentCondition: "Contado",
+        paymentTypeId: 1,
+        items: [
+          { supplyId: 1, quantity: 5, unitPrice: 10, affectationIgv: "Included" },
+        ],
+      });
+
+      expect(prisma.purchaseOrder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: "FullyReceived",
+          }),
+        })
+      );
+      expect(prisma.purchaseInvoice.create).toHaveBeenCalled();
+      expect(prisma.purchasePayment.create).toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            purchaseOrderItemId: 10,
+            movementType: "Purchase",
+          }),
+        })
+      );
+      expect(prisma.supply.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({
+            currentStock: 15,
+            averageCost: 8.82, 
+          }),
+        })
+      );
+    });
+
+    it("compra al crédito", async () => {
+      (prisma.purchaseInvoice.findUnique as any).mockResolvedValue(null);
+      (prisma.purchaseOrder.create as any).mockResolvedValue({
+        id: 2,
+        status: "FullyReceived",
+        items: [{ id: 11, supplyId: 1, quantityReceived: 5, unitPrice: 10 }],
+      });
+      (prisma.purchaseInvoice.create as any).mockResolvedValue({ id: 2 });
+      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 10, averageCost: 9 });
+
+      await registerUnifiedPurchase({
+        supplierId: 1,
+        voucherType: "Factura",
+        series: "F002",
+        number: 124,
+        issuedAt: new Date(),
+        paymentCondition: "Credito",
+        items: [
+          { supplyId: 1, quantity: 5, unitPrice: 10, affectationIgv: "Excluded" },
+        ],
+      });
+
+      expect(prisma.purchasePayment.create).not.toHaveBeenCalled();
+      expect(prisma.supply.update).toHaveBeenCalled();
+    });
+
+    it("compra con IGV mixto (1 Included + 1 Excluded)", async () => {
+      (prisma.purchaseInvoice.findUnique as any).mockResolvedValue(null);
+      (prisma.purchaseOrder.create as any).mockResolvedValue({
+        id: 3,
+        status: "FullyReceived",
+        items: [
+          { id: 12, supplyId: 1, quantityReceived: 1, unitPrice: 100 },
+          { id: 13, supplyId: 2, quantityReceived: 1, unitPrice: 50 },
+        ],
+      });
+      (prisma.purchaseInvoice.create as any).mockResolvedValue({ id: 3 });
+      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 0, averageCost: 0 });
+
+      await registerUnifiedPurchase({
+        supplierId: 1,
+        voucherType: "Factura",
+        series: "F003",
+        number: 125,
+        issuedAt: new Date(),
+        paymentCondition: "Credito",
+        items: [
+          { supplyId: 1, quantity: 1, unitPrice: 100, affectationIgv: "Included" },
+          { supplyId: 2, quantity: 1, unitPrice: 50, affectationIgv: "Excluded" },
+        ],
+      });
+
+      expect(prisma.purchaseOrder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            items: expect.objectContaining({
+              create: expect.arrayContaining([
+                expect.objectContaining({ subtotalLine: 84.75 }),
+                expect.objectContaining({ subtotalLine: 50 }),
+              ]),
+            }),
+          }),
+        })
+      );
+    });
+
+    it("validación - items vacíos lanza error", async () => {
+      await expect(
+        registerUnifiedPurchase({
+          supplierId: 1,
+          voucherType: "Factura",
+          series: "F004",
+          number: 126,
+          issuedAt: new Date(),
+          paymentCondition: "Contado",
+          paymentTypeId: 1,
+          items: [],
+        })
+      ).rejects.toThrow("La orden debe tener al menos una línea de insumo");
     });
   });
 });
