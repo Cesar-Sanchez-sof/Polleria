@@ -242,7 +242,13 @@ export async function registerPurchasePayment(
       responsible: "Compras",
     });
 
-    return { ...payment, journalEntryId };
+    return JSON.parse(
+      JSON.stringify({
+        ...payment,
+        amount: Number(payment.amount),
+        journalEntryId,
+      })
+    );
   });
 }
 
