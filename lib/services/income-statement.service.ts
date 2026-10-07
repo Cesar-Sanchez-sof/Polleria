@@ -18,6 +18,9 @@ import {
 } from "@/lib/accounting/income-statement";
 import { prisma } from "@/lib/prisma";
 
+// Tipos del contrato re-exportados para los consumidores del servicio.
+export type { IncomeStatementInput, IncomeStatementResult } from "@/lib/accounting/income-statement";
+
 /** Error del reporte: expone `status` HTTP y `message` (contrato §3). */
 export class ErrorIncomeStatement extends Error {
   readonly status: number;
