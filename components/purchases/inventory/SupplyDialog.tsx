@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createSupply, SupplyInput } from "@/lib/services/purchases/supply";
-import { SupplyType } from "@prisma/client";
+import { SupplyType, AffectationIgv } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -30,6 +30,7 @@ interface SupplyDialogProps {
   onSuccess: (createdSupply: any) => void;
   prefilledName?: string;
   prefilledType?: SupplyType;
+  prefilledAffectationIgv?: AffectationIgv;
 }
 
 export function SupplyDialog({
@@ -38,11 +39,13 @@ export function SupplyDialog({
   onSuccess,
   prefilledName = "",
   prefilledType = SupplyType.RawMaterial,
+  prefilledAffectationIgv = AffectationIgv.Excluded,
 }: SupplyDialogProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<SupplyInput>({
     name: prefilledName,
     type: prefilledType,
+    affectationIgv: prefilledAffectationIgv,
     unitOfMeasure: "KG",
     minimumStock: 5,
   });
@@ -52,11 +55,12 @@ export function SupplyDialog({
       setFormData({
         name: prefilledName,
         type: prefilledType,
+        affectationIgv: prefilledAffectationIgv,
         unitOfMeasure: "KG",
         minimumStock: 5,
       });
     }
-  }, [open, prefilledName, prefilledType]);
+  }, [open, prefilledName, prefilledType, prefilledAffectationIgv]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +120,26 @@ export function SupplyDialog({
             </div>
 
             <div className="space-y-1.5">
+              <Label htmlFor="affectationIgv">Afectación IGV</Label>
+              <Select
+                value={formData.affectationIgv}
+                onValueChange={(val) =>
+                  setFormData({ ...formData, affectationIgv: val as AffectationIgv })
+                }
+              >
+                <SelectTrigger id="affectationIgv">
+                  <SelectValue placeholder="Seleccionar afectación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={AffectationIgv.Excluded}>Excluido</SelectItem>
+                  <SelectItem value={AffectationIgv.Included}>Incluido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
               <Label htmlFor="unitOfMeasure">Unidad de Medida *</Label>
               <Input
                 id="unitOfMeasure"
@@ -127,20 +151,20 @@ export function SupplyDialog({
                 required
               />
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="minimumStock">Stock Mínimo de Alerta</Label>
-            <Input
-              id="minimumStock"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.minimumStock}
-              onChange={(e) =>
-                setFormData({ ...formData, minimumStock: parseFloat(e.target.value) || 0 })
-              }
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="minimumStock">Stock Mínimo de Alerta</Label>
+              <Input
+                id="minimumStock"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.minimumStock}
+                onChange={(e) =>
+                  setFormData({ ...formData, minimumStock: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
           </div>
 
           <DialogFooter className="pt-2">
