@@ -1095,7 +1095,7 @@ function SalesManagementContent() {
   return (
     <>
       {/* Header Superior Responsivo */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-700 flex items-center justify-center text-white shadow-xs shrink-0">
             <Utensils className="w-5 h-5" />
@@ -1150,8 +1150,8 @@ function SalesManagementContent() {
           type="button"
           onClick={() => goToTab("tables")}
           className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "tables"
-            ? "border-red-700 text-red-700 bg-red-50/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 hover:dark:bg-slate-800"
             }`}
         >
           <LayoutGrid className="w-4 h-4 shrink-0" />
@@ -1164,7 +1164,7 @@ function SalesManagementContent() {
           type="button"
           onClick={() => goToTab("kitchen")}
           className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "kitchen"
-            ? "border-red-700 text-red-700 bg-red-50/60"
+            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
             : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
@@ -1177,7 +1177,7 @@ function SalesManagementContent() {
           type="button"
           onClick={() => goToTab("payments")}
           className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "payments"
-            ? "border-red-700 text-red-700 bg-red-50/60"
+            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
             : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
@@ -1191,7 +1191,7 @@ function SalesManagementContent() {
           type="button"
           onClick={() => goToTab("cashier")}
           className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "cashier"
-            ? "border-red-700 text-red-700 bg-red-50/60"
+            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
             : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
@@ -1205,7 +1205,7 @@ function SalesManagementContent() {
           type="button"
           onClick={() => goToTab("customers")}
           className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "customers"
-            ? "border-red-700 text-red-700 bg-red-50/60"
+            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
             : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
@@ -1218,7 +1218,7 @@ function SalesManagementContent() {
           type="button"
           onClick={() => goToTab("invoices")}
           className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "invoices"
-            ? "border-red-700 text-red-700 bg-red-50/60"
+            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
             : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
@@ -1320,8 +1320,8 @@ function SalesManagementContent() {
                     {/* Cabecera de la Mesa */}
                     <div
                       className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${mesa.occupied
-                        ? "bg-red-50/80 border-red-100"
-                        : "bg-emerald-50/50 border-slate-100"
+                        ? "bg-red-50/80 dark:bg-red-900/50 border-red-100"
+                        : "bg-emerald-50/50 dark:bg-emerald-900/50 border-slate-100"
                         }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1466,7 +1466,7 @@ function SalesManagementContent() {
                   </div>
 
                   {/* Botones de Acción al pie de la tarjeta */}
-                  <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-2">
+                  <div className="p-3 border-t border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
                     {mesa.occupied && pedido ? (
                       <>
                         {/* Botón para Cobro Móvil desde el Mozo */}
@@ -1670,7 +1670,7 @@ function SalesManagementContent() {
                 {uncollectedPayments.map((cobro) => (
                   <Card
                     key={cobro.orderId}
-                    className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between hover:shadow-md transition-shadow"
+                    className="rounded-xl border border-slate-200 bg-slate-50/50 dark:bg-slate-800/50 p-4 flex flex-col justify-between hover:shadow-md transition-shadow"
                   >
                     <div className="flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
@@ -1778,20 +1778,18 @@ function SalesManagementContent() {
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* BANNER DE CONTROL DE APERTURA / CIERRE DE CAJA */}
           <Card
-            className={`p-4 rounded-2xl border transition-all ${
-              cashSessionState.isOpened
-                ? "bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 border-emerald-200 shadow-xs"
-                : "bg-gradient-to-r from-amber-50/80 via-white to-red-50/40 border-amber-300 shadow-xs"
-            }`}
+            className={`p-4 rounded-2xl border transition-all ${cashSessionState.isOpened
+              ? "bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 border-emerald-200 dark:from-emerald-800/70 dark:via-slate-800 dark:to-slate-900 shadow-xs"
+              : "bg-gradient-to-r from-amber-50/80 via-white to-red-50/40 border-amber-300 shadow-xs"
+              }`}
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3">
                 <div
-                  className={`p-2.5 rounded-xl flex items-center justify-center ${
-                    cashSessionState.isOpened
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-amber-500 text-white shadow-sm"
-                  }`}
+                  className={`p-2.5 rounded-xl flex items-center justify-center ${cashSessionState.isOpened
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-amber-500 text-white shadow-sm"
+                    }`}
                 >
                   {cashSessionState.isOpened ? (
                     <Unlock className="w-5 h-5" />
@@ -1825,8 +1823,8 @@ function SalesManagementContent() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     {cashSessionState.isOpened
                       ? `Turno iniciado a las ${new Date(
-                          cashSessionState.activeSession?.openedAt || Date.now()
-                        ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • Listo para emisión de Boletas y Facturas.`
+                        cashSessionState.activeSession?.openedAt || Date.now()
+                      ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • Listo para emisión de Boletas y Facturas.`
                       : "La caja se encuentra cerrada. Debe realizar la apertura de turno antes de cobrar comandas."}
                   </p>
                 </div>
@@ -1873,7 +1871,7 @@ function SalesManagementContent() {
                       setCloseCashModal(true);
                     }}
                     variant="outline"
-                    className="border-red-300 hover:bg-red-50 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="border-red-300 hover:bg-red-50 text-red-700 dark:text-red-300 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>Cerrar / Arqueo de Caja</span>
@@ -2469,7 +2467,7 @@ function SalesManagementContent() {
                 className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Nuevo Cliente</span>
+                <span>Nuevo Cliente</span>
               </Button>
             </div>
 
@@ -2477,7 +2475,7 @@ function SalesManagementContent() {
             <div className="overflow-x-auto mt-4">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70">
+                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70 dark:bg-slate-800/70">
                     <th className="py-2.5 px-3">Documento</th>
                     <th className="py-2.5 px-3">Tipo</th>
                     <th className="py-2.5 px-3">Cliente / Razón Social</th>
@@ -2650,7 +2648,7 @@ function SalesManagementContent() {
             <div className="overflow-x-auto mt-4">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70">
+                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70 dark:bg-slate-800/70">
                     <th className="py-2.5 px-3">Comprobante</th>
                     <th className="py-2.5 px-3">Fecha y Hora</th>
                     <th className="py-2.5 px-3">Cliente</th>
@@ -3936,13 +3934,12 @@ function SalesManagementContent() {
                 {/* Comparador y cálculo de discrepancia */}
                 {hasCounted && (
                   <div
-                    className={`p-3 rounded-xl border flex items-center justify-between ${
-                      diff === 0
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                        : diff > 0
+                    className={`p-3 rounded-xl border flex items-center justify-between ${diff === 0
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      : diff > 0
                         ? "bg-blue-50 border-blue-200 text-blue-800"
                         : "bg-rose-50 border-rose-200 text-rose-800"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       {diff === 0 ? (
@@ -3955,15 +3952,15 @@ function SalesManagementContent() {
                           {diff === 0
                             ? "Caja Cuadrada Perfecta"
                             : diff > 0
-                            ? "Sobrante de Caja"
-                            : "Faltante de Caja"}
+                              ? "Sobrante de Caja"
+                              : "Faltante de Caja"}
                         </div>
                         <div className="text-[11px] opacity-80">
                           {diff === 0
                             ? "El dinero contado coincide con el esperado."
                             : diff > 0
-                            ? "Hay más dinero en gaveta del registrado por el sistema."
-                            : "Hay menos dinero en gaveta del esperado por el sistema."}
+                              ? "Hay más dinero en gaveta del registrado por el sistema."
+                              : "Hay menos dinero en gaveta del esperado por el sistema."}
                         </div>
                       </div>
                     </div>
@@ -4077,20 +4074,19 @@ function SalesManagementContent() {
                   <span>Efectivo Contado:</span>
                   <span>{formatCurrency(lastClosedAudit.countedAmount)}</span>
                 </div>
-                <div className={`flex justify-between font-extrabold text-xs pt-1.5 border-t ${
-                  lastClosedAudit.difference === 0
-                    ? "text-emerald-700"
-                    : lastClosedAudit.difference > 0
+                <div className={`flex justify-between font-extrabold text-xs pt-1.5 border-t ${lastClosedAudit.difference === 0
+                  ? "text-emerald-700"
+                  : lastClosedAudit.difference > 0
                     ? "text-blue-700"
                     : "text-rose-700"
-                }`}>
+                  }`}>
                   <span>Diferencia (Arqueo):</span>
                   <span>
                     {lastClosedAudit.difference === 0
                       ? "S/ 0.00 (Exacto)"
                       : lastClosedAudit.difference > 0
-                      ? `+S/ ${lastClosedAudit.difference.toFixed(2)} (Sobrante)`
-                      : `-S/ ${Math.abs(lastClosedAudit.difference).toFixed(2)} (Faltante)`}
+                        ? `+S/ ${lastClosedAudit.difference.toFixed(2)} (Sobrante)`
+                        : `-S/ ${Math.abs(lastClosedAudit.difference).toFixed(2)} (Faltante)`}
                   </span>
                 </div>
                 {lastClosedAudit.notesClosing && (
