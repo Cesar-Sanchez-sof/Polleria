@@ -41,9 +41,9 @@ Sistema web moderno para la gestión operativa, comercial y contable de restaura
 | Área | ✅ Implementado | ⏳ Pendiente / En Hoja de Ruta |
 | :--- | :--- | :--- |
 | **Comprobantes** | Emisión interna y almacenamiento S3 en PDF | Conexión directa a PSE/OSE SUNAT en vivo |
-| **Pedidos** | Salón y Para Llevar | Integración con delivery externo (Rappi / PedidosYa) |
+| **Pedidos** | Salón y Para Llevar | ----- |
 | **Notificaciones** | Interfaz reactiva en navegador | WebSockets / Server-Sent Events dedicados |
-| **Plataforma** | Web App Responsiva (Móvil / Tablet / PC) | App móvil nativa (Android / iOS) |
+| **Plataforma** | Web App Responsiva (Móvil / Tablet / PC) | PWA |
 
 ---
 

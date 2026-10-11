@@ -10,7 +10,7 @@ export interface SupplyItem {
   id: number;
   name: string;
   unitOfMeasure: string;
-  affectationIgv?: AffectationIgv;
+  affectationIgv?: AffectationIgv | null;
   lastCost?: number | string | null;
   currentStock?: number | string;
   active?: boolean;
