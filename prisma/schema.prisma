@@ -29,6 +29,23 @@ enum PurchaseOrderStatus {
   @@map("purchase_order_status")
 }
 
+enum InformalPurchaseType {
+  InventoryItem
+  OperatingExpense
+
+  @@map("informal_purchase_type")
+}
+
+enum ExpenseCategory {
+  CasualStaff
+  EventServices
+  TransportAndDelivery
+  CleaningSupplies
+  OtherMinorExpenses
+
+  @@map("expense_category")
+}
+
 enum SupplyType {
   RawMaterial
   FinishedProduct
@@ -46,6 +63,18 @@ enum InventoryMovementType {
   InformalPurchase
 
   @@map("inventory_movement_type")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+
+  @@map("audit_action")
 }
 
 enum AffectationIgv {
@@ -125,7 +154,8 @@ model Employee {
   purchaseOrders    PurchaseOrder[]
   receivedOrders    PurchaseOrder[]    @relation("ReceivedBy")
   transformations   Transformation[]
-  informalPurchases InformalPurchase[]
+  informalPurchases InformalPurchase[] @relation("EmployeeInformalPurchases")
+  annulledPurchases InformalPurchase[] @relation("AnnulledPurchases")
 
   @@index([shiftId], map: "idx_employee_shift")
   @@map("employee")
@@ -149,6 +179,7 @@ model User {
   closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
   cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
   cashSessionsClosed CashSession[]      @relation("CashSessionClosedBy")
+  auditLogs          AuditLog[]
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -238,7 +269,7 @@ model Supply {
   id                  Int                    @id @default(autoincrement())
   name                String                 @db.VarChar(50)
   type                SupplyType             @default(RawMaterial)
-  affectationIgv      AffectationIgv         @default(Excluded) @map("affectation_igv")
+  affectationIgv      AffectationIgv?        @map("affectation_igv")
   unitOfMeasure       String                 @map("unit_of_measure") @db.VarChar(10)
   currentStock        Decimal                @default(0) @map("current_stock") @db.Decimal(10, 2)
   minimumStock        Decimal                @default(0) @map("minimum_stock") @db.Decimal(10, 2)
@@ -386,20 +417,29 @@ model TransformationRecipe {
 }
 
 model InformalPurchase {
-  id                    Int                 @id @default(autoincrement())
-  supplyId              Int                 @map("supply_id")
-  employeeId            Int                 @map("employee_id")
-  quantity              Decimal             @db.Decimal(10, 2)
-  amountPaid            Decimal             @map("amount_paid") @db.Decimal(10, 2)
-  date                  DateTime            @default(now()) @db.Date
-  informalPlaceOrVendor String?             @map("informal_place_or_vendor") @db.VarChar(150)
-  reason                String?             @db.VarChar(150)
-  supply                Supply              @relation(fields: [supplyId], references: [id], onDelete: Restrict)
-  employee              Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  id                    Int                  @id @default(autoincrement())
+  supplyId              Int?                 @map("supply_id")
+  employeeId            Int                  @map("employee_id")
+  purchaseType          InformalPurchaseType @default(InventoryItem) @map("purchase_type")
+  expenseCategory       ExpenseCategory?     @map("expense_category")
+  itemDescription       String?              @map("item_description") @db.VarChar(200)
+  quantity              Decimal              @default(1) @db.Decimal(10, 2)
+  amountPaid            Decimal              @map("amount_paid") @db.Decimal(10, 2)
+  date                  DateTime             @default(now()) @db.Date
+  informalPlaceOrVendor String?              @map("informal_place_or_vendor") @db.VarChar(150)
+  reason                String?              @db.VarChar(150)
+  anulado               Boolean              @default(false)
+  anuladoAt             DateTime?            @map("anulado_at") @db.Timestamp(6)
+  anuladoPor            Int?                 @map("anulado_por")
+  motivoAnulacion       String?              @map("motivo_anulacion") @db.VarChar(200)
+  supply                Supply?              @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  employee              Employee             @relation("EmployeeInformalPurchases", fields: [employeeId], references: [id], onDelete: Restrict)
+  annulledBy            Employee?            @relation("AnnulledPurchases", fields: [anuladoPor], references: [id], onDelete: Restrict)
   inventoryMovements    InventoryMovement[]
 
   @@index([supplyId], map: "idx_informal_purchase_supply")
   @@index([employeeId], map: "idx_informal_purchase_employee")
+  @@index([anuladoPor], map: "idx_informal_purchase_annulled_by")
   @@map("informal_purchase")
 }
 
@@ -704,3 +744,30 @@ model CashMovement {
   @@map("cash_movement")
 }
 
+
+// =====================================================================
+// MODULE: AUDIT (registro de cambios)
+// =====================================================================
+
+/// Bitácora inmutable: una fila por cada movimiento relevante del sistema.
+model AuditLog {
+  id          Int         @id @default(autoincrement())
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  userId      Int?        @map("user_id")
+  /// Copia del username al momento del hecho (se conserva aunque el usuario cambie).
+  username    String      @db.VarChar(50)
+  action      AuditAction
+  module      String      @db.VarChar(50)
+  entity      String      @db.VarChar(50)
+  entityId    String?     @map("entity_id") @db.VarChar(50)
+  description String      @db.VarChar(255)
+  /// Detalle del cambio: { antes, despues } u otros datos del movimiento.
+  details     Json?
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt], map: "idx_audit_log_created_at")
+  @@index([userId], map: "idx_audit_log_user")
+  @@index([module, entity], map: "idx_audit_log_module_entity")
+  @@map("audit_log")
+}

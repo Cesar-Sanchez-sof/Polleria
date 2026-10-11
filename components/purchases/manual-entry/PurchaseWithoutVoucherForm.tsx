@@ -99,127 +99,129 @@ export function PurchaseWithoutVoucherForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border bg-card p-5 space-y-4 shadow-xs">
-      <div className="flex items-center justify-between border-b pb-2">
-        <h2 className="text-base font-semibold flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-amber-600" />
-          Registrar Compra Menor Directa
-        </h2>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setSupplyDialogOpen(true)}
-          className="h-7 text-xs flex items-center gap-1"
-        >
-          <Plus className="h-3.5 w-3.5" /> + Crear Insumo
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-1.5 md:col-span-1">
-          <Label htmlFor="supply">Insumo Comprado *</Label>
-          <Select
-            value={supplyId ? supplyId.toString() : ""}
-            onValueChange={(val) => setSupplyId(Number(val))}
+    <>
+      <form onSubmit={handleSubmit} className="rounded-lg border bg-card p-5 space-y-4 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-amber-600" />
+            Registrar Compra Menor Directa
+          </h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSupplyDialogOpen(true)}
+            className="h-7 text-xs flex items-center gap-1"
           >
-            <SelectTrigger id="supply">
-              <SelectValue placeholder="Seleccionar insumo">
-                {selectedSupply ? selectedSupply.name : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {suppliesList.map((i) => (
-                <SelectItem key={i.id} value={i.id.toString()}>
-                  {i.name} ({i.unitOfMeasure})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Plus className="h-3.5 w-3.5" /> + Crear Insumo
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1.5 md:col-span-1">
+            <Label htmlFor="supply">Insumo Comprado *</Label>
+            <Select
+              value={supplyId ? supplyId.toString() : ""}
+              onValueChange={(val) => setSupplyId(Number(val))}
+            >
+              <SelectTrigger id="supply">
+                <SelectValue placeholder="Seleccionar insumo">
+                  {selectedSupply ? selectedSupply.name : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {suppliesList.map((i) => (
+                  <SelectItem key={i.id} value={i.id.toString()}>
+                    {i.name} ({i.unitOfMeasure})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="quantity">Cantidad *</Label>
+            <Input
+              id="quantity"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={quantity}
+              onChange={(e) => setQuantity(parseFloat(e.target.value) || "")}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="amountPaid">Monto Pagado Total (S/) *</Label>
+            <Input
+              id="amountPaid"
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0.00"
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(parseFloat(e.target.value) || "")}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="date">Fecha de Compra</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="informalPlaceOrVendor">Lugar / Proveedor Informal</Label>
+            <Input
+              id="informalPlaceOrVendor"
+              placeholder="Ej: Mercado Central, Bodega Don José, Vendedor Ambulante"
+              value={informalPlaceOrVendor}
+              onChange={(e) => setInformalPlaceOrVendor(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="quantity">Cantidad *</Label>
-          <Input
-            id="quantity"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={quantity}
-            onChange={(e) => setQuantity(parseFloat(e.target.value) || "")}
-            required
+          <Label htmlFor="reason">Motivo / Justificación</Label>
+          <Textarea
+            id="reason"
+            placeholder="Ej: Faltó cilantro para el turno noche, compra de emergencia sin comprobante..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="amountPaid">Monto Pagado Total (S/) *</Label>
-          <Input
-            id="amountPaid"
-            type="number"
-            step="0.01"
-            min="0.01"
-            placeholder="0.00"
-            value={amountPaid}
-            onChange={(e) => setAmountPaid(parseFloat(e.target.value) || "")}
-            required
-          />
+        {calculatedUnitCost > 0 && (
+          <div className="text-xs text-muted-foreground flex justify-between bg-muted/30 p-2 rounded border">
+            <span>Costo unitario implícito:</span>
+            <span className="font-semibold text-foreground">
+              S/ {calculatedUnitCost.toFixed(2)} / {selectedSupply?.unitOfMeasure || "unidad"}
+            </span>
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <Button type="submit" disabled={loading} className="flex items-center gap-2">
+            {loading && <Spinner className="h-4 w-4" />}
+            Guardar Compra Menor
+          </Button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="date">Fecha de Compra</Label>
-          <Input
-            id="date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="informalPlaceOrVendor">Lugar / Proveedor Informal</Label>
-          <Input
-            id="informalPlaceOrVendor"
-            placeholder="Ej: Mercado Central, Bodega Don José, Vendedor Ambulante"
-            value={informalPlaceOrVendor}
-            onChange={(e) => setInformalPlaceOrVendor(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="reason">Motivo / Justificación</Label>
-        <Textarea
-          id="reason"
-          placeholder="Ej: Faltó cilantro para el turno noche, compra de emergencia sin comprobante..."
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={2}
-        />
-      </div>
-
-      {calculatedUnitCost > 0 && (
-        <div className="text-xs text-muted-foreground flex justify-between bg-muted/30 p-2 rounded border">
-          <span>Costo unitario implícito:</span>
-          <span className="font-semibold text-foreground">
-            S/ {calculatedUnitCost.toFixed(2)} / {selectedSupply?.unitOfMeasure || "unidad"}
-          </span>
-        </div>
-      )}
-
-      <div className="flex justify-end pt-2">
-        <Button type="submit" disabled={loading} className="flex items-center gap-2">
-          {loading && <Spinner className="h-4 w-4" />}
-          Guardar Compra Menor
-        </Button>
-      </div>
+      </form>
 
       <SupplyDialog
         open={supplyDialogOpen}
         onOpenChange={setSupplyDialogOpen}
         onSuccess={handleSupplyCreated}
       />
-    </form>
+    </>
   );
 }
