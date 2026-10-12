@@ -58,7 +58,7 @@ Qué roles del ERP corresponden a cada perfil sigue pendiente (P-1).
 | Etapa | Contenido | Requiere |
 |-------|-----------|----------|
 | **Etapa 0: aislada** | Componentes C1 a C11 desarrollados y probados por separado **exclusivamente** con mocks, datos ficticios o bases PostgreSQL desechables configuradas explícitamente. **Sin conexión a Neon de producción ni dependencia de `DATABASE_URL` del ERP** (NFR-011). El widget se prueba **sin montarse** en las pantallas existentes. Como Modelo 2 puede usarse XiYanSQL base como línea base. El índice RAG se simula o es local (no Zilliz). No se envían datos reales a servicios externos (P-21). | P-18 |
-| **MVP integrado** | Las 12 decisiones funcionales confirmadas (US1 a US6) en las pantallas contables habilitadas (P-2), con un catálogo acotado de consultas: saldos y movimientos de cuenta, totales por período, balance a una fecha e indicadores básicos (P-6). Usa **realmente un adaptador QLoRA** evaluado y con versión registrada, aunque no sea el definitivo (P-15). Incluye la cadena de seguridad completa: proxy, revalidación por consulta, SQL Validator, SQL Executor restringido, motor financiero y auditoría minimizada. | DE-1, DE-2, DE-3, DE-5 (CS-1 aprobado), DE-7 resueltas; adaptador QLoRA evaluado (SC-008); viabilidad de la inferencia gratuita demostrada (P-7); P-21 resuelta |
+| **MVP integrado** | Las 12 decisiones funcionales confirmadas (US1 a US6) en las pantallas contables habilitadas (P-2), con un catálogo acotado de consultas: saldos y movimientos de cuenta, totales por período, balance a una fecha e indicadores básicos (P-6). Usa **realmente un adaptador QLoRA** evaluado y con versión registrada, aunque no sea el definitivo (P-15). Incluye la cadena de seguridad completa: proxy, revalidación por consulta, SQL Validator, SQL Executor restringido, motor financiero y auditoría minimizada. | DE-1, DE-2, DE-3, DE-5 (CS-1 aprobado), DE-7 resueltas; adaptador QLoRA evaluado (SC-008); viabilidad de la inferencia gratuita del Modelo 2 demostrada (P-7); Modelo 1 real mediante API comercial evaluado, con proveedor y presupuesto definidos (P-22); P-21 resuelta |
 | **Posterior** | Indicadores del estado de resultados, que depende de que se implemente esa pantalla. Paneles de observabilidad. Reentrenamiento periódico y versión definitiva del adaptador. Sincronizar la conversación entre pestañas. Ajuste de los límites de uso. | Aprobación específica |
 
 **Modelo 2 [CONFIRMADO]**: durante las pruebas iniciales puede usarse **XiYanSQL-QwenCoder-7B-2504
@@ -70,8 +70,13 @@ equipo; aún pendiente de evaluación e integración**.
 
 ### Restricciones del proyecto
 
-- **Presupuesto mensual de infraestructura: US$0** [CONFIRMADO]. Toda la infraestructura
-  (inferencia, almacén vectorial, servicio de IA) debe funcionar con recursos gratuitos.
+- **Presupuesto objetivo de infraestructura: US$0, con una única excepción** [CONFIRMADO].
+  - El Modelo 2 (XiYanSQL + QLoRA), el almacén vectorial, los embeddings, el RAG y el servicio de
+    IA usan recursos gratuitos.
+  - **Excepción: Modelo 1** (interpretación y explicación). Puede usar una **API comercial de LLM
+    con pago por consumo y un límite mensual**. El presupuesto máximo, el proveedor y su política
+    de retención y tratamiento de datos están pendientes (P-22).
+  - **No se contrata una GPU dedicada** para el Modelo 1.
 - **Sin garantía de disponibilidad continua** [CONFIRMADO]: los recursos gratuitos (GPU, almacén
   vectorial, alojamiento) pueden tener cuotas, suspensión por inactividad, arranques en frío o
   interrupciones. No se garantiza un funcionamiento 24/7. Cuando no estén disponibles, el asistente
@@ -349,6 +354,8 @@ US4 no funcionan al cambiar de pantalla.
   fecha UTC del servidor (BR-10).
 - **Inferencia gratuita no disponible** (cuota agotada, suspensión, arranque en frío): se muestra el
   mensaje de servicio no disponible. No se garantiza un funcionamiento 24/7.
+- **Presupuesto del Modelo 1 agotado o imposible de verificar**: no se hacen llamadas facturables y
+  se responde con el `503` controlado, sin detalles económicos (NFR-014).
 - **Pregunta con información sensible** (nombres, DNI, RUC, importes reales): la propia pregunta se
   trata como potencialmente sensible y no se envía a proveedores externos de inferencia mientras
   P-21 siga pendiente (BR-13).
@@ -584,15 +591,19 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
 - **SEC-4** [PROPUESTO]: los secretos van en variables de entorno de despliegue (DE-7). En la
   Etapa 0 no se usan credenciales reales.
   - [CONFIRMADO] El valor de `DATABASE_URL_READONLY` y el de cualquier otra credencial (incluidas
-    las de Zilliz Cloud y las de los servicios de inferencia) **nunca** se incluyen en la
-    documentación, el código, los registros, las trazas ni GitHub. Solo se nombra la variable.
+    las de Zilliz Cloud, las de los servicios de inferencia y la clave de la API comercial del
+    Modelo 1) **nunca** se incluyen en la documentación, el código, los registros, las trazas ni
+    GitHub. Solo se nombra la variable.
+  - [CONFIRMADO] La clave de la API comercial del Modelo 1 reside **exclusivamente en el backend
+    Python** (`ai-service/`). Nunca llega al ERP, al navegador ni a variables públicas.
 - **SEC-5** [PROPUESTO]: defensa contra inyección de instrucciones. Los datos recuperados (RAG y
   resultados) se delimitan como datos y el texto del usuario nunca se concatena en el SQL.
 - **SEC-6** [CONFIRMADA la regla provisional; PENDIENTE la política definitiva, P-21]: mientras P-21
   siga pendiente se aplica BR-13. A proveedores externos de inferencia no se envían datos contables
   reales, resultados SQL, importes reales ni información personal, y la pregunta del usuario se
   trata como potencialmente sensible. Las pruebas externas solo usan información ficticia, o
-  anonimizada y autorizada. La técnica de marcadores de CT-I sigue PROPUESTA.
+  anonimizada y autorizada. La técnica de marcadores de CT-I sigue PROPUESTA. El proveedor
+  comercial del Modelo 1 es un **proveedor externo de inferencia** sujeto a esta regla y a P-21/P-22.
 - **SEC-7** [CONFIRMADO, P-12]: el SQL generado **no se muestra dentro del chat a ningún usuario
   final, incluidos los administradores**. Las trazas técnicas restringidas de auditoría son un
   asunto distinto, sujeto a SEC-8.
@@ -707,8 +718,20 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
 
 - **FR-013** [PROPUESTO, MVP]: Proxy propio en el backend del ERP como único punto de entrada desde
   el navegador. Solo consume `sesionActual()`.
-- **FR-014** [PROPUESTO, MVP]: Modelo 1 para clasificar la intención, extraer entidades y redactar
-  la explicación final.
+- **FR-014** [CONFIRMADO el Modelo 1 real en el MVP; PROPUESTO el diseño]: Modelo 1 para
+  clasificar la intención, extraer entidades y redactar la explicación final.
+  - En el MVP se sirve mediante una **API comercial de LLM** con límite mensual (P-7, P-22), sin
+    GPU dedicada.
+  - Desacoplado del proveedor mediante la interfaz `LlmProvider` [CONFIRMADO, D-12]: contratos
+    tipados y respuestas estructuradas validadas. El proveedor comercial y el presupuesto siguen
+    pendientes (P-22).
+  - [CONFIRMADO] El Modelo 1 **no calcula ni inventa cifras financieras**. Los valores proceden
+    exclusivamente del SQL Executor y del motor financiero, con validación determinista.
+  - [PROPUESTO] Las cifras verificadas se incorporan a la explicación mediante marcadores o
+    referencias estructuradas. La técnica concreta todavía requiere pruebas.
+  - [PENDIENTE, P-21] Las condiciones de privacidad y los datos que pueden enviarse a proveedores
+    externos.
+  - En la Etapa 0 solo se usan reglas, plantillas y un proveedor simulado, sin llamadas reales.
 - **FR-015** [PROPUESTO, MVP]: Embeddings e índice RAG versionados con metadatos del esquema,
   relaciones, reglas de negocio y ejemplos Text-to-SQL.
   - Almacén: **Zilliz Cloud Free con Milvus** (P-8, PROPUESTA; no es infraestructura validada).
@@ -830,9 +853,25 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
   `vitest.config.mts`. Solo se considerará cumplido cuando se demuestre mediante pruebas.
 - **NFR-013** [CONFIRMADO, regla provisional hasta resolver P-21]: protección de los datos enviados
   a proveedores externos de inferencia según BR-13 y SEC-6.
-- **NFR-014** [CONFIRMADO]: presupuesto mensual de infraestructura de US$0. Toda la
-  infraestructura usa recursos gratuitos, sin garantía de disponibilidad 24/7. La elección del
-  alojamiento definitivo depende de la prueba de viabilidad (P-7).
+- **NFR-014** [CONFIRMADO]: presupuesto objetivo de infraestructura de US$0, salvo la excepción del
+  Modelo 1.
+  - **Infraestructura gratuita** (Modelo 2, RAG, embeddings, almacén vectorial y servicio de IA):
+    sin garantía de disponibilidad 24/7. El alojamiento del Modelo 2 se decide tras la prueba de
+    viabilidad (P-7).
+  - **Modelo 1**: API comercial con pago por consumo y límite mensual (P-22). Controles de
+    consumo:
+    - verificar si el proveedor ofrece un límite real de gasto, saldo prepago o un mecanismo
+      equivalente, **sin presuponerlo**;
+    - contador interno y cortacircuitos;
+    - límites de tokens, solicitudes y reintentos;
+    - registro de consumo sin almacenar prompts ni respuestas sensibles;
+    - **fallo seguro**: si no se puede verificar el presupuesto restante, no se hacen llamadas
+      facturables.
+  - **Presupuesto agotado** [CONFIRMADO]: no se hacen nuevas llamadas facturables y se responde con
+    el `503` controlado, sin exponer detalles económicos al usuario. La degradación a reglas y
+    plantillas queda para una decisión futura.
+  - La persistencia del contador y la estrategia definitiva de control siguen pendientes de
+    investigación.
 
 ---
 
@@ -889,6 +928,9 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
   100 % carece de datos contables reales, resultados SQL, importes reales e información personal.
 - **SC-017**: Existe un informe de la prueba de viabilidad de la inferencia gratuita del adaptador
   (P-7) con disponibilidad observada, cuotas y latencias, sin afirmar una disponibilidad 24/7.
+- **SC-018**: Con un proveedor simulado del Modelo 1, el 100 % de los casos de presupuesto agotado o
+  imposible de verificar produce 0 llamadas facturables y un `503` sin detalles económicos. Los
+  registros de consumo no contienen prompts ni respuestas.
 
 ---
 
@@ -929,7 +971,7 @@ DE-1, DE-2 y DE-3 no estén resueltas, el asistente no accede a datos contables 
 | **DE-4** | Infraestructura del almacén vectorial | Plataforma | No existe. Propuesta: Zilliz Cloud Free con Milvus (P-8, PROPUESTA, no validada), que no toca la base del ERP. Falta verificar los límites del plan gratuito (capacidad, inactividad, disponibilidad). **No se proponen migraciones.** | FR-015 (P-8) |
 | **DE-5** | Punto de montaje del widget en un layout compartido | Responsables de layouts / contabilidad | No autorizado (CS-1) | FR-001, FR-003 en integración (P-19) |
 | **DE-6** | Criterio contable sobre asientos anulados | Equipo contable | Discrepancia entre las specs `013` y `007` | BR-9, SC-004 (P-4) |
-| **DE-7** | Variables de entorno de despliegue (URL del servicio de IA, secreto interno, credenciales de Zilliz y de inferencia) | Plataforma / despliegue | No existen | CT-B, SEC-3, SEC-4 |
+| **DE-7** | Variables de entorno de despliegue (URL del servicio de IA, secreto interno, credenciales de Zilliz y de inferencia, y clave de la API comercial del Modelo 1, esta última solo en el backend Python) | Plataforma / despliegue | No existen | CT-B, SEC-3, SEC-4, FR-014 (P-22) |
 
 ## Cambios compartidos identificados *(NO AUTORIZADOS)*
 
@@ -939,6 +981,7 @@ DE-1, DE-2 y DE-3 no estén resueltas, el asistente no accede a datos contables 
 | CS-2 | Etiqueta Swagger propia | `app/api/openapi/swaggerConfig.ts` | Solo estética; el escaneo de `app/api/**/*.ts` ya es automático | No se solicita |
 | CS-3 | Dependencias npm del ERP | `package.json` | Objetivo: ninguna. Si alguna fuera imprescindible, se pediría autorización. | No se solicita |
 | CS-4 | CI para el servicio Python | `.github/workflows/ci.yml` | El workflow actual solo ejecuta Node | No se solicita. Con P-13 (servicio dentro del repositorio, PROPUESTA), sus pruebas se ejecutan fuera de la CI del ERP. |
+| CS-5 | Reutilizar Upstash Redis (infraestructura que ya usa el ERP) como almacén de trabajos asíncronos | Infraestructura compartida (sin archivo concreto) | Solo si la decisión pendiente del plan sobre el modelo de ejecución (D-2) concluye que la opción síncrona no cabe en los límites de la plataforma | **Identificado y no autorizado.** No se usa ni se modifica Redis. |
 
 ## Control de cambios *(CONFIRMADO)*
 
@@ -970,8 +1013,8 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 - Los usuarios formulan las preguntas en español.
 - El adaptador QLoRA está en entrenamiento, según información del equipo. Esta spec no presupone
   que el entrenamiento haya terminado ni que el adaptador esté evaluado, integrado o desplegado.
-- El presupuesto mensual de infraestructura es US$0 y los recursos gratuitos no garantizan
-  disponibilidad 24/7.
+- El presupuesto objetivo de infraestructura es US$0, salvo el Modelo 1, que usa una API comercial
+  con límite mensual (P-22). Los recursos gratuitos no garantizan disponibilidad 24/7.
 
 ## Registro de decisiones
 
@@ -987,7 +1030,7 @@ trazabilidad.
 | P-4 | PENDIENTE | Criterio contable sobre asientos anulados (coordinación con el equipo) | BR-9, SC-004, DE-6 |
 | P-5 | CONFIRMADA | Zona horaria del negocio: `America/Lima`. La semántica de los límites UTC de los períodos sigue pendiente de verificación (BR-10). | BR-10, FR-026, C3 |
 | P-6 | PENDIENTE | Catálogo de indicadores del MVP | FR-019, C10 |
-| P-7 | PROPUESTA | Entrenamiento y evaluación con recursos gratuitos. Inferencia remota del adaptador solo después de una prueba de viabilidad. Sin garantía de disponibilidad 24/7. El alojamiento definitivo se elige tras esa prueba. | FR-016, NFR-014, SEC-6, C5–C7, SC-017 |
+| P-7 | PROPUESTA | Alojamiento de los modelos, en dos partes. **(a) Modelo 2 (XiYanSQL + QLoRA)**: entrenamiento, evaluación e inferencia con recursos gratuitos; inferencia remota del adaptador solo después de una prueba de viabilidad; sin garantía 24/7; el alojamiento definitivo se elige tras esa prueba. **(b) Modelo 1**: API comercial de pago por consumo con límite mensual, sin GPU dedicada (excepción presupuestaria CONFIRMADA); proveedor y presupuesto en P-22. | FR-014, FR-016, NFR-014, SEC-6, C5–C7, SC-017, SC-018 |
 | P-8 | PROPUESTA | Zilliz Cloud Free con Milvus para los embeddings de metadatos, relaciones, reglas de negocio y ejemplos Text-to-SQL. No es infraestructura validada. Sin migraciones. | FR-015, C6, DE-4 |
 | P-9 | PENDIENTE | Autenticación de la API interna entre el ERP y el servicio de IA | SEC-3, FR-021 |
 | P-10 | PENDIENTE | Almacén propio de auditoría, plazo de retención, técnica de protección de los parámetros (enmascaramiento irreversible o cifrado reversible con acceso restringido), roles de auditoría, texto de la pregunta e IP | FR-022, CT-J, SEC-8 |
@@ -1001,7 +1044,8 @@ trazabilidad.
 | P-18 | PENDIENTE | Cómo construir y versionar la base ficticia desechable de la Etapa 0 (aplicar las migraciones a un PostgreSQL desechable requiere autorización; alternativa: fixtures mínimas) y dónde se ejecutan sus pruebas | SC-004, SC-014, C9, NFR-011 |
 | P-19 | PENDIENTE | Punto de montaje del widget (CS-1) y responsable de coordinarlo; ninguna opción está autorizada | FR-001, FR-003, DE-5 |
 | P-20 | PENDIENTE | Responsable y vía de coordinación de cada dependencia externa (DE-1 a DE-7) | Dependencias externas |
-| P-21 | PENDIENTE | Política de inferencia remota y datos sensibles: qué información puede enviarse a proveedores externos de inferencia, y validación funcional y de seguridad de la técnica de marcadores de CT-I. Mientras no se resuelva rige la regla provisional BR-13. | BR-13, SEC-6, NFR-013, CT-I, CT-E, SC-016 |
+| P-21 | PENDIENTE | Política de inferencia remota y datos sensibles: qué información puede enviarse a proveedores externos de inferencia, y validación funcional y de seguridad de la técnica de marcadores de CT-I. Incluye los riesgos de los **embeddings de las preguntas** enviados a servicios externos (p. ej. el índice vectorial) y el envío de preguntas al proveedor comercial del Modelo 1. Mientras no se resuelva rige la regla provisional BR-13. | BR-13, SEC-6, NFR-013, CT-I, CT-E, SC-016 |
+| P-22 | PENDIENTE | Modelo 1 comercial: proveedor, presupuesto mensual máximo, política de retención y tratamiento de datos del proveedor (incluido su uso para entrenamiento), y existencia de un límite real de gasto o saldo prepago. | FR-014, NFR-014, SEC-4, SEC-6, DE-7, SC-018 |
 
 ---
 
@@ -1021,7 +1065,7 @@ trazabilidad.
 | FR-011 | US2 escenario 3 | C9, C10, C11 | Reproducción exacta sobre fixtures y estado controlado; trazabilidad en producción (SC-001) |
 | FR-012 | US3 escenarios 1-5; US6 escenario 6 | C1, C2, C4 | Prueba por cada mensaje del catálogo (SC-007) |
 | FR-013 | US1 a US6 | C2 · DE-1 | El navegador solo llama al proxy; `401` sin sesión |
-| FR-014 | US2, US3, US4 | C5 | Conjunto de intenciones etiquetado |
+| FR-014 | US2, US3, US4 | C5 · P-7, P-22 | Conjunto de intenciones etiquetado; salida estructurada validada; integridad de marcadores; proveedor simulado en la Etapa 0 |
 | FR-015 | US2 | C6 · DE-4 · P-8 | Recall@k y MRR sobre el conjunto Gold; índice simulado en la Etapa 0; límites de Zilliz Free verificados |
 | FR-016 | US2 | C7 · P-7, P-15 | Adaptador QLoRA del MVP sobre el conjunto Gold (SC-008), comparativa base frente a QLoRA (SC-012) y viabilidad de inferencia gratuita (SC-017) |
 | FR-017 | Edge case de evasión; US3 escenario 3 | C8 · DE-2 | Batería de SQL permitido, prohibido y de evasión (SC-003) |
@@ -1041,7 +1085,7 @@ trazabilidad.
 | NFR-011 | Todas las pruebas de la Etapa 0 | C1–C11 | Solo mocks o base desechable explícita; sin `DATABASE_URL` ni Neon; fallo seguro (SC-014) |
 | NFR-012 | — | C1, C2 | `vitest run` y `npm run build` sin variables nuevas (pendiente de verificación) |
 | NFR-013 | Edge case de pregunta con información sensible | C4, C5 · P-21 | Inspección de las peticiones de prueba a inferencia externa (SC-016, criterio de aceptación 19) |
-| NFR-014 | US3 escenario 5; edge case de inferencia no disponible | C4, C7 · P-7 | Informe de viabilidad sin garantía 24/7 (SC-017); mensaje `503` ante indisponibilidad |
+| NFR-014 | US3 escenario 5; edge cases de inferencia no disponible y de presupuesto agotado | C4, C5, C7 · P-7, P-22 | Informe de viabilidad sin garantía 24/7 (SC-017); controles de consumo con proveedor simulado (SC-018); mensaje `503` ante indisponibilidad o presupuesto agotado |
 
 ---
 
@@ -1108,5 +1152,7 @@ Sidebar (CS-1), estado de resultados y entrenamiento detallado del Modelo 2 (spe
 
 ---
 
-*Esta especificación define comportamiento **nuevo y no implementado**. Los elementos marcados
-[PROPUESTO] o [NEEDS CLARIFICATION] requieren aprobación antes de pasar a `plan.md` y `tasks.md`.*
+*Esta especificación define comportamiento **nuevo y no implementado**. El plan técnico ya existe
+([plan.md](./plan.md)). Las decisiones marcadas [PROPUESTO], [NEEDS CLARIFICATION] o PENDIENTE
+deben resolverse antes de implementar las funcionalidades que dependen de ellas, y el futuro
+`tasks.md` puede recoger explícitamente esas dependencias y bloqueos.*
