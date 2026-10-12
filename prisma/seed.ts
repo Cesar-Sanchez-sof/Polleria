@@ -47,21 +47,24 @@ async function main() {
     },
   });
 
-  // Create admin user if not exists
-  const existingAdmin = await prisma.user.findFirst({ where: { username: "admin" } });
-  if (!existingAdmin) {
-    const hashedPassword = await bcrypt.hash("admin", 10);
-    await prisma.user.create({
-      data: {
-        username: "admin",
-        password: hashedPassword,
-        employeeId: adminEmployee.id,
-        roleId: adminRole.id,
-        estado: true,
-      },
-    });
-    console.log("✔ Usuario admin creado.");
-  }
+  // Ensure admin user exists with email
+  const hashedPassword = await bcrypt.hash("Password123!", 10);
+  await prisma.user.upsert({
+    where: { username: "admin" },
+    update: {
+      correo: "admin@example.com",
+      password: hashedPassword,
+    },
+    create: {
+      username: "admin",
+      correo: "admin@example.com",
+      password: hashedPassword,
+      employeeId: adminEmployee.id,
+      roleId: adminRole.id,
+      estado: true,
+    },
+  });
+  console.log("✔ Usuario admin creado o actualizado.");
 
 
   // 2. MÉTODOS DE PAGO
