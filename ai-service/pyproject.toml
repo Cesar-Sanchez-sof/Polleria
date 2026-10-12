@@ -1,0 +1,31 @@
+# Servicio de IA del Asistente Financiero (SPEC-023).
+#
+# Este archivo solo DECLARA dependencias futuras: no se ha instalado nada.
+# El bloque B1 funciona exclusivamente con la biblioteca estándar de Python.
+# Las dependencias de B2/B3 se instalarán solo con autorización, en ai-service/.venv.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-service"
+version = "0.1.0"
+description = "Orquestación del Asistente Financiero con IA del ERP (SPEC-023)"
+requires-python = ">=3.11"
+dependencies = [
+    # B2/B3 (pendientes de autorización de instalación)
+    "fastapi",
+    "pydantic>=2",
+    "sqlglot",
+    # F5 (bloqueada por P-18)
+    "psycopg>=3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+# Fase posterior (P-8): cliente de Milvus/Zilliz
+vector = ["pymilvus"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

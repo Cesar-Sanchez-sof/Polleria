@@ -1,0 +1,26 @@
+{
+  "version": "glossary-v1",
+  "description": "Glosario CURADO en español para enriquecer los fragmentos del esquema. Describe el significado de tablas y columnas; no contiene registros ni valores del ERP. Los nombres de cuentas citados son nombres genéricos del PCGE, no datos de la empresa.",
+  "tables": {
+    "accounting_account": "cuenta contable del plan de cuentas (PCGE): código, nombre, tipo o naturaleza (Activo, Pasivo, Patrimonio, Ingreso, Gasto, Costo), cuenta padre y jerarquía; por ejemplo caja y bancos, proveedores o ventas",
+    "accounting_period": "período contable mensual con fecha de inicio, fecha de fin y estado abierto o cerrado",
+    "journal_entry": "asiento contable del libro diario: fecha del asiento, período, glosa o descripción, libro o diario, código, estado y documento de origen (venta, compra o planilla)",
+    "journal_entry_detail": "línea o detalle del asiento: cuenta contable, importes del debe y del haber (cargos y abonos) que forman los movimientos y el saldo de cada cuenta"
+  },
+  "columns": {
+    "accounting_account.code": "código de la cuenta",
+    "accounting_account.name": "nombre de la cuenta",
+    "accounting_account.type": "tipo o naturaleza de la cuenta",
+    "accounting_account.parent_id": "cuenta padre en la jerarquía",
+    "accounting_period.start_date": "fecha de inicio del período",
+    "accounting_period.end_date": "fecha de fin del período",
+    "accounting_period.status": "estado del período abierto o cerrado",
+    "journal_entry.entry_date": "fecha del asiento",
+    "journal_entry.period_id": "período al que pertenece el asiento",
+    "journal_entry.book": "libro o diario (caja y bancos, compras, ventas, operaciones varias)",
+    "journal_entry.status": "estado del asiento (criterio de anulados pendiente, P-4)",
+    "journal_entry_detail.debit": "importe del debe (cargo)",
+    "journal_entry_detail.credit": "importe del haber (abono)",
+    "journal_entry_detail.account_id": "cuenta contable de la línea"
+  }
+}
