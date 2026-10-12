@@ -2,34 +2,40 @@ import React from "react";
 import { Repeat } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSupplies } from "@/lib/services/purchases/supply";
-import { getTransformations } from "@/lib/services/purchases/transformation";
-import { TransformationForm } from "@/components/purchases/transformation/TransformationForm";
-import { TransformationsTable } from "@/components/purchases/transformation/TransformationsTable";
+import {
+  getTransformationRecipes,
+  getTransformations,
+} from "@/lib/services/purchases/transformation";
+import { TransformationView } from "@/components/purchases/transformation/TransformationView";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Supply Transformation | Purchases",
+  title: "Transformación de Insumos | Compras",
 };
 
 export default async function TransformationPage() {
-  const [supplies, transformations] = await Promise.all([
+  const [supplies, recipes, transformations] = await Promise.all([
     getSupplies(),
+    getTransformationRecipes(),
     getTransformations(),
   ]);
 
   return (
     <>
       <ModuleHeader
-        title="Transformación de Inventario"
-        subtitle="Convierte materias primas en productos procesados o terminados"
+        title="Transformación de Insumos"
+        subtitle="Define recetas de producción y ejecútalas por lote para convertir materias primas en productos terminados"
         icon={Repeat}
         iconClassName="bg-orange-100 text-orange-800"
       />
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
-          <TransformationForm supplies={JSON.parse(JSON.stringify(supplies))} />
-          <TransformationsTable transformations={JSON.parse(JSON.stringify(transformations))} />
+          <TransformationView
+            supplies={JSON.parse(JSON.stringify(supplies))}
+            recipes={JSON.parse(JSON.stringify(recipes))}
+            transformations={JSON.parse(JSON.stringify(transformations))}
+          />
         </div>
       </main>
     </>
