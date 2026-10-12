@@ -3,212 +3,267 @@
 **Feature Branch**: `017-compra-menor-sin-comprobante`
 
 **Created**: 2026-10-05
-
+**Updated**: 2026-10-11
 **Status**: Draft
 
-**Input**: User description: "Especificación de Spec Kit para la feature ya creada *compra
-menor sin comprobante* (ingreso directo de compras informales al inventario), describiendo el
-comportamiento real implementado."
+**Input**: User description: "Especificación de Spec Kit para la feature 
+*compra menor sin comprobante*, que registra compras informales sin 
+boleta ni factura. Cubre dos tipos: insumos de cocina (que ingresan al 
+inventario) y gastos operativos (que solo van a contabilidad). Incluye 
+anulación con motivo."
 
-> **Nota de procedencia**: especificación de un **comportamiento ya implementado**. Todo lo
-> afirmado fue verificado por lectura de código y por la prueba automatizada
-> (`lib/services/purchases/purchases.service.test.ts`, bloque "Módulo 7: Compra sin
-> comprobante"), con evidencia en [Evidencia de verificación](#evidencia-de-verificación). No
-> se describen funcionalidades futuras ni reglas ausentes en la implementación. Alta de
-> insumos (spec `015`), proveedores (spec `014`), recepción de órdenes y transformación son
-> features separadas; esta spec documenta **sólo** el registro de la compra informal y su
-> ingreso a inventario.
+> **Nota de procedencia**: especificación **actualizada** para reflejar 
+> el nuevo alcance con categorías de gasto y anulación. Alta de insumos 
+> (spec `015`), proveedores (spec `014`), transformación (spec `023`) 
+> son features separadas.
 
 ---
 
 ## Purpose
 
-Registrar una compra informal (sin boleta ni factura) de un insumo, ingresando la mercadería
-directamente al inventario con su costo unitario implícito y dejando el movimiento en el
-Kardex, además de conservar el historial de estas compras.
+Registrar compras informales (sin boleta ni factura) de dos tipos:
+
+1. **Insumo de cocina**: mercadería que ingresa al inventario (pollo, 
+   papa, aceite, sal). Aumenta `currentStock` y recalcula costos.
+2. **Gasto operativo**: servicios o gastos que no van al inventario 
+   (cantante, personal eventual, transporte, suministros de limpieza). 
+   Se registra solo para contabilidad.
+
+Ambos tipos permiten anulación con motivo, sin eliminar el registro.
 
 ---
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Registrar una compra informal (Priority: P1)
+### User Story 1 - Registrar una compra de insumo de cocina (Priority: P1)
 
-Como encargado de almacén, quiero cargar una compra de emergencia (insumo, cantidad y monto
-pagado) para que el stock aumente sin necesidad de una orden de compra ni comprobante.
-
-**Why this priority**: es la única operación de la pantalla y la que modifica el inventario.
-
-**Independent Test**: `registerPurchaseWithoutVoucher({ supplyId: 1, quantity: 5, amountPaid:
-50 })` con stock 10 → `currentStock` pasa a 15.
+Como encargado de almacén, quiero registrar una compra informal de un 
+insumo de cocina para que el stock aumente y el costo promedio se 
+actualice correctamente.
 
 **Acceptance Scenarios**:
 
-1. **Given** un insumo con stock 10, **When** se registra cantidad 5 y monto S/ 50, **Then**
-   en una transacción se crea la `InformalPurchase`, un `InventoryMovement`
-   (`InformalPurchase`, `quantity: 5`, `unitCost: 10`) y el insumo queda en 15; toast "Compra
-   menor registrada exitosamente".
-2. **Given** sin insumo seleccionado, **When** se envía, **Then** lanza y muestra `Debe
-   seleccionar un insumo`.
-3. **Given** cantidad 0 o negativa, **When** se envía, **Then** `La cantidad debe ser mayor a
-   0`.
-4. **Given** monto 0 o negativo, **When** se envía, **Then** `El monto pagado debe ser mayor
-   a 0`.
-5. **Given** un `supplyId` inexistente, **When** se envía, **Then** `Insumo no encontrado`.
-6. **Given** no se envía `employeeId`, **When** se registra, **Then** el responsable se toma
-   automáticamente (primer empleado activo) o se crea el empleado por defecto si la tabla
-   está vacía.
+1. **Given** un insumo con stock 10 y averageCost 8.00,
+   **When** se registra una compra de 5 unidades por S/ 50 (costo 
+   unitario 10.00),
+   **Then** en una transacción se crea la `InformalPurchase` con 
+   `purchaseType: InventoryItem`, un `InventoryMovement` con 
+   `informalPurchaseId` linkeado, y el insumo queda con 
+   `currentStock: 15`, `lastCost: 10.00`, `averageCost: 8.67`.
+
+2. **Given** que el mismo formulario, **When** se completa con 
+   insumo, cantidad y monto válidos, **Then** aparece el toast 
+   "Compra menor registrada exitosamente".
+
+3. **Given** sin insumo seleccionado, **When** se envía, **Then** 
+   error `Debe seleccionar un insumo`.
+
+4. **Given** cantidad 0 o negativa, **When** se envía, **Then** 
+   `La cantidad debe ser mayor a 0`.
+
+5. **Given** monto 0 o negativo, **When** se envía, **Then** 
+   `El monto pagado debe ser mayor a 0`.
 
 ---
 
-### User Story 2 - Ver el historial de compras informales (Priority: P2)
+### User Story 2 - Registrar un gasto operativo (Priority: P1)
 
-Como usuario, quiero ver las compras menores registradas con su fecha, insumo, monto, costo
-unitario y motivo para auditar lo ingresado al inventario.
-
-**Why this priority**: es la vista de soporte; no modifica datos.
-
-**Independent Test**: con compras registradas, la tabla muestra cada fila con costo unitario
-`monto / cantidad`.
+Como administrador, quiero registrar un gasto operativo informal 
+(cantante, mozo eventual, transporte) para que quede constancia 
+contable sin contaminar el inventario.
 
 **Acceptance Scenarios**:
 
-1. **Given** compras registradas, **When** se carga la página, **Then** la tabla lista Fecha
-   (formato `es-PE`), Insumo, Cantidad (2 decimales + unidad), Monto Pagado, Costo Unitario,
-   Lugar/Proveedor y Motivo.
-2. **Given** una compra sin lugar ni motivo, **When** se muestra, **Then** aparecen "-" y
-   "Compra menor de emergencia" respectivamente.
-3. **Given** no hay compras, **When** se carga, **Then** se muestra "No se registran compras
-   menores sin comprobante."
+1. **Given** el usuario selecciona "Gasto operativo" en el toggle,
+   **When** completa descripción "Cantante aniversario", categoría 
+   "Servicios eventuales", monto 300, fecha,
+   **Then** se crea `InformalPurchase` con `purchaseType: 
+   OperatingExpense`, `expenseCategory: EventServices`, 
+   `itemDescription: "Cantante aniversario"`, `supplyId: null`.
+
+2. **Given** la misma operación, **Then** NO se crea ningún 
+   `InventoryMovement` y ningún `Supply` se modifica.
+
+3. **Given** sin descripción, **When** se envía, **Then** error 
+   `La descripción del gasto es obligatoria`.
+
+4. **Given** sin categoría, **When** se envía, **Then** error 
+   `Debe seleccionar una categoría de gasto`.
+
+5. **Given** un gasto operativo registrado, **When** se ve la tabla,
+   **Then** la fila muestra `purchaseType: "Gasto"`, la categoría 
+   legible, y la descripción.
+
+---
+
+### User Story 3 - Ver el historial con filtros (Priority: P2)
+
+Como usuario, quiero ver todas las compras menores con su tipo y 
+categoría, y poder filtrar por tipo, para auditar lo registrado.
+
+**Acceptance Scenarios**:
+
+1. **Given** compras registradas, **When** se carga la página, 
+   **Then** la tabla lista Fecha, Tipo (badge), Insumo/Descripción, 
+   Categoría, Cantidad, Monto, Costo Unit., Lugar/Proveedor, 
+   Registrado por, Estado, Acciones.
+
+2. **Given** el filtro "Solo insumos", **When** se aplica, **Then** 
+   solo muestra `purchaseType: InventoryItem`.
+
+3. **Given** el filtro "Solo gastos", **Then** solo muestra 
+   `purchaseType: OperatingExpense`.
+
+4. **Given** el buscador, **When** escribes "pollo", **Then** filtra 
+   por nombre de insumo, descripción o lugar.
+
+5. **Given** una compra anulada, **Then** muestra badge gris 
+   "Anulado" y se ve en el historial.
+
+---
+
+### User Story 4 - Anular una compra (Priority: P1)
+
+Como administrador, quiero anular una compra menor registrada por 
+error, dejando constancia del motivo y revirtiendo el stock si 
+corresponde.
+
+**Acceptance Scenarios**:
+
+1. **Given** una compra de insumo de 5 unidades y stock actual 20,
+   **When** se anula con motivo "Error de tipeo",
+   **Then** en una transacción:
+   - Se crea `InventoryMovement` inverso (quantity: -5)
+   - El insumo queda con `currentStock: 15`
+   - La compra queda con `anulado: true`, `motivoAnulacion`, 
+     `anuladoPor`, `anuladoAt`
+
+2. **Given** una compra de insumo de 10 unidades, **When** el stock 
+   actual del insumo es 3 (< 10), **Then** se rechaza con error 
+   `Stock insuficiente para revertir. Stock actual: 3, necesario: 10`.
+
+3. **Given** un gasto operativo, **When** se anula, **Then** solo 
+   se marca como anulado, no toca stock.
+
+4. **Given** una compra ya anulada, **When** se intenta anular de 
+   nuevo, **Then** error `Esta compra ya está anulada`.
+
+5. **Given** sin motivo, **When** se intenta anular, **Then** error 
+   `El motivo de anulación es obligatorio`.
 
 ---
 
 ### Edge Cases
 
-- **Sin límite de monto**: pese al nombre ("menor", "bajo monto") y al badge del dashboard
-  ("Registro directo"), **no se valida ningún tope** de monto ni de cantidad.
-- **Fecha libre**: el campo fecha se envía tal cual y se guarda como `@db.Date` sin impedir
-  fechas futuras ni pasadas; por defecto es el día actual.
-- **Responsable automático**: el formulario **no envía `employeeId`**, así que
-  `getOrCreateActiveEmployee` elige el primer empleado activo (`id` ascendente), luego
-  cualquier empleado, y si no hay ninguno crea/actúa `Employee` con DNI `00000000`
-  ("Administrador Sistema").
-- **Movimiento no enlazado**: el `InventoryMovement` se crea **sin** `informalPurchaseId`, por
-  lo que la relación compra↔movimiento no se persiste (sólo el texto del `reason`).
-- **Motivo compartido**: si el usuario escribe un motivo, éste se copia al `reason` del
-  movimiento; si lo deja vacío, el movimiento recibe `Compra menor sin comprobante #<id>`.
-- **Costos promedio nunca se actualizan**: `lastCost` y `averageCost` del insumo **no se
-  escriben en ninguna parte de la aplicación** (permanecen en 0).
-- **El empleado no se muestra**: la interfaz de la tabla tipa `employee`, pero la columna no
-  existe en el render.
-- **Sin edición ni anulación**: no hay acciones para corregir o eliminar una compra registrada
-  ni el movimiento que generó.
-- **Refresco del servidor**: tras registrar se llama `router.refresh()`, por lo que el
-  historial se actualiza con la nueva versión del Server Component (no con estado local).
-- **Sin paginación ni búsqueda**: el historial lista todas las compras (`date` descendente).
-- **Lista de insumos silenciosa**: si `getSupplies()` falla, la página recibe `[]` y el
-  selector aparece vacío (indistinguible de "sin insumos").
-- **Alta de insumo en línea**: el botón "+ Crear Insumo" abre `SupplyDialog`; al crearlo se
-  añade a la lista **y queda seleccionado**.
-- **Costo unitario recalculado en cliente**: la tabla divide `amountPaid / quantity` de nuevo
-  en vez de leer el `unitCost` persistido.
-- **Sin control de acceso**: la acción es un Server Action sin validación de sesión, cookie ni
-  rol (no hay middleware activo).
+- **Sin límite de monto**: no se valida tope de monto ni de cantidad.
+- **Fecha libre**: se acepta cualquier fecha; default hoy.
+- **Responsable automático**: `getOrCreateActiveEmployee` (activo → 
+  cualquiera → empleado por defecto DNI 00000000).
+- **Movimiento enlazado**: `InventoryMovement.informalPurchaseId` 
+  apunta a la compra. Trazabilidad completa.
+- **Costos actualizados**: `lastCost` y `averageCost` se actualizan 
+  con promedio ponderado móvil al registrar un insumo de cocina.
+- **No se actualiza `affectationIgv`**: la compra informal nunca 
+  toca ese campo. Solo la compra formal lo hace.
+- **Sin IGV en compras informales**: no se separa IGV en el asiento 
+  contable ni en los cálculos. El monto pagado es el monto completo.
+- **Refresco del servidor**: `router.refresh()` tras registrar o 
+  anular.
+- **Categorías amigables**: el usuario ve 5 categorías legibles; el 
+  backend las mapea a cuentas PCGE (responsabilidad de Contabilidad).
+- **`affectationIgv: null` en insumos nuevos**: al crear un insumo 
+  desde esta pantalla, se crea con `null`. Se resuelve cuando se 
+  compre formalmente.
+- **Sin control de acceso**: Server Actions sin autenticación.
 
 ---
 
 ## Functionalidades / Functionalities
 
-- **Página `/purchases/purchase-without-voucher`** (Server Component,
-  `dynamic = "force-dynamic"`): formulario + historial.
-- **Server Action** `registerPurchaseWithoutVoucher` (`"use server"`): alta con transacción
-  completa de inventario.
-- **Server Action** `getPurchasesWithoutVoucher()`: historial ordenado por fecha descendente.
-- **Formulario "Registrar Compra Menor Directa"** con cálculo visible del costo unitario
-  implícito y alta de insumo en línea.
-- **Tabla "Historial de Compras Sin Comprobante"**.
-- Tarjeta del dashboard de Compras: "7. Compra Menor Sin Comprobante" con badge "Registro
-  directo".
+- **Página `/purchases/purchase-without-voucher`** (Server 
+  Component, `force-dynamic`).
+- **Server Actions**:
+  - `registerPurchaseWithoutVoucher(data)` — crear compra 
+    (condicional por tipo)
+  - `annulInformalPurchase(id, motivo, employeeId)` — anular
+  - `getPurchasesWithoutVoucher()` — historial con todos los campos
+- **Formulario "Registrar Compra Menor"** con:
+  - Toggle: Insumo de cocina / Gasto operativo
+  - Selector de insumo (solo si Insumo) o descripción (solo si Gasto)
+  - Selector de categoría (solo si Gasto)
+  - Cantidad, Monto, Fecha
+  - Lugar/Proveedor, Motivo (opcional en Gastos)
+  - Botón "+ Crear Insumo"
+- **Tabla "Historial"** con KPIs, búsqueda, filtros, botón anular.
+- **Diálogo "Anular compra"** con motivo obligatorio.
 
 ## Business Rules
 
 | # | Regla | Descripción |
 |---|-------|-------------|
-| BR-1 | **Insumo obligatorio** | Debe existir `supplyId` y el insumo debe existir en base. |
-| BR-2 | **Cantidad y monto positivos** | `quantity > 0` y `amountPaid > 0` (servidor y cliente). |
-| BR-3 | **Costo unitario implícito** | `unitCost = amountPaid / quantity`; se persiste en el movimiento y se previsualiza en el formulario. |
-| BR-4 | **Ingreso atómico** | Compra + movimiento + suma de stock ocurren en la misma `prisma.$transaction`. |
-| BR-5 | **Stock se suma** | `currentStock += quantity`; el tipo de movimiento es `InformalPurchase`. |
-| BR-6 | **Responsable resuelto automáticamente** | `getOrCreateActiveEmployee` (pedido → activo → cualquiera → empleado por defecto DNI 00000000). |
-| BR-7 | **Historial inmutable** | No existen edición, anulación ni borrado de compras informales. |
-| BR-8 | **Sin control de acceso** | Ninguna acción valida sesión ni rol. |
+| BR-1 | **Tipo de compra** | `purchaseType`: `InventoryItem` (insumo) u `OperatingExpense` (gasto). |
+| BR-2 | **Insumo obligatorio si InventoryItem** | Debe existir `supplyId` y el insumo debe existir. |
+| BR-3 | **Descripción y categoría obligatorias si OperatingExpense** | `itemDescription` y `expenseCategory` requeridos. |
+| BR-4 | **Cantidad y monto positivos** | `quantity > 0` y `amountPaid > 0` para insumos. |
+| BR-5 | **Costo unitario implícito** | `unitCost = amountPaid / quantity` para insumos. |
+| BR-6 | **Ingreso atómico** | Toda operación ocurre en `prisma.$transaction`. |
+| BR-7 | **Stock y promedio** | Para insumos: `currentStock += quantity`, `lastCost = unitCost`, `averageCost = promedio ponderado móvil`. |
+| BR-8 | **Movimiento enlazado** | `InventoryMovement.informalPurchaseId` se llena con el id de la compra. |
+| BR-9 | **Sin IGV** | En compras informales NUNCA se separa IGV. No se toca `affectationIgv`. |
+| BR-10 | **Anulación con motivo** | Requiere `motivo` no vacío. Marca `anulado: true` + `anuladoAt` + `anuladoPor` + `motivoAnulacion`. |
+| BR-11 | **Reversión de stock al anular** | Para insumos: crea movimiento inverso y resta del stock. Bloquea si stock < cantidad comprada. |
+| BR-12 | **Historial inmutable** | No se eliminan registros; solo se anulan. |
+| BR-13 | **6 categorías de gasto** | CasualStaff, EventServices, TransportAndDelivery, CleaningSupplies, OtherMinorExpenses. |
+| BR-14 | **Sin control de acceso** | Server Actions sin validación de sesión/rol. |
 
 ## Endpoint / Transporte
 
-**No existe endpoint REST propio**: la funcionalidad opera mediante **Server Actions**
-(`lib/services/purchases/purchase-without-voucher.ts`, `"use server"`).
+**Server Actions** en `lib/services/purchases/purchase-without-voucher.ts`:
 
 | Acción | Firma | Efecto |
 |--------|-------|--------|
-| Registrar | `registerPurchaseWithoutVoucher(data)` | Transacción: `InformalPurchase` + `InventoryMovement` + suma de stock. |
-| Historial | `getPurchasesWithoutVoucher()` | Compras con `supply` y `employee`, orden `date` desc; en error devuelve `[]`. |
+| Registrar | `registerPurchaseWithoutVoucher(data)` | Transacción condicional por tipo. |
+| Anular | `annulInformalPurchase(id, motivo, employeeId)` | Marca anulado + revierte stock si aplica. |
+| Historial | `getPurchasesWithoutVoucher()` | Lista completa con todos los campos y relaciones. |
 
 ### Campos de `PurchaseWithoutVoucherInput`
 
 | Campo | Tipo | Requerido | Notas |
 |-------|------|-----------|-------|
-| `supplyId` | number | Sí | El formulario **no** envía `employeeId`. |
-| `quantity` | number | Sí | `> 0`; `step 0.01` en la UI. |
-| `amountPaid` | number | Sí | `> 0`; monto total pagado en S/. |
-| `date` | `Date \| string` | No | Default `now()`; la UI envía la fecha elegida (por defecto hoy). |
-| `informalPlaceOrVendor` | string | No | Hasta 150 caracteres en BD. |
-| `reason` | string | No | Hasta 150 caracteres; copiado al `reason` del movimiento. |
-
-### Respuesta y errores
-
-La acción devuelve la `InformalPurchase` creada. Los errores se lanzan como `Error` y llegan
-al cliente como `toast.error(err.message || "Error al registrar la compra menor")`:
-
-| Condición | Mensaje |
-|-----------|---------|
-| Sin `supplyId` | `Debe seleccionar un insumo` |
-| Cantidad ≤ 0 | `La cantidad debe ser mayor a 0` |
-| Monto ≤ 0 | `El monto pagado debe ser mayor a 0` |
-| Insumo inexistente | `Insumo no encontrado` |
-
-Éxito (cliente): `toast.success("Compra menor registrada exitosamente")`.
+| `purchaseType` | `"InventoryItem" \| "OperatingExpense"` | No | Default `InventoryItem`. |
+| `supplyId` | number | Solo InventoryItem | |
+| `expenseCategory` | enum de 5 categorías | Solo OperatingExpense | |
+| `itemDescription` | string (max 200) | Solo OperatingExpense | |
+| `quantity` | number | Solo InventoryItem | `> 0`. |
+| `amountPaid` | number | Sí | `> 0`. |
+| `date` | Date \| string | No | Default `now()`. |
+| `informalPlaceOrVendor` | string (max 150) | No | |
+| `reason` | string (max 150) | No | Obligatorio para insumos. |
 
 ## Permissions
 
-- **Requerido**: ninguno. Es un Server Action sin verificación de sesión/cookie/rol y no
-  existe middleware de autorización activo (`middleware.ts` inexistente,
-  `proxy.ts.desactivado`).
-- Cualquier cliente que alcance la aplicación puede modificar el inventario y ver el
-  historial.
-- El enlace "Compra Menor sin Comprobante" del sidebar no aplica filtro de rol.
+- **Requerido**: ninguno. Sin middleware de autorización activo.
 
 ## Validations
 
-**Servidor** (en orden): `supplyId` → `quantity > 0` → `amountPaid > 0` → dentro de la
-transacción: resolución de empleado → existencia del insumo → creación.
+**Servidor** — orden:
+1. `purchaseType` presente (default InventoryItem)
+2. Si InventoryItem: `supplyId`, `quantity > 0`, `amountPaid > 0`, insumo existe
+3. Si OperatingExpense: `itemDescription` no vacío, `expenseCategory` válido, `amountPaid > 0`
+4. Al anular: motivo no vacío, compra existe, no está anulada, si es insumo: stock suficiente
 
-**Cliente** (mismos mensajes): seleccionar insumo, cantidad y monto con
-`min="0.01"`/`step="0.01"` y `required`; los tres chequeos se replican con `toast.error`
-antes de invocar la acción; el botón de envío se bloquea con `loading` ("Guardando...").
+**Cliente** — mismos mensajes antes de invocar la acción.
 
 ## Acceptance Criteria
 
-1. **When** se completa el formulario con datos válidos **Then** se registra la compra, el
-   stock del insumo aumenta en la cantidad indicada, aparece el movimiento en el Kardex y se
-   muestra "Compra menor registrada exitosamente".
-2. **When** faltan insumo, cantidad o monto **Then** se rechaza con el mensaje exacto
-   documentado (cliente y servidor).
-3. **When** la compra tiene éxito **Then** el formulario se limpia (conservando la fecha) y
-   el historial se refresca con la fila nueva.
-4. **When** se observa el costo unitario **Then** coincide con `monto / cantidad` tanto en la
-   previsualización como en la tabla.
-5. **When** no hay compras **Then** la tabla muestra el estado vacío documentado.
-6. **When** el inventario se consulta después **Then** el insumo refleja el nuevo
-   `currentStock` (regla cubierta por la prueba del bloque Módulo 7).
+1. **When** se registra un insumo válido, **Then** se crean `InformalPurchase` + `InventoryMovement` linkeados + se actualiza `Supply`.
+2. **When** se registra un gasto válido, **Then** solo se crea `InformalPurchase`, sin tocar inventario.
+3. **When** se anula un insumo con stock suficiente, **Then** se revierte el stock y se marca anulado.
+4. **When** se anula un insumo con stock insuficiente, **Then** se rechaza con mensaje claro.
+5. **When** se anula un gasto, **Then** solo se marca como anulado.
+6. **When** falta un campo obligatorio según el tipo, **Then** se rechaza con mensaje específico.
+7. **When** el historial se carga, **Then** muestra KPIs, filtros y tipo por fila.
+8. **When** no hay compras, **Then** empty state.
 
 ---
 
@@ -216,84 +271,52 @@ antes de invocar la acción; el botón de envío se bloquea con `loading` ("Guar
 
 ### Functional Requirements
 
-- **FR-001**: Registrar compras informales validando insumo, cantidad y monto con los
-  mensajes documentados.
-- **FR-002**: Dentro de una transacción, crear la compra, resolver el empleado responsable,
-  crear el `InventoryMovement` con `unitCost` y sumar la cantidad al `currentStock` del
-  insumo.
-- **FR-003**: Listar el historial completo con sus relaciones (`supply`, `employee`) en orden
-  descendente por fecha.
-- **FR-004**: Ofrecer en la UI el formulario con selector de insumo, cantidad, monto, fecha,
-  lugar/proveedor, motivo y previsualización del costo unitario.
-- **FR-005**: Permitir crear un insumo desde el propio formulario y seleccionarlo al
-  confirmarse.
-- **FR-006**: Pintar el historial con fecha localizada, montos a 2 decimales y valores
-  alternativos para campos vacíos.
-- **FR-007**: Refrescar la página del servidor tras cada registro exitoso.
+- **FR-001**: Registrar compras con `purchaseType` (InventoryItem o OperatingExpense).
+- **FR-002**: Para InventoryItem: crear `InformalPurchase` + `InventoryMovement` linkeado + actualizar `currentStock`, `lastCost`, `averageCost`.
+- **FR-003**: Para OperatingExpense: crear `InformalPurchase` sin tocar inventario.
+- **FR-004**: 6 categorías de gasto legibles para el usuario.
+- **FR-005**: Anulación con motivo obligatorio; reversión de stock para insumos.
+- **FR-006**: Bloqueo de anulación si stock insuficiente.
+- **FR-007**: Listar historial con todos los campos y relaciones.
+- **FR-008**: KPIs, búsqueda y filtros por tipo/estado.
+- **FR-009**: Validaciones específicas por tipo de compra.
+- **FR-010**: Refresco del servidor tras operaciones.
 
 ### Non-Functional Requirements
 
-- **NFR-001**: Transporte por Server Actions (sin endpoint REST propio) y página
-  `force-dynamic`.
-- **NFR-002**: Toda la escritura es transaccional; los fallos de lectura se degradan a listas
-  vacías (`catch → []` + `console.error`).
-- **NFR-003**: Sin autenticación ni autorización en ninguna de las acciones.
+- **NFR-001**: Server Actions; página `force-dynamic`.
+- **NFR-002**: Escritura transaccional; lectura con `catch → []`.
+- **NFR-003**: Sin autenticación ni autorización.
 
 ---
 
 ## Success Criteria *(mandatory)*
 
-### Measurable Outcomes
-
-- **SC-001**: Tras registrar una compra de N unidades, `currentStock` del insumo aumenta
-  exactamente en N (prueba del bloque Módulo 7).
-- **SC-002**: Cada registro genera exactamente un `InventoryMovement` con
-  `movementType: InformalPurchase` y `unitCost = amountPaid / quantity`.
-- **SC-003**: Ninguna compra se registra con cantidad o monto ≤ 0 o sin insumo.
-- **SC-004**: El historial muestra siempre la suma de todas las compras registradas, sin
-  paginación.
-- **SC-005**: Todos los rechazos muestran el mensaje exacto documentado.
+- **SC-001**: Todo InventoryItem registrado incrementa stock exactamente en `quantity`.
+- **SC-002**: Todo InventoryItem tiene `unitCost = amountPaid / quantity` y su `InventoryMovement.informalPurchaseId` no es null.
+- **SC-003**: `averageCost` se actualiza por promedio ponderado móvil.
+- **SC-004**: Ningún OperatingExpense modifica inventario.
+- **SC-005**: Ninguna anulación deja stock negativo.
+- **SC-006**: Toda anulación deja registro con motivo, fecha y empleado.
 
 ---
 
-## Traceability Matrix
+## Fuera de alcance
 
-| Requirement | Scenario | Implementation |
-|-------------|----------|----------------|
-| FR-001 | US1 escenarios 2-5 | Validaciones de `registerPurchaseWithoutVoucher` |
-| FR-002 | US1 escenarios 1, 6 | Cuerpo transaccional + `getOrCreateActiveEmployee` |
-| FR-003 | US3 escenarios 1-3 | `getPurchasesWithoutVoucher` |
-| FR-004 | US1 (UI) | `PurchaseWithoutVoucherForm` |
-| FR-005 | Edge "alta de insumo en línea" | `handleSupplyCreated` + `SupplyDialog` |
-| FR-006 | US3 escenarios 1-2 | `PurchasesWithoutVoucherTable` |
-| FR-007 | US1 escenario 1 / edge refresco | `router.refresh()` tras el alta |
+- Compras con comprobante (van a "Añadir Compra" o Contabilidad).
+- Edición de compras ya registradas.
+- Eliminación física de compras.
+- Adjuntar imágenes de boletas.
+- Reportes de Kardex específicos.
+- Autorización por rol.
 
 ---
 
-## Evidencia de verificación
+## Dudas abiertas
 
-| Afirmación | Fuente |
-|------------|--------|
-| Server Action completa: validaciones, transacción, movimiento y suma de stock | `lib/services/purchases/purchase-without-voucher.ts` líneas 17-70 |
-| `unitCost = amountPaid / quantity` y `reason` por defecto `Compra menor sin comprobante #id` | `lib/services/purchases/purchase-without-voucher.ts` líneas 50-60 |
-| Ausencia de `informalPurchaseId` en el movimiento y de actualización de `lastCost`/`averageCost` | `lib/services/purchases/purchase-without-voucher.ts` líneas 52-66 (grep sin usos de `lastCost`/`averageCost` en la app) |
-| Historial con `supply`/`employee` y orden `date` desc | `lib/services/purchases/purchase-without-voucher.ts` líneas 72-85 |
-| Resolución automática de empleado y creación del por defecto (DNI 00000000) | `lib/services/purchases/employee-helper.ts` líneas 6-58 |
-| Modelo `InformalPurchase` (Decimal 10,2, `@db.Date`, `Restrict`) | `prisma/schema.prisma` líneas 386-402 |
-| Página `force-dynamic` con formulario e historial | `app/purchases/purchase-without-voucher/page.tsx` líneas 1-37 |
-| Formulario: defaults, costos, validaciones, toasts y `router.refresh()` | `components/purchases/manual-entry/PurchaseWithoutVoucherForm.tsx` líneas 39-99 |
-| Campos, botón "+ Crear Insumo" y previsualización del costo unitario | `components/purchases/manual-entry/PurchaseWithoutVoucherForm.tsx` líneas 102-223 |
-| Tabla: columnas, valores alternativos y estado vacío | `components/purchases/manual-entry/PurchasesWithoutVoucherTable.tsx` líneas 37-95 |
-| Tarjeta del dashboard ("Registro directo") | `app/purchases/page.tsx` líneas 96-103 |
-| Enlace "Compra Menor sin Comprobante" del sidebar | `components/personalized/Sidebar.tsx` líneas 261-269 |
-| Prueba: compra de 5 sobre stock 10 → 15 | `lib/services/purchases/purchases.service.test.ts` líneas 263-279 |
-
-**No existen pruebas de `getPurchasesWithoutVoucher` ni de la UI.**
-
-**Fuera de alcance**: alta de insumos (spec `015`), órdenes de compra, recepción de mercadería,
-facturas de proveedor, transformación, contabilización de la compra y cualquier reporte de
-Kardex.
+- [NECESITA ACLARACIÓN] ¿La anulación también revierte el `averageCost`? (Decisión actual: NO, se mantiene histórico)
+- [NECESITA ACLARACIÓN] ¿Se permite anular compras de meses anteriores? (Decisión actual: SÍ, sin restricción)
 
 ---
 
-*Esta especificación refleja el comportamiento **real** actualmente implementado en el código.*
+*Última actualización: 2026-10-11*

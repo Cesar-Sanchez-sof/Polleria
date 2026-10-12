@@ -6,7 +6,7 @@ import { SupplyType, InventoryMovementType, AffectationIgv } from "@prisma/clien
 export interface SupplyInput {
   name: string;
   type?: SupplyType;
-  affectationIgv?: AffectationIgv;
+  affectationIgv?: AffectationIgv | null;
   unitOfMeasure: string;
   minimumStock?: number;
 }
@@ -41,7 +41,7 @@ export async function createSupply(data: SupplyInput) {
     data: {
       name: data.name.trim(),
       type: data.type || SupplyType.RawMaterial,
-      affectationIgv: data.affectationIgv || AffectationIgv.Excluded,
+      affectationIgv: data.affectationIgv !== undefined ? data.affectationIgv : AffectationIgv.Excluded,
       unitOfMeasure: data.unitOfMeasure.trim(),
       currentStock: 0,
       minimumStock: data.minimumStock || 0,

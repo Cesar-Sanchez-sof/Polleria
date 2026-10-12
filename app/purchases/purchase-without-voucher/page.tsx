@@ -22,7 +22,7 @@ export default async function PurchaseWithoutVoucherPage() {
     <>
       <ModuleHeader
         title="Compra Menor Sin Comprobante"
-        subtitle="Compras informales de bajo monto que ingresan directo al inventario"
+        subtitle="Registro de compras informales: insumos de cocina y gastos operativos"
         icon={Receipt}
         iconClassName="bg-teal-100 text-teal-800"
       />

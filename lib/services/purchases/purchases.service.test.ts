@@ -5,8 +5,11 @@ import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, setSupp
 import { createPurchaseOrder, registerUnifiedPurchase } from "./purchase-order";
 import { createPurchaseVoucher } from "./invoices";
 import { registerTransformation } from "./transformation";
-import { registerPurchaseWithoutVoucher } from "./purchase-without-voucher";
-import { AffectationIgv } from "@prisma/client";
+import {
+  registerPurchaseWithoutVoucher,
+  annulInformalPurchase,
+} from "./purchase-without-voucher";
+import { InformalPurchaseType, ExpenseCategory, AffectationIgv } from "@prisma/client";
 
 vi.mock("@/lib/services/accounting-posting.service", () => ({
   postPurchaseJournalEntries: vi.fn().mockResolvedValue([1, 2, 3, 4]),
@@ -68,6 +71,8 @@ vi.mock("@/lib/prisma", () => {
     informalPurchase: {
       create: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     employee: {
       findUnique: vi.fn().mockResolvedValue({ id: 1, firstName: "Test" }),
@@ -294,20 +299,244 @@ describe("Modulo Compras Services", () => {
   });
 
   describe("Módulo 7: Compra sin comprobante", () => {
-    it("debe registrar compra sin comprobante y actualizar el inventario", async () => {
-      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 10 });
-      (prisma.informalPurchase.create as any).mockResolvedValue({ id: 1 });
+    it("debe registrar compra de insumo (InventoryItem), linkear InventoryMovement y actualizar currentStock, lastCost y averageCost", async () => {
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 1,
+        currentStock: 10,
+        averageCost: 8,
+      });
+      (prisma.informalPurchase.create as any).mockResolvedValue({ id: 101 });
 
-      await registerPurchaseWithoutVoucher({
+      const res = await registerPurchaseWithoutVoucher({
+        purchaseType: InformalPurchaseType.InventoryItem,
         supplyId: 1,
         quantity: 5,
         amountPaid: 50,
       });
 
+      expect(res.id).toBe(101);
+      expect(prisma.informalPurchase.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            purchaseType: InformalPurchaseType.InventoryItem,
+            supplyId: 1,
+            quantity: 5,
+            amountPaid: 50,
+            anulado: false,
+          }),
+        })
+      );
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplyId: 1,
+            informalPurchaseId: 101,
+            movementType: "InformalPurchase",
+            quantity: 5,
+            unitCost: 10,
+          }),
+        })
+      );
+      // Promedio ponderado: (10 * 8 + 5 * 10) / 15 = 130 / 15 = 8.67
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          currentStock: 15,
+          lastCost: 10,
+          averageCost: 8.67,
+        },
+      });
+    });
+
+    it("debe registrar un gasto operativo (OperatingExpense) sin modificar inventario", async () => {
+      (prisma.informalPurchase.create as any).mockResolvedValue({ id: 102 });
+
+      const res = await registerPurchaseWithoutVoucher({
+        purchaseType: InformalPurchaseType.OperatingExpense,
+        expenseCategory: ExpenseCategory.EventServices,
+        itemDescription: "Cantante aniversario",
+        amountPaid: 300,
+      });
+
+      expect(res.id).toBe(102);
+      expect(prisma.informalPurchase.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            purchaseType: InformalPurchaseType.OperatingExpense,
+            expenseCategory: ExpenseCategory.EventServices,
+            itemDescription: "Cantante aniversario",
+            supplyId: null,
+            amountPaid: 300,
+          }),
+        })
+      );
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.supply.update).not.toHaveBeenCalled();
+    });
+
+    it("debe validar campos requeridos para InventoryItem", async () => {
+      await expect(
+        registerPurchaseWithoutVoucher({
+          purchaseType: InformalPurchaseType.InventoryItem,
+          quantity: 5,
+          amountPaid: 50,
+        })
+      ).rejects.toThrow("Debe seleccionar un insumo");
+
+      await expect(
+        registerPurchaseWithoutVoucher({
+          purchaseType: InformalPurchaseType.InventoryItem,
+          supplyId: 1,
+          quantity: 0,
+          amountPaid: 50,
+        })
+      ).rejects.toThrow("La cantidad debe ser mayor a 0");
+
+      await expect(
+        registerPurchaseWithoutVoucher({
+          purchaseType: InformalPurchaseType.InventoryItem,
+          supplyId: 1,
+          quantity: 5,
+          amountPaid: 0,
+        })
+      ).rejects.toThrow("El monto pagado debe ser mayor a 0");
+    });
+
+    it("debe validar campos requeridos para OperatingExpense", async () => {
+      await expect(
+        registerPurchaseWithoutVoucher({
+          purchaseType: InformalPurchaseType.OperatingExpense,
+          itemDescription: "",
+          expenseCategory: ExpenseCategory.CasualStaff,
+          amountPaid: 100,
+        })
+      ).rejects.toThrow("La descripción del gasto es obligatoria");
+
+      await expect(
+        registerPurchaseWithoutVoucher({
+          purchaseType: InformalPurchaseType.OperatingExpense,
+          itemDescription: "Mozo eventual",
+          amountPaid: 100,
+        })
+      ).rejects.toThrow("Debe seleccionar una categoría de gasto");
+
+      await expect(
+        registerPurchaseWithoutVoucher({
+          purchaseType: InformalPurchaseType.OperatingExpense,
+          itemDescription: "Mozo eventual",
+          expenseCategory: ExpenseCategory.CasualStaff,
+          amountPaid: 0,
+        })
+      ).rejects.toThrow("El monto pagado debe ser mayor a 0");
+    });
+
+    it("debe anular una compra de insumo con stock suficiente revirtiendo el stock", async () => {
+      (prisma.informalPurchase.findUnique as any).mockResolvedValue({
+        id: 101,
+        purchaseType: InformalPurchaseType.InventoryItem,
+        supplyId: 1,
+        quantity: 5,
+        amountPaid: 50,
+        anulado: false,
+      });
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 1,
+        currentStock: 20,
+      });
+      (prisma.informalPurchase.update as any).mockResolvedValue({
+        id: 101,
+        anulado: true,
+      });
+
+      const res = await annulInformalPurchase(101, "Error de tipeo");
+
+      expect(res.anulado).toBe(true);
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplyId: 1,
+            informalPurchaseId: 101,
+            quantity: -5,
+            reason: expect.stringContaining("Error de tipeo"),
+          }),
+        })
+      );
       expect(prisma.supply.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { currentStock: 15 },
       });
+      expect(prisma.informalPurchase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 101 },
+          data: expect.objectContaining({
+            anulado: true,
+            motivoAnulacion: "Error de tipeo",
+          }),
+        })
+      );
+    });
+
+    it("debe rechazar anulación si el stock actual es insuficiente para revertir", async () => {
+      (prisma.informalPurchase.findUnique as any).mockResolvedValue({
+        id: 101,
+        purchaseType: InformalPurchaseType.InventoryItem,
+        supplyId: 1,
+        quantity: 10,
+        amountPaid: 100,
+        anulado: false,
+      });
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 1,
+        currentStock: 3,
+      });
+
+      await expect(
+        annulInformalPurchase(101, "Error de registro")
+      ).rejects.toThrow("Stock insuficiente para revertir. Stock actual: 3, necesario: 10");
+    });
+
+    it("debe anular un gasto operativo sin modificar stock ni inventario", async () => {
+      (prisma.informalPurchase.findUnique as any).mockResolvedValue({
+        id: 102,
+        purchaseType: InformalPurchaseType.OperatingExpense,
+        supplyId: null,
+        amountPaid: 300,
+        anulado: false,
+      });
+      (prisma.informalPurchase.update as any).mockResolvedValue({
+        id: 102,
+        anulado: true,
+      });
+
+      const res = await annulInformalPurchase(102, "Evento cancelado");
+
+      expect(res.anulado).toBe(true);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.supply.update).not.toHaveBeenCalled();
+      expect(prisma.informalPurchase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 102 },
+          data: expect.objectContaining({
+            anulado: true,
+            motivoAnulacion: "Evento cancelado",
+          }),
+        })
+      );
+    });
+
+    it("debe rechazar anulación si la compra ya está anulada o no tiene motivo", async () => {
+      await expect(annulInformalPurchase(101, "")).rejects.toThrow(
+        "El motivo de anulación es obligatorio"
+      );
+
+      (prisma.informalPurchase.findUnique as any).mockResolvedValue({
+        id: 101,
+        anulado: true,
+      });
+
+      await expect(
+        annulInformalPurchase(101, "Reintentando")
+      ).rejects.toThrow("Esta compra ya está anulada");
     });
   });
 
