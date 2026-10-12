@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { leerJson, noAutorizado, respuestaError } from "@/lib/auth/respuestas";
 import { sesionActual } from "@/lib/auth/sesion-actual";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 import {
   listarUsuarios,
   crearUsuario,
@@ -62,6 +63,16 @@ export async function POST(request: NextRequest) {
     }
 
     const nuevoUsuario = await crearUsuario(body);
+        await registrarAuditoria({
+      actor: { userId: sesion.idUsuario, username: sesion.username },
+      action: "CREATE",
+      module: "Usuarios",
+      entity: "Usuario",
+      entityId: nuevoUsuario.id_usuario,
+      description: `Creó el usuario ${nuevoUsuario.username}`,
+      details: { despues: { username: nuevoUsuario.username, correo: nuevoUsuario.correo, rol: nuevoUsuario.rol.nombre } },
+      ipAddress: ipDeSolicitud(request),
+    });
     return NextResponse.json(nuevoUsuario, { status: 201 });
   } catch (error) {
     return respuestaError(error);

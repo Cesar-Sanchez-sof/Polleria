@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
+import { actorActual } from "@/lib/auth/actor-auditoria";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +161,16 @@ export async function POST(request: NextRequest) {
         userId: userId,
       },
     });
+        await registrarAuditoria({
+      actor: (await actorActual()) ?? { userId, username: `usuario#${userId}` },
+      action: "CREATE",
+      module: "Contabilidad",
+      entity: "Período contable",
+      entityId: period.id,
+      description: `Creó el período contable ${month}/${year}`,
+      details: { despues: { inicio: start, fin: end, estado: "OPEN" } },
+      ipAddress: ipDeSolicitud(request),
+    });
     return Response.json(period, { status: 201 });
   } catch (error) {
     console.error("[api/accounting-periods] POST error:", error);
@@ -218,6 +230,16 @@ export async function PATCH(request: NextRequest) {
         closedAt: reopen ? null : new Date(),
         closedById: reopen ? null : userId,
       },
+    });
+        await registrarAuditoria({
+      actor: (await actorActual()) ?? { userId, username: `usuario#${userId}` },
+      action: "STATUS_CHANGE",
+      module: "Contabilidad",
+      entity: "Período contable",
+      entityId: periodId,
+      description: `${reopen ? "Reabrió" : "Cerró"} el período contable #${periodId}`,
+      details: { antes: { estado: period.status }, despues: { estado: updated.status } },
+      ipAddress: ipDeSolicitud(request),
     });
     return Response.json(updated);
   } catch (error) {

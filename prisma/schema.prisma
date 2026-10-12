@@ -77,6 +77,18 @@ enum AuditAction {
   @@map("audit_action")
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+
+  @@map("audit_action")
+}
+
 enum AffectationIgv {
   Included
   Excluded
@@ -162,19 +174,19 @@ model Employee {
 }
 
 model User {
-  id                Int                @id @default(autoincrement())
-  employeeId        Int                @map("employee_id")
-  roleId            Int                @map("role_id")
-  username          String             @unique @db.VarChar(20)
-  correo            String?            @unique @db.VarChar(80)
-  password          String             @db.VarChar(255)
-  estado            Boolean            @default(true)
-  failedAttempts    Int                @default(0) @map("failed_attempts")
-  locked            Boolean            @default(false)
-  lockedAt          DateTime?          @map("locked_at") @db.Timestamp(6)
-  lastAccessAt      DateTime?          @map("last_access_at") @db.Timestamp(6)
-  employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role              Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  id                 Int                @id @default(autoincrement())
+  employeeId         Int                @map("employee_id")
+  roleId             Int                @map("role_id")
+  username           String             @unique @db.VarChar(20)
+  correo             String?            @unique @db.VarChar(80)
+  password           String             @db.VarChar(255)
+  estado             Boolean            @default(true)
+  failedAttempts     Int                @default(0) @map("failed_attempts")
+  locked             Boolean            @default(false)
+  lockedAt           DateTime?          @map("locked_at") @db.Timestamp(6)
+  lastAccessAt       DateTime?          @map("last_access_at") @db.Timestamp(6)
+  employee           Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role               Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
   accountingPeriods  AccountingPeriod[]
   closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
   cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
@@ -719,11 +731,11 @@ model CashSession {
   notesOpening   String?           @map("notes_opening") @db.VarChar(255)
   notesClosing   String?           @map("notes_closing") @db.VarChar(255)
 
-  cashRegister   CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
-  openedBy       User              @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
-  closedBy       User?             @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
-  movements      CashMovement[]
-  salesInvoices  SalesInvoice[]
+  cashRegister  CashRegister   @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  openedBy      User           @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy      User?          @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  movements     CashMovement[]
+  salesInvoices SalesInvoice[]
 
   @@index([cashRegisterId], map: "idx_cash_session_register")
   @@index([openedById], map: "idx_cash_session_opened_by")
@@ -743,7 +755,6 @@ model CashMovement {
   @@index([sessionId], map: "idx_cash_movement_session")
   @@map("cash_movement")
 }
-
 
 // =====================================================================
 // MODULE: AUDIT (registro de cambios)
