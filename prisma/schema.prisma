@@ -77,18 +77,6 @@ enum AuditAction {
   @@map("audit_action")
 }
 
-enum AuditAction {
-  CREATE
-  UPDATE
-  DELETE
-  STATUS_CHANGE
-  LOGIN
-  LOGIN_FAILED
-  LOGOUT
-
-  @@map("audit_action")
-}
-
 enum AffectationIgv {
   Included
   Excluded
@@ -144,31 +132,31 @@ model Shift {
 }
 
 model Employee {
-  id                       Int                @id @default(autoincrement())
-  shiftId                  Int?               @map("shift_id")
-  dni                      String             @unique @db.VarChar(8)
-  firstName                String             @map("first_name") @db.VarChar(50)
-  middleName               String?            @map("middle_name") @db.VarChar(50)
-  paternalLastName         String             @map("paternal_last_name") @db.VarChar(50)
-  maternalLastName         String?            @map("maternal_last_name") @db.VarChar(50)
-  phone                    String?            @db.VarChar(9)
-  address                  String?            @db.VarChar(200)
-  birthDate                DateTime?          @map("birth_date") @db.Date
-  hireDate                 DateTime           @default(now()) @map("hire_date") @db.Date
-  position                 String?            @db.VarChar(30)
-  area                     String?            @db.VarChar(30)
-  contractType             String?            @map("contract_type") @db.VarChar(30)
-  baseSalary               Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
-  active                   Boolean            @default(true)
-  shift                    Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  users                    User[]
-  payrolls                 Payroll[]
-  purchaseOrders           PurchaseOrder[]
-  receivedOrders           PurchaseOrder[]    @relation("ReceivedBy")
-  transformations          Transformation[]   @relation("EmployeeTransformations")
-  annulledTransformations  Transformation[]   @relation("AnnulledTransformations")
-  informalPurchases        InformalPurchase[] @relation("EmployeeInformalPurchases")
-  annulledPurchases        InformalPurchase[] @relation("AnnulledPurchases")
+  id                      Int                @id @default(autoincrement())
+  shiftId                 Int?               @map("shift_id")
+  dni                     String             @unique @db.VarChar(8)
+  firstName               String             @map("first_name") @db.VarChar(50)
+  middleName              String?            @map("middle_name") @db.VarChar(50)
+  paternalLastName        String             @map("paternal_last_name") @db.VarChar(50)
+  maternalLastName        String?            @map("maternal_last_name") @db.VarChar(50)
+  phone                   String?            @db.VarChar(9)
+  address                 String?            @db.VarChar(200)
+  birthDate               DateTime?          @map("birth_date") @db.Date
+  hireDate                DateTime           @default(now()) @map("hire_date") @db.Date
+  position                String?            @db.VarChar(30)
+  area                    String?            @db.VarChar(30)
+  contractType            String?            @map("contract_type") @db.VarChar(30)
+  baseSalary              Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
+  active                  Boolean            @default(true)
+  shift                   Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  users                   User[]
+  payrolls                Payroll[]
+  purchaseOrders          PurchaseOrder[]
+  receivedOrders          PurchaseOrder[]    @relation("ReceivedBy")
+  transformations         Transformation[]   @relation("EmployeeTransformations")
+  annulledTransformations Transformation[]   @relation("AnnulledTransformations")
+  informalPurchases       InformalPurchase[] @relation("EmployeeInformalPurchases")
+  annulledPurchases       InformalPurchase[] @relation("AnnulledPurchases")
 
   @@index([shiftId], map: "idx_employee_shift")
   @@map("employee")
@@ -386,17 +374,17 @@ model PurchasePayment {
 }
 
 model Transformation {
-  id                 Int                  @id @default(autoincrement())
-  employeeId         Int                  @map("employee_id")
-  date               DateTime             @default(now()) @db.Timestamp(6)
-  notes              String?              @db.VarChar(200)
-  anulado            Boolean              @default(false)
-  anuladoAt          DateTime?            @map("anulado_at") @db.Timestamp(6)
-  anuladoPor         Int?                 @map("anulado_por")
-  motivoAnulacion    String?              @map("motivo_anulacion") @db.VarChar(200)
-  employee           Employee             @relation("EmployeeTransformations", fields: [employeeId], references: [id], onDelete: Restrict)
-  annulledBy         Employee?            @relation("AnnulledTransformations", fields: [anuladoPor], references: [id], onDelete: Restrict)
-  items              TransformationItem[]
+  id              Int                  @id @default(autoincrement())
+  employeeId      Int                  @map("employee_id")
+  date            DateTime             @default(now()) @db.Timestamp(6)
+  notes           String?              @db.VarChar(200)
+  anulado         Boolean              @default(false)
+  anuladoAt       DateTime?            @map("anulado_at") @db.Timestamp(6)
+  anuladoPor      Int?                 @map("anulado_por")
+  motivoAnulacion String?              @map("motivo_anulacion") @db.VarChar(200)
+  employee        Employee             @relation("EmployeeTransformations", fields: [employeeId], references: [id], onDelete: Restrict)
+  annulledBy      Employee?            @relation("AnnulledTransformations", fields: [anuladoPor], references: [id], onDelete: Restrict)
+  items           TransformationItem[]
 
   @@index([employeeId], map: "idx_transformation_employee")
   @@index([anuladoPor], map: "idx_transformation_annulled_by")
