@@ -30,7 +30,8 @@ interface SupplyDialogProps {
   onSuccess: (createdSupply: any) => void;
   prefilledName?: string;
   prefilledType?: SupplyType;
-  prefilledAffectationIgv?: AffectationIgv;
+  prefilledAffectationIgv?: AffectationIgv | null;
+  hideAffectationIgv?: boolean;
 }
 
 export function SupplyDialog({
@@ -39,13 +40,18 @@ export function SupplyDialog({
   onSuccess,
   prefilledName = "",
   prefilledType = SupplyType.RawMaterial,
-  prefilledAffectationIgv = AffectationIgv.Excluded,
+  prefilledAffectationIgv,
+  hideAffectationIgv = false,
 }: SupplyDialogProps) {
+  const defaultAffectation = hideAffectationIgv
+    ? null
+    : (prefilledAffectationIgv ?? AffectationIgv.Excluded);
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<SupplyInput>({
     name: prefilledName,
     type: prefilledType,
-    affectationIgv: prefilledAffectationIgv,
+    affectationIgv: defaultAffectation,
     unitOfMeasure: "KG",
     minimumStock: 5,
   });
@@ -55,12 +61,12 @@ export function SupplyDialog({
       setFormData({
         name: prefilledName,
         type: prefilledType,
-        affectationIgv: prefilledAffectationIgv,
+        affectationIgv: defaultAffectation,
         unitOfMeasure: "KG",
         minimumStock: 5,
       });
     }
-  }, [open, prefilledName, prefilledType, prefilledAffectationIgv]);
+  }, [open, prefilledName, prefilledType, defaultAffectation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +104,7 @@ export function SupplyDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {hideAffectationIgv ? (
             <div className="space-y-1.5">
               <Label htmlFor="type">Tipo de Insumo</Label>
               <Select
@@ -118,25 +124,47 @@ export function SupplyDialog({
                 </SelectContent>
               </Select>
             </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="type">Tipo de Insumo</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, type: val as SupplyType })
+                  }
+                >
+                  <SelectTrigger id="type">
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SupplyType.RawMaterial}>Materia Prima</SelectItem>
+                    <SelectItem value={SupplyType.FinishedProduct}>
+                      Producto Terminado
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="affectationIgv">Afectación IGV</Label>
-              <Select
-                value={formData.affectationIgv}
-                onValueChange={(val) =>
-                  setFormData({ ...formData, affectationIgv: val as AffectationIgv })
-                }
-              >
-                <SelectTrigger id="affectationIgv">
-                  <SelectValue placeholder="Seleccionar afectación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={AffectationIgv.Excluded}>Excluido</SelectItem>
-                  <SelectItem value={AffectationIgv.Included}>Incluido</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label htmlFor="affectationIgv">Afectación IGV</Label>
+                <Select
+                  value={formData.affectationIgv || ""}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, affectationIgv: (val as AffectationIgv) || null })
+                  }
+                >
+                  <SelectTrigger id="affectationIgv">
+                    <SelectValue placeholder="Seleccionar afectación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={AffectationIgv.Excluded}>Excluido</SelectItem>
+                    <SelectItem value={AffectationIgv.Included}>Incluido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
