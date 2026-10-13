@@ -14,8 +14,9 @@ QLoRA."
 
 > **Nota de procedencia**: esta especificación define **comportamiento nuevo, no implementado**.
 > Hoy no existe en el repositorio ningún componente de IA: no hay código de LLM, embeddings,
-> almacén vectorial, Python ni servicio de inferencia. Los modelos **no están entrenados ni
-> desplegados**. Las afirmaciones sobre el sistema actual se verificaron por lectura de código
+> almacén vectorial, Python ni servicio de inferencia. El adaptador QLoRA de XiYanSQL está **en
+> entrenamiento, según información del equipo; aún pendiente de evaluación e integración**. Ningún
+> modelo está desplegado. Las afirmaciones sobre el sistema actual se verificaron por lectura de código
 > (ver [Evidencia de verificación](#evidencia-de-verificación)). Specs relacionadas: períodos
 > (`001`), asientos (`002`, `005`), plan contable (`003`, `004`), balance (`007`) y libro mayor
 > (`013`). Esta spec **no modifica** ninguna de ellas.
@@ -26,7 +27,8 @@ QLoRA."
 |-------|-------------|
 | **[CONFIRMADO]** | Decisión funcional o directriz aprobada por el equipo. Obligatoria. |
 | **[PROPUESTO]** | Decisión técnica o arquitectónica preliminar, pendiente de validación. No existe en el código. |
-| **[NEEDS CLARIFICATION: …]** | Decisión pendiente (ver [Decisiones pendientes](#decisiones-pendientes-needs-clarification)). |
+| **[NEEDS CLARIFICATION: …]** | Decisión pendiente (ver [Registro de decisiones](#registro-de-decisiones)). |
+| **CONFIRMADA / PROPUESTA / PENDIENTE** | Estado de cada decisión P-n en el [Registro de decisiones](#registro-de-decisiones). |
 | **Etapa 0** | Desarrollo y pruebas aisladas, con mocks y datos ficticios. |
 | **MVP** | Alcance inicial integrado sobre datos reales autorizados. |
 | **Posterior** | Etapas siguientes al MVP. |
@@ -35,8 +37,8 @@ QLoRA."
 
 ## Purpose
 
-Permitir que los usuarios autorizados de las pantallas financieras y contables hagan preguntas en
-lenguaje natural sobre la información contable del ERP. El asistente responde con un texto en
+Permitir que los usuarios autorizados de las pantallas contables funcionales habilitadas (P-2)
+hagan preguntas en lenguaje natural sobre la información contable del ERP. El asistente responde con un texto en
 español que incluye cifras y porcentajes calculados de forma determinista a partir de los datos
 registrados. No modifica ningún registro y cada cifra es trazable hasta su origen.
 
@@ -55,21 +57,37 @@ Qué roles del ERP corresponden a cada perfil sigue pendiente (P-1).
 
 | Etapa | Contenido | Requiere |
 |-------|-----------|----------|
-| **Etapa 0: aislada** | Componentes C1 a C11 desarrollados y probados por separado **exclusivamente** con mocks, datos ficticios o bases PostgreSQL desechables configuradas explícitamente. **Sin conexión a Neon de producción ni dependencia de `DATABASE_URL` del ERP** (NFR-011). El widget se prueba **sin montarse** en las pantallas existentes. Como Modelo 2 puede usarse XiYanSQL base como línea base. | P-18 |
-| **MVP integrado** | Las 12 decisiones funcionales confirmadas (US1 a US6) con un catálogo acotado de consultas: saldos y movimientos de cuenta, totales por período, balance a una fecha e indicadores básicos (P-6). Incluye la cadena de seguridad completa: proxy, revalidación por consulta, SQL Validator, SQL Executor restringido, motor financiero y auditoría minimizada. | DE-1, DE-2, DE-3, DE-5 (CS-1 aprobado), DE-7 resueltas |
-| **Posterior** | Pantallas fuera de Contabilidad (compras, ventas). Indicadores del estado de resultados, que depende de que se implemente esa pantalla. SQL visible para administradores (P-12). Paneles de observabilidad. Reentrenamiento periódico del adaptador. Sincronizar la conversación entre pestañas. Ajuste de los límites de uso. | Aprobación específica |
+| **Etapa 0: aislada** | Componentes C1 a C11 desarrollados y probados por separado **exclusivamente** con mocks, datos ficticios o bases PostgreSQL desechables configuradas explícitamente. **Sin conexión a Neon de producción ni dependencia de `DATABASE_URL` del ERP** (NFR-011). El widget se prueba **sin montarse** en las pantallas existentes. Como Modelo 2 puede usarse XiYanSQL base como línea base. El índice RAG se simula o es local (no Zilliz). No se envían datos reales a servicios externos (P-21). | P-18 |
+| **MVP integrado** | Las 12 decisiones funcionales confirmadas (US1 a US6) en las pantallas contables habilitadas (P-2), con un catálogo acotado de consultas: saldos y movimientos de cuenta, totales por período, balance a una fecha e indicadores básicos (P-6). Usa **realmente un adaptador QLoRA** evaluado y con versión registrada, aunque no sea el definitivo (P-15). Incluye la cadena de seguridad completa: proxy, revalidación por consulta, SQL Validator, SQL Executor restringido, motor financiero y auditoría minimizada. | DE-1, DE-2, DE-3, DE-5 (CS-1 aprobado), DE-7 resueltas; adaptador QLoRA evaluado (SC-008); viabilidad de la inferencia gratuita del Modelo 2 demostrada (P-7); Modelo 1 real mediante API comercial evaluado, con proveedor y presupuesto definidos (P-22); P-21 resuelta |
+| **Posterior** | Indicadores del estado de resultados, que depende de que se implemente esa pantalla. Paneles de observabilidad. Reentrenamiento periódico y versión definitiva del adaptador. Sincronizar la conversación entre pestañas. Ajuste de los límites de uso. | Aprobación específica |
 
 **Modelo 2 [CONFIRMADO]**: durante las pruebas iniciales puede usarse **XiYanSQL-QwenCoder-7B-2504
 base** (con RAG) como línea base. **El objetivo final del proyecto es integrar y evaluar XiYanSQL
 especializado mediante QLoRA**, comparándolo con la línea base sobre el mismo conjunto de
-evaluación (SC-012). El adaptador QLoRA **no está entrenado**. Sigue pendiente (**P-15**) si el MVP
-integrado exige ya el adaptador o puede salir con la línea base.
+evaluación (SC-012). **El MVP exige usar realmente un adaptador QLoRA**, aunque todavía no sea la
+versión definitiva (P-15, CONFIRMADA). El adaptador está **en entrenamiento, según información del
+equipo; aún pendiente de evaluación e integración**.
+
+### Restricciones del proyecto
+
+- **Presupuesto objetivo de infraestructura: US$0, con una única excepción** [CONFIRMADO].
+  - El Modelo 2 (XiYanSQL + QLoRA), el almacén vectorial, los embeddings, el RAG y el servicio de
+    IA usan recursos gratuitos.
+  - **Excepción: Modelo 1** (interpretación y explicación). Puede usar una **API comercial de LLM
+    con pago por consumo y un límite mensual**. El presupuesto máximo, el proveedor y su política
+    de retención y tratamiento de datos están pendientes (P-22).
+  - **No se contrata una GPU dedicada** para el Modelo 1.
+- **Sin garantía de disponibilidad continua** [CONFIRMADO]: los recursos gratuitos (GPU, almacén
+  vectorial, alojamiento) pueden tener cuotas, suspensión por inactividad, arranques en frío o
+  interrupciones. No se garantiza un funcionamiento 24/7. Cuando no estén disponibles, el asistente
+  responde con el mensaje de servicio no disponible (NFR-002).
 
 ### Incluido
 
-- Botón flotante y panel de chat en las pantallas financieras y contables autorizadas.
-- Conversación conservada durante la sesión del usuario al navegar entre pantallas autorizadas
-  (alcance inicial, MVP).
+- Botón flotante y panel de chat solo en las pantallas contables funcionales de la lista explícita
+  habilitada (P-2).
+- Conversación temporal e independiente por pestaña, conservada al navegar entre pantallas
+  habilitadas (alcance inicial, MVP), con la opción de iniciar una nueva conversación.
 - Preguntas en lenguaje natural, con seguimiento dentro de la misma sesión.
 - Uso del contexto de la pantalla actual, revalidado en el backend.
 - Respuestas solo en texto en español, con cifras y porcentajes.
@@ -85,6 +103,13 @@ integrado exige ya el adaptador o puede salir con la línea base.
 - Gráficos, tablas, tarjetas de indicadores, archivos adjuntos o exportaciones dentro del chat.
 - Entrada o salida por voz, y respuestas en idiomas distintos del español.
 - Persistencia de la conversación entre sesiones, pestañas o dispositivos.
+- Pantallas fuera de la lista explícita de P-2: módulos distintos de Contabilidad,
+  `/accounting/guide` y `/accounting/income-statement` mientras sea una página vacía. Cualquier
+  ampliación requiere una decisión explícita.
+- Mostrar el SQL generado dentro del chat a cualquier usuario final, **incluidos los
+  administradores** (P-12). Las trazas técnicas de auditoría son un asunto distinto (SEC-8).
+- Enviar datos contables reales, resultados SQL, importes reales o información personal a
+  proveedores externos de inferencia mientras P-21 siga pendiente (BR-13).
 - Implementar o corregir la autenticación, la autorización, los roles o los permisos del ERP. Son
   **dependencias externas bloqueantes** (ver [Dependencias externas](#dependencias-externas-bloqueantes)).
 - Implementar el estado de resultados (hoy es una página sin datos).
@@ -100,9 +125,9 @@ XiYanSQL + QLoRA y sus componentes). Rigen estas reglas:
 
 | Categoría | Contenido |
 |-----------|-----------|
-| **Archivos propios (solo nuevos)** | Carpetas exclusivas del asistente [PROPUESTO, nombres por definir]: componentes del widget, servicios cliente y del servidor, ruta del proxy `app/api/<ruta-asistente>/`, sus pruebas `*.test.ts` y el servicio Python (ubicación P-13). |
+| **Archivos propios (solo nuevos)** | Carpetas exclusivas del asistente [PROPUESTO, nombres por definir]: componentes del widget, servicios cliente y del servidor, ruta del proxy `app/api/<ruta-asistente>/` y sus pruebas `*.test.ts`. Servicio FastAPI aislado en una carpeta propia del repositorio (P-13, PROPUESTA), con estas reglas: su nombre **no** puede ser `api/` en la raíz (Vercel trata ese directorio como funciones *serverless*); sus artefactos se ignoran con un `.gitignore` **propio dentro de esa carpeta**, sin tocar el global; los pesos del modelo y los adaptadores **no se versionan**; sus pruebas se ejecutan fuera de la CI del ERP. |
 | **Interfaces ajenas que solo se consumen** | `sesionActual()` y `PayloadSesion` (`lib/auth/`), `lib/services/http.ts`, y los endpoints `GET /api/general-ledger` y `GET /api/balance-sheet` como referencia en las pruebas. Se importan o se llaman sin modificarlos. |
-| **Prohibido modificar** | Autenticación, login, sesiones JWT, roles, permisos y `lib/auth/`. Módulos de contabilidad, ventas, compras, inventario y caja. Layouts (`app/layout.tsx`; tampoco se crea `app/accounting/layout.tsx`). `prisma/schema.prisma`, migraciones y estructuras de base de datos. Configuración global, dependencias, workflows de CI y archivos de instrucciones del equipo. Specs `001` a `022`. |
+| **Prohibido modificar** | Autenticación, login, sesiones JWT, roles, permisos y `lib/auth/`. Módulos de contabilidad, ventas, compras, inventario y caja. `components/personalized/Sidebar.tsx`. Layouts (`app/layout.tsx`; tampoco se crea `app/accounting/layout.tsx`). `prisma/schema.prisma`, migraciones y estructuras de base de datos. Configuración global, dependencias, workflows de CI y archivos de instrucciones del equipo. Specs `001` a `022`. |
 | **Cambios compartidos** | Solo se identifican y se justifican (ver [Cambios compartidos](#cambios-compartidos-identificados-no-autorizados)). Se ejecutan únicamente con autorización expresa y coordinación con el responsable. |
 | **Datos** | En la Etapa 0 solo se usan mocks, datos ficticios o bases de datos desechables configuradas explícitamente. No se usan credenciales reales, `DATABASE_URL` ni `DATABASE_URL_READONLY`, Neon de producción ni datos contables de producción. |
 
@@ -129,8 +154,9 @@ probarse de forma aislada con el servicio de IA simulado.
 
 1. **Given** un usuario autorizado en una ruta de la lista autorizada, **When** se renderiza el
    widget, **Then** se muestra el botón flotante del asistente.
-2. **Given** una ruta fuera de la lista autorizada (p. ej. `/restaurant/kitchen`), **When** se
-   renderiza el widget, **Then** el botón flotante **no** se muestra.
+2. **Given** una ruta fuera de la lista autorizada (p. ej. `/restaurant/kitchen`,
+   `/accounting/guide` o `/accounting/income-statement`), **When** se renderiza el widget, **Then**
+   el botón flotante **no** se muestra.
 3. **Given** un usuario sin sesión válida o sin permiso para el asistente, **When** se renderiza en
    una ruta autorizada, **Then** el botón flotante no se muestra.
 4. **Given** el panel cerrado, **When** el usuario pulsa el botón, **Then** el panel se abre sin
@@ -277,7 +303,8 @@ US4 no funcionan al cambiar de pantalla.
 **Independent Test**:
 - *Aislada (Etapa 0)*: dentro del proveedor de estado del widget se simula un cambio de ruta
   autorizada → no autorizada → autorizada. Los intercambios previos se conservan, y no se escribe
-  nada en `localStorage`, `sessionStorage` ni en el servidor.
+  nada en `localStorage`, `sessionStorage` ni en el servidor. Al pulsar "Nueva conversación" el
+  historial de esa pestaña queda vacío.
 - *Integrada (MVP)*: bloqueada hasta resolver CS-1 y P-19.
 
 **Acceptance Scenarios**:
@@ -295,6 +322,9 @@ US4 no funcionan al cambiar de pantalla.
    disponible.
 6. **Given** una conversación activa, **When** el proxy responde `401` a una petición, **Then** el
    historial en memoria se elimina y se muestra el mensaje de sesión expirada.
+7. **Given** una conversación activa, **When** el usuario elige "Nueva conversación", **Then** el
+   historial de esa pestaña se vacía y las preguntas siguientes no usan el contexto anterior. Las
+   demás pestañas, el servidor y las trazas de auditoría no se ven afectados.
 
 ---
 
@@ -319,6 +349,16 @@ US4 no funcionan al cambiar de pantalla.
   la naturaleza de la cuenta (spec `013`, BR-5). El texto indica "saldo acreedor" o "saldo deudor"
   en lugar de mostrar un signo negativo sin explicación.
 - **Mes en curso incompleto**: la respuesta indica que el período está abierto o incompleto.
+- **Franja horaria de Lima**: entre las 19:00 y las 24:00 de Lima, la fecha UTC ya es el día
+  siguiente. "Hoy" y "este mes" se resuelven con la fecha civil de `America/Lima`, nunca con la
+  fecha UTC del servidor (BR-10).
+- **Inferencia gratuita no disponible** (cuota agotada, suspensión, arranque en frío): se muestra el
+  mensaje de servicio no disponible. No se garantiza un funcionamiento 24/7.
+- **Presupuesto del Modelo 1 agotado o imposible de verificar**: no se hacen llamadas facturables y
+  se responde con el `503` controlado, sin detalles económicos (NFR-014).
+- **Pregunta con información sensible** (nombres, DNI, RUC, importes reales): la propia pregunta se
+  trata como potencialmente sensible y no se envía a proveedores externos de inferencia mientras
+  P-21 siga pendiente (BR-13).
 - **División por cero en indicadores** (p. ej. pasivo corriente = 0): el motor financiero devuelve
   "no calculable" y el asistente lo explica; nunca muestra `Infinity` ni `NaN`.
 - **Resultado demasiado grande** (supera el límite de filas): se informa que la consulta es
@@ -340,10 +380,11 @@ US4 no funcionan al cambiar de pantalla.
 
 ## Functionalities
 
-- **Botón flotante y panel de chat** [CONFIRMADO], visibles solo en rutas autorizadas y para
-  usuarios con permiso. Montaje en las pantallas existentes **pendiente** (CS-1, P-19); en la
-  Etapa 0 el widget se desarrolla y prueba aislado.
-- **Historial en memoria por pestaña** [CONFIRMADO la continuidad; PROPUESTO el mecanismo].
+- **Botón flotante y panel de chat** [CONFIRMADO], visibles solo en las rutas de la lista explícita
+  de P-2 y para usuarios con permiso. Montaje en las pantallas existentes **pendiente** (CS-1,
+  P-19); en la Etapa 0 el widget se desarrolla y prueba aislado.
+- **Historial temporal e independiente por pestaña** [CONFIRMADO, P-3] con la opción **"Nueva
+  conversación"** [CONFIRMADO]. La implementación con estado de React en memoria sigue PROPUESTA.
 - **Envío de pregunta** [CONFIRMADO] con el contexto de la pantalla y el historial acotado, ambos
   tratados como datos no confiables.
 - **Respuesta textual en español** [CONFIRMADO] con cifras y porcentajes.
@@ -368,9 +409,10 @@ US4 no funcionan al cambiar de pantalla.
 | BR-7 | **Ambigüedad = aclaración** | Si falta cuenta, período o indicador y no se infiere de forma segura del historial ni del contexto, se pregunta. | PROPUESTO |
 | BR-8 | **Lista de objetos permitidos** | El asistente solo accede a objetos contables y financieros de una lista permitida. Se excluyen siempre credenciales, usuarios, sesiones, `audit_log` y los catálogos del sistema. | CONFIRMADO (contenido: P-14) |
 | BR-9 | **Criterio de asientos anulados** | Discrepancia actual entre el libro mayor (los incluye) y el balance (los excluye). **Decisión contable pendiente de coordinación con el equipo.** | NEEDS CLARIFICATION (P-4) |
-| BR-10 | **Fechas relativas** | "Este mes" o "el trimestre pasado" se resuelven en la zona horaria del negocio. Los períodos se guardan en UTC (spec `001`). | NEEDS CLARIFICATION (P-5) |
+| BR-10 | **Fechas relativas** | La zona horaria del negocio es **`America/Lima`**. "Hoy", "este mes" o "el trimestre pasado" se resuelven con la **fecha civil de Lima**, no con la fecha UTC del servidor. **(a) Asientos**: `journal_entry.entry_date` es una fecha sin hora (`DATE`), así que se compara directamente con las fechas civiles resueltas. **(b) Períodos contables**: `accounting_period.start_date` y `end_date` son *timestamps* guardados en UTC (spec `001`). La correspondencia entre un mes civil de Lima y esos límites **no se ha verificado** y no se asume ninguna conversión hasta verificarla (evidencia prevista). | CONFIRMADA la zona horaria (P-5); semántica de períodos pendiente de verificación |
 | BR-11 | **Historial acotado** | Solo los últimos N intercambios de la pestaña se envían como contexto. | PROPUESTO (N: P-11) |
 | BR-12 | **Datos del navegador no confiables** | El historial y el contexto que envía el navegador solo sirven como pista de interpretación. En **cada consulta** el backend revalida la sesión, el rol y el permiso efectivo, la pantalla autorizada, que las entidades resueltas existan y estén permitidas, y el formato de los filtros. | CONFIRMADO |
+| BR-13 | **Datos hacia inferencia externa** | Mientras P-21 siga pendiente, a proveedores externos de inferencia **no** se envían datos contables reales, resultados SQL, importes reales ni información personal. La propia pregunta del usuario puede contener información sensible. En las pruebas externas solo se usa información ficticia, o anonimizada y autorizada. Los cálculos financieros finales se ejecutan y verifican de forma determinista en el backend. | CONFIRMADO (regla provisional hasta resolver P-21) |
 
 ---
 
@@ -402,14 +444,18 @@ independientes:
    1. **Modelo 1, interpretar**: intención (financiera / seguimiento / escritura / fuera de
       dominio), entidades y ruta de resolución.
    2. **Embeddings y RAG**: recuperar esquema, relaciones, reglas contables y ejemplos pregunta→SQL.
-   3. **Modelo 2**: generar SQL de lectura en dialecto PostgreSQL. En las pruebas iniciales se usa
-      XiYanSQL-QwenCoder-7B-2504 base como línea base; el objetivo final es XiYanSQL especializado
-      con QLoRA (adaptador no entrenado; MVP: P-15).
+   3. **Modelo 2**: generar SQL de lectura en dialecto PostgreSQL a partir de la pregunta y los
+      metadatos recuperados, sin filas de datos. En las pruebas iniciales se usa
+      XiYanSQL-QwenCoder-7B-2504 base como línea base. El MVP usa realmente un adaptador QLoRA (P-15),
+      hoy en entrenamiento según el equipo y pendiente de evaluación e integración. Alojamiento: P-7.
    4. **SQL Validator**: autorización, lista permitida, validación estructural y semántica.
    5. **SQL Executor**: ejecución con credencial PostgreSQL restringida de solo lectura.
    6. **Motor financiero**: indicadores deterministas.
-   7. **Modelo 1, explicar**: redactar el texto en español a partir de resultados ya verificados.
-   8. **Verificación posterior**: cada cifra del texto coincide con los resultados.
+   7. **Modelo 1, explicar**: redactar el texto en español. [PROPUESTO, pendiente de validación
+      funcional y de seguridad] El modelo recibe **marcadores** (p. ej. `{{c1}}`) en lugar de las
+      cifras reales, y el orquestador los sustituye por los valores verificados del backend.
+   8. **Verificación posterior**: cada cifra del texto coincide con los resultados deterministas del
+      backend.
 4. **Proxy del ERP** → devuelve al navegador solo `estado`, `texto` e `idTraza`.
 
 ### Contratos
@@ -419,12 +465,12 @@ independientes:
 | CT-A | Widget → Proxy ERP | `mensaje`, `contextoPantalla { ruta, filtros }`, `historial` acotado y marcado como no confiable, `idConversacion` local de la pestaña | Éxito: `{ estado, texto, idTraza }`. Error: `{ error, errores? }` (convención de `lib/services/http.ts`) |
 | CT-B | Proxy ERP → Servicio IA | Identidad y rol **tomados siempre de la sesión del servidor**; contexto revalidado; mensaje; historial `noConfiable`; `idTraza` | `{ estado, texto, cifras[{ valor, unidad, origen }], evidencias[{ consulta, parámetros, filas, duración }], versiones, idTraza }`. El proxy solo reenvía `estado`, `texto` e `idTraza` al navegador. |
 | CT-C | Orquestador → Modelo 1 (interpretar) | Mensaje, historial, contexto revalidado | `{ intención, entidades, rutaResolución, necesitaAclaración? }` |
-| CT-D | Orquestador → Embeddings/RAG | Consulta normalizada | Fragmentos top-k `{ tipo: esquema/relación/regla/ejemplo, fuente, versión, contenido }`, independientes del almacén vectorial (P-8) |
-| CT-E | Orquestador → Modelo 2 | Pregunta normalizada, esquema recuperado, ejemplos | SQL candidato (una sola sentencia) |
+| CT-D | Orquestador → Embeddings/RAG | Consulta normalizada | Fragmentos top-k `{ tipo: esquema/relación/regla/ejemplo, fuente, versión, contenido }`, independientes del almacén vectorial (P-8: Zilliz Cloud Free con Milvus, PROPUESTA). El índice solo contiene metadatos, relaciones, reglas de negocio y ejemplos Text-to-SQL con valores ficticios; nunca datos contables reales. |
+| CT-E | Orquestador → Modelo 2 | Pregunta normalizada, esquema recuperado, ejemplos. Sin filas de datos ni importes reales (BR-13). | SQL candidato (una sola sentencia) |
 | CT-F | Orquestador → SQL Validator | SQL candidato, rol revalidado, lista de objetos permitidos para ese rol | `{ aprobado, motivos[] }` |
 | CT-G | Orquestador → SQL Executor | SQL aprobado y parámetros | Filas tipadas, número de filas, duración, `truncado`. Ejecuta con credencial restringida y transacción `READ ONLY`. |
 | CT-H | Orquestador → Motor financiero | Indicador, período, datos de entrada | `{ valor o noCalculable, fórmula, componentes }` |
-| CT-I | Orquestador → Modelo 1 (explicar) | Resultados verificados, intención, período | Texto en español |
+| CT-I | Orquestador → Modelo 1 (explicar) | Intención, período y **marcadores** en lugar de cifras reales [PROPUESTO, pendiente de validación funcional y de seguridad; P-21] | Texto en español con marcadores, que el orquestador sustituye por las cifras verificadas del backend |
 | CT-J | Servicio IA → Auditoría propia | Campos minimizados: plantilla SQL parametrizada y parámetros enmascarados, hasheados o cifrados (ver FR-022) | Registro en un almacén propio del servicio de IA, con acceso restringido y retención limitada (SEC-8). **No se amplía `AuditLog`** porque sería un cambio de esquema (P-10). |
 
 **Estados de respuesta (`estado`)** [PROPUESTO]: `respondida`, `sin_datos`, `requiere_aclaracion`,
@@ -454,15 +500,18 @@ independientes:
   consume. Roles: [NEEDS CLARIFICATION: P-1].
 - **Revalidación por consulta** [CONFIRMADO]: sesión, rol, permiso, pantalla y entidades se
   revalidan en cada petición (BR-12).
-- **Pantallas autorizadas** [CONFIRMADO el principio; lista: P-2]. Propuesta inicial, a partir de
-  las rutas del Sidebar (sección Contabilidad):
-  - `/accounting/entries`
+- **Pantallas habilitadas** [CONFIRMADO, P-2]: **lista explícita** de pantallas contables
+  funcionales, basada en las rutas reales del repositorio. **No** se habilitan automáticamente
+  todas las rutas `/accounting/*`.
+  - `/accounting/entries` (incluido el subdiario `?journal=Caja y bancos`)
   - `/accounting/journal`
   - `/accounting/accounts`
   - `/accounting/ledger`
   - `/accounting/balance`
   - `/accounting/periods`
-  - `/accounting/income-statement` (hoy es una página sin datos)
+  - **Excluidas por ahora**: `/accounting/guide` y `/accounting/income-statement` (página sin
+    datos). Toda ampliación requiere una decisión explícita. No se modifica el Sidebar ni ningún
+    layout.
 - **Visibilidad del botón**: es solo una medida de experiencia de usuario. El control efectivo está
   en el backend: una petición al proxy sin permiso o desde una pantalla no autorizada recibe `403`.
 - **Aislamiento de datos** [PROPUESTO]:
@@ -541,15 +590,23 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
   es accesible públicamente.
 - **SEC-4** [PROPUESTO]: los secretos van en variables de entorno de despliegue (DE-7). En la
   Etapa 0 no se usan credenciales reales.
-  - [CONFIRMADO] El valor de `DATABASE_URL_READONLY` y el de cualquier otra credencial **nunca** se
-    incluyen en la documentación, el código, los registros, las trazas ni GitHub. Solo se nombra la
-    variable.
+  - [CONFIRMADO] El valor de `DATABASE_URL_READONLY` y el de cualquier otra credencial (incluidas
+    las de Zilliz Cloud, las de los servicios de inferencia y la clave de la API comercial del
+    Modelo 1) **nunca** se incluyen en la documentación, el código, los registros, las trazas ni
+    GitHub. Solo se nombra la variable.
+  - [CONFIRMADO] La clave de la API comercial del Modelo 1 reside **exclusivamente en el backend
+    Python** (`ai-service/`). Nunca llega al ERP, al navegador ni a variables públicas.
 - **SEC-5** [PROPUESTO]: defensa contra inyección de instrucciones. Los datos recuperados (RAG y
   resultados) se delimitan como datos y el texto del usuario nunca se concatena en el SQL.
-- **SEC-6** [PROPUESTO]: no se envían datos contables a proveedores externos de modelos si se
-  alojan por cuenta propia (P-7).
-- **SEC-7** [PROPUESTO]: el SQL generado no se muestra al usuario final. Su visibilidad para
-  administradores es de una etapa posterior (P-12).
+- **SEC-6** [CONFIRMADA la regla provisional; PENDIENTE la política definitiva, P-21]: mientras P-21
+  siga pendiente se aplica BR-13. A proveedores externos de inferencia no se envían datos contables
+  reales, resultados SQL, importes reales ni información personal, y la pregunta del usuario se
+  trata como potencialmente sensible. Las pruebas externas solo usan información ficticia, o
+  anonimizada y autorizada. La técnica de marcadores de CT-I sigue PROPUESTA. El proveedor
+  comercial del Modelo 1 es un **proveedor externo de inferencia** sujeto a esta regla y a P-21/P-22.
+- **SEC-7** [CONFIRMADO, P-12]: el SQL generado **no se muestra dentro del chat a ningún usuario
+  final, incluidos los administradores**. Las trazas técnicas restringidas de auditoría son un
+  asunto distinto, sujeto a SEC-8.
 - **SEC-8** [CONFIRMADO los principios; PROPUESTA la técnica]: protección de las trazas de
   auditoría.
   - **Minimización**: se guarda solo lo necesario para la trazabilidad (FR-022).
@@ -601,6 +658,16 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
     configuración de prueba es insegura o incompleta, falla sin conectarse.
 15. **When** un usuario sin conocimientos contables hace una pregunta cotidiana, **Then** la
     respuesta usa lenguaje claro y explica brevemente los términos contables que emplea.
+16. **When** el usuario elige "Nueva conversación", **Then** el historial de esa pestaña se vacía
+    sin afectar a otras pestañas, al servidor ni a la auditoría.
+17. **When** cualquier usuario final, incluido un administrador, usa el chat, **Then** nunca ve el
+    SQL generado.
+18. **When** se resuelven "hoy" o "este mes", **Then** se usa la fecha civil de `America/Lima`
+    (comprobado en la franja de 19:00 a 24:00 de Lima) y se compara con `entry_date` como fecha
+    sin hora.
+19. **When** se inspeccionan las peticiones de prueba enviadas a proveedores externos de inferencia,
+    **Then** no contienen datos contables reales, resultados SQL, importes reales ni información
+    personal (BR-13).
 
 ---
 
@@ -610,16 +677,15 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
 
 **Interfaz y conversación**
 
-- **FR-001** [CONFIRMADO, MVP]: Mostrar el botón flotante solo en las pantallas financieras y
-  contables autorizadas y solo a usuarios con permiso. Montaje pendiente de CS-1.
+- **FR-001** [CONFIRMADO, MVP]: Mostrar el botón flotante solo en las pantallas contables
+  funcionales de la lista explícita de P-2 y solo a usuarios con permiso. Montaje pendiente de CS-1.
 - **FR-002** [CONFIRMADO, MVP]: Abrir y cerrar el panel sin navegar, recargar ni alterar el estado
   de la pantalla.
-- **FR-003** [CONFIRMADO, MVP]: Conservar la conversación durante la sesión del usuario al navegar
-  entre pantallas autorizadas.
-  - *Mecanismo, propuesta inicial [PROPUESTO]*: historial en memoria, en un estado de React
-    compartido asociado a la sesión de navegación de cada pestaña. Una conversación por pestaña.
-    Sin persistencia entre sesiones ni escritura en `localStorage`, `sessionStorage` o el servidor.
-    Una recarga completa puede reiniciarlo.
+- **FR-003** [CONFIRMADO, MVP, P-3]: Conservar la conversación durante la sesión del usuario al
+  navegar entre pantallas habilitadas. El historial es **temporal e independiente por pestaña**,
+  sin persistencia entre sesiones ni escritura en `localStorage`, `sessionStorage` o el servidor.
+  Una recarga completa puede reiniciarlo.
+  - *Implementación [PROPUESTO]*: estado de React en memoria compartido dentro de la pestaña.
   - *Eliminación*: el historial se elimina (a) al cerrar sesión, por la recarga completa que ya hace
     el flujo existente, y (b) cuando el proxy devuelve `401`. **La expiración de la cookie no borra
     por sí sola el estado de React.** No se intercepta el logout ni se modifica la autenticación.
@@ -627,7 +693,8 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
 - **FR-005** [CONFIRMADO, MVP]: Responder exclusivamente con texto en español, con cifras y
   porcentajes cuando corresponda.
 - **FR-006** [CONFIRMADO, MVP]: No mostrar gráficos, tablas ni tarjetas de indicadores en el chat.
-  El texto se muestra como texto plano, sin renderizar Markdown [PROPUESTO].
+  El texto se muestra como texto plano, sin renderizar Markdown [PROPUESTO]. El chat **nunca**
+  muestra el SQL generado a ningún usuario final, incluidos los administradores (P-12, SEC-7).
 - **FR-007** [CONFIRMADO, MVP]: Resolver preguntas de seguimiento usando solo la conversación de la
   misma pestaña, sesión y usuario. El historial se trata como dato no confiable.
 - **FR-008** [CONFIRMADO, MVP]: Enviar el contexto de la pantalla actual y revalidarlo en el
@@ -651,16 +718,36 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
 
 - **FR-013** [PROPUESTO, MVP]: Proxy propio en el backend del ERP como único punto de entrada desde
   el navegador. Solo consume `sesionActual()`.
-- **FR-014** [PROPUESTO, MVP]: Modelo 1 para clasificar la intención, extraer entidades y redactar
-  la explicación final.
-- **FR-015** [PROPUESTO, MVP]: Embeddings e índice RAG versionados con esquema, relaciones, reglas
-  contables y ejemplos pregunta→SQL. Almacén: P-8.
-- **FR-016** [CONFIRMADO el objetivo; PROPUESTO entrenamiento, alojamiento y despliegue]: Modelo 2
-  para generar SQL de lectura.
+- **FR-014** [CONFIRMADO el Modelo 1 real en el MVP; PROPUESTO el diseño]: Modelo 1 para
+  clasificar la intención, extraer entidades y redactar la explicación final.
+  - En el MVP se sirve mediante una **API comercial de LLM** con límite mensual (P-7, P-22), sin
+    GPU dedicada.
+  - Desacoplado del proveedor mediante la interfaz `LlmProvider` [CONFIRMADO, D-12]: contratos
+    tipados y respuestas estructuradas validadas. El proveedor comercial y el presupuesto siguen
+    pendientes (P-22).
+  - [CONFIRMADO] El Modelo 1 **no calcula ni inventa cifras financieras**. Los valores proceden
+    exclusivamente del SQL Executor y del motor financiero, con validación determinista.
+  - [PROPUESTO] Las cifras verificadas se incorporan a la explicación mediante marcadores o
+    referencias estructuradas. La técnica concreta todavía requiere pruebas.
+  - [PENDIENTE, P-21] Las condiciones de privacidad y los datos que pueden enviarse a proveedores
+    externos.
+  - En la Etapa 0 solo se usan reglas, plantillas y un proveedor simulado, sin llamadas reales.
+- **FR-015** [PROPUESTO, MVP]: Embeddings e índice RAG versionados con metadatos del esquema,
+  relaciones, reglas de negocio y ejemplos Text-to-SQL.
+  - Almacén: **Zilliz Cloud Free con Milvus** (P-8, PROPUESTA; no es infraestructura validada).
+  - El índice solo contiene metadatos y ejemplos con valores ficticios, nunca datos contables
+    reales.
+  - En la Etapa 0 el índice se simula o es local.
+- **FR-016** [CONFIRMADO el objetivo y la exigencia del MVP; PROPUESTO entrenamiento, alojamiento y
+  despliegue]: Modelo 2 para generar SQL de lectura.
   - XiYanSQL-QwenCoder-7B-2504 **base** puede usarse en las pruebas iniciales como línea base.
   - **El objetivo final del proyecto es integrar y evaluar XiYanSQL especializado mediante QLoRA**,
     comparándolo con la línea base sobre el mismo conjunto de evaluación versionado (SC-012).
-  - El adaptador **no está entrenado**. Si el MVP integrado lo exige ya: P-15.
+  - **El MVP exige usar realmente un adaptador QLoRA** (P-15, CONFIRMADA), con versión registrada,
+    aunque no sea el definitivo.
+  - Estado: **en entrenamiento, según información del equipo; aún pendiente de evaluación e
+    integración**.
+  - Alojamiento con recursos gratuitos, sujeto a una prueba de viabilidad (P-7, PROPUESTA).
 - **FR-017** [CONFIRMADO, MVP]: El SQL Validator aplica autorización efectiva, lista de objetos
   permitidos, validación estructural por análisis sintáctico y validación semántica.
 - **FR-018** [CONFIRMADO, MVP]: El SQL Executor usa credenciales PostgreSQL restringidas de solo
@@ -697,11 +784,17 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
 - **FR-024** [CONFIRMADO, MVP]: Adaptar la explicación a usuarios sin conocimientos contables
   especializados: lenguaje claro y una breve explicación de los términos contables usados, sin
   alterar las cifras ni su respaldo.
+- **FR-025** [CONFIRMADO, MVP, P-3]: Ofrecer la opción "Nueva conversación", que vacía el historial
+  de la pestaña actual sin afectar a otras pestañas, al servidor ni a las trazas de auditoría.
+- **FR-026** [CONFIRMADO, MVP, P-5]: Resolver las fechas relativas con la fecha civil de
+  `America/Lima` según BR-10. No se asume ninguna conversión de los límites de los períodos
+  contables (UTC) hasta verificarla.
 
 ### Non-Functional Requirements
 
 - **NFR-001** [PROPUESTO]: Latencia p95 de extremo a extremo dentro del umbral acordado (P-11), con
-  un indicador de "pensando" en el panel.
+  un indicador de "pensando" en el panel. El umbral tiene en cuenta los límites de los recursos
+  gratuitos (arranques en frío, cuotas) y no implica disponibilidad 24/7.
 - **NFR-002** [PROPUESTO]: El ERP no depende del servicio de IA para operar; los fallos y tiempos
   límite quedan aislados en el panel.
 - **NFR-003** [PROPUESTO]: El proxy sigue las convenciones del repositorio:
@@ -729,8 +822,15 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
     que cambian (producción) solo se garantiza la trazabilidad (BR-3).
 - **NFR-007** [PROPUESTO]: Límite de uso por usuario y longitudes máximas de mensaje e historial
   (P-11).
-- **NFR-008** [PROPUESTO]: Calidad del Modelo 2 medida como *execution accuracy* sobre un conjunto
-  de evaluación propio del ERP (umbral: P-11; tamaño: P-17).
+- **NFR-008** [PROPUESTO, P-17]: Evaluación sobre un **conjunto Gold independiente**.
+  - El conjunto es versionado y está separado del de entrenamiento, con control de fuga de datos.
+  - Usa datos ficticios y cubre ambos perfiles de usuario y casos adversariales.
+  - Métricas:
+    - **Text-to-SQL**: *execution accuracy*;
+    - **RAG**: recall@k y MRR;
+    - **seguridad**: tasa de rechazo correcto del Validator y 0 escrituras ejecutadas.
+  - Los umbrales (P-11) y los tamaños (P-17) siguen sin fijar. **Ningún resultado se da por
+    demostrado** hasta que exista el informe correspondiente.
 - **NFR-009** [CONFIRMADO, por la CI existente]: el código del ERP pasa `vitest run` y
   `npm run build`.
 - **NFR-010** [CONFIRMADO]: las trazas y registros minimizan los datos sensibles (ver FR-022).
@@ -751,6 +851,27 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
   requiere variables adicionales en CI. Las variables propias se leerían en tiempo de ejecución,
   como hace `clave()` en `lib/auth/session.ts`, y las pruebas `*.test.ts` ya las recoge
   `vitest.config.mts`. Solo se considerará cumplido cuando se demuestre mediante pruebas.
+- **NFR-013** [CONFIRMADO, regla provisional hasta resolver P-21]: protección de los datos enviados
+  a proveedores externos de inferencia según BR-13 y SEC-6.
+- **NFR-014** [CONFIRMADO]: presupuesto objetivo de infraestructura de US$0, salvo la excepción del
+  Modelo 1.
+  - **Infraestructura gratuita** (Modelo 2, RAG, embeddings, almacén vectorial y servicio de IA):
+    sin garantía de disponibilidad 24/7. El alojamiento del Modelo 2 se decide tras la prueba de
+    viabilidad (P-7).
+  - **Modelo 1**: API comercial con pago por consumo y límite mensual (P-22). Controles de
+    consumo:
+    - verificar si el proveedor ofrece un límite real de gasto, saldo prepago o un mecanismo
+      equivalente, **sin presuponerlo**;
+    - contador interno y cortacircuitos;
+    - límites de tokens, solicitudes y reintentos;
+    - registro de consumo sin almacenar prompts ni respuestas sensibles;
+    - **fallo seguro**: si no se puede verificar el presupuesto restante, no se hacen llamadas
+      facturables.
+  - **Presupuesto agotado** [CONFIRMADO]: no se hacen nuevas llamadas facturables y se responde con
+    el `503` controlado, sin exponer detalles económicos al usuario. La degradación a reglas y
+    plantillas queda para una decisión futura.
+  - La persistencia del contador y la estrategia definitiva de control siguen pendientes de
+    investigación.
 
 ---
 
@@ -776,11 +897,13 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
   - la conversación se conserva en el 100 % de los cambios de ruta simulados;
   - una pestaña nueva empieza vacía;
   - no hay escrituras en `localStorage`, `sessionStorage` ni en el servidor;
-  - el historial se elimina ante una respuesta `401` simulada y tras una recarga completa.
+  - el historial se elimina ante una respuesta `401` simulada y tras una recarga completa;
+  - "Nueva conversación" vacía solo el historial de la pestaña actual.
 - **SC-007**: El 100 % de los casos sin datos, ambiguos o con servicio caído muestran el mensaje del
   catálogo y ninguna cifra.
-- **SC-008**: El Modelo 2 alcanza la *execution accuracy* mínima acordada (NFR-008) antes de
-  habilitarse para usuarios.
+- **SC-008**: El adaptador QLoRA que usa el MVP, con su versión registrada, alcanza la *execution
+  accuracy* mínima acordada sobre el conjunto Gold (NFR-008; umbral: P-11) antes de habilitarse
+  para usuarios.
 - **SC-009**: La latencia p95 cumple NFR-001 en el entorno de prueba acordado.
 - **SC-010**: Con la credencial del Executor, el 100 % de los intentos de escritura directa (sin
   pasar por el Validator) son rechazados por PostgreSQL.
@@ -789,14 +912,25 @@ Los errores nunca exponen SQL, trazas de error, nombres de tablas ni salidas del
   rol sin permiso de auditoría no puede leerlas, que cada acceso queda registrado y que las trazas
   vencidas se eliminan.
 - **SC-012**: Existe un informe comparativo entre XiYanSQL base y XiYanSQL + QLoRA, sobre el mismo
-  conjunto de evaluación versionado, con *execution accuracy*, variación entre ejecuciones y las
-  versiones registradas (NFR-006).
+  conjunto Gold versionado, con las métricas de Text-to-SQL, RAG y seguridad de NFR-008, la
+  variación entre ejecuciones y las versiones registradas (NFR-006). El informe registra los
+  resultados obtenidos; no fija resultados de antemano.
 - **SC-013**: En una batería de preguntas cotidianas de usuarios no especialistas (tamaño: P-17), el
   porcentaje de respuestas sin términos contables sin explicar, evaluado con una rúbrica, alcanza
   el umbral acordado (P-11).
 - **SC-014**: El 100 % de las pruebas de la Etapa 0 se ejecuta sin reutilizar `DATABASE_URL` ni
   `DATABASE_URL_READONLY` y sin conectarse a Neon de producción. Ante una configuración insegura o
   incompleta, las pruebas que requieren base de datos fallan sin conectarse.
+- **SC-015**: Las pruebas de fechas relativas con reloj simulado en la franja de 19:00 a 24:00 de
+  Lima y en los límites de mes resuelven "hoy" y "este mes" con la fecha civil de `America/Lima` en
+  el 100 % de los casos.
+- **SC-016**: En la inspección de las peticiones de prueba a proveedores externos de inferencia, el
+  100 % carece de datos contables reales, resultados SQL, importes reales e información personal.
+- **SC-017**: Existe un informe de la prueba de viabilidad de la inferencia gratuita del adaptador
+  (P-7) con disponibilidad observada, cuotas y latencias, sin afirmar una disponibilidad 24/7.
+- **SC-018**: Con un proveedor simulado del Modelo 1, el 100 % de los casos de presupuesto agotado o
+  imposible de verificar produce 0 llamadas facturables y un `503` sin detalles económicos. Los
+  registros de consumo no contienen prompts ni respuestas.
 
 ---
 
@@ -807,13 +941,13 @@ implementarse y probarse por separado, simulando sus vecinos con los contratos C
 
 | # | Componente | Contratos | Prueba independiente (Etapa 0) | Estado |
 |---|-----------|-----------|--------------------------------|--------|
-| C1 | Widget de chat y estado en memoria por pestaña | CT-A | Pruebas de componente aisladas con ruta, sesión y proxy simulados: visibilidad, apertura y cierre, continuidad, limpieza ante `401`. **Sin montaje** en pantallas existentes. | PROPUESTO |
+| C1 | Widget de chat y estado en memoria por pestaña | CT-A | Pruebas de componente aisladas con ruta, sesión y proxy simulados: visibilidad según la lista explícita de P-2, apertura y cierre, continuidad, "Nueva conversación", limpieza ante `401`, sin SQL visible. **Sin montaje** en pantallas existentes. | PROPUESTO |
 | C2 | Proxy del ERP (route handler propio y servicio cliente) | CT-A, CT-B | Pruebas de ruta al estilo de `app/api/**/route.test.ts`: 400/401/403/429/503/504, con `sesionActual()` simulado | PROPUESTO |
-| C3 | Revalidador de contexto e historial | CT-A, CT-B | Pruebas unitarias con contextos e historiales válidos, inválidos y manipulados | PROPUESTO |
-| C4 | Servicio de IA y orquestador (FastAPI) | CT-B a CT-I | Pruebas con modelos simulados: cada `estado` y la secuencia del flujo | PROPUESTO |
+| C3 | Revalidador de contexto e historial, y resolución de fechas en `America/Lima` | CT-A, CT-B | Pruebas unitarias con contextos e historiales válidos, inválidos y manipulados; reloj simulado en la franja de Lima (SC-015) | PROPUESTO |
+| C4 | Servicio de IA y orquestador (FastAPI aislado en el repositorio, P-13) | CT-B a CT-I | Pruebas con modelos simulados: cada `estado`, la secuencia del flujo, sustitución de marcadores e inspección de las peticiones externas (SC-016) | PROPUESTO |
 | C5 | Modelo 1: intérprete y explicador | CT-C, CT-I | Conjunto etiquetado de intenciones y entidades; verificación de cifras; batería de lenguaje claro (SC-013) | PROPUESTO |
-| C6 | Embeddings e índice RAG | CT-D | Recall@k sobre preguntas de referencia, definido sobre la interfaz del índice | PROPUESTO (almacén: P-8) |
-| C7 | Modelo 2: XiYanSQL base como línea base → XiYanSQL + QLoRA como objetivo final (dataset, entrenamiento, evaluación comparativa y despliegue) | CT-E | *Execution accuracy* reproducible y comparativa base frente a QLoRA (NFR-006, NFR-008, SC-012) | Objetivo CONFIRMADO; implementación PROPUESTA; adaptador **no entrenado** |
+| C6 | Embeddings e índice RAG | CT-D | Recall@k y MRR sobre el conjunto Gold, definidos sobre la interfaz del índice; índice simulado o local en la Etapa 0 | PROPUESTO (almacén: Zilliz Cloud Free con Milvus, P-8 PROPUESTA) |
+| C7 | Modelo 2: XiYanSQL base como línea base → adaptador QLoRA en el MVP → versión definitiva posterior (dataset, entrenamiento, evaluación comparativa, viabilidad de inferencia gratuita y despliegue) | CT-E | *Execution accuracy* reproducible sobre el conjunto Gold, comparativa base frente a QLoRA y prueba de viabilidad (NFR-006, NFR-008, SC-008, SC-012, SC-017) | Objetivo y exigencia del MVP CONFIRMADOS; implementación PROPUESTA; adaptador **en entrenamiento según el equipo, pendiente de evaluación e integración** |
 | C8 | SQL Validator | CT-F | Batería de SQL permitido, prohibido y de evasión | PROPUESTO |
 | C9 | SQL Executor de solo lectura | CT-G | En PostgreSQL desechable configurado explícitamente, fuera de la CI del ERP: escritura denegada por la credencial, tiempo límite, límite de filas y fallo seguro ante configuración insegura (NFR-011) | PROPUESTO |
 | C10 | Motor financiero | CT-H | Pruebas unitarias con valores conocidos y casos de división por cero | PROPUESTO |
@@ -834,10 +968,10 @@ DE-1, DE-2 y DE-3 no estén resueltas, el asistente no accede a datos contables 
 | **DE-1** | Login que emita la cookie JWT `sesion` | Autenticación | `firmarSesion()` no se llama desde ningún archivo; el login guarda `auth-token = "dummy-token"` | Sin ella `sesionActual()` siempre devuelve `null` (FR-001, FR-013, FR-023) |
 | **DE-2** | Autorización efectiva: rol o permiso "usar asistente" | Autenticación / roles | `Permission` y `RolePermission` existen pero no se usan; períodos con usuario `id = 3` fijo (spec `001`); libro mayor sin control de acceso (spec `013`, BR-9) | FR-001, FR-017, FR-023 |
 | **DE-3** | Conexión PostgreSQL restringida de solo lectura para el SQL Executor y, si se decide, vistas dedicadas | Base de datos | **Antecedente informado por el equipo, no verificado en este ERP**: en el proyecto previo de XiYanSQL se configuró una conexión mediante la variable de entorno `DATABASE_URL_READONLY`, asociada al rol restringido `xiyansql_readonly`, y se usó en pruebas aisladas de validación y ejecución de SQL. No figura en los archivos versionados del ERP. **Pendiente de auditar (P-16)**: base y rama de Neon a las que apunta, privilegios efectivos, esquemas y objetos accesibles, permisos de ejecución de funciones, capacidad real de impedir escrituras y compatibilidad con el esquema actual del ERP y con la lista de objetos permitidos (P-14). `default_transaction_read_only` es una protección adicional, no una garantía suficiente. **No autorizada** para la Etapa 0 ni para producción hasta completar las verificaciones de seguridad. | FR-018, SEC-1, SEC-4 (P-14, P-16) |
-| **DE-4** | Infraestructura del almacén vectorial | Base de datos / plataforma | No existe. pgvector requeriría una extensión en Neon; Milvus no tocaría la base del ERP. **No se proponen migraciones.** | FR-015 (P-8) |
+| **DE-4** | Infraestructura del almacén vectorial | Plataforma | No existe. Propuesta: Zilliz Cloud Free con Milvus (P-8, PROPUESTA, no validada), que no toca la base del ERP. Falta verificar los límites del plan gratuito (capacidad, inactividad, disponibilidad). **No se proponen migraciones.** | FR-015 (P-8) |
 | **DE-5** | Punto de montaje del widget en un layout compartido | Responsables de layouts / contabilidad | No autorizado (CS-1) | FR-001, FR-003 en integración (P-19) |
 | **DE-6** | Criterio contable sobre asientos anulados | Equipo contable | Discrepancia entre las specs `013` y `007` | BR-9, SC-004 (P-4) |
-| **DE-7** | Variables de entorno de despliegue (URL del servicio de IA, secreto interno) | Plataforma / despliegue | No existen | CT-B, SEC-3 |
+| **DE-7** | Variables de entorno de despliegue (URL del servicio de IA, secreto interno, credenciales de Zilliz y de inferencia, y clave de la API comercial del Modelo 1, esta última solo en el backend Python) | Plataforma / despliegue | No existen | CT-B, SEC-3, SEC-4, FR-014 (P-22) |
 
 ## Cambios compartidos identificados *(NO AUTORIZADOS)*
 
@@ -846,7 +980,8 @@ DE-1, DE-2 y DE-3 no estén resueltas, el asistente no accede a datos contables 
 | **CS-1** | Montar el proveedor de estado y el widget | `app/layout.tsx` (modificar) **o** `app/accounting/layout.tsx` (crear) | Solo un layout común se mantiene durante la navegación del cliente. Eso permite conservar el historial en memoria y mostrar el botón sin editar cada pantalla. Insertarlo en cada página afectaría a más archivos ajenos y rompería la continuidad. | **No autorizado.** Ambas opciones afectan a módulos de otros integrantes (P-19). |
 | CS-2 | Etiqueta Swagger propia | `app/api/openapi/swaggerConfig.ts` | Solo estética; el escaneo de `app/api/**/*.ts` ya es automático | No se solicita |
 | CS-3 | Dependencias npm del ERP | `package.json` | Objetivo: ninguna. Si alguna fuera imprescindible, se pediría autorización. | No se solicita |
-| CS-4 | CI para el servicio Python | `.github/workflows/ci.yml` | El workflow actual solo ejecuta Node | No se solicita. Alternativa: repositorio o pipeline aparte (P-13). |
+| CS-4 | CI para el servicio Python | `.github/workflows/ci.yml` | El workflow actual solo ejecuta Node | No se solicita. Con P-13 (servicio dentro del repositorio, PROPUESTA), sus pruebas se ejecutan fuera de la CI del ERP. |
+| CS-5 | Reutilizar Upstash Redis (infraestructura que ya usa el ERP) como almacén de trabajos asíncronos | Infraestructura compartida (sin archivo concreto) | Solo si la decisión pendiente del plan sobre el modelo de ejecución (D-2) concluye que la opción síncrona no cabe en los límites de la plataforma | **Identificado y no autorizado.** No se usa ni se modifica Redis. |
 
 ## Control de cambios *(CONFIRMADO)*
 
@@ -873,34 +1008,44 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 - El único flujo de cierre de sesión existente hace una recarga completa
   (`window.location.href = "/login"`). Si se añadieran otros flujos de cierre, la eliminación del
   historial seguirá dependiendo de la recarga o del `401`.
-- El servicio de IA se despliega aparte de la aplicación Next.js.
+- El servicio de IA se despliega aparte de la aplicación Next.js, aunque su código viva en el mismo
+  repositorio (P-13, PROPUESTA).
 - Los usuarios formulan las preguntas en español.
-- Esta spec no presupone modelos entrenados, desplegados ni evaluados.
+- El adaptador QLoRA está en entrenamiento, según información del equipo. Esta spec no presupone
+  que el entrenamiento haya terminado ni que el adaptador esté evaluado, integrado o desplegado.
+- El presupuesto objetivo de infraestructura es US$0, salvo el Modelo 1, que usa una API comercial
+  con límite mensual (P-22). Los recursos gratuitos no garantizan disponibilidad 24/7.
 
-## Decisiones pendientes *(NEEDS CLARIFICATION)*
+## Registro de decisiones
 
-| # | Decisión | Afecta |
-|---|----------|--------|
-| P-1 | Roles autorizados para usar el asistente | Permissions, FR-001, DE-2 |
-| P-2 | Lista final de pantallas autorizadas | FR-001, C3, CS-1 |
-| P-3 | Confirmar la propuesta inicial de historial en memoria de React por pestaña | FR-003, C1 |
-| P-4 | Criterio contable sobre asientos anulados (coordinación con el equipo) | BR-9, SC-004, DE-6 |
-| P-5 | Zona horaria para fechas relativas | BR-10 |
-| P-6 | Catálogo de indicadores del MVP | FR-019, C10 |
-| P-7 | Alojamiento de los modelos y de los embeddings | SEC-6, C5–C7 |
-| P-8 | Almacén vectorial: pgvector o Milvus (sin migraciones por ahora) | FR-015, C6, DE-4 |
-| P-9 | Autenticación de la API interna entre el ERP y el servicio de IA | SEC-3, FR-021 |
-| P-10 | Almacén propio de auditoría, plazo de retención, técnica de protección de los parámetros (enmascaramiento irreversible o cifrado reversible con acceso restringido), roles de auditoría, texto de la pregunta e IP | FR-022, CT-J, SEC-8 |
-| P-11 | Umbrales: latencia p95, *execution accuracy*, longitud de mensaje, turnos de historial, límite de uso | NFR-001, NFR-007, NFR-008, BR-11 |
-| P-12 | SQL visible para administradores (etapa posterior) | SEC-7 |
-| P-13 | Ubicación del código Python (carpeta del repositorio o repositorio aparte) | C4–C7, CS-4 |
-| P-14 | Objetos permitidos: tablas existentes o vistas dedicadas (las vistas implican cambio en la base de datos) | BR-8, FR-017, DE-3 |
-| P-15 | Si el MVP integrado exige ya el adaptador QLoRA o puede salir con XiYanSQL base + RAG (el objetivo final QLoRA ya está confirmado) | FR-016, C7 |
-| P-16 | Auditar, junto con el responsable de la base de datos, el rol existente `xiyansql_readonly` (antecedente no verificado en este ERP). Se revisan: base y rama de Neon; privilegios efectivos; esquemas y objetos accesibles; permisos de ejecución de funciones; capacidad real de impedir escrituras (sin depender solo de `default_transaction_read_only`); y compatibilidad con el ERP. Después se decide de forma coordinada si se reutiliza, se ajusta o se crea un rol nuevo. **No se crea ningún rol antes de esa auditoría.** | FR-018, DE-3 |
-| P-17 | Tamaño mínimo de las baterías adversariales, de evaluación y de lenguaje claro | SC-002, SC-013, NFR-008 |
-| P-18 | Cómo construir y versionar la base ficticia desechable de la Etapa 0 (aplicar las migraciones a un PostgreSQL desechable requiere autorización; alternativa: fixtures mínimas) y dónde se ejecutan sus pruebas | SC-004, SC-014, C9, NFR-011 |
-| P-19 | Punto de montaje del widget (CS-1) y responsable de coordinarlo; ninguna opción está autorizada | FR-001, FR-003, DE-5 |
-| P-20 | Responsable y vía de coordinación de cada dependencia externa (DE-1 a DE-7) | Dependencias externas |
+Estados: **CONFIRMADA** (aprobada por el equipo), **PROPUESTA** (sujeta a validación, no
+implementada) y **PENDIENTE** (`[NEEDS CLARIFICATION]`). Los identificadores se conservan por
+trazabilidad.
+
+| # | Estado | Decisión | Afecta |
+|---|--------|----------|--------|
+| P-1 | PENDIENTE | Roles autorizados para usar el asistente | Permissions, FR-001, DE-2 |
+| P-2 | CONFIRMADA | El widget aparece **solo** en las pantallas contables funcionales de una lista explícita: `/accounting/entries`, `/accounting/journal`, `/accounting/accounts`, `/accounting/ledger`, `/accounting/balance` y `/accounting/periods`. Se excluyen por ahora `/accounting/guide` y `/accounting/income-statement` (página sin datos). No se habilitan automáticamente todas las rutas `/accounting/*`. Las ampliaciones requieren una decisión explícita. No se modifica el Sidebar ni ningún layout. | FR-001, C1, C3, CS-1, Permissions |
+| P-3 | CONFIRMADA | Historial temporal e independiente por pestaña, con la opción de iniciar una nueva conversación. Implementación con estado de React en memoria: PROPUESTA. | FR-003, FR-025, C1 |
+| P-4 | PENDIENTE | Criterio contable sobre asientos anulados (coordinación con el equipo) | BR-9, SC-004, DE-6 |
+| P-5 | CONFIRMADA | Zona horaria del negocio: `America/Lima`. La semántica de los límites UTC de los períodos sigue pendiente de verificación (BR-10). | BR-10, FR-026, C3 |
+| P-6 | PENDIENTE | Catálogo de indicadores del MVP | FR-019, C10 |
+| P-7 | PROPUESTA | Alojamiento de los modelos, en dos partes. **(a) Modelo 2 (XiYanSQL + QLoRA)**: entrenamiento, evaluación e inferencia con recursos gratuitos; inferencia remota del adaptador solo después de una prueba de viabilidad; sin garantía 24/7; el alojamiento definitivo se elige tras esa prueba. **(b) Modelo 1**: API comercial de pago por consumo con límite mensual, sin GPU dedicada (excepción presupuestaria CONFIRMADA); proveedor y presupuesto en P-22. | FR-014, FR-016, NFR-014, SEC-6, C5–C7, SC-017, SC-018 |
+| P-8 | PROPUESTA | Zilliz Cloud Free con Milvus para los embeddings de metadatos, relaciones, reglas de negocio y ejemplos Text-to-SQL. No es infraestructura validada. Sin migraciones. | FR-015, C6, DE-4 |
+| P-9 | PENDIENTE | Autenticación de la API interna entre el ERP y el servicio de IA | SEC-3, FR-021 |
+| P-10 | PENDIENTE | Almacén propio de auditoría, plazo de retención, técnica de protección de los parámetros (enmascaramiento irreversible o cifrado reversible con acceso restringido), roles de auditoría, texto de la pregunta e IP | FR-022, CT-J, SEC-8 |
+| P-11 | PENDIENTE | Umbrales: latencia p95, *execution accuracy*, longitud de mensaje, turnos de historial, límite de uso | NFR-001, NFR-007, NFR-008, BR-11 |
+| P-12 | CONFIRMADA | Ningún usuario final, **incluidos los administradores**, ve el SQL generado dentro del chat. Las trazas técnicas restringidas de auditoría son un asunto distinto (SEC-8). | SEC-7, FR-006 |
+| P-13 | PROPUESTA | Servicio FastAPI aislado en una carpeta propia dentro del repositorio del ERP, sin modificar componentes existentes. Su nombre no puede ser `api/` en la raíz; lleva un `.gitignore` local; los pesos no se versionan; sus pruebas se ejecutan fuera de la CI del ERP. | C4–C7, CS-4, límites de integración |
+| P-14 | PENDIENTE | Objetos permitidos: tablas existentes o vistas dedicadas (las vistas implican cambio en la base de datos) | BR-8, FR-017, DE-3 |
+| P-15 | CONFIRMADA | El MVP exige usar realmente un adaptador QLoRA, aunque todavía no sea el definitivo. El adaptador está en entrenamiento según el equipo, pendiente de evaluación e integración. | FR-016, C7, SC-008 |
+| P-16 | PENDIENTE | Auditar, junto con el responsable de la base de datos, el rol existente `xiyansql_readonly` (antecedente no verificado en este ERP). Se revisan: base y rama de Neon; privilegios efectivos; esquemas y objetos accesibles; permisos de ejecución de funciones; capacidad real de impedir escrituras (sin depender solo de `default_transaction_read_only`); y compatibilidad con el ERP. Después se decide de forma coordinada si se reutiliza, se ajusta o se crea un rol nuevo. **No se crea ningún rol antes de esa auditoría.** | FR-018, DE-3 |
+| P-17 | PROPUESTA | Conjunto de evaluación **Gold independiente** y métricas de ejecución (Text-to-SQL), seguridad y recuperación RAG. Los tamaños de las baterías (adversarial, de evaluación y de lenguaje claro) y los resultados no están establecidos ni demostrados. | NFR-008, SC-002, SC-008, SC-012, SC-013 |
+| P-18 | PENDIENTE | Cómo construir y versionar la base ficticia desechable de la Etapa 0 (aplicar las migraciones a un PostgreSQL desechable requiere autorización; alternativa: fixtures mínimas) y dónde se ejecutan sus pruebas | SC-004, SC-014, C9, NFR-011 |
+| P-19 | PENDIENTE | Punto de montaje del widget (CS-1) y responsable de coordinarlo; ninguna opción está autorizada | FR-001, FR-003, DE-5 |
+| P-20 | PENDIENTE | Responsable y vía de coordinación de cada dependencia externa (DE-1 a DE-7) | Dependencias externas |
+| P-21 | PENDIENTE | Política de inferencia remota y datos sensibles: qué información puede enviarse a proveedores externos de inferencia, y validación funcional y de seguridad de la técnica de marcadores de CT-I. Incluye los riesgos de los **embeddings de las preguntas** enviados a servicios externos (p. ej. el índice vectorial) y el envío de preguntas al proveedor comercial del Modelo 1. Mientras no se resuelva rige la regla provisional BR-13. | BR-13, SEC-6, NFR-013, CT-I, CT-E, SC-016 |
+| P-22 | PENDIENTE | Modelo 1 comercial: proveedor, presupuesto mensual máximo, política de retención y tratamiento de datos del proveedor (incluido su uso para entrenamiento), y existencia de un límite real de gasto o saldo prepago. | FR-014, NFR-014, SEC-4, SEC-6, DE-7, SC-018 |
 
 ---
 
@@ -908,11 +1053,11 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 
 | Requirement | Scenario | Componente / Dependencia | Evidencia prevista |
 |-------------|----------|--------------------------|--------------------|
-| FR-001 | US1 escenarios 1-3 | C1, C2 · DE-1, DE-2, DE-5 | Aislada: visibilidad por ruta y permiso simulados (SC-005). Integrada: pendiente de CS-1. |
+| FR-001 | US1 escenarios 1-3 | C1, C2 · DE-1, DE-2, DE-5 · P-2 | Aislada: visibilidad según la lista explícita de P-2, incluidas las rutas excluidas (SC-005). Integrada: pendiente de CS-1. |
 | FR-002 | US1 escenarios 4-5 | C1 · DE-5 | Aislada: ruta y estado sin cambios. Integrada: pendiente de CS-1. |
-| FR-003 | US6 escenarios 1-6 | C1 · DE-5 | Aislada: continuidad, pestaña nueva, recarga, `401`, sin almacenamiento (SC-006). Integrada: pendiente de CS-1. |
+| FR-003 | US6 escenarios 1-6 | C1 · DE-5 · P-3 | Aislada: continuidad, pestaña nueva, recarga, `401`, sin almacenamiento (SC-006). Integrada: pendiente de CS-1. |
 | FR-004, FR-005 | US2 escenarios 1, 5 | C4, C5 | Respuestas en español con formato `S/` |
-| FR-006 | US2 escenario 4 | C1 | El panel renderiza texto plano |
+| FR-006 | US2 escenario 4 | C1 · P-12 | El panel renderiza texto plano y nunca muestra SQL, tampoco a administradores (criterio de aceptación 17) |
 | FR-007 | US4 escenarios 1-4 | C1, C3, C4, C5 | Batería de seguimiento con resultados esperados |
 | FR-008 | US5 escenarios 1-3 | C2, C3 | Contextos válidos, inválidos y manipulados |
 | FR-009 | US3 escenario 3 | C5, C8, C9 | Batería de escritura e inyección (SC-002) |
@@ -920,9 +1065,9 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 | FR-011 | US2 escenario 3 | C9, C10, C11 | Reproducción exacta sobre fixtures y estado controlado; trazabilidad en producción (SC-001) |
 | FR-012 | US3 escenarios 1-5; US6 escenario 6 | C1, C2, C4 | Prueba por cada mensaje del catálogo (SC-007) |
 | FR-013 | US1 a US6 | C2 · DE-1 | El navegador solo llama al proxy; `401` sin sesión |
-| FR-014 | US2, US3, US4 | C5 | Conjunto de intenciones etiquetado |
-| FR-015 | US2 | C6 · DE-4 | Recall@k sobre la interfaz del índice |
-| FR-016 | US2 | C7 | *Execution accuracy* reproducible (SC-008) y comparativa base frente a QLoRA (SC-012) |
+| FR-014 | US2, US3, US4 | C5 · P-7, P-22 | Conjunto de intenciones etiquetado; salida estructurada validada; integridad de marcadores; proveedor simulado en la Etapa 0 |
+| FR-015 | US2 | C6 · DE-4 · P-8 | Recall@k y MRR sobre el conjunto Gold; índice simulado en la Etapa 0; límites de Zilliz Free verificados |
+| FR-016 | US2 | C7 · P-7, P-15 | Adaptador QLoRA del MVP sobre el conjunto Gold (SC-008), comparativa base frente a QLoRA (SC-012) y viabilidad de inferencia gratuita (SC-017) |
 | FR-017 | Edge case de evasión; US3 escenario 3 | C8 · DE-2 | Batería de SQL permitido, prohibido y de evasión (SC-003) |
 | FR-018 | US3 escenario 3; edge cases | C9 · DE-3 | Escritura denegada por la credencial (SC-010) y auditoría del rol existente `xiyansql_readonly` (P-16) |
 | FR-019 | US2 escenario 2; edge case de división por cero | C10 | Pruebas unitarias del motor |
@@ -931,11 +1076,16 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 | FR-022 | Todos | C11 | Trazas sin campos prohibidos, parámetros protegidos, acceso restringido y retención (SC-011, SEC-8) |
 | FR-023 | US4 escenario 4; US5 escenarios 2-3 | C2, C3, C8 · DE-1, DE-2 | Historial y contexto manipulados sin ampliación de acceso |
 | FR-024 | US2 escenario 6 | C5 | Batería de preguntas cotidianas evaluada con rúbrica (SC-013) |
+| FR-025 | US6 escenario 7 | C1 · P-3 | "Nueva conversación" vacía solo la pestaña actual (SC-006, criterio de aceptación 16) |
+| FR-026 | Edge case de la franja horaria de Lima | C3 · P-5 | Reloj simulado en la franja de 19:00 a 24:00 de Lima y en los límites de mes (SC-015, criterio de aceptación 18); verificación de la semántica de los períodos UTC |
 | NFR-006 | US2 escenario 3 | C5, C7 | Informe de evaluación con fixtures versionadas, versiones registradas y variación entre ejecuciones (SC-012) |
+| NFR-008 | US2; US3 escenario 3 | C6, C7, C8 · P-17 | Informe del conjunto Gold con métricas de Text-to-SQL, RAG y seguridad, sin resultados predefinidos (SC-008, SC-012) |
 | NFR-009 | — | ERP | `vitest run` y `npm run build` en verde |
 | NFR-010 | — | C11 | SC-011 |
 | NFR-011 | Todas las pruebas de la Etapa 0 | C1–C11 | Solo mocks o base desechable explícita; sin `DATABASE_URL` ni Neon; fallo seguro (SC-014) |
 | NFR-012 | — | C1, C2 | `vitest run` y `npm run build` sin variables nuevas (pendiente de verificación) |
+| NFR-013 | Edge case de pregunta con información sensible | C4, C5 · P-21 | Inspección de las peticiones de prueba a inferencia externa (SC-016, criterio de aceptación 19) |
+| NFR-014 | US3 escenario 5; edge cases de inferencia no disponible y de presupuesto agotado | C4, C5, C7 · P-7, P-22 | Informe de viabilidad sin garantía 24/7 (SC-017); controles de consumo con proveedor simulado (SC-018); mensaje `503` ante indisponibilidad o presupuesto agotado |
 
 ---
 
@@ -956,7 +1106,10 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 | Vitest incluye `**/*.test.ts` | `vitest.config.mts` (línea 21) |
 | La CI expone `DATABASE_URL` (secreto) en el entorno donde se ejecuta `npx vitest run` | `.github/workflows/ci.yml` |
 | Antecedente: conexión `DATABASE_URL_READONLY` con el rol `xiyansql_readonly`, usada en pruebas aisladas del proyecto previo de XiYanSQL | Declaración del equipo (2026-10-12). Sin referencias en los archivos versionados del ERP. **No verificado** en este ERP (DE-3, P-16). |
-| Rutas contables del sidebar | `components/personalized/Sidebar.tsx` (líneas 320-387) |
+| Rutas contables del sidebar (8, incluidas `/accounting/guide` y `/accounting/income-statement`) | `components/personalized/Sidebar.tsx` (líneas 320-387) |
+| `journal_entry.entry_date` es `DATE`; `accounting_period.start_date`/`end_date` son *timestamps* | `prisma/schema.prisma` (líneas 614-615 y 634) |
+| No existe una carpeta `api/` en la raíz del repositorio ni `vercel.json` | Listado de la raíz del repositorio |
+| Adaptador QLoRA en entrenamiento | Declaración del equipo. **No verificado**; pendiente de evaluación e integración. |
 | El layout raíz monta `Sidebar`, `children` y `Toaster` (punto de montaje de CS-1) | `app/layout.tsx` (líneas 50-58) |
 | `Role`, `Permission`, `RolePermission` | `prisma/schema.prisma` (líneas 91-120) |
 | `AuditAction` y `AuditLog` sin acción de consulta | `prisma/schema.prisma` (líneas 68-78 y 753-773) |
@@ -984,14 +1137,22 @@ No se hacen commits, push, merges, migraciones ni cambios de rama sin autorizaci
 | Informe de recall@k del índice RAG | C6 |
 | Batería adversarial de escritura e inyección de instrucciones | C4, C5, C8 |
 | Batería de lenguaje claro para usuarios no especialistas | C5 |
+| Informe del conjunto Gold independiente (Text-to-SQL, RAG y seguridad), sin resultados predefinidos | C6, C7, C8 |
+| Informe de viabilidad de la inferencia gratuita del adaptador, sin garantía 24/7 | C7 |
+| Verificación de los límites del plan Zilliz Cloud Free | C6, DE-4 |
+| Pruebas de fechas relativas con reloj simulado en la franja de Lima y verificación de la semántica de los períodos UTC | C3 |
+| Inspección de las peticiones de prueba a inferencia externa (sin datos reales) | C4, C5 |
+| Pruebas de "Nueva conversación" y de ausencia de SQL en el chat | C1 |
 | Revisión de trazas minimizadas, enmascaramiento, acceso restringido y retención | C11 |
 | `vitest run` y `npm run build` en verde sin variables nuevas | ERP (NFR-009, NFR-012) |
 
 **Fuera de alcance**: registro y edición de asientos (specs `001`, `002`), mantenimiento del plan
-contable (specs `003`, `004`), autenticación y autorización (DE-1, DE-2), layouts compartidos
-(CS-1), estado de resultados y entrenamiento detallado del Modelo 2 (spec derivada de C7).
+contable (specs `003`, `004`), autenticación y autorización (DE-1, DE-2), layouts compartidos y
+Sidebar (CS-1), estado de resultados y entrenamiento detallado del Modelo 2 (spec derivada de C7).
 
 ---
 
-*Esta especificación define comportamiento **nuevo y no implementado**. Los elementos marcados
-[PROPUESTO] o [NEEDS CLARIFICATION] requieren aprobación antes de pasar a `plan.md` y `tasks.md`.*
+*Esta especificación define comportamiento **nuevo y no implementado**. El plan técnico ya existe
+([plan.md](./plan.md)). Las decisiones marcadas [PROPUESTO], [NEEDS CLARIFICATION] o PENDIENTE
+deben resolverse antes de implementar las funcionalidades que dependen de ellas, y el futuro
+`tasks.md` puede recoger explícitamente esas dependencias y bloqueos.*

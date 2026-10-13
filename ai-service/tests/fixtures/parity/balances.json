@@ -1,0 +1,17 @@
+{
+  "description": "Paridad de signed_balance (Python) con signedBalance de lib/accounting/balance-sheet.ts (JavaScript). Datos ficticios. js_expected se derivó del comportamiento documentado de Math.round(n * 100) / 100 en coma flotante; las divergencias se listan explícitamente y no se ocultan con tolerancias.",
+  "source": "lib/accounting/balance-sheet.ts (solo lectura)",
+  "cases": [
+    { "id": "activo-basico", "type": "Activo", "debit": "1500.00", "credit": "200.00", "py_expected": "1300.00", "js_expected": "1300.00", "diverges": false },
+    { "id": "pasivo-basico", "type": "Pasivo", "debit": "100.00", "credit": "350.50", "py_expected": "250.50", "js_expected": "250.50", "diverges": false },
+    { "id": "ingreso-basico", "type": "Ingreso", "debit": "0", "credit": "1200", "py_expected": "1200.00", "js_expected": "1200.00", "diverges": false },
+    { "id": "gasto-basico", "type": "Gasto", "debit": "300.25", "credit": "0.25", "py_expected": "300.00", "js_expected": "300.00", "diverges": false },
+    { "id": "costo-negativo", "type": "Costo", "debit": "50", "credit": "80", "py_expected": "-30.00", "js_expected": "-30.00", "diverges": false },
+    { "id": "patrimonio-cero", "type": "Patrimonio", "debit": "0", "credit": "0", "py_expected": "0.00", "js_expected": "0.00", "diverges": false },
+    { "id": "tipo-no-reconocido", "type": "Otro", "debit": "10", "credit": "4", "py_expected": "-6.00", "js_expected": "-6.00", "diverges": false },
+    { "id": "empate-positivo", "type": "Ingreso", "debit": "0", "credit": "0.125", "py_expected": "0.13", "js_expected": "0.13", "diverges": false },
+    { "id": "binario-1.005", "type": "Activo", "debit": "1.005", "credit": "0", "py_expected": "1.01", "js_expected": "1.00", "diverges": true, "reason": "En JS 1.005 * 100 = 100.49999999999999 (coma flotante)" },
+    { "id": "binario-2.675", "type": "Activo", "debit": "2.675", "credit": "0", "py_expected": "2.68", "js_expected": "2.68", "diverges": false, "reason": "En coma flotante 2.675 * 100 = 267.5 exacto, así que Math.round coincide (el error clásico de 2.675 es de toFixed, no de Math.round)" },
+    { "id": "empate-negativo", "type": "Pasivo", "debit": "0.125", "credit": "0", "py_expected": "-0.13", "js_expected": "-0.12", "diverges": true, "reason": "Math.round(-12.5) = -12 (desempate hacia +infinito); ROUND_HALF_UP aleja de cero" }
+  ]
+}

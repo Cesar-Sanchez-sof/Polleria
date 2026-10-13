@@ -1,0 +1,125 @@
+{
+  "version": "gold-v1",
+  "created": "2026-10-12",
+  "items_sha256": "d52a1257843a2369ffcca5a7d87a32bdc375d88383144c588bbe94eff7d3e630",
+  "items_sha256_method": "SHA-256 de json.dumps(items, ensure_ascii=False, sort_keys=True, separators=(',', ':'))",
+  "description": "Conjunto Gold FICTICIO y pequeño (T031, P-17). Preguntas redactadas para evaluar la mecánica de recuperación y, más adelante, la interpretación. No son preguntas de usuarios reales ni contienen datos financieros reales. Los nombres de cuentas (caja, proveedores, ventas) son nombres genéricos del PCGE.",
+  "corpus": {
+    "metadata": "knowledge/erp_schema_metadata.json",
+    "glossary": "knowledge/glossary_v1.json",
+    "rules": "knowledge/rules_v1.json"
+  },
+  "independence": {
+    "statement": "Redactado de forma independiente para este repositorio; no se copió de ningún dataset de entrenamiento.",
+    "training_contamination_check": "PENDIENTE",
+    "reason": "El dataset de entrenamiento del adaptador QLoRA no está disponible en este repositorio, así que no se ha podido comprobar la ausencia de solapamiento.",
+    "training_dataset_sha256": null
+  },
+  "items": [
+    {
+      "id": "G01", "perfil": "contador", "pregunta": "¿Cuál fue el saldo de la cuenta caja en septiembre?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "caja", "periodo": "septiembre"},
+      "tablas_esperadas": ["accounting_account", "journal_entry_detail", "journal_entry"],
+      "relaciones_esperadas": ["journal_entry_detail.account_id->accounting_account.id", "journal_entry_detail.entry_id->journal_entry.id"],
+      "fragmentos_relevantes": ["schema:table:accounting_account", "schema:table:journal_entry_detail", "rule:naturaleza-saldo"]
+    },
+    {
+      "id": "G02", "perfil": "propietario", "pregunta": "¿Cuánto dinero hay en caja?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "caja", "periodo": null},
+      "tablas_esperadas": ["accounting_account", "journal_entry_detail"],
+      "relaciones_esperadas": ["journal_entry_detail.account_id->accounting_account.id"],
+      "fragmentos_relevantes": ["schema:table:accounting_account", "schema:table:journal_entry_detail", "rule:naturaleza-saldo"]
+    },
+    {
+      "id": "G03", "perfil": "contador", "pregunta": "¿Qué movimientos del debe y del haber tuvo la cuenta proveedores en agosto?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "proveedores", "periodo": "agosto"},
+      "tablas_esperadas": ["accounting_account", "journal_entry_detail", "journal_entry"],
+      "relaciones_esperadas": ["journal_entry_detail.account_id->accounting_account.id"],
+      "fragmentos_relevantes": ["schema:table:journal_entry_detail", "schema:relation:journal_entry_detail.account_id->accounting_account.id", "schema:table:accounting_account"]
+    },
+    {
+      "id": "G04", "perfil": "propietario", "pregunta": "¿Cuánto les debo a mis proveedores?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "proveedores", "periodo": null},
+      "tablas_esperadas": ["accounting_account", "journal_entry_detail"],
+      "relaciones_esperadas": ["journal_entry_detail.account_id->accounting_account.id"],
+      "fragmentos_relevantes": ["schema:table:accounting_account", "schema:table:journal_entry_detail", "rule:naturaleza-saldo"]
+    },
+    {
+      "id": "G05", "perfil": "contador", "pregunta": "¿Qué asientos se registraron en el libro de ventas durante el período de septiembre?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": null, "periodo": "septiembre"},
+      "tablas_esperadas": ["journal_entry", "accounting_period"],
+      "relaciones_esperadas": ["journal_entry.period_id->accounting_period.id"],
+      "fragmentos_relevantes": ["schema:table:journal_entry", "schema:table:accounting_period", "schema:relation:journal_entry.period_id->accounting_period.id"]
+    },
+    {
+      "id": "G06", "perfil": "contador", "pregunta": "¿El período contable de octubre está abierto o cerrado?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": null, "periodo": "octubre"},
+      "tablas_esperadas": ["accounting_period"], "relaciones_esperadas": [],
+      "fragmentos_relevantes": ["schema:table:accounting_period", "rule:asiento-periodo"]
+    },
+    {
+      "id": "G07", "perfil": "contador", "pregunta": "¿Cuál es el saldo final del libro mayor de la cuenta caja?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "caja", "periodo": null},
+      "tablas_esperadas": ["accounting_account", "journal_entry_detail"],
+      "relaciones_esperadas": ["journal_entry_detail.account_id->accounting_account.id"],
+      "fragmentos_relevantes": ["rule:saldo-libro-mayor", "schema:table:journal_entry_detail", "schema:table:accounting_account"]
+    },
+    {
+      "id": "G08", "perfil": "contador", "pregunta": "¿Qué cuentas hijas tiene la cuenta padre caja y bancos?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "caja y bancos", "periodo": null},
+      "tablas_esperadas": ["accounting_account"],
+      "relaciones_esperadas": ["accounting_account.parent_id->accounting_account.id"],
+      "fragmentos_relevantes": ["schema:table:accounting_account", "schema:relation:accounting_account.parent_id->accounting_account.id"]
+    },
+    {
+      "id": "G09", "perfil": "propietario", "pregunta": "¿Las ventas tienen naturaleza acreedora o deudora?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "ventas", "periodo": null},
+      "tablas_esperadas": ["accounting_account"], "relaciones_esperadas": [],
+      "fragmentos_relevantes": ["rule:naturaleza-saldo", "schema:table:accounting_account"]
+    },
+    {
+      "id": "G10", "perfil": "contador", "pregunta": "¿La suma del debe es igual a la suma del haber en los asientos de septiembre?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": null, "periodo": "septiembre"},
+      "tablas_esperadas": ["journal_entry", "journal_entry_detail"],
+      "relaciones_esperadas": ["journal_entry_detail.entry_id->journal_entry.id"],
+      "fragmentos_relevantes": ["rule:partida-doble", "schema:table:journal_entry_detail", "schema:table:journal_entry"]
+    },
+    {
+      "id": "G11", "perfil": "contador", "pregunta": "¿A qué asiento pertenece cada línea de detalle?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": null, "periodo": null},
+      "tablas_esperadas": ["journal_entry", "journal_entry_detail"],
+      "relaciones_esperadas": ["journal_entry_detail.entry_id->journal_entry.id"],
+      "fragmentos_relevantes": ["schema:relation:journal_entry_detail.entry_id->journal_entry.id", "schema:table:journal_entry_detail", "schema:table:journal_entry"]
+    },
+    {
+      "id": "G12", "perfil": "propietario", "pregunta": "¿Cuánto vendimos en septiembre?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": "ventas", "periodo": "septiembre"},
+      "tablas_esperadas": ["accounting_account", "journal_entry_detail", "journal_entry"],
+      "relaciones_esperadas": ["journal_entry_detail.account_id->accounting_account.id"],
+      "fragmentos_relevantes": ["schema:table:accounting_account", "schema:table:journal_entry_detail", "rule:naturaleza-saldo"]
+    },
+    {
+      "id": "G13", "perfil": "contador", "pregunta": "¿En qué fecha se registró el asiento de compras más reciente?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": null, "periodo": null},
+      "tablas_esperadas": ["journal_entry"], "relaciones_esperadas": [],
+      "fragmentos_relevantes": ["schema:table:journal_entry"]
+    },
+    {
+      "id": "G14", "perfil": "contador", "pregunta": "¿Se pueden registrar asientos en un período cerrado?",
+      "intencion_esperada": "consulta_financiera", "entidades_esperadas": {"cuenta": null, "periodo": null},
+      "tablas_esperadas": ["accounting_period", "journal_entry"],
+      "relaciones_esperadas": ["journal_entry.period_id->accounting_period.id"],
+      "fragmentos_relevantes": ["rule:asiento-periodo", "schema:table:accounting_period"]
+    },
+    {
+      "id": "G15", "perfil": "propietario", "pregunta": "¿Quién ganó el partido de ayer?",
+      "intencion_esperada": "fuera_de_dominio", "entidades_esperadas": {"cuenta": null, "periodo": null},
+      "tablas_esperadas": [], "relaciones_esperadas": [], "fragmentos_relevantes": []
+    },
+    {
+      "id": "G16", "perfil": "contador", "pregunta": "Registra un asiento de caja por la venta de hoy",
+      "intencion_esperada": "escritura", "entidades_esperadas": {"cuenta": "caja", "periodo": "hoy"},
+      "tablas_esperadas": [], "relaciones_esperadas": [], "fragmentos_relevantes": []
+    }
+  ]
+}

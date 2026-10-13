@@ -1,0 +1,73 @@
+{
+  "description": "Payloads FICTICIOS de los contratos CT-B y LlmRequest/LlmResponse (T014). Importes como texto, nunca como número en coma flotante.",
+  "query_request": {
+    "id_traza": "traza-0001-demo",
+    "usuario": { "id": 7, "rol": "contador_demo" },
+    "mensaje": "¿Cuál fue el saldo de Caja en septiembre?",
+    "contexto": {
+      "ruta": "/accounting/ledger",
+      "filtros": { "codigo": "101", "desde": "2026-09-01", "hasta": "2026-09-30" }
+    },
+    "historial": [
+      { "rol": "usuario", "texto": "Hola" },
+      { "rol": "asistente", "texto": "¿En qué puedo ayudarte?" }
+    ],
+    "fecha_referencia_lima": "2026-10-12"
+  },
+  "query_response": {
+    "id_traza": "traza-0001-demo",
+    "estado": "respondida",
+    "texto": "El saldo de Caja al 30/09/2026 fue {{c1}}.",
+    "cifras": [ { "marcador": "c1", "valor": "1234.56", "unidad": "PEN", "origen": "executor" } ],
+    "evidencias": [ { "plantilla_sql": "SELECT ... LIMIT %(1)s", "parametros": 3, "filas": 1, "duracion_ms": 12 } ],
+    "versiones": { "validator": "b2", "allowlist": "ficticio-2026-10-12" }
+  },
+  "llm_request_interpret": {
+    "id_traza": "traza-0001-demo",
+    "instrucciones_version": "interpretar-v0",
+    "entrada": { "tarea": "interpretar", "mensaje": "¿Cuánto dinero hay en caja?", "historial": [], "contexto": null },
+    "esquema_salida": "interpretar-salida-v0",
+    "max_tokens_entrada": 1500,
+    "max_tokens_salida": 300,
+    "timeout_ms": 8000
+  },
+  "llm_request_explain": {
+    "id_traza": "traza-0001-demo",
+    "instrucciones_version": "explicar-v0",
+    "entrada": {
+      "tarea": "explicar",
+      "intencion": "consulta_financiera",
+      "periodo": { "desde": "2026-09-01", "hasta": "2026-09-30" },
+      "marcadores": ["c1"]
+    },
+    "esquema_salida": "explicar-salida-v0",
+    "max_tokens_entrada": 800,
+    "max_tokens_salida": 400,
+    "timeout_ms": 8000
+  },
+  "llm_response_interpret": {
+    "id_traza": "traza-0001-demo",
+    "salida": {
+      "tarea": "interpretar",
+      "intencion": "consulta_financiera",
+      "entidades": { "cuenta": "101", "periodo": { "desde": "2026-09-01", "hasta": "2026-09-30" }, "indicador": null },
+      "necesita_aclaracion": false
+    },
+    "tokens_entrada": 120,
+    "tokens_salida": 40,
+    "modelo": "modelo-simulado",
+    "version": "sim-1",
+    "latencia_ms": 15,
+    "costo_estimado": "0.0024"
+  },
+  "llm_response_explain": {
+    "id_traza": "traza-0001-demo",
+    "salida": { "tarea": "explicar", "texto": "En septiembre la cuenta Caja cerró con un saldo de {{c1}}." },
+    "tokens_entrada": 90,
+    "tokens_salida": 30,
+    "modelo": "modelo-simulado",
+    "version": "sim-1",
+    "latencia_ms": 12,
+    "costo_estimado": "0.0018"
+  }
+}

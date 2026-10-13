@@ -1,0 +1,491 @@
+{
+  "version": "erp-schema-metadata-v1",
+  "source": "prisma/schema.prisma",
+  "schema_sha256": "997e3593e941bc5ae97a2266d2b29c5fdc49906af543390c8dac237f4c0ffea5",
+  "models": [
+    {
+      "model": "AccountingAccount",
+      "table": "accounting_account",
+      "columns": [
+        {
+          "field": "id",
+          "column": "id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": true,
+          "unique": false
+        },
+        {
+          "field": "parentId",
+          "column": "parent_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "code",
+          "column": "code",
+          "type": "String",
+          "db_type": "VarChar(10)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": true
+        },
+        {
+          "field": "name",
+          "column": "name",
+          "type": "String",
+          "db_type": "VarChar(100)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "type",
+          "column": "type",
+          "type": "String",
+          "db_type": "VarChar(20)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "active",
+          "column": "active",
+          "type": "Boolean",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "createdAt",
+          "column": "created_at",
+          "type": "DateTime",
+          "db_type": "Timestamp(6)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "updatedAt",
+          "column": "updated_at",
+          "type": "DateTime",
+          "db_type": "Timestamp(6)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "parentAccount",
+          "target_model": "AccountingAccount",
+          "target_table": "accounting_account",
+          "columns": [
+            "parent_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": true
+        }
+      ]
+    },
+    {
+      "model": "AccountingPeriod",
+      "table": "accounting_period",
+      "columns": [
+        {
+          "field": "id",
+          "column": "id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": true,
+          "unique": false
+        },
+        {
+          "field": "startDate",
+          "column": "start_date",
+          "type": "DateTime",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "endDate",
+          "column": "end_date",
+          "type": "DateTime",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "status",
+          "column": "status",
+          "type": "PeriodStatus",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "closedAt",
+          "column": "closed_at",
+          "type": "DateTime",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "closedById",
+          "column": "closed_by_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "createdAt",
+          "column": "created_at",
+          "type": "DateTime",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "updatedAt",
+          "column": "updated_at",
+          "type": "DateTime",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "userId",
+          "column": "userId",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "closedBy",
+          "target_model": "User",
+          "target_table": "app_user",
+          "columns": [
+            "closed_by_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": false
+        },
+        {
+          "field": "user",
+          "target_model": "User",
+          "target_table": "app_user",
+          "columns": [
+            "userId"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": false
+        }
+      ]
+    },
+    {
+      "model": "JournalEntry",
+      "table": "journal_entry",
+      "columns": [
+        {
+          "field": "id",
+          "column": "id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": true,
+          "unique": false
+        },
+        {
+          "field": "salesInvoiceId",
+          "column": "sales_invoice_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "purchaseInvoiceId",
+          "column": "purchase_invoice_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "payrollId",
+          "column": "payroll_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "entryDate",
+          "column": "entry_date",
+          "type": "DateTime",
+          "db_type": "Date",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "periodId",
+          "column": "period_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "description",
+          "column": "description",
+          "type": "String",
+          "db_type": "VarChar(200)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "book",
+          "column": "book",
+          "type": "String",
+          "db_type": "VarChar(60)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "responsible",
+          "column": "responsible",
+          "type": "String",
+          "db_type": "VarChar(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "createdAt",
+          "column": "created_at",
+          "type": "DateTime",
+          "db_type": "Timestamp(6)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "updatedAt",
+          "column": "updated_at",
+          "type": "DateTime",
+          "db_type": "Timestamp(6)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "status",
+          "column": "status",
+          "type": "Boolean",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "code",
+          "column": "code",
+          "type": "String",
+          "db_type": "VarChar(20)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": true
+        },
+        {
+          "field": "observation",
+          "column": "observation",
+          "type": "String",
+          "db_type": "VarChar(200)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "period",
+          "target_model": "AccountingPeriod",
+          "target_table": "accounting_period",
+          "columns": [
+            "period_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": true
+        },
+        {
+          "field": "salesInvoice",
+          "target_model": "SalesInvoice",
+          "target_table": "sales_invoice",
+          "columns": [
+            "sales_invoice_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": false
+        },
+        {
+          "field": "purchaseInvoice",
+          "target_model": "PurchaseInvoice",
+          "target_table": "purchase_invoice",
+          "columns": [
+            "purchase_invoice_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": false
+        },
+        {
+          "field": "payroll",
+          "target_model": "Payroll",
+          "target_table": "payroll",
+          "columns": [
+            "payroll_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": false
+        }
+      ]
+    },
+    {
+      "model": "JournalEntryDetail",
+      "table": "journal_entry_detail",
+      "columns": [
+        {
+          "field": "id",
+          "column": "id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": true,
+          "unique": false
+        },
+        {
+          "field": "entryId",
+          "column": "entry_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "accountId",
+          "column": "account_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "description",
+          "column": "description",
+          "type": "String",
+          "db_type": "VarChar(200)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "debit",
+          "column": "debit",
+          "type": "Decimal",
+          "db_type": "Decimal(12, 2)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        },
+        {
+          "field": "credit",
+          "column": "credit",
+          "type": "Decimal",
+          "db_type": "Decimal(12, 2)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "entry",
+          "target_model": "JournalEntry",
+          "target_table": "journal_entry",
+          "columns": [
+            "entry_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": true
+        },
+        {
+          "field": "account",
+          "target_model": "AccountingAccount",
+          "target_table": "accounting_account",
+          "columns": [
+            "account_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": true
+        }
+      ]
+    }
+  ],
+  "enums": {
+    "PeriodStatus": [
+      "OPEN",
+      "CLOSED"
+    ]
+  },
+  "notes": [
+    "Solo estructura: sin valores por defecto, comentarios, registros ni credenciales.",
+    "No es la lista de objetos permitidos del asistente (P-14 pendiente).",
+    "El significado contable de journal_entry.status (anulados) está pendiente (P-4)."
+  ]
+}
