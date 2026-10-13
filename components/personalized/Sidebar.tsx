@@ -168,6 +168,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
+                  className={getLinkClass("/sales?tab=drinks")}
+                  data-path="despacho-bebidas"
+                  href="/sales?tab=drinks"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Despacho de Bebidas
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                </Link>
+                <Link
                   className={getLinkClass("/sales?tab=kitchen")}
                   data-path="kitchen"
                   href="/sales?tab=kitchen"
@@ -184,7 +194,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Cobros No Cobrados
+                  Cobros No Realizados 
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
@@ -248,16 +258,6 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 >
                   Platos e Ingredientes (Carta)
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/restaurant/tables")}
-                  data-path="gestion-mesas"
-                  href="/restaurant/tables"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Registrar y Gestionar Mesas
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>
@@ -449,6 +449,57 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                 >
                   Auditoría
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                </Link>
+              </div>
+            </div>
+
+            {/* CONFIGURACIÓN Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  CONFIGURACIÓN
+                </span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className={getLinkClass("/restaurant/tables")}
+                  data-path="gestion-mesas"
+                  href="/restaurant/tables"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Registrar y Gestionar Mesas
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/areas")}
+                  data-path="salones-areas"
+                  href="/restaurant/areas"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Salones y Áreas</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/settings/business")}
+                  data-path="datos-empresa"
+                  href="/restaurant/settings/business"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Datos del Restaurante</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/settings/printers")}
+                  data-path="impresoras-comanderas"
+                  href="/restaurant/settings/printers"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Comprobantes e Impresión</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                 </Link>
               </div>
             </div>
