@@ -13,6 +13,10 @@ esperada **hace fallar la prueba aunque el código bajo prueba haya capturado la
 ejemplo, convirtiéndola en un ``503`` controlado). El registro solo guarda el tipo de violación y
 el nombre de la operación o de la variable, **nunca valores**.
 
+Única excepción, acotada y verificable: ``socket.socketpair()`` se sustituye por
+:func:`_internal_socketpair`, que permite **solo** el par de sockets loopback que ``asyncio``
+necesita en Windows (p. ej. para el ``TestClient`` de FastAPI). No relaja el ``connect`` vigilado.
+
 Las pruebas que comprueban a propósito las barreras deben usar
 :meth:`GuardedTestCase.expect_isolation_violation`, que es explícito, acotado a un bloque y exige
 que la violación ocurra. Las barreras siguen bloqueando dentro de ese bloque.
@@ -122,6 +126,49 @@ def _safe_environment_copy() -> dict[str, str]:
     return {key: os.environ[key] for key in os.environ if key not in FORBIDDEN_ENV_VARS}
 
 
+_ORIGINAL_CONNECT = socket.socket.connect
+_LOOPBACK_BY_FAMILY = {socket.AF_INET: "127.0.0.1", socket.AF_INET6: "::1"}
+
+
+def _internal_socketpair(
+    family: int = socket.AF_INET, type: int = socket.SOCK_STREAM, proto: int = 0
+) -> tuple[socket.socket, socket.socket]:
+    """``socket.socketpair`` controlado para el bucle de ``asyncio`` en Windows.
+
+    En Windows, ``asyncio`` crea su canal interno con ``socket.socketpair()``, que se implementa
+    conectando un socket a un servidor efímero en loopback. Esta versión reproduce ese algoritmo de
+    CPython, pero de forma **acotada**: solo TCP sobre loopback, conecta **únicamente** al socket que
+    acaba de crear (usando el ``connect`` original de forma interna) y comprueba que el extremo
+    aceptado es exactamente ese socket. El ``connect`` vigilado no se relaja: cualquier otra conexión,
+    también a ``127.0.0.1``, sigue bloqueada y registrada.
+    """
+    if family not in _LOOPBACK_BY_FAMILY or type != socket.SOCK_STREAM:
+        raise NetworkAccessBlocked("Solo se permite socketpair TCP sobre loopback en las pruebas.")
+    listener = socket.socket(family, type, proto)
+    try:
+        listener.bind((_LOOPBACK_BY_FAMILY[family], 0))
+        listener.listen(1)
+        address = listener.getsockname()[:2]
+        client = socket.socket(family, type, proto)
+        try:
+            client.setblocking(False)
+            try:
+                _ORIGINAL_CONNECT(client, address)  # solo hacia el listener recién creado
+            except (BlockingIOError, InterruptedError):
+                pass
+            client.setblocking(True)
+            server, _ = listener.accept()
+            if server.getpeername()[:2] != client.getsockname()[:2]:
+                server.close()
+                raise NetworkAccessBlocked("El extremo del socketpair no corresponde al socket esperado.")
+        except BaseException:
+            client.close()
+            raise
+    finally:
+        listener.close()
+    return server, client
+
+
 class GuardedTestCase(unittest.TestCase):
     """Caso de prueba con red bloqueada, variables protegidas y registro de violaciones."""
 
@@ -129,6 +176,7 @@ class GuardedTestCase(unittest.TestCase):
         super().setUp()
         self._isolation_violations: list[IsolationViolation] = []
         self._allowed_kinds: list[ViolationKind] = []
+        self.internal_socketpairs = 0
         # Se registra primero para que se ejecute al final, después de restaurar los parches.
         self.addCleanup(self._fail_on_unexpected_violations)
 
@@ -139,7 +187,17 @@ class GuardedTestCase(unittest.TestCase):
 
             return _raise
 
+        def counted_socketpair(*args: object, **kwargs: object) -> tuple[socket.socket, socket.socket]:
+            try:
+                pair = _internal_socketpair(*args, **kwargs)  # type: ignore[arg-type]
+            except NetworkAccessBlocked:
+                self._record("network", "socket.socketpair")
+                raise
+            self.internal_socketpairs += 1
+            return pair
+
         patchers = [
+            mock.patch.object(socket, "socketpair", counted_socketpair),
             mock.patch.object(socket.socket, "connect", blocked("socket.connect")),
             mock.patch.object(socket.socket, "connect_ex", blocked("socket.connect_ex")),
             mock.patch.object(socket, "create_connection", blocked("socket.create_connection")),

@@ -176,5 +176,81 @@ class IsolationGuardTests(GuardedTestCase):
         for original, restored in zip(before, after):
             self.assertIs(original, restored)
 
+    # ------------------------------------------------- excepción acotada de socket.socketpair()
+
+    def test_internal_socketpair_works_without_violations(self) -> None:
+        observed: dict[str, object] = {}
+
+        def use_pair(case: GuardedTestCase) -> None:
+            a, b = socket.socketpair()
+            try:
+                a.sendall(b"ping")
+                observed["data"] = b.recv(4)
+            finally:
+                a.close()
+                b.close()
+            observed["pairs"] = case.internal_socketpairs
+
+        result = run_inner(use_pair)
+        self.assertTrue(result.wasSuccessful(), problems(result))
+        self.assertEqual(observed, {"data": b"ping", "pairs": 1})
+
+    def test_asyncio_event_loop_works_under_the_guards(self) -> None:
+        import asyncio
+
+        def run_loop(case: GuardedTestCase) -> None:
+            async def answer() -> int:
+                await asyncio.sleep(0)
+                return 42
+
+            loop = asyncio.new_event_loop()  # en Windows crea su canal interno con socketpair()
+            try:
+                case.assertEqual(loop.run_until_complete(answer()), 42)
+            finally:
+                loop.close()
+
+        result = run_inner(run_loop)
+        self.assertTrue(result.wasSuccessful(), problems(result))
+
+    def test_other_loopback_connections_are_still_blocked_even_if_caught(self) -> None:
+        def connect_to_loopback(case: GuardedTestCase) -> None:
+            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                listener.bind(("127.0.0.1", 0))
+                listener.listen(1)
+                try:
+                    client.connect(listener.getsockname())  # loopback fuera de socketpair()
+                except NetworkAccessBlocked:
+                    pass
+            finally:
+                client.close()
+                listener.close()
+
+        result = run_inner(connect_to_loopback)
+        self.assertFalse(result.wasSuccessful())
+        self.assertIn("network:socket.connect", problems(result))
+
+    def test_unsupported_socketpair_is_blocked_even_if_caught(self) -> None:
+        def datagram_pair(case: GuardedTestCase) -> None:
+            try:
+                socket.socketpair(socket.AF_INET, socket.SOCK_DGRAM)
+            except NetworkAccessBlocked:
+                pass
+
+        result = run_inner(datagram_pair)
+        self.assertFalse(result.wasSuccessful())
+        self.assertIn("network:socket.socketpair", problems(result))
+
+    def test_socketpair_patch_is_restored(self) -> None:
+        def open_and_close(case: GuardedTestCase) -> None:
+            for sock in socket.socketpair():
+                sock.close()
+
+        before = socket.socketpair
+        result = run_inner(open_and_close)
+        self.assertTrue(result.wasSuccessful(), problems(result))
+        self.assertIs(socket.socketpair, before)
+
     def test_protected_variables_include_database_connections(self) -> None:
         self.assertTrue({"DATABASE_URL", "DATABASE_URL_READONLY", "PGPASSWORD"} <= FORBIDDEN_ENV_VARS)

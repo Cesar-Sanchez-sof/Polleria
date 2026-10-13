@@ -1,8 +1,12 @@
 # Servicio de IA del Asistente Financiero (SPEC-023).
 #
-# Este archivo solo DECLARA dependencias futuras: no se ha instalado nada.
-# El bloque B1 funciona exclusivamente con la biblioteca estándar de Python.
-# Las dependencias de B2/B3 se instalarán solo con autorización, en ai-service/.venv.
+# B1 funciona exclusivamente con la biblioteca estándar de Python.
+# B2–B4 y la capa HTTP (T026–T029) usan dependencias instaladas SOLO en ai-service/.venv.
+#
+# Versiones instaladas y verificadas (2026-10-12), para reproducibilidad:
+#   sqlglot 30.22.0 · pydantic 2.14.1 (pydantic-core 2.50.1) · pytest 9.1.1
+#   fastapi 0.143.0 (starlette 1.7.0, anyio 4.15.1) · httpx 0.28.1 · uvicorn 0.54.0
+# Mantener pydantic-core 2.50.1: Smart App Control ya evaluó ese binario nativo sin firma.
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -14,17 +18,19 @@ version = "0.1.0"
 description = "Orquestación del Asistente Financiero con IA del ERP (SPEC-023)"
 requires-python = ">=3.11"
 dependencies = [
-    # B2/B3 (pendientes de autorización de instalación)
     "fastapi",
     "pydantic>=2",
     "sqlglot",
-    # F5 (bloqueada por P-18)
+    # F5 (bloqueada por P-18): todavía no instalado
     "psycopg>=3",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
-# Fase posterior (P-8): cliente de Milvus/Zilliz
+# Pruebas: httpx lo usa el TestClient de Starlette (transporte en proceso, sin red)
+dev = ["pytest", "httpx"]
+# Solo para levantar el servidor local de desarrollo (sin extras compilados)
+server = ["uvicorn"]
+# Fase posterior (P-8): cliente de Milvus/Zilliz; todavía no instalado
 vector = ["pymilvus"]
 
 [tool.setuptools.packages.find]

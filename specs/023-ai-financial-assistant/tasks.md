@@ -105,6 +105,26 @@ local · ⛔ = bloqueada por una dependencia externa.
 - [x] **T024** Integración del presupuesto y `503` (SC-018). *Depende de T007, T022.*
 - [x] **T025** Batería de extremo a extremo y adversarial (SC-002, BR-5). *Depende de T022–T024.*
 
+### B3 · Capa HTTP de desarrollo (C4, CT-B `POST /v1/queries`, según `plan.md`)
+
+> **Estado (2026-10-12)**: implementada y verificada con simulaciones (27 pruebas nuevas, todas en
+> verde). **Solo desarrollo**: no es un servicio de producción. Dependencias instaladas en
+> `ai-service/.venv`: `fastapi` 0.143.0 (`starlette` 1.7.0, `anyio` 4.15.1), `httpx` 0.28.1,
+> `uvicorn` 0.54.0 (sin extras), sin binarios nativos nuevos.
+>
+> - El token interno (`AI_SERVICE_INTERNAL_TOKEN`) es **provisional**: identifica al proxy, no a
+>   los usuarios; no sustituye a P-9 ni a DE-1/DE-2. Roles y usuarios de CT-B siguen simulados.
+> - Barreras de pruebas: excepción acotada para `socket.socketpair()` (bucle `asyncio` en Windows);
+>   cualquier otra conexión, también loopback, sigue bloqueada y hace fallar la prueba.
+> - Starlette 1.7 marca como obsoleto usar `httpx` en `TestClient` (recomienda `httpx2`); funciona,
+>   pero queda pendiente de decidir.
+> - Comando: `PYTHONDONTWRITEBYTECODE=1 ai-service/.venv/Scripts/python.exe -m pytest ai-service/tests/test_settings.py ai-service/tests/test_http_api.py -p no:cacheprovider`
+
+- [x] **T026** Configuración del servicio con fallo seguro: solo `AI_SERVICE_ENV=development`, solo `127.0.0.1`, token interno ≥ 32 bytes, clave HMAC independiente, sin mostrar valores. *Depende de T015.*
+- [x] **T027** Composición del orquestador de desarrollo: componentes reales de B1–B4 + simuladores y dataset ficticio `ai-service/fixtures/dev_dataset.json`. *Depende de T026, T022, T032.*
+- [x] **T028** Aplicación FastAPI: `GET /v1/health`, `POST /v1/queries` (CT-B); token en tiempo constante, `415`/`413`, `400` para errores de contrato, errores genéricos, sin `/docs` ni `/openapi.json`, `TrustedHostMiddleware`, cabeceras `no-store`/`nosniff`; arranque local `python -m ai_service.main`. *Depende de T027.*
+- [x] **T029** Pruebas HTTP de integración y seguridad (401 sin invocar el orquestador, 403, 413, 415, 503, 500, hosts no permitidos, ausencia de filtraciones, compatibilidad con las barreras). *Depende de T028.*
+
 ## B4: Conocimiento y conjunto Gold
 
 > **Estado (2026-10-12)**: T030–T032 implementadas y verificadas (22 pruebas con pytest, todas en
