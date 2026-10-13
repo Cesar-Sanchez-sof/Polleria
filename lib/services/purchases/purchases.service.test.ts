@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSupplier } from "./supplier";
-import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, setSupplyStatus } from "./supply";
+import { lookupDocument } from "./document-lookup";
+import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, updateSupplyUnit, setSupplyStatus } from "./supply";
 import { createPurchaseOrder, registerUnifiedPurchase } from "./purchase-order";
 import { createPurchaseVoucher } from "./invoices";
 import {
@@ -130,6 +131,119 @@ describe("Modulo Compras Services", () => {
         })
       ).rejects.toThrow("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
     });
+
+    it("lookupDocument debe rechazar documentos con longitud inválida", async () => {
+      const res = await lookupDocument("123");
+      expect(res.success).toBe(false);
+      expect(res.error).toBe("El documento debe tener 8 u 11 dígitos");
+    });
+
+    it("lookupDocument debe consultar DNI y retornar datos estructurados", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            nombres: "JUAN CARLOS",
+            apellido_paterno: "PEREZ",
+            apellido_materno: "GOMEZ",
+          },
+        }),
+      } as any);
+
+      try {
+        const res = await lookupDocument("12345678");
+        expect(res.success).toBe(true);
+        expect(res.data?.documentType).toBe("DNI");
+        expect(res.data?.businessName).toBe("JUAN CARLOS PEREZ GOMEZ");
+        expect(res.data?.firstName).toBe("JUAN CARLOS");
+        expect(res.data?.lastName).toBe("PEREZ GOMEZ");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
+
+    it("lookupDocument debe consultar RUC y retornar datos estructurados", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            nombre_o_razon_social: "DISTRIBUIDORA AVICOLA SAC",
+            direccion_completa: "AV. LOS POLLOS 123",
+            distrito: "LOS OLIVOS",
+            provincia: "LIMA",
+            departamento: "LIMA",
+            estado: "ACTIVO",
+          },
+        }),
+      } as any);
+
+      try {
+        const res = await lookupDocument("20123456789");
+        expect(res.success).toBe(true);
+        expect(res.data?.documentType).toBe("RUC");
+        expect(res.data?.businessName).toBe("DISTRIBUIDORA AVICOLA SAC");
+        expect(res.data?.address).toBe("AV. LOS POLLOS 123");
+        expect(res.data?.district).toBe("LOS OLIVOS");
+        expect(res.data?.province).toBe("LIMA");
+        expect(res.data?.department).toBe("LIMA");
+        expect(res.data?.status).toBe("ACTIVO");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
+
+    it("lookupDocument debe manejar error 429 de cuota agotada gracefully", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+      } as any);
+
+      try {
+        const res = await lookupDocument("20123456789");
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("Consulta temporalmente no disponible. Intenta más tarde.");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
+
+    it("lookupDocument debe manejar timeout / abort gracefully", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockRejectedValue({
+        name: "AbortError",
+      });
+
+      try {
+        const res = await lookupDocument("20123456789");
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("La consulta tardó demasiado. Intenta de nuevo.");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
   });
 
   describe("Módulo 5: Insumos y Ajuste de Inventario", () => {
@@ -205,10 +319,37 @@ describe("Modulo Compras Services", () => {
       );
     });
 
-    it("debe lanzar error si el insumo no existe al actualizar stock mínimo", async () => {
+    it("debe actualizar la unidad de medida del insumo", async () => {
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 1,
+        name: "Pollo Entero",
+        unitOfMeasure: "KG",
+      });
+      (prisma.supply.update as any).mockResolvedValue({
+        id: 1,
+        name: "Pollo Entero",
+        unitOfMeasure: "UNID",
+      });
+
+      const res = await updateSupplyUnit(1, "UNID");
+
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { unitOfMeasure: "UNID" },
+      });
+      expect(res.unitOfMeasure).toBe("UNID");
+    });
+
+    it("debe lanzar error si la unidad de medida está vacía", async () => {
+      await expect(updateSupplyUnit(1, "   ")).rejects.toThrow(
+        "La unidad de medida es obligatoria"
+      );
+    });
+
+    it("debe lanzar error si el insumo no existe al actualizar la unidad de medida", async () => {
       (prisma.supply.findUnique as any).mockResolvedValue(null);
 
-      await expect(updateSupplyMinimum(999, 10)).rejects.toThrow(
+      await expect(updateSupplyUnit(999, "UNID")).rejects.toThrow(
         "Insumo no encontrado"
       );
     });

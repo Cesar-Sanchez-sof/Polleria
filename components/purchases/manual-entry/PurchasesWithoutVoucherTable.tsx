@@ -22,14 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { TablePagination } from "@/components/purchases/shared/TablePagination";
 import { Spinner } from "@/components/ui/spinner";
 import { annulInformalPurchase } from "@/lib/services/purchases/purchase-without-voucher";
 import { InformalPurchaseType, ExpenseCategory } from "@prisma/client";
@@ -44,6 +38,8 @@ import {
   DollarSign,
   AlertTriangle,
   RotateCcw,
+  Eye,
+  Info,
 } from "lucide-react";
 
 export interface InformalPurchaseItem {
@@ -94,6 +90,9 @@ export function PurchasesWithoutVoucherTable({
   const [purchaseToAnnul, setPurchaseToAnnul] = useState<InformalPurchaseItem | null>(null);
   const [annulReason, setAnnulReason] = useState("");
   const [annulLoading, setAnnulLoading] = useState(false);
+
+  // Estado del diálogo de ver detalle de anulación
+  const [purchaseToViewAnnulment, setPurchaseToViewAnnulment] = useState<InformalPurchaseItem | null>(null);
 
   // KPIs
   const activePurchases = useMemo(
@@ -157,6 +156,15 @@ export function PurchasesWithoutVoucherTable({
       return true;
     });
   }, [purchases, typeFilter, statusFilter, searchTerm]);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const paginatedPurchases = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredPurchases.slice(start, start + pageSize);
+  }, [filteredPurchases, currentPage, pageSize]);
 
   // Manejo de anulación
   const handleOpenAnnulDialog = (purchase: InformalPurchaseItem) => {
@@ -249,36 +257,105 @@ export function PurchasesWithoutVoucherTable({
           <Input
             placeholder="Buscar por insumo, descripción, lugar..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-9 h-9 text-xs"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="w-[140px]">
-            <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || "ALL")}>
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los tipos</SelectItem>
-                <SelectItem value={InformalPurchaseType.InventoryItem}>Solo insumos</SelectItem>
-                <SelectItem value={InformalPurchaseType.OperatingExpense}>Solo gastos</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Segmented Control: Tipo */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter("ALL");
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                typeFilter === "ALL"
+                  ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter(InformalPurchaseType.InventoryItem);
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                typeFilter === InformalPurchaseType.InventoryItem
+                  ? "bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Insumos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter(InformalPurchaseType.OperatingExpense);
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                typeFilter === InformalPurchaseType.OperatingExpense
+                  ? "bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Gastos
+            </button>
           </div>
 
-          <div className="w-[140px]">
-            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "ALL")}>
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los estados</SelectItem>
-                <SelectItem value="ACTIVE">Solo activos</SelectItem>
-                <SelectItem value="ANNULLED">Solo anulados</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Segmented Control: Estado */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ALL");
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                statusFilter === "ALL"
+                  ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Todo Estado
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ACTIVE");
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                statusFilter === "ACTIVE"
+                  ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Activos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ANNULLED");
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                statusFilter === "ANNULLED"
+                  ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Anulados
+            </button>
           </div>
         </div>
       </div>
@@ -311,7 +388,7 @@ export function PurchasesWithoutVoucherTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filteredPurchases.map((c) => {
+              paginatedPurchases.map((c) => {
                 const dateStr = new Date(c.date).toLocaleDateString("es-PE");
                 const qty = Number(c.quantity);
                 const amount = Number(c.amountPaid);
@@ -387,12 +464,17 @@ export function PurchasesWithoutVoucherTable({
                     </TableCell>
                     <TableCell className="text-right">
                       {c.anulado ? (
-                        <span
-                          className="text-[10px] text-muted-foreground italic cursor-help"
-                          title={`Motivo: ${c.motivoAnulacion || "Sin motivo"}`}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPurchaseToViewAnnulment(c)}
+                          className="h-7 text-xs text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 px-2 flex items-center gap-1 cursor-pointer"
+                          title="Ver detalle de anulación"
                         >
-                          Anulada
-                        </span>
+                          <Eye className="h-3.5 w-3.5 text-rose-500" />
+                          <span>Ver anulación</span>
+                        </Button>
                       ) : (
                         <Button
                           type="button"
@@ -412,6 +494,14 @@ export function PurchasesWithoutVoucherTable({
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={filteredPurchases.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="compras"
+        />
       </div>
 
       {/* Diálogo de Anulación */}
@@ -420,7 +510,11 @@ export function PurchasesWithoutVoucherTable({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Anular Compra Menor #{purchaseToAnnul?.id}
+              Anular Compra Menor &ldquo;
+              {purchaseToAnnul?.purchaseType === InformalPurchaseType.InventoryItem
+                ? purchaseToAnnul?.supply?.name
+                : purchaseToAnnul?.itemDescription}
+              &rdquo;
             </DialogTitle>
             <DialogDescription>
               Esta acción marcará la compra como anulada y dejará constancia en el historial.
@@ -507,6 +601,139 @@ export function PurchasesWithoutVoucherTable({
             >
               {annulLoading && <Spinner className="mr-2 h-4 w-4" />}
               Confirmar Anulación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Detalle de Anulación */}
+      <Dialog
+        open={!!purchaseToViewAnnulment}
+        onOpenChange={(open) => !open && setPurchaseToViewAnnulment(null)}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <Ban className="h-5 w-5" />
+              Detalle de Anulación
+            </DialogTitle>
+            <DialogDescription>
+              Constancia de la anulación realizada y datos de auditoría de la compra menor.
+            </DialogDescription>
+          </DialogHeader>
+
+          {purchaseToViewAnnulment && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Bloque destacado con la auditoría de anulación */}
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-rose-900 dark:text-rose-200 space-y-2">
+                <div className="flex items-center justify-between pb-2 border-b border-rose-200/60 dark:border-rose-900/40">
+                  <span className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4" />
+                    Estado: Anulada
+                  </span>
+                  {purchaseToViewAnnulment.anuladoAt && (
+                    <span className="font-mono text-[11px] text-rose-700 dark:text-rose-400">
+                      {new Date(purchaseToViewAnnulment.anuladoAt).toLocaleString("es-PE")}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Anulado por:</span>
+                  <span className="font-semibold text-foreground text-xs">
+                    {purchaseToViewAnnulment.annulledBy
+                      ? `${purchaseToViewAnnulment.annulledBy.firstName} ${purchaseToViewAnnulment.annulledBy.paternalLastName || ""}`
+                      : "Usuario del sistema"}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Motivo de la anulación:</span>
+                  <p className="mt-1 p-2.5 rounded-lg bg-background/80 border border-rose-200/70 dark:border-rose-900/60 text-foreground font-medium whitespace-pre-wrap leading-relaxed">
+                    {purchaseToViewAnnulment.motivoAnulacion || "Sin motivo registrado"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contexto: Datos básicos de la compra */}
+              <div className="rounded-xl border bg-muted/30 p-3.5 space-y-2">
+                <span className="font-semibold text-foreground text-[11px] block uppercase tracking-wide">
+                  Datos de la Compra Original
+                </span>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-muted-foreground block">Tipo:</span>
+                    <span className="font-medium text-foreground">
+                      {purchaseToViewAnnulment.purchaseType === InformalPurchaseType.InventoryItem
+                        ? "Insumo de cocina"
+                        : "Gasto operativo"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-muted-foreground block">Fecha de Compra:</span>
+                    <span className="font-medium text-foreground">
+                      {new Date(purchaseToViewAnnulment.date).toLocaleDateString("es-PE", { timeZone: "UTC" })}
+                    </span>
+                  </div>
+
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block">Insumo / Descripción:</span>
+                    <span className="font-semibold text-foreground">
+                      {purchaseToViewAnnulment.purchaseType === InformalPurchaseType.InventoryItem
+                        ? purchaseToViewAnnulment.supply?.name
+                        : purchaseToViewAnnulment.itemDescription}
+                    </span>
+                  </div>
+
+                  {purchaseToViewAnnulment.purchaseType === InformalPurchaseType.InventoryItem && (
+                    <div>
+                      <span className="text-muted-foreground block">Cantidad Revertida:</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {Number(purchaseToViewAnnulment.quantity).toFixed(2)}{" "}
+                        {purchaseToViewAnnulment.supply?.unitOfMeasure}
+                      </span>
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-muted-foreground block">Monto Pagado:</span>
+                    <span className="font-mono font-bold text-foreground">
+                      S/ {Number(purchaseToViewAnnulment.amountPaid).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-muted-foreground block">Registrado por:</span>
+                    <span className="font-medium text-foreground">
+                      {purchaseToViewAnnulment.employee.firstName}{" "}
+                      {purchaseToViewAnnulment.employee.paternalLastName || ""}
+                    </span>
+                  </div>
+
+                  {purchaseToViewAnnulment.informalPlaceOrVendor && (
+                    <div>
+                      <span className="text-muted-foreground block">Lugar / Proveedor:</span>
+                      <span className="font-medium text-foreground">
+                        {purchaseToViewAnnulment.informalPlaceOrVendor}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPurchaseToViewAnnulment(null)}
+              className="text-xs"
+            >
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>

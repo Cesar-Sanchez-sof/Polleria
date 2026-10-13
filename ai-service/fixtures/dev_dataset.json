@@ -1,0 +1,25 @@
+{
+  "version": "dev-dataset-v1",
+  "description": "Dataset FICTICIO para el servicio HTTP de desarrollo (T027). Independiente de los fixtures de prueba. Las cifras son inventadas y NO representan información financiera real de ninguna empresa.",
+  "role": "contador_demo",
+  "account_keywords": {
+    "caja": "101",
+    "bancos": "104",
+    "proveedores": "421",
+    "proveedor": "421",
+    "ventas": "701"
+  },
+  "dataset": [
+    { "cuenta": "101", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Activo", "debe": "1800.00", "haber": "650.40", "movimientos": 9 } ] },
+    { "cuenta": "101", "desde": "2026-08-01", "hasta": "2026-08-31",
+      "rows": [ { "tipo": "Activo", "debe": "1200.00", "haber": "1310.00", "movimientos": 6 } ] },
+    { "cuenta": "104", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Activo", "debe": "4100.00", "haber": "2200.00", "movimientos": 4 } ] },
+    { "cuenta": "421", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Pasivo", "debe": "300.00", "haber": "990.00", "movimientos": 3 } ] },
+    { "cuenta": "701", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Ingreso", "debe": "0", "haber": "5420.80", "movimientos": 21 } ] },
+    { "cuenta": "101", "desde": "2026-07-01", "hasta": "2026-07-31", "rows": [] }
+  ]
+}

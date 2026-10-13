@@ -4,14 +4,8 @@ import { getDishStock, setDishStock } from "@/lib/services/redis-stock.service";
 
 export const dynamic = "force-dynamic";
 
-// Helper para categorizar platos según su nombre o metadatos
-export function determineCategory(name: string, description?: string | null): string {
-  const text = `${name} ${description || ""}`.toLowerCase();
-  if (text.includes("pollo") || text.includes("mostrito") || text.includes("brasa")) return "pollos";
-  if (text.includes("papa") || text.includes("tequeño") || text.includes("chaufa") || text.includes("ensalada") || text.includes("porción") || text.includes("guarnic")) return "adicionales";
-  if (text.includes("inka") || text.includes("chicha") || text.includes("gaseosa") || text.includes("bebida") || text.includes("agua") || text.includes("cerveza")) return "bebidas";
-  return "otros";
-}
+import { determineCategory, isBeverage } from "@/lib/utils/dish-category";
+export { determineCategory, isBeverage };
 
 /**
  * @openapi

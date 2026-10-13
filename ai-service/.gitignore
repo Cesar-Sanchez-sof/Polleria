@@ -1,0 +1,31 @@
+# Ignorados locales del servicio de IA (no modifica el .gitignore global del ERP).
+
+# Entornos y caché de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Secretos y configuración local: nunca se versionan
+.env
+.env.*
+
+# Pesos, checkpoints y adaptadores de modelos: nunca se versionan (D-9)
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+adapters/
+models/
+
+# Informes generados localmente
+eval/reports/*.local.*

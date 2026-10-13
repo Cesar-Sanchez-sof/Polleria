@@ -258,6 +258,17 @@ export async function POST(request: NextRequest) {
       ? `${endpoint}/${bucket}/${initialS3Key}`
       : `/storage/comprobantes/${initialS3Key}`;
 
+    const now = new Date();
+    // Normalizar la fecha del comprobante al huso horario oficial de Perú (America/Lima, UTC-5)
+    const peruDateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Lima",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const [pYear, pMonth, pDay] = peruDateFormatter.format(now).split("-").map(Number);
+    const peruDateOnly = new Date(Date.UTC(pYear, pMonth - 1, pDay));
+
     const transaction = await prisma.$transaction(async (tx) => {
       const invoiceData: any = {
         orderId: order.id,
@@ -270,7 +281,8 @@ export async function POST(request: NextRequest) {
         totalAmount: roundedTotal,
         status: "Issued",
         s3Url: initialS3Url,
-        issuedAt: new Date(),
+        issuedAt: peruDateOnly,
+        createdAt: now,
       };
 
       if (currentSessionId) {
@@ -288,7 +300,7 @@ export async function POST(request: NextRequest) {
               salesInvoiceId: invoice.id,
               paymentTypeId: p.paymentTypeId,
               amount: p.amount,
-              paidAt: new Date()
+              paidAt: now
             }
           });
         }
@@ -298,7 +310,7 @@ export async function POST(request: NextRequest) {
             salesInvoiceId: invoice.id,
             paymentTypeId: paymentType!.id,
             amount: roundedTotal,
-            paidAt: new Date()
+            paidAt: now
           }
         });
       }
@@ -376,6 +388,7 @@ export async function POST(request: NextRequest) {
           igv: calculatedIgv,
           total: roundedTotal,
           paymentMethodName: paymentMethodNameForJournal,
+          payments: isSplitPayment ? paymentsList.map((p) => ({ name: p.name, amount: p.amount })) : undefined,
           responsible: "Caja / Ventas",
         });
       } catch (postErr) {
@@ -383,6 +396,9 @@ export async function POST(request: NextRequest) {
       }
 
       return { invoice, journalEntryIds };
+    }, {
+      maxWait: 15000,
+      timeout: 45000,
     });
 
     let finalS3Url = initialS3Url;
@@ -409,16 +425,15 @@ export async function POST(request: NextRequest) {
       console.warn("[api/sales] Aviso de archivado en S3:", s3Err);
     }
 
-    const associatedTable = order.tables[0]?.table ?? null;
+    const primaryTableOrder = order.tables.find((t) => !t.notes?.includes("[Anexa a Mesa")) ?? order.tables[0];
+    const associatedTable = primaryTableOrder?.table ?? null;
     const change = amountReceived ? Math.max(0, Math.round((amountReceived - roundedTotal) * 100) / 100) : 0;
 
     const paymentMethodName = isSplitPayment
       ? `Pago en Partes (${paymentsList.map((p) => `${p.name}: S/ ${p.amount.toFixed(2)}`).join(" + ")})`
       : (paymentType?.name ?? "Efectivo");
 
-    const safeIssuedAt = transaction.invoice.issuedAt
-      ? new Date(transaction.invoice.issuedAt).toISOString()
-      : new Date().toISOString();
+    const safeIssuedAt = (transaction.invoice.createdAt || now).toISOString();
 
     return Response.json(
       {
@@ -531,7 +546,8 @@ export async function GET(request: NextRequest) {
       const customerName = c.customer
         ? `${c.customer.firstName}${c.customer.lastName ? " " + c.customer.lastName : ""}`.trim()
         : "CLIENTE GENERAL";
-      const associatedTable = c.order?.tables[0]?.table;
+      const primaryTableOrder = c.order?.tables.find((t) => !t.notes?.includes("[Anexa a Mesa")) ?? c.order?.tables[0];
+      const associatedTable = primaryTableOrder?.table;
       const paymentMethod = c.payments[0]?.paymentType?.name || "Efectivo";
 
       return {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { COOKIE_SESION } from "@/lib/auth/session";
+import { COOKIE_SESION, OPCIONES_COOKIE } from "@/lib/auth/session";
 import { actorActual } from "@/lib/auth/actor-auditoria";
 import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 
@@ -30,5 +30,10 @@ export async function POST(request: Request) {
   }
   const respuesta = NextResponse.json({ ok: true });
   respuesta.cookies.delete(COOKIE_SESION);
+  respuesta.cookies.set(COOKIE_SESION, "", {
+    ...OPCIONES_COOKIE,
+    maxAge: 0,
+    expires: new Date(0),
+  });
   return respuesta;
 }

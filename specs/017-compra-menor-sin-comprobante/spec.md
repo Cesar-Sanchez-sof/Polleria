@@ -153,6 +153,21 @@ corresponde.
 
 ---
 
+### User Story 5 - Ver detalle de una compra anulada (Priority: P2)
+
+Como usuario, quiero ver el motivo, la fecha y quién anuló una compra 
+menor para auditar por qué se revirtió.
+
+**Acceptance Scenarios**:
+
+1. **Given** una compra anulada, **When** el usuario hace clic en "Ver 
+   anulación", **Then** aparece un diálogo con: fecha/hora de anulación, 
+   empleado que anuló, motivo completo y datos básicos de la compra.
+2. **Given** la compra está anulada, **Then** en la tabla se muestra el badge 
+   "Anulada" gris.
+
+---
+
 ### Edge Cases
 
 - **Sin límite de monto**: no se valida tope de monto ni de cantidad.
@@ -194,8 +209,9 @@ corresponde.
   - Cantidad, Monto, Fecha
   - Lugar/Proveedor, Motivo (opcional en Gastos)
   - Botón "+ Crear Insumo"
-- **Tabla "Historial"** con KPIs, búsqueda, filtros, botón anular.
+- **Tabla "Historial"** con KPIs, búsqueda, filtros, botón anular y ver anulación.
 - **Diálogo "Anular compra"** con motivo obligatorio.
+- **Diálogo "Ver anulación"** con motivo, fecha/hora, empleado responsable y datos de la compra.
 
 ## Business Rules
 
@@ -215,6 +231,7 @@ corresponde.
 | BR-12 | **Historial inmutable** | No se eliminan registros; solo se anulan. |
 | BR-13 | **6 categorías de gasto** | CasualStaff, EventServices, TransportAndDelivery, CleaningSupplies, OtherMinorExpenses. |
 | BR-14 | **Sin control de acceso** | Server Actions sin validación de sesión/rol. |
+| BR-15 | **Auditoría de anulación** | Toda anulación queda registrada con motivo, fecha y empleado responsable, y es consultable desde la UI. |
 
 ## Endpoint / Transporte
 
@@ -281,6 +298,7 @@ corresponde.
 - **FR-008**: KPIs, búsqueda y filtros por tipo/estado.
 - **FR-009**: Validaciones específicas por tipo de compra.
 - **FR-010**: Refresco del servidor tras operaciones.
+- **FR-011**: Mostrar un diálogo con el motivo, fecha y responsable de la anulación de una compra menor.
 
 ### Non-Functional Requirements
 

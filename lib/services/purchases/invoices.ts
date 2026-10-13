@@ -153,6 +153,8 @@ export async function getPurchaseVouchers() {
         supplier: true,
         purchaseOrder: {
           include: {
+            employee: true,
+            receivedBy: true,
             items: {
               include: {
                 supply: true,

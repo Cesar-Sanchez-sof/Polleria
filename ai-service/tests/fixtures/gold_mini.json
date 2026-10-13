@@ -1,0 +1,36 @@
+{
+  "description": "Datos FICTICIOS para el orquestador simulado (B3). No son datos del ERP ni de ninguna empresa real. Importes como texto.",
+  "role": "contador_demo",
+  "reference_date": "2026-10-12",
+  "account_keywords": {
+    "caja": "101",
+    "proveedores": "421",
+    "proveedor": "421",
+    "ventas": "701"
+  },
+  "fragments": [
+    { "tipo": "esquema", "fuente": "allowlist.example.json", "version": "ficticio-2026-10-12", "contenido": "cuenta_demo codigo nombre tipo de cuenta contable" },
+    { "tipo": "relacion", "fuente": "allowlist.example.json", "version": "ficticio-2026-10-12", "contenido": "detalle_asiento_demo cuenta_codigo referencia cuenta_demo codigo; asiento_id referencia asiento_demo id" },
+    { "tipo": "regla", "fuente": "balance-sheet.ts", "version": "b1", "contenido": "saldo de cuenta Activo Gasto Costo debe menos haber; Pasivo Patrimonio Ingreso haber menos debe" },
+    { "tipo": "ejemplo", "fuente": "gold_mini", "version": "b3", "contenido": "saldo de caja en septiembre suma debe y haber por cuenta y periodo" }
+  ],
+  "dataset": [
+    { "cuenta": "101", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Activo", "debe": "5200.00", "haber": "1450.50", "movimientos": 12 } ] },
+    { "cuenta": "101", "desde": "2026-08-01", "hasta": "2026-08-31",
+      "rows": [ { "tipo": "Activo", "debe": "3000.00", "haber": "3500.00", "movimientos": 8 } ] },
+    { "cuenta": "421", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Pasivo", "debe": "800.00", "haber": "2300.00", "movimientos": 5 } ] },
+    { "cuenta": "701", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "tipo": "Ingreso", "debe": "0", "haber": "9100.25", "movimientos": 30 } ] },
+    { "cuenta": "101", "desde": "2026-07-01", "hasta": "2026-07-31", "rows": [] },
+    { "cuenta": "101", "desde": "2026-06-01", "hasta": "2026-06-30",
+      "rows": [ { "tipo": "Activo", "debe": "0", "haber": "0", "movimientos": 0 } ] }
+  ],
+  "expected": {
+    "caja-septiembre": { "c1": "3749.50", "c2": "5200.00", "c3": "1450.50" },
+    "caja-agosto": { "c1": "-500.00", "c2": "3000.00", "c3": "3500.00" },
+    "proveedores-septiembre": { "c1": "1500.00", "c2": "800.00", "c3": "2300.00" },
+    "ventas-septiembre": { "c1": "9100.25", "c2": "0.00", "c3": "9100.25" }
+  }
+}

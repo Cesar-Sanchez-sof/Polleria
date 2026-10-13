@@ -18,6 +18,7 @@ import { getSupplies } from "@/lib/services/purchases/supply";
 import { getPurchaseOrders } from "@/lib/services/purchases/purchase-order";
 import { getPurchaseVouchers } from "@/lib/services/purchases/invoices";
 import { PurchaseOrderStatus } from "@prisma/client";
+import { exigirSesionServidor } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export const metadata = {
 };
 
 export default async function PurchasesDashboardPage() {
+  await exigirSesionServidor();
   const [suppliers, supplies, orders, vouchers] = await Promise.all([
     getSuppliers().catch(() => []),
     getSupplies().catch(() => []),

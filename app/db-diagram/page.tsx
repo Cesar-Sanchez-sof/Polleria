@@ -1,6 +1,8 @@
 'use client';
 
 import { DbDiagram } from './db-diagram';
+import { ModuleHeader } from '@/components/shared/ModuleHeader';
+import { Database } from 'lucide-react';
 
 export default function DBDiagramPage() {
   return (
