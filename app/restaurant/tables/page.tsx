@@ -62,7 +62,12 @@ export default function TablesManagementPage() {
   const [editingTable, setEditingTable] = useState<TableData | null>(null);
   const [formNumber, setFormNumber] = useState("");
   const [formCapacity, setFormCapacity] = useState("4");
+  const [formAreaId, setFormAreaId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // Salones y Áreas
+  const [areas, setAreas] = useState<Array<{ id: string; name: string; tableNumbers: number[] }>>([]);
+  const [selectedAreaId, setSelectedAreaId] = useState<string>("todos");
 
   // Modal Confirmar Desactivación
   const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
@@ -71,10 +76,19 @@ export default function TablesManagementPage() {
   const loadTables = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tables?includeInactive=true");
-      if (!res.ok) throw new Error("Error al obtener las mesas.");
-      const json = await res.json();
-      setTables(json.data || []);
+      const [resTables, resAreas] = await Promise.all([
+        fetch("/api/tables?includeInactive=true"),
+        fetch("/api/settings/areas"),
+      ]);
+
+      if (!resTables.ok) throw new Error("Error al obtener las mesas.");
+      const jsonTables = await resTables.json();
+      setTables(jsonTables.data || []);
+
+      if (resAreas.ok) {
+        const jsonAreas = await resAreas.json();
+        setAreas(jsonAreas.data || []);
+      }
     } catch (err: any) {
       toast.error(err.message || "Error al cargar las mesas del restaurante.");
     } finally {
@@ -88,10 +102,10 @@ export default function TablesManagementPage() {
 
   const handleOpenCreateModal = () => {
     setEditingTable(null);
-    // Sugerir el siguiente número de mesa disponible
     const maxNum = tables.reduce((max, t) => Math.max(max, t.number), 0);
     setFormNumber(String(maxNum + 1));
     setFormCapacity("4");
+    setFormAreaId(areas[0]?.id || "");
     setModalOpen(true);
   };
 
@@ -99,6 +113,8 @@ export default function TablesManagementPage() {
     setEditingTable(table);
     setFormNumber(String(table.number));
     setFormCapacity(String(table.capacity));
+    const currentArea = areas.find((a) => a.tableNumbers.includes(table.number));
+    setFormAreaId(currentArea?.id || "");
     setModalOpen(true);
   };
 
@@ -129,7 +145,22 @@ export default function TablesManagementPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Error al guardar mesa.");
 
-      toast.success(editingTable ? "Mesa actualizada exitosamente." : "Mesa registrada correctamente.");
+      // Si seleccionó un salón, actualizar la pertenencia de la mesa al salón
+      if (formAreaId) {
+        const areaToUpdate = areas.find((a) => a.id === formAreaId);
+        if (areaToUpdate && !areaToUpdate.tableNumbers.includes(number)) {
+          const updatedTableNumbers = [...areaToUpdate.tableNumbers, number];
+          await fetch("/api/settings/areas", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: formAreaId, tableNumbers: updatedTableNumbers }),
+          }).catch(() => null);
+        }
+      }
+
+      toast.success(
+        editingTable ? `Mesa #${number} actualizada exitosamente.` : `Mesa #${number} registrada en el salón.`
+      );
       setModalOpen(false);
       void loadTables();
     } catch (err: any) {
@@ -189,9 +220,16 @@ export default function TablesManagementPage() {
       if (statusFilter === "disponible") matchesStatus = t.active && !t.occupied;
       else if (statusFilter === "ocupada") matchesStatus = t.active && t.occupied;
       else if (statusFilter === "inactiva") matchesStatus = !t.active;
-      return matchesSearch && matchesStatus;
+
+      let matchesArea = true;
+      if (selectedAreaId !== "todos") {
+        const areaObj = areas.find((a) => a.id === selectedAreaId);
+        matchesArea = areaObj ? areaObj.tableNumbers.includes(t.number) : true;
+      }
+
+      return matchesSearch && matchesStatus && matchesArea;
     });
-  }, [tables, search, statusFilter]);
+  }, [tables, search, statusFilter, selectedAreaId, areas]);
 
   const metrics = useMemo(() => {
     const total = tables.length;
@@ -307,25 +345,42 @@ export default function TablesManagementPage() {
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs">
-            {[
-              { id: "todos", label: "Todas" },
-              { id: "disponible", label: "Disponibles" },
-              { id: "ocupada", label: "Ocupadas" },
-              { id: "inactiva", label: "Inactivas" },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setStatusFilter(f.id as any)}
-                className={`px-3 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                  statusFilter === f.id
-                    ? "bg-background text-foreground shadow-2xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+          <div className="flex items-center gap-2 flex-wrap">
+            {areas.length > 0 && (
+              <select
+                value={selectedAreaId}
+                onChange={(e) => setSelectedAreaId(e.target.value)}
+                className="h-9 text-xs rounded-xl border border-input bg-background text-foreground px-2.5 font-semibold focus:outline-none"
               >
-                {f.label}
-              </button>
-            ))}
+                <option value="todos">Todos los Salones</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs">
+              {[
+                { id: "todos", label: "Todas" },
+                { id: "disponible", label: "Disponibles" },
+                { id: "ocupada", label: "Ocupadas" },
+                { id: "inactiva", label: "Inactivas" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setStatusFilter(f.id as any)}
+                  className={`px-3 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
+                    statusFilter === f.id
+                      ? "bg-background text-foreground shadow-2xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
         </Card>
 
@@ -396,11 +451,26 @@ export default function TablesManagementPage() {
                     <span className="text-[11px] text-muted-foreground block">
                       Hasta {t.capacity} comensales
                     </span>
+                    {(() => {
+                      const areaObj = areas.find((a) => a.tableNumbers.includes(t.number));
+                      return areaObj ? (
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold block mt-0.5">
+                          {areaObj.name}
+                        </span>
+                      ) : null;
+                    })()}
 
                     {/* Si tiene comanda activa */}
                     {isOccupied && t.activeOrder && (
                       <div className="mt-2 p-1.5 rounded-lg bg-red-100/80 dark:bg-red-950/60 text-[10px] text-red-900 dark:text-red-200 font-mono font-bold">
-                        <div>{t.activeOrder.code}</div>
+                        <div className="flex items-center justify-between">
+                          <span>{t.activeOrder.code}</span>
+                          {t.activeOrder.tableNotes?.includes("[Anexa a Mesa") && (
+                            <span className="text-[9px] px-1 py-0.2 bg-purple-200 text-purple-900 rounded font-sans">
+                              Anexa
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-red-700 dark:text-red-300">
                           S/ {t.activeOrder.total.toFixed(2)}
                         </div>
@@ -487,6 +557,27 @@ export default function TablesManagementPage() {
               />
               <span className="text-[11px] text-muted-foreground mt-1 block">
                 Comensales recomendados para este espacio o tamaño de mesa.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-foreground mb-1">
+                Salón / Ambiente Físico
+              </label>
+              <select
+                value={formAreaId}
+                onChange={(e) => setFormAreaId(e.target.value)}
+                className="w-full text-xs h-9 rounded-xl border border-input bg-background text-foreground px-2.5 font-medium focus:outline-none"
+              >
+                <option value="">Sin asignar / General</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-muted-foreground mt-1 block">
+                Permite organizar la mesa dentro de un área específica del local.
               </span>
             </div>
           </div>

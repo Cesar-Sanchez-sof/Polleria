@@ -54,6 +54,7 @@ export interface TableItem {
     items: OrderLineItem[];
     total: number;
     editable: boolean;
+    isAnnexed?: boolean;
   } | null;
 }
 

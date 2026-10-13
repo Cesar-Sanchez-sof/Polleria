@@ -58,6 +58,8 @@ import {
   ShieldAlert,
   ArrowDownCircle,
   Wallet,
+  GlassWater,
+  Snowflake,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -90,7 +92,9 @@ import {
   validateCustomerDocument,
   canEditOrder,
 } from "@/lib/utils/sales-helpers";
+import { isBeverage } from "@/lib/utils/dish-category";
 import { KitchenBoard } from "@/components/restaurant/KitchenBoard";
+import { DrinksDispatchBoard } from "@/components/restaurant/DrinksDispatchBoard";
 import {
   getCashSessionStatus,
   openCashSession,
@@ -106,9 +110,9 @@ import {
 } from "@/lib/services/cash-register.service";
 import { DenominationsCounter } from "@/components/restaurant/DenominationsCounter";
 
-type TabType = "tables" | "kitchen" | "payments" | "cashier" | "customers" | "invoices";
+type TabType = "tables" | "drinks" | "kitchen" | "payments" | "cashier" | "customers" | "invoices";
 
-const SALES_TABS: TabType[] = ["tables", "kitchen", "payments", "cashier", "customers", "invoices"];
+const SALES_TABS: TabType[] = ["tables", "drinks", "kitchen", "payments", "cashier", "customers", "invoices"];
 
 function SalesManagementContent() {
   const searchParams = useSearchParams();
@@ -161,6 +165,7 @@ function SalesManagementContent() {
     desgloseComprobantes: { boletas: 0, facturas: 0, tickets: 0 },
   });
   const [loading, setLoading] = useState<boolean>(true);
+  const [restaurantConfig, setRestaurantConfig] = useState<any>(null);
 
   // Filtro de mesas
   const [tableFilter, setTableFilter] = useState<"todas" | "disponibles" | "ocupadas">("todas");
@@ -181,6 +186,11 @@ function SalesManagementContent() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      fetch("/api/settings/restaurant")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d?.data && setRestaurantConfig(d.data))
+        .catch(() => null);
+
       const [tablesRes, takeoutRes, ordersRes, dishesRes, typesRes, customersRes, salesRes] = await Promise.all([
         listTables(),
         listOrders({ orderType: "Llevar", status: "activos" }),
@@ -239,6 +249,11 @@ function SalesManagementContent() {
   const [notesModalOpen, setNotesModalOpen] = useState<boolean>(false);
   const [noteIndex, setNoteIndex] = useState<number | null>(null);
   const [noteText, setNoteText] = useState<string>("");
+
+  // Modal para selección automática de temperatura de bebida (Helada / Sin helar)
+  const [drinkTempModalOpen, setDrinkTempModalOpen] = useState<boolean>(false);
+  const [pendingDrinkDish, setPendingDrinkDish] = useState<MenuDish | null>(null);
+  const [drinkExtraNotes, setDrinkExtraNotes] = useState<string>("");
 
   // ---------------------------------------------------------------------------
   // ESTADO MODAL CANCELACIÓN DE COMANDA (AUDITORÍA & LIBERACIÓN)
@@ -327,6 +342,9 @@ function SalesManagementContent() {
   const [waiterAmountGiven, setWaiterAmountGiven] = useState<string>("");
   const [processingWaiterPayment, setProcessingWaiterPayment] = useState<boolean>(false);
   const [tapToPayDetectado, setTapToPayDetectado] = useState<boolean>(false);
+  const [waiterVoucherType, setWaiterVoucherType] = useState<"Boleta" | "Factura">("Boleta");
+  const [waiterCustomerDoc, setWaiterCustomerDoc] = useState<string>("");
+  const [waiterCustomerName, setWaiterCustomerName] = useState<string>("");
 
   // ---------------------------------------------------------------------------
   // ESTADO MODAL REGISTRO DE CLIENTE
@@ -345,7 +363,7 @@ function SalesManagementContent() {
   const lookupIdentityDocument = async (
     tipo: "dni" | "ruc",
     numero: string,
-    destino: "caja" | "nuevo_cliente"
+    destino: "caja" | "nuevo_cliente" | "mozo"
   ) => {
     const num = (numero || "").trim();
     if (!num) {
@@ -365,6 +383,9 @@ function SalesManagementContent() {
       const data = json.data;
       if (destino === "caja") {
         setCustomerName(data.razonSocial || data.nombreCompleto);
+        toast.success(`Datos RENIEC/SUNAT: ${data.razonSocial || data.nombreCompleto}`);
+      } else if (destino === "mozo") {
+        setWaiterCustomerName(data.razonSocial || data.nombreCompleto);
         toast.success(`Datos RENIEC/SUNAT: ${data.razonSocial || data.nombreCompleto}`);
       } else {
         if (tipo === "dni") {
@@ -767,8 +788,24 @@ function SalesManagementContent() {
   };
 
   const addOrderItem = (plato: MenuDish) => {
+    // Si el producto es una bebida, preguntar automáticamente la temperatura (Helada / Sin helar)
+    if (isBeverage(plato.name, plato.description) || plato.category === "bebidas") {
+      setPendingDrinkDish(plato);
+      setDrinkExtraNotes("");
+      setDrinkTempModalOpen(true);
+      return;
+    }
+
+    applyAddOrderItem(plato, "");
+  };
+
+  const applyAddOrderItem = (plato: MenuDish, tempNote: string) => {
+    const note = tempNote.trim();
     setOrderItems((prev) => {
-      const idx = prev.findIndex((it) => it.dishId === plato.id);
+      // Agrupar por plato y temperatura exacta para soportar ej. 1 Helada y 1 Sin helar
+      const idx = prev.findIndex(
+        (it) => it.dishId === plato.id && (it.notes || "").trim() === note
+      );
       if (idx >= 0) {
         return prev.map((it, i) =>
           i === idx ? { ...it, quantity: it.quantity + 1 } : it
@@ -781,10 +818,20 @@ function SalesManagementContent() {
           name: plato.name,
           unitPrice: plato.price,
           quantity: 1,
-          notes: "",
+          notes: note,
         },
       ];
     });
+  };
+
+  const confirmDrinkTemperature = (temp: "Helada" | "Sin helar") => {
+    if (!pendingDrinkDish) return;
+    const finalNote = drinkExtraNotes.trim() ? `${temp} - ${drinkExtraNotes.trim()}` : temp;
+    applyAddOrderItem(pendingDrinkDish, finalNote);
+    setDrinkTempModalOpen(false);
+    setPendingDrinkDish(null);
+    setDrinkExtraNotes("");
+    toast.success(`✔ ${pendingDrinkDish.name} (${temp}) añadida a la comanda`);
   };
 
   const changeItemQuantity = (index: number, delta: number) => {
@@ -1000,6 +1047,9 @@ function SalesManagementContent() {
         toast.error(docValidation.error || "Documento de cliente no válido.");
         return;
       }
+    } else if (voucherType === "Factura") {
+      toast.error("Para emitir Factura es obligatorio ingresar un RUC válido de 11 dígitos.");
+      return;
     }
 
     const salePayload: any = {
@@ -1007,8 +1057,8 @@ function SalesManagementContent() {
       cashSessionId: cashSessionState.activeSession?.id,
       voucherType: voucherType,
       customer: {
-        documentNumber: customerDoc.trim() || undefined,
-        firstName: customerName.trim() || (voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"),
+        documentNumber: customerDoc.trim() || (voucherType === "Factura" ? undefined : "00000000"),
+        firstName: customerName.trim() || (voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTES VARIOS"),
         personType: voucherType === "Factura" ? "Legal" : "Natural",
         phone: customerPhone.trim() || undefined,
       },
@@ -1100,6 +1150,9 @@ function SalesManagementContent() {
     setWaiterPaymentMethod("pos");
     setWaiterAmountGiven("");
     setTapToPayDetectado(false);
+    setWaiterVoucherType("Boleta");
+    setWaiterCustomerDoc("");
+    setWaiterCustomerName("");
     const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
     const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
     setWaiterPaymentParts([
@@ -1111,6 +1164,30 @@ function SalesManagementContent() {
 
   const executeWaiterPayment = async () => {
     if (!waiterPaymentOrder) return;
+
+    if (waiterVoucherType === "Factura") {
+      const docClean = waiterCustomerDoc.trim();
+      if (docClean.length !== 11 || !/^\d{11}$/.test(docClean)) {
+        toast.error("Para emitir Factura en mesa debe ingresar un RUC válido de 11 dígitos.");
+        return;
+      }
+      if (!waiterCustomerName.trim()) {
+        toast.error("Debe ingresar la Razón Social del cliente para emitir Factura.");
+        return;
+      }
+    } else if (waiterVoucherType === "Boleta") {
+      const docClean = waiterCustomerDoc.trim();
+      if (docClean.length > 0 && (docClean.length !== 8 || !/^\d{8}$/.test(docClean))) {
+        toast.error("El DNI debe tener exactamente 8 dígitos numéricos (o déjelo en blanco para Clientes Varios).");
+        return;
+      }
+    }
+
+    const waiterCustomerData = {
+      documentNumber: waiterCustomerDoc.trim() || (waiterVoucherType === "Factura" ? "20000000001" : "00000000"),
+      firstName: waiterCustomerName.trim() || (waiterVoucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTES VARIOS"),
+      personType: (waiterVoucherType === "Factura" ? "Legal" : "Natural") as "Legal" | "Natural",
+    };
 
     let waiterSalePayload: any;
 
@@ -1138,12 +1215,8 @@ function SalesManagementContent() {
       waiterSalePayload = {
         orderId: waiterPaymentOrder.id,
         cashSessionId: cashSessionState.activeSession?.id,
-        voucherType: "Boleta",
-        customer: {
-          documentNumber: "00000000",
-          firstName: "CLIENTE SALÓN",
-          personType: "Natural",
-        },
+        voucherType: waiterVoucherType,
+        customer: waiterCustomerData,
         payments: isListValid,
         amountReceived: waiterPaymentTotal,
       };
@@ -1170,12 +1243,8 @@ function SalesManagementContent() {
         orderId: waiterPaymentOrder.id,
         cashSessionId: cashSessionState.activeSession?.id,
         paymentTypeId: paymentTypeId,
-        voucherType: "Boleta",
-        customer: {
-          documentNumber: "00000000",
-          firstName: "CLIENTE SALÓN",
-          personType: "Natural",
-        },
+        voucherType: waiterVoucherType,
+        customer: waiterCustomerData,
         amountReceived: waiterPaymentMethod === "efectivo" && waiterAmountGiven ? Number(waiterAmountGiven) : waiterPaymentTotal,
         gateway: {
           provider: "mercado_pago",
@@ -1404,6 +1473,20 @@ function SalesManagementContent() {
           <span className="hidden sm:inline">Salón de Mesas ({summary.occupied}/{summary.total})</span>
         </button>
 
+        {/* Pestaña: Despacho de Bebidas por Mozo */}
+        <button
+          type="button"
+          onClick={() => goToTab("drinks")}
+          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "drinks"
+            ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 bg-blue-50/60 dark:bg-slate-800/60"
+            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+        >
+          <GlassWater className="w-4 h-4 shrink-0 text-blue-600" />
+          <span className="sm:hidden">Bebidas</span>
+          <span className="hidden sm:inline">Despacho de Bebidas</span>
+        </button>
+
         {/* Pestaña: Pedidos Listos para Entrega */}
         <button
           type="button"
@@ -1423,7 +1506,7 @@ function SalesManagementContent() {
           )}
         </button>
 
-        {/* Pestaña 2: Cobros No Cobrados */}
+        {/* Pestaña 2: Cobros No Realizados */}
         <button
           type="button"
           onClick={() => goToTab("payments")}
@@ -1433,8 +1516,8 @@ function SalesManagementContent() {
             }`}
         >
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="sm:hidden">Cobros ({uncollectedPayments.length})</span>
-          <span className="hidden sm:inline">Cobros No Cobrados ({uncollectedPayments.length})</span>
+          <span className="sm:hidden">Pendientes ({uncollectedPayments.length})</span>
+          <span className="hidden sm:inline">Cobros No Realizados ({uncollectedPayments.length})</span>
         </button>
 
         {/* Pestaña 3: Caja y Cobro en Ventanilla */}
@@ -1586,6 +1669,11 @@ function SalesManagementContent() {
                         {hasOrder && pedido?.tableNotes?.includes("Mesas unidas:") && (
                           <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
                             {pedido.tableNotes.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
+                          </Badge>
+                        )}
+                        {hasOrder && (pedido?.isAnnexed || pedido?.tableNotes?.includes("Anexa a Mesa")) && (
+                          <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[10px] font-bold">
+                            {pedido.tableNotes.match(/\[Anexa a Mesa\s*[0-9]+\]/i)?.[0].replace("[", "").replace("]", "") || "Mesa Anexa"}
                           </Badge>
                         )}
                       </div>
@@ -1864,6 +1952,15 @@ function SalesManagementContent() {
               );
             })}
           </div>
+        </main>
+      )}
+
+      {/* =================================================================== */}
+      {/* PESTAÑA: DESPACHO DE BEBIDAS POR MOZO (BARRA & SALÓN) */}
+      {/* =================================================================== */}
+      {activeTab === "drinks" && (
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          <DrinksDispatchBoard />
         </main>
       )}
 
@@ -2240,7 +2337,7 @@ function SalesManagementContent() {
       )}
 
       {/* =================================================================== */}
-      {/* PESTAÑA 2: COBROS NO COBRADOS (PENDIENTES EN SALA Y LLEVAR) */}
+      {/* PESTAÑA 2: COBROS NO REALIZADOS (PENDIENTES EN SALA Y LLEVAR) */}
       {/* =================================================================== */}
       {activeTab === "payments" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
@@ -2252,7 +2349,7 @@ function SalesManagementContent() {
               </div>
               <div>
                 <span className="text-xs font-bold text-amber-900 uppercase">
-                  Comandas por Cobrar
+                  Cobros No Realizados
                 </span>
                 <p className="text-2xl font-extrabold text-amber-950">
                   {uncollectedPayments.length} Pendientes
@@ -2266,7 +2363,7 @@ function SalesManagementContent() {
               </div>
               <div>
                 <span className="text-xs font-bold text-red-900 uppercase">
-                  Importe Total por Cobrar
+                  Importe Total No Realizado
                 </span>
                 <p className="text-2xl font-extrabold text-red-950">
                   {formatCurrency(totalPorCobrar)}
@@ -2294,7 +2391,7 @@ function SalesManagementContent() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600" />
-                <span>Detalle de Comandas Activas Sin Cobrar</span>
+                <span>Detalle de Cobros No Realizados</span>
               </h3>
               <span className="text-xs text-slate-500">
                 Actualizado en tiempo real
@@ -2305,10 +2402,10 @@ function SalesManagementContent() {
               <div className="py-12 text-center flex flex-col items-center justify-center gap-2 text-slate-400">
                 <CheckCircle2 className="w-12 h-12 text-emerald-500" />
                 <span className="text-sm font-bold text-slate-700">
-                  ¡Al día! No hay cuentas pendientes de cobro
+                  ¡Al día! No hay cobros pendientes de realizar
                 </span>
                 <p className="text-xs text-slate-500">
-                  Todas las tables y pedidos para llevar se encuentran cobrados y cerrados.
+                  Todas las mesas y pedidos para llevar se encuentran cobrados y cerrados.
                 </p>
               </div>
             ) : (
@@ -2820,20 +2917,34 @@ function SalesManagementContent() {
                     {/* Datos del Cliente */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
                       <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          {voucherType === "Factura" ? "RUC (11 dígitos):" : "DNI / Documento:"}
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-bold text-slate-700 block">
+                            {voucherType === "Factura" ? "RUC del Cliente (11 dígitos):" : "DNI del Cliente (8 dígitos):"}
+                          </label>
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            {voucherType === "Factura" ? "Obligatorio" : "Opcional (Vacío = Clientes Varios)"}
+                          </span>
+                        </div>
                         <div className="flex gap-1.5">
                           <Input
+                            maxLength={voucherType === "Factura" ? 11 : 8}
                             placeholder={voucherType === "Factura" ? "Ej: 20601234567" : "Ej: 47829103"}
                             value={customerDoc}
-                            onChange={(e) => setCustomerDoc(e.target.value)}
-                            className="bg-white text-xs h-9 rounded-lg"
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "");
+                              setCustomerDoc(val);
+                              if (voucherType === "Factura" && val.length === 11) {
+                                lookupIdentityDocument("ruc", val, "caja");
+                              } else if (voucherType === "Boleta" && val.length === 8) {
+                                lookupIdentityDocument("dni", val, "caja");
+                              }
+                            }}
+                            className="bg-white text-xs h-9 rounded-lg font-mono font-medium"
                           />
                           <Button
                             type="button"
                             size="sm"
-                            disabled={lookingUpDoc}
+                            disabled={lookingUpDoc || !customerDoc.trim()}
                             onClick={() =>
                               lookupIdentityDocument(
                                 voucherType === "Factura" ? "ruc" : "dni",
@@ -2849,7 +2960,9 @@ function SalesManagementContent() {
                             ) : (
                               <Search className="w-3.5 h-3.5" />
                             )}
-                            <span className="ml-1 hidden sm:inline">SUNAT/RENIEC</span>
+                            <span className="ml-1 hidden sm:inline">
+                              {voucherType === "Factura" ? "SUNAT" : "RENIEC"}
+                            </span>
                           </Button>
                         </div>
                       </div>
@@ -2859,10 +2972,10 @@ function SalesManagementContent() {
                           {voucherType === "Factura" ? "Razón Social:" : "Nombre del Cliente:"}
                         </label>
                         <Input
-                          placeholder={voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTE GENERAL"}
+                          placeholder={voucherType === "Factura" ? "EMPRESA S.A.C." : "CLIENTES VARIOS (por defecto)"}
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          className="bg-white text-xs h-9 rounded-lg"
+                          className="bg-white text-xs h-9 rounded-lg font-medium"
                         />
                       </div>
                     </div>
@@ -3690,9 +3803,36 @@ function SalesManagementContent() {
                           Unit: S/ {item.unitPrice.toFixed(2)}
                         </span>
                         {item.notes && (
-                          <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded italic">
-                            &quot;{item.notes}&quot;
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                              item.notes.toLowerCase().includes("helada")
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : item.notes.toLowerCase().includes("sin helar")
+                                ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                : "text-amber-700 bg-amber-50"
+                            }`}
+                          >
+                            {item.notes.toLowerCase().includes("helada") && "❄️"}
+                            {item.notes.toLowerCase().includes("sin helar") && "🥤"}
+                            {item.notes}
                           </span>
+                        )}
+                        {isBeverage(item.name) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const isHelada = (item.notes || "").toLowerCase().includes("helada");
+                              const newTemp = isHelada ? "Sin helar" : "Helada";
+                              setOrderItems((prev) =>
+                                prev.map((it, i) => (i === idx ? { ...it, notes: newTemp } : it))
+                              );
+                              toast.info(`Temperatura cambiada a: ${newTemp}`);
+                            }}
+                            className="text-[10px] text-blue-600 hover:underline cursor-pointer font-semibold"
+                            title="Alternar entre Helada y Sin helar"
+                          >
+                            {(item.notes || "").toLowerCase().includes("helada") ? "Cambiar a Sin helar" : "Cambiar a Helada"}
+                          </button>
                         )}
                         <button
                           type="button"
@@ -3701,7 +3841,7 @@ function SalesManagementContent() {
                             setNoteText(item.notes);
                             setNotesModalOpen(true);
                           }}
-                          className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                          className="text-[10px] text-slate-500 hover:underline cursor-pointer"
                         >
                           Nota
                         </button>
@@ -3963,8 +4103,147 @@ function SalesManagementContent() {
                   {formatCurrency(waiterPaymentOrder.total)}
                 </span>
                 <span className="text-[11px] text-slate-400 block mt-1">
-                  Comanda {waiterPaymentOrder.code} • {waiterPaymentOrder.items.length} dishes
+                  Comanda {waiterPaymentOrder.code} • {waiterPaymentOrder.items.length} platos
                 </span>
+              </div>
+
+              {/* Selector de Comprobante: Boleta vs Factura */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Tipo de Comprobante en Mesa:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaiterVoucherType("Boleta");
+                      setWaiterCustomerDoc("");
+                      setWaiterCustomerName("");
+                    }}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all text-center ${
+                      waiterVoucherType === "Boleta"
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    Boleta de Venta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaiterVoucherType("Factura");
+                      setWaiterCustomerDoc("");
+                      setWaiterCustomerName("");
+                    }}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all text-center ${
+                      waiterVoucherType === "Factura"
+                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    Factura Electrónica
+                  </button>
+                </div>
+              </div>
+
+              {/* Datos del Cliente para Comprobante en Mesa (Boleta / Factura) */}
+              <div
+                className={`p-3 rounded-xl border flex flex-col gap-2.5 transition-all ${
+                  waiterVoucherType === "Factura"
+                    ? "bg-amber-50/80 border-amber-200"
+                    : "bg-emerald-50/60 border-emerald-200"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      className={`text-[11px] font-bold block ${
+                        waiterVoucherType === "Factura" ? "text-amber-900" : "text-emerald-900"
+                      }`}
+                    >
+                      {waiterVoucherType === "Factura"
+                        ? "RUC de la Empresa (11 dígitos):"
+                        : "DNI del Cliente (8 dígitos):"}
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      {waiterVoucherType === "Factura"
+                        ? "Obligatorio"
+                        : "Opcional (Vacío = Clientes Varios)"}
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Input
+                      type="text"
+                      maxLength={waiterVoucherType === "Factura" ? 11 : 8}
+                      placeholder={
+                        waiterVoucherType === "Factura"
+                          ? "Ej: 20601234567"
+                          : "Ej: 47829103 (o dejar en blanco)"
+                      }
+                      value={waiterCustomerDoc}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setWaiterCustomerDoc(val);
+                        if (waiterVoucherType === "Factura" && val.length === 11) {
+                          lookupIdentityDocument("ruc", val, "mozo");
+                        } else if (waiterVoucherType === "Boleta" && val.length === 8) {
+                          lookupIdentityDocument("dni", val, "mozo");
+                        }
+                      }}
+                      className="bg-white text-xs h-9 rounded-lg font-mono font-bold"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={lookingUpDoc || !waiterCustomerDoc.trim()}
+                      onClick={() =>
+                        lookupIdentityDocument(
+                          waiterVoucherType === "Factura" ? "ruc" : "dni",
+                          waiterCustomerDoc,
+                          "mozo"
+                        )
+                      }
+                      className="bg-slate-800 hover:bg-slate-900 text-white text-[11px] h-9 px-2.5 rounded-lg shrink-0 cursor-pointer shadow-xs"
+                      title="Consultar en RENIEC / SUNAT con json.pe"
+                    >
+                      {lookingUpDoc ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Search className="w-3.5 h-3.5" />
+                      )}
+                      <span className="ml-1 hidden sm:inline">
+                        {waiterVoucherType === "Factura" ? "SUNAT" : "RENIEC"}
+                      </span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    className={`text-[11px] font-bold block mb-1 ${
+                      waiterVoucherType === "Factura" ? "text-amber-900" : "text-emerald-900"
+                    }`}
+                  >
+                    {waiterVoucherType === "Factura" ? "Razón Social:" : "Nombre del Cliente:"}
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder={
+                      waiterVoucherType === "Factura"
+                        ? "Ej: RESTAURANTES DEL PERÚ S.A.C."
+                        : "CLIENTES VARIOS (por defecto)"
+                    }
+                    value={waiterCustomerName}
+                    onChange={(e) => setWaiterCustomerName(e.target.value)}
+                    className="bg-white text-xs h-9 rounded-lg font-medium"
+                  />
+                  {waiterVoucherType === "Boleta" && !waiterCustomerDoc.trim() && (
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      💡 Si no se ingresa DNI ni nombre, se emitirá automáticamente como{" "}
+                      <strong>CLIENTES VARIOS</strong> (DNI: 00000000).
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Selector de Método de Cobro Móvil */}
@@ -4446,6 +4725,118 @@ function SalesManagementContent() {
       </Dialog>
 
       {/* =================================================================== */}
+      {/* MODAL 4B: SELECCIÓN AUTOMÁTICA DE TEMPERATURA DE BEBIDA */}
+      {/* =================================================================== */}
+      <Dialog
+        open={drinkTempModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDrinkTempModalOpen(false);
+            setPendingDrinkDish(null);
+            setDrinkExtraNotes("");
+          }
+        }}
+      >
+        <DialogContent className="w-[95vw] sm:max-w-md rounded-2xl p-5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
+          <DialogHeader className="pb-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <GlassWater className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
+                  ¿Cómo desea la bebida?
+                </DialogTitle>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {pendingDrinkDish ? pendingDrinkDish.name : "Seleccione temperatura"}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 my-2">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Seleccione la preferencia para el despacho del mozo y servicio de mesa:
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Opción 1: Helada */}
+              <button
+                type="button"
+                onClick={() => confirmDrinkTemperature("Helada")}
+                className="group p-4 rounded-2xl border-2 border-blue-200 dark:border-blue-900 hover:border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 hover:bg-blue-100/80 text-left transition-all cursor-pointer shadow-xs flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">❄️</span>
+                  <Badge className="bg-blue-600 text-white font-bold text-[10px]">
+                    Refrigerada
+                  </Badge>
+                </div>
+                <div className="mt-3">
+                  <span className="font-black text-sm text-blue-950 dark:text-blue-200 block group-hover:text-blue-700">
+                    HELADA
+                  </span>
+                  <span className="text-[11px] text-blue-700/80 dark:text-blue-400 block mt-0.5">
+                    Bien fría de refrigerador
+                  </span>
+                </div>
+              </button>
+
+              {/* Opción 2: Sin helar */}
+              <button
+                type="button"
+                onClick={() => confirmDrinkTemperature("Sin helar")}
+                className="group p-4 rounded-2xl border-2 border-amber-200 dark:border-amber-900 hover:border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/80 text-left transition-all cursor-pointer shadow-xs flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">🥤</span>
+                  <Badge className="bg-amber-600 text-white font-bold text-[10px]">
+                    Al Tiempo
+                  </Badge>
+                </div>
+                <div className="mt-3">
+                  <span className="font-black text-sm text-amber-950 dark:text-amber-200 block group-hover:text-amber-700">
+                    SIN HELAR
+                  </span>
+                  <span className="text-[11px] text-amber-700/80 dark:text-amber-400 block mt-0.5">
+                    Temperatura ambiente
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* Observación extra opcional */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                Observación adicional de despacho (opcional):
+              </label>
+              <Input
+                value={drinkExtraNotes}
+                onChange={(e) => setDrinkExtraNotes(e.target.value)}
+                placeholder="Ej: con vasos con hielo, sin hielo, con limón..."
+                className="h-8 text-xs rounded-xl bg-slate-50 dark:bg-slate-950/50"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-1 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDrinkTempModalOpen(false);
+                setPendingDrinkDish(null);
+                setDrinkExtraNotes("");
+              }}
+              className="text-xs rounded-xl cursor-pointer"
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
       {/* MODAL 5: TICKET FISCAL IMPRIMIBLE (80MM TÉRMICO) */}
       {/* =================================================================== */}
       <Dialog open={ticketModalOpen} onOpenChange={setTicketModalOpen}>
@@ -4469,10 +4860,12 @@ function SalesManagementContent() {
           >
             <div className="text-center pb-2 border-b border-dashed border-slate-300">
               <h2 className="font-extrabold text-sm text-slate-900 uppercase">
-                POLLERÍA RESTAURANTE
+                {restaurantConfig?.commercialName || restaurantConfig?.name || "POLLERÍA RESTAURANTE"}
               </h2>
-              <p className="text-[10px] text-slate-500">RUC: 20601234567</p>
-              <p className="text-[10px] text-slate-500">Av. Gastronómica 123 - Lima, Perú</p>
+              <p className="text-[10px] text-slate-500">RUC: {restaurantConfig?.ruc || "20608976543"}</p>
+              <p className="text-[10px] text-slate-500">
+                {restaurantConfig?.address || "Av. Gastronómica 123"} {restaurantConfig?.city ? `- ${restaurantConfig.city}` : "- Lima, Perú"}
+              </p>
             </div>
 
             <div className="flex flex-col gap-0.5 text-[10px] text-slate-600 pb-2 border-b border-dashed border-slate-300">
@@ -4547,9 +4940,9 @@ function SalesManagementContent() {
               ) : null}
             </div>
 
-            <div className="text-center text-[9px] text-slate-400 pt-2 border-t border-dashed border-slate-300">
-              <p>¡GRACIAS POR SU PREFERENCIA!</p>
-              <p>Representación impresa de Ticket Térmico 80mm</p>
+            <div className="text-center text-[9px] text-slate-500 pt-2 border-t border-dashed border-slate-300 italic">
+              <p>{restaurantConfig?.ticketFooter || "¡GRACIAS POR SU PREFERENCIA!"}</p>
+              <p className="not-italic text-[8px] text-slate-400 mt-0.5">Representación impresa de Ticket Térmico 80mm</p>
             </div>
           </div>
 
