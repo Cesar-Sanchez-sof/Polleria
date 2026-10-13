@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { exigirSesionServidor } from "@/lib/auth/guard";
 import {
   ArrowRight,
   BookOpen,
@@ -38,7 +39,7 @@ const QUICK_ACTIONS = [
     icon: CreditCard,
   },
   {
-    href: "/sales?tab=tables",
+    href: "/sales",
     label: "Ventas",
     hint: "Gestión completa",
     icon: ShoppingCart,
@@ -85,7 +86,8 @@ function formatToday(): string {
   });
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  await exigirSesionServidor();
   const today = formatToday();
 
   return (
@@ -165,7 +167,7 @@ export default function HomePage() {
             const Icon = action.icon;
             return (
               <Link
-                key={action.href}
+                key={`${action.href}-${action.label}`}
                 href={action.href}
                 className="group flex items-center gap-4 rounded-2xl border border-surface-container-high bg-surface-container-lowest p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
                 style={{ animationDelay: `${index * 60}ms` }}

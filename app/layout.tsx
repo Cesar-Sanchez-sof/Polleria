@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import Sidebar from "@/components/personalized/Sidebar";
+import { AppLayoutShell } from "@/components/personalized/AppLayoutShell";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -45,16 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           disableTransitionOnChange
         >
-          <div className="w-full min-w-full flex bg-background text-sm text-foreground antialiased min-h-screen overflow-x-hidden">
-            <Suspense fallback={null}>
-              <Sidebar />
-            </Suspense>
-            <div className="flex-1 w-full min-w-0">
-              <div className="pl-0 md:pl-64 min-h-screen flex flex-col bg-(--color-background) w-full min-w-0 overflow-x-hidden">
-                {children}
-              </div>
-            </div>
-          </div>
+          <AppLayoutShell>{children}</AppLayoutShell>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
