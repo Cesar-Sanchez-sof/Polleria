@@ -52,11 +52,29 @@ const SELECT_NODE = {
  *             schema:
  *               $ref: '#/components/schemas/Account'
  *       400:
- *         description: Identificador inválido.
+ *         description: Identificador de cuenta inválido (sin dígitos iniciales); no se consulta la base de datos.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Identificador de cuenta inválido."
  *       404:
- *         description: Cuenta no encontrada.
+ *         description: Ninguna cuenta existe con ese identificador.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Cuenta contable no encontrada."
  *       500:
- *         description: Error interno.
+ *         description: Excepción inesperada al consultar la base de datos (se registra en consola del servidor).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "No se pudo obtener la cuenta contable."
  */
 export async function GET(
   _request: NextRequest,
