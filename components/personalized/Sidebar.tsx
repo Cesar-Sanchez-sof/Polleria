@@ -19,10 +19,39 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
 
   useEffect(() => {
+    if (pathname === "/login") return;
+
+    let cancelado = false;
     fetch("/api/auth/me", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((datos) => setUsuario(datos))
-      .catch(() => setUsuario(null));
+      .then((res) => {
+        if (!res.ok) {
+          if (!cancelado && pathname !== "/login") {
+            window.location.href = "/login";
+          }
+          return null;
+        }
+        return res.json();
+      })
+      .then((datos) => {
+        if (cancelado) return;
+        if (!datos) {
+          if (pathname !== "/login") {
+            window.location.href = "/login";
+          }
+          return;
+        }
+        setUsuario(datos);
+      })
+      .catch(() => {
+        if (!cancelado && pathname !== "/login") {
+          window.location.href = "/login";
+        }
+        setUsuario(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
   }, [pathname]);
 
   async function cerrarSesion() {

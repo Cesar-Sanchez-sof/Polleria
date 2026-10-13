@@ -3,13 +3,15 @@
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Card } from "@/components/ui/card";
 import { Calculator } from "lucide-react";
+import { exigirSesionServidor } from "@/lib/auth/guard";
 
 export const metadata = {
   title: "Guía Contable",
   description: "Reglas y procesos de contabilidad para Pollería",
 };
 
-export default function AccountingGuidePage() {
+export default async function AccountingGuidePage() {
+  await exigirSesionServidor();
   return (
     <>
       <ModuleHeader
