@@ -38,23 +38,40 @@ export async function getTransformationRecipes() {
       orderBy: { id: "asc" },
     });
 
-    return recipes.map((r) => ({
-      ...r,
-      producedQuantity: Number(r.producedQuantity),
-      requiredQuantity: Number(r.requiredQuantity),
-      producedSupply: {
-        ...r.producedSupply,
-        currentStock: Number(r.producedSupply.currentStock),
-        averageCost: Number(r.producedSupply.averageCost),
-        lastCost: Number(r.producedSupply.lastCost),
-      },
-      consumedSupply: {
-        ...r.consumedSupply,
-        currentStock: Number(r.consumedSupply.currentStock),
-        averageCost: Number(r.consumedSupply.averageCost),
-        lastCost: Number(r.consumedSupply.lastCost),
-      },
-    }));
+    // Validar si cada receta ha sido ejecutada basándonos en los movimientos de inventario generados
+    const recipesWithUsage = await Promise.all(
+      recipes.map(async (r) => {
+        const usageCount = await prisma.inventoryMovement.count({
+          where: {
+            OR: [
+              { reason: { startsWith: `Consumo Receta #${r.id}` } },
+              { reason: { startsWith: `Producción Receta #${r.id}` } },
+            ],
+          },
+        });
+
+        return {
+          ...r,
+          producedQuantity: Number(r.producedQuantity),
+          requiredQuantity: Number(r.requiredQuantity),
+          timesUsed: usageCount,
+          producedSupply: {
+            ...r.producedSupply,
+            currentStock: Number(r.producedSupply.currentStock),
+            averageCost: Number(r.producedSupply.averageCost),
+            lastCost: Number(r.producedSupply.lastCost),
+          },
+          consumedSupply: {
+            ...r.consumedSupply,
+            currentStock: Number(r.consumedSupply.currentStock),
+            averageCost: Number(r.consumedSupply.averageCost),
+            lastCost: Number(r.consumedSupply.lastCost),
+          },
+        };
+      })
+    );
+
+    return recipesWithUsage;
   } catch (error) {
     console.error("Error al obtener recetas de transformación:", error);
     return [];
@@ -148,6 +165,35 @@ export async function toggleTransformationRecipe(id: number, active: boolean) {
   });
 }
 
+export async function deleteTransformationRecipe(id: number) {
+  const recipe = await prisma.transformationRecipe.findUnique({
+    where: { id },
+  });
+  if (!recipe) {
+    throw new Error("La receta no existe");
+  }
+
+  // Validar si la receta fue ejecutada
+  const usageCount = await prisma.inventoryMovement.count({
+    where: {
+      OR: [
+        { reason: { startsWith: `Consumo Receta #${id}` } },
+        { reason: { startsWith: `Producción Receta #${id}` } },
+      ],
+    },
+  });
+
+  if (usageCount > 0) {
+    throw new Error(
+      "No se puede eliminar la receta porque ya tiene registros de ejecución histórica. Puedes desactivarla en su lugar."
+    );
+  }
+
+  return await prisma.transformationRecipe.delete({
+    where: { id },
+  });
+}
+
 // -------------------------------------------------------------
 // Ejecutar Receta N veces
 // -------------------------------------------------------------
@@ -178,33 +224,34 @@ export async function executeTransformation(
   const totalConsumedQty = Number(recipe.requiredQuantity) * times;
   const totalProducedQty = Number(recipe.producedQuantity) * times;
 
-  return await prisma.$transaction(async (tx) => {
-    const consumedSupply = await tx.supply.findUnique({
-      where: { id: recipe.consumedSupplyId },
-    });
-    if (!consumedSupply) throw new Error("Insumo consumido no encontrado");
+  return await prisma.$transaction(
+    async (tx) => {
+      const consumedSupply = await tx.supply.findUnique({
+        where: { id: recipe.consumedSupplyId },
+      });
+      if (!consumedSupply) throw new Error("Insumo consumido no encontrado");
 
-    const currentStockConsumed = Number(consumedSupply.currentStock);
-    if (currentStockConsumed < totalConsumedQty) {
-      throw new Error(
-        `Stock insuficiente. Disponibles: ${currentStockConsumed}, necesarios: ${totalConsumedQty}`
-      );
-    }
+      const currentStockConsumed = Number(consumedSupply.currentStock);
+      if (currentStockConsumed < totalConsumedQty) {
+        throw new Error(
+          `Stock insuficiente. Disponibles: ${currentStockConsumed}, necesarios: ${totalConsumedQty}`
+        );
+      }
 
-    const producedSupply = await tx.supply.findUnique({
-      where: { id: recipe.producedSupplyId },
-    });
-    if (!producedSupply) throw new Error("Insumo producido no encontrado");
+      const producedSupply = await tx.supply.findUnique({
+        where: { id: recipe.producedSupplyId },
+      });
+      if (!producedSupply) throw new Error("Insumo producido no encontrado");
 
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, employeeId);
+      const validEmployeeId = await getOrCreateActiveEmployee(tx, employeeId);
 
-    const transformation = await tx.transformation.create({
-      data: {
-        employeeId: validEmployeeId,
-        date: new Date(),
-        notes: notes?.trim() || null,
-      },
-    });
+      const transformation = await tx.transformation.create({
+        data: {
+          employeeId: validEmployeeId,
+          date: new Date(),
+          notes: notes?.trim() || null,
+        },
+      });
 
     const unitCostConsumed =
       Number(consumedSupply.averageCost) > 0
@@ -291,7 +338,9 @@ export async function executeTransformation(
     });
 
     return transformation;
-  });
+    },
+    { maxWait: 10000, timeout: 20000 }
+  );
 }
 
 // -------------------------------------------------------------
@@ -459,123 +508,127 @@ export async function annulTransformation(
     throw new Error("El motivo de anulación es obligatorio");
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const transformation = await tx.transformation.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            supply: true,
-          },
+  // 1. Validaciones previas fuera de la transacción para no consumir tiempo del timeout
+  const transformation = await prisma.transformation.findUnique({
+    where: { id },
+    include: {
+      items: {
+        include: {
+          supply: true,
         },
       },
-    });
-
-    if (!transformation) {
-      throw new Error(`Transformación con ID ${id} no encontrada`);
-    }
-
-    if (transformation.anulado) {
-      throw new Error("Esta transformación ya está anulada");
-    }
-
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, employeeId);
-
-    // 1. Validar y procesar reversión de stock
-    // Para insumos consumidos (itemType === "Consumo"): devolvemos el stock (TransformationIn, quantity positiva, currentStock += quantity)
-    // Para insumos producidos (itemType === "Producido"): descontamos el stock (TransformationOut, quantity positiva, currentStock -= quantity)
-    // Validamos primero que haya suficiente stock de todos los insumos producidos antes de modificar nada
-    for (const item of transformation.items) {
-      if (item.itemType === "Producido") {
-        const supply = await tx.supply.findUnique({
-          where: { id: item.supplyId },
-        });
-        if (!supply) {
-          throw new Error(`Insumo ID ${item.supplyId} no encontrado`);
-        }
-
-        const currentStock = Number(supply.currentStock);
-        const itemQty = Number(item.quantity);
-
-        if (currentStock < itemQty) {
-          throw new Error(
-            `Stock insuficiente para revertir el producto terminado. Stock actual: ${currentStock}, necesario: ${itemQty}`
-          );
-        }
-      }
-    }
-
-    // 2. Realizar los movimientos inversos y actualización de stock
-    for (const item of transformation.items) {
-      const itemQty = Number(item.quantity);
-      const unitCost = item.unitCost ? Number(item.unitCost) : null;
-
-      if (item.itemType === "Consumo") {
-        // Se devuelve la materia prima al almacén
-        await tx.inventoryMovement.create({
-          data: {
-            supplyId: item.supplyId,
-            transformationItemId: item.id,
-            movementType: InventoryMovementType.TransformationIn,
-            quantity: itemQty,
-            unitCost: unitCost,
-            reason: `Reversión anulación Transformación #${transformation.id}: ${cleanMotivo}`,
-          },
-        });
-
-        await tx.supply.update({
-          where: { id: item.supplyId },
-          data: {
-            currentStock: {
-              increment: itemQty,
-            },
-          },
-        });
-      } else if (item.itemType === "Producido") {
-        // Se descuenta el producto terminado generado previamente
-        await tx.inventoryMovement.create({
-          data: {
-            supplyId: item.supplyId,
-            transformationItemId: item.id,
-            movementType: InventoryMovementType.TransformationOut,
-            quantity: itemQty,
-            unitCost: unitCost,
-            reason: `Reversión anulación Transformación #${transformation.id}: ${cleanMotivo}`,
-          },
-        });
-
-        await tx.supply.update({
-          where: { id: item.supplyId },
-          data: {
-            currentStock: {
-              decrement: itemQty,
-            },
-          },
-        });
-      }
-    }
-
-    // 3. Marcar la transformación como anulada
-    const updated = await tx.transformation.update({
-      where: { id },
-      data: {
-        anulado: true,
-        anuladoAt: new Date(),
-        anuladoPor: validEmployeeId,
-        motivoAnulacion: cleanMotivo,
-      },
-      include: {
-        employee: true,
-        annulledBy: true,
-        items: {
-          include: {
-            supply: true,
-          },
-        },
-      },
-    });
-
-    return updated;
+    },
   });
+
+  if (!transformation) {
+    throw new Error(`Transformación con ID ${id} no encontrada`);
+  }
+
+  if (transformation.anulado) {
+    throw new Error("Esta transformación ya está anulada");
+  }
+
+  return await prisma.$transaction(
+    async (tx) => {
+      const validEmployeeId = await getOrCreateActiveEmployee(tx, employeeId);
+
+      // 1. Validar y procesar reversión de stock
+      // Para insumos consumidos (itemType === "Consumo"): devolvemos el stock (TransformationIn, quantity positiva, currentStock += quantity)
+      // Para insumos producidos (itemType === "Producido"): descontamos el stock (TransformationOut, quantity positiva, currentStock -= quantity)
+      // Validamos primero que haya suficiente stock de todos los insumos producidos antes de modificar nada
+      for (const item of transformation.items) {
+        if (item.itemType === "Producido") {
+          const supply = await tx.supply.findUnique({
+            where: { id: item.supplyId },
+          });
+          if (!supply) {
+            throw new Error(`Insumo ID ${item.supplyId} no encontrado`);
+          }
+
+          const currentStock = Number(supply.currentStock);
+          const itemQty = Number(item.quantity);
+
+          if (currentStock < itemQty) {
+            throw new Error(
+              `Stock insuficiente para revertir el producto terminado. Stock actual: ${currentStock}, necesario: ${itemQty}`
+            );
+          }
+        }
+      }
+
+      // 2. Realizar los movimientos inversos y actualización de stock
+      for (const item of transformation.items) {
+        const itemQty = Number(item.quantity);
+        const unitCost = item.unitCost ? Number(item.unitCost) : null;
+
+        if (item.itemType === "Consumo") {
+          // Se devuelve la materia prima al almacén
+          await tx.inventoryMovement.create({
+            data: {
+              supplyId: item.supplyId,
+              transformationItemId: item.id,
+              movementType: InventoryMovementType.TransformationIn,
+              quantity: itemQty,
+              unitCost: unitCost,
+              reason: `Reversión anulación Transformación #${transformation.id}: ${cleanMotivo}`,
+            },
+          });
+
+          await tx.supply.update({
+            where: { id: item.supplyId },
+            data: {
+              currentStock: {
+                increment: itemQty,
+              },
+            },
+          });
+        } else if (item.itemType === "Producido") {
+          // Se descuenta el producto terminado generado previamente
+          await tx.inventoryMovement.create({
+            data: {
+              supplyId: item.supplyId,
+              transformationItemId: item.id,
+              movementType: InventoryMovementType.TransformationOut,
+              quantity: itemQty,
+              unitCost: unitCost,
+              reason: `Reversión anulación Transformación #${transformation.id}: ${cleanMotivo}`,
+            },
+          });
+
+          await tx.supply.update({
+            where: { id: item.supplyId },
+            data: {
+              currentStock: {
+                decrement: itemQty,
+              },
+            },
+          });
+        }
+      }
+
+      // 3. Marcar la transformación como anulada
+      const updated = await tx.transformation.update({
+        where: { id },
+        data: {
+          anulado: true,
+          anuladoAt: new Date(),
+          anuladoPor: validEmployeeId,
+          motivoAnulacion: cleanMotivo,
+        },
+        include: {
+          employee: true,
+          annulledBy: true,
+          items: {
+            include: {
+              supply: true,
+            },
+          },
+        },
+      });
+
+      return updated;
+    },
+    { maxWait: 10000, timeout: 20000 }
+  );
 }
 

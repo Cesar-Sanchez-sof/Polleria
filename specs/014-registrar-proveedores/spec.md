@@ -102,6 +102,28 @@ toast "Proveedor desactivado exitosamente".
 
 ---
 
+### User Story 4 - Consultar RUC/DNI con JSON_PE (Priority: P1)
+
+Como usuario, quiero que al ingresar un RUC o DNI, el sistema consulte 
+automáticamente la API de JSON_PE y autocomplete razón social, 
+dirección y otros datos fiscales para no tener que escribirlos 
+manualmente.
+
+**Acceptance Scenarios**:
+
+1. **Given** un RUC válido de 11 dígitos, **When** el usuario hace clic en 
+   "Buscar", **Then** se autocompletan los campos con los datos de JSON_PE.
+2. **Given** un DNI válido de 8 dígitos, **When** el usuario hace clic en 
+   "Buscar", **Then** se autocompletan nombres y apellidos.
+3. **Given** un documento inexistente, **Then** toast "No se encontró 
+   información para ese documento".
+4. **Given** la API devuelve error (cuota, timeout, red), **Then** toast con 
+   mensaje específico y el usuario puede escribir manualmente.
+5. **Given** los campos ya tienen contenido, **Then** la búsqueda no sobrescribe 
+   sin confirmar.
+
+---
+
 ### Edge Cases
 
 - **Sin borrado físico**: no existe función `deleteSupplier`; además `PurchaseOrder` y
@@ -155,6 +177,7 @@ toast "Proveedor desactivado exitosamente".
 | BR-6 | **Opcionales a `null`** | Contacto, dirección, teléfono y correo vacíos se guardan como `null`. |
 | BR-7 | **Orden al listar** | `orderBy: { businessName: "asc" }`. |
 | BR-8 | **Sin control de acceso** | Ninguna acción valida sesión ni rol. |
+| BR-9 | **Consulta API JSON_PE** | La búsqueda por documento usa la API JSON_PE. El token JSON_PE_TOKEN vive en .env y solo se usa server-side. |
 
 ## Endpoint / Transporte
 
@@ -233,6 +256,9 @@ documento y teléfono; `required` en documento y razón social; `type="email"` e
 - **FR-006**: Mantener el estado local sincronizado tras cada operación (alta al inicio,
   edición in situ, cambio de estado in situ).
 - **FR-007**: Mostrar el conteo de proveedores activos en el dashboard de Compras.
+- **FR-008**: Consultar API JSON_PE al hacer clic en "Buscar" del dialog de proveedor.
+- **FR-009**: Degradación graceful si la API falla (el usuario puede escribir manual).
+- **FR-010**: El token JSON_PE nunca se expone al cliente (vive en .env, usado desde Server Action).
 
 ### Non-Functional Requirements
 

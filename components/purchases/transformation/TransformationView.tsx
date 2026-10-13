@@ -23,33 +23,39 @@ export function TransformationView({
 
   return (
     <div className="space-y-5">
-      {/* Selector de Tabs */}
-      <div className="flex items-center gap-2 border-b pb-3">
+      {/* Selector de Tabs Moderno y Segmentado */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 w-fit max-w-full overflow-x-auto shadow-2xs">
         <button
           type="button"
           onClick={() => setActiveTab("execute")}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "execute"
-              ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-300 shadow-xs border border-slate-200/60 dark:border-slate-700/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
           }`}
         >
-          <Repeat className="h-4 w-4" />
-          Ejecutar Transformación
+          <Repeat className={`h-4 w-4 ${activeTab === "execute" ? "text-amber-600 dark:text-amber-400" : ""}`} />
+          <span>Ejecutar Transformación</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("recipes")}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "recipes"
-              ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-300 shadow-xs border border-slate-200/60 dark:border-slate-700/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
           }`}
         >
-          <Sparkles className="h-4 w-4" />
-          Recetas de Producción
-          <span className="ml-1 text-[10px] bg-background/20 px-1.5 py-0.2 rounded-full">
+          <Sparkles className={`h-4 w-4 ${activeTab === "recipes" ? "text-amber-600 dark:text-amber-400" : ""}`} />
+          <span>Recetas de Producción</span>
+          <span
+            className={`ml-0.5 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${
+              activeTab === "recipes"
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50"
+                : "bg-slate-200 dark:bg-slate-800 text-muted-foreground"
+            }`}
+          >
             {recipes.length}
           </span>
         </button>
@@ -57,15 +63,21 @@ export function TransformationView({
         <button
           type="button"
           onClick={() => setActiveTab("history")}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "history"
-              ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-300 shadow-xs border border-slate-200/60 dark:border-slate-700/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
           }`}
         >
-          <History className="h-4 w-4" />
-          Historial de Lotes
-          <span className="ml-1 text-[10px] bg-background/20 px-1.5 py-0.2 rounded-full">
+          <History className={`h-4 w-4 ${activeTab === "history" ? "text-amber-600 dark:text-amber-400" : ""}`} />
+          <span>Historial de Lotes</span>
+          <span
+            className={`ml-0.5 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${
+              activeTab === "history"
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50"
+                : "bg-slate-200 dark:bg-slate-800 text-muted-foreground"
+            }`}
+          >
             {transformations.length}
           </span>
         </button>

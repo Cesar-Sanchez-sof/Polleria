@@ -96,9 +96,13 @@ export function PurchaseOrderForm({
   const [voucherType, setVoucherType] = useState<string>("Factura");
   const [series, setSeries] = useState<string>("");
   const [number, setNumber] = useState<string>("");
-  const [issuedAt, setIssuedAt] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
+  const [issuedAt, setIssuedAt] = useState<string>(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const [paymentCondition, setPaymentCondition] = useState<"Contado" | "Credito">(
     "Contado"
   );
@@ -878,6 +882,7 @@ export function PurchaseOrderForm({
         onOpenChange={setSupplyDialogOpen}
         onSuccess={handleSupplyCreated}
         prefilledName={prefilledSupplyName}
+        showAffectationIgv={true}
       />
     </form>
   );

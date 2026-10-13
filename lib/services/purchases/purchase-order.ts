@@ -138,181 +138,185 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
     }
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.receivedById);
+  // Validaciones y generación previa fuera de la transacción para no consumir el timeout
+  const existingInvoice = await prisma.purchaseInvoice.findFirst({
+    where: {
+      supplierId: data.supplierId,
+      voucherType: data.voucherType,
+      series: data.series,
+      number: data.number,
+    },
+  });
 
-    let subtotalGeneral = 0;
-    let igvGeneral = 0;
-    let totalGeneral = 0;
+  if (existingInvoice) {
+    throw new Error("Ya existe un comprobante con ese número para este proveedor");
+  }
 
-    const itemsToCreate = data.items.map((item) => {
-      let subtotalLine = 0;
-      let igvLine = 0;
-      let finalAmountLine = 0;
-      let unitCost = 0;
+  let orderNumber = await generateOrderNumber();
+  const existingOrder = await prisma.purchaseOrder.findUnique({ where: { orderNumber } });
+  if (existingOrder) {
+    orderNumber = `${orderNumber}-${Math.floor(Math.random() * 1000)}`;
+  }
 
-      if (item.affectationIgv === "Included") {
-        subtotalLine = (item.quantity * item.unitPrice) / 1.18;
-        igvLine = (item.quantity * item.unitPrice) - subtotalLine;
-        finalAmountLine = item.quantity * item.unitPrice;
-        unitCost = item.unitPrice / 1.18;
-      } else {
-        subtotalLine = item.quantity * item.unitPrice;
-        igvLine = subtotalLine * 0.18;
-        finalAmountLine = subtotalLine + igvLine;
-        unitCost = item.unitPrice;
-      }
+  return await prisma.$transaction(
+    async (tx) => {
+      const validEmployeeId = await getOrCreateActiveEmployee(tx, data.receivedById);
 
-      subtotalLine = Math.round(subtotalLine * 100) / 100;
-      igvLine = Math.round(igvLine * 100) / 100;
-      finalAmountLine = Math.round(finalAmountLine * 100) / 100;
+      let subtotalGeneral = 0;
+      let igvGeneral = 0;
+      let totalGeneral = 0;
 
-      subtotalGeneral += subtotalLine;
-      igvGeneral += igvLine;
-      totalGeneral += finalAmountLine;
+      const itemsToCreate = data.items.map((item) => {
+        let subtotalLine = 0;
+        let igvLine = 0;
+        let finalAmountLine = 0;
+        let unitCost = 0;
 
-      return {
-        supplyId: item.supplyId,
-        quantityOrdered: item.quantity,
-        quantityReceived: item.quantity,
-        unitPrice: item.unitPrice,
-        affectationIgvApplied: item.affectationIgv as AffectationIgv,
-        subtotalLine,
-        igvLine,
-        finalAmountLine,
-        unitCost,
-      };
-    });
-
-    subtotalGeneral = Math.round(subtotalGeneral * 100) / 100;
-    igvGeneral = Math.round(igvGeneral * 100) / 100;
-    totalGeneral = Math.round(totalGeneral * 100) / 100;
-
-    const existingInvoice = await tx.purchaseInvoice.findFirst({
-      where: {
-        supplierId: data.supplierId,
-        voucherType: data.voucherType,
-        series: data.series,
-        number: data.number,
-      },
-    });
-
-    if (existingInvoice) {
-      throw new Error("Ya existe un comprobante con ese número para este proveedor");
-    }
-
-    let orderNumber = await generateOrderNumber();
-    const existingOrder = await tx.purchaseOrder.findUnique({ where: { orderNumber } });
-    if (existingOrder) {
-      orderNumber = `${orderNumber}-${Math.floor(Math.random() * 1000)}`;
-    }
-
-    const issuedDate = data.issuedAt ? new Date(data.issuedAt) : new Date();
-
-    const order = await tx.purchaseOrder.create({
-      data: {
-        supplierId: data.supplierId,
-        employeeId: validEmployeeId,
-        receivedById: validEmployeeId,
-        orderNumber,
-        issuedAt: issuedDate,
-        receivedAt: new Date(),
-        status: PurchaseOrderStatus.FullyReceived,
-        subtotal: subtotalGeneral,
-        igv: igvGeneral,
-        total: totalGeneral,
-        items: {
-          create: itemsToCreate.map((item) => ({
-            supplyId: item.supplyId,
-            quantityOrdered: item.quantityOrdered,
-            quantityReceived: item.quantityReceived,
-            unitPrice: item.unitPrice,
-            affectationIgvApplied: item.affectationIgvApplied,
-            subtotalLine: item.subtotalLine,
-            igvLine: item.igvLine,
-            finalAmountLine: item.finalAmountLine,
-          })),
-        },
-      },
-      include: {
-        items: true,
-      },
-    });
-
-    const invoice = await tx.purchaseInvoice.create({
-      data: {
-        supplierId: data.supplierId,
-        purchaseOrderId: order.id,
-        voucherType: data.voucherType,
-        series: data.series,
-        number: data.number,
-        issuedAt: issuedDate,
-        subtotal: subtotalGeneral,
-        igv: igvGeneral,
-        totalAmount: totalGeneral,
-      },
-    });
-
-    if (data.paymentCondition === "Contado" && data.paymentTypeId) {
-      await tx.purchasePayment.create({
-        data: {
-          purchaseInvoiceId: invoice.id,
-          paymentTypeId: data.paymentTypeId,
-          amount: totalGeneral,
-          paidAt: new Date(),
-        },
-      });
-    }
-
-    for (let i = 0; i < order.items.length; i++) {
-      const poItem = order.items[i];
-      const itemConfig = itemsToCreate[i];
-      const quantity = Number(poItem.quantityReceived!);
-
-      await tx.inventoryMovement.create({
-        data: {
-          supplyId: poItem.supplyId,
-          purchaseOrderItemId: poItem.id,
-          movementType: InventoryMovementType.Purchase,
-          quantity: quantity,
-          unitCost: itemConfig.unitCost,
-        },
-      });
-
-      const supply = await tx.supply.findUnique({ where: { id: poItem.supplyId } });
-      if (supply) {
-        const currentStock = Number(supply.currentStock);
-        const currentAverageCost = Number(supply.averageCost);
-        const newStock = currentStock + quantity;
-
-        let newAverageCost = 0;
-        if (newStock > 0) {
-          newAverageCost =
-            (currentStock * currentAverageCost + quantity * itemConfig.unitCost) /
-            newStock;
+        if (item.affectationIgv === "Included") {
+          subtotalLine = (item.quantity * item.unitPrice) / 1.18;
+          igvLine = (item.quantity * item.unitPrice) - subtotalLine;
+          finalAmountLine = item.quantity * item.unitPrice;
+          unitCost = item.unitPrice / 1.18;
+        } else {
+          subtotalLine = item.quantity * item.unitPrice;
+          igvLine = subtotalLine * 0.18;
+          finalAmountLine = subtotalLine + igvLine;
+          unitCost = item.unitPrice;
         }
 
-        await tx.supply.update({
-          where: { id: supply.id },
+        subtotalLine = Math.round(subtotalLine * 100) / 100;
+        igvLine = Math.round(igvLine * 100) / 100;
+        finalAmountLine = Math.round(finalAmountLine * 100) / 100;
+
+        subtotalGeneral += subtotalLine;
+        igvGeneral += igvLine;
+        totalGeneral += finalAmountLine;
+
+        return {
+          supplyId: item.supplyId,
+          quantityOrdered: item.quantity,
+          quantityReceived: item.quantity,
+          unitPrice: item.unitPrice,
+          affectationIgvApplied: item.affectationIgv as AffectationIgv,
+          subtotalLine,
+          igvLine,
+          finalAmountLine,
+          unitCost,
+        };
+      });
+
+      subtotalGeneral = Math.round(subtotalGeneral * 100) / 100;
+      igvGeneral = Math.round(igvGeneral * 100) / 100;
+      totalGeneral = Math.round(totalGeneral * 100) / 100;
+
+      const issuedDate = data.issuedAt ? new Date(data.issuedAt) : new Date();
+
+      const order = await tx.purchaseOrder.create({
+        data: {
+          supplierId: data.supplierId,
+          employeeId: validEmployeeId,
+          receivedById: validEmployeeId,
+          orderNumber,
+          issuedAt: issuedDate,
+          receivedAt: new Date(),
+          status: PurchaseOrderStatus.FullyReceived,
+          subtotal: subtotalGeneral,
+          igv: igvGeneral,
+          total: totalGeneral,
+          items: {
+            create: itemsToCreate.map((item) => ({
+              supplyId: item.supplyId,
+              quantityOrdered: item.quantityOrdered,
+              quantityReceived: item.quantityReceived,
+              unitPrice: item.unitPrice,
+              affectationIgvApplied: item.affectationIgvApplied,
+              subtotalLine: item.subtotalLine,
+              igvLine: item.igvLine,
+              finalAmountLine: item.finalAmountLine,
+            })),
+          },
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      const invoice = await tx.purchaseInvoice.create({
+        data: {
+          supplierId: data.supplierId,
+          purchaseOrderId: order.id,
+          voucherType: data.voucherType,
+          series: data.series,
+          number: data.number,
+          issuedAt: issuedDate,
+          subtotal: subtotalGeneral,
+          igv: igvGeneral,
+          totalAmount: totalGeneral,
+        },
+      });
+
+      if (data.paymentCondition === "Contado" && data.paymentTypeId) {
+        await tx.purchasePayment.create({
           data: {
-            currentStock: newStock,
-            lastCost: Math.round(itemConfig.unitCost * 100) / 100,
-            averageCost: Math.round(newAverageCost * 100) / 100,
+            purchaseInvoiceId: invoice.id,
+            paymentTypeId: data.paymentTypeId,
+            amount: totalGeneral,
+            paidAt: new Date(),
           },
         });
       }
-    }
 
-    const createdOrder = await tx.purchaseOrder.findUnique({
-      where: { id: order.id },
-      include: {
-        items: true,
-        invoices: true,
-      },
-    });
+      for (let i = 0; i < order.items.length; i++) {
+        const poItem = order.items[i];
+        const itemConfig = itemsToCreate[i];
+        const quantity = Number(poItem.quantityReceived!);
 
-    return JSON.parse(JSON.stringify(createdOrder));
-  });
+        await tx.inventoryMovement.create({
+          data: {
+            supplyId: poItem.supplyId,
+            purchaseOrderItemId: poItem.id,
+            movementType: InventoryMovementType.Purchase,
+            quantity: quantity,
+            unitCost: itemConfig.unitCost,
+          },
+        });
+
+        const supply = await tx.supply.findUnique({ where: { id: poItem.supplyId } });
+        if (supply) {
+          const currentStock = Number(supply.currentStock);
+          const currentAverageCost = Number(supply.averageCost);
+          const newStock = currentStock + quantity;
+
+          let newAverageCost = 0;
+          if (newStock > 0) {
+            newAverageCost =
+              (currentStock * currentAverageCost + quantity * itemConfig.unitCost) /
+              newStock;
+          }
+
+          await tx.supply.update({
+            where: { id: supply.id },
+            data: {
+              currentStock: newStock,
+              lastCost: Math.round(itemConfig.unitCost * 100) / 100,
+              averageCost: Math.round(newAverageCost * 100) / 100,
+            },
+          });
+        }
+      }
+
+      const createdOrder = await tx.purchaseOrder.findUnique({
+        where: { id: order.id },
+        include: {
+          items: true,
+          invoices: true,
+        },
+      });
+
+      return JSON.parse(JSON.stringify(createdOrder));
+    },
+    { maxWait: 10000, timeout: 20000 }
+  );
 }
 
 export async function getPurchaseOrders() {

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { SupplierDialog } from "./SupplierDialog";
 import { setSupplierStatus } from "@/lib/services/purchases/supplier";
 import { toast } from "sonner";
+import { TablePagination } from "@/components/purchases/shared/TablePagination";
 import {
   Plus,
   Search,
@@ -162,6 +163,15 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
     });
   }, [suppliers, search, statusFilter]);
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const paginatedSuppliers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
+
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
   const handleNew = () => {
@@ -211,12 +221,12 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
         {/* Card 1: Padrón de Proveedores */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-blue-50/20 dark:to-blue-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/30 dark:to-amber-950/20 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/60 shadow-2xs">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-200/80 dark:border-amber-900/60 shadow-2xs">
               <Building2 className="h-5 w-5" />
             </div>
-            <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 px-2 py-0.5 rounded-full">
               Padrón Comercial
             </span>
           </div>
@@ -236,12 +246,12 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
         </div>
 
         {/* Card 2: Proveedor Principal (Top Compras) */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-amber-50/20 dark:to-amber-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-orange-50/25 dark:to-orange-950/15 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/60 shadow-2xs">
+            <div className="h-10 w-10 rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400 flex items-center justify-center shrink-0 border border-orange-100 dark:border-orange-900/60 shadow-2xs">
               <Trophy className="h-5 w-5" />
             </div>
-            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="text-[11px] font-semibold text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
               <TrendingUp className="h-3 w-3" /> Top Proveedor
             </span>
           </div>
@@ -275,12 +285,12 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
         </div>
 
         {/* Card 3: Modalidad de Pago (Crédito vs Contado) */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-indigo-50/20 dark:to-indigo-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/20 dark:to-amber-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/60 shadow-2xs">
+            <div className="h-10 w-10 rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300 flex items-center justify-center shrink-0 border border-stone-200 dark:border-stone-700 shadow-2xs">
               <CreditCard className="h-5 w-5" />
             </div>
-            <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-900/60 px-2 py-0.5 rounded-full font-mono">
+            <span className="text-[11px] font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 rounded-full font-mono">
               {contadoRatio}% Contado
             </span>
           </div>
@@ -288,13 +298,13 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             <p className="text-xs text-muted-foreground font-medium">Modalidad de Operaciones</p>
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
               <div
-                className="bg-indigo-500 h-full rounded-full transition-all duration-500"
+                className="bg-amber-600 dark:bg-amber-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${contadoRatio}%` }}
               />
             </div>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-indigo-700 dark:text-indigo-400 font-medium">Contado: {contadoCount} op.</span>
+            <span className="text-stone-700 dark:text-stone-300 font-medium">Contado: {contadoCount} op.</span>
             <span className="text-amber-700 dark:text-amber-400 font-medium">Crédito: {creditoCount} op.</span>
           </div>
         </div>
@@ -335,12 +345,18 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
           <Input
             placeholder="Buscar por RUC, DNI, razón social, contacto o teléfono..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-9 pr-8 h-10 text-xs bg-background rounded-xl border-slate-200 dark:border-slate-800"
           />
           {search && (
             <button
-              onClick={() => setSearch("")}
+              onClick={() => {
+                setSearch("");
+                setCurrentPage(1);
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
@@ -354,7 +370,10 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
             <button
               type="button"
-              onClick={() => setStatusFilter("all")}
+              onClick={() => {
+                setStatusFilter("all");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "all"
                   ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
@@ -368,7 +387,10 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("active")}
+              onClick={() => {
+                setStatusFilter("active");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "active"
                   ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
@@ -382,7 +404,10 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("inactive")}
+              onClick={() => {
+                setStatusFilter("inactive");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "inactive"
                   ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
@@ -398,7 +423,10 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("ruc")}
+              onClick={() => {
+                setStatusFilter("ruc");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "ruc"
                   ? "bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 font-semibold shadow-2xs"
@@ -416,7 +444,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
           <Button
             onClick={handleNew}
             size="sm"
-            className="h-10 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+            className="h-10 px-4 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Nuevo Proveedor</span>
@@ -427,15 +455,15 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
       {/* ── Tabla Moderna de Proveedores ── */}
       <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="w-full">
             <TableHeader>
               <TableRow className="bg-slate-50/70 dark:bg-slate-900/50 border-b border-slate-200/80 dark:border-slate-800">
-                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-40">Documento Fiscal</TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground min-w-[260px]">Razón Social / Proveedor</TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground min-w-[180px]">Persona de Contacto</TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground min-w-[220px]">Teléfono y Correo</TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center w-32">Estado</TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right w-28">Acciones</TableHead>
+                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Documento Fiscal</TableHead>
+                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Razón Social / Proveedor</TableHead>
+                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Persona de Contacto</TableHead>
+                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Teléfono y Correo</TableHead>
+                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center whitespace-nowrap">Estado</TableHead>
+                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -465,6 +493,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                           onClick={() => {
                             setSearch("");
                             setStatusFilter("all");
+                            setCurrentPage(1);
                           }}
                           className="mt-2 text-xs rounded-xl"
                         >
@@ -474,7 +503,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                         <Button
                           size="sm"
                           onClick={handleNew}
-                          className="mt-2 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5"
+                          className="mt-2 text-xs rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1.5 cursor-pointer"
                         >
                           <Plus className="h-3.5 w-3.5" /> Registrar Primer Proveedor
                         </Button>
@@ -483,20 +512,20 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((p) => {
+                paginatedSuppliers.map((p) => {
                   const isRuc = p.ruc.length === 11;
 
                   return (
                     <TableRow key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
                       
                       {/* Documento */}
-                      <TableCell className="py-3.5 px-4">
+                      <TableCell className="py-3 px-3 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
                               isRuc
-                                ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
-                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                                ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                                : "bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300"
                             }`}
                           >
                             {isRuc ? "RUC" : "DNI"}
@@ -508,19 +537,19 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                       </TableCell>
 
                       {/* Razón Social y Dirección */}
-                      <TableCell className="py-3.5 px-4">
-                        <div className="flex items-start gap-2.5">
-                          <div className="h-8 w-8 rounded-lg bg-blue-50/80 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 border border-blue-100/70">
+                      <TableCell className="py-3 px-3 max-w-[280px]">
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/70">
                             <Building2 className="h-4 w-4" />
                           </div>
-                          <div className="min-w-0">
-                            <span className="font-semibold text-xs text-foreground block truncate">
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold text-xs text-foreground block truncate" title={p.businessName}>
                               {p.businessName}
                             </span>
                             {p.address ? (
-                              <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                              <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate" title={p.address}>
                                 <MapPin className="h-3 w-3 shrink-0" />
-                                {p.address}
+                                <span className="truncate">{p.address}</span>
                               </span>
                             ) : (
                               <span className="text-[11px] text-muted-foreground/60">
@@ -532,11 +561,11 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                       </TableCell>
 
                       {/* Contacto */}
-                      <TableCell className="py-3.5 px-4">
+                      <TableCell className="py-3 px-3 max-w-[180px]">
                         {p.contactPerson ? (
-                          <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
+                          <div className="flex items-center gap-1.5 text-xs text-foreground font-medium truncate" title={p.contactPerson}>
                             <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span>{p.contactPerson}</span>
+                            <span className="truncate">{p.contactPerson}</span>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground/60">-</span>
@@ -544,7 +573,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                       </TableCell>
 
                       {/* Teléfono y Correo */}
-                      <TableCell className="py-3.5 px-4">
+                      <TableCell className="py-3 px-3 max-w-[200px]">
                         <div className="space-y-1 text-xs">
                           {p.phone ? (
                             <div className="flex items-center gap-1.5 font-mono text-foreground font-medium">
@@ -553,8 +582,8 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                             </div>
                           ) : null}
                           {p.email ? (
-                            <div className="flex items-center gap-1.5 text-muted-foreground truncate">
-                              <Mail className="h-3 w-3 text-blue-600 shrink-0" />
+                            <div className="flex items-center gap-1.5 text-muted-foreground truncate" title={p.email}>
+                              <Mail className="h-3 w-3 text-amber-600 shrink-0" />
                               <span className="truncate">{p.email}</span>
                             </div>
                           ) : null}
@@ -565,7 +594,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                       </TableCell>
 
                       {/* Estado */}
-                      <TableCell className="py-3.5 px-4 text-center">
+                      <TableCell className="py-3 px-3 text-center whitespace-nowrap">
                         {p.active ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-900 border border-emerald-300/80 dark:bg-emerald-950/60 dark:text-emerald-200">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
@@ -580,17 +609,17 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
                       </TableCell>
 
                       {/* Acciones */}
-                      <TableCell className="py-3.5 px-4 text-right">
+                      <TableCell className="py-3 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(p)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-all cursor-pointer"
                             title="Editar proveedor"
                           >
-                            <Edit2 className="h-3.5 w-3.5 text-blue-600" />
+                            <Edit2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                           </Button>
                           
                           <Button
@@ -616,6 +645,14 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             </TableBody>
           </Table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="proveedores"
+        />
       </div>
 
       {/* ── Dialog ── */}

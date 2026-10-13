@@ -44,6 +44,7 @@ export interface TransformationRecipeItem {
   producedQuantity: number;
   requiredQuantity: number;
   active: boolean;
+  timesUsed?: number;
   producedSupply: {
     id: number;
     name: string;
@@ -186,7 +187,7 @@ export function RecipeDialog({
             {/* Insumo Consumido */}
             <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
               <Label htmlFor="consumedSupply" className="text-xs font-semibold text-rose-700">
-                1. Insumo Consumido (Materia Prima) *
+                1. Materia Prima *
               </Label>
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
@@ -196,12 +197,14 @@ export function RecipeDialog({
                     disabled={!!recipeToEdit}
                   >
                     <SelectTrigger id="consumedSupply" className="text-xs">
-                      <SelectValue placeholder="Seleccionar materia prima" />
+                      <SelectValue placeholder="Seleccionar materia prima">
+                        {selectedConsumed ? selectedConsumed.name : undefined}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {rawMaterials.map((s) => (
                         <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name} ({s.unitOfMeasure})
+                          {s.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -226,7 +229,7 @@ export function RecipeDialog({
             <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
               <div className="flex items-center justify-between">
                 <Label htmlFor="producedSupply" className="text-xs font-semibold text-emerald-700">
-                  2. Producto Producido (Producto Terminado) *
+                  2. Producto Terminado *
                 </Label>
                 {!recipeToEdit && (
                   <button
@@ -246,12 +249,14 @@ export function RecipeDialog({
                     disabled={!!recipeToEdit}
                   >
                     <SelectTrigger id="producedSupply" className="text-xs">
-                      <SelectValue placeholder="Seleccionar producto terminado" />
+                      <SelectValue placeholder="Seleccionar producto terminado">
+                        {selectedProduced ? selectedProduced.name : undefined}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {finishedProducts.map((s) => (
                         <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name} ({s.unitOfMeasure})
+                          {s.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -275,8 +280,8 @@ export function RecipeDialog({
             {/* Vista Previa de la Fórmula */}
             {selectedConsumed && selectedProduced && (
               <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-900 text-xs text-center font-medium">
-                Fórmula: {requiredQuantity || 1} {selectedConsumed.name} ({selectedConsumed.unitOfMeasure}) →{" "}
-                {producedQuantity || 1} {selectedProduced.name} ({selectedProduced.unitOfMeasure})
+                Fórmula: {requiredQuantity || 1} {selectedConsumed.name} →{" "}
+                {producedQuantity || 1} {selectedProduced.name}
               </div>
             )}
 

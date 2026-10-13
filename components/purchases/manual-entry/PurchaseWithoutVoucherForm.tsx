@@ -53,7 +53,13 @@ export function PurchaseWithoutVoucherForm({
 
   // Comunes
   const [amountPaid, setAmountPaid] = useState<number | "">("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const [informalPlaceOrVendor, setInformalPlaceOrVendor] = useState("");
   const [reason, setReason] = useState("");
 
@@ -160,6 +166,18 @@ export function PurchaseWithoutVoucherForm({
           </div>
 
           <div className="flex items-center gap-3">
+            {purchaseType === InformalPurchaseType.InventoryItem && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSupplyDialogOpen(true)}
+                className="h-7 text-xs flex items-center gap-1"
+              >
+                <Plus className="h-3.5 w-3.5" /> + Crear Insumo
+              </Button>
+            )}
+
             {/* Toggle Tipo de Compra */}
             <div className="flex items-center bg-muted p-1 rounded-md text-xs">
               <button
@@ -187,18 +205,6 @@ export function PurchaseWithoutVoucherForm({
                 Gasto operativo
               </button>
             </div>
-
-            {purchaseType === InformalPurchaseType.InventoryItem && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setSupplyDialogOpen(true)}
-                className="h-7 text-xs flex items-center gap-1"
-              >
-                <Plus className="h-3.5 w-3.5" /> + Crear Insumo
-              </Button>
-            )}
           </div>
         </div>
 
@@ -206,7 +212,9 @@ export function PurchaseWithoutVoucherForm({
         {purchaseType === InformalPurchaseType.InventoryItem ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5 md:col-span-1">
-              <Label htmlFor="supply">Insumo Comprado *</Label>
+              <Label htmlFor="supply">
+                Insumo Comprado <span className="text-red-500">*</span>
+              </Label>
               <Select
                 value={supplyId ? supplyId.toString() : ""}
                 onValueChange={(val) => setSupplyId(Number(val))}
@@ -227,7 +235,9 @@ export function PurchaseWithoutVoucherForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="quantity">Cantidad *</Label>
+              <Label htmlFor="quantity">
+                Cantidad <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="quantity"
                 type="number"
@@ -240,7 +250,9 @@ export function PurchaseWithoutVoucherForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="amountPaid">Monto Pagado Total (S/) *</Label>
+              <Label htmlFor="amountPaid">
+                Monto Pagado Total (S/) <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="amountPaid"
                 type="number"
@@ -256,7 +268,9 @@ export function PurchaseWithoutVoucherForm({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5 md:col-span-1">
-              <Label htmlFor="itemDescription">Descripción del Gasto *</Label>
+              <Label htmlFor="itemDescription">
+                Descripción del Gasto <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="itemDescription"
                 placeholder="Ej: Cantante aniversario, Mozo de apoyo, Taxi..."
@@ -268,15 +282,19 @@ export function PurchaseWithoutVoucherForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="expenseCategory">Categoría de Gasto *</Label>
+              <Label htmlFor="expenseCategory">
+                Categoría de Gasto <span className="text-red-500">*</span>
+              </Label>
               <Select
                 value={expenseCategory}
                 onValueChange={(val) => setExpenseCategory(val as ExpenseCategory)}
               >
-                <SelectTrigger id="expenseCategory">
-                  <SelectValue placeholder="Seleccionar categoría" />
+                <SelectTrigger id="expenseCategory" className="w-full">
+                  <SelectValue placeholder="Seleccionar categoría">
+                    {expenseCategory ? EXPENSE_CATEGORY_LABELS[expenseCategory as ExpenseCategory] : undefined}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="w-(--anchor-width) min-w-[260px]">
                   {Object.entries(EXPENSE_CATEGORY_LABELS).map(([key, label]) => (
                     <SelectItem key={key} value={key}>
                       {label}
@@ -287,7 +305,9 @@ export function PurchaseWithoutVoucherForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="amountPaid">Monto Pagado Total (S/) *</Label>
+              <Label htmlFor="amountPaid">
+                Monto Pagado Total (S/) <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="amountPaid"
                 type="number"
@@ -362,7 +382,6 @@ export function PurchaseWithoutVoucherForm({
         open={supplyDialogOpen}
         onOpenChange={setSupplyDialogOpen}
         onSuccess={handleSupplyCreated}
-        hideAffectationIgv={true}
       />
     </>
   );
