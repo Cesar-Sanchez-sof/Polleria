@@ -1,0 +1,26 @@
+{
+  "version": "rules-v1",
+  "description": "Reglas YA CONFIRMADAS en el ERP o en specs aprobadas, cada una con su fuente. No incluye reglas pendientes (anulados P-4, indicadores P-6).",
+  "rules": [
+    {
+      "id": "naturaleza-saldo",
+      "text": "Saldo según la naturaleza de la cuenta: Activo, Gasto y Costo tienen naturaleza deudora (saldo = debe menos haber); Pasivo, Patrimonio e Ingreso tienen naturaleza acreedora (saldo = haber menos debe).",
+      "source": "lib/accounting/balance-sheet.ts (signedBalance)"
+    },
+    {
+      "id": "saldo-libro-mayor",
+      "text": "Saldo final del libro mayor de una cuenta: saldo anterior más la suma del debe menos la suma del haber de los movimientos del período.",
+      "source": "specs/013-consultar-libro-mayor (BR-8)"
+    },
+    {
+      "id": "asiento-periodo",
+      "text": "Todo asiento contable pertenece a un período contable; no se registran asientos en períodos cerrados ni en fechas sin período.",
+      "source": "specs/001-gestion-periodos-contables (FR-008 a FR-010)"
+    },
+    {
+      "id": "partida-doble",
+      "text": "Cada asiento cumple la partida doble: la suma del debe es igual a la suma del haber en sus líneas.",
+      "source": "README.md (Libro Diario, principio de partida doble)"
+    }
+  ]
+}

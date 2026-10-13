@@ -16,7 +16,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [internalOpen, setInternalOpen] = useState(false);
-    const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
+  const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -165,6 +165,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Salón de mesas
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=kitchen")}
@@ -174,6 +175,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Pedidos Listos
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=payments")}
@@ -183,6 +185,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Cobros No Cobrados
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=cashier")}
@@ -192,6 +195,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Caja y ventanilla
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=customers")}
@@ -201,6 +205,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Clientes
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=invoices")}
@@ -210,8 +215,9 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Facturas de Venta
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
                 </Link>
-                
+
               </div>
             </div>
 
@@ -231,6 +237,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Cocina (KDS)
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/restaurant/dishes")}
@@ -240,6 +247,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Platos e Ingredientes (Carta)
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/restaurant/tables")}
@@ -249,6 +257,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Registrar y Gestionar Mesas
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>
@@ -309,6 +318,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Proveedores
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/purchases/purchase-without-voucher")}
@@ -338,6 +348,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Guía Contable
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/entries")}
@@ -347,7 +358,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Asientos / Libro Diario
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/entries?journal=Caja%20y%20bancos")}
@@ -378,6 +389,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Libro Mayor
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/balance")}
@@ -387,6 +399,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Balance General
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/income-statement")}
@@ -396,6 +409,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Estado de Resultados
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/periods")}
@@ -405,6 +419,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Periodos Contables
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>
@@ -415,7 +430,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   SEGURIDAD
                 </span>
               </div>
-                <div className="flex flex-col pl-2 gap-0.5">
+              <div className="flex flex-col pl-2 gap-0.5">
                 <Link
                   className={getLinkClass("/usuarios")}
                   data-path="usuarios"
@@ -433,6 +448,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Auditoría
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>
@@ -453,6 +469,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Endpoints
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/db-diagram")}
@@ -462,6 +479,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Diagrama DB
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>

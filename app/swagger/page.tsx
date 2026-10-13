@@ -3,6 +3,8 @@
 import SwaggerUI from "swagger-ui-react";
 import "swagger-ui-react/swagger-ui.css";
 import { useEffect, useState } from "react";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { FileText } from "lucide-react";
 
 /**
  * Vista que expone la documentación OpenAPI mediante Swagger UI.
@@ -21,12 +23,16 @@ export default function ApiDocs() {
 
   if (!specUrl) return <p>Cargando documentación…</p>;
 
-  return (
+return (
+  <>
+    <ModuleHeader
+      title="Documentación API – Polleria"
+      subtitle="Explora la especificación OpenAPI de la aplicación."
+      icon={FileText}
+    />
     <section className="p-6 bg-(--color-background) min-h-screen">
-      <h1 className="text-3xl font-bold mb-4" style={{ color: "#e0e0ff" }}>
-        Documentación API – Polleria
-      </h1>
       <SwaggerUI url={specUrl} />
     </section>
-  );
+  </>
+);
 }
