@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { PurchaseDetailDialog } from "./PurchaseDetailDialog";
 import { RegisterPaymentDialog } from "./RegisterPaymentDialog";
+import { TablePagination } from "@/components/purchases/shared/TablePagination";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,18 @@ export interface PurchaseInvoice {
   };
   purchaseOrder: {
     id: number;
+    employee?: {
+      id: number;
+      firstName: string;
+      paternalLastName?: string | null;
+      maternalLastName?: string | null;
+    } | null;
+    receivedBy?: {
+      id: number;
+      firstName: string;
+      paternalLastName?: string | null;
+      maternalLastName?: string | null;
+    } | null;
     items: PurchaseOrderItemLine[];
   };
   payments: PurchasePaymentItem[];
@@ -137,6 +150,10 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "partial" | "paid">("all");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("this_month");
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // Rango personalizado
   const [customStart, setCustomStart] = useState("");
@@ -230,7 +247,9 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
     return periodInvoices.filter((inv) => {
       const comprobante = `${inv.voucherType} ${inv.series}-${inv.number}`.toLowerCase();
       const proveedor = `${inv.supplier.businessName} ${inv.supplier.ruc}`.toLowerCase();
-      const matchesSearch = !q || proveedor.includes(q) || comprobante.includes(q);
+      const emp = inv.purchaseOrder.employee;
+      const empleado = emp ? `${emp.firstName} ${emp.paternalLastName || ""}`.toLowerCase() : "";
+      const matchesSearch = !q || proveedor.includes(q) || comprobante.includes(q) || empleado.includes(q);
 
       let matchesStatus = true;
       if (statusFilter === "pending") matchesStatus = inv.estadoPago === "Pendiente";
@@ -240,6 +259,11 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
       return matchesSearch && matchesStatus;
     });
   }, [periodInvoices, search, statusFilter]);
+
+  const paginatedInvoices = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all" || periodFilter !== "this_month";
 
@@ -488,12 +512,18 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
           <Input
             placeholder="Buscar por RUC, razón social o comprobante..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-9 pr-8 h-10 text-xs bg-background rounded-xl border-slate-200 dark:border-slate-800"
           />
           {search && (
             <button
-              onClick={() => setSearch("")}
+              onClick={() => {
+                setSearch("");
+                setCurrentPage(1);
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
@@ -507,7 +537,10 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
             <button
               type="button"
-              onClick={() => setStatusFilter("all")}
+              onClick={() => {
+                setStatusFilter("all");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "all"
                   ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
@@ -521,7 +554,10 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("pending")}
+              onClick={() => {
+                setStatusFilter("pending");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "pending"
                   ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
@@ -537,7 +573,10 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("partial")}
+              onClick={() => {
+                setStatusFilter("partial");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "partial"
                   ? "bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 font-semibold shadow-2xs"
@@ -553,7 +592,10 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("paid")}
+              onClick={() => {
+                setStatusFilter("paid");
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "paid"
                   ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
@@ -594,6 +636,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                 <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right w-28">Subtotal</TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right w-24">IGV</TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right w-32">Total</TableHead>
+                <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-left min-w-[150px]">Registrado por</TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center w-36">Estado de Pago</TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right w-28">Acciones</TableHead>
               </TableRow>
@@ -601,7 +644,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             <TableBody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-16">
+                  <TableCell colSpan={9} className="py-16">
                     <div className="flex flex-col items-center justify-center gap-3 text-center max-w-sm mx-auto">
                       <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-muted-foreground">
                         <Receipt className="h-7 w-7" />
@@ -642,7 +685,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((inv) => {
+                paginatedInvoices.map((inv) => {
                   const subtotal = Number(inv.subtotal);
                   const igv = Number(inv.igv);
                   const total = Number(inv.totalAmount);
@@ -713,6 +756,17 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                         </span>
                       </TableCell>
 
+                      {/* Registrado por */}
+                      <TableCell className="py-3.5 px-4 text-left">
+                        {inv.purchaseOrder?.employee ? (
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {inv.purchaseOrder.employee.firstName} {inv.purchaseOrder.employee.paternalLastName || ""}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+
                       {/* Estado de Pago */}
                       <TableCell className="py-3.5 px-4 text-center">
                         {inv.estadoPago === "Pagado" && (
@@ -777,6 +831,17 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             </TableBody>
           </Table>
         </div>
+
+        {filtered.length > 0 && (
+          <TablePagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={filtered.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="comprobantes"
+          />
+        )}
       </div>
 
       {/* ── Dialogs ── */}

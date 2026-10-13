@@ -12,17 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   TransformationDetailDialog,
   TransformationDetailRecord,
 } from "./TransformationDetailDialog";
 import { AnnulTransformationDialog } from "./AnnulTransformationDialog";
+import { TablePagination } from "@/components/purchases/shared/TablePagination";
 import {
   Search,
   FileText,
@@ -43,7 +37,6 @@ interface TransformationsTableProps {
 export function TransformationsTable({ transformations }: TransformationsTableProps) {
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSupplyFilter, setSelectedSupplyFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [dateFilter, setDateFilter] = useState<string>("");
 
@@ -52,17 +45,6 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
     useState<TransformationDetailRecord | null>(null);
   const [selectedRecordForAnnul, setSelectedRecordForAnnul] =
     useState<TransformationDetailRecord | null>(null);
-
-  // Lista de insumos únicos presentes en las transformaciones para el filtro
-  const uniqueSupplies = useMemo(() => {
-    const map = new Map<number, string>();
-    transformations.forEach((t) => {
-      t.items.forEach((i) => {
-        if (i.supply) map.set(i.supply.id, i.supply.name);
-      });
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [transformations]);
 
   // KPIs
   const totalTransformations = transformations.length;
@@ -101,14 +83,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
         if (itemDateStr !== dateFilter) return false;
       }
 
-      // Filtro por insumo
-      if (selectedSupplyFilter !== "ALL") {
-        const supplyIdNum = Number(selectedSupplyFilter);
-        const hasSupply = t.items.some((i) => i.supply.id === supplyIdNum);
-        if (!hasSupply) return false;
-      }
-
-      // Buscador
+      // Buscador (incluye insumos, lote, responsable, notas)
       if (searchTerm.trim() !== "") {
         const query = searchTerm.toLowerCase().trim();
         const lotNumber = `tr-${t.id.toString().padStart(4, "0")}`.toLowerCase();
@@ -129,56 +104,119 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
 
       return true;
     });
-  }, [transformations, statusFilter, dateFilter, selectedSupplyFilter, searchTerm]);
+  }, [transformations, statusFilter, dateFilter, searchTerm]);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const paginatedTransformations = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTransformations.slice(start, start + pageSize);
+  }, [filteredTransformations, currentPage, pageSize]);
 
   return (
     <div className="space-y-5">
-      {/* KPIs Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-card border rounded-lg p-3 sm:p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Total Transformaciones</span>
-            <Repeat className="h-4 w-4 text-amber-600" />
+      {/* KPIs Cards Estilo Ejecutivo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Transformaciones */}
+        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/30 dark:to-amber-950/20 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-200/80 dark:border-amber-900/60 shadow-2xs">
+              <Repeat className="h-5 w-5" />
+            </div>
+            <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 px-2 py-0.5 rounded-full">
+              Operaciones
+            </span>
           </div>
-          <div className="mt-2 text-xl font-bold">{totalTransformations}</div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Lotes ejecutados
-          </p>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Lotes Ejecutados</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-mono">
+                {totalTransformations}
+              </span>
+              <span className="text-xs text-muted-foreground">lotes totales</span>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Activas: {totalTransformations - annulledTransformations}</span>
+            <span>Histórico total</span>
+          </div>
         </div>
 
-        <div className="bg-card border rounded-lg p-3 sm:p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Materia Prima Consumida</span>
-            <Package className="h-4 w-4 text-rose-600" />
+        {/* Card 2: Materia Prima Consumida */}
+        <div className="rounded-2xl border border-rose-200/60 dark:border-rose-900/40 bg-gradient-to-br from-card via-card to-rose-50/25 dark:to-rose-950/15 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 flex items-center justify-center shrink-0 border border-rose-200/80 dark:border-rose-900/60 shadow-2xs">
+              <Package className="h-5 w-5" />
+            </div>
+            <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 px-2 py-0.5 rounded-full font-mono">
+              Salida Stock
+            </span>
           </div>
-          <div className="mt-2 text-xl font-bold">{totalUnitsConsumed.toFixed(2)}</div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Unidades descontadas
-          </p>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Materia Prima Consumida</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-rose-700 dark:text-rose-400 font-mono">
+                {totalUnitsConsumed.toFixed(2)}
+              </span>
+              <span className="text-xs text-muted-foreground">cant. total</span>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Insumos descontados</span>
+            <span className="font-medium text-rose-600 dark:text-rose-400">Consumo efectivo</span>
+          </div>
         </div>
 
-        <div className="bg-card border rounded-lg p-3 sm:p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Productos Producidos</span>
-            <Sparkles className="h-4 w-4 text-emerald-600" />
+        {/* Card 3: Productos Producidos */}
+        <div className="rounded-2xl border border-emerald-200/60 dark:border-emerald-900/40 bg-gradient-to-br from-card via-card to-emerald-50/25 dark:to-emerald-950/15 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-200/80 dark:border-emerald-900/60 shadow-2xs">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/60 px-2 py-0.5 rounded-full font-mono">
+              Entrada Stock
+            </span>
           </div>
-          <div className="mt-2 text-xl font-bold">{totalUnitsProduced.toFixed(2)}</div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Unidades ingresadas
-          </p>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Productos Producidos</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400 font-mono">
+                {totalUnitsProduced.toFixed(2)}
+              </span>
+              <span className="text-xs text-muted-foreground">cant. generada</span>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Listos para cocina / venta</span>
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">Rendimiento</span>
+          </div>
         </div>
 
-        <div className="bg-card border rounded-lg p-3 sm:p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Anuladas</span>
-            <Ban className="h-4 w-4 text-zinc-500" />
+        {/* Card 4: Anuladas */}
+        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-slate-50/30 dark:to-slate-900/30 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <Ban className="h-5 w-5" />
+            </div>
+            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
+              Auditoría
+            </span>
           </div>
-          <div className="mt-2 text-xl font-bold text-zinc-700 dark:text-zinc-300">
-            {annulledTransformations}
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Lotes Anulados</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-700 dark:text-slate-300 font-mono">
+                {annulledTransformations}
+              </span>
+              <span className="text-xs text-muted-foreground">revertidos</span>
+            </div>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Lotes revertidos
-          </p>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Reversión de Kardex</span>
+            <span className="text-zinc-500 font-semibold">{annulledTransformations === 0 ? "Sin anulaciones" : "Histórico"}</span>
+          </div>
         </div>
       </div>
 
@@ -189,74 +227,74 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
           <Input
             placeholder="Buscar por lote (TR-0001), insumo, responsable..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-9 h-9 text-xs"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Filtro por Estado */}
-          <div className="w-[130px]">
-            <Select
-              value={statusFilter}
-              onValueChange={(val) => setStatusFilter(val || "ALL")}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Segmented Control de Estados */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ALL");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                statusFilter === "ALL"
+                  ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los estados</SelectItem>
-                <SelectItem value="ACTIVE">Activas</SelectItem>
-                <SelectItem value="ANNULLED">Anuladas</SelectItem>
-              </SelectContent>
-            </Select>
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ACTIVE");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                statusFilter === "ACTIVE"
+                  ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Activas
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ANNULLED");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                statusFilter === "ANNULLED"
+                  ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Anuladas
+            </button>
           </div>
 
-          {/* Filtro por Insumo */}
-          <div className="w-[170px]">
-            <Select
-              value={selectedSupplyFilter}
-              onValueChange={(val) => setSelectedSupplyFilter(val || "ALL")}
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Insumo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los insumos</SelectItem>
-                {uniqueSupplies.map((s) => (
-                  <SelectItem key={s.id} value={s.id.toString()}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Filtro por Fecha */}
           <div className="w-[140px]">
             <Input
               type="date"
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="h-9 text-xs"
             />
           </div>
-
-          {(dateFilter || statusFilter !== "ALL" || selectedSupplyFilter !== "ALL" || searchTerm) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setDateFilter("");
-                setStatusFilter("ALL");
-                setSelectedSupplyFilter("ALL");
-                setSearchTerm("");
-              }}
-              className="h-9 text-xs px-2 text-muted-foreground"
-            >
-              Limpiar filtros
-            </Button>
-          )}
         </div>
       </div>
 
@@ -284,7 +322,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                 </TableCell>
               </TableRow>
             ) : (
-              filteredTransformations.map((t) => {
+              paginatedTransformations.map((t) => {
                 const dateStr = new Date(t.date).toLocaleString("es-PE");
                 const consumptions = t.items.filter((i) => i.itemType === "Consumo");
                 const productions = t.items.filter((i) => i.itemType === "Producido");
@@ -376,6 +414,14 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={filteredTransformations.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="transformaciones"
+        />
       </div>
 
       <TransformationDetailDialog

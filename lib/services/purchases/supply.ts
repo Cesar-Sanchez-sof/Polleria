@@ -41,7 +41,7 @@ export async function createSupply(data: SupplyInput) {
     data: {
       name: data.name.trim(),
       type: data.type || SupplyType.RawMaterial,
-      affectationIgv: data.affectationIgv !== undefined ? data.affectationIgv : AffectationIgv.Excluded,
+      affectationIgv: data.affectationIgv !== undefined ? data.affectationIgv : null,
       unitOfMeasure: data.unitOfMeasure.trim(),
       currentStock: 0,
       minimumStock: data.minimumStock || 0,
@@ -75,6 +75,35 @@ export async function updateSupplyMinimum(supplyId: number, minimumStock: number
     where: { id: supplyId },
     data: {
       minimumStock,
+    },
+  });
+
+  return {
+    ...updated,
+    currentStock: Number(updated.currentStock),
+    minimumStock: Number(updated.minimumStock),
+    lastCost: Number(updated.lastCost),
+    averageCost: Number(updated.averageCost),
+  };
+}
+
+export async function updateSupplyUnit(supplyId: number, unitOfMeasure: string) {
+  if (!unitOfMeasure || unitOfMeasure.trim() === "") {
+    throw new Error("La unidad de medida es obligatoria");
+  }
+
+  const supply = await prisma.supply.findUnique({
+    where: { id: supplyId },
+  });
+
+  if (!supply) {
+    throw new Error("Insumo no encontrado");
+  }
+
+  const updated = await prisma.supply.update({
+    where: { id: supplyId },
+    data: {
+      unitOfMeasure: unitOfMeasure.trim(),
     },
   });
 

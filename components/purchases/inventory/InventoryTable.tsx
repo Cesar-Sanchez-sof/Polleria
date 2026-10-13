@@ -13,14 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SupplyDialog } from "./SupplyDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
+import { TablePagination } from "@/components/purchases/shared/TablePagination";
 import {
   Plus,
   Search,
@@ -34,9 +36,17 @@ import {
   TrendingDown,
   ShieldAlert,
   Boxes,
+  Pencil,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { SupplyType, AffectationIgv } from "@prisma/client";
-import { updateSupplyMinimum, setSupplyStatus } from "@/lib/services/purchases/supply";
+import { updateSupplyMinimum, updateSupplyUnit, setSupplyStatus } from "@/lib/services/purchases/supply";
 import { toast } from "sonner";
 
 interface Supply {
@@ -74,6 +84,13 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
   const [editValue, setEditValue] = useState<string>("");
   const [savingId, setSavingId] = useState<number | null>(null);
 
+  // Unit editing (inline)
+  const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
+  const [editUnitValue, setEditUnitValue] = useState<string>("");
+  const [savingUnitId, setSavingUnitId] = useState<number | null>(null);
+  // Pending unit change (awaiting confirm when supply has movements)
+  const [pendingUnitChange, setPendingUnitChange] = useState<{ supplyId: number; unit: string } | null>(null);
+
   // KPIs — calculados sobre la lista completa (no sobre filtered)
   const totalSupplies = supplies.length;
   const rawMaterials = supplies.filter((s) => s.type === SupplyType.RawMaterial).length;
@@ -103,6 +120,9 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const rawPct = totalSupplies === 0 ? 0 : Math.round((rawMaterials / totalSupplies) * 100);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
   const filtered = supplies.filter((i) => {
     const q = search.toLowerCase();
     const code = `INS-${i.id.toString().padStart(3, "0")}`.toLowerCase();
@@ -123,6 +143,11 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
     return matchesSearch && matchesStatus;
   });
+
+  const paginatedSupplies = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
@@ -201,6 +226,65 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     } else if (e.key === "Escape") {
       e.preventDefault();
       setEditingId(null);
+    }
+  };
+
+  const handleStartEditUnit = (item: Supply) => {
+    setEditingUnitId(item.id);
+    setEditUnitValue(item.unitOfMeasure);
+  };
+
+  const doSaveUnit = async (supplyId: number, unit: string) => {
+    setSavingUnitId(supplyId);
+    try {
+      const updated = await updateSupplyUnit(supplyId, unit);
+      setSupplies((prev) =>
+        prev.map((s) =>
+          s.id === supplyId ? { ...s, unitOfMeasure: updated.unitOfMeasure } : s
+        )
+      );
+      toast.success("Unidad actualizada exitosamente");
+    } catch (err: any) {
+      toast.error(err.message || "Error al actualizar unidad de medida");
+    } finally {
+      setSavingUnitId(null);
+      setPendingUnitChange(null);
+    }
+  };
+
+  const handleSaveUnit = async (supplyId: number) => {
+    if (editingUnitId !== supplyId) return;
+    const newUnit = editUnitValue.trim().toUpperCase();
+    const currentItem = supplies.find((s) => s.id === supplyId);
+    if (!newUnit) {
+      setEditingUnitId(null);
+      return;
+    }
+    if (currentItem && currentItem.unitOfMeasure === newUnit) {
+      setEditingUnitId(null);
+      return;
+    }
+    setEditingUnitId(null);
+
+    // Si el insumo tiene stock o movimientos, pedir confirmación
+    const hasHistory = Number(currentItem?.currentStock || 0) !== 0;
+    if (hasHistory) {
+      setPendingUnitChange({ supplyId, unit: newUnit });
+      return;
+    }
+    await doSaveUnit(supplyId, newUnit);
+  };
+
+  const handleKeyDownUnit = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    supplyId: number
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSaveUnit(supplyId);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setEditingUnitId(null);
     }
   };
 
@@ -383,39 +467,84 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por código, insumo o tipo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          <Select
-            value={statusFilter}
-            onValueChange={(val) =>
-              setStatusFilter((val as "all" | "active" | "inactive") ?? "all")
-            }
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue>{STATUS_LABELS[statusFilter]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="active">Solo activos</SelectItem>
-              <SelectItem value="inactive">Solo inactivos</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 bg-card border p-3 rounded-xl shadow-xs">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Buscar por código, insumo o tipo..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="pl-9 h-9 text-xs"
+          />
         </div>
-        <Button
-          onClick={() => setSupplyDialogOpen(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" /> Nuevo Insumo
-        </Button>
+
+        <div className="flex items-center gap-3">
+          {/* Segmented Control de Estados */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("all");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                statusFilter === "all"
+                  ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>Todos</span>
+              <span className="text-[10px] bg-muted px-1.5 py-0.2 rounded-full font-mono">
+                {supplies.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("active");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                statusFilter === "active"
+                  ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>Activos</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
+                {supplies.filter((s) => s.active).length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("inactive");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                statusFilter === "inactive"
+                  ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>Inactivos</span>
+              <span className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
+                {supplies.filter((s) => !s.active).length}
+              </span>
+            </button>
+          </div>
+
+          <Button
+            onClick={() => setSupplyDialogOpen(true)}
+            size="sm"
+            className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="h-4 w-4" /> Nuevo Insumo
+          </Button>
+        </div>
       </div>
 
       {/* ── Table ── */}
@@ -427,14 +556,40 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
               <TableHead>Nombre Insumo</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Afectación IGV</TableHead>
-              <TableHead>Unidad</TableHead>
-              <TableHead className="text-right">Stock Actual</TableHead>
-              <TableHead className="text-right">Stock Mínimo</TableHead>
-              <TableHead className="text-right">Último Costo</TableHead>
-              <TableHead className="text-right">Costo Promedio</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Estado Stock</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead className="w-[115px]">
+                <div className="inline-flex items-center gap-1.5 select-none">
+                  <div
+                    className="inline-flex items-center gap-1 cursor-help text-foreground/80 hover:text-foreground transition-colors"
+                    title="Clic en el valor para editar la unidad de medida"
+                  >
+                    <span>Unidad</span>
+                    <Pencil className="h-3 w-3 text-muted-foreground/70" />
+                  </div>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="inline-flex items-center text-muted-foreground/70 hover:text-foreground cursor-help transition-colors p-0.5 rounded">
+                        <Info className="h-3 w-3" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="center" className="max-w-xs text-xs p-2.5 block space-y-1">
+                        <p className="font-semibold text-background">Unidades permitidas:</p>
+                        <div className="space-y-0.5 text-[11px] text-background/90">
+                          <div>• <strong className="font-semibold text-background">UNID</strong> — piezas discretas (pollo, gaseosas)</div>
+                          <div>• <strong className="font-semibold text-background">KG</strong> — peso (papa, arroz, carne)</div>
+                          <div>• <strong className="font-semibold text-background">LT</strong> — volumen (aceite, leche)</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </TableHead>
+              <TableHead className="text-right w-[130px] whitespace-nowrap">Stock Actual</TableHead>
+              <TableHead className="text-right w-[130px] whitespace-nowrap">Stock Mínimo</TableHead>
+              <TableHead className="text-right w-[120px] whitespace-nowrap">Último Costo</TableHead>
+              <TableHead className="text-right w-[120px] whitespace-nowrap">Costo Promedio</TableHead>
+              <TableHead className="w-[90px]">Estado</TableHead>
+              <TableHead className="w-[110px]">Estado Stock</TableHead>
+              <TableHead className="text-right w-[110px]">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -474,7 +629,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item) => {
+              paginatedSupplies.map((item) => {
                 const code = `INS-${item.id.toString().padStart(3, "0")}`;
                 const currentStock = Number(item.currentStock);
                 const minStock = Number(item.minimumStock);
@@ -498,49 +653,98 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          isIncludedIgv
-                            ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
-                            : "bg-slate-50 text-slate-700 border-slate-200 font-medium"
-                        }
-                      >
-                        {isIncludedIgv ? "Incluido" : "Excluido"}
-                      </Badge>
+                      {item.affectationIgv === null || item.affectationIgv === undefined ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-100 text-slate-500 border-slate-200 font-medium dark:bg-slate-800 dark:text-slate-400"
+                        >
+                          —
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={
+                            isIncludedIgv
+                              ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                              : "bg-slate-50 text-slate-700 border-slate-200 font-medium"
+                          }
+                        >
+                          {isIncludedIgv ? "Incluido" : "Excluido"}
+                        </Badge>
+                      )}
                     </TableCell>
-                    <TableCell>{item.unitOfMeasure}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {currentStock.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editingId === item.id ? (
+                    <TableCell>
+                      {/* Unidad de medida — editable inline */}
+                      {editingUnitId === item.id ? (
                         <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => handleKeyDown(e, item.id)}
-                          onBlur={() => handleSaveMinimum(item.id)}
+                          type="text"
+                          value={editUnitValue}
+                          onChange={(e) => setEditUnitValue(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => handleKeyDownUnit(e, item.id)}
+                          onBlur={() => handleSaveUnit(item.id)}
                           autoFocus
-                          className="h-7 w-20 text-right ml-auto px-1.5 py-0 text-xs"
-                          disabled={savingId === item.id}
+                          className="h-7 w-20 px-1.5 py-0 text-xs uppercase font-mono"
+                          disabled={savingUnitId === item.id}
+                          maxLength={10}
                         />
                       ) : (
                         <span
-                          onClick={() => handleStartEdit(item)}
-                          className="cursor-pointer hover:underline hover:text-foreground font-mono text-muted-foreground inline-block"
-                          title="Haz clic para editar stock mínimo"
+                          onClick={() => handleStartEditUnit(item)}
+                          className="cursor-pointer hover:underline hover:text-foreground font-mono text-xs font-semibold inline-block"
+                          title="Haz clic para editar la unidad de medida"
                         >
-                          {minStock.toFixed(2)}
+                          {item.unitOfMeasure}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-baseline justify-end">
+                        <span className="font-mono font-medium text-foreground text-sm">
+                          {currentStock.toFixed(2)}
+                        </span>
+                        <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal truncate">
+                          {item.unitOfMeasure}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingId === item.id ? (
+                        <div className="inline-flex items-center justify-end">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, item.id)}
+                            onBlur={() => handleSaveMinimum(item.id)}
+                            autoFocus
+                            className="h-7 w-18 text-right px-1.5 py-0 text-xs font-mono"
+                            disabled={savingId === item.id}
+                          />
+                          <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal shrink-0 truncate">
+                            {item.unitOfMeasure}
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => handleStartEdit(item)}
+                          className="inline-flex items-baseline justify-end cursor-pointer group"
+                          title="Haz clic para editar stock mínimo"
+                        >
+                          <span className="font-mono text-sm text-muted-foreground group-hover:text-foreground group-hover:underline">
+                            {minStock.toFixed(2)}
+                          </span>
+                          <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal truncate">
+                            {item.unitOfMeasure}
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm text-foreground/90">
                       {formatCost(item.lastCost)}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
+                    <TableCell className="text-right font-mono text-sm text-foreground/90">
                       {formatCost(item.averageCost)}
                     </TableCell>
                     <TableCell>
@@ -590,6 +794,17 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             )}
           </TableBody>
         </Table>
+
+        {filtered.length > 0 && (
+          <TablePagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={filtered.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="insumos"
+          />
+        )}
       </div>
 
       <SupplyDialog
@@ -604,6 +819,41 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
         supply={supplyToAdjust}
         onSuccess={handleAdjustmentSuccess}
       />
+
+      {/* Confirm dialog: cambiar unidad con historial */}
+      <Dialog
+        open={!!pendingUnitChange}
+        onOpenChange={(open) => { if (!open) setPendingUnitChange(null); }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Cambiar unidad de medida</DialogTitle>
+            <DialogDescription>
+              Este insumo tiene stock registrado. Cambiar la unidad de medida{" "}
+              <strong>no convierte los valores históricos</strong>: los movimientos
+              anteriores mostrarán la nueva unidad pero las cantidades seguirán
+              siendo las mismas. ¿Deseas continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setPendingUnitChange(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingUnitChange) {
+                  doSaveUnit(pendingUnitChange.supplyId, pendingUnitChange.unit);
+                }
+              }}
+            >
+              Sí, cambiar unidad
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -24,6 +24,16 @@ import { SupplyType, AffectationIgv } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
+const SUPPLY_TYPE_LABELS: Record<SupplyType, string> = {
+  [SupplyType.RawMaterial]: "Materia Prima",
+  [SupplyType.FinishedProduct]: "Producto Terminado",
+};
+
+const AFFECTATION_LABELS: Record<AffectationIgv, string> = {
+  [AffectationIgv.Excluded]: "Excluido",
+  [AffectationIgv.Included]: "Incluido",
+};
+
 interface SupplyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,7 +41,7 @@ interface SupplyDialogProps {
   prefilledName?: string;
   prefilledType?: SupplyType;
   prefilledAffectationIgv?: AffectationIgv | null;
-  hideAffectationIgv?: boolean;
+  showAffectationIgv?: boolean;
 }
 
 export function SupplyDialog({
@@ -41,11 +51,11 @@ export function SupplyDialog({
   prefilledName = "",
   prefilledType = SupplyType.RawMaterial,
   prefilledAffectationIgv,
-  hideAffectationIgv = false,
+  showAffectationIgv = false,
 }: SupplyDialogProps) {
-  const defaultAffectation = hideAffectationIgv
-    ? null
-    : (prefilledAffectationIgv ?? AffectationIgv.Excluded);
+  const defaultAffectation = showAffectationIgv
+    ? (prefilledAffectationIgv ?? null)
+    : null;
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<SupplyInput>({
@@ -53,7 +63,7 @@ export function SupplyDialog({
     type: prefilledType,
     affectationIgv: defaultAffectation,
     unitOfMeasure: "KG",
-    minimumStock: 5,
+    minimumStock: prefilledType === SupplyType.FinishedProduct ? 0 : 5,
   });
 
   React.useEffect(() => {
@@ -63,7 +73,7 @@ export function SupplyDialog({
         type: prefilledType,
         affectationIgv: defaultAffectation,
         unitOfMeasure: "KG",
-        minimumStock: 5,
+        minimumStock: prefilledType === SupplyType.FinishedProduct ? 0 : 5,
       });
     }
   }, [open, prefilledName, prefilledType, defaultAffectation]);
@@ -72,7 +82,11 @@ export function SupplyDialog({
     e.preventDefault();
     setLoading(true);
     try {
-      const created = await createSupply(formData);
+      const payload: SupplyInput = {
+        ...formData,
+        affectationIgv: showAffectationIgv ? (formData.affectationIgv ?? null) : null,
+      };
+      const created = await createSupply(payload);
       toast.success("Insumo creado exitosamente");
       onSuccess(created);
       onOpenChange(false);
@@ -94,7 +108,9 @@ export function SupplyDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="name">Nombre del Insumo *</Label>
+            <Label htmlFor="name">
+              Nombre del Insumo <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="name"
               placeholder="Ej: Pollo Entero, Papa Amarilla, Aceite"
@@ -104,19 +120,31 @@ export function SupplyDialog({
             />
           </div>
 
-          {hideAffectationIgv ? (
+          {!showAffectationIgv ? (
             <div className="space-y-1.5">
               <Label htmlFor="type">Tipo de Insumo</Label>
               <Select
                 value={formData.type}
-                onValueChange={(val) =>
-                  setFormData({ ...formData, type: val as SupplyType })
-                }
+                onValueChange={(val) => {
+                  const newType = val as SupplyType;
+                  setFormData((prev) => ({
+                    ...prev,
+                    type: newType,
+                    minimumStock:
+                      newType === SupplyType.FinishedProduct
+                        ? 0
+                        : prev.minimumStock === 0
+                          ? 5
+                          : prev.minimumStock,
+                  }));
+                }}
               >
-                <SelectTrigger id="type">
-                  <SelectValue placeholder="Seleccionar tipo" />
+                <SelectTrigger id="type" className="w-full">
+                  <SelectValue placeholder="Seleccionar tipo">
+                    {formData.type ? SUPPLY_TYPE_LABELS[formData.type] : undefined}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="w-(--anchor-width)">
                   <SelectItem value={SupplyType.RawMaterial}>Materia Prima</SelectItem>
                   <SelectItem value={SupplyType.FinishedProduct}>
                     Producto Terminado
@@ -130,14 +158,26 @@ export function SupplyDialog({
                 <Label htmlFor="type">Tipo de Insumo</Label>
                 <Select
                   value={formData.type}
-                  onValueChange={(val) =>
-                    setFormData({ ...formData, type: val as SupplyType })
-                  }
+                  onValueChange={(val) => {
+                    const newType = val as SupplyType;
+                    setFormData((prev) => ({
+                      ...prev,
+                      type: newType,
+                      minimumStock:
+                        newType === SupplyType.FinishedProduct
+                          ? 0
+                          : prev.minimumStock === 0
+                            ? 5
+                            : prev.minimumStock,
+                    }));
+                  }}
                 >
-                  <SelectTrigger id="type">
-                    <SelectValue placeholder="Seleccionar tipo" />
+                  <SelectTrigger id="type" className="w-full">
+                    <SelectValue placeholder="Seleccionar tipo">
+                      {formData.type ? SUPPLY_TYPE_LABELS[formData.type] : undefined}
+                    </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-(--anchor-width)">
                     <SelectItem value={SupplyType.RawMaterial}>Materia Prima</SelectItem>
                     <SelectItem value={SupplyType.FinishedProduct}>
                       Producto Terminado
@@ -149,15 +189,23 @@ export function SupplyDialog({
               <div className="space-y-1.5">
                 <Label htmlFor="affectationIgv">Afectación IGV</Label>
                 <Select
-                  value={formData.affectationIgv || ""}
+                  value={formData.affectationIgv || "NONE"}
                   onValueChange={(val) =>
-                    setFormData({ ...formData, affectationIgv: (val as AffectationIgv) || null })
+                    setFormData({
+                      ...formData,
+                      affectationIgv: val === "NONE" ? null : (val as AffectationIgv),
+                    })
                   }
                 >
-                  <SelectTrigger id="affectationIgv">
-                    <SelectValue placeholder="Seleccionar afectación" />
+                  <SelectTrigger id="affectationIgv" className="w-full">
+                    <SelectValue placeholder="Seleccionar afectación">
+                      {formData.affectationIgv
+                        ? AFFECTATION_LABELS[formData.affectationIgv]
+                        : "Sin afectación"}
+                    </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-(--anchor-width)">
+                    <SelectItem value="NONE">Sin afectación</SelectItem>
                     <SelectItem value={AffectationIgv.Excluded}>Excluido</SelectItem>
                     <SelectItem value={AffectationIgv.Included}>Incluido</SelectItem>
                   </SelectContent>
@@ -168,7 +216,9 @@ export function SupplyDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="unitOfMeasure">Unidad de Medida *</Label>
+              <Label htmlFor="unitOfMeasure">
+                Unidad de Medida <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="unitOfMeasure"
                 placeholder="KG, UND, LT, PAQ"

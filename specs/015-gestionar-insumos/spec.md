@@ -165,14 +165,39 @@ romper la trazabilidad del Kardex.
    intenta eliminar físicamente, **Then** el sistema NO lo permite 
    (usa `Restrict` en las FKs); solo se puede desactivar.
 
+---
+
+### User Story 6 - Editar unidad de medida inline (Priority: P1)
+
+Como administrador, quiero poder editar la unidad de medida de un 
+insumo ya creado directamente desde la tabla, para corregir errores 
+de tipeo sin tener que crear un insumo nuevo.
+
+**Acceptance Scenarios**:
+
+1. **Given** un insumo con unidad "KG", **When** el usuario hace clic en la 
+   celda de Unidad, **Then** se convierte en input editable.
+2. **Given** el input activo con "UNID", **When** el usuario presiona Enter 
+   o hace blur, **Then** se guarda vía `updateSupplyUnit`.
+3. **Given** el insumo tiene stock > 0, **When** el usuario intenta cambiar 
+   la unidad, **Then** aparece confirm dialog advirtiendo que los 
+   históricos NO se convierten.
+4. **Given** el usuario confirma, **Then** se guarda y aparece toast.
+5. **Given** el usuario cancela, **Then** el valor no cambia.
+
+---
+
 ### Edge Cases
 
-- **No existe edición de insumos**: no hay `updateSupply` ni botón de modificar/desactivar;
-  nombre, tipo, unidad y stock mínimo son **inmutables** después del alta (sólo cambia
-  `currentStock`, y sólo por los caminos de inventario).
-- **`active` editable desde la lista**: el stock mínimo y el estado activo son editables
-  inline desde la tabla de inventario (si no se ha implementado aún, documentarlo como
-  pendiente).
+- **Edición de unidad de medida**: nombre y tipo son inmutables después del alta;
+  sin embargo, el stock mínimo y la unidad de medida son editables inline desde la
+  tabla (`updateSupplyMinimum` y `updateSupplyUnit`).
+- **La unidad de medida se muestra SIEMPRE junto a las cantidades** (Stock Actual:
+  "27 UNID", Stock Mínimo: "5 KG").
+- **Unidades posibles**: los insumos tienen 3 unidades posibles: UNID (piezas),
+  KG (peso), LT (volumen).
+- **Productos terminados de transformación**: los productos terminados producidos
+  por transformación también tienen su unidad y se muestra consistentemente.
 - **Kardex sin pantalla**: la página se titula "Kardex e Inventario de Insumos" y existe
   `getInventoryMovements(supplyId?)`, pero **ningún componente la consume** → la lista de
   movimientos no está visible en la UI.
@@ -238,6 +263,8 @@ romper la trazabilidad del Kardex.
 | BR-16 | **Etiquetas en español** | RawMaterial → "Materia Prima"; FinishedProduct → "Producto Terminado"; Included → "Incluido"; Excluded → "Excluido". |
 | BR-17 | **Baja lógica** | Los insumos no se eliminan físicamente; solo se alterna `active`. |
 | BR-18 | **Filtro de estado** | La tabla permite filtrar por "Todos", "Solo activos" o "Solo inactivos". |
+| BR-19 | **Unidad de medida estandarizada** | UNID (piezas), KG (peso), LT (volumen). |
+| BR-20 | **Unidad visible junto a cantidad** | La unidad se muestra siempre junto a la cantidad numérica. |
 
 ## Endpoint / Transporte
 
@@ -249,6 +276,7 @@ romper la trazabilidad del Kardex.
 | Listar | `getSupplies()` | `prisma.supply.findMany` ordenado por `name`; en error devuelve `[]`. |
 | Crear | `createSupply(data)` | Valida nombre/unidad y crea con stock 0. |
 | Ajustar | `registerInventoryAdjustment(supplyId, actualQuantity, reason, movementType?)` | Transacción: movimiento + `currentStock = actualQuantity`. |
+| Unidad | `updateSupplyUnit(supplyId, unitOfMeasure)` | Valida unidad no vacía y actualiza el campo. |
 | Kardex | `getInventoryMovements(supplyId?)` | Movimientos ordenados por `movedAt` descendente (**sin consumidores en la UI**). |
 
 ### Campos de `SupplyInput`
@@ -294,8 +322,8 @@ los campos numéricos; bloqueo extra de motivo vacío con
 4. **When** faltan nombre, unidad o motivo, o la cantidad es negativa **Then** se rechaza con
    el mensaje exacto documentado.
 5. **When** no hay insumos (o la carga falla) **Then** se muestra el estado vacío documentado.
-6. **When** un insumo necesita editar su nombre o unidad **Then** no hay ninguna acción
-   disponible para hacerlo (sólo alta y ajuste).
+6. **When** un insumo necesita editar su nombre o tipo **Then** no hay ninguna acción
+   disponible para hacerlo; la unidad de medida y stock mínimo se editan inline en la tabla.
 
 ---
 
@@ -322,6 +350,8 @@ los campos numéricos; bloqueo extra de motivo vacío con
 - **FR-012**: Permitir alternar el estado activo/inactivo de un insumo 
   desde la tabla.
 - **FR-013**: Ofrecer filtro por estado en la tabla de inventario.
+- **FR-014**: Mostrar unidad de medida junto a todas las cantidades (stock, movimientos, transformaciones).
+- **FR-015**: Editar la unidad de medida inline con confirmación si el insumo tiene stock.
 
 ### Non-Functional Requirements
 

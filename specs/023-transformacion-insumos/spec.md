@@ -3,7 +3,7 @@
 **Feature Branch**: `023-transformacion-insumos`
 
 **Created**: 2026-10-12
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Especificación de Spec Kit para la feature 
 *transformación de insumos*, que permite definir recetas de producción y 
@@ -154,7 +154,9 @@ insumos se consumieron, qué se produjo, a qué costo y quién lo hizo.
 
 ---
 
-### User Story 5 - Anular una transformación (Priority: P1)
+### User Story 5 - Anular una transformación (Priority: P1) [Implementada]
+
+> **Estado**: Implementada (servicio `annulTransformation` y diálogo UI integrados).
 
 Como administrador, quiero anular una transformación registrada por error, 
 revirtiendo el stock y dejando constancia del motivo.
@@ -360,8 +362,8 @@ revirtiendo el stock y dejando constancia del motivo.
 - **FR-005**: Actualizar `currentStock` y `averageCost` de ambos insumos.
 - **FR-006**: Listar transformaciones con KPIs, filtros y búsqueda.
 - **FR-007**: Ver detalle de una transformación.
-- **FR-008**: Anular transformación con motivo + reversión de stock.
-- **FR-009**: Bloquear anulación si stock insuficiente.
+- **FR-008**: Anular transformación con motivo + reversión de stock. *(Implementado)*
+- **FR-009**: Bloquear anulación si stock insuficiente. *(Implementado)*
 - **FR-010**: Refrescar página tras cada operación.
 
 ### Non-Functional Requirements
@@ -388,14 +390,26 @@ revirtiendo el stock y dejando constancia del motivo.
 
 ---
 
-## Fuera de alcance
+## Evidencia de verificación
 
-- Recetas de papa, cebolla, ají, salsas (futuras iteraciones).
-- Transformación automática al vender (el consumo de productos terminados 
-  lo maneja el módulo de Cocina con `DishRecipe`).
-- Planificación de producción (cuánto transformar según demanda).
-- Reportes de rentabilidad por producto.
-- Autorización por rol.
+| Afirmación | Fuente |
+|------------|--------|
+| CRUD de recetas | lib/services/purchases/transformation.ts |
+| Ejecución por lote | lib/services/purchases/transformation.ts (executeTransformation) |
+| Validación de stock | Mismo archivo |
+| Movimientos linkeados a TransformationItem | InventoryMovement.transformationItemId |
+| Promedio ponderado móvil del producido | executeTransformation |
+| Anulación con reversión de stock | annulTransformation |
+| Diálogo de anulación con motivo | components/purchases/transformation/AnnulTransformationDialog.tsx |
+| Badge "Anulada" en historial | components/purchases/transformation/TransformationsTable.tsx |
+| Detalle con motivo de anulación | components/purchases/transformation/TransformationDetailDialog.tsx |
+| Tests | purchases.service.test.ts (bloque Módulo 8) |
+
+Fuera de alcance:
+- Transformaciones de productos distintos al pollo (futuras iteraciones)
+- Planificación de producción según demanda
+- Reportes de rentabilidad por producto
+- Autorización por rol
 
 ---
 
@@ -409,4 +423,4 @@ revirtiendo el stock y dejando constancia del motivo.
 
 ---
 
-*Última actualización: 2026-10-12*
+*Última actualización: 2026-10-13*
