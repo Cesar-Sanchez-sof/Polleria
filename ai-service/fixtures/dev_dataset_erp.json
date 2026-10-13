@@ -1,0 +1,25 @@
+{
+  "version": "dev-dataset-erp-v1",
+  "description": "Dataset FICTICIO para el modo xiyansql de desarrollo (Fase 1). Usa los nombres de columna del patrón entrenado; cuentas, nombres y cifras son inventados y NO representan información financiera real. Las consultas cuya exactitud depende del criterio de asientos anulados (P-4) siguen bloqueadas para datos reales.",
+  "role": "contador_demo",
+  "account_keywords": {
+    "caja": "101",
+    "bancos": "104",
+    "proveedores": "421",
+    "proveedor": "421",
+    "ventas": "701"
+  },
+  "dataset": [
+    { "cuenta": "101", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "account_id": 1, "code": "101", "name": "Caja demo", "type": "Activo", "total_debit": "1800.00", "total_credit": "650.40" } ] },
+    { "cuenta": "101", "desde": "2026-08-01", "hasta": "2026-08-31",
+      "rows": [ { "account_id": 1, "code": "101", "name": "Caja demo", "type": "Activo", "total_debit": "1200.00", "total_credit": "1310.00" } ] },
+    { "cuenta": "104", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "account_id": 2, "code": "104", "name": "Bancos demo", "type": "Activo", "total_debit": "4100.00", "total_credit": "2200.00" } ] },
+    { "cuenta": "421", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "account_id": 3, "code": "421", "name": "Proveedores demo", "type": "Pasivo", "total_debit": "300.00", "total_credit": "990.00" } ] },
+    { "cuenta": "701", "desde": "2026-09-01", "hasta": "2026-09-30",
+      "rows": [ { "account_id": 4, "code": "701", "name": "Ventas demo", "type": "Ingreso", "total_debit": "0", "total_credit": "5420.80" } ] },
+    { "cuenta": "101", "desde": "2026-07-01", "hasta": "2026-07-31", "rows": [] }
+  ]
+}

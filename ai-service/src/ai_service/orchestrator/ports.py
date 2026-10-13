@@ -12,9 +12,10 @@ el pipeline. Reglas de separación (AR-1):
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import ClassVar, Literal, Protocol
 
 from ai_service.audit.record import AuditRecord
 from ai_service.http.schemas import Figure, Period, QueryRequest
@@ -23,6 +24,22 @@ from ai_service.validation.validator import Verdict
 
 __all__ = [
     "AuditSink",
+    "AuthorizationContext",
+    "AuthorizedSqlExecutor",
+    "ClassifiedError",
+    "ExecutionFailed",
+    "ExecutionRefused",
+    "ExecutionTimeout",
+    "ExecutionUnavailable",
+    "ResultTooLarge",
+    "SqlExecutionError",
+    "GenerationBlocked",
+    "GenerationInputRejected",
+    "GenerationNotAuthorized",
+    "InvalidGeneratorOutput",
+    "SqlGenerationError",
+    "SqlGeneratorTimeout",
+    "SqlGeneratorUnavailable",
     "Explainer",
     "FinanceEngine",
     "FinanceResult",
@@ -63,12 +80,32 @@ class Fragment:
 
 
 @dataclass(frozen=True)
+class AuthorizationContext:
+    """Rol con el que se acota **una** petición, ya revalidado contra la allowlist por el backend.
+
+    **Provisional (P-9)**: el rol llega en CT-B desde el proxy y todavía no proviene de una sesión
+    autenticada del ERP. Por eso solo sirve para **restringir** el alcance (qué objetos puede ver el
+    generador y qué SQL aprueba el validador), nunca para ampliarlo, y ``autenticado`` es ``False``.
+    Un componente que exija autenticación real debe rechazar ``origen="ct-b-provisional"``.
+    """
+
+    rol: str
+    origen: Literal["ct-b-provisional"] = "ct-b-provisional"
+    autenticado: bool = False
+
+
+@dataclass(frozen=True)
 class QueryPlan:
-    """Consulta ya resuelta y revalidada por el backend (BR-12)."""
+    """Consulta ya resuelta y revalidada por el backend (BR-12).
+
+    ``autorizacion`` lo fija el pipeline en cada petición. Es opcional solo para conservar los
+    simuladores; los generadores reales lo exigen y fallan de forma segura si falta.
+    """
 
     kind: Literal["saldo_cuenta"]
     cuenta: str
     periodo: Period
+    autorizacion: AuthorizationContext | None = None
 
 
 @dataclass(frozen=True)
@@ -94,7 +131,74 @@ class Retriever(Protocol):
     def retrieve(self, query: str, k: int) -> list[Fragment]: ...
 
 
+_CODE_RE = re.compile(r"^[A-Z_]{3,40}$")
+
+
+class ClassifiedError(Exception):
+    """Fallo **clasificado** de un componente. ``category`` y ``code`` van a la auditoría.
+
+    Nunca lleva el prompt, la salida del modelo, el SQL, filas, rutas ni credenciales: solo códigos
+    fijos con el formato de los códigos de auditoría (uno inválido se sustituye por ``UNSPECIFIED``).
+
+    - ``transient=True`` (servicio no disponible, *timeout*): ``503`` "intenta más tarde".
+    - ``transient=False`` (salida inválida, entrada rechazada, sin autorización, bloqueado): la
+      consulta queda ``no_resoluble``; reintentar no cambiaría el resultado.
+    """
+
+    category: ClassVar[str] = "COMPONENT_ERROR"
+    transient: ClassVar[bool] = False
+
+    def __init__(self, code: str) -> None:
+        code = code if isinstance(code, str) and _CODE_RE.match(code) else "UNSPECIFIED"
+        super().__init__(code)
+        self.code = code
+
+
+class SqlGenerationError(ClassifiedError):
+    """Fallo clasificado de un generador de SQL."""
+
+    category = "SQLGEN_ERROR"
+
+
+class SqlGeneratorUnavailable(SqlGenerationError):
+    """El servicio de generación no responde, está cargando, ocupado o mal configurado."""
+
+    category = "SQLGEN_UNAVAILABLE"
+    transient = True
+
+
+class SqlGeneratorTimeout(SqlGenerationError):
+    category = "SQLGEN_TIMEOUT"
+    transient = True
+
+
+class InvalidGeneratorOutput(SqlGenerationError):
+    """La respuesta o la salida del modelo no tiene un formato utilizable (no es indisponibilidad)."""
+
+    category = "SQLGEN_INVALID_OUTPUT"
+
+
+class GenerationInputRejected(SqlGenerationError):
+    """La entrada construida para el modelo fue rechazada (p. ej., excede la longitud entrenada)."""
+
+    category = "SQLGEN_INPUT_REJECTED"
+
+
+class GenerationNotAuthorized(SqlGenerationError):
+    """Falta el contexto de autorización o el rol no cubre los objetos que requiere la consulta."""
+
+    category = "SQLGEN_NOT_AUTHORIZED"
+
+
+class GenerationBlocked(SqlGenerationError):
+    """La modalidad está bloqueada hasta una decisión pendiente (p. ej., P-4 con datos reales)."""
+
+    category = "SQLGEN_BLOCKED"
+
+
 class SqlGenerator(Protocol):
+    """Puede lanzar :class:`SqlGenerationError`; el resultado pasa siempre por el SQL Validator."""
+
     def generate(self, plan: QueryPlan, fragments: Sequence[Fragment]) -> SqlCandidate: ...
 
 
@@ -108,6 +212,51 @@ class SqlExecutor(Protocol):
     """Solo acepta veredictos aprobados; nunca recibe SQL sin validar."""
 
     def execute(self, verdict: Verdict) -> list[Row]: ...
+
+
+class AuthorizedSqlExecutor(Protocol):
+    """Executor que además exige el contexto de autorización de la petición (p. ej., base real).
+
+    Si el Executor implementa ``execute_authorized``, el pipeline lo usa en lugar de ``execute``.
+    """
+
+    def execute_authorized(self, verdict: Verdict, authorization: AuthorizationContext) -> list[Row]: ...
+
+
+class SqlExecutionError(ClassifiedError):
+    """Fallo clasificado de un Executor."""
+
+    category = "SQLEXEC_ERROR"
+
+
+class ExecutionRefused(SqlExecutionError):
+    """El Executor se negó a ejecutar (deshabilitado, sin autorización válida o SQL no revalidado)."""
+
+    category = "SQLEXEC_REFUSED"
+
+
+class ExecutionUnavailable(SqlExecutionError):
+    """Base de datos no disponible, sin controlador o sin permisos de lectura configurados."""
+
+    category = "SQLEXEC_UNAVAILABLE"
+    transient = True
+
+
+class ExecutionTimeout(SqlExecutionError):
+    category = "SQLEXEC_TIMEOUT"
+    transient = True
+
+
+class ExecutionFailed(SqlExecutionError):
+    """La base de datos rechazó una consulta ya aprobada (sin detalles del error)."""
+
+    category = "SQLEXEC_FAILED"
+
+
+class ResultTooLarge(SqlExecutionError):
+    """El resultado supera el límite de filas: no se trunca (un total parcial sería incorrecto)."""
+
+    category = "SQLEXEC_RESULT_TOO_LARGE"
 
 
 class FinanceEngine(Protocol):

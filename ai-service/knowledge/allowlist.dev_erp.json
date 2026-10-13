@@ -1,0 +1,40 @@
+{
+  "version": "dev-erp-2026-10-13",
+  "schema": "ficticio_erp",
+  "note": "Allowlist de DESARROLLO para el conector XiYanSQL (Fase 1): usa los nombres de tabla del ERP solo para reproducir el formato del entrenamiento; los roles son ficticios y los datos de prueba son inventados. No es la allowlist real (P-14). journal_entry.status se excluye a propósito: el criterio de asientos anulados (P-4) sigue pendiente.",
+  "tables": {
+    "accounting_account": {
+      "id": "INT",
+      "parent_id": "INT",
+      "code": "VARCHAR",
+      "name": "VARCHAR",
+      "type": "VARCHAR",
+      "active": "BOOLEAN"
+    },
+    "journal_entry": {
+      "id": "INT",
+      "entry_date": "DATE",
+      "description": "VARCHAR",
+      "book": "VARCHAR",
+      "code": "VARCHAR"
+    },
+    "journal_entry_detail": {
+      "id": "INT",
+      "entry_id": "INT",
+      "account_id": "INT",
+      "description": "VARCHAR",
+      "debit": "DECIMAL(12,2)",
+      "credit": "DECIMAL(12,2)"
+    }
+  },
+  "roles": {
+    "contador_demo": {
+      "accounting_account": ["id", "parent_id", "code", "name", "type", "active"],
+      "journal_entry": ["id", "entry_date", "description", "book", "code"],
+      "journal_entry_detail": ["id", "entry_id", "account_id", "description", "debit", "credit"]
+    },
+    "lector_demo": {
+      "accounting_account": ["code", "name"]
+    }
+  }
+}

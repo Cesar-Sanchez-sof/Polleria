@@ -148,6 +148,51 @@ local · ⛔ = bloqueada por una dependencia externa.
 - [x] **T032** Índice en memoria con similitud coseno detrás de `Retriever`; Recall@k y MRR.
 - [ ] **T033** ⚠️ PENDIENTE: embeddings ligeros en CPU (biblioteca y modelo por elegir, R-03; requiere autorización de instalación y verificar Smart App Control).
 
+## B5: Modelo 2 (XiYanSQL + QLoRA), Fase 1: conector sin carga del modelo
+
+> **Estado (2026-10-13)**: T050–T056 implementadas y verificadas: 59 pruebas nuevas con pytest,
+> sin red, sin GPU y sin cargar modelos; regresión completa de 284 pruebas en verde.
+>
+> - **Adaptador del MVP**: `xiyansql_v17_json_v10_balanced_full` (alternativa configurable:
+>   `xiyansql_v171_json_v10_semantic_full`). Sigue en WSL y no se copia ni se versiona.
+> - **Fidelidad al entrenamiento (verificada en solo lectura)**: el constructor del prompt
+>   reproduce byte a byte los 1364 mensajes de los datasets v1.7 y v1.7.1. El M-Schema generado
+>   desde la allowlist y la metadata es idéntico al de 12 ejemplos de entrenamiento.
+>   `〖DB_ID〗 los_betos` es la etiqueta del dataset, no el identificador del ERP. Se usa la
+>   plantilla ChatML de Qwen, con EOS `<|im_end|>` y un máximo de 1024 tokens.
+> - **Composición fuera de distribución**: `saldo_cuenta` combina el patrón entrenado de agregado
+>   por cuenta y tipo con el filtro `account_code`; esa combinación exacta no está en v1.7 y debe
+>   medirse en la primera inferencia real.
+> - **P-4 sigue pendiente**: `journal_entry.status` se excluye de la allowlist de desarrollo y no se
+>   inventa ninguna regla. Las consultas reales que dependen de ese criterio siguen bloqueadas.
+> - Comando: `PYTHONDONTWRITEBYTECODE=1 ai-service/.venv/Scripts/python.exe -m pytest ai-service/tests/test_sqlgen_prompt.py ai-service/tests/test_sqlgen_output.py ai-service/tests/test_sqlgen_client.py ai-service/tests/test_sqlgen_pipeline.py ai-service/tests/test_sqlgen_settings.py ai-service/tests/test_inference_server.py -p no:cacheprovider`
+
+- [x] **T050** `PlanToRequest` (contrato JSON 1.0 canónico) y `MSchemaBuilder` (solo objetos de la allowlist del rol, tipos desde la metadata de Prisma).
+- [x] **T051** Prompt XiYan, plantilla ChatML y evidencia curada. Los fragmentos RAG solo entran si la política del tipo de plan los admite, filtrados y acotados; la de `saldo_cuenta` no admite ninguno.
+- [x] **T052** `OutputParser` (una sentencia o rechazo) y `XiYanSqlGenerator` (implementa `SqlGenerator`; el SQL pasa siempre por el validador).
+- [x] **T053** Cliente HTTP (`127.0.0.1`, token propio, *timeout*, sin proxies) y contrato `xiyan-sqlgen/1`. Si el servicio falla responde `503` sin *fallback*.
+- [x] **T054** Selector `AI_SQL_GENERATOR=simulado|xiyansql` (por defecto `simulado`). En modo `xiyansql`, la composición usa datos ficticios con nombres del ERP, un Executor estricto y un adaptador de filas.
+- [x] **T055** Servicio de inferencia `ai-service/inference_server/` con carga diferida en el `lifespan`, una generación a la vez y validación del prompt y de la longitud. No se ha levantado.
+- [x] **T056** Pruebas sin modelos: compatibilidad con el entrenamiento, ausencia del texto del usuario, allowlist por rol, SQL malicioso, errores HTTP, `503` sin *fallback*, importaciones sin PyTorch y barreras de aislamiento.
+- [x] **T059** Endurecimiento (2026-10-13; 299 pruebas en verde, de ellas 74 de B5):
+  - **Autorización por petición:** `AuthorizationContext` en `QueryPlan`, provisional hasta P-9. El M-Schema y el validador usan el rol de cada petición. Si el rol no tiene el alcance necesario, el Modelo 2 no se invoca.
+  - **Cifras sin datos inventados:** se elimina `movimientos=1`. La presencia de datos se verifica por la forma del SQL (`JOIN` internos, `GROUP BY`, `SUM` directos, sin `COALESCE`, subconsultas ni CTE) y las cifras salen solo de los totales devueltos.
+  - **Evidencia:** versionada (`evidence-saldo-v1`), trazable y restringida a lo que el rol ve. Las reglas contables nunca se envían al Modelo 2 y las de B1 no se tocan.
+  - **Clasificación de errores:** `SQLGEN_UNAVAILABLE` y `SQLGEN_TIMEOUT` dan `503`. `SQLGEN_INVALID_OUTPUT`, `SQLGEN_INPUT_REJECTED`, `SQLGEN_NOT_AUTHORIZED` y `SQLGEN_BLOCKED` dan `no_resoluble`. `SQL_REJECTED` no cambia.
+  - **P-4:** `saldo_cuenta` queda bloqueado (`VOIDED_ENTRIES_UNDEFINED`) con cualquier origen de datos que no sea ficticio.
+- [x] **T060** `PostgresReadOnlyExecutor` (2026-10-13; 319 pruebas en verde), deshabilitado por defecto y activado solo con `AI_SQL_EXECUTOR=postgres_readonly`.
+  - **Controles:** revalida el SQL con el validador y el rol de la petición, abre una transacción `READ ONLY` comprobada con 5 s y 2 s de *timeout*, admite como máximo 50 filas sin truncar y clasifica los errores solo por SQLSTATE. `psycopg` se importa de forma diferida y es una dependencia opcional.
+  - **Ejecución real del chatbot deshabilitada:** ningún origen de autorización se acepta mientras P-9 esté pendiente y `saldo_cuenta` sigue bloqueado por P-4.
+  - **Pendiente para activarla:** `USAGE` en `public` y `SELECT` sobre las tablas contables para `xiyansql_readonly` (sondeo del 2026-10-13: 0 tablas legibles, origen del `42P01` de EXPLAIN), `psycopg` en Windows o `ai-service` en WSL, P-4, P-9 y P-14.
+- [x] **T061** Modelo 1 con OpenAI Responses API (`OpenAiResponsesProvider`, `httpx`, sin dependencia nueva), con el proveedor simulado por defecto (`AI_LLM_PROVIDER=openai` lo activa).
+  - **Salidas y explicaciones:** salidas estructuradas estrictas validadas con Pydantic y `store: false`. La explicación solo recibe marcadores y pasa por `render_verified`.
+  - **Clave:** se carga del entorno o de `ai-service/.env` (no rastreado), del que solo se leen dos claves.
+  - **Costes:** precios obligatorios (P-22), tope mensual de 5 USD como máximo y coste máximo por consulta comprobado al arrancar. 334 pruebas en verde.
+  - **Pendiente:** primera llamada facturable (requiere autorización), confirmar el identificador y el precio de `gpt-6-luna` y un contador de consumo persistente (R-06).
+- [x] **T062** Executor ficticio por AST (`SaldoFixtureExecutor`): reconoce el patrón de saldo en el SQL validado, con cualquier alias u orden, y responde `FixtureMiss` (`503`) ante cualquier otra construcción o un período sin datos. Incluye la prueba integral con ambos proveedores simulados y el SQL real de XiYanSQL (342 pruebas en verde).
+- [ ] **T057** ⚠️ PENDIENTE de autorización: instalar `fastapi` y `uvicorn` en el entorno de inferencia de WSL, primer arranque manual (VRAM, latencia, plantilla) e inferencias con datos ficticios.
+- [ ] **T058** ⚠️ PENDIENTE: Executor ficticio capaz de evaluar SQL arbitrario (hoy solo responde al SQL de referencia normalizado). Diagnóstico de EXPLAIN 0/7 (`42P01` por entorno: base, esquema, `search_path` o permisos) pendiente, sin acceso a PostgreSQL.
+
 ## ERP, F2 (⚠️ requiere autorizar `npm install`, exigido también por `AGENTS.md`)
 
 - [ ] **T040** [P] Lista de rutas de P-2: `lib/ai-assistant/allowed-routes.ts` + test.

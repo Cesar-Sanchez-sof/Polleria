@@ -14,6 +14,15 @@ Garantías:
 - Un :class:`SecurityIncident` (p. ej. datos sensibles hacia un proveedor externo) **detiene** el
   procesamiento: ``503`` genérico, ``security_incident=True`` y código ``SECURITY_INCIDENT`` en la
   auditoría. Nunca se convierte en una respuesta aparentemente exitosa.
+- El generador de SQL recibe en el plan el contexto de autorización de **cada** petición (rol
+  revalidado, provisional hasta P-9) y el validador usa ese mismo rol. Sus fallos se clasifican:
+  servicio no disponible o *timeout* → ``503``; salida inválida, entrada rechazada, falta de
+  autorización o modalidad bloqueada → ``no_resoluble`` sin invocar validador ni Executor; SQL
+  rechazado por el validador → ``no_resoluble`` con ``SQL_REJECTED``. La auditoría guarda la
+  categoría y el código, nunca el prompt ni la salida.
+- Un Executor con ``execute_authorized`` (base real) recibe también ese contexto y revalida. Sus
+  fallos se clasifican igual: base no disponible o *timeout* → ``503``; rechazo, consulta
+  rechazada por la base o resultado demasiado grande → ``no_resoluble`` sin cifras.
 - Cualquier fallo de un componente → respuesta controlada, sin trazas internas ni SQL.
 - Toda petición con traza válida deja un registro de auditoría minimizado.
 """
@@ -45,12 +54,16 @@ from ai_service.orchestrator.model_calls import ModelUnavailable
 from ai_service.orchestrator.periods import resolve_period, resolve_period_from
 from ai_service.orchestrator.ports import (
     AuditSink,
+    AuthorizationContext,
+    ClassifiedError,
     Explainer,
     FinanceEngine,
     Interpreter,
     QueryPlan,
     Retriever,
+    SqlExecutionError,
     SqlExecutor,
+    SqlGenerationError,
     SqlGenerator,
     SqlValidator,
 )
@@ -176,6 +189,9 @@ class Orchestrator:
         except ModelUnavailable:
             run.codes.append(MODEL_UNAVAILABLE)
             status = 503
+        except ClassifiedError as exc:  # solo llegan aquí los transitorios (servicio, timeout)
+            run.codes.extend([exc.category, exc.code])
+            status = 503
         except Exception:  # fallo de cualquier otro componente: respuesta controlada
             run.codes.append(COMPONENT_FAILURE)
             status = 503
@@ -229,21 +245,42 @@ class Orchestrator:
             self._finish(run, "no_resoluble", code=INDICATOR_NOT_AVAILABLE)  # catálogo pendiente (P-6)
             return
 
-        plan = self._resolve_plan(request, interpretation.cuenta)
+        # Rol ya revalidado en ``handle`` contra la allowlist; provisional hasta P-9 (solo restringe).
+        authorization = AuthorizationContext(rol=request.usuario.rol)
+        plan = self._resolve_plan(request, interpretation.cuenta, authorization)
         if plan is None:  # falta cuenta o período tras revisar mensaje, historial y contexto
             self._finish(run, "requiere_aclaracion", code=MISSING_ENTITIES)
             return
 
         fragments = self._retriever.retrieve(request.mensaje, self._k)
-        candidate = self._generator.generate(plan, fragments)
-        verdict = self._validator.validate(candidate.sql, request.usuario.rol)
+        try:
+            candidate = self._generator.generate(plan, fragments)
+        except SqlGenerationError as exc:
+            if exc.transient:
+                raise  # 503 en ``handle``
+            run.codes.extend([exc.category, exc.code])
+            self._finish(run, "no_resoluble")
+            return  # sin SQL: el validador y el Executor NO se invocan
+        verdict = self._validator.validate(candidate.sql, authorization.rol)
         if not verdict.approved:
             run.codes.extend([SQL_REJECTED, *verdict.reasons])
             self._finish(run, "no_resoluble")
             return  # el Executor NO se invoca
 
         run.normalized_sql = verdict.normalized_sql
-        rows = self._executor.execute(verdict)
+        execute_authorized = getattr(self._executor, "execute_authorized", None)
+        try:
+            rows = (
+                execute_authorized(verdict, authorization)
+                if callable(execute_authorized)
+                else self._executor.execute(verdict)
+            )
+        except SqlExecutionError as exc:
+            if exc.transient:
+                raise  # 503 en ``handle``
+            run.codes.extend([exc.category, exc.code])
+            self._finish(run, "no_resoluble")
+            return  # sin filas: no hay cifras
         run.rows = len(rows)
         run.evidences = [self._evidence(verdict.normalized_sql, len(rows))]
 
@@ -267,7 +304,9 @@ class Orchestrator:
         run.texto = text
         run.figures = result.figures
 
-    def _resolve_plan(self, request: QueryRequest, interpreted_account: str | None) -> QueryPlan | None:
+    def _resolve_plan(
+        self, request: QueryRequest, interpreted_account: str | None, authorization: AuthorizationContext
+    ) -> QueryPlan | None:
         """Cuenta y período revalidados en el backend (BR-10, BR-12); el contexto solo es pista."""
         filters = request.contexto.filtros if request.contexto else None
         account = interpreted_account or (filters.codigo if filters else None)
@@ -282,7 +321,7 @@ class Orchestrator:
             period = Period(desde=filters.desde, hasta=filters.hasta)
         if period is None:
             return None
-        return QueryPlan(kind="saldo_cuenta", cuenta=account, periodo=period)
+        return QueryPlan(kind="saldo_cuenta", cuenta=account, periodo=period, autorizacion=authorization)
 
     @staticmethod
     def _evidence(normalized_sql: str | None, rows: int) -> Evidence:
