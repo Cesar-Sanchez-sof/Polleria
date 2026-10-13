@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
           items,
           total: calculatedTotal,
           editable: !CLOSED_STATUSES.includes(order.status),
+          isAnnexed: Boolean(activeTableOrder.notes?.includes("[Anexa a Mesa")),
         };
       }
 

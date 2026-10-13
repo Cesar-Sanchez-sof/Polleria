@@ -18,6 +18,7 @@ type Tx = Prisma.TransactionClient;
 
 const ACCOUNT_CODES = {
   cash: "101",
+  digitalWallet: "102",
   banks: "104",
   receivables: "121",
   igvPayable: "401",
@@ -46,13 +47,28 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export function toPeruDateOnly(date: Date): Date {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const [year, month, day] = formatter.format(date).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
 function toUtcDateOnly(date: Date): Date {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  return toPeruDateOnly(date);
 }
 
 function getCodePrefix(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const [year, month] = formatter.format(date).split("-");
   return `MISC/${year}/${month}/`;
 }
 
@@ -66,6 +82,10 @@ async function nextJournalCode(tx: Tx, date: Date): Promise<string> {
     const parsed = Number.parseInt(entry.code.slice(prefix.length), 10);
     return Number.isNaN(parsed) ? highest : Math.max(highest, parsed);
   }, 0);
+
+  const nextNum = maxNumber + 1;
+  const candidate = `${prefix}${String(nextNum).padStart(4, "0")}`;
+  if (candidate.length <= 20) return candidate;
 
   for (let n = maxNumber + 1; n <= maxNumber + 80; n++) {
     const candidate = `${prefix}${String(n).padStart(4, "0")}`;
@@ -92,6 +112,7 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
       const defaultName =
         code === "659" ? "Otros Gastos de Gestión" :
         code === "101" ? "Caja" :
+        code === "102" ? "Billeteras Digitales (Yape / Plin)" :
         code === "104" ? "Bancos - Cuentas Corrientes" :
         code === "701" ? "Ventas de Mercaderías" :
         `Cuenta ${code}`;
@@ -119,9 +140,11 @@ async function ensureOpenPeriod(tx: Tx, date: Date): Promise<number> {
     });
   }
   if (!period) {
-    const d = new Date(date);
-    const start = new Date(d.getFullYear(), d.getMonth(), 1);
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+    const d = toPeruDateOnly(date);
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth();
+    const start = new Date(Date.UTC(year, month, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59));
     period = await tx.accountingPeriod.create({
       data: {
         startDate: start,
@@ -148,6 +171,7 @@ async function createBalancedEntry(
     amount: number;
     debitLineDescription?: string;
     creditLineDescription?: string;
+    periodId?: number;
   },
 ): Promise<number> {
   const amount = round2(input.amount);
@@ -156,10 +180,10 @@ async function createBalancedEntry(
   }
 
   let createdId: number | null = null;
+  const periodId = input.periodId ?? (await ensureOpenPeriod(tx, input.date));
+
   for (let attempt = 0; attempt < 5 && createdId === null; attempt++) {
     try {
-      const periodId = await ensureOpenPeriod(tx, input.date);
-
       const entry = await tx.journalEntry.create({
         data: {
           code: await nextJournalCode(tx, input.date),
@@ -204,13 +228,54 @@ async function createBalancedEntry(
   return createdId;
 }
 
-function pickCashOrBankAccountId(
+export interface PaymentAccountTarget {
+  accountId: number;
+  accountCode: string;
+  label: string;
+}
+
+export function pickPaymentAccountTarget(
+  accounts: Map<string, number>,
+  paymentMethodName: string,
+): PaymentAccountTarget {
+  const name = (paymentMethodName || "").toLowerCase();
+  if (name.includes("yape") || name.includes("plin") || name.includes("billetera")) {
+    const accountId = accounts.get(ACCOUNT_CODES.digitalWallet) ?? accounts.get(ACCOUNT_CODES.banks)!;
+    return {
+      accountId,
+      accountCode: ACCOUNT_CODES.digitalWallet,
+      label: "Billetera Digital (Yape / Plin)",
+    };
+  }
+  if (name.includes("tarjeta") || name.includes("pos") || name.includes("visa") || name.includes("mastercard") || name.includes("tap")) {
+    const accountId = accounts.get(ACCOUNT_CODES.banks)!;
+    return {
+      accountId,
+      accountCode: ACCOUNT_CODES.banks,
+      label: "Bancos / POS Tarjetas",
+    };
+  }
+  if (name.includes("efectivo") || name.includes("cash")) {
+    const accountId = accounts.get(ACCOUNT_CODES.cash)!;
+    return {
+      accountId,
+      accountCode: ACCOUNT_CODES.cash,
+      label: "Caja Efectivo",
+    };
+  }
+  const accountId = accounts.get(ACCOUNT_CODES.banks) ?? accounts.get(ACCOUNT_CODES.cash)!;
+  return {
+    accountId,
+    accountCode: ACCOUNT_CODES.banks,
+    label: "Caja y Bancos",
+  };
+}
+
+export function pickCashOrBankAccountId(
   accounts: Map<string, number>,
   paymentMethodName: string,
 ): number {
-  const name = (paymentMethodName || "").toLowerCase();
-  const isCash = name.includes("efectivo") || name.includes("cash");
-  return isCash ? accounts.get(ACCOUNT_CODES.cash)! : accounts.get(ACCOUNT_CODES.banks)!;
+  return pickPaymentAccountTarget(accounts, paymentMethodName).accountId;
 }
 
 export interface PostSaleJournalInput {
@@ -222,6 +287,7 @@ export interface PostSaleJournalInput {
   igv: number;
   total: number;
   paymentMethodName: string;
+  payments?: Array<{ name: string; amount: number }>;
   responsible?: string;
 }
 
@@ -239,6 +305,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
 
   const accounts = await resolveAccountIds(tx, [
     ACCOUNT_CODES.cash,
+    ACCOUNT_CODES.digitalWallet,
     ACCOUNT_CODES.banks,
     ACCOUNT_CODES.receivables,
     ACCOUNT_CODES.igvPayable,
@@ -250,26 +317,28 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
 
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherCode;
+  const isFactura = ref.startsWith("F");
+  const docTypeLabel = isFactura ? "Factura" : "Boleta";
   const ids: number[] = [];
   const periodId = await ensureOpenPeriod(tx, date);
 
-  // 1) Provisión de la venta (Facturación) – registra derecho de cobro, IGV y venta neta en una sola partida
+  // 1) Provisión de la venta (Facturación) – registra derecho de cobro, IGV y venta neta
   const provisionEntry = await tx.journalEntry.create({
     data: {
       code: await nextJournalCode(tx, date),
       entryDate: date,
       periodId,
-      description: `Provisión de la venta ${ref}`,
+      description: `Provisión de ${docTypeLabel} ${ref}`,
       book: BOOK_SALES,
       responsible: input.responsible,
       salesInvoiceId: input.salesInvoiceId,
-      observation: "Asiento 1/5 — Provisión de la venta (incluye IGV y venta neta)",
+      observation: `Asiento 1/5 — Provisión de ${docTypeLabel} (incluye IGV y venta neta)`,
       status: true,
       entryDetails: {
         create: [
           {
             accountId: accounts.get(ACCOUNT_CODES.receivables)!,
-            description: "Cuentas por cobrar comerciales – total venta (incluye IGV)",
+            description: `Cuentas por cobrar comerciales – ${docTypeLabel} ${ref}`,
             debit: total,
             credit: 0,
           },
@@ -292,23 +361,46 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
   });
   ids.push(provisionEntry.id);
 
-  // 2) Cobro
-  const cashAccountId = pickCashOrBankAccountId(accounts, input.paymentMethodName);
-  ids.push(
-    await createBalancedEntry(tx, {
-      date,
-      description: `Cobro venta ${ref}`,
-      book: BOOK_CASH,
-      responsible: input.responsible,
-      salesInvoiceId: input.salesInvoiceId,
-      observation: `Asiento 2/5 — Cobro (${input.paymentMethodName || "pago"})`,
-      debitAccountId: cashAccountId,
-      creditAccountId: accounts.get(ACCOUNT_CODES.receivables)!,
-      amount: total,
-      debitLineDescription: "Ingreso a caja / bancos",
-      creditLineDescription: "Cancelación de cuenta por cobrar",
-    })
-  );
+  // 2) Cobro: ingresa a cuenta diferenciada según método de pago (Tarjeta POS: 104, Yape: 102, Efectivo: 101)
+  if (input.payments && input.payments.length > 1) {
+    for (const [idx, part] of input.payments.entries()) {
+      const target = pickPaymentAccountTarget(accounts, part.name);
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          periodId,
+          description: `Cobro parcial (${part.name}) ${ref}`,
+          book: BOOK_CASH,
+          responsible: input.responsible,
+          salesInvoiceId: input.salesInvoiceId,
+          observation: `Asiento 2/5 — Cobro ${docTypeLabel} parte ${idx + 1}/${input.payments.length} (${part.name}) [Cuenta ${target.accountCode}]`,
+          debitAccountId: target.accountId,
+          creditAccountId: accounts.get(ACCOUNT_CODES.receivables)!,
+          amount: part.amount,
+          debitLineDescription: `Ingreso a ${target.label}`,
+          creditLineDescription: "Cancelación de cuenta por cobrar",
+        })
+      );
+    }
+  } else {
+    const target = pickPaymentAccountTarget(accounts, input.paymentMethodName);
+    ids.push(
+      await createBalancedEntry(tx, {
+        date,
+        periodId,
+        description: `Cobro ${docTypeLabel} ${ref} (${target.label})`,
+        book: BOOK_CASH,
+        responsible: input.responsible,
+        salesInvoiceId: input.salesInvoiceId,
+        observation: `Asiento 2/5 — Cobro ${docTypeLabel} (${input.paymentMethodName || "pago"}) [Cuenta ${target.accountCode}]`,
+        debitAccountId: target.accountId,
+        creditAccountId: accounts.get(ACCOUNT_CODES.receivables)!,
+        amount: total,
+        debitLineDescription: `Ingreso a ${target.label}`,
+        creditLineDescription: "Cancelación de cuenta por cobrar",
+      })
+    );
+  }
 
   // 3) Costo de ventas — mercaderías y materias primas (asientos 4 y 5)
   const totalCost = round2(subtotal * SALE_COST_RATIO);
@@ -320,6 +412,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
     ids.push(
       await createBalancedEntry(tx, {
         date,
+        periodId,
         description: `Costo de ventas (mercadería) ${ref}`,
         book: BOOK_SALES,
         responsible: input.responsible,
@@ -339,6 +432,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
     ids.push(
       await createBalancedEntry(tx, {
         date,
+        periodId,
         description: `Costo de ventas (insumos) ${ref}`,
         book: BOOK_SALES,
         responsible: input.responsible,
@@ -538,7 +632,10 @@ export async function postPurchasePaymentJournalEntry(
 export async function postSaleJournalEntriesStandalone(
   input: PostSaleJournalInput,
 ): Promise<number[]> {
-  return prisma.$transaction((tx) => postSaleJournalEntries(tx, input));
+  return prisma.$transaction((tx) => postSaleJournalEntries(tx, input), {
+    maxWait: 15000,
+    timeout: 45000,
+  });
 }
 
 export interface PostCashSessionOpeningInput {

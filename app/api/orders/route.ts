@@ -56,7 +56,7 @@ function mapOrderResponse(p: {
     dish: { name: string };
   }>;
 }) {
-  const pm = p.tables[0] ?? null;
+  const pm = p.tables.find((t) => !t.notes?.includes("[Anexa a Mesa")) ?? p.tables[0] ?? null;
   const items = p.items.map((d) => ({
     id: d.id,
     dishId: d.dishId,
@@ -276,15 +276,32 @@ export async function POST(request: NextRequest) {
         });
 
         if (orderType === "Mesa" && tableId) {
+          const mainTableRecord = await tx.diningTable.findUnique({
+            where: { id: tableId },
+            select: { number: true }
+          });
+          const mainNum = mainTableRecord?.number ?? tableId;
+
           let finalNote = tableNote;
           if (additionalTables.length > 0) {
             const linkedTables = await tx.diningTable.findMany({
               where: { id: { in: additionalTables } },
-              select: { number: true }
+              select: { id: true, number: true }
             });
             const nums = linkedTables.map((m) => m.number).sort((a, b) => a - b).join(", ");
             const tag = `[Mesas unidas: ${nums}]`;
             finalNote = tableNote ? `${tableNote} ${tag}` : tag;
+
+            // Vincular CADA mesa anexa al pedido para que quede ocupada con 0 disponibilidad
+            for (const at of linkedTables) {
+              await tx.orderTable.create({
+                data: {
+                  tableId: at.id,
+                  orderId: newOrder.id,
+                  notes: `[Anexa a Mesa ${mainNum}]`
+                }
+              });
+            }
           }
 
           await tx.orderTable.create({
@@ -294,8 +311,6 @@ export async function POST(request: NextRequest) {
               notes: finalNote
             }
           });
-          // La mesa permanece activa en el salón (active: true);
-          // su estado ocupado se determina por tener una comanda activa vinculada.
         }
 
         for (const item of items) {
@@ -319,6 +334,9 @@ export async function POST(request: NextRequest) {
         }
 
         return newOrder;
+      }, {
+        maxWait: 10000,
+        timeout: 30000,
       });
 
       const fullOrder = await prisma.salesOrder.findUnique({
