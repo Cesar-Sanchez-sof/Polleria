@@ -67,6 +67,55 @@ export const swaggerDefinition: OpenAPIV3.Document = {
         },
         required: ['startDate', 'endDate'],
       },
+      /**
+       * Formato público de una cuenta contable, compartido con cada elemento de
+       * GET /api/accounts. Especificación: specs/024-consultar-cuenta-contable
+       * (contracts/accounts-detail.openapi.yaml). `usos` = número de líneas de
+       * asiento que usan la cuenta (derivado; 0 si nunca se usa).
+       */
+      Account: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', description: 'Identificador numérico de la cuenta.', example: 7 },
+          codigo: {
+            type: 'string',
+            maxLength: 10,
+            pattern: '^[A-Za-z0-9.-]{1,10}$',
+            description: 'Código único de la cuenta en el plan contable.',
+            example: '104',
+          },
+          nombre: {
+            type: 'string',
+            maxLength: 100,
+            description: 'Nombre de la cuenta.',
+            example: 'Bancos',
+          },
+          tipo: {
+            type: 'string',
+            enum: ['Activo', 'Pasivo', 'Patrimonio', 'Ingreso', 'Gasto', 'Costo'],
+            description: 'Tipo de cuenta (catálogo PCGE).',
+            example: 'Activo',
+          },
+          idPadre: {
+            type: 'integer',
+            nullable: true,
+            description: 'Cuenta padre; null en cuentas raíz.',
+            example: null,
+          },
+          activo: {
+            type: 'boolean',
+            description: 'Estado de la cuenta (true = activa). Las inactivas también se consultan.',
+            example: true,
+          },
+          usos: {
+            type: 'integer',
+            minimum: 0,
+            description: 'Líneas de asiento que usan la cuenta (derivado; 0 si nunca se usa).',
+            example: 4,
+          },
+        },
+        required: ['id', 'codigo', 'nombre', 'tipo', 'idPadre', 'activo', 'usos'],
+      },
     },
   },
 };

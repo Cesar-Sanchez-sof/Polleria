@@ -144,6 +144,19 @@ describe("GET /api/accounts/[id] (detalle de una cuenta)", () => {
     expect(body).toEqual({ error: "Identificador de cuenta inválido." });
     expect(accountMock.findUnique).not.toHaveBeenCalled();
   });
+
+  it("responde 500 si la base de datos falla", async () => {
+    accountMock.findUnique.mockRejectedValue(new Error("fallo de conexión"));
+
+    const response = await GET({} as NextRequest, {
+      params: Promise.resolve({ id: "7" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "No se pudo obtener la cuenta contable." });
+    expect(console.error).toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {

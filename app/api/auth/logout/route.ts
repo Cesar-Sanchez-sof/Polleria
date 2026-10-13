@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { COOKIE_SESION } from "@/lib/auth/session";
+import { COOKIE_SESION, OPCIONES_COOKIE } from "@/lib/auth/session";
+import { actorActual } from "@/lib/auth/actor-auditoria";
+import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 
 /**
  * @openapi
@@ -13,8 +15,25 @@ import { COOKIE_SESION } from "@/lib/auth/session";
  *       200:
  *         description: Cierre de sesión exitoso.
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const actor = await actorActual();
+  if (actor) {
+    await registrarAuditoria({
+      actor,
+      action: "LOGOUT",
+      module: "Seguridad",
+      entity: "Sesión",
+      entityId: actor.userId,
+      description: `Cierre de sesión de ${actor.username}`,
+      ipAddress: ipDeSolicitud(request),
+    });
+  }
   const respuesta = NextResponse.json({ ok: true });
   respuesta.cookies.delete(COOKIE_SESION);
+  respuesta.cookies.set(COOKIE_SESION, "", {
+    ...OPCIONES_COOKIE,
+    maxAge: 0,
+    expires: new Date(0),
+  });
   return respuesta;
 }

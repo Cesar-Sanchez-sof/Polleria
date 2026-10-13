@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Component, User, LogOut, X, Menu } from "lucide-react";
 import Link from "next/link";
 
@@ -16,6 +16,48 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [internalOpen, setInternalOpen] = useState(false);
+  const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
+
+  useEffect(() => {
+    if (pathname === "/login") return;
+
+    let cancelado = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) {
+          if (!cancelado && pathname !== "/login") {
+            window.location.href = "/login";
+          }
+          return null;
+        }
+        return res.json();
+      })
+      .then((datos) => {
+        if (cancelado) return;
+        if (!datos) {
+          if (pathname !== "/login") {
+            window.location.href = "/login";
+          }
+          return;
+        }
+        setUsuario(datos);
+      })
+      .catch(() => {
+        if (!cancelado && pathname !== "/login") {
+          window.location.href = "/login";
+        }
+        setUsuario(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [pathname]);
+
+  async function cerrarSesion() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    window.location.href = "/login";
+  }
   const isControlled = typeof onCloseMobile === "function";
   const mobileOpen = isControlled ? !!controlledOpen : internalOpen;
 
@@ -78,6 +120,9 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const handleLinkClick = () => {
     handleClose();
   };
+
+  // La pantalla de login se muestra sin menú lateral.
+  if (pathname === "/login") return null;
 
   return (
     <>
@@ -149,6 +194,17 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Salón de mesas
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                </Link>
+                <Link
+                  className={getLinkClass("/sales?tab=drinks")}
+                  data-path="despacho-bebidas"
+                  href="/sales?tab=drinks"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Despacho de Bebidas
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=kitchen")}
@@ -158,6 +214,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Pedidos Listos
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=payments")}
@@ -166,7 +223,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   target="_top"
                   onClick={handleLinkClick}
                 >
-                  Cobros No Cobrados
+                  Cobros No Realizados 
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=cashier")}
@@ -176,6 +234,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Caja y ventanilla
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=customers")}
@@ -185,6 +244,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Clientes
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/sales?tab=invoices")}
@@ -194,8 +254,9 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Facturas de Venta
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
                 </Link>
-                
+
               </div>
             </div>
 
@@ -215,6 +276,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Cocina (KDS)
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/restaurant/dishes")}
@@ -224,15 +286,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Platos e Ingredientes (Carta)
-                </Link>
-                <Link
-                  className={getLinkClass("/restaurant/tables")}
-                  data-path="gestion-mesas"
-                  href="/restaurant/tables"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Registrar y Gestionar Mesas
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>
@@ -293,6 +347,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Proveedores
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/purchases/purchase-without-voucher")}
@@ -322,6 +377,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Guía Contable
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/entries")}
@@ -331,7 +387,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Asientos / Libro Diario
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/entries?journal=Caja%20y%20bancos")}
@@ -362,6 +418,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Libro Mayor
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/balance")}
@@ -371,6 +428,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Balance General
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/income-statement")}
@@ -380,6 +438,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Estado de Resultados
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/accounting/periods")}
@@ -389,6 +448,87 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Periodos Contables
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                </Link>
+              </div>
+            </div>
+            {/* SEGURIDAD Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  SEGURIDAD
+                </span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className={getLinkClass("/usuarios")}
+                  data-path="usuarios"
+                  href="/usuarios"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Usuarios
+                </Link>
+                <Link
+                  className={getLinkClass("/audit")}
+                  data-path="auditoria"
+                  href="/audit"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Auditoría
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
+                </Link>
+              </div>
+            </div>
+
+            {/* CONFIGURACIÓN Section */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="px-space-md pt-1">
+                <span className="font-label text-[11px] font-bold text-on-surface">
+                  CONFIGURACIÓN
+                </span>
+              </div>
+              <div className="flex flex-col pl-2 gap-0.5">
+                <Link
+                  className={getLinkClass("/restaurant/tables")}
+                  data-path="gestion-mesas"
+                  href="/restaurant/tables"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  Registrar y Gestionar Mesas
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/areas")}
+                  data-path="salones-areas"
+                  href="/restaurant/areas"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Salones y Áreas</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/settings/business")}
+                  data-path="datos-empresa"
+                  href="/restaurant/settings/business"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Datos del Restaurante</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                </Link>
+                <Link
+                  className={getLinkClass("/restaurant/settings/printers")}
+                  data-path="impresoras-comanderas"
+                  href="/restaurant/settings/printers"
+                  target="_top"
+                  onClick={handleLinkClick}
+                >
+                  <span>Comprobantes e Impresión</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                 </Link>
               </div>
             </div>
@@ -409,6 +549,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Endpoints
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
                 </Link>
                 <Link
                   className={getLinkClass("/db-diagram")}
@@ -418,6 +559,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   onClick={handleLinkClick}
                 >
                   Diagrama DB
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
                 </Link>
               </div>
             </div>
@@ -432,16 +574,19 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             </div>
             <div className="flex flex-col">
               <span className="font-label text-[11px] font-bold text-on-surface leading-tight">
-                Admin User
+                {usuario?.username ?? "Sin sesión"}
               </span>
               <span className="font-label text-[10px] text-on-surface-variant leading-tight">
-                Pollería Central
+                {usuario?.rol ?? "Inicia sesión"}
               </span>
             </div>
           </div>
           <button
-            className="text-on-surface-variant hover:text-error transition-colors p-1"
+            className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
             type="button"
+            title={usuario ? "Cerrar sesión" : "Iniciar sesión"}
+            aria-label={usuario ? "Cerrar sesión" : "Iniciar sesión"}
+            onClick={usuario ? cerrarSesion : () => (window.location.href = "/login")}
           >
             <LogOut className="w-4.5 h-4.5" />
           </button>

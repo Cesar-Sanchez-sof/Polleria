@@ -1,5 +1,6 @@
 // Crea el primer usuario administrador (empleado + usuario) para poder iniciar sesión.
 // Uso: node --env-file=.env scripts/crear-admin.mjs <usuario> <correo> <contraseña> <dni>
+// Ejemplo: node --env-file=.env scripts/crear-admin.mjs andy andy@correo.com Clave1234 12345678
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -24,28 +25,35 @@ if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
 
 const prisma = new PrismaClient();
 try {
-  const existe = await prisma.usuario.findFirst({
+  const existe = await prisma.user.findFirst({
     where: { OR: [{ username: username.toLowerCase() }, { correo: correo.toLowerCase() }] },
   });
   if (existe) throw new Error("Ya existe un usuario con ese nombre de usuario o correo");
 
-  let rol = await prisma.rol.findFirst({ where: { nombre: "Administrador" } });
-  if (!rol) rol = await prisma.rol.create({ data: { nombre: "Administrador", descripcion: "Acceso total al sistema" } });
+  // El rol debe llamarse ADMIN (así lo reconocen la auditoría y el seed).
+  const rol = await prisma.role.upsert({
+    where: { name: "ADMIN" },
+    update: {},
+    create: { name: "ADMIN", description: "Administrador del sistema", active: true },
+  });
 
-  const empleado =
-    (await prisma.empleado.findUnique({ where: { dni } })) ??
-    (await prisma.empleado.create({ data: { dni, primer_nombre: "Administrador", apellido_paterno: "Sistema" } }));
+  const empleado = await prisma.employee.upsert({
+    where: { dni },
+    update: {},
+    create: { dni, firstName: "Administrador", paternalLastName: "Sistema", active: true },
+  });
 
-  await prisma.usuario.create({
+  await prisma.user.create({
     data: {
-      id_empleado: empleado.id_empleado,
-      id_rol: rol.id_rol,
+      employeeId: empleado.id,
+      roleId: rol.id,
       username: username.toLowerCase(),
       correo: correo.toLowerCase(),
       password: await bcrypt.hash(password, 12),
+      estado: true,
     },
   });
-  console.log(`Administrador "${username.toLowerCase()}" creado`);
+  console.log(`Administrador "${username.toLowerCase()}" creado con rol ADMIN`);
 } catch (e) {
   console.error(e.message);
   process.exitCode = 1;

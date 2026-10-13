@@ -103,7 +103,11 @@ function normalizar(datos: DatosUsuario) {
     throw new ErrorUsuario("El usuario debe tener de 3 a 20 caracteres (letras, números, . _ -)");
   }
 
-  if (!Number.isInteger(datos.id_rol) || datos.id_rol <= 0) throw new ErrorUsuario("Selecciona un rol");
+  // Convertir id_rol a número (acepta cadena o número)
+  const idRol = Number(datos.id_rol);
+  if (!Number.isInteger(idRol) || idRol <= 0) {
+    throw new ErrorUsuario("Selecciona un rol");
+  }
 
   return {
     empleado: {
@@ -115,7 +119,7 @@ function normalizar(datos: DatosUsuario) {
     },
     username,
     correo,
-    id_rol: datos.id_rol,
+    id_rol: idRol,
   };
 }
 

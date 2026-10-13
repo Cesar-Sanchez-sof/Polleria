@@ -1,10 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSupplier } from "./supplier";
-import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, setSupplyStatus } from "./supply";
+import { lookupDocument } from "./document-lookup";
+import { createSupply, registerInventoryAdjustment, updateSupplyMinimum, updateSupplyUnit, setSupplyStatus } from "./supply";
 import { createPurchaseOrder, registerUnifiedPurchase } from "./purchase-order";
 import { createPurchaseVoucher } from "./invoices";
-import { registerTransformation } from "./transformation";
+import {
+  registerTransformation,
+  createTransformationRecipe,
+  executeTransformation,
+  annulTransformation,
+} from "./transformation";
 import {
   registerPurchaseWithoutVoucher,
   annulInformalPurchase,
@@ -64,9 +70,17 @@ vi.mock("@/lib/prisma", () => {
     transformation: {
       create: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     transformationItem: {
+      create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
+    transformationRecipe: {
       create: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     informalPurchase: {
       create: vi.fn(),
@@ -116,6 +130,119 @@ describe("Modulo Compras Services", () => {
           businessName: "Test",
         })
       ).rejects.toThrow("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
+    });
+
+    it("lookupDocument debe rechazar documentos con longitud inválida", async () => {
+      const res = await lookupDocument("123");
+      expect(res.success).toBe(false);
+      expect(res.error).toBe("El documento debe tener 8 u 11 dígitos");
+    });
+
+    it("lookupDocument debe consultar DNI y retornar datos estructurados", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            nombres: "JUAN CARLOS",
+            apellido_paterno: "PEREZ",
+            apellido_materno: "GOMEZ",
+          },
+        }),
+      } as any);
+
+      try {
+        const res = await lookupDocument("12345678");
+        expect(res.success).toBe(true);
+        expect(res.data?.documentType).toBe("DNI");
+        expect(res.data?.businessName).toBe("JUAN CARLOS PEREZ GOMEZ");
+        expect(res.data?.firstName).toBe("JUAN CARLOS");
+        expect(res.data?.lastName).toBe("PEREZ GOMEZ");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
+
+    it("lookupDocument debe consultar RUC y retornar datos estructurados", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            nombre_o_razon_social: "DISTRIBUIDORA AVICOLA SAC",
+            direccion_completa: "AV. LOS POLLOS 123",
+            distrito: "LOS OLIVOS",
+            provincia: "LIMA",
+            departamento: "LIMA",
+            estado: "ACTIVO",
+          },
+        }),
+      } as any);
+
+      try {
+        const res = await lookupDocument("20123456789");
+        expect(res.success).toBe(true);
+        expect(res.data?.documentType).toBe("RUC");
+        expect(res.data?.businessName).toBe("DISTRIBUIDORA AVICOLA SAC");
+        expect(res.data?.address).toBe("AV. LOS POLLOS 123");
+        expect(res.data?.district).toBe("LOS OLIVOS");
+        expect(res.data?.province).toBe("LIMA");
+        expect(res.data?.department).toBe("LIMA");
+        expect(res.data?.status).toBe("ACTIVO");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
+
+    it("lookupDocument debe manejar error 429 de cuota agotada gracefully", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+      } as any);
+
+      try {
+        const res = await lookupDocument("20123456789");
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("Consulta temporalmente no disponible. Intenta más tarde.");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
+    });
+
+    it("lookupDocument debe manejar timeout / abort gracefully", async () => {
+      const originalFetch = global.fetch;
+      const originalEnv = process.env.JSON_PE_TOKEN;
+      process.env.JSON_PE_TOKEN = "test-token";
+
+      global.fetch = vi.fn().mockRejectedValue({
+        name: "AbortError",
+      });
+
+      try {
+        const res = await lookupDocument("20123456789");
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("La consulta tardó demasiado. Intenta de nuevo.");
+      } finally {
+        global.fetch = originalFetch;
+        process.env.JSON_PE_TOKEN = originalEnv;
+      }
     });
   });
 
@@ -192,10 +319,37 @@ describe("Modulo Compras Services", () => {
       );
     });
 
-    it("debe lanzar error si el insumo no existe al actualizar stock mínimo", async () => {
+    it("debe actualizar la unidad de medida del insumo", async () => {
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 1,
+        name: "Pollo Entero",
+        unitOfMeasure: "KG",
+      });
+      (prisma.supply.update as any).mockResolvedValue({
+        id: 1,
+        name: "Pollo Entero",
+        unitOfMeasure: "UNID",
+      });
+
+      const res = await updateSupplyUnit(1, "UNID");
+
+      expect(prisma.supply.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { unitOfMeasure: "UNID" },
+      });
+      expect(res.unitOfMeasure).toBe("UNID");
+    });
+
+    it("debe lanzar error si la unidad de medida está vacía", async () => {
+      await expect(updateSupplyUnit(1, "   ")).rejects.toThrow(
+        "La unidad de medida es obligatoria"
+      );
+    });
+
+    it("debe lanzar error si el insumo no existe al actualizar la unidad de medida", async () => {
       (prisma.supply.findUnique as any).mockResolvedValue(null);
 
-      await expect(updateSupplyMinimum(999, 10)).rejects.toThrow(
+      await expect(updateSupplyUnit(999, "UNID")).rejects.toThrow(
         "Insumo no encontrado"
       );
     });
@@ -295,6 +449,297 @@ describe("Modulo Compras Services", () => {
         where: { id: 2 },
         data: { currentStock: 4 },
       });
+    });
+
+    it("debe crear una receta de transformación validando insumos y cantidades", async () => {
+      (prisma.supply.findUnique as any)
+        .mockResolvedValueOnce({ id: 2, name: "Presas de pollo", type: "FinishedProduct" })
+        .mockResolvedValueOnce({ id: 1, name: "Pollo entero", type: "RawMaterial" });
+      (prisma.transformationRecipe.findUnique as any).mockResolvedValue(null);
+      (prisma.transformationRecipe.create as any).mockResolvedValue({
+        id: 1,
+        producedSupplyId: 2,
+        consumedSupplyId: 1,
+        producedQuantity: 8,
+        requiredQuantity: 1,
+        active: true,
+      });
+
+      const res = await createTransformationRecipe({
+        producedSupplyId: 2,
+        consumedSupplyId: 1,
+        producedQuantity: 8,
+        requiredQuantity: 1,
+      });
+
+      expect(res.id).toBe(1);
+      expect(prisma.transformationRecipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            producedSupplyId: 2,
+            consumedSupplyId: 1,
+            producedQuantity: 8,
+            requiredQuantity: 1,
+            active: true,
+          }),
+        })
+      );
+    });
+
+    it("debe rechazar receta si producido y consumido son el mismo insumo o cantidades <= 0", async () => {
+      await expect(
+        createTransformationRecipe({
+          producedSupplyId: 1,
+          consumedSupplyId: 1,
+          producedQuantity: 8,
+          requiredQuantity: 1,
+        })
+      ).rejects.toThrow("El insumo producido no puede ser el mismo que el consumido");
+
+      await expect(
+        createTransformationRecipe({
+          producedSupplyId: 2,
+          consumedSupplyId: 1,
+          producedQuantity: 0,
+          requiredQuantity: 1,
+        })
+      ).rejects.toThrow("La cantidad producida debe ser mayor a 0");
+    });
+
+    it("debe rechazar receta duplicada si ya existe combinación", async () => {
+      (prisma.supply.findUnique as any)
+        .mockResolvedValueOnce({ id: 2, name: "Presas de pollo" })
+        .mockResolvedValueOnce({ id: 1, name: "Pollo entero" });
+      (prisma.transformationRecipe.findUnique as any).mockResolvedValue({ id: 99 });
+
+      await expect(
+        createTransformationRecipe({
+          producedSupplyId: 2,
+          consumedSupplyId: 1,
+          producedQuantity: 8,
+          requiredQuantity: 1,
+        })
+      ).rejects.toThrow("Ya existe una receta para esta combinación de insumos");
+    });
+
+    it("debe ejecutar receta por lote, descontar stock consumido, aumentar producido y actualizar averageCost", async () => {
+      (prisma.transformationRecipe.findUnique as any).mockResolvedValue({
+        id: 1,
+        consumedSupplyId: 1,
+        producedSupplyId: 2,
+        requiredQuantity: 1,
+        producedQuantity: 8,
+        active: true,
+      });
+      (prisma.supply.findUnique as any)
+        .mockResolvedValueOnce({ id: 1, currentStock: 48, averageCost: 10, lastCost: 10 }) // consumed
+        .mockResolvedValueOnce({ id: 2, currentStock: 0, averageCost: 0, lastCost: 0 }); // produced
+
+      (prisma.transformation.create as any).mockResolvedValue({ id: 10 });
+      (prisma.transformationItem.create as any)
+        .mockResolvedValueOnce({ id: 101 }) // consumo item
+        .mockResolvedValueOnce({ id: 102 }); // producido item
+
+      const res = await executeTransformation(1, 5, "Producción del turno mañana");
+
+      expect(res.id).toBe(10);
+      // Consumido: 5 * 1 = 5. Stock: 48 - 5 = 43
+      expect(prisma.supply.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { currentStock: 43 },
+        })
+      );
+      // Producido: 5 * 8 = 40. Valor consumido: 5 * 10 = 50. Costo unitario: 50 / 40 = 1.25.
+      // Nuevo promedio ponderado: (0*0 + 40*1.25)/40 = 1.25
+      expect(prisma.supply.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 2 },
+          data: {
+            currentStock: 40,
+            lastCost: 1.25,
+            averageCost: 1.25,
+          },
+        })
+      );
+      // InventoryMovement out & in
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplyId: 1,
+            transformationItemId: 101,
+            movementType: "TransformationOut",
+            quantity: 5,
+            unitCost: 10,
+          }),
+        })
+      );
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplyId: 2,
+            transformationItemId: 102,
+            movementType: "TransformationIn",
+            quantity: 40,
+            unitCost: 1.25,
+          }),
+        })
+      );
+    });
+
+    it("debe rechazar ejecución si el stock del insumo consumido es insuficiente", async () => {
+      (prisma.transformationRecipe.findUnique as any).mockResolvedValue({
+        id: 1,
+        consumedSupplyId: 1,
+        producedSupplyId: 2,
+        requiredQuantity: 1,
+        producedQuantity: 8,
+        active: true,
+      });
+      (prisma.supply.findUnique as any).mockResolvedValueOnce({
+        id: 1,
+        currentStock: 3,
+        averageCost: 10,
+      });
+
+      await expect(executeTransformation(1, 5)).rejects.toThrow(
+        "Stock insuficiente. Disponibles: 3, necesarios: 5"
+      );
+    });
+
+    it("debe anular una transformación exitosamente revirtiendo stock con movimientos inversos", async () => {
+      (prisma.transformation.findUnique as any).mockResolvedValue({
+        id: 10,
+        anulado: false,
+        items: [
+          {
+            id: 101,
+            supplyId: 1,
+            itemType: "Consumo",
+            quantity: 5,
+            unitCost: 10,
+          },
+          {
+            id: 102,
+            supplyId: 2,
+            itemType: "Producido",
+            quantity: 40,
+            unitCost: 1.25,
+          },
+        ],
+      });
+
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 2,
+        currentStock: 45,
+      });
+
+      (prisma.transformation.update as any).mockResolvedValue({
+        id: 10,
+        anulado: true,
+        motivoAnulacion: "Error de cantidad",
+      });
+
+      const res = await annulTransformation(10, "Error de cantidad", 1);
+
+      expect(res.id).toBe(10);
+      expect(res.anulado).toBe(true);
+
+      // 1. Reversión consumo: devolver materia prima (TransformationIn, quantity: 5)
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplyId: 1,
+            transformationItemId: 101,
+            movementType: "TransformationIn",
+            quantity: 5,
+          }),
+        })
+      );
+      expect(prisma.supply.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { currentStock: { increment: 5 } },
+        })
+      );
+
+      // 2. Reversión producido: descontar producto terminado (TransformationOut, quantity: 40)
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplyId: 2,
+            transformationItemId: 102,
+            movementType: "TransformationOut",
+            quantity: 40,
+          }),
+        })
+      );
+      expect(prisma.supply.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 2 },
+          data: { currentStock: { decrement: 40 } },
+        })
+      );
+
+      // 3. Update transformation
+      expect(prisma.transformation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: expect.objectContaining({
+            anulado: true,
+            motivoAnulacion: "Error de cantidad",
+          }),
+        })
+      );
+    });
+
+    it("debe rechazar anulación si el stock del producto terminado es insuficiente", async () => {
+      (prisma.transformation.findUnique as any).mockResolvedValue({
+        id: 10,
+        anulado: false,
+        items: [
+          {
+            id: 101,
+            supplyId: 1,
+            itemType: "Consumo",
+            quantity: 5,
+          },
+          {
+            id: 102,
+            supplyId: 2,
+            itemType: "Producido",
+            quantity: 40,
+          },
+        ],
+      });
+
+      // Stock de producto terminado es 10, menor a los 40 requeridos para revertir
+      (prisma.supply.findUnique as any).mockResolvedValue({
+        id: 2,
+        currentStock: 10,
+      });
+
+      await expect(annulTransformation(10, "Error en lote")).rejects.toThrow(
+        "Stock insuficiente para revertir el producto terminado. Stock actual: 10, necesario: 40"
+      );
+    });
+
+    it("debe rechazar anulación si ya está anulada", async () => {
+      (prisma.transformation.findUnique as any).mockResolvedValue({
+        id: 10,
+        anulado: true,
+        items: [],
+      });
+
+      await expect(annulTransformation(10, "Intento duplicado")).rejects.toThrow(
+        "Esta transformación ya está anulada"
+      );
+    });
+
+    it("debe rechazar anulación si el motivo está vacío", async () => {
+      await expect(annulTransformation(10, "   ")).rejects.toThrow(
+        "El motivo de anulación es obligatorio"
+      );
     });
   });
 

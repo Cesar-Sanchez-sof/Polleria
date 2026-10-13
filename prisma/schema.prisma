@@ -132,49 +132,50 @@ model Shift {
 }
 
 model Employee {
-  id                Int                @id @default(autoincrement())
-  shiftId           Int?               @map("shift_id")
-  dni               String             @unique @db.VarChar(8)
-  firstName         String             @map("first_name") @db.VarChar(50)
-  middleName        String?            @map("middle_name") @db.VarChar(50)
-  paternalLastName  String             @map("paternal_last_name") @db.VarChar(50)
-  maternalLastName  String?            @map("maternal_last_name") @db.VarChar(50)
-  phone             String?            @db.VarChar(9)
-  address           String?            @db.VarChar(200)
-  birthDate         DateTime?          @map("birth_date") @db.Date
-  hireDate          DateTime           @default(now()) @map("hire_date") @db.Date
-  position          String?            @db.VarChar(30)
-  area              String?            @db.VarChar(30)
-  contractType      String?            @map("contract_type") @db.VarChar(30)
-  baseSalary        Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
-  active            Boolean            @default(true)
-  shift             Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  users             User[]
-  payrolls          Payroll[]
-  purchaseOrders    PurchaseOrder[]
-  receivedOrders    PurchaseOrder[]    @relation("ReceivedBy")
-  transformations   Transformation[]
-  informalPurchases InformalPurchase[] @relation("EmployeeInformalPurchases")
-  annulledPurchases InformalPurchase[] @relation("AnnulledPurchases")
+  id                      Int                @id @default(autoincrement())
+  shiftId                 Int?               @map("shift_id")
+  dni                     String             @unique @db.VarChar(8)
+  firstName               String             @map("first_name") @db.VarChar(50)
+  middleName              String?            @map("middle_name") @db.VarChar(50)
+  paternalLastName        String             @map("paternal_last_name") @db.VarChar(50)
+  maternalLastName        String?            @map("maternal_last_name") @db.VarChar(50)
+  phone                   String?            @db.VarChar(9)
+  address                 String?            @db.VarChar(200)
+  birthDate               DateTime?          @map("birth_date") @db.Date
+  hireDate                DateTime           @default(now()) @map("hire_date") @db.Date
+  position                String?            @db.VarChar(30)
+  area                    String?            @db.VarChar(30)
+  contractType            String?            @map("contract_type") @db.VarChar(30)
+  baseSalary              Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
+  active                  Boolean            @default(true)
+  shift                   Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  users                   User[]
+  payrolls                Payroll[]
+  purchaseOrders          PurchaseOrder[]
+  receivedOrders          PurchaseOrder[]    @relation("ReceivedBy")
+  transformations         Transformation[]   @relation("EmployeeTransformations")
+  annulledTransformations Transformation[]   @relation("AnnulledTransformations")
+  informalPurchases       InformalPurchase[] @relation("EmployeeInformalPurchases")
+  annulledPurchases       InformalPurchase[] @relation("AnnulledPurchases")
 
   @@index([shiftId], map: "idx_employee_shift")
   @@map("employee")
 }
 
 model User {
-  id                Int                @id @default(autoincrement())
-  employeeId        Int                @map("employee_id")
-  roleId            Int                @map("role_id")
-  username          String             @unique @db.VarChar(20)
-  correo            String?            @unique @db.VarChar(80)
-  password          String             @db.VarChar(255)
-  estado            Boolean            @default(true)
-  failedAttempts    Int                @default(0) @map("failed_attempts")
-  locked            Boolean            @default(false)
-  lockedAt          DateTime?          @map("locked_at") @db.Timestamp(6)
-  lastAccessAt      DateTime?          @map("last_access_at") @db.Timestamp(6)
-  employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role              Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  id                 Int                @id @default(autoincrement())
+  employeeId         Int                @map("employee_id")
+  roleId             Int                @map("role_id")
+  username           String             @unique @db.VarChar(20)
+  correo             String?            @unique @db.VarChar(80)
+  password           String             @db.VarChar(255)
+  estado             Boolean            @default(true)
+  failedAttempts     Int                @default(0) @map("failed_attempts")
+  locked             Boolean            @default(false)
+  lockedAt           DateTime?          @map("locked_at") @db.Timestamp(6)
+  lastAccessAt       DateTime?          @map("last_access_at") @db.Timestamp(6)
+  employee           Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role               Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
   accountingPeriods  AccountingPeriod[]
   closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
   cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
@@ -373,14 +374,20 @@ model PurchasePayment {
 }
 
 model Transformation {
-  id         Int                  @id @default(autoincrement())
-  employeeId Int                  @map("employee_id")
-  date       DateTime             @default(now()) @db.Timestamp(6)
-  notes      String?              @db.VarChar(200)
-  employee   Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  items      TransformationItem[]
+  id              Int                  @id @default(autoincrement())
+  employeeId      Int                  @map("employee_id")
+  date            DateTime             @default(now()) @db.Timestamp(6)
+  notes           String?              @db.VarChar(200)
+  anulado         Boolean              @default(false)
+  anuladoAt       DateTime?            @map("anulado_at") @db.Timestamp(6)
+  anuladoPor      Int?                 @map("anulado_por")
+  motivoAnulacion String?              @map("motivo_anulacion") @db.VarChar(200)
+  employee        Employee             @relation("EmployeeTransformations", fields: [employeeId], references: [id], onDelete: Restrict)
+  annulledBy      Employee?            @relation("AnnulledTransformations", fields: [anuladoPor], references: [id], onDelete: Restrict)
+  items           TransformationItem[]
 
   @@index([employeeId], map: "idx_transformation_employee")
+  @@index([anuladoPor], map: "idx_transformation_annulled_by")
   @@map("transformation")
 }
 
@@ -719,11 +726,11 @@ model CashSession {
   notesOpening   String?           @map("notes_opening") @db.VarChar(255)
   notesClosing   String?           @map("notes_closing") @db.VarChar(255)
 
-  cashRegister   CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
-  openedBy       User              @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
-  closedBy       User?             @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
-  movements      CashMovement[]
-  salesInvoices  SalesInvoice[]
+  cashRegister  CashRegister   @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  openedBy      User           @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy      User?          @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  movements     CashMovement[]
+  salesInvoices SalesInvoice[]
 
   @@index([cashRegisterId], map: "idx_cash_session_register")
   @@index([openedById], map: "idx_cash_session_opened_by")
@@ -743,7 +750,6 @@ model CashMovement {
   @@index([sessionId], map: "idx_cash_movement_session")
   @@map("cash_movement")
 }
-
 
 // =====================================================================
 // MODULE: AUDIT (registro de cambios)

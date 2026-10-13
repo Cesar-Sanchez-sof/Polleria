@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { Users } from "lucide-react";
 import { FormularioUsuario, type Rol, type UsuarioFila } from "./FormularioUsuario";
 
 export default function UsuariosPage() {
@@ -60,21 +62,17 @@ export default function UsuariosPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl p-6">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Usuarios</h1>
-          <p className="text-sm text-muted-foreground">Registro, edición y activación de usuarios del sistema.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" render={<Link href="/" />}>
-            Volver al inicio
-          </Button>
-          <Button variant="outline" onClick={cerrarSesion}>
-            Cerrar sesión
-          </Button>
-          <Button onClick={() => abrir(null)}>Nuevo usuario</Button>
-        </div>
-      </header>
+<ModuleHeader
+  title="Usuarios"
+  subtitle="Registro, edición y activación de usuarios del sistema."
+  icon={Users}
+>
+  <div className="flex gap-2">
+    <Button variant="outline" render={<Link href="/" />}>Volver al inicio</Button>
+    <Button variant="outline" onClick={cerrarSesion}>Cerrar sesión</Button>
+    <Button onClick={() => abrir(null)}>Nuevo usuario</Button>
+  </div>
+</ModuleHeader>
 
       {error && (
         <p role="alert" className="mb-4 text-sm text-destructive">

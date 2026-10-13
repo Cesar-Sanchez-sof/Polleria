@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,353 +13,387 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SupplyDialog } from "@/components/purchases/inventory/SupplyDialog";
-import { registerTransformation } from "@/lib/services/purchases/transformation";
-import { SupplyType } from "@prisma/client";
+import { executeTransformation } from "@/lib/services/purchases/transformation";
 import { toast } from "sonner";
-import { Plus, Trash2, Repeat, Sparkles } from "lucide-react";
+import {
+  Repeat,
+  Package,
+  Sparkles,
+  AlertTriangle,
+  ArrowRight,
+  TrendingDown,
+  TrendingUp,
+  CircleDollarSign,
+  Layers,
+  CheckCircle2,
+} from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-
-interface Supply {
-  id: number;
-  name: string;
-  type: SupplyType;
-  unitOfMeasure: string;
-  currentStock: number | string;
-}
+import { TransformationRecipeItem, RecipeSupplyItem } from "./RecipeDialog";
 
 interface TransformationFormProps {
-  supplies: Supply[];
+  recipes: TransformationRecipeItem[];
+  supplies: RecipeSupplyItem[];
+  onGoToRecipesTab?: () => void;
 }
 
-interface TransformationLine {
-  supplyId: number | "";
-  quantity: number | "";
-}
-
-export function TransformationForm({ supplies: initialSupplies }: TransformationFormProps) {
+export function TransformationForm({
+  recipes,
+  supplies,
+  onGoToRecipesTab,
+}: TransformationFormProps) {
   const router = useRouter();
-  const [suppliesList, setSuppliesList] = useState<Supply[]>(initialSupplies);
   const [loading, setLoading] = useState(false);
-  const [note, setNote] = useState("");
 
-  const [consumptions, setConsumptions] = useState<TransformationLine[]>([
-    { supplyId: "", quantity: 1 },
-  ]);
+  // Solo recetas activas
+  const activeRecipes = useMemo(() => recipes.filter((r) => r.active), [recipes]);
 
-  const [outputs, setOutputs] = useState<TransformationLine[]>([
-    { supplyId: "", quantity: 1 },
-  ]);
+  // Selección de receta
+  const [selectedRecipeId, setSelectedRecipeId] = useState<number | "">(
+    activeRecipes.length > 0 ? activeRecipes[0].id : ""
+  );
+  const [times, setTimes] = useState<number | "">(1);
+  const [notes, setNotes] = useState("");
 
-  const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
+  const selectedRecipe = useMemo(() => {
+    return activeRecipes.find((r) => r.id === Number(selectedRecipeId)) || null;
+  }, [activeRecipes, selectedRecipeId]);
 
-  const rawMaterials = suppliesList.filter((i) => i.type === SupplyType.RawMaterial);
-  const finishedGoods = suppliesList.filter((i) => i.type === SupplyType.FinishedProduct);
+  // Datos del insumo consumido en tiempo real
+  const consumedSupply = useMemo(() => {
+    if (!selectedRecipe) return null;
+    return (
+      supplies.find((s) => s.id === selectedRecipe.consumedSupplyId) ||
+      selectedRecipe.consumedSupply
+    );
+  }, [selectedRecipe, supplies]);
 
-  const handleAddConsumption = () => {
-    setConsumptions((prev) => [...prev, { supplyId: "", quantity: 1 }]);
-  };
-  const handleRemoveConsumption = (index: number) => {
-    if (consumptions.length === 1) return;
-    setConsumptions((prev) => prev.filter((_, i) => i !== index));
-  };
-  const handleConsumptionChange = (
-    index: number,
-    field: keyof TransformationLine,
-    val: string | number
-  ) => {
-    setConsumptions((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: val };
-      return copy;
-    });
-  };
+  const producedSupply = useMemo(() => {
+    if (!selectedRecipe) return null;
+    return (
+      supplies.find((s) => s.id === selectedRecipe.producedSupplyId) ||
+      selectedRecipe.producedSupply
+    );
+  }, [selectedRecipe, supplies]);
 
-  const handleAddOutput = () => {
-    setOutputs((prev) => [...prev, { supplyId: "", quantity: 1 }]);
-  };
-  const handleRemoveOutput = (index: number) => {
-    if (outputs.length === 1) return;
-    setOutputs((prev) => prev.filter((_, i) => i !== index));
-  };
-  const handleOutputChange = (
-    index: number,
-    field: keyof TransformationLine,
-    val: string | number
-  ) => {
-    setOutputs((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: val };
-      return copy;
-    });
-  };
+  // Cálculos derivados
+  const runTimes = Math.max(1, Number(times) || 1);
+  const totalConsumed = selectedRecipe ? Number(selectedRecipe.requiredQuantity) * runTimes : 0;
+  const totalProduced = selectedRecipe ? Number(selectedRecipe.producedQuantity) * runTimes : 0;
+
+  const currentAvailableStock = Number((consumedSupply as any)?.currentStock || 0);
+  const currentProducedStock = Number((producedSupply as any)?.currentStock || 0);
+  const hasInsufficientStock = selectedRecipe ? currentAvailableStock < totalConsumed : false;
+
+  // Costos estimados
+  const consumedUnitCost = Number((consumedSupply as any)?.averageCost || (consumedSupply as any)?.lastCost || 0);
+  const totalConsumedCost = totalConsumed * consumedUnitCost;
+  const estimatedProducedUnitCost = totalProduced > 0 ? totalConsumedCost / totalProduced : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validConsumptions = consumptions.filter(
-      (c) => c.supplyId !== "" && Number(c.quantity) > 0
-    );
-    const validOutputs = outputs.filter(
-      (p) => p.supplyId !== "" && Number(p.quantity) > 0
-    );
-
-    if (validConsumptions.length === 0) {
-      toast.error("Debe agregar al menos una materia prima a consumir");
+    if (!selectedRecipeId) {
+      toast.error("Debe seleccionar una receta de transformación");
       return;
     }
-    if (validOutputs.length === 0) {
-      toast.error("Debe agregar al menos un producto terminado a producir");
+    if (!times || Number(times) <= 0) {
+      toast.error("La cantidad de veces a ejecutar debe ser mayor a 0");
+      return;
+    }
+    if (hasInsufficientStock) {
+      toast.error(
+        `Stock insuficiente. Disponibles: ${currentAvailableStock}, necesarios: ${totalConsumed}`
+      );
       return;
     }
 
     setLoading(true);
     try {
-      await registerTransformation({
-        notes: note || undefined,
-        consumos: validConsumptions.map((c) => ({
-          supplyId: Number(c.supplyId),
-          quantity: Number(c.quantity),
-        })),
-        producidos: validOutputs.map((p) => ({
-          supplyId: Number(p.supplyId),
-          quantity: Number(p.quantity),
-        })),
-      });
+      await executeTransformation(
+        Number(selectedRecipeId),
+        Number(times),
+        notes.trim() || undefined
+      );
 
-      toast.success("Transformación de inventario registrada con éxito");
+      toast.success("Transformación ejecutada exitosamente");
       router.refresh();
-      setConsumptions([{ supplyId: "", quantity: 1 }]);
-      setOutputs([{ supplyId: "", quantity: 1 }]);
-      setNote("");
-    } catch (err: unknown) {
-      toast.error((err as Error).message || "Error al registrar la transformación");
+      setTimes(1);
+      setNotes("");
+    } catch (err: any) {
+      toast.error(err.message || "Error al ejecutar transformación");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleNewSupplyCreated = (created: Supply) => {
-    if (created) {
-      setSuppliesList((prev) => [...prev, created]);
-    }
-  };
+  if (activeRecipes.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-amber-200 dark:border-amber-900 bg-amber-50/30 dark:bg-amber-950/20 p-12 text-center space-y-4">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-2xs">
+          <Sparkles className="h-7 w-7" />
+        </div>
+        <div className="space-y-1.5">
+          <h3 className="text-base font-bold text-foreground">No hay recetas de transformación activas</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            Para ejecutar una transformación por lote, primero debes configurar una receta (ej: 1 Pollo entero → 8 Presas de pollo).
+          </p>
+        </div>
+        {onGoToRecipesTab && (
+          <Button onClick={onGoToRecipesTab} size="sm" className="h-9 px-4 text-xs font-semibold cursor-pointer">
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Configurar Recetas
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="rounded-lg border bg-card p-5 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="text-base font-semibold text-rose-700 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
-              1. Consumo (Salida de Materia Prima)
-            </h2>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddConsumption}
-              className="h-7 text-xs flex items-center gap-1"
-            >
-              <Plus className="h-3.5 w-3.5" /> Agregar Insumo
-            </Button>
+      {/* ── Panel de Configuración de Lote ── */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-card p-5 sm:p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-200/80 dark:border-amber-900/60 shadow-2xs">
+              <Repeat className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">Estación de Transformación</h2>
+              <p className="text-xs text-muted-foreground">
+                Selecciona la receta y la cantidad de repeticiones para calcular el impacto en inventario.
+              </p>
+            </div>
           </div>
-
-          <div className="space-y-3">
-            {consumptions.map((line, index) => {
-              const selectedSupply = suppliesList.find(
-                (i) => i.id === Number(line.supplyId)
-              );
-
-              return (
-                <div
-                  key={index}
-                  className="flex gap-3 items-end bg-rose-50/50 p-2.5 rounded-md border border-rose-100"
-                >
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs text-rose-900">
-                      Materia Prima #{index + 1}
-                    </Label>
-                    <Select
-                      value={line.supplyId ? line.supplyId.toString() : ""}
-                      onValueChange={(val) =>
-                        handleConsumptionChange(index, "supplyId", Number(val))
-                      }
-                    >
-                      <SelectTrigger className="h-9 bg-white">
-                        <SelectValue placeholder="Seleccionar insumo">
-                          {selectedSupply ? selectedSupply.name : undefined}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rawMaterials.map((i) => (
-                          <SelectItem key={i.id} value={i.id.toString()}>
-                            {i.name} (Stock: {Number(i.currentStock)} {i.unitOfMeasure})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="w-32 space-y-1">
-                    <Label className="text-xs text-rose-900">Cantidad</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={line.quantity}
-                      onChange={(e) =>
-                        handleConsumptionChange(
-                          index,
-                          "quantity",
-                          parseFloat(e.target.value) || ""
-                        )
-                      }
-                      className="h-9 bg-white"
-                    />
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveConsumption(index)}
-                    disabled={consumptions.length === 1}
-                    className="h-9 w-9 p-0 text-rose-600 hover:bg-rose-100 shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
+          <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 px-3 py-1 rounded-full self-start sm:self-auto font-mono">
+            {activeRecipes.length} receta{activeRecipes.length > 1 ? "s" : ""} activa{activeRecipes.length > 1 ? "s" : ""}
+          </span>
         </div>
 
-        <div className="rounded-lg border bg-card p-5 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="text-base font-semibold text-emerald-700 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-              2. Producido (Entrada de Producto Terminado)
-            </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Selector de Receta */}
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="recipeSelect" className="text-xs font-semibold">
+              Seleccionar Receta de Producción <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={selectedRecipeId ? selectedRecipeId.toString() : ""}
+              onValueChange={(val) => setSelectedRecipeId(Number(val))}
+            >
+              <SelectTrigger id="recipeSelect" className="h-10 text-xs bg-background">
+                <SelectValue placeholder="Seleccionar receta">
+                  {selectedRecipe
+                    ? `${selectedRecipe.consumedSupply.name} (${selectedRecipe.requiredQuantity} ${selectedRecipe.consumedSupply.unitOfMeasure}) → ${selectedRecipe.producedSupply.name} (${selectedRecipe.producedQuantity} ${selectedRecipe.producedSupply.unitOfMeasure})`
+                    : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {activeRecipes.map((r) => (
+                  <SelectItem key={r.id} value={r.id.toString()}>
+                    {r.consumedSupply.name} ({r.requiredQuantity} {r.consumedSupply.unitOfMeasure}) →{" "}
+                    {r.producedSupply.name} ({r.producedQuantity} {r.producedSupply.unitOfMeasure})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Multiplicador (Veces) */}
+          <div className="space-y-2">
+            <Label htmlFor="times" className="text-xs font-semibold">
+              ¿Cuántas veces ejecutar el lote? <span className="text-red-500">*</span>
+            </Label>
+            <div className="relative">
+              <Input
+                id="times"
+                type="number"
+                min="1"
+                step="1"
+                value={times}
+                onChange={(e) => setTimes(parseInt(e.target.value) || "")}
+                required
+                className="h-10 text-xs font-mono font-bold pr-14 bg-background"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium pointer-events-none">
+                lotes
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Previsualización Gráfica del Flujo de Transformación (Input → Output) ── */}
+      {selectedRecipe && (
+        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/20 dark:to-amber-950/10 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-primary flex items-center gap-1"
-                onClick={() => setSupplyDialogOpen(true)}
-              >
-                <Sparkles className="h-3 w-3" /> + Nuevo Insumo
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddOutput}
-                className="h-7 text-xs flex items-center gap-1"
-              >
-                <Plus className="h-3.5 w-3.5" /> Agregar Insumo
-              </Button>
+              <Layers className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                Flujo del Lote Programado (× {runTimes})
+              </span>
+            </div>
+            {totalConsumedCost > 0 && (
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <CircleDollarSign className="h-3.5 w-3.5 text-emerald-600" />
+                Valor estimado: S/ {totalConsumedCost.toFixed(2)}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-11 gap-4 items-stretch">
+            {/* INSUMO BASE (CONSUMO / ENTRADA) */}
+            <div className="lg:col-span-5 rounded-xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 p-4 flex flex-col justify-between space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 flex items-center justify-center">
+                    <Package className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wide block">
+                      Insumo a Consumir
+                    </span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {consumedSupply?.name}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <TrendingDown className="h-3 w-3" /> Salida
+                </span>
+              </div>
+
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium">Cantidad Total a Descontar</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-bold font-mono text-rose-700 dark:text-rose-400">
+                    - {totalConsumed.toFixed(2)}
+                  </span>
+                  <span className="text-xs font-semibold text-rose-900 dark:text-rose-300">
+                    {consumedSupply?.unitOfMeasure}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Disponible:{" "}
+                  <strong className={hasInsufficientStock ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
+                    {currentAvailableStock.toFixed(2)} {consumedSupply?.unitOfMeasure}
+                  </strong>
+                </span>
+                {consumedUnitCost > 0 && (
+                  <span className="font-mono text-slate-600 dark:text-slate-400">
+                    Costo unit.: S/ {consumedUnitCost.toFixed(2)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* CONECTOR FLECHA */}
+            <div className="lg:col-span-1 flex items-center justify-center py-2 lg:py-0">
+              <div className="h-10 w-10 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 flex items-center justify-center border border-amber-300 dark:border-amber-800 shadow-2xs rotate-90 lg:rotate-0">
+                <ArrowRight className="h-5 w-5" />
+              </div>
+            </div>
+
+            {/* PRODUCTO TERMINADO (PRODUCCIÓN / SALIDA) */}
+            <div className="lg:col-span-5 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 flex flex-col justify-between space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 flex items-center justify-center">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide block">
+                      Producto a Generar
+                    </span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {producedSupply?.name}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" /> Entrada
+                </span>
+              </div>
+
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium">Cantidad Total a Ingresar</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                    + {totalProduced.toFixed(2)}
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-300">
+                    {producedSupply?.unitOfMeasure}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-900/40 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Stock actual:{" "}
+                  <strong className="text-foreground">
+                    {currentProducedStock.toFixed(2)} {producedSupply?.unitOfMeasure}
+                  </strong>
+                </span>
+                {estimatedProducedUnitCost > 0 && (
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold">
+                    Costo est.: S/ {estimatedProducedUnitCost.toFixed(2)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3">
-            {outputs.map((line, index) => {
-              const selectedSupply = suppliesList.find(
-                (i) => i.id === Number(line.supplyId)
-              );
+          {/* Alerta de Stock Insuficiente */}
+          {hasInsufficientStock && (
+            <div className="p-3.5 rounded-xl bg-rose-100/80 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
+              <div className="space-y-0.5">
+                <p className="font-bold">Stock insuficiente para ejecutar este lote</p>
+                <p className="text-[11px] text-rose-800 dark:text-rose-300">
+                  Disponibles en almacén: <strong>{currentAvailableStock.toFixed(2)} {consumedSupply?.unitOfMeasure}</strong>.
+                  Requeridos para {runTimes} lote{runTimes > 1 ? "s" : ""}: <strong>{totalConsumed.toFixed(2)} {consumedSupply?.unitOfMeasure}</strong>.
+                </p>
+              </div>
+            </div>
+          )}
 
-              return (
-                <div
-                  key={index}
-                  className="flex gap-3 items-end bg-emerald-50/50 p-2.5 rounded-md border border-emerald-100"
-                >
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs text-emerald-900">
-                      Producto Terminado #{index + 1}
-                    </Label>
-                    <Select
-                      value={line.supplyId ? line.supplyId.toString() : ""}
-                      onValueChange={(val) =>
-                        handleOutputChange(index, "supplyId", Number(val))
-                      }
-                    >
-                      <SelectTrigger className="h-9 bg-white">
-                        <SelectValue placeholder="Seleccionar producto">
-                          {selectedSupply ? selectedSupply.name : undefined}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {finishedGoods.map((i) => (
-                          <SelectItem key={i.id} value={i.id.toString()}>
-                            {i.name} (Stock: {Number(i.currentStock)} {i.unitOfMeasure})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+          {!hasInsufficientStock && (
+            <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/50 p-2.5 rounded-xl">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Stock disponible verificado. La operación descontará materia prima e incrementará el producto terminado en Kardex.</span>
+            </div>
+          )}
+        </div>
+      )}
 
-                  <div className="w-32 space-y-1">
-                    <Label className="text-xs text-emerald-900">Cantidad</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={line.quantity}
-                      onChange={(e) =>
-                        handleOutputChange(
-                          index,
-                          "quantity",
-                          parseFloat(e.target.value) || ""
-                        )
-                      }
-                      className="h-9 bg-white"
-                    />
-                  </div>
+      {/* ── Observaciones y Ejecución ── */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-card p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="notes" className="text-xs font-semibold">
+            Observaciones o Notas del Lote (Opcional)
+          </Label>
+          <Textarea
+            id="notes"
+            placeholder="Ej: Producción para el turno noche, corte según estándar de cocina, lote #12..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            maxLength={200}
+            className="text-xs resize-none bg-background rounded-xl border-slate-200 dark:border-slate-800"
+          />
+        </div>
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveOutput(index)}
-                    disabled={outputs.length === 1}
-                    className="h-9 w-9 p-0 text-emerald-600 hover:bg-emerald-100 shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
+        <div className="flex justify-end pt-1">
+          <Button
+            type="submit"
+            disabled={loading || hasInsufficientStock}
+            className="h-10 px-6 font-semibold text-xs flex items-center gap-2 cursor-pointer shadow-xs"
+          >
+            {loading ? <Spinner className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
+            Confirmar y Ejecutar Lote
+          </Button>
         </div>
       </div>
-
-      <div className="rounded-lg border bg-card p-4 space-y-2">
-        <Label htmlFor="transformationNotes">
-          Observaciones del Lote de Transformación
-        </Label>
-        <Textarea
-          id="transformationNotes"
-          placeholder="Ej: Lote #45 - Trozado de 10 pollos enteros en cuartos y pechugas..."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={2}
-        />
-      </div>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={loading} className="flex items-center gap-2">
-          {loading ? <Spinner className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
-          Ejecutar Transformación de Inventario
-        </Button>
-      </div>
-
-      <SupplyDialog
-        open={supplyDialogOpen}
-        onOpenChange={setSupplyDialogOpen}
-        onSuccess={handleNewSupplyCreated}
-        prefilledType={SupplyType.FinishedProduct}
-      />
     </form>
   );
 }

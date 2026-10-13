@@ -131,10 +131,16 @@ export function AdjustmentDialog({
               value={movementType}
               onValueChange={(val) => setMovementType(val as InventoryMovementType)}
             >
-              <SelectTrigger id="movementType">
-                <SelectValue />
+              <SelectTrigger id="movementType" className="w-full">
+                <SelectValue placeholder="Seleccionar tipo">
+                  {movementType === InventoryMovementType.Adjustment
+                    ? "Ajuste de Inventario"
+                    : movementType === InventoryMovementType.Shrinkage
+                    ? "Merma de Inventario"
+                    : undefined}
+                </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-(--anchor-width) min-w-[320px]">
                 <SelectItem value={InventoryMovementType.Adjustment}>
                   Ajuste de Inventario (Conteo físico / Diferencia)
                 </SelectItem>

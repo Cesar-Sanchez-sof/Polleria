@@ -1,0 +1,138 @@
+# Contract: GET /api/accounts/{id} (detalle de cuenta contable)
+
+**Feature**: `024-consultar-cuenta-contable` | **Date**: 2026-10-12
+
+Contrato **objetivo** de la consulta individual de una cuenta contable. Describe el comportamiento
+**ya implementado** en `app/api/accounts/[id]/route.ts` (handler `GET`) y es la referencia para
+corregir la anotación `@openapi` y el esquema `Account` de `app/api/openapi/swaggerConfig.ts`
+(research D6: hoy el `$ref` `#/components/schemas/Account` está colgante y los errores no están
+documentados).
+
+Formato: fragmento OpenAPI 3.0.3 (compatible con `swagger-jsdoc`, que escanea los bloques
+`@openapi` bajo `app/api/**/*.ts`).
+
+```yaml
+openapi: 3.0.3
+info:
+  title: Polleria API — Consulta de cuenta contable (fragmento)
+  version: 1.0.0
+  description: >
+    Contrato del detalle de una cuenta contable. Formato público compartido con
+    GET /api/accounts (spec 003). Sin autenticación. La respuesta no usa caché.
+paths:
+  /api/accounts/{id}:
+    get:
+      tags:
+        - Accounts
+      summary: Obtener detalle de cuenta contable
+      description: >
+        Recupera la información completa de una cuenta contable por su identificador.
+        Devuelve el objeto directamente (sin envoltorio "data"), a diferencia del
+        listado del plan contable. Incluye cuentas inactivas.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: '.*[0-9].*'
+          description: >
+            Identificador numérico de la cuenta. Se acepta cualquier prefijo numérico
+            entero (p. ej. "01", " 7", "7abc" resuelven a 1 y 7); se rechaza sólo si no
+            hay dígitos iniciales (400).
+      responses:
+        '200':
+          description: Detalle de la cuenta contable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+              example:
+                id: 7
+                codigo: '104'
+                nombre: Bancos
+                tipo: Activo
+                idPadre: null
+                activo: true
+                usos: 4
+        '400':
+          description: Identificador de cuenta inválido (sin dígitos iniciales). No se consulta la base de datos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Identificador de cuenta inválido.
+        '404':
+          description: Ninguna cuenta existe con ese identificador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Cuenta contable no encontrada.
+        '500':
+          description: Excepción inesperada al consultar la base de datos (se registra en consola del servidor).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: No se pudo obtener la cuenta contable.
+      security: []   # Sin autenticación (la ruta no valida sesión, cookie ni rol)
+components:
+  schemas:
+    Account:
+      type: object
+      description: >
+        Formato público de una cuenta contable, compartido con cada elemento de
+        GET /api/accounts (campo 'usos' = número de líneas de asiento que usan la cuenta).
+      properties:
+        id:
+          type: integer
+          description: Identificador numérico de la cuenta.
+          example: 7
+        codigo:
+          type: string
+          maxLength: 10
+          pattern: '^[A-Za-z0-9.-]{1,10}$'
+          description: Código único de la cuenta en el plan contable.
+          example: '104'
+        nombre:
+          type: string
+          maxLength: 100
+          description: Nombre de la cuenta.
+          example: Bancos
+        tipo:
+          type: string
+          enum: [Activo, Pasivo, Patrimonio, Ingreso, Gasto, Costo]
+          description: Tipo de cuenta (catálogo PCGE).
+          example: Activo
+        idPadre:
+          type: integer
+          nullable: true
+          description: Cuenta padre; null en cuentas raíz.
+          example: null
+        activo:
+          type: boolean
+          description: Estado de la cuenta (true = activa). Las inactivas también se consultan.
+          example: true
+        usos:
+          type: integer
+          minimum: 0
+          description: Líneas de asiento que usan la cuenta (derivado; 0 si nunca se usa).
+          example: 4
+      required: [id, codigo, nombre, tipo, idPadre, activo, usos]
+```
+
+## Notas de contrato
+
+1. **Objeto plano**: el `200` no usa envoltorio `{ data: ... }` (a diferencia del listado de la
+   spec 003). Diferencia consciente, documentada como BR-4.
+2. **`usos` es derivado**: contador de `JournalEntryDetail`, calculado en la misma consulta; la
+   respuesta jamás trae los movimientos (eso pertenece al libro mayor, spec 013).
+3. **Sin `401`/`403`**: la operación no está protegida (consistente con el listado).
+4. **`security: []`** documenta explícitamente la ausencia de autenticación, heredada de la
+   configuración actual del proyecto.
+5. **Estabilidad**: los nombres de campo en español son contrato público; cualquier cambio es
+   potencialmente rupturista para consumidores internos.

@@ -20,6 +20,7 @@ import {
   updateOrderStatus,
   type OrderSummary,
 } from "@/lib/services/tables.service";
+import { isBeverage } from "@/lib/utils/dish-category";
 
 type KitchenFilter = "todos" | "Received" | "Preparing" | "Served";
 type KitchenStatus = "Received" | "Preparing" | "Served";
@@ -58,6 +59,7 @@ export function KitchenBoard({ showToolbar = true }: KitchenBoardProps) {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<KitchenFilter>("todos");
+  const [excludeBeverages, setExcludeBeverages] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState("");
 
@@ -95,25 +97,32 @@ export function KitchenBoard({ showToolbar = true }: KitchenBoardProps) {
     return () => clearInterval(timer);
   }, []);
 
+  const kitchenOrders = useMemo(() => {
+    if (!excludeBeverages) return orders;
+    return orders.filter((order) => order.items.some((it) => !isBeverage(it.name)));
+  }, [orders, excludeBeverages]);
+
   const stats = useMemo(
     () => ({
-      total: orders.length,
-      received: orders.filter((o) => o.status === "Received").length,
-      preparing: orders.filter((o) => o.status === "Preparing").length,
-      served: orders.filter((o) => o.status === "Served").length,
+      total: kitchenOrders.length,
+      received: kitchenOrders.filter((o) => o.status === "Received").length,
+      preparing: kitchenOrders.filter((o) => o.status === "Preparing").length,
+      served: kitchenOrders.filter((o) => o.status === "Served").length,
     }),
-    [orders],
+    [kitchenOrders],
   );
 
   const filteredOrders = useMemo(() => {
     const list =
-      filter === "todos" ? [...orders] : orders.filter((order) => order.status === filter);
+      filter === "todos"
+        ? [...kitchenOrders]
+        : kitchenOrders.filter((order) => order.status === filter);
     return list.sort(
       (a, b) =>
         (STATUS_ORDER[a.status as KitchenStatus] ?? 99) -
         (STATUS_ORDER[b.status as KitchenStatus] ?? 99),
     );
-  }, [orders, filter]);
+  }, [kitchenOrders, filter]);
 
   const advanceOrder = async (order: OrderSummary) => {
     const next = nextKitchenStatus(order.status);
@@ -226,6 +235,19 @@ export function KitchenBoard({ showToolbar = true }: KitchenBoardProps) {
             <h2 className="text-sm font-bold text-slate-900">Lista de pedidos en preparación</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExcludeBeverages(!excludeBeverages)}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold cursor-pointer transition border flex items-center gap-1.5 ${
+                excludeBeverages
+                  ? "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
+                  : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+              }`}
+              title="Alternar filtro de bebidas"
+            >
+              <span>{excludeBeverages ? "🔥 Solo Cocina (Sin bebidas)" : "📋 Todas las Líneas"}</span>
+            </button>
+            <div className="h-4 w-px bg-slate-300 hidden sm:block mx-1" />
             {filters.map((item) => (
               <button
                 key={item.id}
@@ -304,22 +326,37 @@ export function KitchenBoard({ showToolbar = true }: KitchenBoardProps) {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1.5">
-                          {order.items.map((item, idx) => (
-                            <div key={`${order.id}-${item.dishId}-${idx}`} className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-100 font-mono text-[11px] font-bold text-red-700">
-                                  {item.quantity}x
-                                </span>
-                                <span className="font-bold text-slate-900">{item.name}</span>
-                              </div>
-                              {item.notes ? (
-                                <div className="ml-7 mt-0.5 inline-flex items-center gap-1 self-start rounded-md border border-amber-300 bg-amber-100/90 px-2 py-0.5 text-[11px] font-bold text-amber-900">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  Obs: {item.notes}
+                          {order.items
+                            .filter((item) => !excludeBeverages || !isBeverage(item.name))
+                            .map((item, idx) => (
+                              <div key={`${order.id}-${item.dishId}-${idx}`} className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-100 font-mono text-[11px] font-bold text-red-700">
+                                    {item.quantity}x
+                                  </span>
+                                  <span className="font-bold text-slate-900">{item.name}</span>
                                 </div>
-                              ) : null}
-                            </div>
-                          ))}
+                                {item.notes ? (
+                                  <div className="ml-7 mt-0.5 inline-flex items-center gap-1 self-start rounded-md border border-amber-300 bg-amber-100/90 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Obs: {item.notes}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))}
+
+                          {excludeBeverages &&
+                            order.items.some((item) => isBeverage(item.name)) && (
+                              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-blue-800 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md w-fit">
+                                <span>🥤</span>
+                                <span>
+                                  {order.items
+                                    .filter((item) => isBeverage(item.name))
+                                    .reduce((sum, it) => sum + it.quantity, 0)}{" "}
+                                  bebida(s) a cargo de mozo
+                                </span>
+                              </div>
+                            )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">

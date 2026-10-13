@@ -23,7 +23,7 @@ export default async function SuppliersPage() {
         title="Gestión de Proveedores"
         subtitle="Catálogo de proveedores y datos de contacto"
         icon={Users}
-        iconClassName="bg-blue-100 text-blue-800"
+        iconClassName="bg-amber-100 text-amber-800"
       />
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
