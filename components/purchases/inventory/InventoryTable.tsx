@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { SupplyDialog } from "./SupplyDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
+import { KardexDialog } from "./KardexDialog";
 import { TablePagination } from "@/components/purchases/shared/TablePagination";
 import {
   Plus,
@@ -38,6 +39,7 @@ import {
   Boxes,
   Pencil,
   Info,
+  ListOrdered,
 } from "lucide-react";
 import {
   Tooltip,
@@ -79,6 +81,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
   const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
   const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
   const [supplyToAdjust, setSupplyToAdjust] = useState<Supply | null>(null);
+  const [kardexOpen, setKardexOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState<string>("");
@@ -421,11 +424,23 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
                   Alertas de Reabastecimiento
                 </span>
               </div>
-              {lowStockCount > 0 && (
-                <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full">
-                  {lowStockCount} crítico{lowStockCount > 1 ? "s" : ""}
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {lowStockCount > 0 && (
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full">
+                    {lowStockCount} crítico{lowStockCount > 1 ? "s" : ""}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setKardexOpen(true)}
+                  className="h-6 px-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-1 cursor-pointer"
+                  title="Consultar movimientos en el Kardex"
+                >
+                  <ListOrdered className="h-3 w-3" />
+                  <span>Kardex</span>
+                </Button>
+              </div>
             </div>
 
             {lowStockCount === 0 ? (
@@ -536,6 +551,15 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
               </span>
             </button>
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setKardexOpen(true)}
+            size="sm"
+            className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <ListOrdered className="h-4 w-4" /> Ver Kardex
+          </Button>
 
           <Button
             onClick={() => setSupplyDialogOpen(true)}
@@ -854,6 +878,17 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Kardex Dialog ── */}
+      <KardexDialog
+        open={kardexOpen}
+        onOpenChange={setKardexOpen}
+        supplies={supplies.map((s) => ({
+          id: s.id,
+          name: s.name,
+          unitOfMeasure: s.unitOfMeasure,
+        }))}
+      />
     </div>
   );
 }
