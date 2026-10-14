@@ -21,8 +21,6 @@ dependencies = [
     "fastapi",
     "pydantic>=2",
     "sqlglot",
-    # F5 (bloqueada por P-18): todavía no instalado
-    "psycopg>=3",
 ]
 
 [project.optional-dependencies]
@@ -30,8 +28,18 @@ dependencies = [
 dev = ["pytest", "httpx"]
 # Solo para levantar el servidor local de desarrollo (sin extras compilados)
 server = ["uvicorn"]
-# Fase posterior (P-8): cliente de Milvus/Zilliz; todavía no instalado
-vector = ["pymilvus"]
+# PostgresReadOnlyExecutor (AI_SQL_EXECUTOR=postgres_readonly): importación diferida; aún NO
+# instalado en Windows (requiere autorización y verificar Smart App Control con su libpq).
+postgres = ["psycopg>=3"]
+# RAG semántico (T033): multilingual-e5-small con ONNX Runtime en CPU (sin PyTorch: Smart App Control
+# bloquea torch_python.dll en Windows) y cliente de Milvus/Zilliz. Instalados y verificados: onnxruntime
+# 1.31.0, tokenizers 0.23.3, huggingface_hub 1.33.0, numpy 2.4.6, pymilvus 3.0.2 (grpcio 1.84.0).
+vector = ["onnxruntime", "tokenizers", "huggingface_hub", "numpy", "pymilvus"]
+# Servicio de inferencia XiYanSQL (inference_server/): SOLO en el entorno de WSL, nunca en Windows.
+# Versiones de requirements-lock.txt del proyecto de entrenamiento: torch 2.13.0+cu132,
+# transformers 5.17.0, peft 0.21.0, bitsandbytes 0.50.2, accelerate 1.15.0.
+# fastapi y uvicorn aún NO están instalados allí (pendiente de autorización, T057).
+inference = ["fastapi", "uvicorn", "pydantic>=2", "torch", "transformers", "peft", "bitsandbytes", "accelerate"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

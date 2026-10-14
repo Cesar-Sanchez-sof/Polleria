@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
+from datetime import date, timedelta
 from decimal import Decimal
 
 from ai_service.audit.masking import contains_sensitive
@@ -122,15 +123,31 @@ class MockLlmProvider:
 
     @staticmethod
     def _explain(request: LlmRequest) -> str:
+        """Lenguaje sencillo: ``c1`` es el saldo NETO de los movimientos del período (no el saldo final)."""
         entrada = request.entrada
         periodo = entrada.periodo  # type: ignore[union-attr]
-        rango = (
-            f"entre el {periodo.desde:%d/%m/%Y} y el {periodo.hasta:%d/%m/%Y}" if periodo else "en el período"
-        )
+        rango = period_phrase(periodo.desde, periodo.hasta) if periodo else "el período consultado"
+        cuenta = entrada.cuenta_nombre or "la cuenta"  # type: ignore[union-attr]
         markers = entrada.marcadores  # type: ignore[union-attr]
+        if markers == ["c1"]:
+            return f"Durante {rango}, los movimientos de {cuenta} tuvieron un saldo neto de {{{{c1}}}}."
         if markers == ["c1", "c2", "c3"]:
             return (
-                f"El saldo de la cuenta {rango} es {{{{c1}}}}: se registraron cargos (debe) por "
-                "{{c2}} y abonos (haber) por {{c3}}."
+                f"Durante {rango}, los movimientos de {cuenta} tuvieron un saldo neto de {{{{c1}}}}, con "
+                "cargos (debe) por {{c2}} y abonos (haber) por {{c3}}."
             )
         return " ".join(f"{{{{{m}}}}}" for m in markers)
+
+
+MONTHS = (
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
+
+
+def period_phrase(desde: date, hasta: date) -> str:
+    """"septiembre de 2026" para un mes completo; si no, "del 01/09/2026 al 15/09/2026"."""
+    month_end = (desde.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    if desde.day == 1 and hasta == month_end:
+        return f"{MONTHS[desde.month - 1]} de {desde.year}"
+    return f"del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}"

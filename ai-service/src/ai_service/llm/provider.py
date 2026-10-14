@@ -55,6 +55,8 @@ class ExplainInput(StrictModel):
     intencion: Intent
     periodo: Period | None = None
     marcadores: Annotated[list[MarkerId], Field(max_length=20)] = Field(default_factory=list)
+    # Nombre visible de la cuenta tomado de un catálogo del servidor (metadato, nunca una cifra).
+    cuenta_nombre: Annotated[str, Field(min_length=1, max_length=60, pattern=r"^[^\d{}]+$")] | None = None
 
 
 class LlmRequest(StrictModel):

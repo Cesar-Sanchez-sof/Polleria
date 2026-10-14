@@ -1,7 +1,7 @@
 {
   "version": "erp-schema-metadata-v1",
   "source": "prisma/schema.prisma",
-  "schema_sha256": "997e3593e941bc5ae97a2266d2b29c5fdc49906af543390c8dac237f4c0ffea5",
+  "schema_sha256": "fcbda3c61b4b3f7c2b928012c62ee82051afee7addbf9b7d9f7865b4fb3b0235",
   "models": [
     {
       "model": "AccountingAccount",
