@@ -39,16 +39,21 @@ Modelo 1 (interpretación y explicación):
   (por defecto 0.02: el peor caso de una consulta no puede superarlo), ``AI_LLM_TIMEOUT_S`` (1–60,
   por defecto 20) y ``AI_LLM_REASONING_EFFORT`` (opcional).
 
-Modo evaluación académica (``AI_SERVICE_EVAL_MODE=1``; el ERP en un Preview de Vercel llega por un
-túnel HTTPS temporal a este servicio, que sigue escuchando solo en ``127.0.0.1``):
+Modo evaluación académica (``AI_SERVICE_EVAL_MODE=1``; el ERP en Vercel llega por un túnel HTTPS
+temporal a este servicio, que sigue escuchando solo en ``127.0.0.1``):
 
 - Exige los modelos reales y el RAG remoto: ``AI_SQL_GENERATOR=xiyansql``, ``AI_LLM_PROVIDER=openai``
-  y ``AI_RAG_MODE=milvus``.
-- Exige ``AI_SQL_EXECUTOR=ficticio`` (explícito): con ``postgres_readonly`` no arranca, y tampoco si
-  ``DATABASE_URL_READONLY`` está en el entorno del proceso. Nunca hay datos financieros reales.
-- Exige ``AI_ASSISTANT_IDENTITY_KEY`` (P-9): cada solicitud debe traer la identidad firmada.
-- Peor caso de espera: ``AI_SQLGEN_TIMEOUT_S`` + 2 × ``AI_LLM_TIMEOUT_S`` ≤ 50 s, por debajo del
-  tiempo de espera del proxy de Next.js en Vercel (55 s).
+  y ``AI_RAG_MODE=milvus``, y ``AI_ASSISTANT_IDENTITY_KEY`` (P-9) en cada solicitud.
+- Por defecto, datos FICTICIOS: exige ``AI_SQL_EXECUTOR=ficticio`` (explícito) y no admite
+  ``DATABASE_URL_READONLY`` en el entorno del proceso.
+- Datos REALES solo con autorización explícita ``AI_SERVICE_EVAL_REAL_DATA=1`` (cerrada por defecto):
+  exige ``AI_SQL_EXECUTOR=postgres_readonly`` (explícito; ``DATABASE_URL_READONLY`` del entorno o de
+  ``ai-service/.env``, nunca ``DATABASE_URL``, y distinta de ``DATABASE_URL`` si esta estuviera en el
+  entorno) y ``AI_SERVICE_EVAL_ALLOWED_USER_IDS`` (ids del ERP de las cuentas evaluadoras, separados
+  por comas; solo esas identidades firmadas pueden consultar).
+- ``AI_SERVICE_EVAL_ALLOWED_USER_IDS`` también puede restringir el modo ficticio.
+- Peor caso de espera: ``AI_SQLGEN_TIMEOUT_S`` + 2 × ``AI_LLM_TIMEOUT_S`` (+ 5 s del Executor real)
+  ≤ 50 s, por debajo del tiempo de espera del proxy de Next.js en Vercel (55 s).
 
 Ningún mensaje de error ni ``repr`` incluye valores de estas variables.
 
@@ -96,7 +101,11 @@ RAG_COLLECTION_VAR = "AI_RAG_MILVUS_COLLECTION"
 RAG_APPROVED_CORPUS_VAR = "AI_RAG_REMOTE_CORPUS_SHA256"
 RAG_MODEL_EVIDENCE_VAR = "AI_RAG_MODEL_EVIDENCE"
 EVAL_MODE_VAR = "AI_SERVICE_EVAL_MODE"
+EVAL_REAL_DATA_VAR = "AI_SERVICE_EVAL_REAL_DATA"
+EVAL_USERS_VAR = "AI_SERVICE_EVAL_ALLOWED_USER_IDS"
 EVAL_MAX_WAIT_S = 50
+EVAL_DB_TIMEOUT_S = 5  # statement_timeout del PostgresReadOnlyExecutor
+_EVAL_USERS_RE = re.compile(r"^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,9}$")
 # Únicas claves que pueden leerse de ai-service/.env (ignorado por Git); el entorno tiene prioridad.
 # Nunca se lee DATABASE_URL (conexión principal del ERP).
 DOTENV_KEYS = frozenset(
@@ -227,6 +236,9 @@ class ServiceSettings:
     identity_key: bytes | None = field(default=None, repr=False)
     rag: RagSettings = field(default_factory=RagSettings)
     eval_mode: bool = False
+    eval_real_data: bool = False
+    # Ids del ERP autorizados en evaluación (identidad firmada P-9); ``None`` = sin restricción adicional.
+    eval_allowed_user_ids: frozenset[int] | None = None
 
     def __repr__(self) -> str:
         return (
@@ -235,7 +247,8 @@ class ServiceSettings:
             f"sql_generator={self.sql_generator!r}, sqlgen={self.sqlgen!r}, "
             f"sql_executor={self.sql_executor!r}, readonly_dsn={'***' if self.readonly_dsn else None}, "
             f"llm_provider={self.llm_provider!r}, llm={self.llm!r}, "
-            f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r}, eval_mode={self.eval_mode})"
+            f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r}, eval_mode={self.eval_mode}, "
+            f"eval_real_data={self.eval_real_data}, eval_allowed_user_ids={sorted(self.eval_allowed_user_ids or ())})"
         )
 
     def token_matches(self, provided: str | None) -> bool:
@@ -350,8 +363,21 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
     if eval_text not in ("", "0", "1"):
         raise ServiceConfigError(f"{EVAL_MODE_VAR} debe ser '1' o no definirse.")
     eval_mode = eval_text == "1"
+    real_text = _read(env, EVAL_REAL_DATA_VAR)
+    if real_text not in ("", "0", "1"):
+        raise ServiceConfigError(f"{EVAL_REAL_DATA_VAR} debe ser '1' o no definirse.")
+    eval_real_data = real_text == "1"
+    users_text = _read(env, EVAL_USERS_VAR).replace(" ", "")
+    if users_text and not _EVAL_USERS_RE.match(users_text):
+        raise ServiceConfigError(f"{EVAL_USERS_VAR} debe ser una lista de ids enteros separados por comas.")
+    eval_users = frozenset(int(v) for v in users_text.split(",")) if users_text else None
+    if (eval_real_data or eval_users is not None) and not eval_mode:
+        raise ServiceConfigError(f"{EVAL_REAL_DATA_VAR} y {EVAL_USERS_VAR} solo se admiten con {EVAL_MODE_VAR}=1.")
     if eval_mode:
-        _check_eval_profile(env, generator, executor, llm_provider, rag.mode, identity_key, sqlgen, llm)
+        _check_eval_profile(
+            env, generator, executor, llm_provider, rag.mode, identity_key, sqlgen, llm,
+            real_data=eval_real_data, allowed_users=eval_users, readonly_dsn=readonly_dsn,
+        )
 
     return ServiceSettings(
         environment=environment,
@@ -368,6 +394,8 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
         identity_key=identity_key,
         rag=rag,
         eval_mode=eval_mode,
+        eval_real_data=eval_real_data,
+        eval_allowed_user_ids=eval_users,
     )
 
 
@@ -380,13 +408,30 @@ def _check_eval_profile(
     identity_key: bytes | None,
     sqlgen: SqlGenSettings | None,
     llm: LlmSettings | None,
+    *,
+    real_data: bool,
+    allowed_users: frozenset[int] | None,
+    readonly_dsn: str | None,
 ) -> None:
-    """Perfil de evaluación: modelos reales + Milvus, SOLO Executor ficticio y P-9 obligatorio."""
-    # Datos financieros reales: imposibles en evaluación, aunque alguien los active por error.
-    if executor != FIXTURE_EXECUTOR or _read(env, SQL_EXECUTOR_VAR) != FIXTURE_EXECUTOR:
-        raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige {SQL_EXECUTOR_VAR}={FIXTURE_EXECUTOR} (explícito).")
-    if READONLY_DSN_VAR in env:
-        raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 no admite {READONLY_DSN_VAR} en el entorno del proceso.")
+    """Perfil de evaluación: modelos reales + Milvus y P-9 obligatorio.
+
+    Executor ficticio por defecto; el real solo con ``AI_SERVICE_EVAL_REAL_DATA=1`` y cuentas
+    evaluadoras explícitas. Cualquier combinación intermedia falla al arrancar.
+    """
+    if real_data:
+        if executor != POSTGRES_EXECUTOR or _read(env, SQL_EXECUTOR_VAR) != POSTGRES_EXECUTOR:
+            raise ServiceConfigError(f"{EVAL_REAL_DATA_VAR}=1 exige {SQL_EXECUTOR_VAR}={POSTGRES_EXECUTOR} (explícito).")
+        if allowed_users is None:
+            raise ServiceConfigError(f"{EVAL_REAL_DATA_VAR}=1 exige {EVAL_USERS_VAR} (cuentas evaluadoras).")
+        write_dsn = _read(env, "DATABASE_URL")
+        if not readonly_dsn or (write_dsn and hmac.compare_digest(write_dsn.encode(), readonly_dsn.encode())):
+            raise ServiceConfigError(f"{EVAL_REAL_DATA_VAR}=1 exige una {READONLY_DSN_VAR} distinta de la conexión del ERP.")
+    else:
+        # Sin autorización explícita, los datos financieros reales son imposibles en evaluación.
+        if executor != FIXTURE_EXECUTOR or _read(env, SQL_EXECUTOR_VAR) != FIXTURE_EXECUTOR:
+            raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige {SQL_EXECUTOR_VAR}={FIXTURE_EXECUTOR} (explícito).")
+        if READONLY_DSN_VAR in env:
+            raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 no admite {READONLY_DSN_VAR} en el entorno del proceso.")
     if generator != XIYAN_GENERATOR or llm_provider != OPENAI_LLM or rag_mode != "milvus":
         raise ServiceConfigError(
             f"{EVAL_MODE_VAR}=1 exige {SQL_GENERATOR_VAR}={XIYAN_GENERATOR}, {LLM_PROVIDER_VAR}={OPENAI_LLM} "
@@ -396,9 +441,10 @@ def _check_eval_profile(
         raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige {IDENTITY_KEY_VAR} (P-9).")
     if sqlgen is None or llm is None:
         raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige la configuración completa de ambos modelos.")
-    if sqlgen.timeout_s + 2 * llm.timeout_s > EVAL_MAX_WAIT_S:
+    if sqlgen.timeout_s + 2 * llm.timeout_s + (EVAL_DB_TIMEOUT_S if real_data else 0) > EVAL_MAX_WAIT_S:
         raise ServiceConfigError(
-            f"{EVAL_MODE_VAR}=1 exige {SQLGEN_TIMEOUT_VAR} + 2 × {LLM_TIMEOUT_VAR} ≤ {EVAL_MAX_WAIT_S} s."
+            f"{EVAL_MODE_VAR}=1 exige {SQLGEN_TIMEOUT_VAR} + 2 × {LLM_TIMEOUT_VAR} "
+            f"(+ {EVAL_DB_TIMEOUT_S} s con datos reales) ≤ {EVAL_MAX_WAIT_S} s."
         )
 
 

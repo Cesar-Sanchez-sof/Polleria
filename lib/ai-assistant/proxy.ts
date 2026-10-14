@@ -5,7 +5,8 @@
  * - Asistente habilitado solo en modo demostración local o en evaluación sobre un Preview de Vercel
  *   (ver `config.ts`); el tiempo de espera hacia `ai-service` lo fija ese modo.
  * - Sesión del ERP validada en el servidor (`sesionActual`); el rol del asistente se deriva de la
- *   sesión y nunca del navegador. Roles no permitidos → 403.
+ *   sesión y nunca del navegador. Roles no permitidos → 403. En evaluación, además, solo las cuentas
+ *   de `AI_ASSISTANT_EVAL_USER_IDS` (otras cuentas del mismo rol → 403).
  * - El navegador solo puede enviar `mensaje`, `historial` y `ruta`; cualquier otra clave → 400.
  * - Al servicio solo se reenvían los turnos del usuario (las respuestas previas pueden contener
  *   importes y el servicio no los necesita).
@@ -54,6 +55,9 @@ async function gate(deps: ProxyDeps): Promise<Gate> {
   if (!session) return { ok: false, result: error(401, MESSAGES.unauthorized) };
   const role = assistantRoleFor(session.rol);
   if (!role) return { ok: false, result: error(403, MESSAGES.forbidden) };
+  // Evaluación: solo las cuentas evaluadoras configuradas, aunque otros usuarios tengan el mismo rol.
+  const allowed = deps.config.allowedUserIds;
+  if (allowed !== null && !allowed.includes(session.idUsuario)) return { ok: false, result: error(403, MESSAGES.forbidden) };
   return { ok: true, session, role, config: deps.config };
 }
 

@@ -204,6 +204,7 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
     vi.stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
     vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
     vi.stubEnv("SESSION_SECRET", ERP_SESSION_SECRET); // login del ERP: el asistente no la usa
+    vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7"); // cuenta evaluadora (idUsuario de la sesión ADMIN)
     sesionActual.mockResolvedValue({ idUsuario: 7, username: "admin", rol: "ADMIN" });
   });
 
@@ -238,11 +239,34 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(401);
   });
 
-  it("con ambas banderas sigue bloqueado si se piden datos reales, sin P-9 o fuera del túnel", async () => {
+  it("con ambas banderas: un ADMIN que no es la cuenta evaluadora recibe 403", async () => {
+    both();
+    const fetchMock = answering();
+    sesionActual.mockResolvedValue({ idUsuario: 8, username: "otro-admin", rol: "ADMIN" });
+    expect((await GET()).status).toBe(403);
+    expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("datos reales: solo con autorización explícita y cuentas evaluadoras; el estado lo indica", async () => {
+    both();
+    const fetchMock = answering();
+    vi.stubEnv("AI_ASSISTANT_REAL_DATA", "1");
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ habilitado: true, datosFicticios: false });
+    expect((await post(JSON.stringify({ mensaje: "Saldo de caja en julio" }))).status).toBe(200);
+    expect((fetchMock.mock.calls[0][1].headers as Record<string, string>)["X-ERP-Identity"]).toBeTruthy(); // P-9 siempre
+    vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", undefined);
+    expect((await GET()).status).toBe(404); // sin cuentas evaluadoras: deshabilitado
+  });
+
+  it("con ambas banderas sigue bloqueado sin cuentas evaluadoras, sin P-9 o fuera del túnel", async () => {
     both();
     const fetchMock = answering();
     for (const [name, value] of [
-      ["AI_ASSISTANT_REAL_DATA", "1"],
+      ["AI_ASSISTANT_EVAL_USER_IDS", undefined],
+      ["AI_ASSISTANT_EVAL_USER_IDS", "admin"],
       ["AI_ASSISTANT_IDENTITY_KEY", undefined],
       ["AI_SERVICE_URL", "http://127.0.0.1:8001"],
       ["VERCEL_ENV", "development"],
@@ -250,7 +274,7 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
       vi.stubEnv(name, value);
       expect((await GET()).status, `${name}=${value}`).toBe(404);
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, `${name}=${value}`).toBe(404);
-      vi.stubEnv("AI_ASSISTANT_REAL_DATA", undefined);
+      vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7");
       vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
       vi.stubEnv("AI_SERVICE_URL", TUNNEL);
       vi.stubEnv("VERCEL_ENV", "production");

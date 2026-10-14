@@ -22,7 +22,12 @@
  *   Ambas banderas son privadas del servidor (sin `NEXT_PUBLIC_`).
  * - `AI_SERVICE_URL`: exactamente `https://<subdominio>.trycloudflare.com` (túnel temporal hacia el
  *   FastAPI local). `AI_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY` (P-9) son obligatorios.
- * - Siempre datos ficticios: `AI_ASSISTANT_REAL_DATA=1` invalida la configuración (falla cerrado).
+ * - `AI_ASSISTANT_EVAL_USER_IDS`: ids del ERP (`sesionActual().idUsuario`) de las cuentas evaluadoras,
+ *   separados por comas. Obligatorio en Production y con datos reales: solo esas cuentas ADMIN usan el
+ *   asistente; los demás administradores reciben 403.
+ * - Datos ficticios por defecto. `AI_ASSISTANT_REAL_DATA=1` (consulta real en solo lectura, decidida y
+ *   aplicada por `ai-service` con `AI_SERVICE_EVAL_REAL_DATA=1`) solo es válido junto con
+ *   `AI_ASSISTANT_EVAL_USER_IDS`; si falta, la configuración se invalida (falla cerrado).
  */
 
 export type AssistantMode = "demo" | "eval";
@@ -37,12 +42,15 @@ export type AssistantConfig =
       demo: boolean;
       mode: AssistantMode;
       timeoutMs: number;
+      /** Evaluación: únicas cuentas del ERP autorizadas; `null` = cualquier usuario del rol permitido. */
+      allowedUserIds: readonly number[] | null;
     }
   | { enabled: false; reason: "production" | "disabled" | "misconfigured" };
 
 const URL_RE = /^http:\/\/127\.0\.0\.1:(\d{4,5})$/;
 const EVAL_URL_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.trycloudflare\.com$/;
 const TOKEN_RE = /^[0-9a-fA-F]{64,}$/;
+const USER_IDS_RE = /^[1-9]\d{0,9}(,[1-9]\d{0,9}){0,9}$/;
 /** Local: la primera inferencia de XiYanSQL puede tardar más. */
 export const DEMO_TIMEOUT_MS = 120_000;
 /** Vercel: por debajo de `maxDuration` (60 s) de `app/api/assistant/route.ts`. */
@@ -57,16 +65,23 @@ function readEvalConfig(env: Record<string, string | undefined>): AssistantConfi
   const url = env.AI_SERVICE_URL?.trim() ?? "";
   const token = env.AI_SERVICE_INTERNAL_TOKEN?.trim() ?? "";
   const identityKey = env.AI_ASSISTANT_IDENTITY_KEY?.trim() ?? "";
+  const realData = env.AI_ASSISTANT_REAL_DATA === "1";
+  const usersText = (env.AI_ASSISTANT_EVAL_USER_IDS ?? "").replace(/\s/g, "");
+  if (usersText && !USER_IDS_RE.test(usersText)) return { enabled: false, reason: "misconfigured" };
+  const allowedUserIds = usersText ? usersText.split(",").map(Number) : null;
   if (
     !EVAL_URL_RE.test(url) ||
     !TOKEN_RE.test(token) ||
     !TOKEN_RE.test(identityKey) ||
     identityKey.toLowerCase() === token.toLowerCase() ||
-    env.AI_ASSISTANT_REAL_DATA === "1" // la evaluación nunca usa datos financieros reales
+    // Production y datos reales: solo cuentas evaluadoras explícitas, nunca todos los ADMIN.
+    ((env.VERCEL_ENV === "production" || realData) && allowedUserIds === null)
   ) {
     return { enabled: false, reason: "misconfigured" };
   }
-  return { enabled: true, serviceUrl: url, token, identityKey, realData: false, demo: false, mode: "eval", timeoutMs: EVAL_TIMEOUT_MS };
+  return {
+    enabled: true, serviceUrl: url, token, identityKey, realData, demo: false, mode: "eval", timeoutMs: EVAL_TIMEOUT_MS, allowedUserIds,
+  };
 }
 
 export function readAssistantConfig(env: Record<string, string | undefined> = process.env): AssistantConfig {
@@ -85,7 +100,9 @@ export function readAssistantConfig(env: Record<string, string | undefined> = pr
     return { enabled: false, reason: "misconfigured" };
   }
   if (realData && identityKey === null) return { enabled: false, reason: "misconfigured" }; // P-9 obligatorio
-  return { enabled: true, serviceUrl: url, token, identityKey, realData, demo: true, mode: "demo", timeoutMs: DEMO_TIMEOUT_MS };
+  return {
+    enabled: true, serviceUrl: url, token, identityKey, realData, demo: true, mode: "demo", timeoutMs: DEMO_TIMEOUT_MS, allowedUserIds: null,
+  };
 }
 
 /**

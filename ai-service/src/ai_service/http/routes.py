@@ -13,6 +13,8 @@ Controles previos al orquestador, en orden (si fallan, el orquestador **no se in
 5. Con ``AI_ASSISTANT_IDENTITY_KEY`` configurada (P-9): aserción ``X-ERP-Identity`` válida y
    coincidente con usuario, rol y traza → si no, ``401`` genérico. Solo entonces se crea un
    ``AuthorizationContext`` autenticado (``erp-session``).
+6. Con ``AI_SERVICE_EVAL_ALLOWED_USER_IDS`` (evaluación académica): el usuario de la identidad
+   verificada debe estar en esa lista → si no, ``403``.
 
 Nunca se registran cuerpos, tokens ni valores sensibles. Los errores siguen ``{ error, errores? }``.
 """
@@ -35,6 +37,7 @@ TOKEN_HEADER = "X-Internal-Token"
 SECURITY_HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
 
 ERROR_UNAUTHORIZED = "No autorizado."
+ERROR_FORBIDDEN = "Acceso no permitido."
 ERROR_TOO_LARGE = "La solicitud es demasiado grande."
 ERROR_UNSUPPORTED_MEDIA = "El contenido debe ser application/json."
 
@@ -114,6 +117,9 @@ def build_router(settings: ServiceSettings, orchestrator: Orchestrator) -> APIRo
                 )
             except IdentityError:
                 return error_response(401, ERROR_UNAUTHORIZED)  # sin detallar el motivo
+            # Evaluación académica: solo las cuentas evaluadoras configuradas (identidad ya verificada).
+            if settings.eval_allowed_user_ids is not None and identity.user_id not in settings.eval_allowed_user_ids:
+                return error_response(403, ERROR_FORBIDDEN)
             authorization = AuthorizationContext(rol=identity.rol, origen="erp-session", autenticado=True)
 
         if authorization is None:
