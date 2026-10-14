@@ -6,6 +6,7 @@ import { actorActual } from "@/lib/auth/actor-auditoria";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import { generateJournalEntryCode } from "@/lib/journal-entry-code";
 import { vi } from "vitest";
+import { autorizar } from "@/lib/auth/permisos";
 
 
 export const dynamic = "force-dynamic";
@@ -176,6 +177,8 @@ async function getTotalsByEntryId(entryIds: number[]): Promise<Map<number, numbe
  *         description: Error interno del servidor.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("asientos.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const searchParams = request.nextUrl.searchParams;
 
@@ -325,6 +328,8 @@ function isDuplicateCode(error: unknown): boolean {
  *         description: Error interno al registrar el asiento.
  */
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("asientos.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {

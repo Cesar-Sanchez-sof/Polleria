@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { autorizar } from "@/lib/auth/permisos";
 
 /**
  * @openapi
@@ -38,6 +39,8 @@ import { prisma } from "@/lib/prisma";
  * Returns only active accounts, ordered by code.
  */
 export async function GET() {
+  const auth = await autorizar(["asientos.ver", "asientos.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const accounts = await prisma.accountingAccount.findMany({
       where: { active: true },

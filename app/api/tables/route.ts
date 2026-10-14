@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["mesas.ver", "pedidos.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const searchParams = request.nextUrl.searchParams;
     const includeInactive = searchParams.get("includeInactive") === "true";
@@ -121,6 +124,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("mesas.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => ({}));
     const number = Number(body.number ?? body.numero);

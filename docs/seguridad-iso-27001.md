@@ -89,3 +89,76 @@ La arquitectura cuenta con una suite completa de pruebas automatizadas en [`test
 5. **Redirección de `/login` para usuarios autenticados**: Evita que un usuario logueado vuelva a ver el formulario de login.
 6. **Purga de cookies residuales**: Comprueba que un token inválido devuelve `Set-Cookie` con `Max-Age=0` para limpiar el navegador.
 7. **Control de acceso por roles (RBAC)**: Valida que los roles operativos respetan sus permisos asignados.
+
+---
+
+## 6. Control de Acceso por Roles y Permisos (RBAC) — Spec 038
+
+Complementa la autenticación (secciones 3 y 4) con **autorización**: ISO/IEC 27001:2022 A.5.15
+(control de acceso), A.5.18 (derechos de acceso), A.5.3 (segregación de funciones) y A.8.2
+(derechos de acceso privilegiados). Principio aplicado: **mínimo privilegio y denegación por defecto**.
+
+### 6.1 Modelo
+
+- Cada usuario tiene **un rol**; cada rol tiene un conjunto de **permisos** `modulo.accion`.
+- `ver` abre la ventana; `crear`, `editar` y `eliminar` (incluye anular) habilitan acciones.
+- El rol `ADMIN` es de sistema (todos los permisos, no se puede renombrar, desactivar ni eliminar).
+- Los permisos se consultan en la BD en cada petición (no viajan en el token): revocar un permiso
+  o desactivar un rol surte efecto de inmediato.
+
+### 6.2 Capas de aplicación
+
+| Capa | Mecanismo | Archivo |
+|---|---|---|
+| Menú | Los enlaces sin permiso `ver` no se muestran | `components/personalized/Sidebar.tsx` |
+| Pantallas | "Acceso denegado" si el rol no incluye la ventana | `components/personalized/GuardaRuta.tsx` |
+| Páginas de servidor | `exigirPermisoServidor` antes de leer datos | `lib/auth/guard.ts` |
+| APIs | `autorizar(permiso)` → 401 sin sesión, 403 sin permiso | `lib/auth/permisos.ts` |
+| Server actions de compras | `exigirPermiso(permiso)` | `lib/services/purchases/*` |
+
+Las capas de menú y pantalla son comodidad de uso; **el control real está en las APIs y acciones**.
+
+### 6.3 Matriz de accesos de los roles base
+
+V = ver (ventana) · C = crear · E = editar · X = eliminar/anular · – = sin acceso
+
+| Módulo / ventana | ADMIN | CAJERO | MESERO | COCINERO | CONTADOR |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Ventas y comprobantes | VCEX | VC | – | – | V |
+| Caja (apertura, cierre, movimientos) | VCE | VCE | – | – | – |
+| Clientes | VCE | VCE | V | – | – |
+| Pedidos de mesa | VCEX | V | VCE | V | – |
+| Cocina | VE | – | – | VE | – |
+| Platos y recetas | VCEX | – | V | V | – |
+| Mesas | VCEX | V | VE | – | – |
+| Configuración del restaurante | VE | – | – | – | – |
+| Compras | VCEX | – | – | – | V |
+| Proveedores | VCEX | – | – | – | V |
+| Inventario | VCE | – | – | V | V |
+| Transformación de insumos | VCX | – | – | VC | – |
+| Asientos contables | VCE | – | – | – | VCE |
+| Plan de cuentas | VCE | – | – | – | VCE |
+| Periodos contables | VCE | – | – | – | VCE |
+| Reportes contables | V | – | – | – | V |
+| Usuarios | VCE | – | – | – | – |
+| Roles y permisos | VCEX | – | – | – | – |
+| Auditoría | V | – | – | – | V |
+| Documentación técnica | V | – | – | – | – |
+
+**Segregación de funciones (A.5.3):** quien toma pedidos (MESERO) no cobra; quien cobra y maneja caja
+(CAJERO) no registra asientos; quien registra asientos (CONTADOR) no mueve caja ni administra usuarios.
+
+### 6.4 Controles contra escalada de privilegios
+
+- Solo un administrador puede asignar un rol de sistema o modificar a un administrador.
+- Un rol con usuarios no se elimina ni se desactiva; un rol desactivado no permite iniciar sesión.
+- `roles.*` equivale a poder concederse cualquier permiso: debe reservarse al administrador.
+- Toda alta, cambio o baja de rol y de usuario queda en `audit_log` (módulo `Seguridad`/`Usuarios`)
+  con actor, IP y valores antes/después (A.8.15).
+
+### 6.5 Excepciones documentadas (sin permiso por rol)
+
+`/api/auth/login`, `/api/auth/logout` (públicos por diseño), `/api/webhooks/mercadopago` (firma HMAC),
+`/api/openapi` (especificación; exige sesión), `/api/realtime` (eventos) y `/api/payment-methods`
+(catálogo de solo lectura). El test `test/seguridad-permisos.test.ts` falla si se agrega una API
+o server action de compras sin control de acceso y no está en esta lista.

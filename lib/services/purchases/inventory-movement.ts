@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { InventoryMovementType, Prisma } from "@prisma/client";
+import { exigirPermiso } from "@/lib/auth/permisos";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos de filtros
@@ -172,6 +173,7 @@ function deriveReference(m: MovementWithIncludes): string | null {
 export async function getInventoryMovementsPaginated(
   filters: GetInventoryMovementsFilters = {}
 ): Promise<PaginatedInventoryMovements> {
+  await exigirPermiso("inventario.ver");
   const page = filters.page && filters.page > 0 ? filters.page : 1;
   const pageSize =
     filters.pageSize && filters.pageSize > 0 ? filters.pageSize : 15;

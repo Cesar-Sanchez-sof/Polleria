@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { SupplyType, InventoryMovementType, AffectationIgv } from "@prisma/client";
+import { exigirPermiso } from "@/lib/auth/permisos";
 
 export interface SupplyInput {
   name: string;
@@ -12,6 +13,7 @@ export interface SupplyInput {
 }
 
 export async function getSupplies() {
+  await exigirPermiso(["inventario.ver", "compras.ver", "transformacion.ver", "platos.ver"]);
   try {
     const supplies = await prisma.supply.findMany({
       orderBy: { name: "asc" },
@@ -30,6 +32,7 @@ export async function getSupplies() {
 }
 
 export async function createSupply(data: SupplyInput) {
+  await exigirPermiso("inventario.crear");
   if (!data.name || data.name.trim() === "") {
     throw new Error("El nombre del insumo es obligatorio");
   }
@@ -59,6 +62,7 @@ export async function createSupply(data: SupplyInput) {
 }
 
 export async function updateSupplyMinimum(supplyId: number, minimumStock: number) {
+  await exigirPermiso("inventario.editar");
   if (minimumStock < 0) {
     throw new Error("El stock mínimo no puede ser negativo");
   }
@@ -88,6 +92,7 @@ export async function updateSupplyMinimum(supplyId: number, minimumStock: number
 }
 
 export async function updateSupplyUnit(supplyId: number, unitOfMeasure: string) {
+  await exigirPermiso("inventario.editar");
   if (!unitOfMeasure || unitOfMeasure.trim() === "") {
     throw new Error("La unidad de medida es obligatoria");
   }
@@ -122,6 +127,7 @@ export async function registerInventoryAdjustment(
   reason: string,
   movementType: InventoryMovementType = InventoryMovementType.Adjustment
 ) {
+  await exigirPermiso("inventario.editar");
   if (actualQuantity < 0) {
     throw new Error("La cantidad real no puede ser negativa");
   }
@@ -172,6 +178,7 @@ export async function registerInventoryAdjustment(
 }
 
 export async function setSupplyStatus(supplyId: number, active: boolean) {
+  await exigirPermiso("inventario.editar");
   const supply = await prisma.supply.findUnique({
     where: { id: supplyId },
   });
@@ -195,6 +202,7 @@ export async function setSupplyStatus(supplyId: number, active: boolean) {
 }
 
 export async function getInventoryMovements(supplyId?: number) {
+  await exigirPermiso("inventario.ver");
   try {
     const movements = await prisma.inventoryMovement.findMany({
       where: supplyId ? { supplyId } : undefined,
@@ -228,6 +236,7 @@ export async function getInventoryMovements(supplyId?: number) {
 }
 
 export async function searchSupplies(query: string, limit: number = 10) {
+  await exigirPermiso(["compras.ver", "inventario.ver", "transformacion.ver", "platos.ver"]);
   try {
     const results = await prisma.supply.findMany({
       where: {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sesionActual } from "@/lib/auth/sesion-actual";
 import { postCashSessionOpeningJournalEntry } from "@/lib/services/accounting-posting.service";
 import { formatDenominationsSummary } from "@/lib/services/cash-register.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(_request: NextRequest) {
+  const auth = await autorizar("caja.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     // 1. Asegurar que existe al menos una caja física registrada en el sistema
     let register = await (prisma as any).cashRegister.findFirst({
@@ -126,6 +129,8 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("caja.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const sesion = await sesionActual().catch(() => null);
     let userId = sesion?.idUsuario;

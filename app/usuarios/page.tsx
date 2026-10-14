@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Users } from "lucide-react";
 import { FormularioUsuario, type Rol, type UsuarioFila } from "./FormularioUsuario";
+import { usePermisos } from "@/components/personalized/PermisosProvider";
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<UsuarioFila[]>([]);
@@ -18,6 +19,7 @@ export default function UsuariosPage() {
   const [error, setError] = useState<string | null>(null);
   const [formAbierto, setFormAbierto] = useState(false);
   const [editando, setEditando] = useState<UsuarioFila | null>(null);
+  const { puede } = usePermisos();
 
   const cargar = useCallback(async () => {
     try {
@@ -67,10 +69,13 @@ export default function UsuariosPage() {
   subtitle="Registro, edición y activación de usuarios del sistema."
   icon={Users}
 >
-  <div className="flex gap-2">
+    <div className="flex gap-2">
     <Button variant="outline" render={<Link href="/" />}>Volver al inicio</Button>
+    {puede("roles.ver") && (
+      <Button variant="outline" render={<Link href="/roles" />}>Roles y permisos</Button>
+    )}
     <Button variant="outline" onClick={cerrarSesion}>Cerrar sesión</Button>
-    <Button onClick={() => abrir(null)}>Nuevo usuario</Button>
+    {puede("usuarios.crear") && <Button onClick={() => abrir(null)}>Nuevo usuario</Button>}
   </div>
 </ModuleHeader>
 
@@ -120,7 +125,7 @@ export default function UsuariosPage() {
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={u.estado}
-                    disabled={u.id_usuario === yo}
+                    disabled={u.id_usuario === yo || !puede("usuarios.editar")}
                     onCheckedChange={(v) => cambiarEstado(u, v)}
                     aria-label={`${u.estado ? "Desactivar" : "Activar"} a ${u.username}`}
                   />
@@ -128,9 +133,11 @@ export default function UsuariosPage() {
                 </div>
               </TableCell>
               <TableCell className="text-right">
-                <Button size="sm" variant="outline" onClick={() => abrir(u)}>
-                  Editar
-                </Button>
+                                {puede("usuarios.editar") && (
+                  <Button size="sm" variant="outline" onClick={() => abrir(u)}>
+                    Editar
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}

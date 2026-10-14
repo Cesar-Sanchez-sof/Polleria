@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sesionActual } from "@/lib/auth/sesion-actual";
 import { postCashSessionClosingJournalEntries } from "@/lib/services/accounting-posting.service";
 import { formatDenominationsSummary } from "@/lib/services/cash-register.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar("caja.editar");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const sessionId = Number.parseInt(idParam, 10);

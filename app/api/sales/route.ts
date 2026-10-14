@@ -4,6 +4,7 @@ import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 import { uploadVoucherToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 /**
@@ -70,6 +71,8 @@ function normalizePersonType(value: unknown): PersonTypeValue {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("ventas.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = (await request.json().catch(() => null)) as RegisterSaleInput | null;
     if (!body || typeof body !== "object") {
@@ -509,6 +512,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("ventas.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date") ?? searchParams.get("fecha");

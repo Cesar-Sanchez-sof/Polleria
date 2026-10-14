@@ -5,6 +5,7 @@ import { getDishStock, setDishStock } from "@/lib/services/redis-stock.service";
 export const dynamic = "force-dynamic";
 
 import { determineCategory, isBeverage } from "@/lib/utils/dish-category";
+import { autorizar } from "@/lib/auth/permisos";
 export { determineCategory, isBeverage };
 
 /**
@@ -20,6 +21,8 @@ export { determineCategory, isBeverage };
  *     summary: Registrar nuevo plato con vinculación de ingredientes y recetas
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["platos.ver", "pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const searchParams = request.nextUrl.searchParams;
     const q = (searchParams.get("q") ?? "").trim().toLowerCase();
@@ -109,6 +112,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("platos.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => ({}));
     const name = (body.name || body.nombre || "").trim();

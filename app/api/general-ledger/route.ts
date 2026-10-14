@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 /**
@@ -39,6 +40,8 @@ function roundToTwo(value: number): number {
  * with running balance and period totals.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("reportes.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = (searchParams.get("codigo") ?? "").trim();

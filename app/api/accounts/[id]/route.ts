@@ -12,6 +12,7 @@ import {
   validateAccount,
   validationResponse,
 } from "@/lib/chart-of-accounts";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar(["cuentas.ver", "asientos.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const accountId = Number.parseInt(idParam, 10);
@@ -164,6 +167,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar("cuentas.editar");
+  if (!auth.ok) return auth.respuesta;
   let newCode: string | undefined;
 
   try {

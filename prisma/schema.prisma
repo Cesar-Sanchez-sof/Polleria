@@ -93,16 +93,19 @@ model Role {
   name        String           @unique @db.VarChar(50)
   description String?          @db.VarChar(150)
   active      Boolean          @default(true)
+  isSystem    Boolean          @default(false) @map("is_system")
   permissions RolePermission[]
   users       User[]
 
   @@map("role")
 }
-
 model Permission {
-  id    Int              @id @default(autoincrement())
-  name  String           @db.VarChar(100)
-  roles RolePermission[]
+  id     Int              @id @default(autoincrement())
+  code   String           @unique @db.VarChar(60)
+  module String           @db.VarChar(40)
+  action String           @db.VarChar(20)
+  name   String           @db.VarChar(100)
+  roles  RolePermission[]
 
   @@map("permission")
 }

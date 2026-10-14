@@ -3,6 +3,7 @@ import {
   ErrorIncomeStatement,
   getIncomeStatement,
 } from "@/lib/services/income-statement.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,8 @@ export const dynamic = "force-dynamic";
  *               $ref: '#/components/schemas/Error'
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("reportes.ver");
+  if (!auth.ok) return auth.respuesta;
   const params = request.nextUrl.searchParams;
   const desde = (params.get("desde") ?? "").trim();
   const hasta = (params.get("hasta") ?? "").trim();

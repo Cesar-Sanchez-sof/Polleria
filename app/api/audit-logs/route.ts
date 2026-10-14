@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { noAutorizado, respuestaError } from "@/lib/auth/respuestas";
 import { sesionActual } from "@/lib/auth/sesion-actual";
 import { listarAuditoria, MODULOS_AUDITORIA, ACCIONES_AUDITORIA } from "@/lib/services/audit.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,8 @@ export const dynamic = "force-dynamic";
  *         description: Sin permisos
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("auditoria.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const sesion = await sesionActual().catch(() => null);
     if (!sesion) return noAutorizado();

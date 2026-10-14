@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { lookupIdentityDocument } from "@/lib/services/document-lookup.service";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 /**
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { searchParams } = new URL(request.url);
     const tipo = (searchParams.get("tipo") || "dni").toLowerCase() as "dni" | "ruc";
@@ -49,6 +52,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => ({}));
     const tipo = (body?.tipo || "dni").toLowerCase() as "dni" | "ruc";

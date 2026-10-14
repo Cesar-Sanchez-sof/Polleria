@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getDishStock, setDishStock } from "@/lib/services/redis-stock.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar(["platos.ver", "pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);
@@ -77,6 +80,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar("platos.editar");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);
@@ -169,6 +174,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar("platos.editar");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);
@@ -205,6 +212,8 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar("platos.eliminar");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);

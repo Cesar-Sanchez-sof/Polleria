@@ -7,6 +7,7 @@ import {
   ExpenseCategory,
 } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
+import { exigirPermiso } from "@/lib/auth/permisos";
 
 export interface PurchaseWithoutVoucherInput {
   purchaseType?: InformalPurchaseType | "InventoryItem" | "OperatingExpense";
@@ -22,6 +23,7 @@ export interface PurchaseWithoutVoucherInput {
 }
 
 export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVoucherInput) {
+  await exigirPermiso("compras.crear");
   const purchaseType =
     (data.purchaseType as InformalPurchaseType) || InformalPurchaseType.InventoryItem;
 
@@ -135,6 +137,7 @@ export async function annulInformalPurchase(
   motivo: string,
   employeeId?: number
 ) {
+  await exigirPermiso("compras.eliminar");
   if (!motivo || motivo.trim() === "") {
     throw new Error("El motivo de anulación es obligatorio");
   }
@@ -215,6 +218,7 @@ export async function annulInformalPurchase(
 }
 
 export async function getPurchasesWithoutVoucher() {
+  await exigirPermiso("compras.ver");
   try {
     const list = await prisma.informalPurchase.findMany({
       include: {
