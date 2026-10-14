@@ -1,7 +1,7 @@
 {
   "version": "readonly-erp-provisional-2026-10-13",
   "schema": "public",
-  "note": "Allowlist PROVISIONAL para PostgresReadOnlyExecutor (esquema real public). Mismas columnas que allowlist.dev_erp.json; no verificadas contra la base porque el rol de solo lectura aún no tiene USAGE ni SELECT. Roles ficticios hasta P-14 y P-9. journal_entry.status se excluye: P-4 pendiente.",
+  "note": "Allowlist PROVISIONAL para PostgresReadOnlyExecutor (esquema real public). Mismas columnas que allowlist.dev_erp.json, verificadas por el equipo contra la base el 2026-10-13. Estrictamente financiera: no se amplía a las demás tablas legibles. Nombres de rol provisionales hasta P-14. journal_entry.status se permite SOLO para el filtro determinista de asientos registrados (P-4); no se muestra al modelo.",
   "tables": {
     "accounting_account": {
       "id": "INT",
@@ -16,7 +16,8 @@
       "entry_date": "DATE",
       "description": "VARCHAR",
       "book": "VARCHAR",
-      "code": "VARCHAR"
+      "code": "VARCHAR",
+      "status": "BOOLEAN"
     },
     "journal_entry_detail": {
       "id": "INT",
@@ -29,12 +30,36 @@
   },
   "roles": {
     "contador_demo": {
-      "accounting_account": ["id", "parent_id", "code", "name", "type", "active"],
-      "journal_entry": ["id", "entry_date", "description", "book", "code"],
-      "journal_entry_detail": ["id", "entry_id", "account_id", "description", "debit", "credit"]
+      "accounting_account": [
+        "id",
+        "parent_id",
+        "code",
+        "name",
+        "type",
+        "active"
+      ],
+      "journal_entry": [
+        "id",
+        "entry_date",
+        "description",
+        "book",
+        "code",
+        "status"
+      ],
+      "journal_entry_detail": [
+        "id",
+        "entry_id",
+        "account_id",
+        "description",
+        "debit",
+        "credit"
+      ]
     },
     "lector_demo": {
-      "accounting_account": ["code", "name"]
+      "accounting_account": [
+        "code",
+        "name"
+      ]
     }
   }
 }

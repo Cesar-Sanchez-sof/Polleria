@@ -14,6 +14,7 @@ pendientes (P-14).
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -32,8 +33,18 @@ def relation_fragment_id(table: str, columns: list[str], target: str, target_col
     return f"schema:relation:{table}.{','.join(columns)}->{target}.{','.join(target_columns)}"
 
 
-def build_corpus(metadata: dict, glossary: dict, rules: dict) -> list[Fragment]:
-    """Fragmentos deterministas (mismo orden y contenido para las mismas entradas)."""
+def build_corpus(
+    metadata: dict,
+    glossary: dict,
+    rules: dict,
+    metrics: dict | None = None,
+    examples: dict | None = None,
+) -> list[Fragment]:
+    """Fragmentos deterministas (mismo orden y contenido para las mismas entradas).
+
+    ``metrics`` (``metric:<id>``) y ``examples`` (``example:<id>``, SQL sintético con parámetros) son
+    opcionales para mantener intacto el corpus que referencia el conjunto Gold.
+    """
     schema_version = metadata["schema_sha256"][:12]
     table_terms: dict[str, str] = glossary.get("tables", {})
     column_terms: dict[str, str] = glossary.get("columns", {})
@@ -76,6 +87,37 @@ def build_corpus(metadata: dict, glossary: dict, rules: dict) -> list[Fragment]:
 
     for rule in rules["rules"]:
         fragments.append(
-            Fragment(tipo="regla", fuente=f"rule:{rule['id']}", version=rules["version"], contenido=rule["text"])
+            Fragment(
+                tipo="regla", fuente=f"rule:{rule['id']}", version=rules["version"], contenido=rule["text"],
+                evidencia_modelo=rule.get("model_evidence"),
+            )
+        )
+    for metric in (metrics or {}).get("metrics", []):
+        fragments.append(
+            Fragment(
+                tipo="metrica", fuente=f"metric:{metric['id']}", version=metrics["version"],  # type: ignore[index]
+                contenido=metric["text"], evidencia_modelo=metric.get("model_evidence"),
+            )
+        )
+    for example in (examples or {}).get("examples", []):
+        fragments.append(
+            Fragment(
+                tipo="ejemplo",
+                fuente=f"example:{example['id']}",
+                version=examples["version"],  # type: ignore[index]
+                contenido=f"Pregunta: {example['question']} SQL: {example['sql']}",
+            )
         )
     return fragments
+
+
+def corpus_fingerprint(fragments: list[Fragment]) -> str:
+    """Huella SHA-256 del corpus exacto (tipo, fuente, versión y contenido de cada fragmento).
+
+    Es lo que se aprueba antes de enviar el corpus a un índice remoto: cualquier cambio de texto
+    produce otra huella y vuelve a requerir aprobación.
+    """
+    canonical = json.dumps(
+        sorted([f.tipo, f.fuente, f.version, f.contenido] for f in fragments), ensure_ascii=False, separators=(",", ":")
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

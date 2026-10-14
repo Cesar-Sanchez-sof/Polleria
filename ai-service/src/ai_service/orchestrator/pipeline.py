@@ -40,7 +40,9 @@ from ai_service.audit.masking import AuditConfigError, AuditMaskingError, Pseudo
 from ai_service.audit.record import AuditRecord, build_audit_record
 from ai_service.explanation.markers import MarkerValidationError
 from ai_service.http.schemas import (
+    Detail,
     Evidence,
+    FigureLabel,
     Figure,
     Period,
     QueryRequest,
@@ -71,11 +73,17 @@ from ai_service.orchestrator.prefilter import PrefilterDecision, prefilter, user
 from ai_service.orchestrator.security import SECURITY_INCIDENT, SecurityIncident
 
 TEXTS: dict[str, str] = {
-    "sin_datos": "No encontré registros contables para el período o la cuenta consultados.",
-    "requiere_aclaracion": "¿Puedes indicar la cuenta, el período o el indicador que necesitas?",
+    "sin_datos": "No encontré movimientos de esa cuenta en el período que consultaste.",
+    "requiere_aclaracion": (
+        "Necesito un poco más de información. ¿De qué cuenta (por ejemplo, Caja o Bancos) y de qué mes "
+        "quieres el resultado?"
+    ),
     "solo_lectura": "Solo puedo consultar información; no puedo registrar, modificar ni anular movimientos.",
-    "fuera_de_dominio": "Solo puedo responder preguntas financieras y contables del ERP.",
-    "no_resoluble": "No pude resolver esta consulta con la información disponible.",
+    "fuera_de_dominio": "Solo puedo ayudarte con consultas sobre las cuentas contables del ERP.",
+    "no_resoluble": (
+        "No pude responder esa pregunta con la información disponible. Prueba, por ejemplo, con "
+        "«¿Cuál fue el saldo de caja en septiembre?»."
+    ),
     "datos_sensibles": (
         "Por seguridad, no incluyas datos personales, credenciales ni importes en tu pregunta."
     ),
@@ -91,6 +99,24 @@ INDICATOR_NOT_AVAILABLE = "INDICATOR_NOT_AVAILABLE"
 SQL_REJECTED = "SQL_REJECTED"
 COMPONENT_FAILURE = "COMPONENT_FAILURE"
 MODEL_UNAVAILABLE = "MODEL_UNAVAILABLE"
+
+# Cifra principal que se explica en la respuesta breve, por tipo de plan.
+PRIMARY_MARKERS: dict[str, frozenset[str]] = {"saldo_cuenta": frozenset({"c1"})}
+# Etiquetas en lenguaje sencillo de las cifras del motor (no cambian sus fórmulas). ``c1`` es el
+# saldo neto de los movimientos del período: NO incluye saldos de períodos anteriores.
+FIGURE_LABELS: dict[str, dict[str, str]] = {
+    "saldo_cuenta": {
+        "c1": "Saldo neto de los movimientos del período",
+        "c2": "Total del debe (cargos)",
+        "c3": "Total del haber (abonos)",
+    }
+}
+DETAIL_NOTES: dict[str, str] = {
+    "saldo_cuenta": (
+        "Solo considera movimientos de asientos registrados del período; no incluye asientos anulados "
+        "ni saldos de períodos anteriores."
+    ),
+}
 
 
 class ErrorBody(StrictModel):
@@ -122,6 +148,7 @@ class _Run:
     figures: tuple[Figure, ...] = ()
     evidences: list[Evidence] = field(default_factory=list)
     security_incident: bool = False
+    detalle: Detail | None = None
 
 
 class Orchestrator:
@@ -142,6 +169,7 @@ class Orchestrator:
         versions: Mapping[str, str] | None = None,
         retrieval_k: int = 3,
         prefilter_fn: Callable[[QueryRequest], PrefilterDecision] = prefilter,
+        account_names: Mapping[str, str] | None = None,
     ) -> None:
         if pseudonymizer is None:
             raise AuditConfigError("Falta la clave de auditoría; el orquestador no puede operar.")
@@ -160,23 +188,34 @@ class Orchestrator:
         self._k = retrieval_k
         # Inyectable solo para probar el escenario "el prefiltro falla"; por defecto, el real.
         self._prefilter = prefilter_fn
+        # Nombres visibles de las cuentas (catálogo del servidor); nunca proceden del usuario.
+        self._account_names = dict(account_names or {})
 
     # ------------------------------------------------------------------ API pública
-    def handle(self, payload: QueryRequest | Mapping[str, object] | str) -> PipelineOutcome:
+    def handle(
+        self,
+        payload: QueryRequest | Mapping[str, object] | str,
+        *,
+        authorization: AuthorizationContext | None = None,
+    ) -> PipelineOutcome:
+        """``authorization``: contexto ya verificado por la API (P-9). Sin él, el rol de CT-B se usa
+        como contexto provisional que solo restringe el alcance y nunca habilita datos reales."""
         try:
             request = self._parse(payload)
         except ValidationError as exc:
             fields = sorted({".".join(str(p) for p in err["loc"]) for err in exc.errors()})[:20]
             return PipelineOutcome(400, ErrorBody(error=ERROR_INVALID_REQUEST, errores=fields))
 
-        if request.usuario.rol not in self._roles:
+        if request.usuario.rol not in self._roles or (
+            authorization is not None and authorization.rol != request.usuario.rol
+        ):
             run = _Run(codes=[ROLE_FORBIDDEN])
             return PipelineOutcome(403, ErrorBody(error=ERROR_FORBIDDEN), self._write_audit(request, run))
 
         run = _Run()
         status = 200
         try:
-            self._run(request, run)
+            self._run(request, run, authorization or AuthorizationContext(rol=request.usuario.rol))
         except BudgetDenied as exc:
             run.codes.append(exc.reason.upper())
             status = 503
@@ -208,6 +247,7 @@ class Orchestrator:
             cifras=list(run.figures),
             evidencias=run.evidences,
             versiones=self._versions,
+            detalle=run.detalle,
         )
         return PipelineOutcome(200, response, audit)
 
@@ -226,7 +266,7 @@ class Orchestrator:
         if code:
             run.codes.append(code)
 
-    def _run(self, request: QueryRequest, run: _Run) -> None:
+    def _run(self, request: QueryRequest, run: _Run, authorization: AuthorizationContext) -> None:
         decision = self._prefilter(request)
         if not decision.allowed:
             text_key = "datos_sensibles" if decision.reason == "SENSITIVE_DATA" else None
@@ -245,9 +285,8 @@ class Orchestrator:
             self._finish(run, "no_resoluble", code=INDICATOR_NOT_AVAILABLE)  # catálogo pendiente (P-6)
             return
 
-        # Rol ya revalidado en ``handle`` contra la allowlist; provisional hasta P-9 (solo restringe).
-        authorization = AuthorizationContext(rol=request.usuario.rol)
-        plan = self._resolve_plan(request, interpretation.cuenta, authorization)
+        # Rol ya revalidado en ``handle`` contra la allowlist (verificado por P-9 o provisional).
+        plan =self._resolve_plan(request, interpretation.cuenta, authorization)
         if plan is None:  # falta cuenta o período tras revisar mensaje, historial y contexto
             self._finish(run, "requiere_aclaracion", code=MISSING_ENTITIES)
             return
@@ -289,12 +328,18 @@ class Orchestrator:
             self._finish(run, "sin_datos")
             return
 
+        # La explicación muestra primero el resultado principal; el resto de cifras verificadas se
+        # entrega en ``cifras`` y ``detalle`` ("Ver detalles del cálculo").
+        primary = PRIMARY_MARKERS.get(plan.kind)
+        explained = tuple(f for f in result.figures if primary is None or f.marcador in primary)
+        account_name = self._account_names.get(plan.cuenta)
         try:
             text = self._explainer.explain(
                 trace_id=request.id_traza,
                 intencion=interpretation.intencion,
                 periodo=plan.periodo,
-                figures=result.figures,
+                figures=explained,
+                cuenta_nombre=account_name,
             )
         except MarkerValidationError as exc:
             self._finish(run, "no_resoluble", code=exc.code)  # explicación descartada (FR-020)
@@ -303,6 +348,21 @@ class Orchestrator:
         run.estado = "respondida"
         run.texto = text
         run.figures = result.figures
+        run.detalle = self._detail(plan, result.figures, account_name)
+
+    @staticmethod
+    def _detail(plan: QueryPlan, figures: tuple[Figure, ...], account_name: str | None) -> Detail | None:
+        labels = FIGURE_LABELS.get(plan.kind, {})
+        if not figures or any(f.marcador not in labels for f in figures):
+            return None  # sin etiqueta verificada para alguna cifra: no se inventa detalle
+        return Detail(
+            tipo=plan.kind,
+            cuenta=plan.cuenta,
+            cuenta_nombre=account_name,
+            periodo=plan.periodo,
+            etiquetas=[FigureLabel(marcador=f.marcador, etiqueta=labels[f.marcador]) for f in figures],
+            nota=DETAIL_NOTES.get(plan.kind),
+        )
 
     def _resolve_plan(
         self, request: QueryRequest, interpreted_account: str | None, authorization: AuthorizationContext

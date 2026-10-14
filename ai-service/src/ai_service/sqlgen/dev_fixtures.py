@@ -7,7 +7,8 @@ alias que elija el modelo:
 - tablas ``journal_entry_detail``, ``accounting_account`` y ``journal_entry`` unidas por
   ``accounting_account.id = journal_entry_detail.account_id`` y
   ``journal_entry.id = journal_entry_detail.entry_id`` (en cualquier orden de operandos);
-- ``WHERE`` formado solo por conjunciones (``AND``) de ``accounting_account.code = '<código>'`` y de
+- ``WHERE`` con el filtro P-4 obligatorio ``journal_entry.status = TRUE`` (asientos registrados) y
+  solo conjunciones (``AND``) de ``accounting_account.code = '<código>'`` y de
   un rango de ``journal_entry.entry_date`` (``>=``/``<``, ``<=`` o ``BETWEEN``);
 - proyección solo de ``id``, ``code``, ``name`` y ``type`` de la cuenta y de ``SUM(debit)`` /
   ``SUM(credit)`` del detalle, con cualquier alias; ``GROUP BY`` obligatorio.
@@ -23,12 +24,14 @@ from __future__ import annotations
 import copy
 from collections.abc import Iterable, Mapping
 from datetime import date, timedelta
+from decimal import Decimal
 
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
 from ai_service.orchestrator.ports import Row
+from ai_service.policies.registered_entries import has_registered_entries_filter
 from ai_service.simulation.components import ExecutorRefused
 from ai_service.validation.validator import Verdict
 
@@ -46,6 +49,7 @@ REQUIRED_JOINS = frozenset(
 # Origen de cada columna proyectable → clave de la fila ficticia.
 ACCOUNT_COLUMNS = {"id": "account_id", "code": "code", "name": "name", "type": "type"}
 SUM_COLUMNS = {"debit": "total_debit", "credit": "total_credit"}
+CENT = Decimal("0.01")
 
 
 class FixtureMiss(LookupError):
@@ -67,27 +71,49 @@ def _date_literal(node: exp.Expression) -> date:
     raise _Unsupported()
 
 
+def _leaves(node: exp.Expression) -> list[exp.Expression]:
+    """Conjunción de nivel superior, entrando en paréntesis que solo contienen ``AND``."""
+    if isinstance(node, exp.Paren):
+        return _leaves(node.this)
+    if isinstance(node, exp.And):
+        return _leaves(node.this) + _leaves(node.expression)
+    return [node]
+
+
 class SaldoFixtureExecutor:
-    def __init__(self, dataset: Iterable[Mapping[str, object]]) -> None:
-        self._data: dict[tuple[str, date, date], list[dict[str, object]]] = {}
+    """Datos ficticios por movimientos: ``accounts`` (metadatos de cuenta) y ``dataset`` con
+    ``movimientos`` de asientos registrados o anulados. Solo responde a SQL con el filtro P-4 y solo
+    totaliza los movimientos de asientos registrados."""
+
+    def __init__(self, dataset: Iterable[Mapping[str, object]], accounts: Mapping[str, Mapping[str, object]]) -> None:
+        self._accounts = {code: dict(info) for code, info in accounts.items()}
+        self._data: dict[tuple[str, date, date], list[Mapping[str, object]]] = {}
         for entry in dataset:
             start = date.fromisoformat(str(entry["desde"]))
             end_exclusive = date.fromisoformat(str(entry["hasta"])) + timedelta(days=1)
-            self._data[(str(entry["cuenta"]), start, end_exclusive)] = [dict(r) for r in entry["rows"]]  # type: ignore[union-attr]
+            self._data[(str(entry["cuenta"]), start, end_exclusive)] = list(entry["movimientos"])  # type: ignore[call-overload]
         self.calls = 0
 
     def execute(self, verdict: Verdict) -> list[Row]:
         if not isinstance(verdict, Verdict) or not verdict.approved or not verdict.normalized_sql:
             raise ExecutorRefused("El Executor solo acepta SQL aprobado por el validador.")
         self.calls += 1
+        if not has_registered_entries_filter(verdict.normalized_sql):
+            raise FixtureMiss("La consulta no garantiza el filtro de asientos registrados (P-4).")
         try:
             code, start, end_exclusive, outputs = self._analyze(verdict.normalized_sql)
         except (_Unsupported, SqlglotError, AttributeError) as exc:
             raise FixtureMiss("Consulta fuera del patrón soportado por los datos ficticios.") from exc
-        rows = self._data.get((code, start, end_exclusive))
-        if rows is None:
+        movements = self._data.get((code, start, end_exclusive))
+        if movements is None or code not in self._accounts:
             raise FixtureMiss("Sin datos ficticios registrados para ese período.")
-        return [{name: copy.deepcopy(row[source]) for name, source in outputs} for row in rows]
+        registered = [m for m in movements if m["registrado"] is True]
+        if not registered:
+            return []  # JOIN internos + GROUP BY: sin movimientos registrados no hay fila
+        row = dict(self._accounts[code])
+        row["total_debit"] = str(sum((Decimal(str(m["debe"])) for m in registered), Decimal("0")).quantize(CENT))
+        row["total_credit"] = str(sum((Decimal(str(m["haber"])) for m in registered), Decimal("0")).quantize(CENT))
+        return [{name: copy.deepcopy(row[source]) for name, source in outputs}]
 
     # ----------------------------------------------------------------- análisis del AST validado
     def _analyze(self, sql: str) -> tuple[str, date, date, list[tuple[str, str]]]:
@@ -123,11 +149,16 @@ class SaldoFixtureExecutor:
             raise _Unsupported()
 
         code = start = end_exclusive = None
+        registered_filter = False
         where = tree.args.get("where")
         if where is None:
             raise _Unsupported()
-        for predicate in where.this.flatten() if isinstance(where.this, exp.And) else [where.this]:
-            if isinstance(predicate, exp.EQ) and column(predicate.this) == (ACCOUNT, "code"):
+        for predicate in _leaves(where.this):
+            if isinstance(predicate, exp.EQ) and column(predicate.this) == (ENTRY, "status"):
+                if registered_filter or predicate.expression != exp.true():
+                    raise _Unsupported()
+                registered_filter = True
+            elif isinstance(predicate, exp.EQ) and column(predicate.this) == (ACCOUNT, "code"):
                 literal = predicate.expression
                 if code is not None or not (isinstance(literal, exp.Literal) and literal.is_string):
                     raise _Unsupported()
@@ -145,7 +176,7 @@ class SaldoFixtureExecutor:
                 end_exclusive = _date_literal(predicate.expression) + timedelta(days=1)
             else:
                 raise _Unsupported()
-        if code is None or start is None or end_exclusive is None:
+        if code is None or start is None or end_exclusive is None or not registered_filter:
             raise _Unsupported()
 
         outputs: list[tuple[str, str]] = []

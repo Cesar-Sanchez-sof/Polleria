@@ -71,7 +71,7 @@ class FakeOpenAI:
         self.headers: list[httpx.Headers] = []
         self.urls: list[str] = []
         self.interpretation = {"intencion": "consulta_financiera", "cuenta": "101", "indicador": None, "necesita_aclaracion": False}
-        self.explanation = "El saldo de la cuenta en el período es {{c1}}, con cargos por {{c2}} y abonos por {{c3}}."
+        self.explanation = "Durante septiembre de 2026, los movimientos de Caja tuvieron un saldo neto de {{c1}}."
         self.override: httpx.Response | Exception | None = None
 
     def transport(self) -> httpx.MockTransport:
@@ -134,16 +134,21 @@ class SettingsTests(GuardedTestCase):
             self.assertNotIn(env[OPENAI_KEY_VAR], text)
         self.assertLessEqual(settings.llm.worst_case_request_cost(), Decimal("0.02"))
 
-    def test_dotenv_only_supplies_its_two_keys(self) -> None:
+    def test_dotenv_only_supplies_allowed_keys(self) -> None:
         key = fake_key()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / ".env"
             path.write_text(
                 f"# comentario\nOPENAI_API_KEY='{key}'\nOPENAI_MODEL=gpt-6-luna\n"
-                "DATABASE_URL_READONLY=postgresql://x:y@h.invalid/db\nOTRA=valor\n",
+                "DATABASE_URL_READONLY=postgresql://x:y@h.invalid/db\n"
+                "DATABASE_URL=postgresql://escritura:z@h.invalid/db\nOTRA=valor\n",
                 encoding="utf-8",
             )
-            self.assertEqual(read_dotenv_keys(path), {OPENAI_KEY_VAR: key, OPENAI_MODEL_VAR: "gpt-6-luna"})
+            # Nunca DATABASE_URL (conexión principal del ERP) ni otras variables.
+            self.assertEqual(
+                read_dotenv_keys(path),
+                {OPENAI_KEY_VAR: key, OPENAI_MODEL_VAR: "gpt-6-luna", "DATABASE_URL_READONLY": "postgresql://x:y@h.invalid/db"},
+            )
             env = {k: v for k, v in openai_env().items() if k != OPENAI_KEY_VAR}
             self.assertEqual(load_service_settings(env, dotenv_path=path).llm.api_key, key)
             # El entorno tiene prioridad sobre el archivo.
@@ -205,7 +210,7 @@ class ProviderTests(GuardedTestCase):
         response = self.provider.complete(explain_request())
         self.assertIn("{{c1}}", response.salida.texto)
         sent = json.loads(self.api.requests[0]["input"])
-        self.assertEqual(set(sent), {"intencion", "periodo", "marcadores"})
+        self.assertEqual(set(sent), {"intencion", "periodo", "marcadores", "cuenta_nombre"})
         self.assertEqual(sent["marcadores"], ["c1", "c2", "c3"])
         for figure in FIGURES:
             self.assertNotIn(figure, json.dumps(self.api.requests[0]))
@@ -274,6 +279,11 @@ class PipelineTests(GuardedTestCase):
         self.assertIn("S/ 1,149.60", outcome.body.texto)
         self.assertEqual(outcome.body.versiones["llm"], "openai:gpt-6-luna")
         self.assertEqual([r["text"]["format"]["name"] for r in api.requests], ["interpretacion", "explicacion"])
+        explain_input = json.loads(api.requests[1]["input"])
+        self.assertEqual((explain_input["marcadores"], explain_input["cuenta_nombre"]), (["c1"], "Caja"))
+        self.assertIn("saldo NETO de los movimientos del período", api.requests[1]["instructions"])
+        self.assertEqual(outcome.body.texto, "Durante septiembre de 2026, los movimientos de Caja tuvieron un saldo neto de S/ 1,149.60.")
+        self.assertEqual([label.marcador for label in outcome.body.detalle.etiquetas], ["c1", "c2", "c3"])
         for request in api.requests:
             serialized = json.dumps(request, ensure_ascii=False)
             for figure in FIGURES:
@@ -282,7 +292,7 @@ class PipelineTests(GuardedTestCase):
 
     def test_invented_figures_in_explanation_are_discarded(self) -> None:
         orchestrator, _audit, api, _ = self.build()
-        api.explanation = "El saldo es S/ 2,000.00 ({{c1}}, {{c2}}, {{c3}})."
+        api.explanation = "El saldo neto es S/ 2,000.00 ({{c1}})."
         outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"))
         self.assertEqual(outcome.body.estado, "no_resoluble")
         self.assertIn("UNVERIFIED_QUANTITY", outcome.audit.codigos_rechazo)

@@ -65,7 +65,16 @@ class MSchemaBuilder:
         self._models = {model["table"]: model for model in metadata["models"]}
         self._db_id = db_id
 
-    def build(self, role: str, tables: Sequence[str], *, include_self_references: bool = False) -> str:
+    def build(
+        self,
+        role: str,
+        tables: Sequence[str],
+        *,
+        include_self_references: bool = False,
+        hidden_columns: frozenset[tuple[str, str]] = frozenset(),
+    ) -> str:
+        """``hidden_columns``: columnas autorizadas que no se muestran al modelo (p. ej., las que
+        solo usa una política determinista y no formaban parte del esquema de entrenamiento)."""
         grants = self._allowlist.roles.get(role)
         if not grants:
             raise MSchemaError("Rol sin permisos en la allowlist.")
@@ -78,7 +87,7 @@ class MSchemaBuilder:
             model = self._models.get(table)
             if model is None:
                 raise MSchemaError(f"Tabla sin metadata: {table!r}.")
-            allowed = set(grants[table])
+            allowed = {column for column in grants[table] if (table, column) not in hidden_columns}
             columns = [c for c in model["columns"] if c["column"] in allowed]
             missing = allowed - {c["column"] for c in columns}
             if missing:

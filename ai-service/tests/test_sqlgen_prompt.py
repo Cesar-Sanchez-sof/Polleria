@@ -25,7 +25,7 @@ from ai_service.orchestrator.ports import (
 )
 from ai_service.orchestrator.security import SensitiveDataBlocked
 from ai_service.sqlgen.evidence import EvidenceBuilder, EvidenceError, RagPolicy
-from ai_service.sqlgen.generator import XiYanSqlGenerator
+from ai_service.sqlgen.generator import MODEL_HIDDEN_COLUMNS, XiYanSqlGenerator
 from ai_service.sqlgen.mschema import MSchemaBuilder, MSchemaError
 from ai_service.sqlgen.plan_to_request import (
     REQUEST_KEYS,
@@ -136,7 +136,12 @@ class MSchemaTests(GuardedTestCase):
         self.builder = MSchemaBuilder(ALLOWLIST, METADATA)
 
     def test_matches_training_variant(self) -> None:
-        self.assertEqual(self.builder.build("contador_demo", TABLES), EXPECTED_MSCHEMA)
+        # Con la columna de la política P-4 oculta (como hace el generador), el esquema es el de entrenamiento.
+        self.assertEqual(self.builder.build("contador_demo", TABLES, hidden_columns=MODEL_HIDDEN_COLUMNS), EXPECTED_MSCHEMA)
+
+    def test_policy_column_is_authorized_but_hidden_from_the_model(self) -> None:
+        self.assertIn("(status:BOOLEAN)", self.builder.build("contador_demo", TABLES))
+        self.assertNotIn("(status:", self.builder.build("contador_demo", TABLES, hidden_columns=MODEL_HIDDEN_COLUMNS))
 
     def test_only_role_objects_are_described(self) -> None:
         schema = self.builder.build("lector_demo", TABLES)
@@ -148,7 +153,7 @@ class MSchemaTests(GuardedTestCase):
             self.assertNotIn(hidden, schema)
 
     def test_excluded_columns_never_appear(self) -> None:
-        schema = self.builder.build("contador_demo", TABLES)
+        schema = self.builder.build("contador_demo", TABLES, hidden_columns=MODEL_HIDDEN_COLUMNS)
         for column in ("status", "sales_invoice_id", "payroll_id", "period_id", "responsible", "created_at"):
             self.assertNotIn(f"({column}:", schema)
 
@@ -217,9 +222,17 @@ class EvidenceTests(GuardedTestCase):
         self.assertEqual(evidence.version, "evidence-saldo-v1")
 
     def test_accounting_rules_can_never_be_sent_to_model_2(self) -> None:
-        for tipos in ({"regla"}, {"ejemplo"}, {"relacion", "regla"}):
+        # Los ejemplos SQL nunca son evidencia del Modelo 2 (T033).
+        for tipos in ({"ejemplo"}, {"relacion", "ejemplo"}):
             with self.subTest(tipos=sorted(tipos)), self.assertRaises(ValueError):
-                RagPolicy(tipos=frozenset(tipos), fuentes=frozenset({"rule:naturaleza-saldo"}), max_fragments=1)
+                RagPolicy(tipos=frozenset(tipos), fuentes=frozenset({"example:saldo-cuenta-periodo"}), max_fragments=1)
+        # Una regla de cálculo sin evidencia_modelo no llega aunque la política admita reglas.
+        policy = {"saldo_cuenta": RagPolicy(tipos=frozenset({"regla"}), fuentes=frozenset({"rule:naturaleza-saldo"}), max_fragments=1)}
+        rule = Fragment(tipo="regla", fuente="rule:naturaleza-saldo", version="v", contenido="saldo = debe menos haber")
+        visible = {"journal_entry_detail": ("debit", "credit"), "accounting_account": ("code", "type")}
+        evidence = EvidenceBuilder(["journal_entry_detail", "accounting_account"], policies=policy).build("saldo_cuenta", [rule], visible)
+        self.assertEqual(evidence.fragment_ids, ())
+        self.assertNotIn("saldo", evidence.text)
 
     def test_b1_balance_rule_is_unchanged(self) -> None:
         # La resolución no toca las reglas contables: B1 sigue definiendo el saldo por naturaleza.
@@ -269,7 +282,7 @@ def two_role_allowlist():
     data = json.loads((ROOT / "knowledge" / "allowlist.dev_erp.json").read_text(encoding="utf-8"))
     data["roles"]["auditor_demo"] = {
         "accounting_account": ["id", "code", "type"],
-        "journal_entry": ["id", "entry_date"],
+        "journal_entry": ["id", "entry_date", "status"],
         "journal_entry_detail": ["entry_id", "account_id", "debit", "credit"],
     }
     return parse_allowlist(data)
@@ -329,10 +342,12 @@ class GeneratorAuthorizationTests(GuardedTestCase):
             generator.build_prompt(authorized(), [])
         self.assertEqual(ctx.exception.code, "UNTRUSTED_AUTHORIZATION")
 
-    def test_p4_blocks_saldo_with_real_data(self) -> None:
-        with self.assertRaises(GenerationBlocked) as ctx:
-            self.make(data_source="real").build_prompt(authorized(), [])
-        self.assertEqual((ctx.exception.category, ctx.exception.code), ("SQLGEN_BLOCKED", "VOIDED_ENTRIES_UNDEFINED"))
+    def test_p4_resolved_saldo_is_no_longer_blocked_with_real_data(self) -> None:
+        # El bloqueo se retiró porque el filtro determinista de asientos registrados está probado.
+        content = self.make(data_source="real").build_prompt(authorized(), [])
+        self.assertEqual(content, build_user_content(EXPECTED_REQUEST, EXPECTED_MSCHEMA, EXPECTED_EVIDENCE))
+        self.assertNotIn("status", content)  # el esquema de entrenamiento no cambia
+        _ = GenerationBlocked  # el mecanismo de bloqueo sigue disponible para futuras decisiones
 
     def test_sensitive_looking_input_is_blocked_before_any_call(self) -> None:
         with self.assertRaises(SensitiveDataBlocked):

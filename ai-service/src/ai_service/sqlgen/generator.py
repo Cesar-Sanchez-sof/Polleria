@@ -7,8 +7,9 @@ Flujo por petición:
    origen aceptado por esta instancia. El rol de **esa** petición debe tener las columnas mínimas
    del tipo de plan. El rol es provisional (P-9): solo restringe el alcance; el SQL Validator lo
    vuelve a aplicar siempre después de la generación.
-2. **Bloqueo P-4** (``SQLGEN_BLOCKED``): con datos que no sean ficticios, ``saldo_cuenta`` queda
-   bloqueado mientras no se defina el tratamiento de los asientos anulados.
+2. **Bloqueos** (``SQLGEN_BLOCKED``): modalidades vetadas con datos reales por decisiones pendientes
+   (hoy ninguna). **P-4 resuelto**: el SQL financiero recibe de forma determinista el filtro de
+   asientos registrados (``journal_entry.status = TRUE``); si no puede garantizarse, se rechaza.
 3. Solicitud JSON 1.0 → M-Schema **del rol de la petición** → evidencia trazable → prompt XiYan →
    control de datos sensibles (``SecurityIncident``).
 4. Servicio de inferencia → ``OutputParser`` → comprobación de forma verificable del resultado →
@@ -27,9 +28,11 @@ from ai_service.orchestrator.ports import (
     GenerationBlocked,
     GenerationInputRejected,
     GenerationNotAuthorized,
+    InvalidGeneratorOutput,
     QueryPlan,
     SqlCandidate,
 )
+from ai_service.policies.registered_entries import RegisteredFilterError, apply_registered_entries_filter
 from ai_service.orchestrator.security import ensure_no_sensitive_data
 from ai_service.sqlgen.evidence import EvidenceBuilder
 from ai_service.sqlgen.mschema import MSchemaBuilder
@@ -42,8 +45,13 @@ from ai_service.validation.allowlist import Allowlist
 
 DataSource = Literal["ficticio", "real"]
 # Modalidades bloqueadas con datos reales hasta resolver una decisión pendiente (código de auditoría).
-REAL_DATA_BLOCKERS: dict[str, str] = {"saldo_cuenta": "VOIDED_ENTRIES_UNDEFINED"}  # P-4
+# P-4 quedó resuelto con el filtro determinista de asientos registrados: ``saldo_cuenta`` ya no se bloquea.
+REAL_DATA_BLOCKERS: dict[str, str] = {}
 SHAPE_CHECKS: dict[str, Callable[[str], None]] = {"saldo_cuenta": ensure_verifiable_saldo_shape}
+# Tipos de plan financieros: su SQL recibe siempre el filtro de asientos registrados (P-4).
+REGISTERED_ENTRIES_KINDS = frozenset({"saldo_cuenta"})
+# Columnas que solo usa la política P-4: no se muestran al modelo (esquema de entrenamiento intacto).
+MODEL_HIDDEN_COLUMNS = frozenset({("journal_entry", "status")})
 
 
 class GenerationClient(Protocol):
@@ -99,8 +107,13 @@ class XiYanSqlGenerator:
         except UnsupportedPlan:
             raise GenerationInputRejected("UNSUPPORTED_PLAN") from None
         grants = self._allowlist.roles[role]
-        visible = {table: tuple(grants[table]) for table in tables if table in grants}
-        schema = self._schema.build(role, tables)
+        # Exactamente lo que muestra el M-Schema: la evidencia no puede nombrar columnas ocultas (P-4).
+        visible = {
+            table: tuple(c for c in grants[table] if (table, c) not in MODEL_HIDDEN_COLUMNS)
+            for table in tables
+            if table in grants
+        }
+        schema = self._schema.build(role, tables, hidden_columns=MODEL_HIDDEN_COLUMNS)
         evidence = self._evidence.build(plan.kind, fragments, visible)
         try:
             content = build_user_content(question, schema, evidence.text)
@@ -116,4 +129,9 @@ class XiYanSqlGenerator:
         response = self._client.generate(content)
         sql = parse_sql_output(response.text, response.finish_reason)
         SHAPE_CHECKS[plan.kind](sql)
+        if plan.kind in REGISTERED_ENTRIES_KINDS:
+            try:
+                sql = apply_registered_entries_filter(sql)  # P-4, determinista; el validador revisa el resultado
+            except RegisteredFilterError:
+                raise InvalidGeneratorOutput("REGISTERED_FILTER_UNGUARANTEED") from None
         return SqlCandidate(sql=sql, kind=plan.kind)

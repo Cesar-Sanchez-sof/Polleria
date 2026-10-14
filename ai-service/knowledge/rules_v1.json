@@ -15,7 +15,8 @@
     {
       "id": "asiento-periodo",
       "text": "Todo asiento contable pertenece a un período contable; no se registran asientos en períodos cerrados ni en fechas sin período.",
-      "source": "specs/001-gestion-periodos-contables (FR-008 a FR-010)"
+      "source": "specs/001-gestion-periodos-contables (FR-008 a FR-010)",
+      "model_evidence": "Each journal entry belongs to an accounting period; filter the period with journal_entry.entry_date."
     },
     {
       "id": "partida-doble",

@@ -7,6 +7,7 @@ cadenas de conexión son ficticias (dominio ``.invalid``) y nunca se leen variab
 from __future__ import annotations
 
 import importlib
+import secrets
 import sys
 from contextlib import contextmanager
 from decimal import Decimal
@@ -19,6 +20,7 @@ from sqlgen_support import NOW, FakeInferenceServer, payload, xiyan_env
 
 from ai_service.assembly import REAL_DB_ACCEPTED_ORIGINS, build_dev_orchestrator
 from ai_service.config.settings import (
+    IDENTITY_KEY_VAR,
     READONLY_DSN_VAR,
     SQL_EXECUTOR_VAR,
     SQL_GENERATOR_VAR,
@@ -50,12 +52,15 @@ FAKE_DSN = "postgresql://lector_ficticio:clave_ficticia@db-ficticia.invalid:5432
 ALLOWLIST = load_allowlist(ROOT / "knowledge" / "allowlist.readonly_erp.json")
 VALIDATOR = SqlValidator(ALLOWLIST)
 CONTADOR = AuthorizationContext(rol="contador_demo")
+VERIFIED = AuthorizationContext(rol="contador_demo", origen="erp-session", autenticado=True)
+IDENTITY_KEY = secrets.token_hex(32)
 SALDO_SQL = (
     "SELECT aa.code AS account_code, aa.type AS account_type, SUM(jed.debit) AS total_debit, "
     "SUM(jed.credit) AS total_credit FROM journal_entry_detail jed JOIN accounting_account aa ON aa.id = jed.account_id "
     "JOIN journal_entry je ON je.id = jed.entry_id WHERE aa.code = '101' AND je.entry_date >= DATE '2026-09-01' "
-    "AND je.entry_date < DATE '2026-10-01' GROUP BY aa.code, aa.type"
+    "AND je.entry_date < DATE '2026-10-01' AND je.status = TRUE GROUP BY aa.code, aa.type"
 )
+REAL_ENV = {SQL_EXECUTOR_VAR: "postgres_readonly", READONLY_DSN_VAR: FAKE_DSN, IDENTITY_KEY_VAR: IDENTITY_KEY}
 NAMES = ("account_code", "account_type", "total_debit", "total_credit")
 
 
@@ -143,7 +148,7 @@ class SettingsTests(GuardedTestCase):
         self.assertNotIn(READONLY_DSN_VAR, env.read)  # su presencia no activa nada
 
     def test_explicit_activation(self) -> None:
-        settings = load_service_settings({**xiyan_env(), SQL_EXECUTOR_VAR: "postgres_readonly", READONLY_DSN_VAR: FAKE_DSN})
+        settings = load_service_settings({**xiyan_env(), **REAL_ENV})
         self.assertEqual(settings.sql_executor, "postgres_readonly")
         self.assertNotIn("clave_ficticia", repr(settings))
         self.assertNotIn("db-ficticia", repr(settings))
@@ -153,7 +158,9 @@ class SettingsTests(GuardedTestCase):
             "valor-desconocido": {SQL_EXECUTOR_VAR: "postgres"},
             "sin-dsn": {SQL_EXECUTOR_VAR: "postgres_readonly"},
             "dsn-no-postgres": {SQL_EXECUTOR_VAR: "postgres_readonly", READONLY_DSN_VAR: "mysql://x:y@h/db"},
-            "con-generador-simulado": {SQL_EXECUTOR_VAR: "postgres_readonly", READONLY_DSN_VAR: FAKE_DSN, SQL_GENERATOR_VAR: "simulado"},
+            "con-generador-simulado": {**REAL_ENV, SQL_GENERATOR_VAR: "simulado"},
+            "sin-clave-de-identidad-p9": {SQL_EXECUTOR_VAR: "postgres_readonly", READONLY_DSN_VAR: FAKE_DSN},
+            "clave-de-identidad-corta": {**REAL_ENV, IDENTITY_KEY_VAR: secrets.token_hex(8)},
         }
         for name, overrides in cases.items():
             with self.subTest(case=name), self.assertRaises(ServiceConfigError) as ctx:
@@ -203,10 +210,26 @@ class RefusalTests(GuardedTestCase):
         self.assert_refused(lambda: make_executor(self.factory).execute_authorized(approved(), unknown), "REVALIDATION_FAILED")
 
     def test_untrusted_origin_and_production_default(self) -> None:
-        self.assertEqual(REAL_DB_ACCEPTED_ORIGINS, frozenset())  # P-9: ningún origen aceptado todavía
+        self.assertEqual(REAL_DB_ACCEPTED_ORIGINS, frozenset({"erp-session"}))  # P-9: solo identidad verificada
         self.assert_refused(
             lambda: make_executor(self.factory, REAL_DB_ACCEPTED_ORIGINS).execute_authorized(approved(), CONTADOR),
             "UNTRUSTED_AUTHORIZATION",
+        )
+        with self.assertRaises(ValueError):  # no se puede fabricar un contexto "verificado" incoherente
+            AuthorizationContext(rol="contador_demo", origen="erp-session", autenticado=False)
+        with self.assertRaises(ValueError):
+            AuthorizationContext(rol="contador_demo", origen="ct-b-provisional", autenticado=True)
+
+    def test_sql_without_registered_entries_filter_is_refused(self) -> None:
+        unfiltered = approved(SALDO_SQL.replace(" AND je.status = TRUE", ""))
+        self.assert_refused(
+            lambda: make_executor(self.factory, REAL_DB_ACCEPTED_ORIGINS).execute_authorized(unfiltered, VERIFIED),
+            "REGISTERED_FILTER_MISSING",
+        )
+        voided = approved(SALDO_SQL.replace("je.status = TRUE", "je.status = FALSE"))
+        self.assert_refused(
+            lambda: make_executor(self.factory, REAL_DB_ACCEPTED_ORIGINS).execute_authorized(voided, VERIFIED),
+            "REGISTERED_FILTER_MISSING",
         )
 
     def test_row_limit_is_bounded(self) -> None:
@@ -321,7 +344,7 @@ class LazyDriverTests(GuardedTestCase):
 
 class PipelineTests(GuardedTestCase):
     def build(self, connection: FakeConnection | None = None):
-        env = {**xiyan_env(), SQL_EXECUTOR_VAR: "postgres_readonly", READONLY_DSN_VAR: FAKE_DSN}
+        env = {**xiyan_env(), **REAL_ENV}
         settings = load_service_settings(env)
         server = FakeInferenceServer(env[SQLGEN_TOKEN_VAR])
         factory = Factory(connection)
@@ -330,21 +353,35 @@ class PipelineTests(GuardedTestCase):
         )
         return orchestrator, server, factory
 
-    def test_real_mode_keeps_saldo_blocked_by_p4(self) -> None:
+    def test_real_mode_requires_verified_identity(self) -> None:
         orchestrator, server, factory = self.build()
-        outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"))
+        outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"))  # rol provisional
         self.assertEqual((outcome.status_code, outcome.body.estado), (200, "no_resoluble"))
-        self.assertEqual(outcome.audit.codigos_rechazo[:2], ["SQLGEN_BLOCKED", "VOIDED_ENTRIES_UNDEFINED"])
+        self.assertEqual(outcome.audit.codigos_rechazo[:2], ["SQLGEN_NOT_AUTHORIZED", "UNTRUSTED_AUTHORIZATION"])
         self.assertEqual((server.requests, factory.calls), ([], 0))  # ni modelo ni base de datos
         self.assertEqual(outcome.body.versiones["executor"], "postgres-readonly")
 
-    def swap_in_executor(self, connection: FakeConnection, origins=frozenset({"ct-b-provisional"})):
-        """Orquestador xiyansql de desarrollo con el Executor real sobre una conexión simulada.
+    def test_real_mode_with_verified_identity_applies_p4_filter(self) -> None:
+        connection = FakeConnection()
+        orchestrator, server, factory = self.build(connection)
+        outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"), authorization=VERIFIED)
+        self.assertEqual(outcome.body.estado, "respondida")
+        self.assertEqual((len(server.requests), factory.calls), (1, 1))
+        executed = connection.statements[-1]
+        self.assertIn("je.status = TRUE", executed)  # filtro de asientos registrados añadido por código
+        self.assertIn("public.journal_entry AS je", executed)
+        self.assertIn("LIMIT 200", executed)
 
-        Solo para probar el despacho del pipeline: la composición real no acepta ningún origen (P-9).
-        """
+    def test_verified_role_must_match_the_request(self) -> None:
+        orchestrator, server, factory = self.build()
+        other = AuthorizationContext(rol="lector_demo", origen="erp-session", autenticado=True)
+        outcome = orchestrator.handle(payload("Saldo de caja en septiembre"), authorization=other)
+        self.assertEqual(outcome.status_code, 403)
+        self.assertEqual((server.requests, factory.calls), ([], 0))
+
+    def swap_in_executor(self, connection: FakeConnection, origins=REAL_DB_ACCEPTED_ORIGINS):
+        """Orquestador en modo real con el Executor sobre una conexión simulada y orígenes dados."""
         orchestrator, server, _ = self.build()
-        orchestrator._generator._data_source = "ficticio"  # solo prueba: evita el bloqueo P-4 del generador
         factory = Factory(connection)
         orchestrator._executor = PostgresReadOnlyExecutor(factory, orchestrator._validator, accepted_origins=origins)
         return orchestrator, factory
@@ -352,7 +389,7 @@ class PipelineTests(GuardedTestCase):
     def test_pipeline_passes_authorization_and_computes_from_returned_totals(self) -> None:
         connection = FakeConnection()
         orchestrator, factory = self.swap_in_executor(connection)
-        outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"))
+        outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"), authorization=VERIFIED)
         self.assertEqual(outcome.body.estado, "respondida")
         self.assertEqual({f.marcador: f.valor for f in outcome.body.cifras},
                          {"c1": Decimal("1149.60"), "c2": Decimal("1800.00"), "c3": Decimal("650.40")})
@@ -372,14 +409,61 @@ class PipelineTests(GuardedTestCase):
         for name, (connection, status, codes) in cases.items():
             with self.subTest(case=name):
                 orchestrator, _ = self.swap_in_executor(connection)
-                outcome = orchestrator.handle(payload("Saldo de caja en septiembre", trace=f"traza-pg-{name}"))
+                outcome = orchestrator.handle(payload("Saldo de caja en septiembre", trace=f"traza-pg-{name}"), authorization=VERIFIED)
                 self.assertEqual(outcome.status_code, status)
                 self.assertEqual(outcome.audit.codigos_rechazo[:2], codes)
                 self.assertEqual(outcome.body.model_dump().get("cifras", []), [])
 
     def test_untrusted_origin_in_pipeline_is_no_resoluble_without_connection(self) -> None:
-        orchestrator, factory = self.swap_in_executor(FakeConnection(), origins=REAL_DB_ACCEPTED_ORIGINS)
-        outcome = orchestrator.handle(payload("Saldo de caja en septiembre"))
+        orchestrator, factory = self.swap_in_executor(FakeConnection(), origins=frozenset())
+        outcome = orchestrator.handle(payload("Saldo de caja en septiembre"), authorization=VERIFIED)
         self.assertEqual(outcome.body.estado, "no_resoluble")
         self.assertEqual(outcome.audit.codigos_rechazo[:2], ["SQLEXEC_REFUSED", "UNTRUSTED_AUTHORIZATION"])
         self.assertEqual(factory.calls, 0)
+
+
+class ProbeTests(GuardedTestCase):
+    """Comprobación segura de la conexión real con una conexión simulada (sin filas de negocio)."""
+
+    class CatalogConnection(FakeConnection):
+        def __init__(self, denied: frozenset[str] = frozenset(), **kwargs) -> None:
+            super().__init__(**kwargs)
+            self.denied = denied
+            self.params: list = []
+
+        def execute(self, sql, params=None):
+            assert self.in_transaction
+            self.statements.append(sql)
+            self.params.append(params)
+            if sql == READ_ONLY_CHECK:
+                return SimpleNamespace(fetchone=lambda: (self.read_only,))
+            if sql.startswith("SET "):
+                return SimpleNamespace()
+            if self.error is not None:
+                raise self.error
+            if sql == "SELECT 1":
+                return SimpleNamespace(fetchone=lambda: (1,))
+            target = ".".join(params[:2]) if "column" in sql else params[0]
+            return SimpleNamespace(fetchone=lambda: (not any(target.endswith(d) for d in self.denied),))
+
+    def test_probe_runs_only_safe_catalog_queries(self) -> None:
+        from ai_service.execution.postgres_readonly import probe_connection
+
+        connection = self.CatalogConnection()
+        result = probe_connection(Factory(connection), ALLOWLIST)
+        self.assertEqual((result["select_1"], result["read_only"]), (True, True))
+        self.assertTrue(all(all(cols.values()) for cols in result["privileges"].values()))
+        self.assertEqual(connection.statements[:4], [*SESSION_STATEMENTS, READ_ONLY_CHECK])
+        allowed = ("SET ", READ_ONLY_CHECK, "SELECT 1", "SELECT has_table_privilege(", "SELECT has_column_privilege(")
+        self.assertTrue(all(statement.startswith(allowed) for statement in connection.statements))
+        self.assertNotIn("FROM", " ".join(connection.statements))  # nunca lee tablas de negocio
+
+    def test_probe_reports_missing_privileges_and_classifies_errors(self) -> None:
+        from ai_service.execution.postgres_readonly import probe_connection
+
+        result = probe_connection(Factory(self.CatalogConnection(denied=frozenset({"journal_entry.status"}))), ALLOWLIST)
+        self.assertFalse(result["privileges"]["journal_entry"]["status"])
+        with self.assertRaises(ExecutionUnavailable) as ctx:
+            probe_connection(Factory(self.CatalogConnection(error=DbError("42501"))), ALLOWLIST)
+        self.assertEqual(ctx.exception.code, "READ_PERMISSION_MISSING")
+        self.assertNotIn("clave_ficticia", repr(ctx.exception))

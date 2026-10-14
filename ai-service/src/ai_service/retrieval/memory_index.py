@@ -87,14 +87,19 @@ class VectorRetriever:
         self._min_score = min_score
 
     @classmethod
-    def from_fragments(cls, fragments: Sequence[Fragment], embedder: Embedder, min_score: float = 0.0) -> "VectorRetriever":
-        index = InMemoryVectorIndex(embedder.dimension)
+    def from_fragments(
+        cls, fragments: Sequence[Fragment], embedder: Embedder, min_score: float = 0.0, index: VectorIndex | None = None
+    ) -> "VectorRetriever":
+        """Indexa ``fragments`` en ``index`` (por defecto, en memoria) y devuelve el recuperador."""
+        index = index or InMemoryVectorIndex(embedder.dimension)
         vectors = embedder.embed([f.contenido for f in fragments])
         index.upsert((f.fuente, v, f) for f, v in zip(fragments, vectors))
         return cls(embedder, index, min_score)
 
     def search(self, query: str, k: int) -> list[SearchHit]:
-        [vector] = self._embedder.embed([query])
+        # Los embedders asimétricos (E5) codifican preguntas y fragmentos con prefijos distintos.
+        embed_query = getattr(self._embedder, "embed_queries", self._embedder.embed)
+        [vector] = embed_query([query])
         return [hit for hit in self._index.search(vector, k) if hit.score > self._min_score]
 
     def retrieve(self, query: str, k: int) -> list[Fragment]:

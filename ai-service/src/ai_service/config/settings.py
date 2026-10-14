@@ -77,7 +77,46 @@ LLM_MONTHLY_VAR = "AI_LLM_MONTHLY_LIMIT_USD"
 LLM_MAX_REQUEST_COST_VAR = "AI_LLM_MAX_COST_PER_REQUEST_USD"
 LLM_TIMEOUT_VAR = "AI_LLM_TIMEOUT_S"
 LLM_REASONING_VAR = "AI_LLM_REASONING_EFFORT"
-DOTENV_KEYS = frozenset({OPENAI_KEY_VAR, OPENAI_MODEL_VAR})
+IDENTITY_KEY_VAR = "AI_ASSISTANT_IDENTITY_KEY"
+RAG_MODE_VAR = "AI_RAG_MODE"
+ZILLIZ_URI_VAR = "ZILLIZ_CLOUD_URI"
+ZILLIZ_TOKEN_VAR = "ZILLIZ_CLOUD_TOKEN"
+RAG_COLLECTION_VAR = "AI_RAG_MILVUS_COLLECTION"
+RAG_APPROVED_CORPUS_VAR = "AI_RAG_REMOTE_CORPUS_SHA256"
+RAG_MODEL_EVIDENCE_VAR = "AI_RAG_MODEL_EVIDENCE"
+# Únicas claves que pueden leerse de ai-service/.env (ignorado por Git); el entorno tiene prioridad.
+# Nunca se lee DATABASE_URL (conexión principal del ERP).
+DOTENV_KEYS = frozenset(
+    {
+        OPENAI_KEY_VAR, OPENAI_MODEL_VAR, READONLY_DSN_VAR, IDENTITY_KEY_VAR, ZILLIZ_URI_VAR, ZILLIZ_TOKEN_VAR,
+        RAG_MODE_VAR, RAG_COLLECTION_VAR, RAG_APPROVED_CORPUS_VAR, RAG_MODEL_EVIDENCE_VAR,
+    }
+)
+RAG_MODES = frozenset({"lexico", "semantico", "milvus"})
+# Evidencia para el Modelo 2 (T033): ``relaciones`` (solo relaciones del esquema, comportamiento previo)
+# o ``ampliada`` (además reglas y métricas con ``evidencia_modelo`` aprobada).
+RAG_MODEL_EVIDENCE_MODES = frozenset({"relaciones", "ampliada"})
+_ZILLIZ_URI_RE = re.compile(r"^https://[A-Za-z0-9.-]+(:\d{2,5})?$")
+_COLLECTION_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+@dataclass(frozen=True)
+class RagSettings:
+    """Recuperación (RAG). ``milvus`` solo con credenciales y la huella del corpus aprobado."""
+
+    mode: str = "lexico"
+    milvus_uri: str | None = field(default=None, repr=False)
+    milvus_token: str | None = field(default=None, repr=False)
+    collection: str = "erp_ai_rag_v1"
+    approved_corpus_sha256: str | None = None
+    model_evidence: str = "relaciones"
+
+    def __repr__(self) -> str:
+        return (
+            f"RagSettings(mode={self.mode!r}, milvus_uri={'***' if self.milvus_uri else None}, "
+            f"milvus_token={'***' if self.milvus_token else None}, collection={self.collection!r}, "
+            f"model_evidence={self.model_evidence!r})"
+        )
 
 DEVELOPMENT = "development"
 ALLOWED_HOST = "127.0.0.1"
@@ -172,6 +211,8 @@ class ServiceSettings:
     readonly_dsn: str | None = field(default=None, repr=False)
     llm_provider: str = SIMULATED_LLM
     llm: LlmSettings | None = None
+    identity_key: bytes | None = field(default=None, repr=False)
+    rag: RagSettings = field(default_factory=RagSettings)
 
     def __repr__(self) -> str:
         return (
@@ -179,7 +220,8 @@ class ServiceSettings:
             f"internal_token='***', audit_hmac_key='***', max_body_bytes={self.max_body_bytes}, "
             f"sql_generator={self.sql_generator!r}, sqlgen={self.sqlgen!r}, "
             f"sql_executor={self.sql_executor!r}, readonly_dsn={'***' if self.readonly_dsn else None}, "
-            f"llm_provider={self.llm_provider!r}, llm={self.llm!r})"
+            f"llm_provider={self.llm_provider!r}, llm={self.llm!r}, "
+            f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r})"
         )
 
     def token_matches(self, provided: str | None) -> bool:
@@ -221,9 +263,10 @@ def read_dotenv_keys(path: Path, keys: frozenset[str] = DOTENV_KEYS) -> dict[str
 def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = None) -> ServiceSettings:
     """Valida la configuración leyendo solo las variables del módulo; falla de forma segura.
 
-    ``dotenv_path`` (opcional) solo se consulta con ``AI_LLM_PROVIDER=openai`` y solo para
-    ``OPENAI_API_KEY`` y ``OPENAI_MODEL``; las variables del entorno tienen prioridad.
+    ``dotenv_path`` (opcional): de ese archivo solo se toman las claves de :data:`DOTENV_KEYS`, y cada
+    una solo cuando la función que la usa está activa; las variables del entorno tienen prioridad.
     """
+    from_file = read_dotenv_keys(dotenv_path) if dotenv_path is not None else {}
     environment = _read(env, ENV_VAR)
     if environment != DEVELOPMENT:
         raise ServiceConfigError(
@@ -271,14 +314,23 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
     if executor == POSTGRES_EXECUTOR:
         if generator != XIYAN_GENERATOR:
             raise ServiceConfigError(f"{SQL_EXECUTOR_VAR}={POSTGRES_EXECUTOR} requiere {SQL_GENERATOR_VAR}={XIYAN_GENERATOR}.")
-        readonly_dsn = _read(env, READONLY_DSN_VAR)  # solo se lee con activación explícita
+        # Solo se lee con activación explícita; nunca DATABASE_URL.
+        readonly_dsn = _read(env, READONLY_DSN_VAR) or from_file.get(READONLY_DSN_VAR, "").strip()
         if not readonly_dsn.startswith(_DSN_SCHEMES):
             raise ServiceConfigError(f"{READONLY_DSN_VAR} falta o no es una conexión PostgreSQL válida.")
+
+    identity_key = _load_identity_key(
+        _read(env, IDENTITY_KEY_VAR) or from_file.get(IDENTITY_KEY_VAR, "").strip(),
+        other_secrets=(token_bytes, audit_key, *((bytes.fromhex(sqlgen.token),) if sqlgen else ())),
+    )
+    if executor == POSTGRES_EXECUTOR and identity_key is None:
+        raise ServiceConfigError(f"{SQL_EXECUTOR_VAR}={POSTGRES_EXECUTOR} requiere {IDENTITY_KEY_VAR} (P-9).")
 
     llm_provider = _read(env, LLM_PROVIDER_VAR, SIMULATED_LLM)
     if llm_provider not in (SIMULATED_LLM, OPENAI_LLM):
         raise ServiceConfigError(f"{LLM_PROVIDER_VAR} debe ser '{SIMULATED_LLM}' u '{OPENAI_LLM}'.")
-    llm = _load_llm_settings(env, dotenv_path) if llm_provider == OPENAI_LLM else None
+    llm = _load_llm_settings(env, from_file) if llm_provider == OPENAI_LLM else None
+    rag = _load_rag_settings(env, from_file)
 
     return ServiceSettings(
         environment=environment,
@@ -292,7 +344,54 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
         readonly_dsn=readonly_dsn,
         llm_provider=llm_provider,
         llm=llm,
+        identity_key=identity_key,
+        rag=rag,
     )
+
+
+def _load_rag_settings(env: Mapping[str, str], from_file: Mapping[str, str]) -> RagSettings:
+    def read(name: str, default: str = "") -> str:
+        # Entorno primero; después ai-service/.env (solo claves de DOTENV_KEYS); por último el valor por defecto.
+        return _read(env, name) or from_file.get(name, "").strip() or default
+
+    mode = read(RAG_MODE_VAR, "lexico")
+    if mode not in RAG_MODES:
+        raise ServiceConfigError(f"{RAG_MODE_VAR} debe ser 'lexico', 'semantico' o 'milvus'.")
+    model_evidence = read(RAG_MODEL_EVIDENCE_VAR, "relaciones")
+    if model_evidence not in RAG_MODEL_EVIDENCE_MODES:
+        raise ServiceConfigError(f"{RAG_MODEL_EVIDENCE_VAR} debe ser 'relaciones' o 'ampliada'.")
+    if mode != "milvus":
+        return RagSettings(mode=mode, model_evidence=model_evidence)
+    # Recuperación REMOTA: deshabilitada salvo credenciales y aprobación explícita del corpus.
+    uri = read(ZILLIZ_URI_VAR)
+    token = read(ZILLIZ_TOKEN_VAR)
+    if not _ZILLIZ_URI_RE.match(uri) or not token:
+        raise ServiceConfigError(f"{RAG_MODE_VAR}=milvus requiere {ZILLIZ_URI_VAR} (https) y {ZILLIZ_TOKEN_VAR}.")
+    collection = read(RAG_COLLECTION_VAR, "erp_ai_rag_v1")
+    if not _COLLECTION_RE.match(collection):
+        raise ServiceConfigError(f"{RAG_COLLECTION_VAR} no es un nombre de colección válido.")
+    approved = read(RAG_APPROVED_CORPUS_VAR).lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", approved):
+        raise ServiceConfigError(f"{RAG_MODE_VAR}=milvus requiere {RAG_APPROVED_CORPUS_VAR} (huella del corpus aprobado).")
+    return RagSettings(
+        mode=mode, milvus_uri=uri, milvus_token=token, collection=collection, approved_corpus_sha256=approved,
+        model_evidence=model_evidence,
+    )
+
+
+def _load_identity_key(raw: str, *, other_secrets: tuple[bytes, ...]) -> bytes | None:
+    """Clave HS256 compartida con el proxy del ERP (P-9). Opcional salvo con el Executor real."""
+    if not raw:
+        return None
+    try:
+        key = bytes.fromhex(raw)
+    except ValueError:
+        raise ServiceConfigError(f"{IDENTITY_KEY_VAR} debe ser hexadecimal.") from None
+    if len(key) < MIN_TOKEN_BYTES:
+        raise ServiceConfigError(f"{IDENTITY_KEY_VAR} debe tener al menos {MIN_TOKEN_BYTES} bytes.")
+    if any(hmac.compare_digest(key, secret) for secret in other_secrets):
+        raise ServiceConfigError(f"{IDENTITY_KEY_VAR} debe ser independiente de las demás credenciales.")
+    return key
 
 
 def _decimal(env: Mapping[str, str], name: str, default: str | None = None) -> Decimal:
@@ -306,8 +405,7 @@ def _decimal(env: Mapping[str, str], name: str, default: str | None = None) -> D
     return value
 
 
-def _load_llm_settings(env: Mapping[str, str], dotenv_path: Path | None) -> LlmSettings:
-    from_file = read_dotenv_keys(dotenv_path) if dotenv_path is not None else {}
+def _load_llm_settings(env: Mapping[str, str], from_file: Mapping[str, str]) -> LlmSettings:
     api_key = _read(env, OPENAI_KEY_VAR) or from_file.get(OPENAI_KEY_VAR, "").strip()
     if not _OPENAI_KEY_RE.match(api_key):
         raise ServiceConfigError(f"Falta {OPENAI_KEY_VAR} o no tiene un formato válido.")

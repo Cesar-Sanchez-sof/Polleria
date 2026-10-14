@@ -150,7 +150,9 @@ class MaliciousSqlTests(XiYanPipelineCase):
             "catalogo": ("SQLGEN_INVALID_OUTPUT", "SELECT usename FROM pg_catalog.pg_user;"),
             "funcion-sola": ("SQLGEN_INVALID_OUTPUT", "SELECT pg_sleep(5);"),
             # Forma verificable, pero el SQL Validator los rechaza.
-            "columna-p4": ("SQL_REJECTED", SHAPE_OK.format(where="WHERE je.status = TRUE")),
+            # P-4: pedir asientos anulados hace imposible garantizar el filtro de registrados.
+            "anulados-p4": ("SQLGEN_INVALID_OUTPUT", SHAPE_OK.format(where="WHERE je.status = FALSE")),
+            "anulados-en-or-p4": ("SQLGEN_INVALID_OUTPUT", SHAPE_OK.format(where="WHERE je.status = TRUE OR je.status = FALSE")),
             "tabla-no-permitida": ("SQL_REJECTED", SHAPE_OK.format(where="JOIN app_user u ON u.id = je.id")),
             "funcion-peligrosa": ("SQL_REJECTED", SHAPE_OK.format(where="WHERE pg_sleep(5) IS NULL")),
             "bloqueo": ("SQL_REJECTED", SHAPE_OK.format(where="") + " FOR UPDATE"),

@@ -9,6 +9,7 @@
     "proveedor": "421",
     "ventas": "701"
   },
+  "account_names": {"101": "Caja", "104": "Bancos", "421": "Proveedores", "701": "Ventas"},
   "dataset": [
     { "cuenta": "101", "desde": "2026-09-01", "hasta": "2026-09-30",
       "rows": [ { "tipo": "Activo", "debe": "1800.00", "haber": "650.40", "movimientos": 9 } ] },

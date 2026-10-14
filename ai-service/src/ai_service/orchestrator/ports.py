@@ -73,25 +73,33 @@ class Interpretation:
 class Fragment:
     """Fragmento recuperado por RAG: solo metadatos, reglas o ejemplos ficticios."""
 
-    tipo: Literal["esquema", "relacion", "regla", "ejemplo"]
+    tipo: Literal["esquema", "relacion", "regla", "metrica", "ejemplo"]
     fuente: str
     version: str
     contenido: str
+    # Texto breve en inglés, solo del lado de los datos, que puede entregarse al Modelo 2 (T033). No
+    # forma parte de la huella del corpus: ``contenido`` sigue siendo el documento de recuperación.
+    evidencia_modelo: str | None = None
 
 
 @dataclass(frozen=True)
 class AuthorizationContext:
     """Rol con el que se acota **una** petición, ya revalidado contra la allowlist por el backend.
 
-    **Provisional (P-9)**: el rol llega en CT-B desde el proxy y todavía no proviene de una sesión
-    autenticada del ERP. Por eso solo sirve para **restringir** el alcance (qué objetos puede ver el
-    generador y qué SQL aprueba el validador), nunca para ampliarlo, y ``autenticado`` es ``False``.
-    Un componente que exija autenticación real debe rechazar ``origen="ct-b-provisional"``.
+    - ``ct-b-provisional``: rol enviado en CT-B por el proxy sin aserción verificable. Solo sirve para
+      **restringir** el alcance y nunca habilita datos reales (``autenticado=False``).
+    - ``erp-session`` (P-9): la API verificó la aserción HS256 que el proxy firma a partir de
+      ``sesionActual()`` del ERP (``ai_service.auth.identity``). Solo así ``autenticado=True``.
     """
 
     rol: str
-    origen: Literal["ct-b-provisional"] = "ct-b-provisional"
+    origen: Literal["ct-b-provisional", "erp-session"] = "ct-b-provisional"
     autenticado: bool = False
+
+    def __post_init__(self) -> None:
+        # ``erp-session`` solo existe tras verificar la aserción firmada del proxy (P-9).
+        if (self.origen == "erp-session") != self.autenticado:
+            raise ValueError("Contexto de autorización incoherente.")
 
 
 @dataclass(frozen=True)
@@ -273,6 +281,7 @@ class Explainer(Protocol):
         intencion: Intent,
         periodo: Period | None,
         figures: Sequence[Figure],
+        cuenta_nombre: str | None = None,
     ) -> str: ...
 
 

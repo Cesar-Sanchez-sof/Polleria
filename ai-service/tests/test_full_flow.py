@@ -17,12 +17,14 @@ from test_openai_provider import FakeOpenAI, openai_env
 from ai_service.assembly import build_dev_orchestrator
 from ai_service.config.settings import SQLGEN_TOKEN_VAR, load_service_settings
 from ai_service.simulation.components import ExecutorRefused
+from ai_service.policies.registered_entries import apply_registered_entries_filter
 from ai_service.sqlgen.dev_fixtures import REFERENCE_SALDO_SQL, FixtureMiss, SaldoFixtureExecutor
 from ai_service.validation.allowlist import load_allowlist
 from ai_service.validation.validator import SqlValidator, Verdict
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET = json.loads((ROOT / "fixtures" / "dev_dataset_erp.json").read_text(encoding="utf-8"))["dataset"]
+DEV = json.loads((ROOT / "fixtures" / "dev_dataset_erp.json").read_text(encoding="utf-8"))
+DATASET, ACCOUNTS = DEV["dataset"], DEV["accounts"]
 VALIDATOR = SqlValidator(load_allowlist(ROOT / "knowledge" / "allowlist.dev_erp.json"))
 # Forma exacta del SQL generado por XiYanSQL + QLoRA v17 en la primera inferencia real.
 XIYAN_REAL_SQL = (
@@ -40,16 +42,40 @@ BASE = (
 SEPT = "aa.code = '101' AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01'"
 
 
-def verdict(sql: str) -> Verdict:
+def raw_verdict(sql: str) -> Verdict:
     result = VALIDATOR.validate(sql, "contador_demo")
     assert result.approved, result.reasons
     return result
 
 
+def verdict(sql: str) -> Verdict:
+    """Como en el pipeline: filtro P-4 añadido por código y después el validador."""
+    return raw_verdict(apply_registered_entries_filter(sql))
+
+
 class SaldoFixtureExecutorTests(GuardedTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.executor = SaldoFixtureExecutor(DATASET)
+        self.executor = SaldoFixtureExecutor(DATASET, ACCOUNTS)
+
+    def test_voided_entries_are_excluded_p4(self) -> None:
+        # Septiembre (caja) tiene movimientos anulados de 999.99 (debe) y 120.00 (haber).
+        rows = self.executor.execute(verdict(REFERENCE_SALDO_SQL.format(cuenta="101", start="2026-09-01", end="2026-10-01")))
+        self.assertEqual((rows[0]["total_debit"], rows[0]["total_credit"]), ("1800.00", "650.40"))
+        # Bancos: un abono anulado de 3000.00 no altera el haber registrado.
+        rows = self.executor.execute(verdict(REFERENCE_SALDO_SQL.format(cuenta="104", start="2026-09-01", end="2026-10-01")))
+        self.assertEqual((rows[0]["total_debit"], rows[0]["total_credit"]), ("4100.00", "2200.00"))
+
+    def test_period_with_only_voided_entries_has_no_rows(self) -> None:
+        sql = REFERENCE_SALDO_SQL.format(cuenta="101", start="2026-07-01", end="2026-08-01")
+        self.assertEqual(self.executor.execute(verdict(sql)), [])
+
+    def test_sql_without_registered_filter_is_never_answered(self) -> None:
+        sql = REFERENCE_SALDO_SQL.format(cuenta="101", start="2026-09-01", end="2026-10-01")
+        with self.assertRaises(FixtureMiss):
+            self.executor.execute(raw_verdict(sql))  # aprobado por el validador, pero sin filtro P-4
+        with self.assertRaises(FixtureMiss):
+            self.executor.execute(raw_verdict(sql.replace("GROUP BY", "AND je.status = FALSE GROUP BY")))
 
     def test_equivalent_sql_variants_return_the_same_fixture_rows(self) -> None:
         variants = {
@@ -75,6 +101,12 @@ class SaldoFixtureExecutorTests(GuardedTestCase):
 
     def test_known_empty_period_is_no_data(self) -> None:
         self.assertEqual(self.executor.execute(verdict(BASE.format(where=SEPT.replace("09-01", "07-01").replace("10-01", "08-01")))), [])
+
+    def test_registered_filter_written_by_the_model_is_accepted_once(self) -> None:
+        sql = BASE.format(where=f"{SEPT} AND je.status = TRUE")
+        filtered = apply_registered_entries_filter(sql)
+        self.assertEqual(filtered.count("status"), 1)  # no se duplica
+        self.assertLessEqual({"1800.00", "650.40"}, set(self.executor.execute(raw_verdict(filtered))[0].values()))
 
     def test_unsupported_or_unknown_queries_never_invent_results(self) -> None:
         cases = {
@@ -154,3 +186,22 @@ class FullFlowTests(GuardedTestCase):
         outcome = orchestrator.handle(payload("Saldo de caja en octubre", trace="traza-flujo-0004"))
         self.assertEqual(outcome.status_code, 503)
         self.assertIn("COMPONENT_FAILURE", outcome.audit.codigos_rechazo)
+
+
+class RegisteredEntriesFlowTests(GuardedTestCase):
+    """P-4 de extremo a extremo: XiYanSQL no escribe el filtro y el pipeline lo añade igualmente."""
+
+    def test_executed_sql_always_filters_registered_entries(self) -> None:
+        orchestrator, audit, _openai, xiyan = FullFlowTests.build(self)  # type: ignore[arg-type]
+        outcome = orchestrator.handle(payload("¿Cuál fue el saldo de caja en septiembre?"))
+        self.assertEqual(outcome.body.estado, "respondida")
+        self.assertNotIn("status", xiyan.requests[0]["user_content"])  # el modelo no ve la columna
+        self.assertIn("je.status = TRUE", outcome.audit.plantilla_sql)
+        # Los movimientos anulados ficticios (999.99 y 120.00) no cambian las cifras.
+        self.assertEqual({f.marcador: str(f.valor) for f in outcome.body.cifras},
+                         {"c1": "1149.60", "c2": "1800.00", "c3": "650.40"})
+
+    def test_period_with_only_voided_entries_is_no_data(self) -> None:
+        orchestrator, _audit, _openai, _xiyan = FullFlowTests.build(self)  # type: ignore[arg-type]
+        outcome = orchestrator.handle(payload("Saldo de caja en julio", trace="traza-p4-0002"))
+        self.assertEqual((outcome.body.estado, outcome.body.cifras), ("sin_datos", []))

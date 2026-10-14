@@ -48,8 +48,8 @@ from ai_service.llm.budget import BudgetGuard, BudgetPolicy, ModelPrice, UsageLo
 from ai_service.orchestrator.model_calls import LlmBackedExplainer, LlmBackedInterpreter, ModelGateway
 from ai_service.orchestrator.pipeline import Orchestrator
 from ai_service.orchestrator.ports import FinanceEngine, SqlExecutor, SqlGenerator
-from ai_service.retrieval.embedder import HashingEmbedder
-from ai_service.retrieval.memory_index import VectorRetriever
+from ai_service.retrieval.embedder import Embedder
+from ai_service.retrieval.factory import TOP_K, build_retriever
 from ai_service.simulation.components import InMemoryAuditSink, TemplateSqlGenerator, build_fixture_executor
 from ai_service.simulation.llm import MockLlmProvider
 from ai_service.validation.allowlist import load_allowlist
@@ -65,9 +65,10 @@ SIM_PRICING = {MockLlmProvider.model: ModelPrice(input_per_1k=Decimal("0.010"), 
 DEV_MAX_INPUT = {"interpretar": 2000, "explicar": 1000}
 DEV_MAX_OUTPUT = {"interpretar": 300, "explicar": 400}
 DEV_MONTHLY_LIMIT = Decimal("1.00")
-# Orígenes de autorización con los que la base REAL acepta ejecutar. Vacío hasta resolver P-9 (sesión
-# autenticada del ERP): el chatbot no ejecuta SQL sobre PostgreSQL aunque el Executor esté activado.
-REAL_DB_ACCEPTED_ORIGINS: frozenset[str] = frozenset()
+# Orígenes de autorización con los que la base REAL acepta generar y ejecutar SQL: solo la identidad
+# verificada con la aserción firmada por el proxy a partir de sesionActual() (P-9).
+REAL_DB_ACCEPTED_ORIGINS: frozenset[str] = frozenset({"erp-session"})  # P-9: solo identidad verificada
+FICTITIOUS_ACCEPTED_ORIGINS: frozenset[str] = frozenset({"ct-b-provisional", "erp-session"})
 
 
 def _utc_now() -> datetime:
@@ -83,6 +84,8 @@ def build_dev_orchestrator(
     sqlgen_transport: httpx.BaseTransport | None = None,
     readonly_connection_factory: Callable[[], object] | None = None,
     llm_transport: httpx.BaseTransport | None = None,
+    rag_embedder: Embedder | None = None,
+    milvus_client_factory: Callable[[], object] | None = None,
 ) -> tuple[Orchestrator, InMemoryAuditSink]:
     """Devuelve el orquestador de desarrollo y su almacén de trazas en memoria.
 
@@ -105,13 +108,21 @@ def build_dev_orchestrator(
         metadata,
         load_json(root / "knowledge" / "glossary_v1.json"),
         load_json(root / "knowledge" / "rules_v1.json"),
+        load_json(root / "knowledge" / "metrics_v1.json"),
+        load_json(root / "knowledge" / "sql_examples_v1.json"),
     )
-    versions = {"pipeline": "b3-sim", "api": "t028-dev", "allowlist": allowlist.version, "dataset": dev["version"]}
+    retriever, rag_version = build_retriever(
+        settings.rag, corpus, embedder=rag_embedder, milvus_client_factory=milvus_client_factory
+    )
+    versions = {
+        "pipeline": "b3-sim", "api": "t028-dev", "allowlist": allowlist.version, "dataset": dev["version"],
+        "rag": rag_version,
+    }
 
     if xiyan:
         from ai_service.sqlgen.client import XiYanHttpClient
         from ai_service.sqlgen.dev_fixtures import SaldoFixtureExecutor
-        from ai_service.sqlgen.evidence import EVIDENCE_VERSION, EvidenceBuilder
+        from ai_service.sqlgen.evidence import EVIDENCE_POLICY_SETS, EVIDENCE_VERSION, EvidenceBuilder
         from ai_service.sqlgen.generator import XiYanSqlGenerator
         from ai_service.sqlgen.mschema import MSchemaBuilder
         from ai_service.sqlgen.profile import PROFILE_ID
@@ -123,9 +134,13 @@ def build_dev_orchestrator(
             XiYanHttpClient(settings.sqlgen, transport=sqlgen_transport),
             allowlist,
             MSchemaBuilder(allowlist, metadata),
-            EvidenceBuilder(model["table"] for model in metadata["models"]),
-            # Rol de CT-B provisional (P-9). Con la base real, data_source="real" bloquea saldo_cuenta (P-4).
-            accepted_origins=frozenset({"ct-b-provisional"}),
+            EvidenceBuilder(
+                (model["table"] for model in metadata["models"]),
+                # Bandera T033: ``relaciones`` (por defecto) o ``ampliada`` (+ evidencia_modelo aprobada).
+                policies=EVIDENCE_POLICY_SETS[settings.rag.model_evidence],
+            ),
+            # Datos reales: solo identidad verificada (P-9). Ficticios: también el rol provisional.
+            accepted_origins=REAL_DB_ACCEPTED_ORIGINS if real_db else FICTITIOUS_ACCEPTED_ORIGINS,
             data_source="real" if real_db else "ficticio",
         )
         executor: SqlExecutor
@@ -141,10 +156,16 @@ def build_dev_orchestrator(
             )
             versions["executor"] = "postgres-readonly"
         else:
-            executor = SaldoFixtureExecutor(dev["dataset"])
+            executor = SaldoFixtureExecutor(dev["dataset"], dev["accounts"])
         finance: FinanceEngine = XiYanSaldoFinanceAdapter()
         versions.update(
-            {"sqlgen": f"xiyansql:{settings.sqlgen.adapter}", "prompt": PROFILE_ID, "evidence": EVIDENCE_VERSION}
+            {
+                "sqlgen": f"xiyansql:{settings.sqlgen.adapter}",
+                "prompt": PROFILE_ID,
+                "evidence": EVIDENCE_VERSION
+                if settings.rag.model_evidence == "relaciones"
+                else f"{EVIDENCE_VERSION}+{settings.rag.model_evidence}",
+            }
         )
     else:
         generator = TemplateSqlGenerator()
@@ -189,7 +210,8 @@ def build_dev_orchestrator(
     audit_sink = InMemoryAuditSink()
     orchestrator = Orchestrator(
         interpreter=LlmBackedInterpreter(gateway),
-        retriever=VectorRetriever.from_fragments(corpus, HashingEmbedder()),
+        retriever=retriever,
+        retrieval_k=TOP_K,  # recuperación top-5 antes de generar SQL
         generator=generator,
         validator=validator,
         executor=executor,
@@ -200,5 +222,6 @@ def build_dev_orchestrator(
         allowed_roles=frozenset(allowlist.roles),
         clock=clock,
         versions=versions,
+        account_names=dev.get("account_names", {}),
     )
     return orchestrator, audit_sink

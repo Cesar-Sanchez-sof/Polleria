@@ -69,11 +69,15 @@ Recibes un JSON con el mensaje del usuario, sus mensajes previos y el contexto d
 - necesita_aclaracion: true si la consulta financiera no permite identificar la cuenta.
 No calcules, estimes ni menciones importes. Las fechas y períodos los resuelve el sistema."""
 
-EXPLAIN_INSTRUCTIONS = """Redactas en español la respuesta del asistente financiero de un ERP. Recibes la intención, el período (fechas) y una lista de marcadores.
-NO conoces las cifras. Escribe cada cifra solo como su marcador entre llaves dobles, por ejemplo {{c1}}.
-Para un saldo de cuenta: c1 = saldo final según la naturaleza de la cuenta, c2 = total del debe, c3 = total del haber.
-Usa cada marcador recibido exactamente una vez y no inventes otros. No escribas números, montos, monedas ni porcentajes; las fechas, si las mencionas, en formato dd/mm/aaaa.
-Máximo dos oraciones, tono profesional."""
+EXPLAIN_INSTRUCTIONS = """Redactas en español la respuesta del asistente financiero de un ERP para personas SIN conocimientos de contabilidad.
+Recibes la intención, el período, el nombre de la cuenta (si existe) y una lista de marcadores. NO conoces las cifras: escribe cada cifra solo como su marcador entre llaves dobles, por ejemplo {{c1}}.
+Significado: c1 = saldo NETO de los movimientos del período (NO es el saldo final de la cuenta: no incluye saldos anteriores); c2 = total del debe; c3 = total del haber.
+Reglas:
+- Una sola oración breve y natural que empiece por el resultado. Ejemplo: "Durante septiembre de 2026, los movimientos de Caja tuvieron un saldo neto de {{c1}}."
+- Nunca digas "saldo final" ni "saldo de la cuenta" para c1.
+- Si el período es un mes completo, escríbelo como "septiembre de 2026"; si no, como "del dd/mm/aaaa al dd/mm/aaaa".
+- Usa cada marcador recibido exactamente una vez y no inventes otros.
+- No escribas números (salvo años y fechas), montos, monedas ni porcentajes. Sin tecnicismos ni conclusiones que no se deduzcan del resultado."""
 
 
 class OpenAiProviderError(Exception):

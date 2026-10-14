@@ -37,6 +37,8 @@ from ai_service.orchestrator.ports import (
     SqlExecutionError,
     SqlValidator,
 )
+from ai_service.policies.registered_entries import has_registered_entries_filter
+from ai_service.validation.allowlist import Allowlist
 from ai_service.validation.validator import Verdict
 
 MAX_ROWS = 50
@@ -89,6 +91,44 @@ def classify_database_error(exc: BaseException) -> SqlExecutionError:
     return ExecutionFailed("QUERY_REJECTED_BY_DATABASE")
 
 
+def probe_connection(connection_factory: ConnectionFactory, allowlist: Allowlist) -> dict[str, object]:
+    """Comprobación segura de la conexión real: SIN leer filas de negocio.
+
+    Misma sesión acotada que el Executor (READ ONLY, 5 s, 2 s) y solo: ``SELECT 1``, el modo de solo
+    lectura efectivo y los privilegios SELECT del catálogo para las tablas y columnas de la
+    allowlist. Errores clasificados sin mensajes del controlador.
+    """
+    try:
+        with connection_factory() as connection:
+            with connection.transaction():
+                for statement in SESSION_STATEMENTS:
+                    connection.execute(statement)
+                read_only = connection.execute(READ_ONLY_CHECK).fetchone()
+                select_one = connection.execute("SELECT 1").fetchone()
+                tables: dict[str, dict[str, bool]] = {}
+                for table, columns in allowlist.tables.items():
+                    qualified = f"{allowlist.schema}.{table}"
+                    table_ok = connection.execute("SELECT has_table_privilege(%s, 'SELECT')", (qualified,)).fetchone()
+                    tables[table] = {
+                        column: bool(
+                            table_ok and table_ok[0]
+                            and connection.execute(
+                                "SELECT has_column_privilege(%s, %s, 'SELECT')", (qualified, column)
+                            ).fetchone()[0]
+                        )
+                        for column in columns
+                    }
+    except SqlExecutionError:
+        raise
+    except Exception as exc:
+        raise classify_database_error(exc) from None
+    return {
+        "select_1": bool(select_one and select_one[0] == 1),
+        "read_only": bool(read_only and read_only[0] == "on"),
+        "privileges": tables,
+    }
+
+
 class PostgresReadOnlyExecutor:
     def __init__(
         self,
@@ -117,6 +157,8 @@ class PostgresReadOnlyExecutor:
         if not recheck.approved or recheck.normalized_sql != verdict.normalized_sql:
             raise ExecutionRefused("REVALIDATION_FAILED")
         sql = recheck.normalized_sql
+        if not has_registered_entries_filter(sql):
+            raise ExecutionRefused("REGISTERED_FILTER_MISSING")  # P-4: nunca sumar asientos anulados
 
         try:
             with self._connect() as connection:

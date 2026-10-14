@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { AppLayoutShell } from "@/components/personalized/AppLayoutShell";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import AssistantWidget from "@/components/ai-assistant/AssistantWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <AppLayoutShell>{children}</AppLayoutShell>
           <Toaster richColors position="top-right" />
+          <AssistantWidget />
         </ThemeProvider>
       </body>
     </html>

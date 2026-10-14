@@ -28,7 +28,7 @@ SALDO_CUENTA_TEMPLATE = (
     "FROM cuenta_demo c "
     "JOIN detalle_asiento_demo d ON d.cuenta_codigo = c.codigo "
     "JOIN asiento_demo a ON a.id = d.asiento_id "
-    "WHERE c.codigo = '{cuenta}' AND a.fecha BETWEEN '{desde}' AND '{hasta}' "
+    "WHERE c.codigo = '{cuenta}' AND a.fecha BETWEEN '{desde}' AND '{hasta}' AND a.vigente = TRUE "
     "GROUP BY c.tipo"
 )
 

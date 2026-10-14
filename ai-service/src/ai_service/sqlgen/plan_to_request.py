@@ -55,7 +55,7 @@ SCHEMA_TABLES: dict[str, tuple[str, ...]] = {
 REQUIRED_OBJECTS: dict[str, dict[str, frozenset[str]]] = {
     "saldo_cuenta": {
         "accounting_account": frozenset({"id", "code", "type"}),
-        "journal_entry": frozenset({"id", "entry_date"}),
+        "journal_entry": frozenset({"id", "entry_date", "status"}),  # status: filtro P-4 de registrados
         "journal_entry_detail": frozenset({"entry_id", "account_id", "debit", "credit"}),
     },
 }
