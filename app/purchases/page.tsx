@@ -27,6 +27,7 @@ export const metadata = {
 };
 
 export default async function PurchasesDashboardPage() {
+   await exigirPermisoServidor("compras.ver");
   const [suppliers, supplies, orders, vouchers] = await Promise.all([
     getSuppliers().catch(() => []),
     getSupplies().catch(() => []),
