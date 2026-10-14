@@ -612,7 +612,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
           </div>
 
           {/* Botón directo a Añadir Compra */}
-          <Link href="/purchases/add">
+          <Link href="/purchases/list?tab=add">
             <Button
               size="sm"
               className="h-10 px-4 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
@@ -675,7 +675,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                           Mostrar Todo el Histórico
                         </Button>
                       ) : (
-                        <Link href="/purchases/add">
+                        <Link href="/purchases/list?tab=add">
                           <Button size="sm" className="mt-2 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5">
                             <Plus className="h-3.5 w-3.5" /> Registrar Primera Compra
                           </Button>

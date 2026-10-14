@@ -34,7 +34,7 @@ const QUICK_ACTIONS = [
   },
   {
     href: "/sales?tab=cashier",
-    label: "Caja y ventanilla",
+    label: "Ventanilla",
     hint: "Cerrar cuentas",
     icon: CreditCard,
   },

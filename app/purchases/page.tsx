@@ -58,7 +58,7 @@ export default async function PurchasesDashboardPage() {
     {
       title: "2. Órdenes de Compra",
       description: "Generar pedidos a proveedores con líneas de insumos y fechas esperadas.",
-      href: "/purchases/add",
+      href: "/purchases/list?tab=add",
       icon: ShoppingCart,
       badge: `${pendingOrders} pendientes`,
       color: "text-indigo-600 bg-indigo-50 border-indigo-200",
@@ -98,7 +98,7 @@ export default async function PurchasesDashboardPage() {
     {
       title: "7. Compra Menor Sin Comprobante",
       description: "Ingreso directo de compras informales de bajo monto al inventario.",
-      href: "/purchases/purchase-without-voucher",
+      href: "/purchases/list?tab=informal",
       icon: Receipt,
       badge: "Registro directo",
       color: "text-teal-600 bg-teal-50 border-teal-200",

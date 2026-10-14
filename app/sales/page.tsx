@@ -124,6 +124,8 @@ function SalesManagementContent() {
 
   // Pestaña principal del módulo de ventas
   const [activeTab, setActiveTab] = useState<TabType>("tables");
+  // Los tabs se agrupan igual que el menú: Salón (mesas, bebidas, listos, no cobrados) vs. Caja (ventanilla, clientes, facturas).
+  const isSalonTab = (["tables", "drinks", "kitchen", "payments"] as TabType[]).includes(activeTab);
 
   const goToTab = useCallback((tab: TabType) => {
     setActiveTab(tab);
@@ -1606,6 +1608,8 @@ function SalesManagementContent() {
 
       {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
       <div className="px-3 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
+        {isSalonTab && (
+          <>
         {/* Pestaña 1: Mesas y Salón */}
         <button
           type="button"
@@ -1653,7 +1657,7 @@ function SalesManagementContent() {
           )}
         </button>
 
-        {/* Pestaña 2: Cobros No Realizados */}
+        {/* Pestaña 2: Pedidos no cobrados */}
         <button
           type="button"
           onClick={() => goToTab("payments")}
@@ -1663,10 +1667,14 @@ function SalesManagementContent() {
             }`}
         >
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="sm:hidden">Pendientes ({uncollectedPayments.length})</span>
-          <span className="hidden sm:inline">Cobros No Realizados ({uncollectedPayments.length})</span>
+          <span className="sm:hidden">No cobrados ({uncollectedPayments.length})</span>
+          <span className="hidden sm:inline">Pedidos no cobrados ({uncollectedPayments.length})</span>
         </button>
+          </>
+        )}
 
+        {!isSalonTab && (
+          <>
         {/* Pestaña 3: Caja y Cobro en Ventanilla */}
         <button
           type="button"
@@ -1677,8 +1685,8 @@ function SalesManagementContent() {
             }`}
         >
           <CircleDollarSign className="w-4 h-4 shrink-0" />
-          <span className="sm:hidden">Caja {orderToCharge ? `(${paymentSource})` : ""}</span>
-          <span className="hidden sm:inline">Caja y Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
+          <span className="sm:hidden">Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
+          <span className="hidden sm:inline">Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
         </button>
 
         {/* Pestaña 4: Clientes */}
@@ -1693,7 +1701,11 @@ function SalesManagementContent() {
           <Users className="w-4 h-4 shrink-0" />
           <span>Clientes ({customers.length})</span>
         </button>
+          </>
+        )}
 
+        {!isSalonTab && (
+          <>
         {/* Pestaña 5: Ventas Diarias & Facturas */}
         <button
           type="button"
@@ -1705,8 +1717,10 @@ function SalesManagementContent() {
         >
           <Receipt className="w-4 h-4 shrink-0" />
           <span className="sm:hidden">Ventas ({saleVouchers.length})</span>
-          <span className="hidden sm:inline">Ventas Diarias &amp; Facturas ({saleVouchers.length})</span>
+          <span className="hidden sm:inline">Facturas de Venta ({saleVouchers.length})</span>
         </button>
+          </>
+        )}
       </div>
 
       {/* =================================================================== */}
@@ -2496,7 +2510,7 @@ function SalesManagementContent() {
               </div>
               <div>
                 <span className="text-xs font-bold text-amber-900 uppercase">
-                  Cobros No Realizados
+                  Pedidos no cobrados
                 </span>
                 <p className="text-2xl font-extrabold text-amber-950">
                   {uncollectedPayments.length} Pendientes
@@ -2527,7 +2541,7 @@ function SalesManagementContent() {
                   Canales de Cobro
                 </span>
                 <p className="text-xs font-semibold text-emerald-800 mt-0.5">
-                  Cobro con Mozo en Mesa ó Caja Ventanilla
+                  Cobro con Mozo en Mesa ó Ventanilla
                 </p>
               </div>
             </Card>
@@ -2538,7 +2552,7 @@ function SalesManagementContent() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600" />
-                <span>Detalle de Cobros No Realizados</span>
+                <span>Detalle de Pedidos no cobrados</span>
               </h3>
               <span className="text-xs text-slate-500">
                 Actualizado en tiempo real

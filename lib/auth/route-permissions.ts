@@ -7,13 +7,14 @@
 
 /** Permisos "ver" cuya presencia (cualquiera) hace visible cada sección del menú. */
 export const SECTIONS: Record<string, string[]> = {
+  restaurant: ["pedidos.ver", "ventas.ver", "caja.ver", "clientes.ver", "cocina.ver", "platos.ver"],
   sales: ["pedidos.ver", "mesas.ver", "ventas.ver", "caja.ver", "clientes.ver"],
-  kitchen: ["cocina.ver", "platos.ver", "mesas.ver"],
+  kitchen: ["cocina.ver", "platos.ver"],
   purchases: ["compras.ver", "inventario.ver", "transformacion.ver", "proveedores.ver"],
-  records: ["asientos.ver", "cuentas.ver", "periodos.ver", "reportes.ver"],
+  records: ["asientos.ver", "cuentas.ver", "periodos.ver"],
   reports: ["reportes.ver"],
   security: ["usuarios.ver", "roles.ver", "auditoria.ver"],
-  settings: ["mesas.ver", "configuracion.ver"],
+  settings: ["mesas.ver", "configuracion.ver", "reportes.ver"],
   documentation: ["documentacion.ver"],
 };
 
@@ -32,7 +33,6 @@ const LINK_PERMISSION: Record<string, string> = {
   "/restaurant/areas": "configuracion.ver",
   "/restaurant/settings/business": "configuracion.ver",
   "/restaurant/settings/printers": "configuracion.ver",
-  "/purchases": "compras.ver",
   "/purchases/add": "compras.ver",
   "/purchases/list": "compras.ver",
   "/purchases/inventory": "inventario.ver",
@@ -40,7 +40,6 @@ const LINK_PERMISSION: Record<string, string> = {
   "/purchases/suppliers": "proveedores.ver",
   "/purchases/purchase-without-voucher": "compras.ver",
   "/accounting/entries": "asientos.ver",
-  "/accounting/entries?journal=Caja%20y%20bancos": "asientos.ver",
   "/accounting/payables": "asientos.ver",
   "/accounting/accounts": "cuentas.ver",
   "/accounting/periods": "periodos.ver",
