@@ -21,12 +21,6 @@ function account(
   };
 }
 
-function section(summary: ReturnType<typeof buildExecutiveSummary>, key: string) {
-  const found = summary.sections.find((s) => s.key === key);
-  if (!found) throw new Error(`Sección ${key} no encontrada`);
-  return found;
-}
-
 function metric(summary: ReturnType<typeof buildExecutiveSummary>, key: string) {
   for (const s of summary.sections) {
     const found = s.metrics.find((m) => m.key === key);
