@@ -17,13 +17,18 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 from ai_service.config.settings import ServiceConfigError, load_service_settings
+
+# ai-service/.env (ignorado por Git): solo se leen OPENAI_API_KEY y OPENAI_MODEL, y solo con
+# AI_LLM_PROVIDER=openai.
+DOTENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 
 def main() -> int:
     try:
-        settings = load_service_settings(os.environ)
+        settings = load_service_settings(os.environ, dotenv_path=DOTENV_PATH)
     except ServiceConfigError as exc:
         print(f"Configuración inválida: {exc}", file=sys.stderr)
         return 2

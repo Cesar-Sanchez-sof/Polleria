@@ -1,0 +1,47 @@
+{
+  "version": "dev-dataset-erp-v2",
+  "description": "Dataset FICTICIO para el modo xiyansql de desarrollo. Movimientos inventados por cuenta y período, cada uno de un asiento registrado (registrado=true) o anulado (registrado=false, P-4). Las cifras NO representan información financiera real.",
+  "role": "contador_demo",
+  "account_keywords": {
+    "caja": "101",
+    "bancos": "104",
+    "proveedores": "421",
+    "proveedor": "421",
+    "ventas": "701"
+  },
+  "account_names": {"101": "Caja", "104": "Bancos", "421": "Proveedores", "701": "Ventas"},
+  "accounts": {
+    "101": { "account_id": 1, "code": "101", "name": "Caja demo", "type": "Activo" },
+    "104": { "account_id": 2, "code": "104", "name": "Bancos demo", "type": "Activo" },
+    "421": { "account_id": 3, "code": "421", "name": "Proveedores demo", "type": "Pasivo" },
+    "701": { "account_id": 4, "code": "701", "name": "Ventas demo", "type": "Ingreso" }
+  },
+  "dataset": [
+    { "cuenta": "101", "desde": "2026-09-01", "hasta": "2026-09-30", "movimientos": [
+      { "asiento": "AS-0901", "registrado": true, "debe": "1200.00", "haber": "0" },
+      { "asiento": "AS-0902", "registrado": true, "debe": "600.00", "haber": "0" },
+      { "asiento": "AS-0903", "registrado": true, "debe": "0", "haber": "650.40" },
+      { "asiento": "AS-0904", "registrado": false, "debe": "999.99", "haber": "0" },
+      { "asiento": "AS-0905", "registrado": false, "debe": "0", "haber": "120.00" }
+    ] },
+    { "cuenta": "101", "desde": "2026-08-01", "hasta": "2026-08-31", "movimientos": [
+      { "asiento": "AS-0801", "registrado": true, "debe": "1200.00", "haber": "0" },
+      { "asiento": "AS-0802", "registrado": true, "debe": "0", "haber": "1310.00" }
+    ] },
+    { "cuenta": "104", "desde": "2026-09-01", "hasta": "2026-09-30", "movimientos": [
+      { "asiento": "AS-0910", "registrado": true, "debe": "4100.00", "haber": "0" },
+      { "asiento": "AS-0911", "registrado": true, "debe": "0", "haber": "2200.00" },
+      { "asiento": "AS-0912", "registrado": false, "debe": "0", "haber": "3000.00" }
+    ] },
+    { "cuenta": "421", "desde": "2026-09-01", "hasta": "2026-09-30", "movimientos": [
+      { "asiento": "AS-0920", "registrado": true, "debe": "300.00", "haber": "0" },
+      { "asiento": "AS-0921", "registrado": true, "debe": "0", "haber": "990.00" }
+    ] },
+    { "cuenta": "701", "desde": "2026-09-01", "hasta": "2026-09-30", "movimientos": [
+      { "asiento": "AS-0930", "registrado": true, "debe": "0", "haber": "5420.80" }
+    ] },
+    { "cuenta": "101", "desde": "2026-07-01", "hasta": "2026-07-31", "movimientos": [
+      { "asiento": "AS-0701", "registrado": false, "debe": "800.00", "haber": "0" }
+    ] }
+  ]
+}

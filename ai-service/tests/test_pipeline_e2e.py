@@ -52,10 +52,38 @@ class ValidQuestionsTests(GuardedTestCase):
     def test_text_contains_only_verified_figures(self) -> None:
         h = build_harness()
         body = h.orchestrator.handle(request("¿Cuál fue el saldo de caja en septiembre?")).body
+        # La respuesta breve muestra primero el resultado principal (saldo NETO del período)...
         self.assertIn("S/ 3,749.50", body.texto)
-        self.assertIn("S/ 5,200.00", body.texto)
-        self.assertIn("S/ 1,450.50", body.texto)
+        self.assertIn("saldo neto", body.texto)
+        self.assertNotIn("saldo final", body.texto.lower())
         self.assertNotIn("{{", body.texto)
+        # ...y el debe y el haber verificados quedan en las cifras y el detalle ("Ver detalles").
+        self.assertEqual({f.marcador: str(f.valor) for f in body.cifras}, {"c1": "3749.50", "c2": "5200.00", "c3": "1450.50"})
+        detail = body.detalle
+        self.assertEqual((detail.tipo, detail.cuenta, str(detail.periodo.desde), str(detail.periodo.hasta)),
+                         ("saldo_cuenta", "101", "2026-09-01", "2026-09-30"))
+        self.assertEqual([label.marcador for label in detail.etiquetas], ["c1", "c2", "c3"])
+        self.assertIn("neto", detail.etiquetas[0].etiqueta)
+        self.assertIn("asientos registrados", detail.nota)
+        self.assertIn("no incluye asientos anulados ni saldos de períodos anteriores", detail.nota)
+
+    def test_no_detail_without_answer(self) -> None:
+        h = build_harness()
+        body = h.orchestrator.handle(request("Saldo de caja en julio")).body
+        self.assertEqual((body.estado, body.detalle), ("sin_datos", None))
+
+    def test_detail_must_describe_exactly_the_verified_figures(self) -> None:
+        from pydantic import ValidationError
+
+        from ai_service.http.schemas import QueryResponse
+
+        body = build_harness().orchestrator.handle(request("Saldo de caja en septiembre")).body
+        data = body.model_dump()
+        mismatched = {**data, "detalle": {**data["detalle"], "etiquetas": data["detalle"]["etiquetas"][:2]}}
+        not_answered = {**data, "estado": "sin_datos"}
+        for name, payload in {"etiquetas-incompletas": mismatched, "sin-respuesta": not_answered}.items():
+            with self.subTest(case=name), self.assertRaises(ValidationError):
+                QueryResponse.model_validate(payload, strict=False)
 
     def test_public_view_and_evidence_without_literals(self) -> None:
         h = build_harness()
@@ -177,10 +205,11 @@ class SqlSecurityTests(GuardedTestCase):
 class MarkerTests(GuardedTestCase):
     def test_bad_explanations_are_discarded(self) -> None:
         for text in (
-            "El saldo es {{c9}} {{c1}} {{c2}} {{c3}}",
-            "El saldo es S/ 9,999.99 y {{c1}} {{c2}} {{c3}}",
-            "El saldo es {{c1}}",
-            "Saldo {{c1}} {{c2}} {{c3}} con 100% de certeza",
+            "El saldo es {{c9}} {{c1}}",
+            "El saldo es S/ 9,999.99 y {{c1}}",
+            "El saldo es correcto",  # sin el marcador de la cifra principal
+            "Saldo {{c1}} con {{c2}}",  # c2 no se entrega a la explicación breve
+            "Saldo {{c1}} con 100% de certeza",
         ):
             with self.subTest(text=text):
                 provider = MockLlmProvider(GOLD["account_keywords"], explain_override=lambda r, t=text: t)

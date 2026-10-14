@@ -157,12 +157,14 @@ class LlmBackedExplainer:
         intencion: Intent,
         periodo: Period | None,
         figures: Sequence[Figure],
+        cuenta_nombre: str | None = None,
     ) -> str:
         entrada = ExplainInput(
             tarea="explicar",
             intencion=intencion,
             periodo=periodo,
             marcadores=[figure.marcador for figure in figures],
+            cuenta_nombre=cuenta_nombre,
         )
         output = self._gateway.call(trace_id, entrada).salida
         if not isinstance(output, ExplainOutput):

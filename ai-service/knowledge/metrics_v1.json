@@ -1,0 +1,24 @@
+{
+  "version": "metrics-v1",
+  "description": "Definiciones SINTÉTICAS de métricas del asistente (sin cifras ni datos del ERP). Las calcula el motor financiero; el SQL solo recupera totales.",
+  "metrics": [
+    {
+      "id": "saldo-neto-periodo",
+      "text": "Saldo neto de los movimientos del período de una cuenta: suma del debe menos suma del haber de journal_entry_detail, solo de asientos registrados (journal_entry.status verdadero) con entry_date dentro del período. No incluye saldos de períodos anteriores ni asientos anulados; no es el saldo final de la cuenta."
+    },
+    {
+      "id": "total-debe",
+      "text": "Total del debe (cargos) de una cuenta en un período: suma de journal_entry_detail.debit de los asientos registrados del período, unidos por journal_entry_detail.entry_id y journal_entry_detail.account_id.",
+      "model_evidence": "Total debit: SUM(journal_entry_detail.debit), joining journal_entry_detail.entry_id and journal_entry_detail.account_id."
+    },
+    {
+      "id": "total-haber",
+      "text": "Total del haber (abonos) de una cuenta en un período: suma de journal_entry_detail.credit de los asientos registrados del período, unidos por journal_entry_detail.entry_id y journal_entry_detail.account_id.",
+      "model_evidence": "Total credit: SUM(journal_entry_detail.credit), joining journal_entry_detail.entry_id and journal_entry_detail.account_id."
+    },
+    {
+      "id": "asiento-registrado",
+      "text": "Asiento registrado frente a anulado: journal_entry.status verdadero significa registrado y falso significa anulado. Los cálculos financieros solo usan asientos registrados."
+    }
+  ]
+}

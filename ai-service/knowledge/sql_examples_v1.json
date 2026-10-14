@@ -1,0 +1,16 @@
+{
+  "version": "sql-examples-v1",
+  "description": "Ejemplos SQL SINTÉTICOS con parámetros (:codigo, :desde, :hasta). No contienen datos, códigos ni fechas reales.",
+  "examples": [
+    {
+      "id": "saldo-cuenta-periodo",
+      "question": "¿Cuál fue el movimiento neto de una cuenta en un mes?",
+      "sql": "SELECT aa.code, aa.type, SUM(jed.debit) AS total_debit, SUM(jed.credit) AS total_credit FROM journal_entry_detail jed JOIN accounting_account aa ON aa.id = jed.account_id JOIN journal_entry je ON je.id = jed.entry_id WHERE aa.code = :codigo AND je.entry_date >= :desde AND je.entry_date < :hasta AND je.status = TRUE GROUP BY aa.code, aa.type"
+    },
+    {
+      "id": "movimientos-cuenta-periodo",
+      "question": "¿Qué movimientos tuvo una cuenta en un período?",
+      "sql": "SELECT je.entry_date, je.code, jed.description, jed.debit, jed.credit FROM journal_entry_detail jed JOIN journal_entry je ON je.id = jed.entry_id JOIN accounting_account aa ON aa.id = jed.account_id WHERE aa.code = :codigo AND je.entry_date >= :desde AND je.entry_date < :hasta AND je.status = TRUE ORDER BY je.entry_date"
+    }
+  ]
+}

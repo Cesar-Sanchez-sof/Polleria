@@ -151,6 +151,28 @@ class Evidence(StrictModel):
     duracion_ms: Annotated[int, Field(ge=0)]
 
 
+class FigureLabel(StrictModel):
+    """Etiqueta en lenguaje sencillo de una cifra verificada (la fija el backend, nunca un modelo)."""
+
+    marcador: MarkerId
+    etiqueta: Annotated[str, Field(min_length=1, max_length=80)]
+
+
+class Detail(StrictModel):
+    """Detalle opcional del cálculo, generado solo con datos verificados del backend.
+
+    ``cuenta`` y ``periodo`` provienen del ``QueryPlan`` revalidado; ``etiquetas`` describen las
+    cifras de ``QueryResponse.cifras`` (mismos marcadores). ``nota`` aclara el alcance del cálculo.
+    """
+
+    tipo: Literal["saldo_cuenta"]
+    cuenta: AccountCode
+    cuenta_nombre: Annotated[str, Field(min_length=1, max_length=60)] | None = None
+    periodo: Period
+    etiquetas: Annotated[list[FigureLabel], Field(min_length=1, max_length=20)]
+    nota: Annotated[str, Field(max_length=200)] | None = None
+
+
 class PublicResponse(StrictModel):
     """Lo único que el proxy reenvía al navegador (CT-A)."""
 
@@ -170,12 +192,17 @@ class QueryResponse(StrictModel):
     versiones: dict[Annotated[str, Field(pattern=r"^[a-z0-9_.-]{1,40}$")], Annotated[str, Field(max_length=80)]] = Field(
         default_factory=dict
     )
+    detalle: Detail | None = None
 
     @model_validator(mode="after")
     def _unique_markers(self) -> "QueryResponse":
         markers = [figure.marcador for figure in self.cifras]
         if len(markers) != len(set(markers)):
             raise ValueError("Los marcadores de las cifras deben ser únicos.")
+        if self.detalle is not None:
+            labelled = [label.marcador for label in self.detalle.etiquetas]
+            if self.estado != "respondida" or sorted(labelled) != sorted(markers):
+                raise ValueError("El detalle solo describe las cifras de una respuesta respondida.")
         return self
 
     def public_view(self) -> PublicResponse:
