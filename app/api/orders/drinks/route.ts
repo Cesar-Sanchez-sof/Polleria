@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isBeverage } from "@/lib/utils/dish-category";
+import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +172,16 @@ export async function PATCH(request: NextRequest) {
         data: { dishStatus: targetStatus },
       });
 
+      try {
+        broadcastRealtimeEvent("DRINK_DISPATCHED", {
+          orderId,
+          targetStatus,
+          count: res.count,
+        });
+      } catch (rtErr) {
+        console.warn("[api/orders/drinks] Error al emitir evento en tiempo real:", rtErr);
+      }
+
       return Response.json({
         success: true,
         updatedCount: res.count,
@@ -189,6 +200,16 @@ export async function PATCH(request: NextRequest) {
       where: { id: itemId },
       data: { dishStatus: targetStatus },
     });
+
+    try {
+      broadcastRealtimeEvent("DRINK_DISPATCHED", {
+        itemId,
+        orderId: updated.orderId,
+        targetStatus,
+      });
+    } catch (rtErr) {
+      console.warn("[api/orders/drinks] Error al emitir evento en tiempo real:", rtErr);
+    }
 
     return Response.json({
       success: true,

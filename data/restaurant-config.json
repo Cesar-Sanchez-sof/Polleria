@@ -9,7 +9,9 @@
     "email": "contacto@elbuensabor.pe",
     "ticketFooter": "¡Gracias por su visita! Síguenos en Instagram @elbuensabor",
     "currency": "S/ PEN",
-    "logoUrl": ""
+    "logoUrl": "",
+    "yapePhone": "987654321",
+    "yapeName": "El Buen Sabor a la Brasa"
   },
   "areas": [
     {
