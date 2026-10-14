@@ -53,10 +53,10 @@ export interface InformalPurchaseItem {
   date: Date | string;
   informalPlaceOrVendor?: string | null;
   reason?: string | null;
-  anulado: boolean;
-  anuladoAt?: Date | string | null;
-  anuladoPor?: number | null;
-  motivoAnulacion?: string | null;
+  annulled: boolean;
+  annulledAt?: Date | string | null;
+  annulledById?: number | null;
+  annulmentReason?: string | null;
   supply?: {
     id: number;
     name: string;
@@ -96,7 +96,7 @@ export function PurchasesWithoutVoucherTable({
 
   // KPIs
   const activePurchases = useMemo(
-    () => purchases.filter((p) => !p.anulado),
+    () => purchases.filter((p) => !p.annulled),
     [purchases]
   );
   const totalAmountActive = useMemo(
@@ -112,7 +112,7 @@ export function PurchasesWithoutVoucherTable({
     [activePurchases]
   );
   const annulledCount = useMemo(
-    () => purchases.filter((p) => p.anulado).length,
+    () => purchases.filter((p) => p.annulled).length,
     [purchases]
   );
 
@@ -125,10 +125,10 @@ export function PurchasesWithoutVoucherTable({
       }
 
       // Filtro por estado
-      if (statusFilter === "ACTIVE" && item.anulado) {
+      if (statusFilter === "ACTIVE" && item.annulled) {
         return false;
       }
-      if (statusFilter === "ANNULLED" && !item.anulado) {
+      if (statusFilter === "ANNULLED" && !item.annulled) {
         return false;
       }
 
@@ -416,7 +416,7 @@ export function PurchasesWithoutVoucherTable({
                 return (
                   <TableRow
                     key={c.id}
-                    className={c.anulado ? "opacity-60 bg-muted/20" : undefined}
+                    className={c.annulled ? "opacity-60 bg-muted/20" : undefined}
                   >
                     <TableCell className="text-xs whitespace-nowrap">{dateStr}</TableCell>
                     <TableCell>
@@ -452,7 +452,7 @@ export function PurchasesWithoutVoucherTable({
                       {employeeName}
                     </TableCell>
                     <TableCell className="text-center">
-                      {c.anulado ? (
+                      {c.annulled ? (
                         <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-muted-foreground/30">
                           Anulado
                         </Badge>
@@ -463,7 +463,7 @@ export function PurchasesWithoutVoucherTable({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {c.anulado ? (
+                      {c.annulled ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -631,9 +631,9 @@ export function PurchasesWithoutVoucherTable({
                     <AlertTriangle className="h-4 w-4" />
                     Estado: Anulada
                   </span>
-                  {purchaseToViewAnnulment.anuladoAt && (
+                  {purchaseToViewAnnulment.annulledAt && (
                     <span className="font-mono text-[11px] text-rose-700 dark:text-rose-400">
-                      {new Date(purchaseToViewAnnulment.anuladoAt).toLocaleString("es-PE")}
+                      {new Date(purchaseToViewAnnulment.annulledAt).toLocaleString("es-PE")}
                     </span>
                   )}
                 </div>
@@ -650,7 +650,7 @@ export function PurchasesWithoutVoucherTable({
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Motivo de la anulación:</span>
                   <p className="mt-1 p-2.5 rounded-lg bg-background/80 border border-rose-200/70 dark:border-rose-900/60 text-foreground font-medium whitespace-pre-wrap leading-relaxed">
-                    {purchaseToViewAnnulment.motivoAnulacion || "Sin motivo registrado"}
+                    {purchaseToViewAnnulment.annulmentReason || "Sin motivo registrado"}
                   </p>
                 </div>
               </div>

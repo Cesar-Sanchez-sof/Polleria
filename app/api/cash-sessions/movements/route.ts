@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sesionActual } from "@/lib/auth/sesion-actual";
+import { currentSession } from "@/lib/auth/current-session";
 import { postCashMovementExpenseJournalEntry } from "@/lib/services/accounting-posting.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("caja.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("caja.ver");
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const sessionIdParam = searchParams.get("sessionId");
@@ -60,15 +60,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("caja.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("caja.crear");
+  if (!auth.ok) return auth.response;
   try {
-    const sesion = await sesionActual().catch(() => null);
+    const session = await currentSession().catch(() => null);
     const body = await request.json().catch(() => ({}));
 
     const sessionId = Number(body.sessionId);
-    const amount = Math.round(Number(body.amount ?? body.monto ?? 0) * 100) / 100;
-    const reason = (body.reason ?? body.motivo ?? "").trim();
+    const amount = Math.round(Number(body.amount ?? 0) * 100) / 100;
+    const reason = (body.reason ?? "").trim();
     const type = body.type === "INCOME" ? "INCOME" : "EXPENSE";
 
     if (!sessionId || Number.isNaN(sessionId)) {
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
           amount,
           reason,
           entryDate: createdMovement.createdAt,
-          responsible: sesion?.username || "Cajero",
+          responsible: session?.username || "Cajero",
         });
       }
     } catch (journalErr) {

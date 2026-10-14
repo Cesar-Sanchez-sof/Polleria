@@ -50,8 +50,8 @@ export function validateAccount(
   const values: AccountValues = {};
   const isCreate = mode === "create";
 
-  const code = trimText(body.codigo ?? body.code);
-  if (isCreate || body.codigo !== undefined || body.code !== undefined) {
+  const code = trimText(body.code);
+  if (isCreate || body.code !== undefined || body.code !== undefined) {
     if (!code) {
       errors.push("El código de la cuenta es obligatorio.");
     } else if (!ACCOUNT_CODE_REGEX.test(code)) {
@@ -63,8 +63,8 @@ export function validateAccount(
     }
   }
 
-  const name = trimText(body.nombre ?? body.name);
-  if (isCreate || body.nombre !== undefined || body.name !== undefined) {
+  const name = trimText(body.name);
+  if (isCreate || body.name !== undefined || body.name !== undefined) {
     if (!name) {
       errors.push("El nombre de la cuenta es obligatorio.");
     } else if (name.length > 100) {
@@ -74,8 +74,8 @@ export function validateAccount(
     }
   }
 
-  if (isCreate || body.tipo !== undefined || body.type !== undefined) {
-    const type = trimText(body.tipo ?? body.type);
+  if (isCreate || body.type !== undefined || body.type !== undefined) {
+    const type = trimText(body.type);
     if (!(VALID_ACCOUNT_TYPES as readonly string[]).includes(type)) {
       errors.push(
         `El tipo de cuenta no es válido (valores admitidos: ${VALID_ACCOUNT_TYPES.join(", ")}).`
@@ -85,7 +85,7 @@ export function validateAccount(
     }
   }
 
-  const rawParentId = body.idPadre !== undefined ? body.idPadre : body.parentId;
+  const rawParentId = body.parentId !== undefined ? body.parentId : body.parentId;
   if (isCreate || rawParentId !== undefined) {
     if (rawParentId === undefined || rawParentId === null) {
       values.parentId = null;
@@ -99,7 +99,7 @@ export function validateAccount(
     }
   }
 
-  const rawActive = body.activo !== undefined ? body.activo : body.active;
+  const rawActive = body.active !== undefined ? body.active : body.active;
   if (isCreate || rawActive !== undefined) {
     const active = isCreate && rawActive === undefined ? true : rawActive;
     if (typeof active !== "boolean") {
@@ -119,7 +119,7 @@ export function isDuplicateCodeError(error: unknown): boolean {
 
 /** 400 Bad Request response with the first error as message and full details list. */
 export function validationResponse(errors: string[]): Response {
-  return Response.json({ error: errors[0], errores: errors }, { status: 400 });
+  return Response.json({ error: errors[0], errors: errors }, { status: 400 });
 }
 
 /** 409 Conflict response: another account with that code already exists. */
@@ -155,24 +155,24 @@ export interface AccountRow {
 /** Public API shape of an account in responses (maintains backward compatibility for clients). */
 export interface AccountApi {
   id: number;
-  codigo: string;
-  nombre: string;
-  tipo: string;
-  idPadre: number | null;
-  activo: boolean;
-  usos: number;
+  code: string;
+  name: string;
+  type: string;
+  parentId: number | null;
+  active: boolean;
+  uses: number;
 }
 
 /** Maps a database row into the public API format. */
 export function toAccountApi(account: AccountRow): AccountApi {
   return {
     id: account.id,
-    codigo: account.code,
-    nombre: account.name,
-    tipo: account.type,
-    idPadre: account.parentId,
-    activo: account.active,
-    usos: account._count?.entryDetails ?? 0,
+    code: account.code,
+    name: account.name,
+    type: account.type,
+    parentId: account.parentId,
+    active: account.active,
+    uses: account._count?.entryDetails ?? 0,
   };
 }
 

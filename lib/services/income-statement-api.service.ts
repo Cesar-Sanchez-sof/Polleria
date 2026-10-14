@@ -30,16 +30,16 @@ const BASE_URL = "/api/income-statement";
 
 export interface IncomeStatementPeriod {
   /** Fecha inicial del periodo (YYYY-MM-DD, inclusive). */
-  desde?: string;
+  from?: string;
   /** Fecha final del periodo (YYYY-MM-DD, inclusive). */
-  hasta?: string;
+  to?: string;
 }
 
 /** Serializa el periodo a query string, omitiendo los valores vacíos. */
 export function buildIncomeStatementQuery(period: IncomeStatementPeriod = {}): string {
   const params = new URLSearchParams();
-  if (period.desde) params.set("desde", period.desde);
-  if (period.hasta) params.set("hasta", period.hasta);
+  if (period.from) params.set("desde", period.from);
+  if (period.to) params.set("hasta", period.to);
   return params.toString();
 }
 
@@ -69,8 +69,8 @@ function formatDay(iso: string): string {
 }
 
 /** Rótulo del periodo impreso: "Del 01 de enero de 2026 al 31 de enero de 2026". */
-export function formatPeriodLabel(desde: string, hasta: string): string {
-  if (!desde || !hasta) return "";
-  if (desde === hasta) return `Al ${formatDay(hasta)}`;
-  return `Del ${formatDay(desde)} al ${formatDay(hasta)}`;
+export function formatPeriodLabel(from: string, to: string): string {
+  if (!from || !to) return "";
+  if (from === to) return `Al ${formatDay(to)}`;
+  return `Del ${formatDay(from)} al ${formatDay(to)}`;
 }

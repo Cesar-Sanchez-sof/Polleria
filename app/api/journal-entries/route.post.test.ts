@@ -44,15 +44,15 @@ function createRequest(body: unknown): NextRequest {
 
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
-    fecha: "2026-09-27",
-    diario: "Facturas de cliente",
-    glosa: "Venta mostrador F001-000461",
-    responsable: "Leandro Mauricci",
-    observacion: "Registrado desde el diálogo",
-    lineas: [
-      { idCuenta: CASH_ACCOUNT_ID, descripcion: "Cobro en efectivo", debe: 118, haber: 0 },
-      { idCuenta: SALES_ACCOUNT_ID, descripcion: "Venta de mercadería", debe: 0, haber: 100 },
-      { idCuenta: VAT_ACCOUNT_ID, descripcion: "IGV débito fiscal", debe: 0, haber: 18 },
+    date: "2026-09-27",
+    daily: "Facturas de cliente",
+    description: "Venta mostrador F001-000461",
+    responsible: "Leandro Mauricci",
+    observation: "Registrado desde el diálogo",
+    lines: [
+      { accountId: CASH_ACCOUNT_ID, description: "Cobro en efectivo", debit: 118, credit: 0 },
+      { accountId: SALES_ACCOUNT_ID, description: "Venta de mercadería", debit: 0, credit: 100 },
+      { accountId: VAT_ACCOUNT_ID, description: "IGV débito fiscal", debit: 0, credit: 18 },
     ],
     ...overrides,
   };
@@ -60,8 +60,8 @@ function validBody(overrides: Record<string, unknown> = {}) {
 
 function createDummyLine(index: number) {
   return index % 2 === 0
-    ? { idCuenta: CASH_ACCOUNT_ID, debe: 1, haber: 0 }
-    : { idCuenta: SALES_ACCOUNT_ID, debe: 0, haber: 1 };
+    ? { accountId: CASH_ACCOUNT_ID, debit: 1, credit: 0 }
+    : { accountId: SALES_ACCOUNT_ID, debit: 0, credit: 1 };
 }
 
 describe("POST /api/journal-entries (registrar asiento manual)", () => {
@@ -94,12 +94,12 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     expect(response.status).toBe(201);
     expect(body).toEqual({
       id: 501,
-      numero: "MISC/2026/09/0001",
-      fecha: "2026-09-27",
-      diario: "Facturas de cliente",
-      concepto: "Venta mostrador F001-000461",
-      responsable: "Leandro Mauricci",
-      estado: "Registrado",
+      number: "MISC/2026/09/0001",
+      date: "2026-09-27",
+      daily: "Facturas de cliente",
+      concept: "Venta mostrador F001-000461",
+      responsible: "Leandro Mauricci",
+      status: "Registrado",
       total: 118,
     });
 
@@ -128,9 +128,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     await POST(
       createRequest(
         validBody({
-          lineas: [
-            { idCuenta: CASH_ACCOUNT_ID, debe: 118, haber: 0 },
-            { idCuenta: CASH_ACCOUNT_ID, debe: 0, haber: 118 },
+          lines: [
+            { accountId: CASH_ACCOUNT_ID, debit: 118, credit: 0 },
+            { accountId: CASH_ACCOUNT_ID, debit: 0, credit: 118 },
           ],
         })
       )
@@ -145,11 +145,11 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
   it("aplica los valores por defecto del diario, estado y textos opcionales", async () => {
     const response = await POST(
       createRequest({
-        fecha: "2026-09-27",
-        glosa: "Ajuste por caja chica",
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 50, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: 0, haber: 50 },
+        date: "2026-09-27",
+        description: "Ajuste por caja chica",
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 50, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: 0, credit: 50 },
         ],
       })
     );
@@ -157,9 +157,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
 
     expect(response.status).toBe(201);
     expect(body).toMatchObject({
-      diario: "Operaciones varias",
-      estado: "Registrado",
-      responsable: null,
+      daily: "Operaciones varias",
+      status: "Registrado",
+      responsible: null,
       total: 50,
     });
 
@@ -170,11 +170,11 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
   });
 
   it("registra un asiento enviado como anulado", async () => {
-    const response = await POST(createRequest(validBody({ estado: false })));
+    const response = await POST(createRequest(validBody({ status: false })));
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.estado).toBe("Anulado");
+    expect(body.status).toBe("Anulado");
     expect(createMock.mock.calls[0][0].data.status).toBe(false);
   });
 
@@ -182,9 +182,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     const response = await POST(
       createRequest(
         validBody({
-          lineas: [
-            { idCuenta: CASH_ACCOUNT_ID, descripcion: "", debe: "10.567", haber: "" },
-            { idCuenta: SALES_ACCOUNT_ID, debe: 0, haber: "10.567" },
+          lines: [
+            { accountId: CASH_ACCOUNT_ID, description: "", debit: "10.567", credit: "" },
+            { accountId: SALES_ACCOUNT_ID, debit: 0, credit: "10.567" },
           ],
         })
       )
@@ -227,55 +227,55 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
   const VALIDATIONS: ValidationCase[] = [
     {
       caseDescription: "la fecha viene vacía",
-      overrides: { fecha: "" },
+      overrides: { date: "" },
       message: "La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.",
     },
     {
       caseDescription: "la fecha no tiene formato AAAA-MM-DD",
-      overrides: { fecha: "27/09/2026" },
+      overrides: { date: "27/09/2026" },
       message: "La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.",
     },
     {
       caseDescription: "la glosa está vacía",
-      overrides: { glosa: "   " },
+      overrides: { description: "   " },
       message: "El concepto (glosa) del asiento es obligatorio.",
     },
     {
       caseDescription: "la glosa supera los 200 caracteres",
-      overrides: { glosa: "g".repeat(201) },
+      overrides: { description: "g".repeat(201) },
       message: "El concepto no puede superar los 200 caracteres.",
     },
     {
       caseDescription: "el diario supera los 60 caracteres",
-      overrides: { diario: "d".repeat(61) },
+      overrides: { daily: "d".repeat(61) },
       message: "El diario no puede superar los 60 caracteres.",
     },
     {
       caseDescription: "el responsable supera los 100 caracteres",
-      overrides: { responsable: "r".repeat(101) },
+      overrides: { responsible: "r".repeat(101) },
       message: "El responsable no puede superar los 100 caracteres.",
     },
     {
       caseDescription: "la observación supera los 200 caracteres",
-      overrides: { observacion: "o".repeat(201) },
+      overrides: { observation: "o".repeat(201) },
       message: "La observación no puede superar los 200 caracteres.",
     },
     {
       caseDescription: "el asiento trae una sola línea",
-      overrides: { lineas: [{ idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 }] },
+      overrides: { lines: [{ accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 }] },
       message: "El asiento debe registrar al menos dos líneas (debe y haber).",
     },
     {
       caseDescription: "el asiento trae más de 100 líneas",
-      overrides: { lineas: Array.from({ length: 101 }, (_, i) => createDummyLine(i)) },
+      overrides: { lines: Array.from({ length: 101 }, (_, i) => createDummyLine(i)) },
       message: "El asiento no puede superar las 100 líneas.",
     },
     {
       caseDescription: "una línea no trae cuenta contable",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { debe: 0, haber: 100 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { debit: 0, credit: 100 },
         ],
       },
       message: "Línea 2: falta la cuenta contable.",
@@ -283,9 +283,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "el id de la cuenta no es un entero",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { idCuenta: "cualquiera", debe: 0, haber: 100 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { accountId: "cualquiera", debit: 0, credit: 100 },
         ],
       },
       message: "Línea 2: falta la cuenta contable.",
@@ -293,16 +293,16 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "la línea no es un objeto",
       overrides: {
-        lineas: ["esto no es una línea", { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 }],
+        lines: ["esto no es una línea", { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 }],
       },
       message: "Línea 1: el formato de la línea no es válido.",
     },
     {
       caseDescription: "la descripción de la línea supera los 200 caracteres",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, descripcion: "d".repeat(201), debe: 100, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: 0, haber: 100 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, description: "d".repeat(201), debit: 100, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: 0, credit: 100 },
         ],
       },
       message: "Línea 1: la descripción no puede superar los 200 caracteres.",
@@ -310,9 +310,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "los importes no son números",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: "mil", haber: 0 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: "mil", credit: 0 },
         ],
       },
       message: "Línea 2: los importes deben ser números válidos.",
@@ -320,9 +320,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "los importes son negativos",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: -50, haber: 0 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: -50, credit: 0 },
         ],
       },
       message: "Línea 2: los importes no pueden ser negativos.",
@@ -330,9 +330,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "la línea trae importe en debe y en haber",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: 50, haber: 50 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: 50, credit: 50 },
         ],
       },
       message: "Línea 2: no puede tener importe en debe y en haber al mismo tiempo.",
@@ -340,9 +340,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "la línea no trae importes",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: 0, haber: 0 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: 0, credit: 0 },
         ],
       },
       message: "Línea 2: debe tener un importe en debe o en haber.",
@@ -350,9 +350,9 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     {
       caseDescription: "el asiento no cuadra",
       overrides: {
-        lineas: [
-          { idCuenta: CASH_ACCOUNT_ID, debe: 100, haber: 0 },
-          { idCuenta: SALES_ACCOUNT_ID, debe: 0, haber: 90 },
+        lines: [
+          { accountId: CASH_ACCOUNT_ID, debit: 100, credit: 0 },
+          { accountId: SALES_ACCOUNT_ID, debit: 0, credit: 90 },
         ],
       },
       message: "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
@@ -365,7 +365,7 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe(message);
-    expect(body.errores).toContain(message);
+    expect(body.errors).toContain(message);
 
     expect(generateCodeMock).not.toHaveBeenCalled();
     expect(createMock).not.toHaveBeenCalled();
@@ -415,7 +415,7 @@ describe("POST /api/journal-entries (registrar asiento manual)", () => {
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.numero).toBe("MISC/2026/09/0002");
+    expect(body.number).toBe("MISC/2026/09/0002");
 
     expect(generateCodeMock).toHaveBeenCalledTimes(2);
     expect(createMock).toHaveBeenCalledTimes(2);

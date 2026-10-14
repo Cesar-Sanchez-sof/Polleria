@@ -285,19 +285,19 @@ export function PayableDetailDialog({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/20">
-                          {je.entryDetails.map((det) => (
-                            <tr key={det.id}>
+                          {je.entryDetails.map((detail) => (
+                            <tr key={detail.id}>
                               <td className="py-1 font-mono font-medium text-foreground">
-                                {det.account.code} - {det.account.name}
+                                {detail.account.code} - {detail.account.name}
                               </td>
                               <td className="py-1 text-muted-foreground truncate max-w-[200px]">
-                                {det.description || "—"}
+                                {detail.description || "—"}
                               </td>
                               <td className="py-1 text-right font-mono font-semibold text-foreground">
-                                {det.debit > 0 ? `S/ ${det.debit.toFixed(2)}` : "—"}
+                                {detail.debit > 0 ? `S/ ${detail.debit.toFixed(2)}` : "—"}
                               </td>
                               <td className="py-1 text-right font-mono font-semibold text-foreground">
-                                {det.credit > 0 ? `S/ ${det.credit.toFixed(2)}` : "—"}
+                                {detail.credit > 0 ? `S/ ${detail.credit.toFixed(2)}` : "—"}
                               </td>
                             </tr>
                           ))}

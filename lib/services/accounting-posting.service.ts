@@ -317,8 +317,8 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
 
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherCode;
-  const isFactura = ref.startsWith("F");
-  const docTypeLabel = isFactura ? "Factura" : "Boleta";
+  const isInvoice = ref.startsWith("F");
+  const docTypeLabel = isInvoice ? "Factura" : "Boleta";
   const ids: number[] = [];
   const periodId = await ensureOpenPeriod(tx, date);
 
@@ -778,7 +778,7 @@ export async function postCashSessionClosingJournalEntries(
   // 2. Registro de Faltante
   if (diff < -0.01) {
     const absDiff = Math.abs(diff);
-    const faltanteId = await createBalancedEntry(tx, {
+    const missingId = await createBalancedEntry(tx, {
       date,
       description: `Ajuste por Faltante de caja en arqueo S/ ${absDiff.toFixed(2)} (Turno #${input.sessionId})`,
       book: BOOK_CASH,
@@ -790,10 +790,10 @@ export async function postCashSessionClosingJournalEntries(
       debitLineDescription: "Faltante de caja registrado en arqueo",
       creditLineDescription: "Ajuste de faltante en caja",
     });
-    entryIds.push(faltanteId);
+    entryIds.push(missingId);
   } else if (diff > 0.01) {
     // 3. Registro de Sobrante
-    const sobranteId = await createBalancedEntry(tx, {
+    const surplusId = await createBalancedEntry(tx, {
       date,
       description: `Ajuste por Sobrante de caja en arqueo S/ ${diff.toFixed(2)} (Turno #${input.sessionId})`,
       book: BOOK_CASH,
@@ -805,7 +805,7 @@ export async function postCashSessionClosingJournalEntries(
       debitLineDescription: "Ajuste de sobrante en caja",
       creditLineDescription: "Sobrante de caja registrado en arqueo",
     });
-    entryIds.push(sobranteId);
+    entryIds.push(surplusId);
   }
 
   return entryIds;

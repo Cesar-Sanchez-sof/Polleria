@@ -4,7 +4,7 @@ import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 import { uploadVoucherToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -24,44 +24,35 @@ type PersonTypeValue = "Natural" | "Legal";
 
 interface SplitPaymentInput {
   paymentTypeId?: number;
-  id_tipo_pago?: number;
+  payment_type_id?: number;
   amount?: number;
-  monto?: number;
 }
 
 interface RegisterSaleInput {
   orderId?: number;
-  id_pedido?: number;
+  order_id?: number;
   cashSessionId?: number;
-  id_caja_sesion?: number;
+  cash_session_id?: number;
   paymentTypeId?: number;
-  id_tipo_pago?: number;
+  payment_type_id?: number;
   payments?: SplitPaymentInput[];
-  pagos?: SplitPaymentInput[];
   voucherType?: "Boleta" | "Factura";
-  tipo_comprobante?: "Boleta" | "Factura";
+  voucher_type?: "Boleta" | "Factura";
   customer?: {
     documentNumber?: string;
-    nro_doc?: string;
+    document_number?: string;
     firstName?: string;
-    nombre?: string;
+    name?: string;
     personType?: "Natural" | "Legal" | "Juridico";
-    tipo_persona?: "Natural" | "Legal" | "Juridico";
+    person_type?: "Natural" | "Legal" | "Juridico";
     phone?: string;
-    telefono?: string;
   };
-  cliente?: RegisterSaleInput["customer"];
   amountReceived?: number;
-  monto_recibido?: number;
+  received_amount?: number;
   gateway?: {
     provider?: string;
     mode?: "tap_to_pay" | "qr" | "manual";
     operationId?: string;
-  };
-  pasarela?: {
-    proveedor?: string;
-    modo?: "tap_to_pay" | "qr" | "manual";
-    operacion_id?: string;
   };
 }
 
@@ -71,32 +62,26 @@ function normalizePersonType(value: unknown): PersonTypeValue {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("ventas.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("ventas.crear");
+  if (!auth.ok) return auth.response;
   try {
     const body = (await request.json().catch(() => null)) as RegisterSaleInput | null;
     if (!body || typeof body !== "object") {
       return Response.json({ error: "Datos de venta no válidos." }, { status: 400 });
     }
 
-    const orderId = Number(body.orderId ?? body.id_pedido);
-    const paymentTypeId = body.paymentTypeId ?? body.id_tipo_pago;
-    const voucherType = body.voucherType ?? body.tipo_comprobante;
-    const customerInput = body.customer ?? body.cliente;
-    const amountReceived = body.amountReceived ?? body.monto_recibido;
-    const gateway = body.gateway ?? (body.pasarela
-      ? {
-          provider: body.pasarela.proveedor,
-          mode: body.pasarela.modo,
-          operationId: body.pasarela.operacion_id,
-        }
-      : undefined);
+    const orderId = Number(body.orderId ?? body.order_id);
+    const paymentTypeId = body.paymentTypeId ?? body.payment_type_id;
+    const voucherType = body.voucherType ?? body.voucher_type;
+    const customerInput = body.customer;
+    const amountReceived = body.amountReceived ?? body.received_amount;
+    const gateway = body.gateway;
 
     if (!orderId || Number.isNaN(orderId)) {
       return Response.json({ error: "ID de pedido inválido." }, { status: 400 });
     }
 
-    const splitPayments = body.payments ?? body.pagos;
+    const splitPayments = body.payments;
     const isSplitPayment = Array.isArray(splitPayments) && splitPayments.length > 0;
 
     if (!isSplitPayment && (!paymentTypeId || Number.isNaN(Number(paymentTypeId)))) {
@@ -112,8 +97,8 @@ export async function POST(request: NextRequest) {
         paymentTypesDb.map((t) => [t.id, t])
       );
       for (const p of splitPayments!) {
-        const idTP = Number(p.paymentTypeId ?? p.id_tipo_pago);
-        const amountNum = Math.round(Number(p.amount ?? p.monto) * 100) / 100;
+        const idTP = Number(p.paymentTypeId ?? p.payment_type_id);
+        const amountNum = Math.round(Number(p.amount) * 100) / 100;
         const tp = paymentTypesMap.get(idTP);
         if (!tp) {
           return Response.json({ error: `El método de pago con ID ${idTP} no está disponible.` }, { status: 400 });
@@ -194,9 +179,9 @@ export async function POST(request: NextRequest) {
     }
 
     let customerId: number;
-    const customerDoc = (customerInput?.documentNumber ?? customerInput?.nro_doc)?.trim() || "00000000";
-    const customerName = (customerInput?.firstName ?? customerInput?.nombre)?.trim() || "CLIENTE GENERAL";
-    const rawPersonType = customerInput?.personType ?? customerInput?.tipo_persona;
+    const customerDoc = (customerInput?.documentNumber ?? customerInput?.document_number)?.trim() || "00000000";
+    const customerName = (customerInput?.firstName ?? customerInput?.name)?.trim() || "CLIENTE GENERAL";
+    const rawPersonType = customerInput?.personType ?? customerInput?.person_type;
     const personType = normalizePersonType(
       rawPersonType ?? (customerDoc.length === 11 ? "Legal" : "Natural")
     );
@@ -213,7 +198,7 @@ export async function POST(request: NextRequest) {
           documentNumber: customerDoc,
           firstName: customerName,
           personType,
-          phone: (customerInput?.phone ?? customerInput?.telefono)?.trim() || null,
+          phone: (customerInput?.phone)?.trim() || null,
           active: true
         }
       });
@@ -230,7 +215,7 @@ export async function POST(request: NextRequest) {
     const sequentialNumber = (lastVoucher?.number ?? 0) + 1;
 
     // Detectar si hay sesión de caja activa
-    let currentSessionId = body.cashSessionId ?? body.id_caja_sesion;
+    let currentSessionId = body.cashSessionId ?? body.cash_session_id;
     if (!currentSessionId) {
       try {
         const activeSess = await (prisma as any).cashSession.findFirst({
@@ -244,12 +229,12 @@ export async function POST(request: NextRequest) {
     }
 
     const initialS3Key = buildVoucherS3Key({
-      idComprobante: 0,
-      tipoComprobante: docType as "Boleta" | "Factura",
+      voucherId: 0,
+      voucherType: docType as "Boleta" | "Factura",
       serie: series,
-      numero: sequentialNumber,
-      formato: "pdf",
-      fecha: new Date(),
+      number: sequentialNumber,
+      format: "pdf",
+      date: new Date(),
     });
     const { endpoint, bucket, accessKey, secretKey } = getS3Config();
     const hasValidRemoteCreds =
@@ -409,12 +394,12 @@ export async function POST(request: NextRequest) {
     // Archivar comprobante en S3 de manera no bloqueante y sincronizar URL en BD
     try {
       const s3Res = await uploadVoucherToS3({
-        idComprobante: transaction.invoice.id,
-        tipoComprobante: docType as "Boleta" | "Factura",
+        voucherId: transaction.invoice.id,
+        voucherType: docType as "Boleta" | "Factura",
         serie: series,
-        numero: sequentialNumber,
-        formato: "pdf",
-        fecha: transaction.invoice.issuedAt ? new Date(transaction.invoice.issuedAt) : new Date(),
+        number: sequentialNumber,
+        format: "pdf",
+        date: transaction.invoice.issuedAt ? new Date(transaction.invoice.issuedAt) : new Date(),
       });
       if (s3Res.publicUrl) {
         finalS3Url = s3Res.publicUrl;
@@ -512,8 +497,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("ventas.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("ventas.ver");
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date") ?? searchParams.get("fecha");
@@ -585,11 +570,11 @@ export async function GET(request: NextRequest) {
         s3Url:
           c.s3Url ||
           `/storage/comprobantes/${buildVoucherS3Key({
-            idComprobante: c.id,
-            tipoComprobante: c.voucherType as any,
+            voucherId: c.id,
+            voucherType: c.voucherType as any,
             serie: c.series,
-            numero: c.number,
-            fecha: c.createdAt,
+            number: c.number,
+            date: c.createdAt,
           })}`,
         issuedAt: c.createdAt.toISOString(),
         subtotal: Number(c.subtotal),

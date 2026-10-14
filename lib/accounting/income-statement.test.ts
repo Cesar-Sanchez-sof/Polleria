@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   computeIncomeStatement,
   isDetailAccount,
-  lineaDe,
-  naturalezaDe,
+  lineOf,
+  natureOf,
   round2,
 } from "@/lib/accounting/income-statement";
 import { computePeriodResult } from "@/lib/accounting/balance-sheet";
 
 /** Movimientos del escenario de referencia (quickstart.md, neto 770.00). */
-const ESCENARIO_REFERENCIA: { account_code: string; debit?: number; credit?: number }[] = [
+const SCENARIO_REFERENCE: { account_code: string; debit?: number; credit?: number }[] = [
   // 1. Ventas de mercaderías (Haber)
   { account_code: "701", credit: 700 },
   { account_code: "701", credit: 270 },
@@ -68,68 +68,68 @@ describe("isDetailAccount (D6: sin cabeceras de elemento)", () => {
 
 describe("naturalezaDe (FR-019)", () => {
   it("elemento 7 → naturaleza acreedora (Haber − Debe)", () => {
-    expect(naturalezaDe("7")).toBe("acreedora");
-    expect(naturalezaDe("70")).toBe("acreedora");
-    expect(naturalezaDe("701")).toBe("acreedora");
-    expect(naturalezaDe("776")).toBe("acreedora");
+    expect(natureOf("7")).toBe("acreedora");
+    expect(natureOf("70")).toBe("acreedora");
+    expect(natureOf("701")).toBe("acreedora");
+    expect(natureOf("776")).toBe("acreedora");
   });
 
   it("elementos 6, 8 y 9 → naturaleza deudora (Debe − Haber)", () => {
-    expect(naturalezaDe("6")).toBe("deudora");
-    expect(naturalezaDe("691")).toBe("deudora");
-    expect(naturalezaDe("673")).toBe("deudora");
-    expect(naturalezaDe("88")).toBe("deudora");
-    expect(naturalezaDe("94")).toBe("deudora");
-    expect(naturalezaDe("95")).toBe("deudora");
+    expect(natureOf("6")).toBe("deudora");
+    expect(natureOf("691")).toBe("deudora");
+    expect(natureOf("673")).toBe("deudora");
+    expect(natureOf("88")).toBe("deudora");
+    expect(natureOf("94")).toBe("deudora");
+    expect(natureOf("95")).toBe("deudora");
   });
 
   it("los demás elementos no participan en el reporte", () => {
-    expect(naturalezaDe("101")).toBe(null);
-    expect(naturalezaDe("421")).toBe(null);
+    expect(natureOf("101")).toBe(null);
+    expect(natureOf("421")).toBe(null);
   });
 });
 
 describe("lineaDe (matriz D5 de clasificación)", () => {
   it("clasifica ingresos ordinarios y sus exclusiones", () => {
-    expect(lineaDe("70")).toBe("ingresos-ordinarios");
-    expect(lineaDe("701")).toBe("ingresos-ordinarios");
-    expect(lineaDe("704")).toBe("ingresos-ordinarios");
-    expect(lineaDe("709")).toBe("devoluciones-709");
-    expect(lineaDe("74")).toBe("descuentos-74");
+    expect(lineOf("70")).toBe("ingresos-ordinarios");
+    expect(lineOf("701")).toBe("ingresos-ordinarios");
+    expect(lineOf("704")).toBe("ingresos-ordinarios");
+    expect(lineOf("709")).toBe("devoluciones-709");
+    expect(lineOf("74")).toBe("descuentos-74");
   });
 
   it("clasifica costo de ventas y gastos de operación", () => {
-    expect(lineaDe("69")).toBe("costo-ventas-69");
-    expect(lineaDe("691")).toBe("costo-ventas-69");
-    expect(lineaDe("94")).toBe("gastos-administracion-94");
-    expect(lineaDe("95")).toBe("gastos-distribucion-95");
+    expect(lineOf("69")).toBe("costo-ventas-69");
+    expect(lineOf("691")).toBe("costo-ventas-69");
+    expect(lineOf("94")).toBe("gastos-administracion-94");
+    expect(lineOf("95")).toBe("gastos-distribucion-95");
   });
 
   it("excluye 776 de ingresos financieros y 676 de gastos financieros", () => {
-    expect(lineaDe("77")).toBe("ingresos-financieros-77");
-    expect(lineaDe("771")).toBe("ingresos-financieros-77");
-    expect(lineaDe("776")).toBe("diferencia-cambio-ingreso-776");
-    expect(lineaDe("67")).toBe("gastos-financieros-67");
-    expect(lineaDe("673")).toBe("gastos-financieros-67");
-    expect(lineaDe("676")).toBe("diferencia-cambio-gasto-676");
+    expect(lineOf("77")).toBe("ingresos-financieros-77");
+    expect(lineOf("771")).toBe("ingresos-financieros-77");
+    expect(lineOf("776")).toBe("diferencia-cambio-ingreso-776");
+    expect(lineOf("67")).toBe("gastos-financieros-67");
+    expect(lineOf("673")).toBe("gastos-financieros-67");
+    expect(lineOf("676")).toBe("diferencia-cambio-gasto-676");
   });
 
   it("clasifica otros ingresos/gastos e impuesto a la renta", () => {
-    expect(lineaDe("75")).toBe("otros-ingresos-75-76");
-    expect(lineaDe("754")).toBe("otros-ingresos-75-76");
-    expect(lineaDe("76")).toBe("otros-ingresos-75-76");
-    expect(lineaDe("65")).toBe("otros-gastos-65-66");
-    expect(lineaDe("659")).toBe("otros-gastos-65-66");
-    expect(lineaDe("66")).toBe("otros-gastos-65-66");
-    expect(lineaDe("88")).toBe("impuesto-88");
+    expect(lineOf("75")).toBe("otros-ingresos-75-76");
+    expect(lineOf("754")).toBe("otros-ingresos-75-76");
+    expect(lineOf("76")).toBe("otros-ingresos-75-76");
+    expect(lineOf("65")).toBe("otros-gastos-65-66");
+    expect(lineOf("659")).toBe("otros-gastos-65-66");
+    expect(lineOf("66")).toBe("otros-gastos-65-66");
+    expect(lineOf("88")).toBe("impuesto-88");
   });
 
   it("no clasifica las cuentas fuera del reporte", () => {
-    expect(lineaDe("101")).toBe("otra");
-    expect(lineaDe("421")).toBe("otra");
-    expect(lineaDe("60")).toBe("otra"); // FR-027: compras fuera del costo de ventas
-    expect(lineaDe("621")).toBe("otra");
-    expect(lineaDe("631")).toBe("otra");
+    expect(lineOf("101")).toBe("otra");
+    expect(lineOf("421")).toBe("otra");
+    expect(lineOf("60")).toBe("otra"); // FR-027: compras fuera del costo de ventas
+    expect(lineOf("621")).toBe("otra");
+    expect(lineOf("631")).toBe("otra");
   });
 });
 
@@ -137,7 +137,7 @@ describe("computeIncomeStatement: escenario de referencia (T006)", () => {
   const result = computeIncomeStatement({
     startDate: "2026-01-01",
     endDate: "2026-01-31",
-    movements: ESCENARIO_REFERENCIA,
+    movements: SCENARIO_REFERENCE,
   });
 
   it("calcula las 14 secciones del reporte con el valor esperado", () => {
@@ -280,7 +280,7 @@ describe("naturaleza y signos (T011, FR-019)", () => {
     });
     expect(result.exchange_difference_net.amount).toBe(-15);
 
-    const ganancia = computeIncomeStatement({
+    const profit = computeIncomeStatement({
       startDate: "2026-01-01",
       endDate: "2026-01-31",
       movements: [
@@ -288,7 +288,7 @@ describe("naturaleza y signos (T011, FR-019)", () => {
         { account_code: "676", debit: 5 },
       ],
     });
-    expect(ganancia.exchange_difference_net.amount).toBe(25);
+    expect(profit.exchange_difference_net.amount).toBe(25);
   });
 
   it("un período con pérdidas devuelve resultado negativo, sin error", () => {
@@ -310,7 +310,7 @@ describe("tolerancia a datos ausentes (T014, SC-001 / SC-007)", () => {
   const run = (movements: { account_code: string; debit?: number; credit?: number }[]) =>
     computeIncomeStatement({ startDate: "2026-01-01", endDate: "2026-01-31", movements });
 
-  const todasLasLineas = (r: ReturnType<typeof computeIncomeStatement>) => [
+  const allLines = (r: ReturnType<typeof computeIncomeStatement>) => [
     r.operating_income.ordinary_income,
     r.operating_income.sublease_and_other_income,
     r.operating_income.total,
@@ -335,7 +335,7 @@ describe("tolerancia a datos ausentes (T014, SC-001 / SC-007)", () => {
     const result = run([{ account_code: "701", credit: 500 }]);
     expect(result.operating_income.total).toBe(500);
     expect(result.net_profit.amount).toBe(500);
-    for (const amount of todasLasLineas(result)) {
+    for (const amount of allLines(result)) {
       expect(amount).not.toBeNull();
       expect(amount).not.toBeUndefined();
       expect(Number.isFinite(amount)).toBe(true);
@@ -366,7 +366,7 @@ describe("tolerancia a datos ausentes (T014, SC-001 / SC-007)", () => {
     expect(result.sales_costs.cost_of_goods_sold).toBe(0);
     expect(result.operating_income.total).toBe(0);
     expect(result.net_profit.amount).toBe(0);
-    for (const amount of todasLasLineas(result)) {
+    for (const amount of allLines(result)) {
       expect(amount).toBe(0);
     }
   });

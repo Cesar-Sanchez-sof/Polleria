@@ -47,10 +47,10 @@ export function RegisterPaymentDialog({
 }: RegisterPaymentDialogProps) {
   const router = useRouter();
 
-  const saldo = Number(invoice.saldoPendiente);
+  const balance = Number(invoice.pendingBalance);
 
   const [paymentTypeId, setPaymentTypeId] = useState<string>("");
-  const [amount, setAmount] = useState<string>(saldo.toFixed(2));
+  const [amount, setAmount] = useState<string>(balance.toFixed(2));
   const [date, setDate] = useState<string>(todayString());
   const [loading, setLoading] = useState(false);
 
@@ -60,7 +60,7 @@ export function RegisterPaymentDialog({
   const handleOpenChange = (val: boolean) => {
     if (val) {
       setPaymentTypeId("");
-      setAmount(saldo.toFixed(2));
+      setAmount(balance.toFixed(2));
       setDate(todayString());
     }
     onOpenChange(val);
@@ -79,8 +79,8 @@ export function RegisterPaymentDialog({
       toast.error("El monto debe ser mayor a 0");
       return;
     }
-    if (numAmount > saldo + 0.01) {
-      toast.error(`El monto supera el saldo pendiente (S/ ${saldo.toFixed(2)})`);
+    if (numAmount > balance + 0.01) {
+      toast.error(`El monto supera el saldo pendiente (S/ ${balance.toFixed(2)})`);
       return;
     }
 
@@ -124,7 +124,7 @@ export function RegisterPaymentDialog({
             <div className="flex justify-between border-t pt-2">
               <span className="text-muted-foreground font-semibold">Saldo pendiente:</span>
               <span className="font-mono font-bold text-rose-700 text-base">
-                S/ {saldo.toFixed(2)}
+                S/ {balance.toFixed(2)}
               </span>
             </div>
           </div>
@@ -160,14 +160,14 @@ export function RegisterPaymentDialog({
               type="number"
               step="0.01"
               min="0.01"
-              max={saldo + 0.01}
+              max={balance + 0.01}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="h-9 font-mono"
               placeholder="0.00"
             />
             <p className="text-xs text-muted-foreground">
-              Máximo permitido: S/ {saldo.toFixed(2)}
+              Máximo permitido: S/ {balance.toFixed(2)}
             </p>
           </div>
 

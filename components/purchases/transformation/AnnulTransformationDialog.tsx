@@ -32,7 +32,7 @@ export function AnnulTransformationDialog({
   onSuccess,
 }: AnnulTransformationDialogProps) {
   const router = useRouter();
-  const [motivo, setMotivo] = useState("");
+  const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!transformation) return null;
@@ -43,18 +43,18 @@ export function AnnulTransformationDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!motivo.trim()) {
+    if (!reason.trim()) {
       toast.error("El motivo de anulación es obligatorio");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await annulTransformation(transformation.id, motivo.trim());
+      await annulTransformation(transformation.id, reason.trim());
       toast.success(
         `Transformación TR-${transformation.id.toString().padStart(4, "0")} anulada correctamente`
       );
-      setMotivo("");
+      setReason("");
       onOpenChange(false);
       if (onSuccess) {
         onSuccess();
@@ -74,7 +74,7 @@ export function AnnulTransformationDialog({
       open={open}
       onOpenChange={(val) => {
         if (!isSubmitting) {
-          if (!val) setMotivo("");
+          if (!val) setReason("");
           onOpenChange(val);
         }
       }}
@@ -140,8 +140,8 @@ export function AnnulTransformationDialog({
             <Textarea
               id="motivo-anulacion"
               placeholder="Indique la razón de la anulación (ej. Error de digitación, receta cancelada)..."
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
               rows={3}
               maxLength={200}
               className="text-xs resize-none"
@@ -150,7 +150,7 @@ export function AnnulTransformationDialog({
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>Obligatorio</span>
-              <span>{motivo.length}/200 caracteres</span>
+              <span>{reason.length}/200 caracteres</span>
             </div>
           </div>
 
@@ -168,7 +168,7 @@ export function AnnulTransformationDialog({
               type="submit"
               variant="destructive"
               size="sm"
-              disabled={isSubmitting || !motivo.trim()}
+              disabled={isSubmitting || !reason.trim()}
               className="gap-1.5"
             >
               {isSubmitting ? (

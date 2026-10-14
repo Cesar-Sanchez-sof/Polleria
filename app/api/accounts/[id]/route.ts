@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
-import { actorActual } from "@/lib/auth/actor-auditoria";
+import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { currentActor } from "@/lib/auth/audit-actor";
 import {
   ACCOUNT_SELECT,
   duplicateCodeResponse,
@@ -12,7 +12,7 @@ import {
   validateAccount,
   validationResponse,
 } from "@/lib/chart-of-accounts";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -81,8 +81,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["cuentas.ver", "asientos.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["cuentas.ver", "asientos.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const accountId = Number.parseInt(idParam, 10);
@@ -167,8 +167,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("cuentas.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("cuentas.editar");
+  if (!auth.ok) return auth.response;
   let newCode: string | undefined;
 
   try {
@@ -301,15 +301,15 @@ export async function PATCH(
 
       return modified;
     });
-        await registrarAuditoria({
-      actor: await actorActual(),
+        await logAudit({
+      actor: await currentActor(),
       action: "UPDATE",
       module: "Contabilidad",
       entity: "Cuenta contable",
       entityId: accountId,
       description: `Modificó la cuenta contable ${updated.code} - ${updated.name}`,
-      details: { antes: currentAccount, despues: updated },
-      ipAddress: ipDeSolicitud(request),
+      details: { before: currentAccount, after: updated },
+      ipAddress: requestIp(request),
     });
     return Response.json(toAccountApi(updated));
   } catch (error) {

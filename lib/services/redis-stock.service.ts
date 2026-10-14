@@ -83,15 +83,15 @@ export function getRedisClient(): Redis | null {
 /**
  * Clave estandarizada para el stock del plato en Redis.
  */
-function dishStockKey(idPlato: number): string {
-  return `stock:plato:${idPlato}`;
+function dishStockKey(dishId: number): string {
+  return `stock:plato:${dishId}`;
 }
 
 /**
  * Fija el stock disponible para un plato (ej: inicio de turno o reposición en cocina).
  */
-export async function setDishStock(idPlato: number, stock: number): Promise<number> {
-  const key = dishStockKey(idPlato);
+export async function setDishStock(dishId: number, stock: number): Promise<number> {
+  const key = dishStockKey(dishId);
   const client = getRedisClient();
 
   if (client) {
@@ -111,8 +111,8 @@ export async function setDishStock(idPlato: number, stock: number): Promise<numb
 /**
  * Consulta el stock actual disponible de un plato.
  */
-export async function getDishStock(idPlato: number): Promise<number> {
-  const key = dishStockKey(idPlato);
+export async function getDishStock(dishId: number): Promise<number> {
+  const key = dishStockKey(dishId);
   const client = getRedisClient();
 
   if (client) {
@@ -134,11 +134,11 @@ export async function getDishStock(idPlato: number): Promise<number> {
  * Si el stock es insuficiente, retorna success: false sin descontar nada.
  */
 export async function reserveDishStock(
-  idPlato: number,
-  cantidad: number
+  dishId: number,
+  quantity: number
 ): Promise<{ success: boolean; remainingStock: number; message?: string }> {
-  const qty = Math.max(1, cantidad);
-  const key = dishStockKey(idPlato);
+  const qty = Math.max(1, quantity);
+  const key = dishStockKey(dishId);
   const client = getRedisClient();
 
   if (client) {
@@ -152,7 +152,7 @@ export async function reserveDishStock(
       if (typeof res === "number" && res >= 0) {
         return { success: true, remainingStock: res };
       } else {
-        const current = await getDishStock(idPlato);
+        const current = await getDishStock(dishId);
         return {
           success: false,
           remainingStock: current,
@@ -187,9 +187,9 @@ export async function reserveDishStock(
 /**
  * Libera / devuelve stock a Redis (en caso de cancelación o edición de comanda).
  */
-export async function releaseDishStock(idPlato: number, cantidad: number): Promise<number> {
-  const qty = Math.max(1, cantidad);
-  const key = dishStockKey(idPlato);
+export async function releaseDishStock(dishId: number, quantity: number): Promise<number> {
+  const qty = Math.max(1, quantity);
+  const key = dishStockKey(dishId);
   const client = getRedisClient();
 
   if (client) {
@@ -213,27 +213,27 @@ export async function releaseDishStock(idPlato: number, cantidad: number): Promi
  * para que la comanda no quede a medias ni se descuadre el inventario.
  */
 export async function reserveOrderStock(
-  items: Array<{ idPlato: number; cantidad: number; nombre?: string }>
+  items: Array<{ dishId: number; quantity: number; name?: string }>
 ): Promise<{ success: boolean; soldOutDish?: string; error?: string }> {
-  const reservedDishes: Array<{ idPlato: number; cantidad: number }> = [];
+  const reservedDishes: Array<{ dishId: number; quantity: number }> = [];
 
   for (const item of items) {
-    const res = await reserveDishStock(item.idPlato, item.cantidad);
+    const res = await reserveDishStock(item.dishId, item.quantity);
 
     if (!res.success) {
       // ROLLBACK: Devolver los platos que ya se habían descontado en esta misma comanda
       for (const rev of reservedDishes) {
-        await releaseDishStock(rev.idPlato, rev.cantidad);
+        await releaseDishStock(rev.dishId, rev.quantity);
       }
 
       return {
         success: false,
-        soldOutDish: item.nombre || `Plato ID ${item.idPlato}`,
-        error: `No se pudo confirmar la comanda: El plato '${item.nombre || item.idPlato}' se acaba de agotar. Solo quedan ${res.remainingStock} porciones disponibles.`,
+        soldOutDish: item.name || `Plato ID ${item.dishId}`,
+        error: `No se pudo confirmar la comanda: El plato '${item.name || item.dishId}' se acaba de agotar. Solo quedan ${res.remainingStock} porciones disponibles.`,
       };
     }
 
-    reservedDishes.push({ idPlato: item.idPlato, cantidad: item.cantidad });
+    reservedDishes.push({ dishId: item.dishId, quantity: item.quantity });
   }
 
   return { success: true };

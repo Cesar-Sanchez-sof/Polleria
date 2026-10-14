@@ -16,7 +16,7 @@
  * - Respuestas validadas contra el contrato; al navegador solo llega `AssistantReply`.
  * - Errores con mensajes sencillos, sin detalles internos.
  */
-import type { PayloadSesion } from "@/lib/auth/session";
+import type { SessionPayload } from "@/lib/auth/session";
 import { assistantRoleFor, DEMO_SUGGESTIONS, type AssistantConfig } from "@/lib/ai-assistant/config";
 import {
   AUTHORIZED_ROUTES,
@@ -34,7 +34,7 @@ const TOKEN_HEADER = "X-Internal-Token";
 
 export interface ProxyDeps {
   config: AssistantConfig;
-  session: () => Promise<PayloadSesion | null>;
+  session: () => Promise<SessionPayload | null>;
   fetchFn: typeof fetch;
   now: () => Date;
   newTraceId: () => string;
@@ -47,31 +47,31 @@ export interface ProxyResult {
 
 const error = (status: number, message: string): ProxyResult => ({ status, body: { error: message } });
 
-type Gate = { ok: true; session: PayloadSesion; role: string; config: Extract<AssistantConfig, { enabled: true }> } | { ok: false; result: ProxyResult };
+type Gate = { ok: true; session: SessionPayload; role: string; config: Extract<AssistantConfig, { enabled: true }> } | { ok: false; result: ProxyResult };
 
 async function gate(deps: ProxyDeps): Promise<Gate> {
   if (!deps.config.enabled) return { ok: false, result: error(404, MESSAGES.disabled) };
   const session = await deps.session().catch(() => null);
   if (!session) return { ok: false, result: error(401, MESSAGES.unauthorized) };
-  const role = assistantRoleFor(session.rol);
+  const role = assistantRoleFor(session.role);
   if (!role) return { ok: false, result: error(403, MESSAGES.forbidden) };
   // Evaluación: solo las cuentas evaluadoras configuradas, aunque otros usuarios tengan el mismo rol.
   const allowed = deps.config.allowedUserIds;
-  if (allowed !== null && !allowed.includes(session.idUsuario)) return { ok: false, result: error(403, MESSAGES.forbidden) };
+  if (allowed !== null && !allowed.includes(session.userId)) return { ok: false, result: error(403, MESSAGES.forbidden) };
   return { ok: true, session, role, config: deps.config };
 }
 
 /** GET: estado del asistente para el usuario actual (aplica los mismos controles que POST). */
 export async function handleStatus(deps: ProxyDeps): Promise<ProxyResult> {
   const checked = await gate(deps);
-  if (!checked.ok) return { status: checked.result.status, body: { habilitado: false, ...checked.result.body } };
+  if (!checked.ok) return { status: checked.result.status, body: { enabled: false, ...checked.result.body } };
   return {
     status: 200,
     body: {
-      habilitado: true,
-      datosFicticios: !checked.config.realData,
-      usuario: checked.session.idUsuario,
-      sugerencias: DEMO_SUGGESTIONS,
+      enabled: true,
+      fakeData: !checked.config.realData,
+      usuario: checked.session.userId,
+      suggestions: DEMO_SUGGESTIONS,
     },
   };
 }
@@ -134,7 +134,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   const payload: QueryRequest = {
     id_traza: deps.newTraceId(),
-    usuario: { id: checked.session.idUsuario, rol: checked.role },
+    usuario: { id: checked.session.userId, rol: checked.role },
     mensaje: input.mensaje,
     contexto: input.ruta ? { ruta: input.ruta, filtros: {} } : null,
     historial: input.historial.map((texto) => ({ rol: "usuario" as const, texto })),
@@ -146,7 +146,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
     // P-9: identidad firmada a partir de la sesión del servidor; el navegador no interviene.
     headers[IDENTITY_HEADER] = await signIdentity(
       checked.config.identityKey,
-      { userId: checked.session.idUsuario, rol: checked.role, traceId: payload.id_traza },
+      { userId: checked.session.userId, rol: checked.role, traceId: payload.id_traza },
       deps.now(),
     );
   }

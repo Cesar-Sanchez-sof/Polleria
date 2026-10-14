@@ -394,11 +394,11 @@ export function KardexDialog({
             </div>
           ) : (() => {
             // Saldo condicional: solo si el primer item tiene saldoCorrido definido
-            const showSaldo = items.length > 0 && items[0].saldoCorrido !== undefined;
+            const showBalance = items.length > 0 && items[0].runningBalance !== undefined;
 
             return (
               <div className="rounded-lg border overflow-x-auto">
-                <Table className={showSaldo ? "min-w-[900px]" : "min-w-[760px]"}>
+                <Table className={showBalance ? "min-w-[900px]" : "min-w-[760px]"}>
                   <TableHeader className="bg-muted/40">
                     <TableRow className="text-xs">
                       <TableHead className="w-[140px]">Fecha</TableHead>
@@ -406,7 +406,7 @@ export function KardexDialog({
                       <TableHead className="w-[170px]">Tipo</TableHead>
                       <TableHead className="w-[130px]">Referencia</TableHead>
                       <TableHead className="text-right w-[95px]">Cantidad</TableHead>
-                      {showSaldo && (
+                      {showBalance && (
                         <TableHead className="text-right w-[125px]">
                           <div className="inline-flex items-center justify-end gap-1.5 w-full">
                             <span>Stock después</span>
@@ -480,10 +480,10 @@ export function KardexDialog({
                           </TableCell>
 
                           {/* Stock después (Saldo acumulado) — solo si corresponde */}
-                          {showSaldo && (
+                          {showBalance && (
                             <TableCell className="text-right font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
-                              {m.saldoCorrido !== undefined
-                                ? m.saldoCorrido.toFixed(2)
+                              {m.runningBalance !== undefined
+                                ? m.runningBalance.toFixed(2)
                                 : "—"}
                             </TableCell>
                           )}

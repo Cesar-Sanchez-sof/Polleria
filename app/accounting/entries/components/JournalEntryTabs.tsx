@@ -16,7 +16,7 @@ interface Props {
 export function JournalEntryTabs({ journals, total, journal, onSelect }: Readonly<Props>) {
   const tabs = [
     { value: "todos", label: "Todos los diarios", total },
-    ...journals.map((d) => ({ value: d.nombre, label: d.nombre, total: d.total })),
+    ...journals.map((d) => ({ value: d.name, label: d.name, total: d.total })),
   ];
 
   return (

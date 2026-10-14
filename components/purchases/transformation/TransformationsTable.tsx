@@ -49,24 +49,24 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
   // KPIs
   const totalTransformations = transformations.length;
   const annulledTransformations = useMemo(() => {
-    return transformations.filter((t) => t.anulado).length;
+    return transformations.filter((t) => t.annulled).length;
   }, [transformations]);
 
   const totalUnitsConsumed = useMemo(() => {
     return transformations
-      .filter((t) => !t.anulado)
+      .filter((t) => !t.annulled)
       .reduce((sum, t) => {
-        const consumos = t.items.filter((i) => i.itemType === "Consumo");
-        return sum + consumos.reduce((s, c) => s + (Number(c.quantity) || 0), 0);
+        const consumptions = t.items.filter((i) => i.itemType === "Consumo");
+        return sum + consumptions.reduce((s, c) => s + (Number(c.quantity) || 0), 0);
       }, 0);
   }, [transformations]);
 
   const totalUnitsProduced = useMemo(() => {
     return transformations
-      .filter((t) => !t.anulado)
+      .filter((t) => !t.annulled)
       .reduce((sum, t) => {
-        const producidos = t.items.filter((i) => i.itemType === "Producido");
-        return sum + producidos.reduce((s, p) => s + (Number(p.quantity) || 0), 0);
+        const produced = t.items.filter((i) => i.itemType === "Producido");
+        return sum + produced.reduce((s, p) => s + (Number(p.quantity) || 0), 0);
       }, 0);
   }, [transformations]);
 
@@ -74,8 +74,8 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
   const filteredTransformations = useMemo(() => {
     return transformations.filter((t) => {
       // Filtro por estado
-      if (statusFilter === "ACTIVE" && t.anulado) return false;
-      if (statusFilter === "ANNULLED" && !t.anulado) return false;
+      if (statusFilter === "ACTIVE" && t.annulled) return false;
+      if (statusFilter === "ANNULLED" && !t.annulled) return false;
 
       // Filtro por fecha
       if (dateFilter) {
@@ -330,7 +330,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                 return (
                   <TableRow
                     key={t.id}
-                    className={t.anulado ? "opacity-60 bg-muted/20" : undefined}
+                    className={t.annulled ? "opacity-60 bg-muted/20" : undefined}
                   >
                     <TableCell className="font-mono font-semibold text-xs whitespace-nowrap">
                       TR-{t.id.toString().padStart(4, "0")}
@@ -345,7 +345,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                           <div
                             key={c.id}
                             className={
-                              t.anulado
+                              t.annulled
                                 ? "text-muted-foreground line-through"
                                 : "text-rose-700 font-medium"
                             }
@@ -361,7 +361,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                           <div
                             key={p.id}
                             className={
-                              t.anulado
+                              t.annulled
                                 ? "text-muted-foreground line-through"
                                 : "text-emerald-700 font-medium"
                             }
@@ -372,7 +372,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                       </div>
                     </TableCell>
                     <TableCell className="text-xs">
-                      {t.anulado ? (
+                      {t.annulled ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-300">
                           <XCircle className="h-3 w-3" />
                           Anulada
@@ -395,7 +395,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
                           <FileText className="h-3.5 w-3.5" />
                           Detalle
                         </Button>
-                        {!t.anulado && (
+                        {!t.annulled && (
                           <Button
                             variant="ghost"
                             size="sm"

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { sesionActual } from "@/lib/auth/sesion-actual";
-import { permisosDeUsuario } from "@/lib/auth/permisos";
+import { currentSession } from "@/lib/auth/current-session";
+import { permissionsForUser } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,17 +15,17 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    const sesion = await sesionActual().catch(() => null);
-    if (!sesion) {
+    const session = await currentSession().catch(() => null);
+    if (!session) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
-    const acceso = await permisosDeUsuario(sesion.idUsuario);
+    const access = await permissionsForUser(session.userId);
     return NextResponse.json({
-      idUsuario: sesion.idUsuario,
-      username: sesion.username,
-      rol: sesion.rol,
-      superusuario: acceso.superusuario,
-      permisos: acceso.codigos,
+      userId: session.userId,
+      username: session.username,
+      role: session.role,
+      superuser: access.superuser,
+      permissions: access.codes,
     });
   } catch {
     return NextResponse.json({ error: "Error al verificar sesión" }, { status: 500 });

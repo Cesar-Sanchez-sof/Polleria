@@ -15,113 +15,113 @@ describe("Servicio de Control Atómico de Stock y Caché (Redis Cloud)", () => {
   });
 
   it("permite fijar y consultar el stock inicial de un plato", async () => {
-    const platoId = 101;
-    await setDishStock(platoId, 15);
+    const dishId = 101;
+    await setDishStock(dishId, 15);
 
-    const stock = await getDishStock(platoId);
+    const stock = await getDishStock(dishId);
     expect(stock).toBe(15);
   });
 
   it("descuenta atómicamente el stock al solicitar una reserva válida", async () => {
-    const platoId = 102;
-    await setDishStock(platoId, 10);
+    const dishId = 102;
+    await setDishStock(dishId, 10);
 
-    const resultado = await reserveDishStock(platoId, 3);
-    expect(resultado.success).toBe(true);
-    expect(resultado.remainingStock).toBe(7);
+    const result = await reserveDishStock(dishId, 3);
+    expect(result.success).toBe(true);
+    expect(result.remainingStock).toBe(7);
 
-    const remaining = await getDishStock(platoId);
+    const remaining = await getDishStock(dishId);
     expect(remaining).toBe(7);
   });
 
   it("rechaza la reserva si el mozo pide más unidades de las disponibles", async () => {
-    const platoId = 103;
-    await setDishStock(platoId, 2);
+    const dishId = 103;
+    await setDishStock(dishId, 2);
 
-    const resultado = await reserveDishStock(platoId, 5);
-    expect(resultado.success).toBe(false);
-    expect(resultado.remainingStock).toBe(2);
-    expect(resultado.message).toContain("Stock insuficiente");
+    const result = await reserveDishStock(dishId, 5);
+    expect(result.success).toBe(false);
+    expect(result.remainingStock).toBe(2);
+    expect(result.message).toContain("Stock insuficiente");
 
     // El stock original debe permanecer intacto
-    const stockActual = await getDishStock(platoId);
+    const stockActual = await getDishStock(dishId);
     expect(stockActual).toBe(2);
   });
 
   it("evita la sobreventa cuando solo queda 1 plato y dos mozos intentan reservarlo (condición de carrera)", async () => {
-    const platoId = 104; // "1/4 Pollo a la Brasa"
-    await setDishStock(platoId, 1); // Solo queda 1 unidad en cocina
+    const dishId = 104; // "1/4 Pollo a la Brasa"
+    await setDishStock(dishId, 1); // Solo queda 1 unidad en cocina
 
     // Dos mozos presionan 'Confirmar Pedido' al mismo instante
-    const [pedidoMozo1, pedidoMozo2] = await Promise.all([
-      reserveDishStock(platoId, 1),
-      reserveDishStock(platoId, 1)
+    const [orderWaiter1, orderWaiter2] = await Promise.all([
+      reserveDishStock(dishId, 1),
+      reserveDishStock(dishId, 1)
     ]);
 
     // Exactamente uno de los dos debe ganar la porción
-    const exitos = [pedidoMozo1.success, pedidoMozo2.success].filter(Boolean);
-    const fallos = [pedidoMozo1.success, pedidoMozo2.success].filter((e) => !e);
+    const successes = [orderWaiter1.success, orderWaiter2.success].filter(Boolean);
+    const failures = [orderWaiter1.success, orderWaiter2.success].filter((e) => !e);
 
-    expect(exitos.length).toBe(1);
-    expect(fallos.length).toBe(1);
+    expect(successes.length).toBe(1);
+    expect(failures.length).toBe(1);
 
     // El stock final no puede ser menor a 0 (cero inventario descuadrado)
-    const stockFinal = await getDishStock(platoId);
+    const stockFinal = await getDishStock(dishId);
     expect(stockFinal).toBe(0);
   });
 
   it("libera y devuelve el stock al cancelar un plato o pedido", async () => {
-    const platoId = 105;
-    await setDishStock(platoId, 5);
+    const dishId = 105;
+    await setDishStock(dishId, 5);
 
     // Reservar 2
-    await reserveDishStock(platoId, 2);
-    expect(await getDishStock(platoId)).toBe(3);
+    await reserveDishStock(dishId, 2);
+    expect(await getDishStock(dishId)).toBe(3);
 
     // Cliente cancela el pedido: se devuelven las 2 unidades
-    const nuevoStock = await releaseDishStock(platoId, 2);
-    expect(nuevoStock).toBe(5);
-    expect(await getDishStock(platoId)).toBe(5);
+    const newStock = await releaseDishStock(dishId, 2);
+    expect(newStock).toBe(5);
+    expect(await getDishStock(dishId)).toBe(5);
   });
 
   it("realiza rollback automático en una comanda si un plato del pedido no tiene stock", async () => {
-    const polloId = 201;
-    const papasId = 202;
+    const chickenId = 201;
+    const friesId = 202;
     const chichaId = 203;
 
-    await setDishStock(polloId, 5); // 5 pollos
-    await setDishStock(papasId, 0); // 0 papas (agotado)
+    await setDishStock(chickenId, 5); // 5 pollos
+    await setDishStock(friesId, 0); // 0 papas (agotado)
     await setDishStock(chichaId, 10); // 10 jarras de chicha
 
     // El mozo envía un pedido de 2 pollos y 1 papas
-    const resultadoComanda = await reserveOrderStock([
-      { idPlato: polloId, cantidad: 2, nombre: "1/4 Pollo" },
-      { idPlato: papasId, cantidad: 1, nombre: "Porción de Papas" }
+    const resultKitchenOrder = await reserveOrderStock([
+      { dishId: chickenId, quantity: 2, name: "1/4 Pollo" },
+      { dishId: friesId, quantity: 1, name: "Porción de Papas" }
     ]);
 
     // Debe fallar porque papas está agotado
-    expect(resultadoComanda.success).toBe(false);
-    expect(resultadoComanda.soldOutDish).toContain("Porción de Papas");
+    expect(resultKitchenOrder.success).toBe(false);
+    expect(resultKitchenOrder.soldOutDish).toContain("Porción de Papas");
 
     // ROLLBACK: El stock de pollos NO debe haberse descontado, debe seguir en 5
-    const stockPollo = await getDishStock(polloId);
-    expect(stockPollo).toBe(5);
+    const stockChicken = await getDishStock(chickenId);
+    expect(stockChicken).toBe(5);
   });
 
   it("confirma exitosamente toda la comanda cuando todos los ítems tienen stock disponible", async () => {
-    const polloId = 301;
+    const chickenId = 301;
     const chichaId = 302;
 
-    await setDishStock(polloId, 10);
+    await setDishStock(chickenId, 10);
     await setDishStock(chichaId, 8);
 
-    const resultado = await reserveOrderStock([
-      { idPlato: polloId, cantidad: 2, nombre: "Mostrito Brasa" },
-      { idPlato: chichaId, cantidad: 1, nombre: "Jarra de Chicha" }
+    const result = await reserveOrderStock([
+      { dishId: chickenId, quantity: 2, name: "Mostrito Brasa" },
+      { dishId: chichaId, quantity: 1, name: "Jarra de Chicha" }
     ]);
 
-    expect(resultado.success).toBe(true);
-    expect(await getDishStock(polloId)).toBe(8);
+    expect(result.success).toBe(true);
+    expect(await getDishStock(chickenId)).toBe(8);
     expect(await getDishStock(chichaId)).toBe(7);
   });
 });

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -20,21 +20,20 @@ export const dynamic = "force-dynamic";
 
 interface OrderItemInput {
   dishId?: number;
-  id_plato?: number;
+  dish_id?: number;
   quantity?: number;
-  cantidad?: number;
   notes?: string;
-  observaciones?: string;
+  observations?: string;
 }
 
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
 function resolveDishId(item: OrderItemInput): number {
-  return Number(item.dishId ?? item.id_plato);
+  return Number(item.dishId ?? item.dish_id);
 }
 
 function resolveQuantity(item: OrderItemInput): number {
-  return Number(item.quantity ?? item.cantidad);
+  return Number(item.quantity);
 }
 
 function mapOrderResponse(p: {
@@ -86,8 +85,8 @@ function mapOrderResponse(p: {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["pedidos.ver", "cocina.ver", "ventas.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.ver", "cocina.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const orderType = searchParams.get("orderType") ?? searchParams.get("tipo");
@@ -130,8 +129,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar(["pedidos.crear", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
@@ -150,15 +149,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawOrderType = body.orderType ?? body.tipo_pedido;
+    const rawOrderType = body.orderType ?? body.order_type;
     const orderType = rawOrderType === "Llevar" ? "Llevar" : "Mesa";
-    const tableId = Number(body.tableId ?? body.id_mesa) || null;
-    const additionalTablesRaw = body.additionalTables ?? body.mesas_adicionales;
+    const tableId = Number(body.tableId ?? body.table_id) || null;
+    const additionalTablesRaw = body.additionalTables ?? body.additional_tables;
     const additionalTables = Array.isArray(additionalTablesRaw)
       ? (additionalTablesRaw.map(Number).filter((n: number) => !Number.isNaN(n) && n !== tableId) as number[])
       : [];
-    const tableNote = typeof (body.notes ?? body.observacion) === "string"
-      ? String(body.notes ?? body.observacion).trim()
+    const tableNote = typeof (body.notes ?? body.observation) === "string"
+      ? String(body.notes ?? body.observation).trim()
       : null;
     const items = Array.isArray(body.items) ? (body.items as OrderItemInput[]) : [];
 
@@ -251,9 +250,9 @@ export async function POST(request: NextRequest) {
     const reservationItems = items.map((it) => {
       const dishId = resolveDishId(it);
       return {
-        idPlato: dishId,
-        cantidad: Math.floor(resolveQuantity(it)),
-        nombre: dishesMap.get(dishId)?.name,
+        dishId: dishId,
+        quantity: Math.floor(resolveQuantity(it)),
+        name: dishesMap.get(dishId)?.name,
       };
     });
 
@@ -324,7 +323,7 @@ export async function POST(request: NextRequest) {
           const quantity = Math.floor(resolveQuantity(item));
           const unitPrice = Number(dish.price);
           const subtotal = Math.round(unitPrice * quantity * 100) / 100;
-          const itemNotes = item.notes ?? item.observaciones;
+          const itemNotes = item.notes ?? item.observations;
 
           await tx.orderItem.create({
             data: {
@@ -384,7 +383,7 @@ export async function POST(request: NextRequest) {
       );
     } catch (dbError) {
       for (const item of reservationItems) {
-        await releaseDishStock(item.idPlato, item.cantidad).catch(() => {});
+        await releaseDishStock(item.dishId, item.quantity).catch(() => {});
       }
       throw dbError;
     }

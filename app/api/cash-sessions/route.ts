@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sesionActual } from "@/lib/auth/sesion-actual";
+import { currentSession } from "@/lib/auth/current-session";
 import { postCashSessionOpeningJournalEntry } from "@/lib/services/accounting-posting.service";
 import { formatDenominationsSummary } from "@/lib/services/cash-register.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +21,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(_request: NextRequest) {
-  const auth = await autorizar("caja.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("caja.ver");
+  if (!auth.ok) return auth.response;
   try {
     // 1. Asegurar que existe al menos una caja física registrada en el sistema
     let register = await (prisma as any).cashRegister.findFirst({
@@ -129,11 +129,11 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("caja.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("caja.crear");
+  if (!auth.ok) return auth.response;
   try {
-    const sesion = await sesionActual().catch(() => null);
-    let userId = sesion?.idUsuario;
+    const session = await currentSession().catch(() => null);
+    let userId = session?.userId;
 
     if (userId) {
       const userExists = await prisma.user.findUnique({
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       const fallbackUser =
         (await prisma.user.findFirst({
-          where: { estado: true },
+          where: { active: true },
           select: { id: true },
         })) ||
         (await prisma.user.findFirst({
@@ -165,8 +165,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const initialAmount = Math.max(0, Number(body.initialAmount ?? body.montoInicial ?? 0));
-    let notesOpening = (body.notesOpening ?? body.observaciones ?? "").trim();
+    const initialAmount = Math.max(0, Number(body.initialAmount ?? 0));
+    let notesOpening = (body.notesOpening ?? body.observations ?? "").trim();
     const denominations = body.denominations;
 
     let denominationsSummary = "";

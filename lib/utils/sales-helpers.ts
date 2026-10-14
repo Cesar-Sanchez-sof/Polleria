@@ -43,21 +43,21 @@ export function calculateTotals(items: CalculationItem[]): CalculatedTotals {
 export function calculateChangeAmount(
   total: number,
   amountReceived: number
-): { vuelto: number; isValid: boolean; error?: string } {
+): { changeGiven: number; isValid: boolean; error?: string } {
   const totalAmount = Math.round((total || 0) * 100) / 100;
   const received = Math.round((amountReceived || 0) * 100) / 100;
 
   if (received < totalAmount) {
     const shortage = Math.round((totalAmount - received) * 100) / 100;
     return {
-      vuelto: 0,
+      changeGiven: 0,
       isValid: false,
       error: `El monto entregado (S/ ${received.toFixed(2)}) es menor al total a pagar (S/ ${totalAmount.toFixed(2)}). Faltan S/ ${shortage.toFixed(2)}.`,
     };
   }
 
-  const vuelto = Math.round((received - totalAmount) * 100) / 100;
-  return { vuelto, isValid: true };
+  const changeGiven = Math.round((received - totalAmount) * 100) / 100;
+  return { changeGiven, isValid: true };
 }
 
 /**
@@ -148,53 +148,53 @@ export interface SaleRecordSummary {
  * Calcula los totales y desgloses de ventas diarias para el arqueo de caja y facturación.
  */
 export function calculateDailySalesSummary(sales: SaleRecordSummary[]) {
-  let totalRecaudado = 0;
-  let totalEfectivo = 0;
+  let totalCollected = 0;
+  let totalCash = 0;
   let totalYape = 0;
-  let totalTarjeta = 0;
-  let totalOtros = 0;
+  let cardTotal = 0;
+  let otherTotal = 0;
 
-  let boletasCount = 0;
-  let facturasCount = 0;
+  let receiptsCount = 0;
+  let invoicesCount = 0;
   let ticketsCount = 0;
 
   for (const v of sales) {
     const amount = Number(v.total) || 0;
-    totalRecaudado += amount;
+    totalCollected += amount;
 
     const paymentMethod = (v.paymentMethod || "").toLowerCase();
     if (paymentMethod.includes("efectivo")) {
-      totalEfectivo += amount;
+      totalCash += amount;
     } else if (paymentMethod.includes("yape")) {
       totalYape += amount;
     } else if (paymentMethod.includes("tarjeta") || paymentMethod.includes("pos")) {
-      totalTarjeta += amount;
+      cardTotal += amount;
     } else {
-      totalOtros += amount;
+      otherTotal += amount;
     }
 
     const voucherType = (v.voucherType || "").toLowerCase();
     if (voucherType.includes("factura")) {
-      facturasCount++;
+      invoicesCount++;
     } else if (voucherType.includes("ticket")) {
       ticketsCount++;
     } else {
-      boletasCount++;
+      receiptsCount++;
     }
   }
 
   return {
-    totalRecaudado: Math.round(totalRecaudado * 100) / 100,
-    cantidadVentas: sales.length,
-    desgloseMetodos: {
-      efectivo: Math.round(totalEfectivo * 100) / 100,
+    totalCollected: Math.round(totalCollected * 100) / 100,
+    salesCount: sales.length,
+    methodsBreakdown: {
+      cash: Math.round(totalCash * 100) / 100,
       yape: Math.round(totalYape * 100) / 100,
-      tarjeta: Math.round(totalTarjeta * 100) / 100,
-      otros: Math.round(totalOtros * 100) / 100,
+      card: Math.round(cardTotal * 100) / 100,
+      others: Math.round(otherTotal * 100) / 100,
     },
-    desgloseComprobantes: {
-      boletas: boletasCount,
-      facturas: facturasCount,
+    vouchersBreakdown: {
+      receipts: receiptsCount,
+      invoices: invoicesCount,
       tickets: ticketsCount,
     },
   };

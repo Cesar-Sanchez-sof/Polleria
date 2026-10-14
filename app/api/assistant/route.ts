@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { sesionActual } from "@/lib/auth/sesion-actual";
+import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 // Vercel: límite de la función (60 s cabe en todos los planes). El proxy corta antes (55 s en evaluación)
@@ -12,7 +12,7 @@ export const maxDuration = 60;
 function deps(): ProxyDeps {
   return {
     config: readAssistantConfig(),
-    session: () => sesionActual(),
+    session: () => currentSession(),
     fetchFn: fetch,
     now: () => new Date(),
     newTraceId: () => `erp-${crypto.randomUUID().replaceAll("-", "")}`,
@@ -28,15 +28,15 @@ function toResponse(result: ProxyResult): NextResponse {
 
 /** Estado del asistente para la sesión actual (mismos controles de acceso que POST). */
 export async function GET() {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   return toResponse(await handleStatus(deps()));
 }
 
 /** Pregunta al asistente financiero (proxy seguro hacia ai-service). */
 export async function POST(request: Request) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
     return toResponse({ status: 413, body: { error: "El mensaje es demasiado largo." } });

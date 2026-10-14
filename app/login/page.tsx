@@ -17,32 +17,32 @@ import {
 } from "lucide-react";
 
 export default function LoginPage() {
-  const [usuario, setUsuario] = useState("");
+  const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  async function enviar(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setCargando(true);
+    setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: usuario, password }),
+        body: JSON.stringify({ username: user, password }),
       });
       if (res.ok) {
         window.location.href = "/";
         return;
       }
-      const datos = await res.json().catch(() => ({}));
-      setError(datos.error ?? "Credenciales inválidas. Verifique su usuario y contraseña.");
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Credenciales inválidas. Verifique su usuario y contraseña.");
     } catch {
       setError("No se pudo conectar con el servidor. Intente nuevamente.");
     } finally {
-      setCargando(false);
+      setLoading(false);
     }
   }
 
@@ -139,7 +139,7 @@ export default function LoginPage() {
           </div>
 
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-5">
-            <form onSubmit={enviar} className="space-y-4">
+            <form onSubmit={submit} className="space-y-4">
               {/* Campo Usuario */}
               <div className="space-y-1.5">
                 <Label
@@ -156,8 +156,8 @@ export default function LoginPage() {
                     id="usuario"
                     autoComplete="username"
                     placeholder="Usuario o correo asignado"
-                    value={usuario}
-                    onChange={(e) => setUsuario(e.target.value)}
+                    value={user}
+                    onChange={(e) => setUser(e.target.value)}
                     required
                     className="pl-10 h-11 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 focus-visible:ring-red-600 transition-all font-medium"
                   />
@@ -215,10 +215,10 @@ export default function LoginPage() {
               {/* Botón de Enviar */}
               <Button
                 type="submit"
-                disabled={cargando}
+                disabled={loading}
                 className="w-full h-11 rounded-xl bg-red-700 hover:bg-red-800 text-white font-bold text-xs shadow-md shadow-red-700/20 hover:shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
-                {cargando ? (
+                {loading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     <span>Validando Credenciales...</span>

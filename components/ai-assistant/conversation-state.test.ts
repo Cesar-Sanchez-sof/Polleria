@@ -75,9 +75,9 @@ describe("historial enviado al proxy", () => {
 
 describe("clave de usuario", () => {
   it("solo con asistente habilitado y usuario numérico", () => {
-    expect(userKeyFrom({ habilitado: true, usuario: 7 })).toBe("7");
-    expect(userKeyFrom({ habilitado: false, usuario: 7 })).toBeNull();
-    expect(userKeyFrom({ habilitado: true, usuario: "7" })).toBeNull();
+    expect(userKeyFrom({ enabled: true, usuario: 7 })).toBe("7");
+    expect(userKeyFrom({ enabled: false, usuario: 7 })).toBeNull();
+    expect(userKeyFrom({ enabled: true, usuario: "7" })).toBeNull();
     expect(userKeyFrom(null)).toBeNull();
   });
 });

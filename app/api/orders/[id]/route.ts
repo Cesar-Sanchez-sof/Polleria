@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { releaseDishStock } from "@/lib/services/redis-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -26,27 +26,26 @@ const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
 interface OrderItemInput {
   dishId?: number;
-  id_plato?: number;
+  dish_id?: number;
   quantity?: number;
-  cantidad?: number;
   notes?: string;
-  observaciones?: string;
+  observations?: string;
 }
 
 function resolveDishId(item: OrderItemInput): number {
-  return Number(item.dishId ?? item.id_plato);
+  return Number(item.dishId ?? item.dish_id);
 }
 
 function resolveQuantity(item: OrderItemInput): number {
-  return Number(item.quantity ?? item.cantidad);
+  return Number(item.quantity);
 }
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["pedidos.ver", "cocina.ver", "ventas.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.ver", "cocina.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -105,8 +104,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["pedidos.editar", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.editar", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -178,7 +177,7 @@ export async function PUT(
         const quantity = Math.floor(resolveQuantity(item));
         const unitPrice = Number(dish.price);
         const subtotal = Math.round(unitPrice * quantity * 100) / 100;
-        const itemNotes = item.notes ?? item.observaciones;
+        const itemNotes = item.notes ?? item.observations;
         const itemDishStatus = (item as any).dishStatus;
 
         await tx.orderItem.create({
@@ -194,7 +193,7 @@ export async function PUT(
         });
       }
 
-      const notes = body.notes ?? body.observacion;
+      const notes = body.notes ?? body.observation;
       if (typeof notes === "string" && existingOrder.tables.length > 0) {
         await tx.orderTable.updateMany({
           where: { orderId: id },
@@ -215,8 +214,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["pedidos.editar", "cocina.editar", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.editar", "cocina.editar", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -225,7 +224,7 @@ export async function PATCH(
     }
 
     const body = await request.json().catch(() => null);
-    const rawStatus = body?.status ?? body?.estado;
+    const rawStatus = body?.status;
 
     // Map Spanish aliases → English status values
     const statusAliases: Record<string, string> = {
@@ -264,8 +263,8 @@ export async function PATCH(
       if (order.status === "Cancelled") {
         return Response.json({ error: "El pedido ya se encuentra cancelado." }, { status: 400 });
       }
-      const reason = typeof (body?.reason ?? body?.motivo) === "string"
-        ? String(body?.reason ?? body?.motivo).trim()
+      const reason = typeof (body?.reason) === "string"
+        ? String(body?.reason).trim()
         : "";
       if (!reason) {
         return Response.json({ error: "Debe indicar el motivo de la cancelación." }, { status: 400 });
@@ -287,11 +286,11 @@ export async function PATCH(
 
       if (newStatus === "Cancelled" && order.status !== "Cancelled") {
         const user =
-          typeof (body?.user ?? body?.usuario) === "string" && String(body?.user ?? body?.usuario).trim()
-            ? String(body?.user ?? body?.usuario).trim()
+          typeof (body?.user) === "string" && String(body?.user).trim()
+            ? String(body?.user).trim()
             : "Personal";
-        const reason = typeof (body?.reason ?? body?.motivo) === "string"
-          ? String(body?.reason ?? body?.motivo).trim()
+        const reason = typeof (body?.reason) === "string"
+          ? String(body?.reason).trim()
           : "Cancelled";
         const cancelTag = `[CANCELADO por ${user}: ${reason}]`;
 

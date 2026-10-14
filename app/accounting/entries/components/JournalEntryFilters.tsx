@@ -48,18 +48,18 @@ export function JournalEntryFilters({
   onClear,
   onRemove,
 }: Readonly<Props>) {
-  const statuses = options?.estados ?? [
-    { valor: "registrado", etiqueta: "Registrado", total: 0 },
-    { valor: "anulado", etiqueta: "Anulado", total: 0 },
+  const statuses = options?.statuses ?? [
+    { value: "registrado", label: "Registrado", total: 0 },
+    { value: "anulado", label: "Anulado", total: 0 },
   ];
 
   const statusOptions = [
     { value: "todos", label: "Todos" },
-    ...statuses.map((st) => ({ value: st.valor, label: `${st.etiqueta} (${st.total})` })),
+    ...statuses.map((st) => ({ value: st.value, label: `${st.label} (${st.total})` })),
   ];
 
   const statusLabel =
-    statuses.find((st) => st.valor === statusFilter)?.etiqueta ?? statusFilter;
+    statuses.find((st) => st.value === statusFilter)?.label ?? statusFilter;
 
   const chips: FilterChipItem[] = [];
   if (from) chips.push({ id: "from", label: `Desde ${formatDate(from)}` });

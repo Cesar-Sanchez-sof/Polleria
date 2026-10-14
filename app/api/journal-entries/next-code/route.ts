@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { parseUtcDate } from "@/lib/dates";
 import { generateJournalEntryCode } from "@/lib/journal-entry-code";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 /**
  * @openapi
@@ -27,7 +27,7 @@ import { autorizar } from "@/lib/auth/permisos";
  *             schema:
  *               type: object
  *               properties:
- *                 codigo:
+ *                 code:
  *                   type: string
  *                   description: Código sugerido del asiento contable
  *       500:
@@ -42,15 +42,15 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  * at the moment of entry creation.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["asientos.ver", "asientos.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["asientos.ver", "asientos.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const param = request.nextUrl.searchParams.get("fecha");
     const date = param && DATE_REGEX.test(param) ? parseUtcDate(param) : new Date();
 
     const code = await generateJournalEntryCode(date);
 
-    return Response.json({ codigo: code });
+    return Response.json({ code: code });
   } catch (error) {
     console.error("[api/journal-entries/next-code] error al sugerir el número:", error);
     return Response.json(

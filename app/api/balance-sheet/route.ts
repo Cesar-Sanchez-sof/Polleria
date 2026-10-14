@@ -7,7 +7,7 @@ import {
   type AccountBalanceInput,
   type AccountType,
 } from "@/lib/accounting/balance-sheet";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -59,8 +59,8 @@ function todayIsoUtc(): string {
  *         description: Error interno al generar el balance.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   try {
     const rawAsOf = (request.nextUrl.searchParams.get("hasta") ?? "").trim() || todayIsoUtc();
 

@@ -72,7 +72,7 @@ describe("contrato y presentación", () => {
   it("rechaza respuestas fuera del contrato", () => {
     const invalid = [
       { ...base, estado: "inventado" },
-      { ...base, sorpresa: true },
+      { ...base, surprise: true },
       { ...base, id_traza: "x" },
       { ...base, cifras: [{ ...base.cifras[0], valor: 1900 }] },
       { ...base, cifras: [base.cifras[0], base.cifras[0]] },

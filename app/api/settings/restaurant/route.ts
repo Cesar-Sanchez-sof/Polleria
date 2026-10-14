@@ -4,13 +4,13 @@ import {
   updateRestaurantInfo,
   type RestaurantInfo,
 } from "@/lib/services/restaurant-config.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await autorizar(["configuracion.ver", "ventas.ver", "pedidos.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["configuracion.ver", "ventas.ver", "pedidos.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const config = getRestaurantGlobalConfig();
     return NextResponse.json({ data: config.restaurant });
@@ -23,8 +23,8 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await autorizar("configuracion.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("configuracion.editar");
+  if (!auth.ok) return auth.response;
   try {
     const body = (await request.json().catch(() => null)) as Partial<RestaurantInfo> | null;
     if (!body || typeof body !== "object") {

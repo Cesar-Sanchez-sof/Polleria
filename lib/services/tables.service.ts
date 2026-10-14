@@ -122,17 +122,17 @@ export interface CustomerItem {
 }
 
 export interface DailySalesSummary {
-  totalRecaudado: number;
-  cantidadVentas: number;
-  desgloseMetodos: {
-    efectivo: number;
+  totalCollected: number;
+  salesCount: number;
+  methodsBreakdown: {
+    cash: number;
     yape: number;
-    tarjeta: number;
-    otros: number;
+    card: number;
+    others: number;
   };
-  desgloseComprobantes: {
-    boletas: number;
-    facturas: number;
+  vouchersBreakdown: {
+    receipts: number;
+    invoices: number;
     tickets: number;
   };
 }

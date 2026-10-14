@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { InventoryMovementType, SupplyType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
-import { exigirPermiso } from "@/lib/auth/permisos";
+import { requirePermission } from "@/lib/auth/permissions";
 
 export interface TransformationLineInput {
   supplyId: number;
@@ -14,8 +14,8 @@ export interface TransformationLineInput {
 export interface TransformationInput {
   employeeId?: number;
   notes?: string;
-  consumos: TransformationLineInput[];
-  producidos: TransformationLineInput[];
+  consumptions: TransformationLineInput[];
+  produced: TransformationLineInput[];
 }
 
 export interface TransformationRecipeInput {
@@ -30,7 +30,7 @@ export interface TransformationRecipeInput {
 // -------------------------------------------------------------
 
 export async function getTransformationRecipes() {
-  await exigirPermiso("transformacion.ver");
+  await requirePermission("transformacion.ver");
   try {
     const recipes = await prisma.transformationRecipe.findMany({
       include: {
@@ -81,7 +81,7 @@ export async function getTransformationRecipes() {
 }
 
 export async function createTransformationRecipe(data: TransformationRecipeInput) {
-  await exigirPermiso("transformacion.crear");
+  await requirePermission("transformacion.crear");
   if (!data.producedSupplyId) throw new Error("Debe seleccionar un producto producido");
   if (!data.consumedSupplyId) throw new Error("Debe seleccionar un insumo consumido");
   if (data.producedSupplyId === data.consumedSupplyId) {
@@ -134,7 +134,7 @@ export async function updateTransformationRecipe(
   id: number,
   data: Partial<TransformationRecipeInput>
 ) {
-  await exigirPermiso("transformacion.crear");
+  await requirePermission("transformacion.crear");
   const existing = await prisma.transformationRecipe.findUnique({ where: { id } });
   if (!existing) throw new Error("Receta de transformación no encontrada");
 
@@ -159,7 +159,7 @@ export async function updateTransformationRecipe(
 }
 
 export async function toggleTransformationRecipe(id: number, active: boolean) {
-  await exigirPermiso("transformacion.crear");
+  await requirePermission("transformacion.crear");
   return await prisma.transformationRecipe.update({
     where: { id },
     data: { active },
@@ -171,7 +171,7 @@ export async function toggleTransformationRecipe(id: number, active: boolean) {
 }
 
 export async function deleteTransformationRecipe(id: number) {
-  await exigirPermiso("transformacion.eliminar");
+  await requirePermission("transformacion.eliminar");
   const recipe = await prisma.transformationRecipe.findUnique({
     where: { id },
   });
@@ -210,7 +210,7 @@ export async function executeTransformation(
   notes?: string,
   employeeId?: number
 ) {
-  await exigirPermiso("transformacion.crear");
+  await requirePermission("transformacion.crear");
   if (!recipeId) throw new Error("Debe seleccionar una receta");
   if (!times || times <= 0) {
     throw new Error("La cantidad de veces debe ser mayor a 0");
@@ -271,7 +271,7 @@ export async function executeTransformation(
     const unitCostProduced = totalProducedQty > 0 ? totalValueConsumed / totalProducedQty : 0;
 
     // 1. TransformationItem Consumo
-    const itemConsumo = await tx.transformationItem.create({
+    const itemConsumption = await tx.transformationItem.create({
       data: {
         transformationId: transformation.id,
         supplyId: recipe.consumedSupplyId,
@@ -282,7 +282,7 @@ export async function executeTransformation(
     });
 
     // 2. TransformationItem Producido
-    const itemProducido = await tx.transformationItem.create({
+    const producedItem = await tx.transformationItem.create({
       data: {
         transformationId: transformation.id,
         supplyId: recipe.producedSupplyId,
@@ -296,7 +296,7 @@ export async function executeTransformation(
     await tx.inventoryMovement.create({
       data: {
         supplyId: recipe.consumedSupplyId,
-        transformationItemId: itemConsumo.id,
+        transformationItemId: itemConsumption.id,
         movementType: InventoryMovementType.TransformationOut,
         quantity: totalConsumedQty,
         unitCost: unitCostConsumed,
@@ -308,7 +308,7 @@ export async function executeTransformation(
     await tx.inventoryMovement.create({
       data: {
         supplyId: recipe.producedSupplyId,
-        transformationItemId: itemProducido.id,
+        transformationItemId: producedItem.id,
         movementType: InventoryMovementType.TransformationIn,
         quantity: totalProducedQty,
         unitCost: unitCostProduced,
@@ -355,18 +355,18 @@ export async function executeTransformation(
 // -------------------------------------------------------------
 
 export async function registerTransformation(data: TransformationInput) {
-  await exigirPermiso("transformacion.crear");
-  if (!data.consumos || data.consumos.length === 0) {
+  await requirePermission("transformacion.crear");
+  if (!data.consumptions || data.consumptions.length === 0) {
     throw new Error("Debe agregar al menos un insumo consumido (Materia Prima)");
   }
-  if (!data.producidos || data.producidos.length === 0) {
+  if (!data.produced || data.produced.length === 0) {
     throw new Error("Debe agregar al menos un insumo producido (Producto Terminado)");
   }
 
-  for (const c of data.consumos) {
+  for (const c of data.consumptions) {
     if (c.quantity <= 0) throw new Error("La cantidad consumida debe ser mayor a 0");
   }
-  for (const p of data.producidos) {
+  for (const p of data.produced) {
     if (p.quantity <= 0) throw new Error("La cantidad producida debe ser mayor a 0");
   }
 
@@ -382,7 +382,7 @@ export async function registerTransformation(data: TransformationInput) {
     });
 
     // 1. Process Consumos (Salida)
-    for (const c of data.consumos) {
+    for (const c of data.consumptions) {
       const supply = await tx.supply.findUnique({ where: { id: c.supplyId } });
       if (!supply) throw new Error(`Insumo ID ${c.supplyId} no encontrado`);
 
@@ -422,7 +422,7 @@ export async function registerTransformation(data: TransformationInput) {
     }
 
     // 2. Process Producidos (Entrada)
-    for (const p of data.producidos) {
+    for (const p of data.produced) {
       const supply = await tx.supply.findUnique({ where: { id: p.supplyId } });
       if (!supply) throw new Error(`Insumo ID ${p.supplyId} no encontrado`);
 
@@ -464,7 +464,7 @@ export async function registerTransformation(data: TransformationInput) {
 // -------------------------------------------------------------
 
 export async function getTransformations() {
-  await exigirPermiso("transformacion.ver");
+  await requirePermission("transformacion.ver");
   try {
     const list = await prisma.transformation.findMany({
       include: {
@@ -505,16 +505,16 @@ export async function getTransformations() {
 
 export async function annulTransformation(
   id: number,
-  motivo: string,
+  reason: string,
   employeeId?: number
 ) {
-  await exigirPermiso("transformacion.eliminar");
+  await requirePermission("transformacion.eliminar");
   if (!id) {
     throw new Error("ID de transformación inválido");
   }
 
-  const cleanMotivo = motivo ? motivo.trim() : "";
-  if (!cleanMotivo) {
+  const cleanReason = reason ? reason.trim() : "";
+  if (!cleanReason) {
     throw new Error("El motivo de anulación es obligatorio");
   }
 
@@ -534,7 +534,7 @@ export async function annulTransformation(
     throw new Error(`Transformación con ID ${id} no encontrada`);
   }
 
-  if (transformation.anulado) {
+  if (transformation.annulled) {
     throw new Error("Esta transformación ya está anulada");
   }
 
@@ -580,7 +580,7 @@ export async function annulTransformation(
               movementType: InventoryMovementType.TransformationIn,
               quantity: itemQty,
               unitCost: unitCost,
-              reason: `Reversión anulación Transformación #${transformation.id}: ${cleanMotivo}`,
+              reason: `Reversión anulación Transformación #${transformation.id}: ${cleanReason}`,
             },
           });
 
@@ -601,7 +601,7 @@ export async function annulTransformation(
               movementType: InventoryMovementType.TransformationOut,
               quantity: itemQty,
               unitCost: unitCost,
-              reason: `Reversión anulación Transformación #${transformation.id}: ${cleanMotivo}`,
+              reason: `Reversión anulación Transformación #${transformation.id}: ${cleanReason}`,
             },
           });
 
@@ -620,10 +620,10 @@ export async function annulTransformation(
       const updated = await tx.transformation.update({
         where: { id },
         data: {
-          anulado: true,
-          anuladoAt: new Date(),
-          anuladoPor: validEmployeeId,
-          motivoAnulacion: cleanMotivo,
+          annulled: true,
+          annulledAt: new Date(),
+          annulledById: validEmployeeId,
+          annulmentReason: cleanReason,
         },
         include: {
           employee: true,

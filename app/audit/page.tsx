@@ -10,29 +10,29 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface FilaAuditoria {
+interface AuditRow {
   id: number;
-  fecha: string;
-  usuario: string;
-  accion: string;
-  modulo: string;
-  entidad: string;
-  idEntidad: string | null;
-  descripcion: string;
-  detalles: unknown;
+  date: string;
+  user: string;
+  action: string;
+  module: string;
+  entity: string;
+  entityId: string | null;
+  description: string;
+  details: unknown;
   ip: string | null;
 }
 
-interface Respuesta {
-  datos: FilaAuditoria[];
+interface Response {
+  data: AuditRow[];
   total: number;
-  pagina: number;
-  totalPaginas: number;
-  modulos: string[];
-  acciones: string[];
+  page: number;
+  totalPages: number;
+  modules: string[];
+  actions: string[];
 }
 
-const ETIQUETA_ACCION: Record<string, string> = {
+const ACTION_LABEL: Record<string, string> = {
   CREATE: "Creación",
   UPDATE: "Modificación",
   DELETE: "Eliminación",
@@ -42,22 +42,22 @@ const ETIQUETA_ACCION: Record<string, string> = {
   LOGOUT: "Cierre de sesión",
 };
 
-const FILTROS_VACIOS = { desde: "", hasta: "", usuario: "", accion: "", modulo: "", q: "" };
+const EMPTY_FILTERS = { from: "", to: "", user: "", action: "", module: "", q: "" };
 
 export default function AuditPage() {
-  const [filtros, setFiltros] = useState(FILTROS_VACIOS);
-  const [aplicados, setAplicados] = useState(FILTROS_VACIOS);
-  const [pagina, setPagina] = useState(1);
-  const [data, setData] = useState<Respuesta | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [applied, setApplied] = useState(EMPTY_FILTERS);
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<Response | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [abierta, setAbierta] = useState<number | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
 
-  const cargar = useCallback(async () => {
-    setCargando(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams({ pagina: String(pagina), porPagina: "20" });
-      for (const [k, v] of Object.entries(aplicados)) if (v) params.set(k, v);
+      const params = new URLSearchParams({ page: String(page), perPage: "20" });
+      for (const [k, v] of Object.entries(applied)) if (v) params.set(k, v);
       const res = await fetch(`/api/audit-logs?${params}`, { cache: "no-store" });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "No se pudo cargar la auditoría");
@@ -66,28 +66,28 @@ export default function AuditPage() {
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setCargando(false);
+      setLoading(false);
     }
-  }, [aplicados, pagina]);
+  }, [applied, page]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de datos remotos
-    cargar();
-  }, [cargar]);
+    load();
+  }, [load]);
 
-  const cambiar = (campo: keyof typeof FILTROS_VACIOS) => (e: { target: { value: string } }) =>
-    setFiltros((f) => ({ ...f, [campo]: e.target.value }));
+  const change = (field: keyof typeof EMPTY_FILTERS) => (e: { target: { value: string } }) =>
+    setFilters((f) => ({ ...f, [field]: e.target.value }));
 
-  function buscar(e: React.FormEvent) {
+  function search(e: React.FormEvent) {
     e.preventDefault();
-    setPagina(1);
-    setAplicados(filtros);
+    setPage(1);
+    setApplied(filters);
   }
 
-  function limpiar() {
-    setFiltros(FILTROS_VACIOS);
-    setAplicados(FILTROS_VACIOS);
-    setPagina(1);
+  function clear() {
+    setFilters(EMPTY_FILTERS);
+    setApplied(EMPTY_FILTERS);
+    setPage(1);
   }
 
   return (
@@ -100,30 +100,30 @@ export default function AuditPage() {
       <main className="p-3 sm:p-4 md:p-6 space-y-4">
         <Card>
           <CardContent>
-            <form onSubmit={buscar} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-              <Input type="date" aria-label="Desde" value={filtros.desde} onChange={cambiar("desde")} />
-              <Input type="date" aria-label="Hasta" value={filtros.hasta} onChange={cambiar("hasta")} />
-              <Input placeholder="Usuario" aria-label="Usuario" value={filtros.usuario} onChange={cambiar("usuario")} />
-              <NativeSelect className="w-full" aria-label="Acción" value={filtros.accion} onChange={cambiar("accion")}>
+            <form onSubmit={search} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+              <Input type="date" aria-label="Desde" value={filters.from} onChange={change("from")} />
+              <Input type="date" aria-label="Hasta" value={filters.to} onChange={change("to")} />
+              <Input placeholder="Usuario" aria-label="Usuario" value={filters.user} onChange={change("user")} />
+              <NativeSelect className="w-full" aria-label="Acción" value={filters.action} onChange={change("action")}>
                 <option value="">Todas las acciones</option>
-                {(data?.acciones ?? Object.keys(ETIQUETA_ACCION)).map((a) => (
+                {(data?.actions ?? Object.keys(ACTION_LABEL)).map((a) => (
                   <option key={a} value={a}>
-                    {ETIQUETA_ACCION[a] ?? a}
+                    {ACTION_LABEL[a] ?? a}
                   </option>
                 ))}
               </NativeSelect>
-              <NativeSelect className="w-full" aria-label="Módulo" value={filtros.modulo} onChange={cambiar("modulo")}>
+              <NativeSelect className="w-full" aria-label="Módulo" value={filters.module} onChange={change("module")}>
                 <option value="">Todos los módulos</option>
-                {(data?.modulos ?? []).map((m) => (
+                {(data?.modules ?? []).map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
                 ))}
               </NativeSelect>
-              <Input placeholder="Buscar en descripción" aria-label="Buscar" value={filtros.q} onChange={cambiar("q")} />
+              <Input placeholder="Buscar en descripción" aria-label="Buscar" value={filters.q} onChange={change("q")} />
               <div className="flex gap-2 sm:col-span-2 lg:col-span-6">
                 <Button type="submit">Filtrar</Button>
-                <Button type="button" variant="outline" onClick={limpiar}>
+                <Button type="button" variant="outline" onClick={clear}>
                   Limpiar
                 </Button>
               </div>
@@ -152,57 +152,57 @@ export default function AuditPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cargando && (
+                {loading && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 )}
-                {!cargando && !error && data?.datos.length === 0 && (
+                {!loading && !error && data?.data.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No hay registros de auditoría para los filtros indicados.
                     </TableCell>
                   </TableRow>
                 )}
-                {data?.datos.map((r) => {
-                  const f = new Date(r.fecha);
+                {data?.data.map((r) => {
+                  const f = new Date(r.date);
                   return (
                     <Fragment key={r.id}>
                       <TableRow>
                         <TableCell>{f.toLocaleDateString("es-PE")}</TableCell>
                         <TableCell>{f.toLocaleTimeString("es-PE")}</TableCell>
-                        <TableCell>{r.usuario}</TableCell>
+                        <TableCell>{r.user}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{ETIQUETA_ACCION[r.accion] ?? r.accion}</Badge>
+                          <Badge variant="outline">{ACTION_LABEL[r.action] ?? r.action}</Badge>
                         </TableCell>
-                        <TableCell>{r.modulo}</TableCell>
+                        <TableCell>{r.module}</TableCell>
                         <TableCell>
-                          {r.entidad}
-                          {r.idEntidad ? ` #${r.idEntidad}` : ""}
+                          {r.entity}
+                          {r.entityId ? ` #${r.entityId}` : ""}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <span>{r.descripcion}</span>
-                            {r.detalles != null && (
+                            <span>{r.description}</span>
+                            {r.details != null && (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => setAbierta(abierta === r.id ? null : r.id)}
+                                onClick={() => setOpen(open === r.id ? null : r.id)}
                               >
-                                {abierta === r.id ? "Ocultar" : "Ver cambios"}
+                                {open === r.id ? "Ocultar" : "Ver cambios"}
                               </Button>
                             )}
                           </div>
                         </TableCell>
                       </TableRow>
-                      {abierta === r.id && (
+                      {open === r.id && (
                         <TableRow>
                           <TableCell colSpan={7}>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 text-xs">
-                              {JSON.stringify(r.detalles, null, 2)}
+                              {JSON.stringify(r.details, null, 2)}
                               {r.ip ? `\nIP: ${r.ip}` : ""}
                             </pre>
                           </TableCell>
@@ -219,13 +219,13 @@ export default function AuditPage() {
         {data && (
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              {data.total} registro(s) — página {data.pagina} de {data.totalPaginas}
+              {data.total} registro(s) — página {data.page} de {data.totalPages}
             </span>
             <div className="flex gap-2">
-              <Button variant="outline" disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                 Anterior
               </Button>
-              <Button variant="outline" disabled={pagina >= data.totalPaginas} onClick={() => setPagina((p) => p + 1)}>
+              <Button variant="outline" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>
                 Siguiente
               </Button>
             </div>
