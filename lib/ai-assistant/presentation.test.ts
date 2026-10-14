@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseQueryResponse } from "@/lib/ai-assistant/contract";
 import { formatPen, periodText, toAssistantReply } from "@/lib/ai-assistant/presentation";
-import { assistantRoleFor, readAssistantConfig } from "@/lib/ai-assistant/config";
+import { assistantRoleFor, EVAL_TIMEOUT_MS, readAssistantConfig } from "@/lib/ai-assistant/config";
 
 const TOKEN = "cd".repeat(32);
 
@@ -133,5 +133,58 @@ describe("configuración del modo demostración", () => {
     for (const role of ["admin", "CAJERO", "contador_demo", "", "__proto__", "constructor", "toString"]) {
       expect(assistantRoleFor(role)).toBeNull();
     }
+  });
+});
+
+describe("configuración del modo evaluación (Vercel Preview)", () => {
+  const identity = "ab".repeat(32);
+  const env = {
+    NODE_ENV: "production",
+    VERCEL_ENV: "preview",
+    AI_ASSISTANT_EVAL_ENABLED: "1",
+    AI_SERVICE_URL: "https://tres-palabras-ficticias.trycloudflare.com",
+    AI_SERVICE_INTERNAL_TOKEN: TOKEN,
+    AI_ASSISTANT_IDENTITY_KEY: identity,
+  };
+
+  it("solo en Preview, con túnel HTTPS, P-9 y datos ficticios", () => {
+    expect(readAssistantConfig(env)).toMatchObject({
+      enabled: true, mode: "eval", realData: false, identityKey: identity, timeoutMs: EVAL_TIMEOUT_MS,
+    });
+    for (const vercelEnv of ["production", "development", undefined]) {
+      expect(readAssistantConfig({ ...env, VERCEL_ENV: vercelEnv })).toEqual({ enabled: false, reason: "production" });
+    }
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_EVAL_ENABLED: "true" })).toEqual({ enabled: false, reason: "production" });
+  });
+
+  it("Production solo con las dos banderas exactas; la segunda no sirve en otros entornos", () => {
+    const prod = { ...env, VERCEL_ENV: "production" };
+    expect(readAssistantConfig(prod)).toEqual({ enabled: false, reason: "production" });
+    for (const value of ["true", "0", " 1", undefined]) {
+      expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: value })).toEqual({ enabled: false, reason: "production" });
+    }
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" })).toMatchObject({ enabled: true, mode: "eval", realData: false });
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_EVAL_ENABLED: undefined, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" }))
+      .toEqual({ enabled: false, reason: "production" });
+    expect(readAssistantConfig({ ...env, VERCEL_ENV: "development", AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" }))
+      .toEqual({ enabled: false, reason: "production" });
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1", AI_ASSISTANT_REAL_DATA: "1" }))
+      .toEqual({ enabled: false, reason: "misconfigured" });
+  });
+
+  it("falla cerrado ante URL, claves o datos reales no válidos", () => {
+    for (const url of [
+      "http://tres-palabras.trycloudflare.com",
+      "https://tres-palabras.trycloudflare.com/v1",
+      "https://trycloudflare.com",
+      "https://a.trycloudflare.com.example.com",
+      "http://127.0.0.1:8001",
+    ]) {
+      expect(readAssistantConfig({ ...env, AI_SERVICE_URL: url })).toEqual({ enabled: false, reason: "misconfigured" });
+    }
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_IDENTITY_KEY: undefined })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_IDENTITY_KEY: TOKEN })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_REAL_DATA: "1" })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(JSON.stringify(readAssistantConfig({ ...env, AI_SERVICE_URL: "x" }))).not.toContain(identity);
   });
 });

@@ -10,6 +10,7 @@ const TOKEN = "ab".repeat(32);
 const IDENTITY_KEY = "cd".repeat(32);
 const ENABLED: AssistantConfig = {
   enabled: true, serviceUrl: "http://127.0.0.1:8001", token: TOKEN, identityKey: null, realData: false, demo: true,
+  mode: "demo", timeoutMs: 120_000,
 };
 const WITH_IDENTITY: AssistantConfig = { ...ENABLED, identityKey: IDENTITY_KEY, realData: true };
 const ADMIN: PayloadSesion = { idUsuario: 7, username: "admin", rol: "ADMIN" };
