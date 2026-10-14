@@ -14,7 +14,7 @@
  * Con `NODE_ENV=production` el modo demostración queda SIEMPRE deshabilitado. Ningún modo omite la
  * autenticación del ERP: exige sesión válida (`sesionActual()`) y un rol permitido.
  *
- * Modo evaluación académica (despliegue en Vercel, ver docs/asistente-financiero/despliegue-evaluacion.md):
+ * Modo evaluación académica (despliegue en Vercel, ver docs/financial-assistant/deployment-evaluation.md):
  * - `AI_ASSISTANT_EVAL_ENABLED`: exactamente `1`. Surte efecto con `VERCEL_ENV=preview` (Vercel lo fija
  *   en cada despliegue). Con `VERCEL_ENV=production` exige ADEMÁS `AI_ASSISTANT_ALLOW_PRODUCTION_EVAL=1`
  *   (habilitación temporal y explícita para la evaluación). En `development` o fuera de Vercel queda

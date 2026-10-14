@@ -36,12 +36,12 @@ function firstDayOfMonthIso(): string {
  */
 export default function IncomeStatementPage() {
   const defaults = useMemo(
-    () => ({ desde: firstDayOfMonthIso(), hasta: todayIso() }),
+    () => ({ from: firstDayOfMonthIso(), to: todayIso() }),
     []
   );
 
-  const [desde, setDesde] = useState<string>(defaults.desde);
-  const [hasta, setHasta] = useState<string>(defaults.hasta);
+  const [from, setFrom] = useState<string>(defaults.from);
+  const [to, setTo] = useState<string>(defaults.to);
   const [result, setResult] = useState<IncomeStatementResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,15 +49,15 @@ export default function IncomeStatementPage() {
   // Sólo la última petición puede escribir estado.
   const requestRef = useRef(0);
 
-  const invalidRange = Boolean(desde && hasta && desde > hasta);
-  const hasCustomPeriod = desde !== defaults.desde || hasta !== defaults.hasta;
+  const invalidRange = Boolean(from && to && from > to);
+  const hasCustomPeriod = from !== defaults.from || to !== defaults.to;
 
   const load = useCallback(async () => {
     const request = ++requestRef.current;
     setLoading(true);
     setError(null);
     try {
-      const data = await getIncomeStatement({ desde, hasta });
+      const data = await getIncomeStatement({ from, to });
       if (request !== requestRef.current) return;
       setResult(data);
     } catch (e) {
@@ -69,7 +69,7 @@ export default function IncomeStatementPage() {
     } finally {
       if (request === requestRef.current) setLoading(false);
     }
-  }, [desde, hasta]);
+  }, [from, to]);
 
   useEffect(() => {
     // Un rango invertido no se consulta: el aviso se deriva del propio estado
@@ -84,8 +84,8 @@ export default function IncomeStatementPage() {
   }, [load, invalidRange]);
 
   const resetToCurrentMonth = () => {
-    setDesde(defaults.desde);
-    setHasta(defaults.hasta);
+    setFrom(defaults.from);
+    setTo(defaults.to);
   };
 
   const displayedError = invalidRange
@@ -93,7 +93,7 @@ export default function IncomeStatementPage() {
     : error;
   const isLoading = loading && !invalidRange;
   const periodLabel =
-    !invalidRange && desde && hasta ? formatPeriodLabel(desde, hasta) : "Periodo inválido";
+    !invalidRange && from && to ? formatPeriodLabel(from, to) : "Periodo inválido";
 
   return (
     <>
@@ -113,12 +113,12 @@ export default function IncomeStatementPage() {
         <div className="flex flex-col w-full gap-5">
           <Card className="bg-white rounded-xl shadow-sm ring-0 p-4 sm:p-6 flex flex-col gap-5 print:shadow-none print:border-0">
             <IncomeStatementFilters
-              desde={desde}
-              hasta={hasta}
+              from={from}
+              to={to}
               invalidRange={invalidRange}
               hasCustomPeriod={hasCustomPeriod}
-              onDesde={setDesde}
-              onHasta={setHasta}
+              onFrom={setFrom}
+              onTo={setTo}
               onReset={resetToCurrentMonth}
               onPrint={() => window.print()}
             />

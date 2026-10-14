@@ -70,7 +70,7 @@ describe("GET /api/daily-book (libro diario)", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.data.map((a: { fecha: string }) => a.fecha)).toEqual([
+    expect(body.data.map((a: { date: string }) => a.date)).toEqual([
       "2025-06-20",
       "2025-06-18",
     ]);
@@ -90,11 +90,11 @@ describe("GET /api/daily-book (libro diario)", () => {
     const body = await (await GET(createRequest())).json();
 
     expect(body.data[0]).toMatchObject({
-      numero: "MISC/2025/06/0007",
-      fecha: "2025-06-18",
-      concepto: "Asiento 7",
-      diario: "Operaciones varias",
-      estado: "Registrado",
+      number: "MISC/2025/06/0007",
+      date: "2025-06-18",
+      concept: "Asiento 7",
+      daily: "Operaciones varias",
+      status: "Registrado",
     });
   });
 
@@ -104,15 +104,15 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest())).json();
 
-    expect(body.data[0].lineas).toHaveLength(3);
-    expect(body.data[0].lineas[0]).toMatchObject({
-      cuentaCodigo: "101",
-      cuentaNombre: "Caja",
-      cuentaTipo: "Activo",
+    expect(body.data[0].lines).toHaveLength(3);
+    expect(body.data[0].lines[0]).toMatchObject({
+      accountCode: "101",
+      accountName: "Caja",
+      accountType: "Activo",
     });
-    expect(body.data[0].lineas[2]).toMatchObject({
-      cuentaCodigo: "401",
-      cuentaNombre: "Tributos por Pagar - IGV",
+    expect(body.data[0].lines[2]).toMatchObject({
+      accountCode: "401",
+      accountName: "Tributos por Pagar - IGV",
     });
   });
 
@@ -122,12 +122,12 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest())).json();
 
-    expect(body.data[0].lineas.map((l: { debe: number; haber: number }) => [l.debe, l.haber])).toEqual([
+    expect(body.data[0].lines.map((l: { debit: number; credit: number }) => [l.debit, l.credit])).toEqual([
       [118, 0],
       [0, 100],
       [0, 18],
     ]);
-    expect(body.data[0].lineas[0].descripcion).toBe("Cobro en efectivo");
+    expect(body.data[0].lines[0].description).toBe("Cobro en efectivo");
   });
 
   it("devuelve los totales de Debe y de Haber de cada asiento (C05) y su cuadre (C06)", async () => {
@@ -136,8 +136,8 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest())).json();
 
-    expect(body.data[0].totales).toEqual({ debe: 118, haber: 118 });
-    expect(body.data[0].cuadrado).toBe(true);
+    expect(body.data[0].totals).toEqual({ debit: 118, credit: 118 });
+    expect(body.data[0].balanced).toBe(true);
   });
 
   it("marca como descuadrado un asiento cuyo Debe no coincide con su Haber (C06)", async () => {
@@ -148,8 +148,8 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest())).json();
 
-    expect(body.data[0].totales).toEqual({ debe: 118, haber: 108 });
-    expect(body.data[0].cuadrado).toBe(false);
+    expect(body.data[0].totals).toEqual({ debit: 118, credit: 108 });
+    expect(body.data[0].balanced).toBe(false);
   });
 
   it("filtra por el periodo indicado, inclusive en ambos extremos (C07, C08)", async () => {
@@ -160,7 +160,7 @@ describe("GET /api/daily-book (libro diario)", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.meta).toMatchObject({ desde: "2025-05-01", hasta: "2025-05-31", total: 1 });
+    expect(body.meta).toMatchObject({ from: "2025-05-01", to: "2025-05-31", total: 1 });
 
     const where = countMock.mock.calls[0][0].where as Record<string, unknown>;
     expect(where.entryDate).toEqual({
@@ -199,7 +199,7 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual([]);
-    expect(body.meta).toMatchObject({ total: 0, page: 1, totalPaginas: 1 });
+    expect(body.meta).toMatchObject({ total: 0, page: 1, totalPages: 1 });
     expect(findManyMock).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 10 }));
   });
 
@@ -230,7 +230,7 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest("?page=abc&pageSize=9999"))).json();
 
-    expect(body.meta).toMatchObject({ page: 1, pageSize: 100, totalPaginas: 1 });
+    expect(body.meta).toMatchObject({ page: 1, pageSize: 100, totalPages: 1 });
     expect(findManyMock.mock.calls[0][0]).toMatchObject({ skip: 0, take: 100 });
   });
 
@@ -240,7 +240,7 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest("?page=5&pageSize=10"))).json();
 
-    expect(body.meta).toMatchObject({ page: 1, totalPaginas: 1 });
+    expect(body.meta).toMatchObject({ page: 1, totalPages: 1 });
     expect(findManyMock.mock.calls[0][0]).toMatchObject({ skip: 0, take: 10 });
   });
 
@@ -250,7 +250,7 @@ describe("GET /api/daily-book (libro diario)", () => {
 
     const body = await (await GET(createRequest())).json();
 
-    expect(body.data[0].estado).toBe("Anulado");
+    expect(body.data[0].status).toBe("Anulado");
   });
 
   it("responde 500 si la consulta a la base falla", async () => {

@@ -23,16 +23,16 @@ const BASE_URL = "/api/accounting/dashboard";
 export { ApiError } from "./http";
 
 /** Serializes the range to a query string (`desde`/`hasta`, YYYY-MM-DD). */
-export function buildDashboardQuery(desde: string, hasta: string): string {
+export function buildDashboardQuery(from: string, to: string): string {
   const params = new URLSearchParams();
-  params.set("desde", desde);
-  params.set("hasta", hasta);
+  params.set("desde", from);
+  params.set("hasta", to);
   return params.toString();
 }
 
 /** Fetches the dashboard payload for the given date range. */
-export async function getDashboard(desde: string, hasta: string): Promise<DashboardPayload> {
-  const query = buildDashboardQuery(desde, hasta);
+export async function getDashboard(from: string, to: string): Promise<DashboardPayload> {
+  const query = buildDashboardQuery(from, to);
   return getJson<DashboardPayload>(`${BASE_URL}?${query}`);
 }
 

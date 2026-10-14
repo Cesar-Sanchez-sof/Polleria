@@ -48,9 +48,9 @@ import type {
 } from "@/lib/services/dashboard.service";
 
 const trendConfig = {
-  ingresos: { label: "Ingresos", color: "#10b981" },
-  gastos: { label: "Gastos", color: "#f43f5e" },
-  utilidad: { label: "Utilidad Neta", color: "#3b82f6" },
+  income: { label: "Ingresos", color: "#10b981" },
+  expenses: { label: "Gastos", color: "#f43f5e" },
+  profit: { label: "Utilidad Neta", color: "#3b82f6" },
 } satisfies ChartConfig;
 
 const breakdownConfig = {
@@ -112,26 +112,26 @@ export function DashboardCharts({
 
   const seriesEmpty =
     monthlySeries.length === 0 ||
-    monthlySeries.every((p) => p.ingresos === 0 && p.gastos === 0);
+    monthlySeries.every((p) => p.income === 0 && p.expenses === 0);
   const breakdownEmpty = expenseBreakdown.length === 0;
   const topEmpty = topAccounts.length === 0;
 
   // Cálculos estadísticos rápidos de la serie
   const stats = useMemo(() => {
     if (seriesEmpty) return null;
-    const totalIngresos = monthlySeries.reduce((acc, p) => acc + p.ingresos, 0);
-    const totalGastos = monthlySeries.reduce((acc, p) => acc + p.gastos, 0);
-    const totalUtilidad = monthlySeries.reduce((acc, p) => acc + p.utilidad, 0);
-    const avgIngresos = totalIngresos / monthlySeries.length;
-    const avgGastos = totalGastos / monthlySeries.length;
-    const avgMargin = totalIngresos > 0 ? (totalUtilidad / totalIngresos) * 100 : 0;
+    const totalIncome = monthlySeries.reduce((acc, p) => acc + p.income, 0);
+    const totalExpenses = monthlySeries.reduce((acc, p) => acc + p.expenses, 0);
+    const totalProfit = monthlySeries.reduce((acc, p) => acc + p.profit, 0);
+    const avgIncome = totalIncome / monthlySeries.length;
+    const avgExpenses = totalExpenses / monthlySeries.length;
+    const avgMargin = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : 0;
 
     return {
-      totalIngresos,
-      totalGastos,
-      totalUtilidad,
-      avgIngresos,
-      avgGastos,
+      totalIncome,
+      totalExpenses,
+      totalProfit,
+      avgIncome,
+      avgExpenses,
       avgMargin,
     };
   }, [monthlySeries, seriesEmpty]);
@@ -252,7 +252,7 @@ export function DashboardCharts({
                   <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-1.5 border border-emerald-500/20">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">Prom. Ingresos:</span>
                     <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                      {formatPen(stats.avgIngresos)}/mes
+                      {formatPen(stats.avgIncome)}/mes
                     </span>
                   </div>
                   <div className="flex items-center gap-2 rounded-xl bg-blue-500/10 px-3 py-1.5 border border-blue-500/20">
@@ -286,20 +286,20 @@ export function DashboardCharts({
                         <ChartTooltipContent
                           formatter={(v, name) => [
                             formatPen(Number(v)),
-                            name === "ingresos" ? "Ingresos" : name === "gastos" ? "Gastos" : "Utilidad Neta",
+                            name === "income" ? "Ingresos" : name === "expenses" ? "Gastos" : "Utilidad Neta",
                           ]}
                         />
                       }
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="ingresos" fill="var(--color-ingresos)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="gastos" fill="var(--color-gastos)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} maxBarSize={40} />
                     <Line
                       type="monotone"
-                      dataKey="utilidad"
-                      stroke="var(--color-utilidad)"
+                      dataKey="profit"
+                      stroke="var(--color-profit)"
                       strokeWidth={3}
-                      dot={{ r: 4, fill: "var(--color-utilidad)" }}
+                      dot={{ r: 4, fill: "var(--color-profit)" }}
                       activeDot={{ r: 6 }}
                     />
                   </ComposedChart>
@@ -318,14 +318,14 @@ export function DashboardCharts({
                         <ChartTooltipContent
                           formatter={(v, name) => [
                             formatPen(Number(v)),
-                            name === "ingresos" ? "Ingresos" : "Gastos",
+                            name === "income" ? "Ingresos" : "Gastos",
                           ]}
                         />
                       }
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="ingresos" fill="var(--color-ingresos)" radius={[4, 4, 0, 0]} maxBarSize={45} />
-                    <Bar dataKey="gastos" fill="var(--color-gastos)" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                    <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} maxBarSize={45} />
                   </BarChart>
                 ) : (
                   <AreaChart data={monthlySeries} margin={{ top: 12, right: 12, left: 12, bottom: 4 }}>
@@ -352,7 +352,7 @@ export function DashboardCharts({
                         <ChartTooltipContent
                           formatter={(v, name) => [
                             formatPen(Number(v)),
-                            name === "ingresos" ? "Ingresos" : "Gastos",
+                            name === "income" ? "Ingresos" : "Gastos",
                           ]}
                         />
                       }
@@ -360,7 +360,7 @@ export function DashboardCharts({
                     <ChartLegend content={<ChartLegendContent />} />
                     <Area
                       type="monotone"
-                      dataKey="ingresos"
+                      dataKey="income"
                       stroke="#10b981"
                       strokeWidth={2}
                       fillOpacity={1}
@@ -368,7 +368,7 @@ export function DashboardCharts({
                     />
                     <Area
                       type="monotone"
-                      dataKey="gastos"
+                      dataKey="expenses"
                       stroke="#f43f5e"
                       strokeWidth={2}
                       fillOpacity={1}
@@ -414,7 +414,7 @@ export function DashboardCharts({
                     />
                     <Line
                       type="monotone"
-                      dataKey="utilidad"
+                      dataKey="profit"
                       stroke="#3b82f6"
                       strokeWidth={2.5}
                       dot={{ r: 3, fill: "#3b82f6" }}
@@ -438,19 +438,19 @@ export function DashboardCharts({
                 <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Total Ingresos</span>
                   <p className="text-base font-extrabold text-foreground mt-0.5">
-                    {formatPen(stats?.totalIngresos ?? 0)}
+                    {formatPen(stats?.totalIncome ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Total Gastos</span>
                   <p className="text-base font-extrabold text-foreground mt-0.5">
-                    {formatPen(stats?.totalGastos ?? 0)}
+                    {formatPen(stats?.totalExpenses ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Resultado Acumulado</span>
-                  <p className={`text-base font-extrabold mt-0.5 ${(stats?.totalUtilidad ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
-                    {formatPen(stats?.totalUtilidad ?? 0)}
+                  <p className={`text-base font-extrabold mt-0.5 ${(stats?.totalProfit ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
+                    {formatPen(stats?.totalProfit ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
@@ -736,21 +736,21 @@ export function DashboardCharts({
                 </thead>
                 <tbody className="divide-y divide-border/40">
                   {monthlySeries.map((row) => {
-                    const margin = row.ingresos > 0 ? (row.utilidad / row.ingresos) * 100 : 0;
-                    const isPositive = row.utilidad >= 0;
+                    const margin = row.income > 0 ? (row.profit / row.income) * 100 : 0;
+                    const isPositive = row.profit >= 0;
                     return (
                       <tr key={row.month} className="hover:bg-muted/40 transition-colors">
                         <td className="py-3 font-semibold text-foreground">
                           {row.label}
                         </td>
                         <td className="py-3 text-right font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                          {formatPen(row.ingresos)}
+                          {formatPen(row.income)}
                         </td>
                         <td className="py-3 text-right font-mono font-medium text-rose-600 dark:text-rose-400">
-                          {formatPen(row.gastos)}
+                          {formatPen(row.expenses)}
                         </td>
                         <td className={`py-3 text-right font-mono font-bold ${isPositive ? "text-blue-600 dark:text-blue-400" : "text-rose-600"}`}>
-                          {formatPen(row.utilidad)}
+                          {formatPen(row.profit)}
                         </td>
                         <td className="py-3 text-right font-bold text-foreground">
                           {margin.toFixed(1)}%

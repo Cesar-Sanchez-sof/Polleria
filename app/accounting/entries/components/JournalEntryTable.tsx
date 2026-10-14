@@ -301,7 +301,7 @@ export function JournalEntryTable({
                     />
                   </TableCell>
                   <TableCell className="py-3 px-3 tabular-nums font-medium text-slate-800">
-                    {formatDate(row.fecha)}
+                    {formatDate(row.date)}
                   </TableCell>
                   <TableCell className="py-3 px-3 font-semibold text-red-700 hover:underline">
                     <Button
@@ -311,30 +311,30 @@ export function JournalEntryTable({
                         void onOpenDetail(row.id);
                       }}
                     >
-                      <span>{row.numero}</span>
+                      <span>{row.number}</span>
                       <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity" />
                     </Button>
                   </TableCell>
                   <TableCell className="py-3 px-3 text-slate-700 text-xs max-w-72">
-                    <span className="line-clamp-2">{row.concepto}</span>
+                    <span className="line-clamp-2">{row.concept}</span>
                   </TableCell>
                   <TableCell className="py-3 px-3 text-slate-600 font-medium">
-                    {row.diario}
+                    {row.daily}
                   </TableCell>
                   <TableCell className="py-3 px-3 text-slate-500 text-xs">
-                    {row.responsable ?? "—"}
+                    {row.responsible ?? "—"}
                   </TableCell>
                   <TableCell className="py-3 px-3 text-right tabular-nums font-bold text-slate-900">
                     {formatCurrency(row.total)}
                   </TableCell>
                   <TableCell className="py-3 px-3 text-center">
                     <Badge
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${row.estado === "Registrado" ? "bg-emerald-100/80 text-emerald-700" : "bg-rose-100/80 text-rose-700"}`}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${row.status === "Registrado" ? "bg-emerald-100/80 text-emerald-700" : "bg-rose-100/80 text-rose-700"}`}
                     >
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${row.estado === "Registrado" ? "bg-emerald-600" : "bg-rose-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${row.status === "Registrado" ? "bg-emerald-600" : "bg-rose-600"}`}
                       ></span>
-                      {row.estado}
+                      {row.status}
                     </Badge>
                   </TableCell>
                   <TableCell

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 /**
  * @openapi
@@ -17,30 +17,30 @@ import { autorizar } from "@/lib/auth/permisos";
  *             schema:
  *               type: object
  *               properties:
- *                 diarios:
+ *                 daily:
  *                   type: array
  *                   items:
  *                     type: object
  *                     properties:
- *                       nombre:
+ *                       name:
  *                         type: string
  *                       total:
  *                         type: integer
- *                 estados:
+ *                 statuses:
  *                   type: array
  *                   items:
  *                     type: object
  *                     properties:
- *                       valor:
+ *                       value:
  *                         type: string
- *                       etiqueta:
+ *                       label:
  *                         type: string
  *                       total:
  *                         type: integer
  */
 export async function GET() {
-  const auth = await autorizar(["asientos.ver", "asientos.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["asientos.ver", "asientos.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const [books, statuses] = await Promise.all([
       prisma.journalEntry.groupBy({
@@ -58,10 +58,10 @@ export async function GET() {
       statuses.find((s) => s.status === statusValue)?._count._all ?? 0;
 
     return Response.json({
-      diarios: books.map((b) => ({ nombre: b.book, total: b._count._all })),
-      estados: [
-        { valor: "registrado", etiqueta: "Registrado", total: countByStatus(true) },
-        { valor: "anulado", etiqueta: "Anulado", total: countByStatus(false) },
+      daily: books.map((b) => ({ name: b.book, total: b._count._all })),
+      statuses: [
+        { value: "registrado", label: "Registrado", total: countByStatus(true) },
+        { value: "anulado", label: "Anulado", total: countByStatus(false) },
       ],
     });
   } catch (error) {

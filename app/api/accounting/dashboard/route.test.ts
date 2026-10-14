@@ -86,8 +86,8 @@ describe("GET /api/accounting/dashboard", () => {
 
     const body = await response.json();
     expect(body.period).toEqual({
-      desde: "2026-03-01",
-      hasta: "2026-03-31",
+      from: "2026-03-01",
+      to: "2026-03-31",
       label: "01 de marzo — 31 de marzo de 2026",
     });
     expect(body.previousPeriod).toBeNull();
@@ -96,13 +96,13 @@ describe("GET /api/accounting/dashboard", () => {
     const byKey = new Map<string, { value: number; variation: unknown }>(
       body.kpis.map((k: { key: string; value: number; variation: unknown }) => [k.key, k])
     );
-    expect(byKey.get("ingresos")?.value).toBe(1200.5);
-    expect(byKey.get("gastos")?.value).toBe(400);
-    expect(byKey.get("utilidad")?.value).toBe(800.5);
+    expect(byKey.get("income")?.value).toBe(1200.5);
+    expect(byKey.get("expenses")?.value).toBe(400);
+    expect(byKey.get("profit")?.value).toBe(800.5);
     expect(byKey.get("caja_bancos")?.value).toBe(5500);
     expect(byKey.get("por_cobrar")?.value).toBe(500);
     expect(byKey.get("por_pagar")?.value).toBe(800);
-    expect(byKey.get("asientos")?.value).toBe(7);
+    expect(byKey.get("entries")?.value).toBe(7);
     // Sin datos previos → todas las variaciones null
     expect(body.kpis.every((k: { variation: null }) => k.variation === null)).toBe(true);
   });
@@ -118,9 +118,9 @@ describe("GET /api/accounting/dashboard", () => {
     const response = await GET(createRequest("?desde=2026-03-01&hasta=2026-03-31"));
     const body = await response.json();
 
-    expect(body.previousPeriod).toEqual({ desde: "2026-01-29", hasta: "2026-02-28" });
-    const ingresos = body.kpis.find((k: { key: string }) => k.key === "ingresos");
-    expect(ingresos.variation).toEqual({ percent: 100, direction: "up" });
+    expect(body.previousPeriod).toEqual({ from: "2026-01-29", to: "2026-02-28" });
+    const income = body.kpis.find((k: { key: string }) => k.key === "income");
+    expect(income.variation).toEqual({ percent: 100, direction: "up" });
   });
 
   it("marca meta.empty = true cuando no hay asientos ni movimiento en el rango", async () => {
@@ -130,7 +130,7 @@ describe("GET /api/accounting/dashboard", () => {
     expect(body.kpis.every((k: { value: number }) => k.value === 0)).toBe(true);
     // Sin filas mensuales → el mes del rango aparece en 0; sin gastos ni top cuentas
     expect(body.monthlySeries).toEqual([
-      { month: "2026-03", label: expect.any(String), ingresos: 0, gastos: 0, utilidad: 0 },
+      { month: "2026-03", label: expect.any(String), income: 0, expenses: 0, profit: 0 },
     ]);
     expect(body.expenseBreakdown).toEqual([]);
     expect(body.topAccounts).toEqual([]);
@@ -148,10 +148,10 @@ describe("GET /api/accounting/dashboard", () => {
       .mockResolvedValueOnce(groupByResult([]))
       .mockResolvedValueOnce(groupByResult([]));
     queryRawMock.mockResolvedValue([
-      { mes: new Date("2026-02-01T00:00:00.000Z"), tipo: "Ingreso", debit: BigInt(0), credit: 900 },
-      { mes: new Date("2026-02-01T00:00:00.000Z"), tipo: "Gasto", debit: 500, credit: 0 },
-      { mes: new Date("2026-03-01T00:00:00.000Z"), tipo: "Ingreso", debit: 0, credit: 1200 },
-      { mes: new Date("2026-03-01T00:00:00.000Z"), tipo: "Gasto", debit: 400, credit: 0 },
+      { month: new Date("2026-02-01T00:00:00.000Z"), type: "Ingreso", debit: BigInt(0), credit: 900 },
+      { month: new Date("2026-02-01T00:00:00.000Z"), type: "Gasto", debit: 500, credit: 0 },
+      { month: new Date("2026-03-01T00:00:00.000Z"), type: "Ingreso", debit: 0, credit: 1200 },
+      { month: new Date("2026-03-01T00:00:00.000Z"), type: "Gasto", debit: 400, credit: 0 },
     ]);
 
     const response = await GET(createRequest("?desde=2026-02-01&hasta=2026-03-31"));
@@ -160,15 +160,15 @@ describe("GET /api/accounting/dashboard", () => {
     expect(body.monthlySeries).toHaveLength(2);
     expect(body.monthlySeries[0]).toMatchObject({
       month: "2026-02",
-      ingresos: 900,
-      gastos: 500,
-      utilidad: 400,
+      income: 900,
+      expenses: 500,
+      profit: 400,
     });
     expect(body.monthlySeries[1]).toMatchObject({
       month: "2026-03",
-      ingresos: 1200,
-      gastos: 400,
-      utilidad: 800,
+      income: 1200,
+      expenses: 400,
+      profit: 800,
     });
   });
 

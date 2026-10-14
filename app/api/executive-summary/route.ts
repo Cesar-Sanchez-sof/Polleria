@@ -6,7 +6,7 @@ import {
   buildExecutiveSummary,
   type ExecutiveAccountInput,
 } from "@/lib/accounting/executive-summary";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +56,8 @@ function currentUtcYear(): number {
  *         description: Error interno al generar el resumen.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   try {
     const rawYear = (request.nextUrl.searchParams.get("year") ?? "").trim();
 

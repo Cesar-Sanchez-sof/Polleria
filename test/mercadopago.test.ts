@@ -33,14 +33,14 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
 
   describe("Deep Links Tap to Pay y Esquema Móvil", () => {
     it("debe generar un Deep Link nativo válido para Tap to Pay en el celular del mozo", () => {
-      const datos = {
-        idPedido: 15,
-        codigoComanda: "PED-015",
-        monto: 72.5,
-        urlRetorno: "http://localhost:3000/sales?tab=tables",
+      const data = {
+        orderId: 15,
+        kitchenOrderCode: "PED-015",
+        amount: 72.5,
+        returnUrl: "http://localhost:3000/sales?tab=tables",
       };
 
-      const deepLink = generateTapToPayDeepLink(datos);
+      const deepLink = generateTapToPayDeepLink(data);
 
       expect(deepLink).toContain("mercadopago://point/pay");
       expect(deepLink).toContain("amount=72.50");
@@ -50,9 +50,9 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
 
     it("debe redondear y formatear los montos con exactamente 2 decimales para Tap to Pay", () => {
       const deepLink = generateTapToPayDeepLink({
-        idPedido: 1,
-        codigoComanda: "PED-001",
-        monto: 45.555,
+        orderId: 1,
+        kitchenOrderCode: "PED-001",
+        amount: 45.555,
       });
 
       expect(deepLink).toContain("amount=45.56");
@@ -62,30 +62,30 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
   describe("Inicio de Cobro (startMercadoPagoCharge)", () => {
     it("debe operar en modo seguro simulado cuando no se ha configurado Access Token en .env", async () => {
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
-      const resultado = await startMercadoPagoCharge({
-        idPedido: 20,
-        codigoComanda: "PED-020",
-        monto: 120.0,
+      const result = await startMercadoPagoCharge({
+        orderId: 20,
+        kitchenOrderCode: "PED-020",
+        amount: 120.0,
       });
 
-      expect(resultado.modo).toBe("tap_to_pay");
-      expect(resultado.operacionId).toContain("MP-SIM");
-      expect(resultado.deepLinkApp).toBeDefined();
-      expect(resultado.estado).toBe("simulado");
+      expect(result.mode).toBe("tap_to_pay");
+      expect(result.operationId).toContain("MP-SIM");
+      expect(result.deepLinkApp).toBeDefined();
+      expect(result.status).toBe("simulado");
     });
 
     it("debe generar operacionId en vivo y deep link cuando hay un token configurado", async () => {
       process.env.MERCADO_PAGO_ACCESS_TOKEN = "TEST-TOKEN-123456789";
-      const resultado = await startMercadoPagoCharge({
-        idPedido: 22,
-        codigoComanda: "PED-022",
-        monto: 85.0,
+      const result = await startMercadoPagoCharge({
+        orderId: 22,
+        kitchenOrderCode: "PED-022",
+        amount: 85.0,
       });
 
-      expect(resultado.modo).toBe("tap_to_pay");
-      expect(resultado.operacionId).toContain("MP-LIVE");
-      expect(resultado.estado).toBe("pendiente");
-      expect(resultado.deepLinkApp).toContain("amount=85.00");
+      expect(result.mode).toBe("tap_to_pay");
+      expect(result.operationId).toContain("MP-LIVE");
+      expect(result.status).toBe("pendiente");
+      expect(result.deepLinkApp).toContain("amount=85.00");
     });
   });
 
@@ -94,9 +94,9 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
       const res = await createMercadoPagoPreference({
-        idPedido: 30,
-        codigoComanda: "PED-030",
-        monto: 150.0,
+        orderId: 30,
+        kitchenOrderCode: "PED-030",
+        amount: 150.0,
       });
 
       expect(res.isSimulated).toBe(true);
@@ -120,9 +120,9 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
       } as any);
 
       const res = await createMercadoPagoPreference({
-        idPedido: 35,
-        codigoComanda: "PED-035",
-        monto: 99.9,
+        orderId: 35,
+        kitchenOrderCode: "PED-035",
+        amount: 99.9,
       });
 
       expect(res.isSimulated).toBe(false);
@@ -201,14 +201,14 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
     it("debe validar en modo relajado si no hay MERCADO_PAGO_WEBHOOK_SECRET configurado", () => {
       delete process.env.MERCADO_PAGO_WEBHOOK_SECRET;
 
-      const resultado = verifyMercadoPagoWebhookSignature({
+      const result = verifyMercadoPagoWebhookSignature({
         xSignatureHeader: null,
         xRequestIdHeader: null,
         dataId: "123456",
       });
 
-      expect(resultado.isValid).toBe(true);
-      expect(resultado.reason).toContain("no configurado");
+      expect(result.isValid).toBe(true);
+      expect(result.reason).toContain("no configurado");
     });
 
     it("debe verificar exitosamente una firma legítima de Mercado Pago con el secret configurado", () => {
@@ -221,9 +221,9 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
 
       // Construcción del manifiesto oficial: id:[data.id];request-id:[x-request-id];ts:[ts];
       const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-      const hashValido = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
+      const validHash = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
 
-      const xSignature = `ts=${ts},v1=${hashValido}`;
+      const xSignature = `ts=${ts},v1=${validHash}`;
 
       const res = verifyMercadoPagoWebhookSignature({
         xSignatureHeader: xSignature,
@@ -239,10 +239,10 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
       process.env.MERCADO_PAGO_WEBHOOK_SECRET = secret;
 
       const ts = Math.floor(Date.now() / 1000).toString();
-      const xSignatureFalsa = `ts=${ts},v1=hash_falso_completamente_invalido`;
+      const xSignatureFake = `ts=${ts},v1=hash_falso_completamente_invalido`;
 
       const res = verifyMercadoPagoWebhookSignature({
-        xSignatureHeader: xSignatureFalsa,
+        xSignatureHeader: xSignatureFake,
         xRequestIdHeader: "req-falso",
         dataId: "99887766",
       });
@@ -256,12 +256,12 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
       process.env.MERCADO_PAGO_WEBHOOK_SECRET = secret;
 
       // 15 minutos en el pasado
-      const tsViejo = (Math.floor(Date.now() / 1000) - 900).toString();
-      const manifest = `id:123;request-id:req-123;ts:${tsViejo};`;
+      const tsOld = (Math.floor(Date.now() / 1000) - 900).toString();
+      const manifest = `id:123;request-id:req-123;ts:${tsOld};`;
       const hash = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
 
       const res = verifyMercadoPagoWebhookSignature({
-        xSignatureHeader: `ts=${tsViejo},v1=${hash}`,
+        xSignatureHeader: `ts=${tsOld},v1=${hash}`,
         xRequestIdHeader: "req-123",
         dataId: "123",
       });

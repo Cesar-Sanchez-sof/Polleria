@@ -69,6 +69,6 @@ export function historyForRequest(state: ConversationState): { rol: "usuario"; t
 }
 
 /** Clave de usuario para detectar cambios de sesión; `null` sin sesión. */
-export function userKeyFrom(status: { habilitado?: unknown; usuario?: unknown } | null): string | null {
-  return status && status.habilitado === true && typeof status.usuario === "number" ? String(status.usuario) : null;
+export function userKeyFrom(status: { enabled?: unknown; usuario?: unknown } | null): string | null {
+  return status && status.enabled === true && typeof status.usuario === "number" ? String(status.usuario) : null;
 }

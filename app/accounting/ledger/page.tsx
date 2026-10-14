@@ -67,7 +67,7 @@ export default function GeneralLedgerPage() {
       try {
         const data = await listAccountingAccounts();
         setAccounts(data);
-        setCode((current) => current || data[0]?.codigo || "");
+        setCode((current) => current || data[0]?.code || "");
       } catch (e) {
         setAccountsError(
           e instanceof Error ? e.message : "No se pudo cargar el plan contable."
@@ -92,7 +92,7 @@ export default function GeneralLedgerPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getGeneralLedger({ codigo: code, desde: from, hasta: to });
+      const data = await getGeneralLedger({ code: code, from: from, to: to });
       if (request !== requestRef.current) return;
       setLedger(data);
     } catch (e) {
@@ -174,7 +174,7 @@ export default function GeneralLedgerPage() {
       (loadingAccounts
         ? null
         : "Selecciona una cuenta contable para ver su libro mayor."));
-  const movementCount = ledger?.totales.movimientos ?? 0;
+  const movementCount = ledger?.totals.movements ?? 0;
 
   return (
     <>

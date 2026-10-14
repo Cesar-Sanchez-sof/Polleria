@@ -2,9 +2,9 @@ import { Prisma, type AuditAction } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /** Módulos del sistema que generan registros de auditoría. */
-export const MODULOS_AUDITORIA = ["Seguridad", "Usuarios", "Contabilidad", "Compras", "Ventas", "Caja"] as const;
+export const AUDIT_MODULES = ["Seguridad", "Usuarios", "Contabilidad", "Compras", "Ventas", "Caja"] as const;
 
-export const ACCIONES_AUDITORIA: AuditAction[] = [
+export const AUDIT_ACTIONS: AuditAction[] = [
   "CREATE",
   "UPDATE",
   "DELETE",
@@ -14,13 +14,13 @@ export const ACCIONES_AUDITORIA: AuditAction[] = [
   "LOGOUT",
 ];
 
-export interface ActorAuditoria {
+export interface AuditActor {
   userId: number | null;
   username: string;
 }
 
-export interface DatosAuditoria {
-  actor: ActorAuditoria | null;
+export interface AuditData {
+  actor: AuditActor | null;
   action: AuditAction;
   module: string;
   entity: string;
@@ -30,48 +30,48 @@ export interface DatosAuditoria {
   ipAddress?: string | null;
 }
 
-export interface FiltrosAuditoria {
-  desde?: string | null;
-  hasta?: string | null;
-  usuario?: string | null;
-  accion?: string | null;
-  modulo?: string | null;
+export interface AuditFilters {
+  from?: string | null;
+  to?: string | null;
+  user?: string | null;
+  action?: string | null;
+  module?: string | null;
   q?: string | null;
-  pagina?: number;
-  porPagina?: number;
+  page?: number;
+  perPage?: number;
 }
 
-export interface AuditoriaFilaDto {
+export interface AuditRowDto {
   id: number;
-  fecha: string;
-  usuario: string;
-  idUsuario: number | null;
-  accion: AuditAction;
-  modulo: string;
-  entidad: string;
-  idEntidad: string | null;
-  descripcion: string;
-  detalles: unknown;
+  date: string;
+  user: string;
+  userId: number | null;
+  action: AuditAction;
+  module: string;
+  entity: string;
+  entityId: string | null;
+  description: string;
+  details: unknown;
   ip: string | null;
 }
 
-export interface ListaAuditoriaDto {
-  datos: AuditoriaFilaDto[];
+export interface AuditListDto {
+  data: AuditRowDto[];
   total: number;
-  pagina: number;
-  porPagina: number;
-  totalPaginas: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
 }
 
 type Db = Pick<Prisma.TransactionClient, "auditLog">;
 
 /** Quita datos sensibles (contraseñas, tokens) antes de guardar el detalle. */
-export function sanearDetalles(valor: unknown): Prisma.InputJsonValue | undefined {
-  if (valor === undefined || valor === null) return undefined;
-  const limpio = JSON.parse(
-    JSON.stringify(valor, (clave, v) => (/pass|token|secret|hash/i.test(clave) ? "[oculto]" : v)),
+export function sanitizeDetails(value: unknown): Prisma.InputJsonValue | undefined {
+  if (value === undefined || value === null) return undefined;
+  const clean = JSON.parse(
+    JSON.stringify(value, (key, v) => (/pass|token|secret|hash/i.test(key) ? "[oculto]" : v)),
   );
-  return limpio ?? undefined;
+  return clean ?? undefined;
 }
 
 /**
@@ -79,19 +79,19 @@ export function sanearDetalles(valor: unknown): Prisma.InputJsonValue | undefine
  * tumbar la operación de negocio (se deja en el log del servidor). Pasa `db` (tx)
  * para que el registro quede dentro de la misma transacción.
  */
-export async function registrarAuditoria(datos: DatosAuditoria, db: Db = prisma): Promise<void> {
+export async function logAudit(data: AuditData, db: Db = prisma): Promise<void> {
   try {
     await db.auditLog.create({
       data: {
-        userId: datos.actor?.userId ?? null,
-        username: (datos.actor?.username || "sistema").slice(0, 50),
-        action: datos.action,
-        module: datos.module.slice(0, 50),
-        entity: datos.entity.slice(0, 50),
-        entityId: datos.entityId == null ? null : String(datos.entityId).slice(0, 50),
-        description: datos.description.slice(0, 255),
-        details: sanearDetalles(datos.details),
-        ipAddress: datos.ipAddress?.slice(0, 45) ?? null,
+        userId: data.actor?.userId ?? null,
+        username: (data.actor?.username || "sistema").slice(0, 50),
+        action: data.action,
+        module: data.module.slice(0, 50),
+        entity: data.entity.slice(0, 50),
+        entityId: data.entityId == null ? null : String(data.entityId).slice(0, 50),
+        description: data.description.slice(0, 255),
+        details: sanitizeDetails(data.details),
+        ipAddress: data.ipAddress?.slice(0, 45) ?? null,
       },
     });
   } catch (e) {
@@ -100,28 +100,28 @@ export async function registrarAuditoria(datos: DatosAuditoria, db: Db = prisma)
 }
 
 /** IP del cliente a partir de los encabezados del proxy. */
-export function ipDeSolicitud(request: Request): string | null {
-  const reenviada = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return reenviada || request.headers.get("x-real-ip");
+export function requestIp(request: Request): string | null {
+  const resent = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return resent || request.headers.get("x-real-ip");
 }
 
-function fechaInicio(valor: string): Date | null {
-  const d = new Date(`${valor}T00:00:00.000Z`);
+function startDate(value: string): Date | null {
+  const d = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function construirFiltro(f: FiltrosAuditoria): Prisma.AuditLogWhereInput {
+export function buildFilter(f: AuditFilters): Prisma.AuditLogWhereInput {
   const where: Prisma.AuditLogWhereInput = {};
-  const rango: Prisma.DateTimeFilter = {};
-  const desde = f.desde ? fechaInicio(f.desde) : null;
-  const hasta = f.hasta ? fechaInicio(f.hasta) : null;
-  if (desde) rango.gte = desde;
-  if (hasta) rango.lt = new Date(hasta.getTime() + 24 * 60 * 60 * 1000);
-  if (rango.gte || rango.lt) where.createdAt = rango;
+  const range: Prisma.DateTimeFilter = {};
+  const from = f.from ? startDate(f.from) : null;
+  const to = f.to ? startDate(f.to) : null;
+  if (from) range.gte = from;
+  if (to) range.lt = new Date(to.getTime() + 24 * 60 * 60 * 1000);
+  if (range.gte || range.lt) where.createdAt = range;
 
-  if (f.usuario?.trim()) where.username = { contains: f.usuario.trim(), mode: "insensitive" };
-  if (f.accion && (ACCIONES_AUDITORIA as string[]).includes(f.accion)) where.action = f.accion as AuditAction;
-  if (f.modulo?.trim()) where.module = f.modulo.trim();
+  if (f.user?.trim()) where.username = { contains: f.user.trim(), mode: "insensitive" };
+  if (f.action && (AUDIT_ACTIONS as string[]).includes(f.action)) where.action = f.action as AuditAction;
+  if (f.module?.trim()) where.module = f.module.trim();
   if (f.q?.trim()) {
     const q = f.q.trim();
     where.OR = [
@@ -134,38 +134,38 @@ export function construirFiltro(f: FiltrosAuditoria): Prisma.AuditLogWhereInput 
 }
 
 /** Lista paginada (más recientes primero) con filtros por fecha, usuario, acción y módulo. */
-export async function listarAuditoria(f: FiltrosAuditoria = {}): Promise<ListaAuditoriaDto> {
-  const porPagina = Math.min(Math.max(Math.trunc(f.porPagina ?? 20), 1), 100);
-  const pagina = Math.max(Math.trunc(f.pagina ?? 1), 1);
-  const where = construirFiltro(f);
+export async function listAudit(f: AuditFilters = {}): Promise<AuditListDto> {
+  const perPage = Math.min(Math.max(Math.trunc(f.perPage ?? 20), 1), 100);
+  const page = Math.max(Math.trunc(f.page ?? 1), 1);
+  const where = buildFilter(f);
 
-  const [total, filas] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.auditLog.count({ where }),
     prisma.auditLog.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      skip: (pagina - 1) * porPagina,
-      take: porPagina,
+      skip: (page - 1) * perPage,
+      take: perPage,
     }),
   ]);
 
   return {
-    datos: filas.map((r) => ({
+    data: rows.map((r) => ({
       id: r.id,
-      fecha: r.createdAt.toISOString(),
-      usuario: r.username,
-      idUsuario: r.userId,
-      accion: r.action,
-      modulo: r.module,
-      entidad: r.entity,
-      idEntidad: r.entityId,
-      descripcion: r.description,
-      detalles: r.details,
+      date: r.createdAt.toISOString(),
+      user: r.username,
+      userId: r.userId,
+      action: r.action,
+      module: r.module,
+      entity: r.entity,
+      entityId: r.entityId,
+      description: r.description,
+      details: r.details,
       ip: r.ipAddress,
     })),
     total,
-    pagina,
-    porPagina,
-    totalPaginas: Math.max(Math.ceil(total / porPagina), 1),
+    page,
+    perPage,
+    totalPages: Math.max(Math.ceil(total / perPage), 1),
   };
 }

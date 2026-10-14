@@ -60,23 +60,23 @@ describe("GET /api/journal-entries (listar asientos)", () => {
     expect(body.data).toEqual([
       {
         id: 7,
-        numero: "MISC/2025/06/0007",
-        fecha: "2025-06-18",
-        diario: "Operaciones varias",
-        concepto: "Asiento 7",
-        responsable: "Leandro Mauricci",
-        estado: "Registrado",
+        number: "MISC/2025/06/0007",
+        date: "2025-06-18",
+        daily: "Operaciones varias",
+        concept: "Asiento 7",
+        responsible: "Leandro Mauricci",
+        status: "Registrado",
         total: 300.25,
       },
     ]);
     expect(body.meta).toEqual({
       total: 36,
-      registrados: 30,
-      anulados: 6,
+      registered: 30,
+      annulled: 6,
       page: 1,
       pageSize: 10,
-      totalPaginas: 4,
-      orden: "fecha",
+      totalPages: 4,
+      order: "fecha",
       dir: "desc",
     });
 
@@ -164,12 +164,12 @@ describe("GET /api/journal-entries (listar asientos)", () => {
 
     expect(body.meta).toEqual({
       total: 1,
-      registrados: 1,
-      anulados: 0,
+      registered: 1,
+      annulled: 0,
       page: 1,
       pageSize: 100,
-      totalPaginas: 1,
-      orden: "fecha",
+      totalPages: 1,
+      order: "fecha",
       dir: "desc",
     });
     expect(findManyMock.mock.calls[0][0]).toMatchObject({ skip: 0, take: 100 });
@@ -181,7 +181,7 @@ describe("GET /api/journal-entries (listar asientos)", () => {
 
     const body = await (await GET(createRequest("?page=5&pageSize=10"))).json();
 
-    expect(body.meta).toMatchObject({ page: 1, totalPaginas: 1 });
+    expect(body.meta).toMatchObject({ page: 1, totalPages: 1 });
     expect(findManyMock.mock.calls[0][0]).toMatchObject({ skip: 0, take: 10 });
   });
 
@@ -207,7 +207,7 @@ describe("GET /api/journal-entries (listar asientos)", () => {
       where: { entryId: { in: [1, 2, 3] } },
       _sum: { debit: true },
     });
-    expect(body.meta).toMatchObject({ orden: "total", dir: "asc" });
+    expect(body.meta).toMatchObject({ order: "total", dir: "asc" });
     expect(body.data.map((entry: { id: number }) => entry.id)).toEqual([2, 3, 1]);
 
     expect(findManyMock.mock.calls[1][0]).toMatchObject({
@@ -224,7 +224,7 @@ describe("GET /api/journal-entries (listar asientos)", () => {
 
     const body = await (await GET(createRequest())).json();
 
-    expect(body.data[0].estado).toBe("Anulado");
+    expect(body.data[0].status).toBe("Anulado");
   });
 
   it("responde 500 si la consulta a la base falla", async () => {

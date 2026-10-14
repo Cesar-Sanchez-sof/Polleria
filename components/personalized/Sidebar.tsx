@@ -6,14 +6,14 @@ import Link from "next/link";
 import React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { usePermisos } from "@/components/personalized/PermisosProvider";
-import { SECCIONES, permisoDeEnlace } from "@/lib/auth/rutas-permisos";
+import { usePermissions } from "@/components/personalized/PermissionsProvider";
+import { SECTIONS, linkPermission } from "@/lib/auth/route-permissions";
 
 /** Enlace del menú: no se muestra si el usuario no tiene el permiso "ver" de esa pantalla. */
 function NavLink({ href, ...props }: React.ComponentProps<typeof Link>) {
-  const { puede } = usePermisos();
-  const permiso = typeof href === "string" ? permisoDeEnlace(href) : null;
-  if (permiso && !puede(permiso)) return null;
+  const { can } = usePermissions();
+  const permission = typeof href === "string" ? linkPermission(href) : null;
+  if (permission && !can(permission)) return null;
   return <Link href={href} {...props} />;
 }
 
@@ -25,9 +25,9 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: SidebarProps = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { puedeAlguno } = usePermisos();
+  const { canAny } = usePermissions();
   const [internalOpen, setInternalOpen] = useState(false);
-  const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const toggleSection = (key: string) => {
@@ -42,40 +42,40 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   useEffect(() => {
     if (pathname === "/login") return;
 
-    let cancelado = false;
+    let cancelled = false;
     fetch("/api/auth/me", { cache: "no-store" })
       .then((res) => {
         if (!res.ok) {
-          if (!cancelado && pathname !== "/login") {
+          if (!cancelled && pathname !== "/login") {
             window.location.href = "/login";
           }
           return null;
         }
         return res.json();
       })
-      .then((datos) => {
-        if (cancelado) return;
-        if (!datos) {
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) {
           if (pathname !== "/login") {
             window.location.href = "/login";
           }
           return;
         }
-        setUsuario(datos);
+        setUser(data);
       })
       .catch(() => {
-        if (!cancelado && pathname !== "/login") {
+        if (!cancelled && pathname !== "/login") {
           window.location.href = "/login";
         }
-        setUsuario(null);
+        setUser(null);
       });
 
     return () => {
-      cancelado = true;
+      cancelled = true;
     };
   }, [pathname]);
 
-  async function cerrarSesion() {
+  async function closeSession() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     window.location.href = "/login";
   }
@@ -200,7 +200,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs">
             {/* VENTAS Section */}
-            {puedeAlguno(SECCIONES.ventas) && (
+            {canAny(SECTIONS.sales) && (
             <div className="flex flex-col gap-0.5">
               <button
                 type="button"
@@ -293,7 +293,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* COCINA Section */}
-            {puedeAlguno(SECCIONES.cocina) && (
+            {canAny(SECTIONS.kitchen) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -346,7 +346,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* COMPRAS E INVENTARIO Section */}
-            {puedeAlguno(SECCIONES.compras) && (
+            {canAny(SECTIONS.purchases) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -439,7 +439,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* REGISTROS CONTABLES Section */}
-            {puedeAlguno(SECCIONES.registros) && (
+            {canAny(SECTIONS.records) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -522,7 +522,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* REPORTES CONTABLES Section */}
-            {puedeAlguno(SECCIONES.reportes) && (
+            {canAny(SECTIONS.reports) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -615,7 +615,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* SEGURIDAD Section */}
-            {puedeAlguno(SECCIONES.seguridad) && (
+            {canAny(SECTIONS.security) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -633,9 +633,9 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               {isSectionOpen("seguridad") && (
                 <div className="flex flex-col pl-2 gap-0.5">
                   <NavLink
-                    className={getLinkClass("/usuarios")}
-                    data-path="usuarios"
-                    href="/usuarios"
+                    className={getLinkClass("/users")}
+                    data-path="users"
+                    href="/users"
                     target="_top"
                     onClick={handleLinkClick}
                   >
@@ -667,7 +667,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* CONFIGURACIÓN Section */}
-            {puedeAlguno(SECCIONES.configuracion) && (
+            {canAny(SECTIONS.settings) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -730,7 +730,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
             )}
             {/* DOCUMENTACIÓN Section */}
-            {puedeAlguno(SECCIONES.documentacion) && (
+            {canAny(SECTIONS.documentation) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -782,19 +782,19 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             </div>
             <div className="flex flex-col">
               <span className="font-label text-[11px] font-bold text-on-surface leading-tight">
-                {usuario?.username ?? "Sin sesión"}
+                {user?.username ?? "Sin sesión"}
               </span>
               <span className="font-label text-[10px] text-on-surface-variant leading-tight">
-                {usuario?.rol ?? "Inicia sesión"}
+                {user?.role ?? "Inicia sesión"}
               </span>
             </div>
           </div>
           <button
             className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
             type="button"
-            title={usuario ? "Cerrar sesión" : "Iniciar sesión"}
-            aria-label={usuario ? "Cerrar sesión" : "Iniciar sesión"}
-            onClick={usuario ? cerrarSesion : () => (window.location.href = "/login")}
+            title={user ? "Cerrar sesión" : "Iniciar sesión"}
+            aria-label={user ? "Cerrar sesión" : "Iniciar sesión"}
+            onClick={user ? closeSession : () => (window.location.href = "/login")}
           >
             <LogOut className="w-4.5 h-4.5" />
           </button>

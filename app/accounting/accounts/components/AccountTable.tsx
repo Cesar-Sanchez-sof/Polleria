@@ -199,7 +199,7 @@ export function AccountTable({
                     className="hover:bg-(--color-background) transition-colors group border-b border-slate-100"
                   >
                     <TableCell className="py-2.5 px-3 font-mono text-xs font-semibold text-slate-700 tabular-nums">
-                      {account.codigo}
+                      {account.code}
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3">
@@ -215,8 +215,8 @@ export function AccountTable({
                             title={expanded ? "Contraer subcuentas" : "Expandir subcuentas"}
                             aria-label={
                               expanded
-                                ? `Contraer las subcuentas de ${account.nombre}`
-                                : `Expandir las subcuentas de ${account.nombre}`
+                                ? `Contraer las subcuentas de ${account.name}`
+                                : `Expandir las subcuentas de ${account.name}`
                             }
                             aria-expanded={expanded}
                           >
@@ -236,35 +236,35 @@ export function AccountTable({
                               : "text-slate-700"
                           }
                         >
-                          {account.nombre}
+                          {account.name}
                         </span>
                       </span>
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3 text-slate-600 text-xs font-medium">
-                      {account.tipo}
+                      {account.type}
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3 text-center">
                       <Badge
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${account.activo ? "bg-emerald-100/80 text-emerald-700" : "bg-slate-200/80 text-slate-600"}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${account.active ? "bg-emerald-100/80 text-emerald-700" : "bg-slate-200/80 text-slate-600"}`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${account.activo ? "bg-emerald-600" : "bg-slate-500"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${account.active ? "bg-emerald-600" : "bg-slate-500"}`}
                         ></span>
-                        {account.activo ? "Activa" : "Inactiva"}
+                        {account.active ? "Activa" : "Inactiva"}
                       </Badge>
                     </TableCell>
 
                     <TableCell
                       className="py-2.5 px-3 text-right tabular-nums text-xs text-slate-500"
                       title={
-                        account.usos > 0
-                          ? `Usada en ${account.usos} línea${account.usos === 1 ? "" : "s"} de asiento`
+                        account.uses > 0
+                          ? `Usada en ${account.uses} línea${account.uses === 1 ? "" : "s"} de asiento`
                           : "Todavía no se usa en ningún asiento"
                       }
                     >
-                      {account.usos}
+                      {account.uses}
                     </TableCell>
 
                     <TableCell className="py-2.5 px-3 text-right">
@@ -273,8 +273,8 @@ export function AccountTable({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          title={`Añadir subcuenta a ${account.codigo}`}
-                          aria-label={`Añadir subcuenta a ${account.nombre}`}
+                          title={`Añadir subcuenta a ${account.code}`}
+                          aria-label={`Añadir subcuenta a ${account.name}`}
                           onClick={() => onCreateChild(account)}
                           disabled={inAction}
                           className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer h-7 w-7"
@@ -286,8 +286,8 @@ export function AccountTable({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          title={`Editar ${account.codigo}`}
-                          aria-label={`Editar la cuenta ${account.nombre}`}
+                          title={`Editar ${account.code}`}
+                          aria-label={`Editar la cuenta ${account.name}`}
                           onClick={() => onEdit(account)}
                           disabled={inAction}
                           className="p-1.5 rounded text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer h-7 w-7"
@@ -299,15 +299,15 @@ export function AccountTable({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          title={account.activo ? `Desactivar ${account.codigo}` : `Activar ${account.codigo}`}
+                          title={account.active ? `Desactivar ${account.code}` : `Activar ${account.code}`}
                           aria-label={
-                            account.activo
-                              ? `Desactivar la cuenta ${account.nombre}`
-                              : `Activar la cuenta ${account.nombre}`
+                            account.active
+                              ? `Desactivar la cuenta ${account.name}`
+                              : `Activar la cuenta ${account.name}`
                           }
                           onClick={() => onToggleStatus(account)}
                           disabled={inAction}
-                          className={`p-1.5 rounded group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7 ${account.activo ? "text-slate-400 hover:text-rose-600" : "text-slate-400 hover:emerald-600"}`}
+                          className={`p-1.5 rounded group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer h-7 w-7 ${account.active ? "text-slate-400 hover:text-rose-600" : "text-slate-400 hover:emerald-600"}`}
                         >
                           {inAction ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

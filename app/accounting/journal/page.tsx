@@ -64,7 +64,7 @@ export default function DailyBookPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listDailyBookEntries({ desde: from, hasta: to, page, pageSize });
+      const data = await listDailyBookEntries({ from: from, to: to, page, pageSize });
       if (request !== requestRef.current) return;
       setPageData(data);
     } catch (e) {
@@ -94,7 +94,7 @@ export default function DailyBookPage() {
     try {
       setExporting(true);
       await exportJournalEntriesToExcel({
-        filters: { desde: from, hasta: to },
+        filters: { from: from, to: to },
         journalTitle: "Libro Diario",
       });
     } finally {
@@ -159,7 +159,7 @@ export default function DailyBookPage() {
   const rows = pageData?.data ?? [];
   const meta = pageData?.meta;
   const total = meta?.total ?? 0;
-  const totalPages = meta?.totalPaginas ?? 1;
+  const totalPages = meta?.totalPages ?? 1;
 
   // Un rango invertido suspende la consulta: se muestra el aviso del filtro en
   // lugar de los datos del último periodo válido (todo se deriva del estado).

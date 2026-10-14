@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sesionActual } from "@/lib/auth/sesion-actual";
+import { currentSession } from "@/lib/auth/current-session";
 import { postCashSessionClosingJournalEntries } from "@/lib/services/accounting-posting.service";
 import { formatDenominationsSummary } from "@/lib/services/cash-register.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("caja.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("caja.editar");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const sessionId = Number.parseInt(idParam, 10);
@@ -29,8 +29,8 @@ export async function POST(
       return Response.json({ error: "ID de sesión inválido." }, { status: 400 });
     }
 
-    const sesion = await sesionActual().catch(() => null);
-    let userId = sesion?.idUsuario;
+    const session = await currentSession().catch(() => null);
+    let userId = session?.userId;
 
     if (userId) {
       const userExists = await prisma.user.findUnique({
@@ -45,7 +45,7 @@ export async function POST(
     if (!userId) {
       const fallbackUser =
         (await prisma.user.findFirst({
-          where: { estado: true },
+          where: { active: true },
           select: { id: true },
         })) ||
         (await prisma.user.findFirst({
@@ -55,8 +55,8 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const countedAmount = Math.max(0, Number(body.countedAmount ?? body.montoContado ?? 0));
-    let notesClosing = (body.notesClosing ?? body.observaciones ?? "").trim();
+    const countedAmount = Math.max(0, Number(body.countedAmount ?? 0));
+    let notesClosing = (body.notesClosing ?? body.observations ?? "").trim();
     const denominations = body.denominations;
 
     let denominationsSummary = "";

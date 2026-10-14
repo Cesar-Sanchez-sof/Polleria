@@ -18,7 +18,7 @@ import { getSupplies } from "@/lib/services/purchases/supply";
 import { getPurchaseOrders } from "@/lib/services/purchases/purchase-order";
 import { getPurchaseVouchers } from "@/lib/services/purchases/invoices";
 import { PurchaseOrderStatus } from "@prisma/client";
-import { exigirPermisoServidor } from "@/lib/auth/guard";
+import { requireServerPermission } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export const metadata = {
 };
 
 export default async function PurchasesDashboardPage() {
-   await exigirPermisoServidor("compras.ver");
+   await requireServerPermission("compras.ver");
   const [suppliers, supplies, orders, vouchers] = await Promise.all([
     getSuppliers().catch(() => []),
     getSupplies().catch(() => []),
@@ -44,7 +44,7 @@ export default async function PurchasesDashboardPage() {
       o.status === PurchaseOrderStatus.Pending ||
       o.status === PurchaseOrderStatus.PartiallyReceived
   ).length;
-  const pendingPaymentVouchers = vouchers.filter((c) => c.estadoPago !== "Pagado").length;
+  const pendingPaymentVouchers = vouchers.filter((c) => c.paymentStatus !== "Pagado").length;
 
   const modules = [
     {

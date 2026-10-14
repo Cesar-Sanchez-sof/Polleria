@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { exigirPermiso } from "@/lib/auth/permisos";
+import { requirePermission } from "@/lib/auth/permissions";
 
 export interface SupplierInput {
   documentType?: "RUC" | "DNI";
@@ -15,7 +15,7 @@ export interface SupplierInput {
 }
 
 export async function getSuppliers() {
-  await exigirPermiso(["proveedores.ver", "compras.ver"]);
+  await requirePermission(["proveedores.ver", "compras.ver"]);
   try {
     return await prisma.supplier.findMany({
       orderBy: { businessName: "asc" },
@@ -27,7 +27,7 @@ export async function getSuppliers() {
 }
 
 export async function createSupplier(data: SupplierInput) {
-  await exigirPermiso("proveedores.crear");
+  await requirePermission("proveedores.crear");
   const document = data.ruc ? data.ruc.trim() : "";
   if (!document || (document.length !== 8 && document.length !== 11)) {
     throw new Error("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
@@ -57,7 +57,7 @@ export async function createSupplier(data: SupplierInput) {
 }
 
 export async function updateSupplier(id: number, data: SupplierInput) {
-  await exigirPermiso("proveedores.editar");
+  await requirePermission("proveedores.editar");
   const document = data.ruc ? data.ruc.trim() : "";
   if (!document || (document.length !== 8 && document.length !== 11)) {
     throw new Error("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
@@ -97,7 +97,7 @@ export async function updateSupplier(id: number, data: SupplierInput) {
 }
 
 export async function setSupplierStatus(id: number, active: boolean) {
-  await exigirPermiso("proveedores.editar");
+  await requirePermission("proveedores.editar");
   return await prisma.supplier.update({
     where: { id },
     data: { active },

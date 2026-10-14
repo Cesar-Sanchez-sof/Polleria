@@ -3,7 +3,7 @@ import {
   ErrorIncomeStatement,
   getIncomeStatement,
 } from "@/lib/services/income-statement.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -62,14 +62,14 @@ export const dynamic = "force-dynamic";
  *               $ref: '#/components/schemas/Error'
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   const params = request.nextUrl.searchParams;
-  const desde = (params.get("desde") ?? "").trim();
-  const hasta = (params.get("hasta") ?? "").trim();
+  const from = (params.get("desde") ?? "").trim();
+  const to = (params.get("hasta") ?? "").trim();
 
   try {
-    const result = await getIncomeStatement({ startDate: desde, endDate: hasta });
+    const result = await getIncomeStatement({ startDate: from, endDate: to });
     return Response.json(result);
   } catch (error) {
     if (error instanceof ErrorIncomeStatement) {

@@ -7,25 +7,25 @@ import {
 } from "./general-ledger.service";
 
 const LEDGER_DATA: GeneralLedger = {
-  cuenta: { codigo: "101", nombre: "Caja", tipo: "Activo" },
-  saldoAnterior: 0,
-  saldoFinal: 118,
-  totales: { debe: 118, haber: 0, movimientos: 1 },
-  movimientos: [
+  account: { code: "101", name: "Caja", type: "Activo" },
+  previousBalance: 0,
+  finalBalance: 118,
+  totals: { debit: 118, credit: 0, movements: 1 },
+  movements: [
     {
       id: 71,
-      idAsiento: 7,
-      numero: "MISC/2025/06/0007",
-      fecha: "2025-06-18",
-      glosa: "Venta mostrador",
-      descripcion: "Cobro en efectivo",
-      modulo: "Facturas de cliente",
-      referencia: "Factura 001-461",
-      estado: "Registrado",
-      debe: 118,
-      haber: 0,
-      saldo: 118,
-      tipoSaldo: "deudor",
+      entryId: 7,
+      number: "MISC/2025/06/0007",
+      date: "2025-06-18",
+      entryDescription: "Venta mostrador",
+      description: "Cobro en efectivo",
+      module: "Facturas de cliente",
+      reference: "Factura 001-461",
+      status: "Registrado",
+      debit: 118,
+      credit: 0,
+      balance: 118,
+      balanceType: "deudor",
     },
   ],
 };
@@ -50,12 +50,12 @@ const fetchMock = vi.fn();
 
 describe("buildGeneralLedgerQuery (libro mayor)", () => {
   it("siempre envía la cuenta consultada", () => {
-    expect(buildGeneralLedgerQuery({ codigo: "101" })).toBe("codigo=101");
+    expect(buildGeneralLedgerQuery({ code: "101" })).toBe("codigo=101");
   });
 
   it("serializa el periodo completo", () => {
     const params = new URLSearchParams(
-      buildGeneralLedgerQuery({ codigo: "101", desde: "2025-05-01", hasta: "2025-06-30" })
+      buildGeneralLedgerQuery({ code: "101", from: "2025-05-01", to: "2025-06-30" })
     );
 
     expect(params.get("codigo")).toBe("101");
@@ -65,7 +65,7 @@ describe("buildGeneralLedgerQuery (libro mayor)", () => {
 
   it("omite los extremos de fecha vacíos", () => {
     const params = new URLSearchParams(
-      buildGeneralLedgerQuery({ codigo: "201", hasta: "2025-06-30" })
+      buildGeneralLedgerQuery({ code: "201", to: "2025-06-30" })
     );
 
     expect(params.get("desde")).toBeNull();
@@ -87,8 +87,8 @@ describe("getGeneralLedger", () => {
     fetchMock.mockResolvedValue(createJsonResponse(LEDGER_DATA));
 
     const result = await getGeneralLedger({
-      codigo: "101",
-      desde: "2025-05-01",
+      code: "101",
+      from: "2025-05-01",
     });
 
     expect(result).toEqual(LEDGER_DATA);
@@ -102,7 +102,7 @@ describe("getGeneralLedger", () => {
   it("consulta /api/general-ledger sólo con la cuenta cuando no hay periodo", async () => {
     fetchMock.mockResolvedValue(createJsonResponse(LEDGER_DATA));
 
-    await getGeneralLedger({ codigo: "101" });
+    await getGeneralLedger({ code: "101" });
 
     expect(fetchMock).toHaveBeenCalledWith("/api/general-ledger?codigo=101", { cache: "no-store" });
   });
@@ -113,7 +113,7 @@ describe("getGeneralLedger", () => {
     );
 
     const error = await catchApiError(
-      getGeneralLedger({ codigo: "101", desde: "2025-06-30", hasta: "2025-05-01" })
+      getGeneralLedger({ code: "101", from: "2025-06-30", to: "2025-05-01" })
     );
 
     expect(error).toBeInstanceOf(ApiError);

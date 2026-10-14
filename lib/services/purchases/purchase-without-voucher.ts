@@ -7,7 +7,7 @@ import {
   ExpenseCategory,
 } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
-import { exigirPermiso } from "@/lib/auth/permisos";
+import { requirePermission } from "@/lib/auth/permissions";
 
 export interface PurchaseWithoutVoucherInput {
   purchaseType?: InformalPurchaseType | "InventoryItem" | "OperatingExpense";
@@ -23,7 +23,7 @@ export interface PurchaseWithoutVoucherInput {
 }
 
 export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVoucherInput) {
-  await exigirPermiso("compras.crear");
+  await requirePermission("compras.crear");
   const purchaseType =
     (data.purchaseType as InformalPurchaseType) || InformalPurchaseType.InventoryItem;
 
@@ -67,7 +67,7 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
           reason: data.reason?.trim() || null,
           employeeId: validEmployeeId,
           supplyId: null,
-          anulado: false,
+          annulled: false,
         },
       });
 
@@ -92,7 +92,7 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
         reason: data.reason?.trim() || null,
         expenseCategory: null,
         itemDescription: null,
-        anulado: false,
+        annulled: false,
       },
     });
 
@@ -134,11 +134,11 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
 
 export async function annulInformalPurchase(
   id: number,
-  motivo: string,
+  reason: string,
   employeeId?: number
 ) {
-  await exigirPermiso("compras.eliminar");
-  if (!motivo || motivo.trim() === "") {
+  await requirePermission("compras.eliminar");
+  if (!reason || reason.trim() === "") {
     throw new Error("El motivo de anulación es obligatorio");
   }
 
@@ -152,7 +152,7 @@ export async function annulInformalPurchase(
       throw new Error("Compra menor no encontrada");
     }
 
-    if (purchase.anulado) {
+    if (purchase.annulled) {
       throw new Error("Esta compra ya está anulada");
     }
 
@@ -191,7 +191,7 @@ export async function annulInformalPurchase(
           movementType: InventoryMovementType.InformalPurchase,
           quantity: -purchaseQty,
           unitCost,
-          reason: `Anulación compra menor #${purchase.id}: ${motivo.trim()}`,
+          reason: `Anulación compra menor #${purchase.id}: ${reason.trim()}`,
         },
       });
 
@@ -206,10 +206,10 @@ export async function annulInformalPurchase(
     const updated = await tx.informalPurchase.update({
       where: { id },
       data: {
-        anulado: true,
-        anuladoAt: new Date(),
-        anuladoPor: validEmployeeId,
-        motivoAnulacion: motivo.trim(),
+        annulled: true,
+        annulledAt: new Date(),
+        annulledById: validEmployeeId,
+        annulmentReason: reason.trim(),
       },
     });
 
@@ -218,7 +218,7 @@ export async function annulInformalPurchase(
 }
 
 export async function getPurchasesWithoutVoucher() {
-  await exigirPermiso("compras.ver");
+  await requirePermission("compras.ver");
   try {
     const list = await prisma.informalPurchase.findMany({
       include: {

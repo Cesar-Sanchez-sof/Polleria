@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button";
 import { getPresetRange, shiftRange } from "./dashboard-utils";
 
 interface DashboardFiltersProps {
-  desde: string;
-  hasta: string;
-  onChange: (desde: string, hasta: string) => void;
+  from: string;
+  to: string;
+  onChange: (from: string, to: string) => void;
   onLast12Months: () => void;
   hasOpenPeriod: boolean;
   onOpenPeriod: () => void;
@@ -27,8 +27,8 @@ interface DashboardFiltersProps {
 }
 
 export function DashboardFilters({
-  desde,
-  hasta,
+  from,
+  to,
   onChange,
   onLast12Months,
   hasOpenPeriod,
@@ -39,12 +39,12 @@ export function DashboardFilters({
 }: Readonly<DashboardFiltersProps>) {
   const handlePreset = (preset: "current_month" | "previous_month" | "current_quarter" | "ytd" | "last_6_months") => {
     const range = getPresetRange(preset);
-    onChange(range.desde, range.hasta);
+    onChange(range.from, range.to);
   };
 
   const handleShift = (direction: "prev" | "next") => {
-    const range = shiftRange(desde, hasta, direction);
-    onChange(range.desde, range.hasta);
+    const range = shiftRange(from, to, direction);
+    onChange(range.from, range.to);
   };
 
   const handlePrint = () => {
@@ -90,16 +90,16 @@ export function DashboardFilters({
               <span className="font-medium text-muted-foreground">Desde:</span>
               <input
                 type="date"
-                value={desde}
-                onChange={(e) => onChange(e.target.value, hasta)}
+                value={from}
+                onChange={(e) => onChange(e.target.value, to)}
                 className="bg-transparent text-xs font-semibold text-foreground focus:outline-hidden cursor-pointer"
               />
               <span className="text-muted-foreground">—</span>
               <span className="font-medium text-muted-foreground">Hasta:</span>
               <input
                 type="date"
-                value={hasta}
-                onChange={(e) => onChange(desde, e.target.value)}
+                value={to}
+                onChange={(e) => onChange(from, e.target.value)}
                 className="bg-transparent text-xs font-semibold text-foreground focus:outline-hidden cursor-pointer"
               />
             </div>

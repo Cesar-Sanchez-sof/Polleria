@@ -113,12 +113,12 @@ describe("GET /api/accounts/[id] (detalle de una cuenta)", () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       id: 7,
-      codigo: "104",
-      nombre: "Bancos",
-      tipo: "Activo",
-      idPadre: null,
-      activo: true,
-      usos: 4,
+      code: "104",
+      name: "Bancos",
+      type: "Activo",
+      parentId: null,
+      active: true,
+      uses: 4,
     });
   });
 
@@ -167,14 +167,14 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   });
 
   it("actualiza sólo los campos enviados", async () => {
-    const response = await PATCH(createRequest({ nombre: "Caja chica general" }), {
+    const response = await PATCH(createRequest({ name: "Caja chica general" }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ id: ACCOUNT_ID, nombre: "Caja chica general" });
-    expect(body.codigo).toBe("101");
+    expect(body).toMatchObject({ id: ACCOUNT_ID, name: "Caja chica general" });
+    expect(body.code).toBe("101");
 
     expect(accountMock.update).toHaveBeenCalledTimes(1);
     expect(accountMock.update.mock.calls[0][0]).toMatchObject({
@@ -187,7 +187,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("renombra el código cuando sigue siendo único", async () => {
     setupScenario();
 
-    const response = await PATCH(createRequest({ codigo: "10101" }), {
+    const response = await PATCH(createRequest({ code: "10101" }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
 
@@ -205,7 +205,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       nodes: [createNode(1, null), createNode(2, 1), createNode(3, 1), createNode(4, 2)],
     });
 
-    const response = await PATCH(createRequest({ tipo: "Activo" }), {
+    const response = await PATCH(createRequest({ type: "Activo" }), {
       params: Promise.resolve({ id: "1" }),
     });
 
@@ -224,7 +224,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       nodes: [createNode(1, null), createNode(3, 1), createNode(5, null)],
     });
 
-    const response = await PATCH(createRequest({ idPadre: 5 }), {
+    const response = await PATCH(createRequest({ parentId: 5 }), {
       params: Promise.resolve({ id: "3" }),
     });
 
@@ -236,7 +236,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("permite convertir una cuenta en raíz quitando el padre", async () => {
     setupScenario({ account: createAccountRow(3, "101", { parentId: 1 }) });
 
-    const response = await PATCH(createRequest({ idPadre: null }), {
+    const response = await PATCH(createRequest({ parentId: null }), {
       params: Promise.resolve({ id: "3" }),
     });
 
@@ -248,20 +248,20 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("activa y desactiva cuentas", async () => {
     setupScenario({ account: createAccountRow(3, "101", { active: false, parentId: null }) });
 
-    const response = await PATCH(createRequest({ activo: true }), {
+    const response = await PATCH(createRequest({ active: true }), {
       params: Promise.resolve({ id: "3" }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.activo).toBe(true);
+    expect(body.active).toBe(true);
     expect(accountMock.update.mock.calls[0][0].data).toEqual({ active: true });
   });
 
   it("devuelve 409 si el código ya pertenece a otra cuenta", async () => {
     setupScenario({ duplicateCode: { id: 88 } });
 
-    const response = await PATCH(createRequest({ codigo: "104" }), {
+    const response = await PATCH(createRequest({ code: "104" }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
@@ -280,7 +280,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       })
     );
 
-    const response = await PATCH(createRequest({ codigo: "104" }), {
+    const response = await PATCH(createRequest({ code: "104" }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
@@ -292,13 +292,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("rechaza con 400 los datos inválidos sin tocar la base", async () => {
     setupScenario();
 
-    const response = await PATCH(createRequest({ nombre: "   " }), {
+    const response = await PATCH(createRequest({ name: "   " }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain("El nombre de la cuenta es obligatorio.");
+    expect(body.errors).toContain("El nombre de la cuenta es obligatorio.");
     expect(accountMock.update).not.toHaveBeenCalled();
   });
 
@@ -318,13 +318,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("no permite que una cuenta sea su propia padre", async () => {
     setupScenario();
 
-    const response = await PATCH(createRequest({ idPadre: ACCOUNT_ID }), {
+    const response = await PATCH(createRequest({ parentId: ACCOUNT_ID }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain("Una cuenta no puede ser su propia cuenta padre.");
+    expect(body.errors).toContain("Una cuenta no puede ser su propia cuenta padre.");
     expect(accountMock.update).not.toHaveBeenCalled();
   });
 
@@ -334,13 +334,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       nodes: [createNode(1, null), createNode(2, 1), createNode(3, 2)],
     });
 
-    const response = await PATCH(createRequest({ idPadre: 2 }), {
+    const response = await PATCH(createRequest({ parentId: 2 }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain(
+    expect(body.errors).toContain(
       "La cuenta padre no puede ser una subcuenta de la misma cuenta."
     );
     expect(accountMock.update).not.toHaveBeenCalled();
@@ -349,13 +349,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("rechaza mover la cuenta a un padre inexistente", async () => {
     setupScenario({ parent: null });
 
-    const response = await PATCH(createRequest({ idPadre: 404 }), {
+    const response = await PATCH(createRequest({ parentId: 404 }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain("La cuenta padre indicada no existe.");
+    expect(body.errors).toContain("La cuenta padre indicada no existe.");
   });
 
   it("rechaza mover la cuenta a un padre inactivo", async () => {
@@ -364,13 +364,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       nodes: [createNode(1, null), createNode(2, null)],
     });
 
-    const response = await PATCH(createRequest({ idPadre: 2 }), {
+    const response = await PATCH(createRequest({ parentId: 2 }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain(
+    expect(body.errors).toContain(
       "La cuenta padre está inactiva: actívala antes de mover la cuenta."
     );
   });
@@ -381,13 +381,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       nodes: [createNode(1, null), createNode(2, null)],
     });
 
-    const response = await PATCH(createRequest({ idPadre: 2 }), {
+    const response = await PATCH(createRequest({ parentId: 2 }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain(
+    expect(body.errors).toContain(
       "La subcuenta debe tener el mismo tipo que su cuenta padre (Pasivo)."
     );
   });
@@ -395,13 +395,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("no deja desactivar una cuenta con subcuentas activas", async () => {
     setupScenario({ activeChild: { id: 6 } });
 
-    const response = await PATCH(createRequest({ activo: false }), {
+    const response = await PATCH(createRequest({ active: false }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain(
+    expect(body.errors).toContain(
       "No se puede desactivar una cuenta con subcuentas activas: desactívalas primero."
     );
     expect(accountMock.update).not.toHaveBeenCalled();
@@ -413,13 +413,13 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
       parent: { id: 3, type: "Activo", active: false },
     });
 
-    const response = await PATCH(createRequest({ activo: true }), {
+    const response = await PATCH(createRequest({ active: true }), {
       params: Promise.resolve({ id: "6" }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain(
+    expect(body.errors).toContain(
       "No se puede activar una cuenta cuya cuenta padre está inactiva."
     );
     expect(accountMock.update).not.toHaveBeenCalled();
@@ -428,7 +428,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("responde 404 si la cuenta ya no existe", async () => {
     setupScenario({ account: null });
 
-    const response = await PATCH(createRequest({ nombre: "Nueva" }), {
+    const response = await PATCH(createRequest({ name: "Nueva" }), {
       params: Promise.resolve({ id: "9999" }),
     });
 
@@ -439,7 +439,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
   it("responde 400 si el identificador no es numérico", async () => {
     setupScenario();
 
-    const response = await PATCH(createRequest({ nombre: "Nueva" }), {
+    const response = await PATCH(createRequest({ name: "Nueva" }), {
       params: Promise.resolve({ id: "abc" }),
     });
 
@@ -451,7 +451,7 @@ describe("PATCH /api/accounts/[id] (editar cuenta contable)", () => {
     setupScenario();
     accountMock.update.mockRejectedValue(new Error("sin conexión"));
 
-    const response = await PATCH(createRequest({ nombre: "Nueva" }), {
+    const response = await PATCH(createRequest({ name: "Nueva" }), {
       params: Promise.resolve({ id: String(ACCOUNT_ID) }),
     });
     const body = await response.json();

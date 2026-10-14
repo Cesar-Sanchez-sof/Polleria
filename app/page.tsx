@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { exigirSesionServidor } from "@/lib/auth/guard";
+import { requireServerSession } from "@/lib/auth/guard";
 import {
   ArrowRight,
   BookOpen,
@@ -87,7 +87,7 @@ function formatToday(): string {
 }
 
 export default async function HomePage() {
-  await exigirSesionServidor();
+  await requireServerSession();
   const today = formatToday();
 
   return (

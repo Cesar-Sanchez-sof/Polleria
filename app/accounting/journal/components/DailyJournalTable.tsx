@@ -164,60 +164,60 @@ export function DailyJournalTable({
                   title="Ver detalle del asiento"
                 >
                   <TableCell
-                    rowSpan={entry.lineas.length + 1}
+                    rowSpan={entry.lines.length + 1}
                     className="py-3 px-3 align-top tabular-nums font-medium text-slate-800 border-r border-slate-100"
                   >
-                    {formatDate(entry.fecha)}
+                    {formatDate(entry.date)}
                   </TableCell>
                   <TableCell
-                    rowSpan={entry.lineas.length + 1}
+                    rowSpan={entry.lines.length + 1}
                     className="py-3 px-3 align-top font-semibold text-red-700 border-r border-slate-100"
                   >
                     <span className="inline-flex items-center gap-1.5">
-                      {entry.numero}
+                      {entry.number}
                       <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity" />
                     </span>
                   </TableCell>
                   <TableCell
-                    rowSpan={entry.lineas.length + 1}
+                    rowSpan={entry.lines.length + 1}
                     className="py-3 px-3 align-top text-slate-700 text-xs max-w-64 border-r border-slate-100"
                   >
-                    <span className="line-clamp-2">{entry.concepto}</span>
+                    <span className="line-clamp-2">{entry.concept}</span>
                     <span className="block text-[10px] text-slate-400 mt-1">
-                      {entry.diario}
+                      {entry.daily}
                     </span>
                   </TableCell>
                   <TableCell colSpan={2} className="py-3 px-3 text-right">
                     <span className="inline-flex items-center gap-2">
                       <span className="text-[11px] text-slate-400">
-                        {entry.lineas.length} cuenta
-                        {entry.lineas.length === 1 ? "" : "s"}
+                        {entry.lines.length} cuenta
+                        {entry.lines.length === 1 ? "" : "s"}
                       </span>
                       <Badge
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${entry.estado === "Registrado" ? "bg-emerald-100/80 text-emerald-700" : "bg-rose-100/80 text-rose-700"}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${entry.status === "Registrado" ? "bg-emerald-100/80 text-emerald-700" : "bg-rose-100/80 text-rose-700"}`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${entry.estado === "Registrado" ? "bg-emerald-600" : "bg-rose-600"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${entry.status === "Registrado" ? "bg-emerald-600" : "bg-rose-600"}`}
                         ></span>
-                        {entry.estado}
+                        {entry.status}
                       </Badge>
                       <Badge
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${entry.cuadrado ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none ${entry.balanced ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
                       >
-                        {entry.cuadrado ? "Cuadrado" : "Descuadre"}
+                        {entry.balanced ? "Cuadrado" : "Descuadre"}
                       </Badge>
                     </span>
                   </TableCell>
                   <TableCell className="py-3 px-3 text-right tabular-nums font-bold text-slate-900">
-                    {formatCurrency(entry.totales.debe)}
+                    {formatCurrency(entry.totals.debit)}
                   </TableCell>
                   <TableCell className="py-3 px-3 text-right tabular-nums font-bold text-slate-900">
-                    {formatCurrency(entry.totales.haber)}
+                    {formatCurrency(entry.totals.credit)}
                   </TableCell>
                 </TableRow>
 
                 {/* Líneas del asiento: cuenta, descripción e importe (C03, C04) */}
-                {entry.lineas.map((line) => (
+                {entry.lines.map((line) => (
                   <TableRow
                     key={line.id}
                     onClick={() => onOpenDetail(entry.id)}
@@ -226,20 +226,20 @@ export function DailyJournalTable({
                   >
                     <TableCell className="py-2.5 px-3 align-top">
                       <span className="font-bold text-red-700 tabular-nums">
-                        {line.cuentaCodigo}
+                        {line.accountCode}
                       </span>
                       <span className="block text-xs text-slate-600">
-                        {line.cuentaNombre}
+                        {line.accountName}
                       </span>
                     </TableCell>
                     <TableCell className="py-2.5 px-3 text-slate-700 text-xs align-top">
-                      {line.descripcion || "—"}
+                      {line.description || "—"}
                     </TableCell>
                     <TableCell className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900 align-top">
-                      {line.debe > 0 ? formatCurrency(line.debe) : ""}
+                      {line.debit > 0 ? formatCurrency(line.debit) : ""}
                     </TableCell>
                     <TableCell className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900 align-top">
-                      {line.haber > 0 ? formatCurrency(line.haber) : ""}
+                      {line.credit > 0 ? formatCurrency(line.credit) : ""}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -233,14 +233,14 @@ export default function TablesManagementPage() {
 
   const metrics = useMemo(() => {
     const total = tables.length;
-    const ocupadas = tables.filter((t) => t.active && t.occupied).length;
-    const disponibles = tables.filter((t) => t.active && !t.occupied).length;
-    const inactivas = tables.filter((t) => !t.active).length;
-    const capacidadTotal = tables
+    const occupied = tables.filter((t) => t.active && t.occupied).length;
+    const available = tables.filter((t) => t.active && !t.occupied).length;
+    const inactive = tables.filter((t) => !t.active).length;
+    const totalCapacity = tables
       .filter((t) => t.active)
       .reduce((sum, t) => sum + t.capacity, 0);
 
-    return { total, ocupadas, disponibles, inactivas, capacidadTotal };
+    return { total, occupied, available, inactive, totalCapacity };
   }, [tables]);
 
   return (
@@ -295,7 +295,7 @@ export default function TablesManagementPage() {
                 Mesas Disponibles
               </p>
               <p className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">
-                {metrics.disponibles}
+                {metrics.available}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center">
@@ -309,7 +309,7 @@ export default function TablesManagementPage() {
                 Mesas Ocupadas
               </p>
               <p className="text-xl sm:text-2xl font-extrabold text-rose-700 dark:text-rose-400 mt-0.5">
-                {metrics.ocupadas}
+                {metrics.occupied}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 flex items-center justify-center">
@@ -323,7 +323,7 @@ export default function TablesManagementPage() {
                 Aforo Salón (Sillas)
               </p>
               <p className="text-xl sm:text-2xl font-extrabold text-blue-700 dark:text-blue-400 mt-0.5">
-                {metrics.capacidadTotal}
+                {metrics.totalCapacity}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 flex items-center justify-center">

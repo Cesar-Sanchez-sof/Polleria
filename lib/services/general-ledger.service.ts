@@ -13,46 +13,46 @@ export { ApiError };
 
 export interface GeneralLedgerFilter {
   /** Account code (mandatory). */
-  codigo: string;
+  code: string;
   /** Start date (YYYY-MM-DD, inclusive). */
-  desde?: string;
+  from?: string;
   /** End date (YYYY-MM-DD, inclusive). */
-  hasta?: string;
+  to?: string;
 }
 
 export type BalanceType = "deudor" | "acreedor" | null;
 
 export interface GeneralLedgerMovement {
   id: number;
-  idAsiento: number;
-  numero: string;
-  fecha: string;
-  glosa: string;
-  descripcion: string;
-  modulo: string;
-  referencia: string | null;
-  estado: "Registrado" | "Anulado";
-  debe: number;
-  haber: number;
-  saldo: number;
-  tipoSaldo: BalanceType;
+  entryId: number;
+  number: string;
+  date: string;
+  entryDescription: string;
+  description: string;
+  module: string;
+  reference: string | null;
+  status: "Registrado" | "Anulado";
+  debit: number;
+  credit: number;
+  balance: number;
+  balanceType: BalanceType;
 }
 
 export interface GeneralLedger {
-  cuenta: { codigo: string; nombre: string; tipo: string };
-  saldoAnterior: number;
-  saldoFinal: number;
-  totales: { debe: number; haber: number; movimientos: number };
-  movimientos: GeneralLedgerMovement[];
+  account: { code: string; name: string; type: string };
+  previousBalance: number;
+  finalBalance: number;
+  totals: { debit: number; credit: number; movements: number };
+  movements: GeneralLedgerMovement[];
 }
 
 /** Serializes filter to query string, omitting empty values. */
 export function buildGeneralLedgerQuery(filters: GeneralLedgerFilter): string {
   const params = new URLSearchParams();
 
-  params.set("codigo", filters.codigo);
-  if (filters.desde) params.set("desde", filters.desde);
-  if (filters.hasta) params.set("hasta", filters.hasta);
+  params.set("codigo", filters.code);
+  if (filters.from) params.set("desde", filters.from);
+  if (filters.to) params.set("hasta", filters.to);
 
   return params.toString();
 }

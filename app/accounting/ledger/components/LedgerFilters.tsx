@@ -75,11 +75,11 @@ export function LedgerFilters({
             </SelectTrigger>
             <SelectContent>
               {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.codigo} className="text-xs">
+                <SelectItem key={account.id} value={account.code} className="text-xs">
                   <span className="font-bold text-red-700 tabular-nums">
-                    {account.codigo}
+                    {account.code}
                   </span>
-                  <span className="text-slate-600"> · {account.nombre}</span>
+                  <span className="text-slate-600"> · {account.name}</span>
                 </SelectItem>
               ))}
             </SelectContent>

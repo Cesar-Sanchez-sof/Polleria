@@ -6,13 +6,13 @@ import {
   deleteDiningArea,
   type DiningArea,
 } from "@/lib/services/restaurant-config.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await autorizar(["configuracion.ver", "mesas.ver", "pedidos.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["configuracion.ver", "mesas.ver", "pedidos.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const areas = listDiningAreas();
 
@@ -52,8 +52,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("configuracion.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("configuracion.editar");
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || !body.name || typeof body.name !== "string") {
@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await autorizar("configuracion.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("configuracion.editar");
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || !body.id) {
@@ -106,8 +106,8 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await autorizar("configuracion.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("configuracion.editar");
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

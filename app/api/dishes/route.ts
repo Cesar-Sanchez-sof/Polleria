@@ -5,7 +5,7 @@ import { getDishStock, setDishStock } from "@/lib/services/redis-stock.service";
 export const dynamic = "force-dynamic";
 
 import { determineCategory, isBeverage } from "@/lib/utils/dish-category";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 export { determineCategory, isBeverage };
 
 /**
@@ -21,8 +21,8 @@ export { determineCategory, isBeverage };
  *     summary: Registrar nuevo plato con vinculación de ingredientes y recetas
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["platos.ver", "pedidos.crear", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["platos.ver", "pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const q = (searchParams.get("q") ?? "").trim().toLowerCase();
@@ -112,16 +112,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("platos.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("platos.crear");
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => ({}));
-    const name = (body.name || body.nombre || "").trim();
-    const description = (body.description || body.descripcion || "").trim();
-    const price = Number(body.price ?? body.precio);
+    const name = (body.name || "").trim();
+    const description = (body.description || body.description || "").trim();
+    const price = Number(body.price);
     const initialStock = body.stock !== undefined ? Number(body.stock) : 50;
-    const ingredients = Array.isArray(body.ingredients ?? body.receta ?? body.recipes)
-      ? (body.ingredients ?? body.receta ?? body.recipes)
+    const ingredients = Array.isArray(body.ingredients ?? body.recipe ?? body.recipes)
+      ? (body.ingredients ?? body.recipe ?? body.recipes)
       : [];
 
     if (!name) {
@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
       // Si se vincularon ingredientes/insumos
       if (ingredients.length > 0) {
         for (const item of ingredients) {
-          const supplyId = Number(item.supplyId ?? item.id_insumo);
-          const quantityRequired = Number(item.quantityRequired ?? item.cantidad);
+          const supplyId = Number(item.supplyId ?? item.supply_id);
+          const quantityRequired = Number(item.quantityRequired ?? item.quantity);
 
           if (supplyId && quantityRequired > 0) {
             await tx.dishRecipe.create({

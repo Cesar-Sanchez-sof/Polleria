@@ -437,8 +437,8 @@ describe("Modulo Compras Services", () => {
         .mockResolvedValueOnce({ id: 2, currentStock: 0 });
 
       await registerTransformation({
-        consumos: [{ supplyId: 1, quantity: 5 }],
-        producidos: [{ supplyId: 2, quantity: 4 }],
+        consumptions: [{ supplyId: 1, quantity: 5 }],
+        produced: [{ supplyId: 2, quantity: 4 }],
       });
 
       expect(prisma.supply.update).toHaveBeenCalledWith({
@@ -610,7 +610,7 @@ describe("Modulo Compras Services", () => {
     it("debe anular una transformación exitosamente revirtiendo stock con movimientos inversos", async () => {
       (prisma.transformation.findUnique as any).mockResolvedValue({
         id: 10,
-        anulado: false,
+        annulled: false,
         items: [
           {
             id: 101,
@@ -636,14 +636,14 @@ describe("Modulo Compras Services", () => {
 
       (prisma.transformation.update as any).mockResolvedValue({
         id: 10,
-        anulado: true,
-        motivoAnulacion: "Error de cantidad",
+        annulled: true,
+        annulmentReason: "Error de cantidad",
       });
 
       const res = await annulTransformation(10, "Error de cantidad", 1);
 
       expect(res.id).toBe(10);
-      expect(res.anulado).toBe(true);
+      expect(res.annulled).toBe(true);
 
       // 1. Reversión consumo: devolver materia prima (TransformationIn, quantity: 5)
       expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
@@ -686,8 +686,8 @@ describe("Modulo Compras Services", () => {
         expect.objectContaining({
           where: { id: 10 },
           data: expect.objectContaining({
-            anulado: true,
-            motivoAnulacion: "Error de cantidad",
+            annulled: true,
+            annulmentReason: "Error de cantidad",
           }),
         })
       );
@@ -696,7 +696,7 @@ describe("Modulo Compras Services", () => {
     it("debe rechazar anulación si el stock del producto terminado es insuficiente", async () => {
       (prisma.transformation.findUnique as any).mockResolvedValue({
         id: 10,
-        anulado: false,
+        annulled: false,
         items: [
           {
             id: 101,
@@ -727,7 +727,7 @@ describe("Modulo Compras Services", () => {
     it("debe rechazar anulación si ya está anulada", async () => {
       (prisma.transformation.findUnique as any).mockResolvedValue({
         id: 10,
-        anulado: true,
+        annulled: true,
         items: [],
       });
 
@@ -767,7 +767,7 @@ describe("Modulo Compras Services", () => {
             supplyId: 1,
             quantity: 5,
             amountPaid: 50,
-            anulado: false,
+            annulled: false,
           }),
         })
       );
@@ -882,7 +882,7 @@ describe("Modulo Compras Services", () => {
         supplyId: 1,
         quantity: 5,
         amountPaid: 50,
-        anulado: false,
+        annulled: false,
       });
       (prisma.supply.findUnique as any).mockResolvedValue({
         id: 1,
@@ -890,12 +890,12 @@ describe("Modulo Compras Services", () => {
       });
       (prisma.informalPurchase.update as any).mockResolvedValue({
         id: 101,
-        anulado: true,
+        annulled: true,
       });
 
       const res = await annulInformalPurchase(101, "Error de tipeo");
 
-      expect(res.anulado).toBe(true);
+      expect(res.annulled).toBe(true);
       expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -914,8 +914,8 @@ describe("Modulo Compras Services", () => {
         expect.objectContaining({
           where: { id: 101 },
           data: expect.objectContaining({
-            anulado: true,
-            motivoAnulacion: "Error de tipeo",
+            annulled: true,
+            annulmentReason: "Error de tipeo",
           }),
         })
       );
@@ -928,7 +928,7 @@ describe("Modulo Compras Services", () => {
         supplyId: 1,
         quantity: 10,
         amountPaid: 100,
-        anulado: false,
+        annulled: false,
       });
       (prisma.supply.findUnique as any).mockResolvedValue({
         id: 1,
@@ -946,24 +946,24 @@ describe("Modulo Compras Services", () => {
         purchaseType: InformalPurchaseType.OperatingExpense,
         supplyId: null,
         amountPaid: 300,
-        anulado: false,
+        annulled: false,
       });
       (prisma.informalPurchase.update as any).mockResolvedValue({
         id: 102,
-        anulado: true,
+        annulled: true,
       });
 
       const res = await annulInformalPurchase(102, "Evento cancelado");
 
-      expect(res.anulado).toBe(true);
+      expect(res.annulled).toBe(true);
       expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
       expect(prisma.supply.update).not.toHaveBeenCalled();
       expect(prisma.informalPurchase.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 102 },
           data: expect.objectContaining({
-            anulado: true,
-            motivoAnulacion: "Evento cancelado",
+            annulled: true,
+            annulmentReason: "Evento cancelado",
           }),
         })
       );
@@ -976,7 +976,7 @@ describe("Modulo Compras Services", () => {
 
       (prisma.informalPurchase.findUnique as any).mockResolvedValue({
         id: 101,
-        anulado: true,
+        annulled: true,
       });
 
       await expect(

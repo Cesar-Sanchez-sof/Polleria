@@ -105,7 +105,7 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(accountFindUniqueMock).toHaveBeenCalledWith({ where: { code: "101" } });
-    expect(body.cuenta).toEqual({ codigo: "101", nombre: "Caja", tipo: "Activo" });
+    expect(body.account).toEqual({ code: "101", name: "Caja", type: "Activo" });
   });
 
   it("consulta los movimientos ordenados cronológicamente (C03)", async () => {
@@ -131,13 +131,13 @@ describe("GET /api/general-ledger (libro mayor)", () => {
 
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(body.movimientos[0]).toMatchObject({
+    expect(body.movements[0]).toMatchObject({
       id: 71,
-      idAsiento: 3,
-      numero: "MISC/2025/06/0003",
-      fecha: "2025-06-18",
-      glosa: "Venta mostrador",
-      descripcion: "Cobro en efectivo",
+      entryId: 3,
+      number: "MISC/2025/06/0003",
+      date: "2025-06-18",
+      entryDescription: "Venta mostrador",
+      description: "Cobro en efectivo",
     });
   });
 
@@ -150,7 +150,7 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(
-      body.movimientos.map((m: { debe: number; haber: number }) => [m.debe, m.haber])
+      body.movements.map((m: { debit: number; credit: number }) => [m.debit, m.credit])
     ).toEqual([
       [118, 0],
       [0, 118],
@@ -166,14 +166,14 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(
-      body.movimientos.map(
-        (m: { saldo: number; tipoSaldo: string | null }) => [m.saldo, m.tipoSaldo]
+      body.movements.map(
+        (m: { balance: number; balanceType: string | null }) => [m.balance, m.balanceType]
       )
     ).toEqual([
       [118, "deudor"],
       [-82, "acreedor"],
     ]);
-    expect(body.saldoFinal).toBe(-82);
+    expect(body.finalBalance).toBe(-82);
   });
 
   it("parte del saldo anterior al periodo cuando se filtra (C08, C09)", async () => {
@@ -192,9 +192,9 @@ describe("GET /api/general-ledger (libro mayor)", () => {
         },
       })
     );
-    expect(body.saldoAnterior).toBe(150);
-    expect(body.movimientos[0].saldo).toBe(200);
-    expect(body.saldoFinal).toBe(200);
+    expect(body.previousBalance).toBe(150);
+    expect(body.movements[0].balance).toBe(200);
+    expect(body.finalBalance).toBe(200);
   });
 
   it("toma el saldo anterior en 0 cuando no hay fecha inicial (C08)", async () => {
@@ -203,8 +203,8 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(detailAggregateMock).not.toHaveBeenCalled();
-    expect(body.saldoAnterior).toBe(0);
-    expect(body.movimientos[0].saldo).toBe(40);
+    expect(body.previousBalance).toBe(0);
+    expect(body.movements[0].balance).toBe(40);
   });
 
   it("filtra por el periodo indicado, inclusive en ambos extremos (C09, C10)", async () => {
@@ -231,8 +231,8 @@ describe("GET /api/general-ledger (libro mayor)", () => {
 
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(body.totales).toEqual({ debe: 120, haber: 60, movimientos: 3 });
-    expect(body.saldoFinal).toBe(60);
+    expect(body.totals).toEqual({ debit: 120, credit: 60, movements: 3 });
+    expect(body.finalBalance).toBe(60);
   });
 
   it("incluye el módulo y la referencia de la operación origen (C12)", async () => {
@@ -275,10 +275,10 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
     expect(
-      body.movimientos.map(
-        (m: { modulo: string; referencia: string | null }) => [
-          m.modulo,
-          m.referencia,
+      body.movements.map(
+        (m: { module: string; reference: string | null }) => [
+          m.module,
+          m.reference,
         ]
       )
     ).toEqual([
@@ -298,9 +298,9 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.movimientos).toEqual([]);
-    expect(body.totales).toEqual({ debe: 0, haber: 0, movimientos: 0 });
-    expect(body.saldoFinal).toBe(body.saldoAnterior);
+    expect(body.movements).toEqual([]);
+    expect(body.totals).toEqual({ debit: 0, credit: 0, movements: 0 });
+    expect(body.finalBalance).toBe(body.previousBalance);
   });
 
   it("marca como Anulado un movimiento de asiento anulado", async () => {
@@ -308,7 +308,7 @@ describe("GET /api/general-ledger (libro mayor)", () => {
 
     const body = await (await GET(createRequest("?codigo=101"))).json();
 
-    expect(body.movimientos[0].estado).toBe("Anulado");
+    expect(body.movements[0].status).toBe("Anulado");
   });
 
   it("rechaza una fecha con formato inválido (C09)", async () => {

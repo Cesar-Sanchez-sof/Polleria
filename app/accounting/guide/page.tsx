@@ -583,17 +583,17 @@ export default function AccountingGuidePage() {
                     {/* Líneas del Asiento */}
                     <div className="flex flex-col gap-2">
                       {entry.lines.map((line, idx) => {
-                        const isDebe = line.side === "DEBE";
+                        const isDebit = line.side === "DEBE";
                         return (
                           <div
                             key={idx}
-                            className={`flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2.5 rounded-xl p-2.5 transition-colors ${isDebe
+                            className={`flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2.5 rounded-xl p-2.5 transition-colors ${isDebit
                               ? "bg-emerald-500/5 border border-emerald-500/15"
                               : "bg-blue-500/5 border border-blue-500/15 sm:ml-5"
                               }`}
                           >
                             <span
-                              className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-black shrink-0 tracking-wider ${isDebe
+                              className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-black shrink-0 tracking-wider ${isDebit
                                 ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                                 : "bg-blue-500/20 text-blue-700 dark:text-blue-300"
                                 }`}

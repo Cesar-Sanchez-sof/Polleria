@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -40,8 +40,8 @@ function roundToTwo(value: number): number {
  * with running balance and period totals.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = (searchParams.get("codigo") ?? "").trim();
@@ -141,35 +141,35 @@ export async function GET(request: NextRequest) {
 
       return {
         id: detail.id,
-        idAsiento: entry.id,
-        numero: entry.code,
-        fecha: formatDateToIso(entry.entryDate),
-        glosa: entry.description,
-        descripcion: detail.description ?? "",
-        modulo: entry.book,
-        referencia: getEntryReference(entry),
-        estado: entry.status ? ("Registrado" as const) : ("Anulado" as const),
-        debe: debit,
-        haber: credit,
-        saldo: currentBalance,
-        tipoSaldo: currentBalance > 0.004 ? ("deudor" as const) : currentBalance < -0.004 ? ("acreedor" as const) : null,
+        entryId: entry.id,
+        number: entry.code,
+        date: formatDateToIso(entry.entryDate),
+        entryDescription: entry.description,
+        description: detail.description ?? "",
+        module: entry.book,
+        reference: getEntryReference(entry),
+        status: entry.status ? ("Registrado" as const) : ("Anulado" as const),
+        debit: debit,
+        credit: credit,
+        balance: currentBalance,
+        balanceType: currentBalance > 0.004 ? ("deudor" as const) : currentBalance < -0.004 ? ("acreedor" as const) : null,
       };
     });
 
-    const totalDebit = roundToTwo(movements.reduce((sum, m) => sum + m.debe, 0));
-    const totalCredit = roundToTwo(movements.reduce((sum, m) => sum + m.haber, 0));
+    const totalDebit = roundToTwo(movements.reduce((sum, m) => sum + m.debit, 0));
+    const totalCredit = roundToTwo(movements.reduce((sum, m) => sum + m.credit, 0));
     const finalBalance = roundToTwo(priorBalance + totalDebit - totalCredit);
 
     return Response.json({
-      cuenta: {
-        codigo: account.code,
-        nombre: account.name,
-        tipo: account.type,
+      account: {
+        code: account.code,
+        name: account.name,
+        type: account.type,
       },
-      saldoAnterior: roundToTwo(priorBalance),
-      saldoFinal: finalBalance,
-      totales: { debe: totalDebit, haber: totalCredit, movimientos: movements.length },
-      movimientos: movements,
+      previousBalance: roundToTwo(priorBalance),
+      finalBalance: finalBalance,
+      totals: { debit: totalDebit, credit: totalCredit, movements: movements.length },
+      movements: movements,
     });
   } catch (error) {
     console.error("[api/general-ledger] error al obtener el libro mayor:", error);

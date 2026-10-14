@@ -90,13 +90,13 @@ export function LedgerTable({
   onRetry,
   onClearFilters,
 }: Readonly<Props>) {
-  const movements = ledger?.movimientos ?? [];
+  const movements = ledger?.movements ?? [];
 
   const skeleton = loading && !ledger && !error;
   const noRecords =
     !error && !loading && !noAccountMessage && ledger !== null && movements.length === 0;
   const noAccountState = !error && !loading && noAccountMessage !== null;
-  const hasPreviousBalance = ledger !== null && Math.abs(ledger.saldoAnterior) >= 0.005;
+  const hasPreviousBalance = ledger !== null && Math.abs(ledger.previousBalance) >= 0.005;
 
   return (
     <div className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && ledger ? "opacity-60" : ""}`}>
@@ -104,16 +104,16 @@ export function LedgerTable({
       {ledger && (
         <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 dark:bg-slate-800/70 rounded-lg px-3 py-2.5 mb-3">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Account</span>
-          <span className="text-sm font-bold text-red-700 tabular-nums">{ledger.cuenta.codigo}</span>
-          <span className="text-sm font-semibold text-slate-900">{ledger.cuenta.nombre}</span>
+          <span className="text-sm font-bold text-red-700 tabular-nums">{ledger.account.code}</span>
+          <span className="text-sm font-semibold text-slate-900">{ledger.account.name}</span>
           <Badge className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none bg-slate-100 text-slate-600">
-            {ledger.cuenta.tipo}
+            {ledger.account.type}
           </Badge>
           <span className="ml-auto text-xs text-slate-500">
-            <span className="tabular-nums font-semibold text-slate-900">{ledger.totales.movimientos}</span>{" "}
-            movement{ledger.totales.movimientos === 1 ? "" : "s"} · Final balance:{" "}
-            <span className={`block tabular-nums font-semibold ${ledger.saldoFinal < 0 ? "text-rose-600" : "text-slate-900"}`}>
-              {formatCurrency(ledger.saldoFinal)}
+            <span className="tabular-nums font-semibold text-slate-900">{ledger.totals.movements}</span>{" "}
+            movement{ledger.totals.movements === 1 ? "" : "s"} · Final balance:{" "}
+            <span className={`block tabular-nums font-semibold ${ledger.finalBalance < 0 ? "text-rose-600" : "text-slate-900"}`}>
+              {formatCurrency(ledger.finalBalance)}
             </span>
           </span>
         </div>
@@ -202,38 +202,38 @@ export function LedgerTable({
               <TableCell colSpan={4} className="py-2.5 px-3 text-xs font-semibold text-slate-500 italic">Balance before period</TableCell>
               <TableCell className="py-2.5 px-3" />
               <TableCell className="py-2.5 px-3" />
-              <Balance value={ledger!.saldoAnterior} type={ledger!.saldoAnterior > 0 ? "deudor" : "acreedor"} />
+              <Balance value={ledger!.previousBalance} type={ledger!.previousBalance > 0 ? "deudor" : "acreedor"} />
             </TableRow>
           )}
 
           {/* Chronological movements */}
-          {!error && !noAccountMessage && movements.map((mov) => (
-            <TableRow key={mov.id} onClick={() => onOpenDetail(mov.idAsiento)} className="hover:bg-(--color-background) transition-colors cursor-pointer group" title="View entry detail">
-              <TableCell className="py-2.5 px-3 align-top tabular-nums font-medium text-slate-800">{formatDate(mov.fecha)}</TableCell>
+          {!error && !noAccountMessage && movements.map((movement) => (
+            <TableRow key={movement.id} onClick={() => onOpenDetail(movement.entryId)} className="hover:bg-(--color-background) transition-colors cursor-pointer group" title="View entry detail">
+              <TableCell className="py-2.5 px-3 align-top tabular-nums font-medium text-slate-800">{formatDate(movement.date)}</TableCell>
               <TableCell className="py-2.5 px-3 align-top">
                 <span className="inline-flex items-center gap-1.5 font-semibold text-red-700">
-                  {mov.numero}
+                  {movement.number}
                   <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity" />
                 </span>
-                {mov.estado === "Anulado" && (
+                {movement.status === "Anulado" && (
                   <span className="mt-1 inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">Cancelled</span>
                 )}
               </TableCell>
               <TableCell className="py-2.5 px-3 text-slate-700 text-xs align-top max-w-72">
-                <span className="line-clamp-2">{mov.descripcion || mov.glosa}</span>
-                {mov.descripcion && mov.glosa && mov.descripcion !== mov.glosa && (
-                  <span className="block text-[10px] text-slate-400 mt-0.5 line-clamp-1">{mov.glosa}</span>
+                <span className="line-clamp-2">{movement.description || movement.entryDescription}</span>
+                {movement.description && movement.entryDescription && movement.description !== movement.entryDescription && (
+                  <span className="block text-[10px] text-slate-400 mt-0.5 line-clamp-1">{movement.entryDescription}</span>
                 )}
               </TableCell>
               <TableCell className="py-2.5 px-3 text-xs align-top">
-                <span className="text-slate-700">{mov.modulo}</span>
-                {mov.referencia && (
-                  <span className="block text-[10px] text-slate-400 mt-0.5">{mov.referencia}</span>
+                <span className="text-slate-700">{movement.module}</span>
+                {movement.reference && (
+                  <span className="block text-[10px] text-slate-400 mt-0.5">{movement.reference}</span>
                 )}
               </TableCell>
-              <Amount value={mov.debe} />
-              <Amount value={mov.haber} />
-              <Balance value={mov.saldo} type={mov.tipoSaldo} />
+              <Amount value={movement.debit} />
+              <Amount value={movement.credit} />
+              <Balance value={movement.balance} type={movement.balanceType} />
             </TableRow>
           ))}
 
@@ -241,16 +241,16 @@ export function LedgerTable({
           {ledger && movements.length > 0 && !error && (
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 font-bold">
               <TableCell colSpan={4} className="py-3 px-3 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Total of consulted movements (<span className="tabular-nums">{ledger.totales.movimientos}</span>)
+                Total of consulted movements (<span className="tabular-nums">{ledger.totals.movements}</span>)
               </TableCell>
-              <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totales.debe)}</TableCell>
-              <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totales.haber)}</TableCell>
+              <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.debit)}</TableCell>
+              <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.credit)}</TableCell>
               <TableCell className="py-3 px-3 text-right align-top">
-                <span className={`block tabular-nums font-bold ${ledger.saldoFinal < 0 ? "text-rose-600" : "text-slate-900"}`}>
-                  {formatCurrency(ledger.saldoFinal)}
+                <span className={`block tabular-nums font-bold ${ledger.finalBalance < 0 ? "text-rose-600" : "text-slate-900"}`}>
+                  {formatCurrency(ledger.finalBalance)}
                 </span>
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">
-                  {ledger.saldoFinal > 0.004 ? "Debtor" : ledger.saldoFinal < -0.004 ? "Creditor" : ""}
+                  {ledger.finalBalance > 0.004 ? "Debtor" : ledger.finalBalance < -0.004 ? "Creditor" : ""}
                 </span>
               </TableCell>
             </TableRow>

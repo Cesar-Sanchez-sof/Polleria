@@ -10,20 +10,20 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { auditLog: { create: m.create, count: m.count, findMany: m.findMany } },
 }));
 
-import { construirFiltro, listarAuditoria, registrarAuditoria, sanearDetalles } from "./audit.service";
+import { buildFilter, listAudit, logAudit, sanitizeDetails } from "./audit.service";
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("registrarAuditoria", () => {
   it("guarda usuario, acción, módulo, entidad y detalle", async () => {
-    await registrarAuditoria({
+    await logAudit({
       actor: { userId: 3, username: "andy" },
       action: "CREATE",
       module: "Usuarios",
       entity: "Usuario",
       entityId: 9,
       description: "Creó el usuario ana",
-      details: { despues: { username: "ana" } },
+      details: { after: { username: "ana" } },
       ipAddress: "10.0.0.1",
     });
     expect(m.create).toHaveBeenCalledWith({
@@ -35,7 +35,7 @@ describe("registrarAuditoria", () => {
         entity: "Usuario",
         entityId: "9",
         ipAddress: "10.0.0.1",
-        details: { despues: { username: "ana" } },
+        details: { after: { username: "ana" } },
       }),
     });
   });
@@ -44,26 +44,26 @@ describe("registrarAuditoria", () => {
     m.create.mockRejectedValueOnce(new Error("db caída"));
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
-      registrarAuditoria({ actor: null, action: "LOGIN_FAILED", module: "Seguridad", entity: "Sesión", description: "x" }),
+      logAudit({ actor: null, action: "LOGIN_FAILED", module: "Seguridad", entity: "Sesión", description: "x" }),
     ).resolves.toBeUndefined();
     m.create.mockResolvedValueOnce({});
-    await registrarAuditoria({ actor: null, action: "LOGOUT", module: "Seguridad", entity: "Sesión", description: "x" });
+    await logAudit({ actor: null, action: "LOGOUT", module: "Seguridad", entity: "Sesión", description: "x" });
     expect(m.create.mock.calls[1][0].data.username).toBe("sistema");
   });
 });
 
 describe("sanearDetalles", () => {
   it("oculta contraseñas y tokens", () => {
-    expect(sanearDetalles({ password: "abc", anidado: { token: "t", ok: 1 } })).toEqual({
+    expect(sanitizeDetails({ password: "abc", nested: { token: "t", ok: 1 } })).toEqual({
       password: "[oculto]",
-      anidado: { token: "[oculto]", ok: 1 },
+      nested: { token: "[oculto]", ok: 1 },
     });
   });
 });
 
 describe("construirFiltro", () => {
   it("incluye el día 'hasta' completo", () => {
-    const w = construirFiltro({ desde: "2026-10-01", hasta: "2026-10-02" });
+    const w = buildFilter({ from: "2026-10-01", to: "2026-10-02" });
     expect(w.createdAt).toEqual({
       gte: new Date("2026-10-01T00:00:00.000Z"),
       lt: new Date("2026-10-03T00:00:00.000Z"),
@@ -71,7 +71,7 @@ describe("construirFiltro", () => {
   });
 
   it("ignora acciones inválidas y filtra por usuario y módulo", () => {
-    const w = construirFiltro({ accion: "HACK", usuario: " andy ", modulo: "Usuarios" });
+    const w = buildFilter({ action: "HACK", user: " andy ", module: "Usuarios" });
     expect(w.action).toBeUndefined();
     expect(w.username).toEqual({ contains: "andy", mode: "insensitive" });
     expect(w.module).toBe("Usuarios");
@@ -96,9 +96,9 @@ describe("listarAuditoria", () => {
         ipAddress: null,
       },
     ]);
-    const r = await listarAuditoria({ pagina: 2, porPagina: 20 });
+    const r = await listAudit({ page: 2, perPage: 20 });
     expect(m.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20, take: 20 }));
-    expect(r.totalPaginas).toBe(3);
-    expect(r.datos[0]).toMatchObject({ usuario: "andy", accion: "UPDATE", fecha: "2026-10-07T10:00:00.000Z" });
+    expect(r.totalPages).toBe(3);
+    expect(r.data[0]).toMatchObject({ user: "andy", action: "UPDATE", date: "2026-10-07T10:00:00.000Z" });
   });
 });

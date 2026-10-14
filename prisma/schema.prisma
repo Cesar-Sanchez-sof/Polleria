@@ -99,6 +99,7 @@ model Role {
 
   @@map("role")
 }
+
 model Permission {
   id     Int              @id @default(autoincrement())
   code   String           @unique @db.VarChar(60)
@@ -170,9 +171,9 @@ model User {
   employeeId         Int                @map("employee_id")
   roleId             Int                @map("role_id")
   username           String             @unique @db.VarChar(20)
-  correo             String?            @unique @db.VarChar(80)
+  email              String?            @unique @db.VarChar(80)
   password           String             @db.VarChar(255)
-  estado             Boolean            @default(true)
+  active             Boolean            @default(true)
   failedAttempts     Int                @default(0) @map("failed_attempts")
   locked             Boolean            @default(false)
   lockedAt           DateTime?          @map("locked_at") @db.Timestamp(6)
@@ -381,16 +382,16 @@ model Transformation {
   employeeId      Int                  @map("employee_id")
   date            DateTime             @default(now()) @db.Timestamp(6)
   notes           String?              @db.VarChar(200)
-  anulado         Boolean              @default(false)
-  anuladoAt       DateTime?            @map("anulado_at") @db.Timestamp(6)
-  anuladoPor      Int?                 @map("anulado_por")
-  motivoAnulacion String?              @map("motivo_anulacion") @db.VarChar(200)
+  annulled        Boolean              @default(false)
+  annulledAt      DateTime?            @map("annulled_at") @db.Timestamp(6)
+  annulledById    Int?                 @map("annulled_by_id")
+  annulmentReason String?              @map("annulment_reason") @db.VarChar(200)
   employee        Employee             @relation("EmployeeTransformations", fields: [employeeId], references: [id], onDelete: Restrict)
-  annulledBy      Employee?            @relation("AnnulledTransformations", fields: [anuladoPor], references: [id], onDelete: Restrict)
+  annulledBy      Employee?            @relation("AnnulledTransformations", fields: [annulledById], references: [id], onDelete: Restrict)
   items           TransformationItem[]
 
   @@index([employeeId], map: "idx_transformation_employee")
-  @@index([anuladoPor], map: "idx_transformation_annulled_by")
+  @@index([annulledById], map: "idx_transformation_annulled_by")
   @@map("transformation")
 }
 
@@ -438,18 +439,18 @@ model InformalPurchase {
   date                  DateTime             @default(now()) @db.Date
   informalPlaceOrVendor String?              @map("informal_place_or_vendor") @db.VarChar(150)
   reason                String?              @db.VarChar(150)
-  anulado               Boolean              @default(false)
-  anuladoAt             DateTime?            @map("anulado_at") @db.Timestamp(6)
-  anuladoPor            Int?                 @map("anulado_por")
-  motivoAnulacion       String?              @map("motivo_anulacion") @db.VarChar(200)
+  annulled              Boolean              @default(false)
+  annulledAt            DateTime?            @map("annulled_at") @db.Timestamp(6)
+  annulledById          Int?                 @map("annulled_by_id")
+  annulmentReason       String?              @map("annulment_reason") @db.VarChar(200)
   supply                Supply?              @relation(fields: [supplyId], references: [id], onDelete: Restrict)
   employee              Employee             @relation("EmployeeInformalPurchases", fields: [employeeId], references: [id], onDelete: Restrict)
-  annulledBy            Employee?            @relation("AnnulledPurchases", fields: [anuladoPor], references: [id], onDelete: Restrict)
+  annulledBy            Employee?            @relation("AnnulledPurchases", fields: [annulledById], references: [id], onDelete: Restrict)
   inventoryMovements    InventoryMovement[]
 
   @@index([supplyId], map: "idx_informal_purchase_supply")
   @@index([employeeId], map: "idx_informal_purchase_employee")
-  @@index([anuladoPor], map: "idx_informal_purchase_annulled_by")
+  @@index([annulledById], map: "idx_informal_purchase_annulled_by")
   @@map("informal_purchase")
 }
 

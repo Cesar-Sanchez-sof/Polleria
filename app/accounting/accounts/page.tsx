@@ -63,13 +63,13 @@ export default function AccountsPage() {
     const childrenMap = new Map<number, AccountingAccount[]>();
     const roots: AccountingAccount[] = [];
     const compareByCode = (a: AccountingAccount, b: AccountingAccount) =>
-      a.codigo.localeCompare(b.codigo);
+      a.code.localeCompare(b.code);
 
     for (const account of accounts) {
-      if (account.idPadre !== null && accountIds.has(account.idPadre)) {
-        const list = childrenMap.get(account.idPadre) ?? [];
+      if (account.parentId !== null && accountIds.has(account.parentId)) {
+        const list = childrenMap.get(account.parentId) ?? [];
         list.push(account);
-        childrenMap.set(account.idPadre, list);
+        childrenMap.set(account.parentId, list);
       } else {
         roots.push(account);
       }
@@ -87,12 +87,12 @@ export default function AccountsPage() {
     const query = searchQuery.trim().toLowerCase();
 
     const matchesFilter = (account: AccountingAccount): boolean => {
-      if (query && !`${account.codigo} ${account.nombre} ${account.tipo}`.toLowerCase().includes(query)) {
+      if (query && !`${account.code} ${account.name} ${account.type}`.toLowerCase().includes(query)) {
         return false;
       }
-      if (typeFilter !== "todos" && account.tipo !== typeFilter) return false;
-      if (statusFilter === "activas" && !account.activo) return false;
-      if (statusFilter === "inactivas" && account.activo) return false;
+      if (typeFilter !== "todos" && account.type !== typeFilter) return false;
+      if (statusFilter === "activas" && !account.active) return false;
+      if (statusFilter === "inactivas" && account.active) return false;
       return true;
     };
 
@@ -165,7 +165,7 @@ export default function AccountsPage() {
     setActionAccountId(account.id);
     setNoticeMessage(null);
     try {
-      await updateAccount(account.id, { activo: !account.activo });
+      await updateAccount(account.id, { active: !account.active });
       await loadAccounts();
     } catch (err) {
       setNoticeMessage(

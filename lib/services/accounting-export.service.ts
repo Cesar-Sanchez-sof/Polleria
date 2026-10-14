@@ -41,25 +41,25 @@ export async function exportJournalEntriesToExcel(
       return;
     }
 
-    const isCaja =
-      (filters.diario || "").toLowerCase().includes("caja") ||
+    const isCash =
+      (filters.daily || "").toLowerCase().includes("caja") ||
       (journalTitle || "").toLowerCase().includes("caja");
-    const sheetName = isCaja ? "Contabilidad Caja" : "Libro Diario";
+    const sheetName = isCash ? "Contabilidad Caja" : "Libro Diario";
 
     // Formatear filas para Excel
     const rows: Array<Record<string, string | number>> = entries.map((entry, index) => ({
       "N°": index + 1,
-      "Código Asiento": entry.numero,
-      "Fecha": entry.fecha,
-      "Libro / Subdiario": entry.diario,
-      "Glosa / Concepto": entry.concepto,
-      "Responsable": entry.responsable || "Sistema",
-      "Estado": entry.estado,
+      "Código Asiento": entry.number,
+      "Fecha": entry.date,
+      "Libro / Subdiario": entry.daily,
+      "Glosa / Concepto": entry.concept,
+      "Responsable": entry.responsible || "Sistema",
+      "Estado": entry.status,
       "Total (S/)": Number(entry.total.toFixed(2)),
     }));
 
     // Calcular suma total
-    const totalSuma = entries.reduce((acc, curr) => acc + curr.total, 0);
+    const totalSum = entries.reduce((acc, curr) => acc + curr.total, 0);
 
     // Fila resumen al final
     rows.push({
@@ -70,7 +70,7 @@ export async function exportJournalEntriesToExcel(
       "Glosa / Concepto": "TOTAL GENERAL (S/)",
       "Responsable": "",
       "Estado": "",
-      "Total (S/)": Number(totalSuma.toFixed(2)),
+      "Total (S/)": Number(totalSum.toFixed(2)),
     });
 
     // Crear libro y hoja con SheetJS
@@ -95,7 +95,7 @@ export async function exportJournalEntriesToExcel(
     const todayStr = new Date().toISOString().slice(0, 10);
     const prefix =
       fileNamePrefix ||
-      (isCaja ? "Reporte_Contabilidad_Caja" : "Reporte_Libro_Diario_Asientos");
+      (isCash ? "Reporte_Contabilidad_Caja" : "Reporte_Libro_Diario_Asientos");
     const finalFileName = `${prefix}_${todayStr}.xlsx`;
 
     // Descargar en navegador

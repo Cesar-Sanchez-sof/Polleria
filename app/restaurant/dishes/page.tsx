@@ -316,10 +316,10 @@ export default function DishesManagementPage() {
   // Métricas
   const metrics = useMemo(() => {
     const total = dishes.length;
-    const activos = dishes.filter((d) => d.active).length;
-    const inactivos = total - activos;
-    const conReceta = dishes.filter((d) => d.recipes && d.recipes.length > 0).length;
-    return { total, activos, inactivos, conReceta };
+    const active = dishes.filter((d) => d.active).length;
+    const inactive = total - active;
+    const withRecipe = dishes.filter((d) => d.recipes && d.recipes.length > 0).length;
+    return { total, active, inactive, withRecipe };
   }, [dishes]);
 
   return (
@@ -374,7 +374,7 @@ export default function DishesManagementPage() {
                 Activos en Carta
               </p>
               <p className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">
-                {metrics.activos}
+                {metrics.active}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center">
@@ -388,7 +388,7 @@ export default function DishesManagementPage() {
                 Pausados / Inactivos
               </p>
               <p className="text-xl sm:text-2xl font-extrabold text-amber-700 dark:text-amber-400 mt-0.5">
-                {metrics.inactivos}
+                {metrics.inactive}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 flex items-center justify-center">
@@ -402,7 +402,7 @@ export default function DishesManagementPage() {
                 Con Receta (Escandallo)
               </p>
               <p className="text-xl sm:text-2xl font-extrabold text-blue-700 dark:text-blue-400 mt-0.5">
-                {metrics.conReceta}
+                {metrics.withRecipe}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 flex items-center justify-center">

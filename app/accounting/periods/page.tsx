@@ -23,7 +23,7 @@ import {
 } from "./fiscal-years";
 
 /** Valor del selector que desactiva el filtro de año fiscal. */
-const TODOS_LOS_ANIOS = "todos";
+const ALL_YEARS = "todos";
 
 export default function AccountingPeriodsPage() {
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
@@ -36,14 +36,14 @@ export default function AccountingPeriodsPage() {
   const [year, setYear] = useState<string>(String(now.getFullYear()));
   const [creating, setCreating] = useState(false);
   // Año fiscal por defecto: todos los registrados (la lista se agrupa igual por año).
-  const [fiscalYear, setFiscalYear] = useState<string>(TODOS_LOS_ANIOS);
+  const [fiscalYear, setFiscalYear] = useState<string>(ALL_YEARS);
   // No se necesita estado local para errores de creación; se muestra vía toast.
 
   const fiscalYears = useMemo(() => availableFiscalYears(periods), [periods]);
   const groups = useMemo(
     () =>
       groupByFiscalYear(
-        filterByFiscalYear(periods, fiscalYear === TODOS_LOS_ANIOS ? null : Number(fiscalYear))
+        filterByFiscalYear(periods, fiscalYear === ALL_YEARS ? null : Number(fiscalYear))
       ),
     [periods, fiscalYear]
   );
@@ -126,7 +126,7 @@ export default function AccountingPeriodsPage() {
                   value={fiscalYear}
                   onChange={(e) => setFiscalYear(e.target.value)}
                 >
-                  <option value={TODOS_LOS_ANIOS}>Todos los años fiscales</option>
+                  <option value={ALL_YEARS}>Todos los años fiscales</option>
                   {fiscalYears.map((y) => (
                     <option key={y} value={String(y)}>
                       Año fiscal {y}

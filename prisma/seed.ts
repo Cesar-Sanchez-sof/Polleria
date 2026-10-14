@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { seedCuentas } from "./seed-accounts";
+import { seedAccounts } from "./seed-accounts";
 import bcrypt from "bcryptjs";
-import { seedRolesPermisos } from "./seed-roles";
+import { seedRolesPermissions } from "./seed-roles";
 
 const prisma = new PrismaClient();
 
@@ -53,20 +53,20 @@ async function main() {
   await prisma.user.upsert({
     where: { username: "admin" },
     update: {
-      correo: "admin@example.com",
+      email: "admin@example.com",
       password: hashedPassword,
     },
     create: {
       username: "admin",
-      correo: "admin@example.com",
+      email: "admin@example.com",
       password: hashedPassword,
       employeeId: adminEmployee.id,
       roleId: adminRole.id,
-      estado: true,
+      active: true,
     },
   });
   console.log("✔ Usuario admin creado o actualizado.");
-    await seedRolesPermisos(prisma);
+    await seedRolesPermissions(prisma);
 
   // 2. MÉTODOS DE PAGO
   const paymentMethods = [
@@ -201,7 +201,7 @@ async function main() {
   console.log(`✔ ${dishesData.length} platos registrados en la carta.`);
 
   // 5. CATÁLOGO DE CUENTAS CONTABLES (PCGE 2019 simplificado para la pollería)
-  await seedCuentas(prisma);
+  await seedAccounts(prisma);
 
   console.log("✨ Población de datos completada con éxito!");
 }
