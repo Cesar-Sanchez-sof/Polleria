@@ -71,7 +71,6 @@ async function main() {
   const paymentMethods = [
     "Efectivo",
     "Yape",
-    "Plin",
     "Tarjeta / POS",
     "Transferencia",
   ];

@@ -14,7 +14,10 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: NextRequest) {
   try {
     const paymentTypesDb = await prisma.paymentType.findMany({
-      where: { active: true },
+      where: {
+        active: true,
+        NOT: { name: { contains: "plin", mode: "insensitive" } },
+      },
       orderBy: { id: "asc" }
     });
 

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { releaseDishStock } from "@/lib/services/redis-stock.service";
+import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 
 export const dynamic = "force-dynamic";
 /**
@@ -325,6 +326,23 @@ export async function PATCH(
         }
       }
     });
+
+    try {
+      broadcastRealtimeEvent("ORDER_STATUS_CHANGED", {
+        orderId: id,
+        newStatus,
+        previousStatus: order.status,
+      });
+
+      if (newStatus === "Cancelled" || newStatus === "Served") {
+        broadcastRealtimeEvent("TABLE_UPDATED", {
+          orderId: id,
+          reason: newStatus,
+        });
+      }
+    } catch (rtErr) {
+      console.warn("[api/orders/[id]] Advertencia al emitir evento en tiempo real:", rtErr);
+    }
 
     return Response.json({ message: `Estado del pedido actualizado a ${newStatus}.` });
   } catch (error) {
