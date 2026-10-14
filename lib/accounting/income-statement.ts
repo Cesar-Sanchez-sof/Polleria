@@ -64,7 +64,7 @@ export type ReportLine =
   | "otra";
 
 /** Naturaleza del saldo según el elemento PCGE (FR-019). */
-export type Naturaleza = "acreedora" | "deudora";
+export type Nature = "acreedora" | "deudora";
 
 /** Moneda fija del reporte (sin configuración multi-moneda). */
 export const CURRENCY = "PEN" as const;
@@ -77,7 +77,7 @@ export interface IncomeStatementLineItem {
   /** Saldo Debe acumulado de las cuentas de la línea. */
   debit: number;
   /** Naturaleza usada para saldar la línea (FR-019). */
-  nature: Naturaleza;
+  nature: Nature;
 }
 
 export interface OperatingIncome {
@@ -193,7 +193,7 @@ export function isValidIsoDate(value: string): boolean {
  * Naturaleza del saldo según el elemento PCGE (FR-019):
  * elemento 7 acreedora; elementos 6, 8 y 9 deudoras; el resto no participa.
  */
-export function naturalezaDe(code: string): Naturaleza | null {
+export function natureOf(code: string): Nature | null {
   switch (code.charAt(0)) {
     case "7":
       return "acreedora";
@@ -210,7 +210,7 @@ export function naturalezaDe(code: string): Naturaleza | null {
  * Clasifica una cuenta en la línea del reporte según su código (matriz D5,
  * decisión D5: se clasifica por código, nunca por el campo `type` de la BD).
  */
-export function lineaDe(code: string): ReportLine {
+export function lineOf(code: string): ReportLine {
   if (code.startsWith("709")) return "devoluciones-709";
   if (code.startsWith("70")) return "ingresos-ordinarios";
   if (code.startsWith("74")) return "descuentos-74";
@@ -262,7 +262,7 @@ export function aggregateMovements(
   return [...byCode.values()];
 }
 
-type Acumulado = { debit: number; credit: number };
+type Accumulated = { debit: number; credit: number };
 
 /**
  * Ejecuta el cálculo puro del Estado de Resultados por Función (PCGE 2019).
@@ -278,62 +278,62 @@ export function computeIncomeStatement(input: IncomeStatementComputeInput): Inco
     input.balances ??
     aggregateMovements(input.movements ?? [], input.startDate, input.endDate);
 
-  const acumulado = new Map<ReportLine, Acumulado>();
+  const accumulated = new Map<ReportLine, Accumulated>();
 
   for (const balance of balances) {
     if (!balance || typeof balance.code !== "string") continue;
     if (!isDetailAccount(balance.code)) continue;
 
-    const line = lineaDe(balance.code);
+    const line = lineOf(balance.code);
     if (line === "otra") continue;
 
-    const entry = acumulado.get(line) ?? { debit: 0, credit: 0 };
+    const entry = accumulated.get(line) ?? { debit: 0, credit: 0 };
     entry.debit += Number(balance.debit ?? 0) || 0;
     entry.credit += Number(balance.credit ?? 0) || 0;
-    acumulado.set(line, entry);
+    accumulated.set(line, entry);
   }
 
-  const get = (line: ReportLine): Acumulado =>
-    acumulado.get(line) ?? { debit: 0, credit: 0 };
+  const get = (line: ReportLine): Accumulated =>
+    accumulated.get(line) ?? { debit: 0, credit: 0 };
 
   /** Salda una línea: acreedora por Haber − Debe, deudora por Debe − Haber. */
-  const saldar = (line: ReportLine, nature: Naturaleza): number => {
+  const settle = (line: ReportLine, nature: Nature): number => {
     const { debit, credit } = get(line);
     return nature === "acreedora" ? credit - debit : debit - credit;
   };
 
   // Cuenta 70 (ingresos ordinarios) menos las cuentas deudoras 709 y 74.
   const ordinaryIncome =
-    saldar("ingresos-ordinarios", "acreedora") -
-    saldar("devoluciones-709", "deudora") -
-    saldar("descuentos-74", "deudora");
+    settle("ingresos-ordinarios", "acreedora") -
+    settle("devoluciones-709", "deudora") -
+    settle("descuentos-74", "deudora");
 
   const subleaseAndOtherIncome = 0; // Clarificación Q2: la 75 completa va a "otros ingresos y gastos".
   const operatingIncome = round2(ordinaryIncome + subleaseAndOtherIncome);
 
-  const salesCosts = round2(saldar("costo-ventas-69", "deudora"));
+  const salesCosts = round2(settle("costo-ventas-69", "deudora"));
   const grossProfit = round2(operatingIncome - salesCosts);
 
-  const distribution = round2(saldar("gastos-distribucion-95", "deudora"));
-  const administrative = round2(saldar("gastos-administracion-94", "deudora"));
+  const distribution = round2(settle("gastos-distribucion-95", "deudora"));
+  const administrative = round2(settle("gastos-administracion-94", "deudora"));
   const operatingExpenses = round2(distribution + administrative);
   const operatingProfit = round2(grossProfit - operatingExpenses);
 
-  const otherRevenues = round2(saldar("otros-ingresos-75-76", "acreedora"));
-  const otherExpenses = round2(saldar("otros-gastos-65-66", "deudora"));
+  const otherRevenues = round2(settle("otros-ingresos-75-76", "acreedora"));
+  const otherExpenses = round2(settle("otros-gastos-65-66", "deudora"));
   const otherRevenuesAndExpenses = round2(otherRevenues - otherExpenses);
 
-  const exchangeGain = saldar("diferencia-cambio-ingreso-776", "acreedora");
-  const exchangeLoss = saldar("diferencia-cambio-gasto-676", "deudora");
+  const exchangeGain = settle("diferencia-cambio-ingreso-776", "acreedora");
+  const exchangeLoss = settle("diferencia-cambio-gasto-676", "deudora");
   const exchangeDifferenceNet = round2(exchangeGain - exchangeLoss);
 
-  const financialIncome = round2(saldar("ingresos-financieros-77", "acreedora"));
-  const financialExpenses = round2(saldar("gastos-financieros-67", "deudora"));
+  const financialIncome = round2(settle("ingresos-financieros-77", "acreedora"));
+  const financialExpenses = round2(settle("gastos-financieros-67", "deudora"));
 
   const resultBeforeTaxes = round2(
     operatingProfit + otherRevenuesAndExpenses + exchangeDifferenceNet + financialIncome - financialExpenses
   );
-  const incomeTax = round2(saldar("impuesto-88", "deudora"));
+  const incomeTax = round2(settle("impuesto-88", "deudora"));
   const netProfit = round2(resultBeforeTaxes - incomeTax);
 
   return {

@@ -21,18 +21,18 @@ import {
 export { generateTapToPayDeepLink, type MercadoPagoChargeData };
 
 export interface ChargeAttemptResult {
-  modo: "tap_to_pay" | "point_device" | "qr" | "simulado";
-  operacionId: string;
-  estado: "pendiente" | "aprobado" | "simulado";
+  mode: "tap_to_pay" | "point_device" | "qr" | "simulado";
+  operationId: string;
+  status: "pendiente" | "aprobado" | "simulado";
   deepLinkApp?: string; // mercadopago:// para abrir la app en el celular del mozo
   qrData?: string;
-  mensaje: string;
+  message: string;
 }
 
 export interface CreatePreferenceInput {
-  idPedido: number;
-  codigoComanda: string;
-  monto: number;
+  orderId: number;
+  kitchenOrderCode: string;
+  amount: number;
   items?: Array<{
     title: string;
     quantity: number;
@@ -108,11 +108,11 @@ export async function startMercadoPagoCharge(
   // MODO 1: Sin Token (Modo Preparado / Simulación Inteligente)
   if (!token) {
     return {
-      modo: "tap_to_pay",
-      operacionId: `MP-SIM-${Date.now()}-${data.idPedido}`,
-      estado: "simulado",
+      mode: "tap_to_pay",
+      operationId: `MP-SIM-${Date.now()}-${data.orderId}`,
+      status: "simulado",
       deepLinkApp: deepLink,
-      mensaje:
+      message:
         "Módulo de Mercado Pago listo. Modo de prueba local activo. Cobro simulado exitoso.",
     };
   }
@@ -130,10 +130,10 @@ export async function startMercadoPagoCharge(
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: Math.round(data.monto * 100), // En centavos para la API Point
-            description: `Comanda ${data.codigoComanda}`,
+            amount: Math.round(data.amount * 100), // En centavos para la API Point
+            description: `Comanda ${data.kitchenOrderCode}`,
             additional_info: {
-              external_reference: `PED-${data.idPedido}`,
+              external_reference: `PED-${data.orderId}`,
               print_on_terminal: true,
             },
           }),
@@ -143,31 +143,31 @@ export async function startMercadoPagoCharge(
       if (res.ok) {
         const json = await res.json();
         return {
-          modo: "point_device",
-          operacionId: json.id || `INTENT-${Date.now()}`,
-          estado: "pendiente",
+          mode: "point_device",
+          operationId: json.id || `INTENT-${Date.now()}`,
+          status: "pendiente",
           deepLinkApp: deepLink,
-          mensaje: "Orden enviada exitosamente al terminal Point.",
+          message: "Orden enviada exitosamente al terminal Point.",
         };
       }
     }
 
     // Para Tap to Pay desde celular, el canal estándar es el Deep Link hacia la App de Mercado Pago
     return {
-      modo: "tap_to_pay",
-      operacionId: `MP-LIVE-${Date.now()}-${data.idPedido}`,
-      estado: "pendiente",
+      mode: "tap_to_pay",
+      operationId: `MP-LIVE-${Date.now()}-${data.orderId}`,
+      status: "pendiente",
       deepLinkApp: deepLink,
-      mensaje: "Enlace Tap to Pay generado listo para cobro en celular.",
+      message: "Enlace Tap to Pay generado listo para cobro en celular.",
     };
   } catch (error: any) {
     console.error("[MercadoPago Service] Error al conectar con API:", error);
     return {
-      modo: "tap_to_pay",
-      operacionId: `MP-FALLBACK-${Date.now()}`,
-      estado: "simulado",
+      mode: "tap_to_pay",
+      operationId: `MP-FALLBACK-${Date.now()}`,
+      status: "simulado",
       deepLinkApp: deepLink,
-      mensaje: `Conexión con Mercado Pago en modo fallback: ${error.message || "Error de red"}`,
+      message: `Conexión con Mercado Pago en modo fallback: ${error.message || "Error de red"}`,
     };
   }
 }
@@ -182,12 +182,12 @@ export async function createMercadoPagoPreference(
   const token = getAccessToken();
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const deepLink = generateTapToPayDeepLink({
-    idPedido: data.idPedido,
-    codigoComanda: data.codigoComanda,
-    monto: data.monto,
+    orderId: data.orderId,
+    kitchenOrderCode: data.kitchenOrderCode,
+    amount: data.amount,
   });
 
-  const roundedAmount = Math.round(data.monto * 100) / 100;
+  const roundedAmount = Math.round(data.amount * 100) / 100;
   const preferencePayload = {
     items: data.items && data.items.length > 0
       ? data.items.map((it) => ({
@@ -198,18 +198,18 @@ export async function createMercadoPagoPreference(
         }))
       : [
           {
-            id: `PED-${data.idPedido}`,
-            title: `Pollería - Comanda ${data.codigoComanda}`,
+            id: `PED-${data.orderId}`,
+            title: `Pollería - Comanda ${data.kitchenOrderCode}`,
             quantity: 1,
             unit_price: roundedAmount,
             currency_id: "PEN",
           },
         ],
-    external_reference: `PED-${data.idPedido}`,
+    external_reference: `PED-${data.orderId}`,
     back_urls: {
-      success: data.backUrl || `${baseUrl}/sales?payment=success&orderId=${data.idPedido}`,
-      failure: data.backUrl || `${baseUrl}/sales?payment=failure&orderId=${data.idPedido}`,
-      pending: data.backUrl || `${baseUrl}/sales?payment=pending&orderId=${data.idPedido}`,
+      success: data.backUrl || `${baseUrl}/sales?payment=success&orderId=${data.orderId}`,
+      failure: data.backUrl || `${baseUrl}/sales?payment=failure&orderId=${data.orderId}`,
+      pending: data.backUrl || `${baseUrl}/sales?payment=pending&orderId=${data.orderId}`,
     },
     auto_return: "approved",
     notification_url: `${baseUrl}/api/webhooks/mercadopago`,
@@ -219,8 +219,8 @@ export async function createMercadoPagoPreference(
 
   // MODO SIMULADO (Sin Token configurado)
   if (!token) {
-    const fakeId = `PREF-SIM-${Date.now()}-${data.idPedido}`;
-    const fakeUrl = `${baseUrl}/sales?mock_checkout=true&prefId=${fakeId}&orderId=${data.idPedido}&amount=${roundedAmount}`;
+    const fakeId = `PREF-SIM-${Date.now()}-${data.orderId}`;
+    const fakeUrl = `${baseUrl}/sales?mock_checkout=true&prefId=${fakeId}&orderId=${data.orderId}&amount=${roundedAmount}`;
     return {
       preferenceId: fakeId,
       initPoint: fakeUrl,
@@ -259,8 +259,8 @@ export async function createMercadoPagoPreference(
     };
   } catch (error: any) {
     console.error("[MercadoPago Service] Fallback al crear preferencia:", error.message);
-    const fallbackId = `PREF-FALLBACK-${Date.now()}-${data.idPedido}`;
-    const fallbackUrl = `${baseUrl}/sales?fallback_checkout=true&orderId=${data.idPedido}`;
+    const fallbackId = `PREF-FALLBACK-${Date.now()}-${data.orderId}`;
+    const fallbackUrl = `${baseUrl}/sales?fallback_checkout=true&orderId=${data.orderId}`;
     return {
       preferenceId: fallbackId,
       initPoint: fallbackUrl,
@@ -578,12 +578,12 @@ export async function processMercadoPagoPaymentApproval(
   // Archivar en S3 / R2
   if (createdInvoice) {
     uploadVoucherToS3({
-      idComprobante: createdInvoice.id,
-      tipoComprobante: voucherType as "Boleta" | "Factura",
+      voucherId: createdInvoice.id,
+      voucherType: voucherType as "Boleta" | "Factura",
       serie: series,
-      numero: sequentialNumber,
-      formato: "pdf",
-      fecha: new Date(),
+      number: sequentialNumber,
+      format: "pdf",
+      date: new Date(),
     }).catch((s3Err) => {
       console.warn("[MercadoPago Service] Advertencia al archivar en S3:", s3Err);
     });

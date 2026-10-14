@@ -47,8 +47,8 @@ function addMonths(iso: string, months: number): string {
 }
 
 interface DateRange {
-  desde: string;
-  hasta: string;
+  from: string;
+  to: string;
 }
 
 /** Periodo contable abierto, si existe (GET /api/accounting-periods?status=open). */
@@ -101,12 +101,12 @@ export default function AccountingDashboardPage() {
     };
   }, []);
 
-  const load = useCallback(async (desde: string, hasta: string) => {
+  const load = useCallback(async (from: string, to: string) => {
     const request = ++requestRef.current;
     setLoading(true);
     setError(null);
     try {
-      const data = await getDashboard(desde, hasta);
+      const data = await getDashboard(from, to);
       if (request !== requestRef.current) return; // respuesta obsoleta (FR-014)
       setPayload(data);
     } catch (e) {
@@ -123,18 +123,18 @@ export default function AccountingDashboardPage() {
   useEffect(() => {
     if (!range) return;
     const timer = setTimeout(() => {
-      void load(range.desde, range.hasta);
+      void load(range.from, range.to);
     }, 0);
     return () => clearTimeout(timer);
   }, [range, load]);
 
-  const changeRange = useCallback((desde: string, hasta: string) => {
-    setRange({ desde, hasta });
+  const changeRange = useCallback((from: string, to: string) => {
+    setRange({ from, to });
   }, []);
 
   const last12Months = useCallback(() => {
     const today = todayIso();
-    setRange({ desde: addMonths(today, -12), hasta: today });
+    setRange({ from: addMonths(today, -12), to: today });
   }, []);
 
   const currentPeriod = useCallback(() => {
@@ -142,7 +142,7 @@ export default function AccountingDashboardPage() {
   }, [openPeriod]);
 
   const handleRefresh = useCallback(() => {
-    if (range) void load(range.desde, range.hasta);
+    if (range) void load(range.from, range.to);
   }, [range, load]);
 
   const handleExportCsv = useCallback(() => {
@@ -152,7 +152,7 @@ export default function AccountingDashboardPage() {
   }, [payload]);
 
   const visibleLabel = useMemo(
-    () => payload?.period.label ?? (range ? formatRangeLabel(range.desde, range.hasta) : "—"),
+    () => payload?.period.label ?? (range ? formatRangeLabel(range.from, range.to) : "—"),
     [payload, range]
   );
 
@@ -182,8 +182,8 @@ export default function AccountingDashboardPage() {
           <Card className="bg-card border border-border/80 rounded-2xl shadow-xs p-4 sm:p-5">
             {range ? (
               <DashboardFilters
-                desde={range.desde}
-                hasta={range.hasta}
+                from={range.from}
+                to={range.to}
                 onChange={changeRange}
                 onLast12Months={last12Months}
                 hasOpenPeriod={openPeriod !== null}
@@ -217,7 +217,7 @@ export default function AccountingDashboardPage() {
                 variant="outline"
                 size="sm"
                 className="gap-2 mt-1"
-                onClick={() => range && load(range.desde, range.hasta)}
+                onClick={() => range && load(range.from, range.to)}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Reintentar Carga
@@ -238,11 +238,11 @@ export default function AccountingDashboardPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   No se encontraron asientos vigentes ni transacciones para el rango del{" "}
                   <span className="font-semibold text-foreground">
-                    {formatCutOffDate(range?.desde ?? "")}
+                    {formatCutOffDate(range?.from ?? "")}
                   </span>{" "}
                   al{" "}
                   <span className="font-semibold text-foreground">
-                    {formatCutOffDate(range?.hasta ?? "")}
+                    {formatCutOffDate(range?.to ?? "")}
                   </span>
                   .
                 </p>

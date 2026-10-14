@@ -36,10 +36,10 @@ export interface TransformationDetailRecord {
   id: number;
   date: Date | string;
   notes?: string | null;
-  anulado?: boolean;
-  anuladoAt?: Date | string | null;
-  anuladoPor?: number | null;
-  motivoAnulacion?: string | null;
+  annulled?: boolean;
+  annulledAt?: Date | string | null;
+  annulledById?: number | null;
+  annulmentReason?: string | null;
   employee: {
     firstName: string;
     paternalLastName?: string | null;
@@ -89,7 +89,7 @@ export function TransformationDetailDialog({
               <FileText className="h-5 w-5 text-amber-600" />
               Detalle del Lote TR-{transformation.id.toString().padStart(4, "0")}
             </DialogTitle>
-            {transformation.anulado && (
+            {transformation.annulled && (
               <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-300">
                 Anulada
               </span>
@@ -102,13 +102,13 @@ export function TransformationDetailDialog({
 
         <div className="space-y-4 py-2 text-xs">
           {/* Banner de anulación si aplica */}
-          {transformation.anulado && (
+          {transformation.annulled && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-rose-700">Transformación Anulada</span>
-                {transformation.anuladoAt && (
+                {transformation.annulledAt && (
                   <span className="text-[11px] text-rose-600">
-                    {new Date(transformation.anuladoAt).toLocaleString("es-PE")}
+                    {new Date(transformation.annulledAt).toLocaleString("es-PE")}
                   </span>
                 )}
               </div>
@@ -119,10 +119,10 @@ export function TransformationDetailDialog({
                   {transformation.annulledBy.paternalLastName || ""}
                 </p>
               )}
-              {transformation.motivoAnulacion && (
+              {transformation.annulmentReason && (
                 <p className="text-[11px] italic bg-white/60 p-1.5 rounded border border-rose-100">
                   <span className="font-medium not-italic">Motivo:</span>{" "}
-                  {transformation.motivoAnulacion}
+                  {transformation.annulmentReason}
                 </p>
               )}
             </div>

@@ -197,8 +197,8 @@ export default function RestaurantAreasPage() {
     }
   };
 
-  const totalAforoGlobal = areas.reduce((acc, a) => acc + a.totalCapacity, 0);
-  const totalMesasAsignadas = areas.reduce((acc, a) => acc + a.tableCount, 0);
+  const totalGlobalCapacity = areas.reduce((acc, a) => acc + a.totalCapacity, 0);
+  const totalTablesAssigned = areas.reduce((acc, a) => acc + a.tableCount, 0);
 
   return (
     <>
@@ -257,7 +257,7 @@ export default function RestaurantAreasPage() {
                 Aforo Total Salones
               </span>
               <span className="text-xl font-extrabold text-foreground">
-                {totalAforoGlobal} <span className="text-xs font-normal text-muted-foreground">comensales</span>
+                {totalGlobalCapacity} <span className="text-xs font-normal text-muted-foreground">comensales</span>
               </span>
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function RestaurantAreasPage() {
                 Mesas Distribuidas
               </span>
               <span className="text-xl font-extrabold text-foreground">
-                {totalMesasAsignadas}{" "}
+                {totalTablesAssigned}{" "}
                 <span className="text-xs font-normal text-muted-foreground">de {allTables.length} mesas</span>
               </span>
             </div>

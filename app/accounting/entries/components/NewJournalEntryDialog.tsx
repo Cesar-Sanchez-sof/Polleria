@@ -122,14 +122,14 @@ export function NewJournalEntryDialog({
     () =>
       accounts.map((acc) => ({
         value: String(acc.id),
-        label: `${acc.codigo} · ${acc.nombre}`,
+        label: `${acc.code} · ${acc.name}`,
       })),
     [accounts]
   );
 
   const bookOptions = useMemo(() => {
     const bookNames = Array.from(
-      new Set([DEFAULT_BOOK, ...journals.map((d) => d.nombre)])
+      new Set([DEFAULT_BOOK, ...journals.map((d) => d.name)])
     );
     return bookNames.map((name) => ({ value: name, label: name }));
   }, [journals]);
@@ -224,16 +224,16 @@ export function NewJournalEntryDialog({
     setIsSaving(true);
     try {
       const createdEntry = await registerJournalEntry({
-        fecha: entryDate,
-        diario: book,
-        glosa: description.trim(),
-        responsable: responsible.trim() || undefined,
-        observacion: observation.trim() || undefined,
-        lineas: lines.map((line) => ({
-          idCuenta: Number(line.accountId),
-          descripcion: line.description.trim() || undefined,
-          debe: parseAmount(line.debit),
-          haber: parseAmount(line.credit),
+        date: entryDate,
+        daily: book,
+        description: description.trim(),
+        responsible: responsible.trim() || undefined,
+        observation: observation.trim() || undefined,
+        lines: lines.map((line) => ({
+          accountId: Number(line.accountId),
+          description: line.description.trim() || undefined,
+          debit: parseAmount(line.debit),
+          credit: parseAmount(line.credit),
         })),
       });
       resetForm();

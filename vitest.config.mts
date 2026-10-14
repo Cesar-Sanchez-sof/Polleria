@@ -8,17 +8,17 @@ import { defineConfig } from "vitest/config";
  * mismo alias que usa TypeScript (`tsconfig.json` → `paths`).
  * El archivo es `.mts` (ESM) para que el cargador nativo de Vite lo lea sin avisos.
  */
-const raiz = fileURLToPath(new URL(".", import.meta.url));
+const root = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@": raiz,
+      "@": root,
     },
   },
   test: {
     environment: "node",
-    setupFiles: ["./test/setup-permisos.ts"],
+    setupFiles: ["./test/setup-permissions.ts"],
     include: ["**/*.test.ts"],
     exclude: ["node_modules/**", ".next/**", "out/**", "build/**"],
   },

@@ -37,7 +37,7 @@ interface KpiConfig {
 }
 
 const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
-  ingresos: {
+  income: {
     icon: TrendingUp,
     gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
     glowColor: "bg-emerald-500/10",
@@ -47,7 +47,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     description: "Ventas y rentas del período (PCGE Clase 7)",
     reportLink: { href: "/accounting/income-statement", label: "Ver Estado de Resultados" },
   },
-  gastos: {
+  expenses: {
     icon: Receipt,
     gradient: "from-rose-500/10 via-rose-500/5 to-transparent",
     glowColor: "bg-rose-500/10",
@@ -58,7 +58,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     reportLink: { href: "/accounting/income-statement", label: "Ver Detalle de Gastos" },
     invertVariationColor: true, // Si el gasto sube, es negativo en control de costos
   },
-  utilidad: {
+  profit: {
     icon: Wallet,
     gradient: "from-blue-500/10 via-indigo-500/5 to-transparent",
     glowColor: "bg-blue-500/10",
@@ -99,7 +99,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     reportLink: { href: "/accounting/balance", label: "Ver Cuentas por Pagar" },
     invertVariationColor: true,
   },
-  asientos: {
+  entries: {
     icon: FileSpreadsheet,
     gradient: "from-slate-500/10 via-slate-500/5 to-transparent",
     glowColor: "bg-slate-500/10",
@@ -169,15 +169,15 @@ interface DashboardKpisProps {
 
 export function DashboardKpis({ kpis }: Readonly<DashboardKpisProps>) {
   // Dividimos en dos grupos conceptuales para mejor lectura financiera
-  const pnlKeys: KpiKey[] = ["ingresos", "gastos", "utilidad"];
-  const balanceKeys: KpiKey[] = ["caja_bancos", "por_cobrar", "por_pagar", "asientos"];
+  const pnlKeys: KpiKey[] = ["income", "expenses", "profit"];
+  const balanceKeys: KpiKey[] = ["caja_bancos", "por_cobrar", "por_pagar", "entries"];
 
   const pnlKpis = kpis.filter((k) => pnlKeys.includes(k.key));
   const balanceKpis = kpis.filter((k) => balanceKeys.includes(k.key));
 
   const renderKpiCard = (kpi: Kpi) => {
-    const isLoss = kpi.key === "utilidad" && kpi.value < 0;
-    const isZeroRevenue = kpi.key === "ingresos" && kpi.value === 0;
+    const isLoss = kpi.key === "profit" && kpi.value < 0;
+    const isZeroRevenue = kpi.key === "income" && kpi.value === 0;
     const config = KPI_CONFIG[kpi.key] ?? {
       icon: HelpCircle,
       gradient: "from-slate-500/10 to-transparent",
@@ -189,7 +189,7 @@ export function DashboardKpis({ kpis }: Readonly<DashboardKpisProps>) {
     };
 
     const Icon = config.icon;
-    const isExpenseCard = kpi.key === "gastos";
+    const isExpenseCard = kpi.key === "expenses";
     const isDebtCard = kpi.key === "por_pagar";
 
     return (

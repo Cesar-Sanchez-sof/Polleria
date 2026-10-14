@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { firmarSesion, COOKIE_SESION, OPCIONES_COOKIE } from "@/lib/auth/session";
-import { leerJson, respuestaError } from "@/lib/auth/respuestas";
-import { autenticar, ErrorUsuario } from "@/lib/services/usuarios.service";
-import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
+import { signSession, SESSION_COOKIE, COOKIE_OPTIONS } from "@/lib/auth/session";
+import { readJson, errorResponse } from "@/lib/auth/responses";
+import { authenticate, UserError } from "@/lib/services/users.service";
+import { logAudit, requestIp } from "@/lib/services/audit.service";
 
 export const dynamic = "force-dynamic";
 
@@ -36,45 +36,45 @@ export const dynamic = "force-dynamic";
  *         description: Usuario desactivado.
  */
 export async function POST(request: Request) {
-  const cuerpo = await leerJson(request);
-  const username = typeof cuerpo?.username === "string" ? cuerpo.username.trim() : "";
-  const password = typeof cuerpo?.password === "string" ? cuerpo.password : "";
+  const body = await readJson(request);
+  const username = typeof body?.username === "string" ? body.username.trim() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
   if (!username || !password) {
     return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
   }
 
-  const ip = ipDeSolicitud(request);
+  const ip = requestIp(request);
   try {
-    const sesion = await autenticar(username, password);
-    const token = await firmarSesion(sesion);
+    const session = await authenticate(username, password);
+    const token = await signSession(session);
 
-    await registrarAuditoria({
-      actor: { userId: sesion.idUsuario, username: sesion.username },
+    await logAudit({
+      actor: { userId: session.userId, username: session.username },
       action: "LOGIN",
       module: "Seguridad",
       entity: "Sesión",
-      entityId: sesion.idUsuario,
-      description: `Inicio de sesión de ${sesion.username}`,
+      entityId: session.userId,
+      description: `Inicio de sesión de ${session.username}`,
       ipAddress: ip,
     });
 
-    const respuesta = NextResponse.json({ idUsuario: sesion.idUsuario, username: sesion.username, rol: sesion.rol });
-    respuesta.cookies.set(COOKIE_SESION, token, OPCIONES_COOKIE);
+    const response = NextResponse.json({ userId: session.userId, username: session.username, role: session.role });
+    response.cookies.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
     // Compatibilidad: algunas rutas antiguas (períodos contables) aún leen esta cookie.
-    respuesta.cookies.set("auth-token", token, OPCIONES_COOKIE);
-    return respuesta;
+    response.cookies.set("auth-token", token, COOKIE_OPTIONS);
+    return response;
   } catch (e) {
-    if (e instanceof ErrorUsuario) {
-      await registrarAuditoria({
+    if (e instanceof UserError) {
+      await logAudit({
         actor: { userId: null, username },
         action: "LOGIN_FAILED",
         module: "Seguridad",
         entity: "Sesión",
         description: `Intento de inicio de sesión fallido para "${username}"`,
-        details: { motivo: e.message },
+        details: { reason: e.message },
         ipAddress: ip,
       });
     }
-    return respuestaError(e);
+    return errorResponse(e);
   }
 }

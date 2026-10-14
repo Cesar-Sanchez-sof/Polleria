@@ -8,7 +8,7 @@ import { PrismaClient } from "@prisma/client";
 
 type CatalogRow = [code: string, name: string, type: string, parentCode: string | null];
 
-export const CATALOGO_CUENTAS: CatalogRow[] = [
+export const ACCOUNTS_CATALOG: CatalogRow[] = [
   // =========================
   // ACTIVO
   // =========================
@@ -96,7 +96,7 @@ const ARCHIVED_ADJUSTMENTS_CODE = "121-OLD";
 type Database = Pick<PrismaClient, "accountingAccount" | "journalEntryDetail">;
 
 const CATALOG_BY_CODE = new Map(
-  CATALOGO_CUENTAS.map(([code, name, type]) => [code, { name, type }])
+  ACCOUNTS_CATALOG.map(([code, name, type]) => [code, { name, type }])
 );
 
 async function migrateCode(db: Database, from: string, to: string): Promise<void> {
@@ -183,7 +183,7 @@ async function deleteInventoryAdjustments(db: Database): Promise<void> {
   );
 }
 
-export async function seedCuentas(db: Database): Promise<void> {
+export async function seedAccounts(db: Database): Promise<void> {
   console.log("📒 Sincronizando catálogo de cuentas (PCGE 2019 simplificado)...");
 
   await deleteInventoryAdjustments(db);
@@ -191,7 +191,7 @@ export async function seedCuentas(db: Database): Promise<void> {
     await migrateCode(db, from, to);
   }
 
-  const sorted = [...CATALOGO_CUENTAS].sort((a, b) => {
+  const sorted = [...ACCOUNTS_CATALOG].sort((a, b) => {
     if (a[3] === null && b[3] !== null) return -1;
     if (a[3] !== null && b[3] === null) return 1;
     return a[0].localeCompare(b[0]);
@@ -223,7 +223,7 @@ export async function seedCuentas(db: Database): Promise<void> {
     seenCodes.add(acc.code);
   }
   const byCode = new Map(allAccounts.map((c) => [c.code, c]));
-  const expected = new Map(CATALOGO_CUENTAS.map(([c, n, t, p]) => [c, { n, t, p }]));
+  const expected = new Map(ACCOUNTS_CATALOG.map(([c, n, t, p]) => [c, { n, t, p }]));
   for (const [code, exp] of expected) {
     const real = byCode.get(code);
     if (!real) throw new Error(`Falta la cuenta ${code} tras el seed.`);
@@ -244,7 +244,7 @@ const isDirectExecution =
 
 if (isDirectExecution) {
   const prisma = new PrismaClient();
-  seedCuentas(prisma)
+  seedAccounts(prisma)
     .then(() => prisma.$disconnect())
     .catch(async (e) => {
       console.error("❌ Error al sincronizar cuentas:", e);

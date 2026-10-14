@@ -6,7 +6,7 @@ import {
   releaseDishStock,
   reserveDishStock
 } from "@/lib/services/redis-stock.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -33,8 +33,8 @@ export const dynamic = "force-dynamic";
  * Si no se pasa parámetro, retorna el stock de todos los platos activos.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["platos.ver", "pedidos.ver", "ventas.ver", "cocina.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["platos.ver", "pedidos.ver", "ventas.ver", "cocina.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const dishIdParam = searchParams.get("dishId") ?? searchParams.get("id_plato");
@@ -84,15 +84,15 @@ export async function GET(request: NextRequest) {
  * Body: { dishId: number, stock: number }
  */
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("platos.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("platos.editar");
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
     }
 
-    const dishId = Number(body.dishId ?? body.id_plato);
+    const dishId = Number(body.dishId ?? body.dish_id);
     const stock = Number(body.stock);
 
     if (Number.isNaN(dishId) || Number.isNaN(stock) || stock < 0) {
@@ -133,17 +133,17 @@ export async function POST(request: NextRequest) {
  * Body: { dishId: number, quantity: number, operation: "add" | "reduce" }
  */
 export async function PATCH(request: NextRequest) {
-  const auth = await autorizar(["platos.editar", "pedidos.crear", "cocina.editar"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["platos.editar", "pedidos.crear", "cocina.editar"]);
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return Response.json({ error: "Petición no válida." }, { status: 400 });
     }
 
-    const dishId = Number(body.dishId ?? body.id_plato);
-    const quantity = Number(body.quantity ?? body.cantidad);
-    const operation = body.operation ?? body.operacion; // "add"/"agregar" o "reduce"/"reducir"
+    const dishId = Number(body.dishId ?? body.dish_id);
+    const quantity = Number(body.quantity);
+    const operation = body.operation; // "add"/"agregar" o "reduce"/"reducir"
 
     if (Number.isNaN(dishId) || Number.isNaN(quantity) || quantity <= 0) {
       return Response.json(

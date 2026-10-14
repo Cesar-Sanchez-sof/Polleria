@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
-import { actorActual } from "@/lib/auth/actor-auditoria";
-import { autorizar } from "@/lib/auth/permisos";
+import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { currentActor } from "@/lib/auth/audit-actor";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,8 +70,8 @@ async function requireRole(request: NextRequest, allowedRoles: number[]): Promis
  *         description: Error interno.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("periodos.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("periodos.ver");
+  if (!auth.ok) return auth.response;
   try {
     const status = request.nextUrl.searchParams.get("status");
     const monthParam = request.nextUrl.searchParams.get("month");
@@ -126,8 +126,8 @@ export async function GET(request: NextRequest) {
  *         description: Error del servidor
  */
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("periodos.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("periodos.crear");
+  if (!auth.ok) return auth.response;
   try {
     // Authorization – only ADMIN can create periods
     const userId = await requireRole(request, [ADMIN_ROLE_ID]);
@@ -166,15 +166,15 @@ export async function POST(request: NextRequest) {
         userId: userId,
       },
     });
-        await registrarAuditoria({
-      actor: (await actorActual()) ?? { userId, username: `usuario#${userId}` },
+        await logAudit({
+      actor: (await currentActor()) ?? { userId, username: `usuario#${userId}` },
       action: "CREATE",
       module: "Contabilidad",
       entity: "Período contable",
       entityId: period.id,
       description: `Creó el período contable ${month}/${year}`,
-      details: { despues: { inicio: start, fin: end, estado: "OPEN" } },
-      ipAddress: ipDeSolicitud(request),
+      details: { after: { start: start, end: end, status: "OPEN" } },
+      ipAddress: requestIp(request),
     });
     return Response.json(period, { status: 201 });
   } catch (error) {
@@ -214,8 +214,8 @@ export async function POST(request: NextRequest) {
  *         description: Error del servidor
  */
 export async function PATCH(request: NextRequest) {
-  const auth = await autorizar("periodos.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("periodos.editar");
+  if (!auth.ok) return auth.response;
   try {
     const userId = await requireRole(request, [ADMIN_ROLE_ID]);
     const body = await request.json();
@@ -238,15 +238,15 @@ export async function PATCH(request: NextRequest) {
         closedById: reopen ? null : userId,
       },
     });
-        await registrarAuditoria({
-      actor: (await actorActual()) ?? { userId, username: `usuario#${userId}` },
+        await logAudit({
+      actor: (await currentActor()) ?? { userId, username: `usuario#${userId}` },
       action: "STATUS_CHANGE",
       module: "Contabilidad",
       entity: "Período contable",
       entityId: periodId,
       description: `${reopen ? "Reabrió" : "Cerró"} el período contable #${periodId}`,
-      details: { antes: { estado: period.status }, despues: { estado: updated.status } },
-      ipAddress: ipDeSolicitud(request),
+      details: { before: { status: period.status }, after: { status: updated.status } },
+      ipAddress: requestIp(request),
     });
     return Response.json(updated);
   } catch (error) {

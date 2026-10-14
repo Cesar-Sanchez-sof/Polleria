@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jwtVerify } from "jose";
 
-const sesionActual = vi.fn();
-vi.mock("@/lib/auth/sesion-actual", () => ({ sesionActual: () => sesionActual() }));
+const currentSession = vi.fn();
+vi.mock("@/lib/auth/current-session", () => ({ currentSession: () => currentSession() }));
 
 import { GET, maxDuration, POST } from "@/app/api/assistant/route";
 import { EVAL_TIMEOUT_MS } from "@/lib/ai-assistant/config";
@@ -19,13 +19,13 @@ describe("/api/assistant", () => {
     vi.stubEnv("AI_ASSISTANT_DEMO", "1");
     vi.stubEnv("AI_SERVICE_URL", "http://127.0.0.1:8001");
     vi.stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
-    sesionActual.mockResolvedValue({ idUsuario: 7, username: "admin", rol: "ADMIN" });
+    currentSession.mockResolvedValue({ userId: 7, username: "admin", role: "ADMIN" });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    sesionActual.mockReset();
+    currentSession.mockReset();
   });
 
   it("GET habilitado en demostración local con ADMIN, sin exponer el token", async () => {
@@ -33,7 +33,7 @@ describe("/api/assistant", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const text = await response.text();
-    expect(JSON.parse(text)).toMatchObject({ habilitado: true, datosFicticios: true });
+    expect(JSON.parse(text)).toMatchObject({ enabled: true, fakeData: true });
     expect(text).not.toContain(TOKEN);
   });
 
@@ -41,14 +41,14 @@ describe("/api/assistant", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect((await GET()).status).toBe(404);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(404);
-    expect(sesionActual).not.toHaveBeenCalled();
+    expect(currentSession).not.toHaveBeenCalled();
   });
 
   it("GET y POST exigen sesión y rol ADMIN", async () => {
-    sesionActual.mockResolvedValue(null);
+    currentSession.mockResolvedValue(null);
     expect((await GET()).status).toBe(401);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(401);
-    sesionActual.mockResolvedValue({ idUsuario: 9, username: "caja", rol: "CAJERO" });
+    currentSession.mockResolvedValue({ userId: 9, username: "caja", role: "CAJERO" });
     expect((await GET()).status).toBe(403);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(403);
   });
@@ -102,25 +102,25 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
     vi.stubEnv("AI_SERVICE_URL", TUNNEL);
     vi.stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
     vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
-    sesionActual.mockResolvedValue({ idUsuario: 7, username: "admin", rol: "ADMIN" });
+    currentSession.mockResolvedValue({ userId: 7, username: "admin", role: "ADMIN" });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    sesionActual.mockReset();
+    currentSession.mockReset();
   });
 
   it("habilitado en Preview solo para ADMIN y siempre con datos ficticios", async () => {
     const response = await GET();
     expect(response.status).toBe(200);
     const text = await response.text();
-    expect(JSON.parse(text)).toMatchObject({ habilitado: true, datosFicticios: true });
+    expect(JSON.parse(text)).toMatchObject({ enabled: true, fakeData: true });
     expect(text).not.toContain(TOKEN);
     expect(text).not.toContain(IDENTITY_KEY);
-    sesionActual.mockResolvedValue({ idUsuario: 9, username: "caja", rol: "CAJERO" });
+    currentSession.mockResolvedValue({ userId: 9, username: "caja", role: "CAJERO" });
     expect((await GET()).status).toBe(403);
-    sesionActual.mockResolvedValue(null);
+    currentSession.mockResolvedValue(null);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(401);
   });
 
@@ -147,7 +147,7 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
       vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
     }
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(sesionActual).not.toHaveBeenCalled();
+    expect(currentSession).not.toHaveBeenCalled();
   });
 
   it("POST llega a FastAPI por el túnel con token interno e identidad firmada (P-9)", async () => {
@@ -205,13 +205,13 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
     vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
     vi.stubEnv("SESSION_SECRET", ERP_SESSION_SECRET); // login del ERP: el asistente no la usa
     vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7"); // cuenta evaluadora (idUsuario de la sesión ADMIN)
-    sesionActual.mockResolvedValue({ idUsuario: 7, username: "admin", rol: "ADMIN" });
+    currentSession.mockResolvedValue({ userId: 7, username: "admin", role: "ADMIN" });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    sesionActual.mockReset();
+    currentSession.mockReset();
   });
 
   it("deshabilitado por defecto y con una sola bandera", async () => {
@@ -224,25 +224,25 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
       vi.stubEnv("AI_ASSISTANT_ALLOW_PRODUCTION_EVAL", undefined);
     }
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(sesionActual).not.toHaveBeenCalled();
+    expect(currentSession).not.toHaveBeenCalled();
   });
 
   it("con ambas banderas: ADMIN autorizado y otros roles o sin sesión rechazados", async () => {
     both();
     const response = await GET();
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ habilitado: true, datosFicticios: true });
-    sesionActual.mockResolvedValue({ idUsuario: 9, username: "caja", rol: "CAJERO" });
+    expect(await response.json()).toMatchObject({ enabled: true, fakeData: true });
+    currentSession.mockResolvedValue({ userId: 9, username: "caja", role: "CAJERO" });
     expect((await GET()).status).toBe(403);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(403);
-    sesionActual.mockResolvedValue(null);
+    currentSession.mockResolvedValue(null);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(401);
   });
 
   it("con ambas banderas: un ADMIN que no es la cuenta evaluadora recibe 403", async () => {
     both();
     const fetchMock = answering();
-    sesionActual.mockResolvedValue({ idUsuario: 8, username: "otro-admin", rol: "ADMIN" });
+    currentSession.mockResolvedValue({ userId: 8, username: "otro-admin", role: "ADMIN" });
     expect((await GET()).status).toBe(403);
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -254,7 +254,7 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
     vi.stubEnv("AI_ASSISTANT_REAL_DATA", "1");
     const response = await GET();
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ habilitado: true, datosFicticios: false });
+    expect(await response.json()).toMatchObject({ enabled: true, fakeData: false });
     expect((await post(JSON.stringify({ mensaje: "Saldo de caja en julio" }))).status).toBe(200);
     expect((fetchMock.mock.calls[0][1].headers as Record<string, string>)["X-ERP-Identity"]).toBeTruthy(); // P-9 siempre
     vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", undefined);

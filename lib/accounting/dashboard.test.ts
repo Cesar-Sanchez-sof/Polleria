@@ -50,8 +50,8 @@ const previousBalanceAccounts: AccountMovement[] = [
 
 function baseInput(overrides: Partial<DashboardInput> = {}): DashboardInput {
   return {
-    desde: "2026-03-01",
-    hasta: "2026-03-31",
+    from: "2026-03-01",
+    to: "2026-03-31",
     periodAccounts,
     balanceAccounts,
     previous: null,
@@ -78,24 +78,24 @@ describe("buildDashboardKpis", () => {
     const { kpis, previousPeriod } = buildDashboardKpis(baseInput());
 
     expect(kpis.map((k) => k.key)).toEqual([
-      "ingresos",
-      "gastos",
-      "utilidad",
+      "income",
+      "expenses",
+      "profit",
       "caja_bancos",
       "por_cobrar",
       "por_pagar",
-      "asientos",
+      "entries",
     ]);
-    expect(kpis.find((k) => k.key === "ingresos")?.value).toBe(2000.5);
-    expect(kpis.find((k) => k.key === "gastos")?.value).toBe(900.5);
-    expect(kpis.find((k) => k.key === "utilidad")?.value).toBe(1100);
+    expect(kpis.find((k) => k.key === "income")?.value).toBe(2000.5);
+    expect(kpis.find((k) => k.key === "expenses")?.value).toBe(900.5);
+    expect(kpis.find((k) => k.key === "profit")?.value).toBe(1100);
     expect(kpis.find((k) => k.key === "caja_bancos")?.value).toBe(5500);
     expect(kpis.find((k) => k.key === "por_cobrar")?.value).toBe(500);
     expect(kpis.find((k) => k.key === "por_pagar")?.value).toBe(800);
 
-    const asientos = kpis.find((k) => k.key === "asientos");
-    expect(asientos?.value).toBe(12);
-    expect(asientos?.kind).toBe("count");
+    const entries = kpis.find((k) => k.key === "entries");
+    expect(entries?.value).toBe(12);
+    expect(entries?.kind).toBe("count");
     expect(kpis.filter((k) => k.kind === "currency")).toHaveLength(6);
     expect(previousPeriod).toBeNull();
   });
@@ -107,7 +107,7 @@ describe("buildDashboardKpis", () => {
         { code: "621", name: "Sueldos", type: "Gasto", debit: 450, credit: 0 },
       ],
     });
-    expect(kpiValue(input, "utilidad")).toBe(-150);
+    expect(kpiValue(input, "profit")).toBe(-150);
   });
 
   it("todas las variaciones son null sin período anterior", () => {
@@ -120,8 +120,8 @@ describe("buildDashboardKpis", () => {
     const { kpis, previousPeriod } = buildDashboardKpis(
       baseInput({
         previous: {
-          desde: "2026-02-01",
-          hasta: "2026-02-28",
+          from: "2026-02-01",
+          to: "2026-02-28",
           periodAccounts: previousPeriodAccounts,
           balanceAccounts: previousBalanceAccounts,
           entryCount: 10,
@@ -129,13 +129,13 @@ describe("buildDashboardKpis", () => {
       })
     );
 
-    expect(previousPeriod).toEqual({ desde: "2026-02-01", hasta: "2026-02-28" });
+    expect(previousPeriod).toEqual({ from: "2026-02-01", to: "2026-02-28" });
 
     const byKey = new Map(kpis.map((k) => [k.key, k]));
     // ingresos 2000.5 vs 1000 → +100.1% up (redondeo 1 decimal)
-    expect(byKey.get("ingresos")?.variation).toEqual({ percent: 100.1, direction: "up" });
+    expect(byKey.get("income")?.variation).toEqual({ percent: 100.1, direction: "up" });
     // utilidad 1100 vs 0 → |anterior| < 0.005 → null
-    expect(byKey.get("utilidad")?.variation).toBeNull();
+    expect(byKey.get("profit")?.variation).toBeNull();
     // caja 5500 vs 4000 → +37.5% up
     expect(byKey.get("caja_bancos")?.variation).toEqual({ percent: 37.5, direction: "up" });
     // por cobrar 500 vs 0 → null
@@ -143,14 +143,14 @@ describe("buildDashboardKpis", () => {
     // por pagar 800 vs 800 → 0% flat
     expect(byKey.get("por_pagar")?.variation).toEqual({ percent: 0, direction: "flat" });
     // asientos 12 vs 10 → +20% up
-    expect(byKey.get("asientos")?.variation).toEqual({ percent: 20, direction: "up" });
+    expect(byKey.get("entries")?.variation).toEqual({ percent: 20, direction: "up" });
   });
 
   it("redondea los valores a 2 decimales (round2)", () => {
     const input = baseInput({
       periodAccounts: [{ code: "701", name: "Ventas", type: "Ingreso", debit: 0, credit: 100.456 }],
     });
-    expect(kpiValue(input, "ingresos")).toBe(100.46);
+    expect(kpiValue(input, "income")).toBe(100.46);
   });
 
   it("rango sin datos → KPIs en 0 y meta.empty = true", () => {
@@ -175,8 +175,8 @@ describe("buildDashboardKpis", () => {
   it("el payload incluye period con label de rango visible (FR-008)", () => {
     const payload = buildDashboard(baseInput());
     expect(payload.period).toEqual({
-      desde: "2026-03-01",
-      hasta: "2026-03-31",
+      from: "2026-03-01",
+      to: "2026-03-31",
       label: "01 de marzo — 31 de marzo de 2026",
     });
   });
@@ -210,20 +210,20 @@ describe("validateRange", () => {
 describe("resolvePreviousRange", () => {
   it("devuelve el período anterior de igual duración en días", () => {
     expect(resolvePreviousRange("2026-03-01", "2026-03-31")).toEqual({
-      desde: "2026-01-29",
-      hasta: "2026-02-28",
+      from: "2026-01-29",
+      to: "2026-02-28",
     });
   });
 
   it("cruza de año y respeta años bisiestos", () => {
     expect(resolvePreviousRange("2024-01-01", "2024-01-31")).toEqual({
-      desde: "2023-12-01",
-      hasta: "2023-12-31",
+      from: "2023-12-01",
+      to: "2023-12-31",
     });
     // 2024 es bisiesto: 2024-03-01 − 1 día = 2024-02-29
     expect(resolvePreviousRange("2024-03-01", "2024-03-31")).toEqual({
-      desde: "2024-01-30",
-      hasta: "2024-02-29",
+      from: "2024-01-30",
+      to: "2024-02-29",
     });
   });
 
@@ -271,15 +271,15 @@ describe("buildMonthlySeries", () => {
   it("rellena los meses sin datos en 0 y calcula utilidad por punto", () => {
     const series = buildMonthlySeries("2025-12-01", "2026-01-31", rows);
     expect(series.map((p) => p.month)).toEqual(["2025-12", "2026-01"]);
-    expect(series[0]).toMatchObject({ ingresos: 1000, gastos: 700, utilidad: 300 });
-    expect(series[1]).toMatchObject({ ingresos: 1500, gastos: 400, utilidad: 1100 });
+    expect(series[0]).toMatchObject({ income: 1000, expenses: 700, profit: 300 });
+    expect(series[1]).toMatchObject({ income: 1500, expenses: 400, profit: 1100 });
     expect(series[0].label).toContain("2025");
   });
 
   it("incluye meses vacíos intermedios en 0", () => {
     const series = buildMonthlySeries("2025-11-01", "2026-01-31", rows);
     expect(series.map((p) => p.month)).toEqual(["2025-11", "2025-12", "2026-01"]);
-    expect(series[0]).toMatchObject({ ingresos: 0, gastos: 0, utilidad: 0 });
+    expect(series[0]).toMatchObject({ income: 0, expenses: 0, profit: 0 });
   });
 
   it("limita la serie a los últimos 12 meses terminados en hasta", () => {
@@ -295,7 +295,7 @@ describe("buildMonthlySeries", () => {
       { month: "2026-01", type: "Gasto", debit: 450, credit: 0 },
     ];
     const series = buildMonthlySeries("2026-01-01", "2026-01-31", loss);
-    expect(series[0].utilidad).toBe(-150);
+    expect(series[0].profit).toBe(-150);
   });
 
   it("devuelve [] con rango inválido", () => {
@@ -378,19 +378,19 @@ describe("resolveDefaultRange", () => {
         { startDate: "2026-03-01", endDate: "2026-03-31" },
         "2026-03-15"
       )
-    ).toEqual({ desde: "2026-03-01", hasta: "2026-03-31" });
+    ).toEqual({ from: "2026-03-01", to: "2026-03-31" });
   });
 
   it("usa los últimos 12 meses cuando no hay periodo abierto", () => {
     expect(resolveDefaultRange(null, "2026-03-15")).toEqual({
-      desde: "2025-03-15",
-      hasta: "2026-03-15",
+      from: "2025-03-15",
+      to: "2026-03-15",
     });
   });
 
   it("ignora un periodo abierto con fechas inválidas", () => {
     expect(
       resolveDefaultRange({ startDate: "31/03/2026", endDate: "2026-03-31" }, "2026-03-15")
-    ).toEqual({ desde: "2025-03-15", hasta: "2026-03-15" });
+    ).toEqual({ from: "2025-03-15", to: "2026-03-15" });
   });
 });

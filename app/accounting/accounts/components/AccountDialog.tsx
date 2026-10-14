@@ -51,19 +51,19 @@ export function AccountDialog({
   onClose,
   onSaved,
 }: Readonly<AccountDialogProps>) {
-  const [code, setCode] = useState<string>(() => (account ? account.codigo : ""));
-  const [name, setName] = useState<string>(() => (account ? account.nombre : ""));
+  const [code, setCode] = useState<string>(() => (account ? account.code : ""));
+  const [name, setName] = useState<string>(() => (account ? account.name : ""));
   const [parentId, setParentId] = useState<string>(() => {
-    if (account) return account.idPadre === null ? ROOT_ACCOUNT_VALUE : String(account.idPadre);
+    if (account) return account.parentId === null ? ROOT_ACCOUNT_VALUE : String(account.parentId);
     if (initialParent) return String(initialParent.id);
     return ROOT_ACCOUNT_VALUE;
   });
   const [accountType, setAccountType] = useState<string>(() => {
-    if (account) return account.tipo;
-    if (initialParent) return initialParent.tipo;
+    if (account) return account.type;
+    if (initialParent) return initialParent.type;
     return "";
   });
-  const [isActive, setIsActive] = useState<boolean>(() => (account ? account.activo : true));
+  const [isActive, setIsActive] = useState<boolean>(() => (account ? account.active : true));
   const [errors, setErrors] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -86,8 +86,8 @@ export function AccountDialog({
       for (const candidate of accounts) {
         if (
           !excluded.has(candidate.id) &&
-          candidate.idPadre !== null &&
-          excluded.has(candidate.idPadre)
+          candidate.parentId !== null &&
+          excluded.has(candidate.parentId)
         ) {
           excluded.add(candidate.id);
           changed = true;
@@ -100,9 +100,9 @@ export function AccountDialog({
   const parentOptions = useMemo(
     () =>
       accounts
-        .filter((c) => !excludedIds.has(c.id) && (c.activo || c.id === numericParentId))
+        .filter((c) => !excludedIds.has(c.id) && (c.active || c.id === numericParentId))
         .slice()
-        .sort((a, b) => a.codigo.localeCompare(b.codigo)),
+        .sort((a, b) => a.code.localeCompare(b.code)),
     [accounts, excludedIds, numericParentId]
   );
 
@@ -116,7 +116,7 @@ export function AccountDialog({
     setParentId(nextParentId);
     if (nextParentId !== ROOT_ACCOUNT_VALUE) {
       const parent = accounts.find((c) => String(c.id) === nextParentId);
-      if (parent) setAccountType(parent.tipo);
+      if (parent) setAccountType(parent.type);
     }
   };
 
@@ -156,11 +156,11 @@ export function AccountDialog({
     setIsSaving(true);
     try {
       const payload = {
-        codigo: code.trim(),
-        nombre: name.trim(),
-        tipo: accountType,
-        idPadre: numericParentId,
-        ...(isEditMode ? { activo: isActive } : {}),
+        code: code.trim(),
+        name: name.trim(),
+        type: accountType,
+        parentId: numericParentId,
+        ...(isEditMode ? { active: isActive } : {}),
       };
       const savedAccount = isEditMode
         ? await updateAccount(account!.id, payload)
@@ -188,7 +188,7 @@ export function AccountDialog({
             {isEditMode
               ? "Editar cuenta contable"
               : initialParent
-                ? `Nueva subcuenta de ${initialParent.codigo}`
+                ? `Nueva subcuenta de ${initialParent.code}`
                 : "Nueva cuenta contable"}
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500">
@@ -272,7 +272,7 @@ export function AccountDialog({
                   { value: ROOT_ACCOUNT_VALUE, label: "Ninguna · es una cuenta raíz" },
                   ...parentOptions.map((c) => ({
                     value: String(c.id),
-                    label: `${c.codigo} · ${c.nombre}${c.activo ? "" : " (inactiva)"}`,
+                    label: `${c.code} · ${c.name}${c.active ? "" : " (inactiva)"}`,
                   })),
                 ]}
                 onValueChange={handleParentChange}
@@ -288,8 +288,8 @@ export function AccountDialog({
                   <SelectItem value={ROOT_ACCOUNT_VALUE}>Ninguna · es una cuenta raíz</SelectItem>
                   {parentOptions.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
-                      {c.codigo} · {c.nombre}
-                      {c.activo ? "" : " (inactiva)"}
+                      {c.code} · {c.name}
+                      {c.active ? "" : " (inactiva)"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -298,7 +298,7 @@ export function AccountDialog({
                 <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                   <Info className="w-3.5 h-3.5 shrink-0" />
                   El tipo se hereda de{" "}
-                  <b className="text-slate-700">{parentAccount?.codigo ?? "la cuenta padre"}</b>.
+                  <b className="text-slate-700">{parentAccount?.code ?? "la cuenta padre"}</b>.
                 </p>
               )}
             </div>
@@ -323,15 +323,15 @@ export function AccountDialog({
             </div>
           )}
 
-          {isEditMode && account.usos > 0 && (
+          {isEditMode && account.uses > 0 && (
             <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
               <span className={labelClasses}>Uso actual</span>
               <p className="text-xs text-slate-600 mt-1">
                 La cuenta está en{" "}
                 <b className="text-slate-900 tabular-nums">
-                  {account.usos} línea{account.usos === 1 ? "" : "s"}
+                  {account.uses} línea{account.uses === 1 ? "" : "s"}
                 </b>{" "}
-                de asiento{account.usos === 1 ? "" : "s"}. Su historial no se modifica.
+                de asiento{account.uses === 1 ? "" : "s"}. Su historial no se modifica.
               </p>
             </div>
           )}

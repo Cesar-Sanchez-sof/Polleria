@@ -14,7 +14,7 @@ function amounts(result: CashFlowStatementResult): number[] {
   const {
     operating_activities: op,
     investing_activities: inv,
-    financing_activities: fin,
+    financing_activities: end,
     ...rest
   } = result;
   return [
@@ -32,10 +32,10 @@ function amounts(result: CashFlowStatementResult): number[] {
     inv.property_plant_equipment_purchases,
     inv.asset_sales,
     inv.net_cash_investing,
-    fin.capital_contributions,
-    fin.financial_obligations,
-    fin.dividends_paid,
-    fin.net_cash_financing,
+    end.capital_contributions,
+    end.financial_obligations,
+    end.dividends_paid,
+    end.net_cash_financing,
     rest.net_cash_increase,
     rest.cash_at_beginning,
     rest.cash_at_end,

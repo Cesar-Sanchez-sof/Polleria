@@ -47,9 +47,9 @@ export interface SupplierVoucherSummary {
   id: number;
   supplierId: number;
   totalAmount: number | string;
-  totalPagado: number | string;
-  saldoPendiente: number | string;
-  estadoPago: "Pendiente" | "Parcial" | "Pagado";
+  totalPaid: number | string;
+  pendingBalance: number | string;
+  paymentStatus: "Pendiente" | "Parcial" | "Pagado";
   supplier?: {
     businessName: string;
     ruc: string;
@@ -103,19 +103,19 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
   }, [vouchers, suppliers]);
 
   // 3. Compras al Crédito vs Contado
-  const { contadoCount, creditoCount, contadoRatio } = useMemo(() => {
-    let contado = 0;
-    let credito = 0;
+  const { countedCount, creditCount, countedRatio } = useMemo(() => {
+    let counted = 0;
+    let credit = 0;
     vouchers.forEach((v) => {
-      if (v.estadoPago === "Pagado" && Number(v.saldoPendiente) === 0) {
-        contado += 1;
+      if (v.paymentStatus === "Pagado" && Number(v.pendingBalance) === 0) {
+        counted += 1;
       } else {
-        credito += 1;
+        credit += 1;
       }
     });
-    const total = contado + credito;
-    const ratio = total > 0 ? Math.round((contado / total) * 100) : 100;
-    return { contadoCount: contado, creditoCount: credito, contadoRatio: ratio };
+    const total = counted + credit;
+    const ratio = total > 0 ? Math.round((counted / total) * 100) : 100;
+    return { countedCount: counted, creditCount: credit, countedRatio: ratio };
   }, [vouchers]);
 
   // 4. Cuentas por Pagar Vivas (Saldos Pendientes a Proveedores)
@@ -125,9 +125,9 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
     let pendingCount = 0;
 
     vouchers.forEach((v) => {
-      const saldo = Number(v.saldoPendiente);
-      if (saldo > 0.005) {
-        debt += saldo;
+      const balance = Number(v.pendingBalance);
+      if (balance > 0.005) {
+        debt += balance;
         debtSuppliersSet.add(v.supplierId);
         pendingCount += 1;
       }
@@ -179,18 +179,18 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
     setDialogOpen(true);
   };
 
-  const handleEdit = (proveedor: Supplier) => {
-    setSupplierToEdit(proveedor);
+  const handleEdit = (supplier: Supplier) => {
+    setSupplierToEdit(supplier);
     setDialogOpen(true);
   };
 
-  const handleToggleStatus = async (proveedor: Supplier) => {
-    const newStatus = !proveedor.active;
+  const handleToggleStatus = async (supplier: Supplier) => {
+    const newStatus = !supplier.active;
     try {
-      await setSupplierStatus(proveedor.id, newStatus);
+      await setSupplierStatus(supplier.id, newStatus);
       setSuppliers((prev) =>
         prev.map((p) =>
-          p.id === proveedor.id ? { ...p, active: newStatus } : p
+          p.id === supplier.id ? { ...p, active: newStatus } : p
         )
       );
       toast.success(
@@ -291,7 +291,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
               <CreditCard className="h-5 w-5" />
             </div>
             <span className="text-[11px] font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 rounded-full font-mono">
-              {contadoRatio}% Contado
+              {countedRatio}% Contado
             </span>
           </div>
           <div>
@@ -299,13 +299,13 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
               <div
                 className="bg-amber-600 dark:bg-amber-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${contadoRatio}%` }}
+                style={{ width: `${countedRatio}%` }}
               />
             </div>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-stone-700 dark:text-stone-300 font-medium">Contado: {contadoCount} op.</span>
-            <span className="text-amber-700 dark:text-amber-400 font-medium">Crédito: {creditoCount} op.</span>
+            <span className="text-stone-700 dark:text-stone-300 font-medium">Contado: {countedCount} op.</span>
+            <span className="text-amber-700 dark:text-amber-400 font-medium">Crédito: {creditCount} op.</span>
           </div>
         </div>
 

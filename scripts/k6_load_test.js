@@ -52,7 +52,7 @@ const ENDPOINTS = [
   { name: 'stock',                url: '/api/stock' },
   { name: 'supplies',             url: '/api/supplies' },
   { name: 'tables',               url: '/api/tables' },
-  { name: 'usuarios',             url: '/api/usuarios' },
+  { name: 'usuarios',             url: '/api/users' },
 ];
 
 export default function () {

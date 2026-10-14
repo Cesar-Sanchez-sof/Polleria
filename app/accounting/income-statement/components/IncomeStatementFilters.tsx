@@ -6,15 +6,15 @@ import { Input } from "@/components/ui/input";
 
 interface Props {
   /** Fecha inicial del periodo (YYYY-MM-DD). */
-  desde: string;
+  from: string;
   /** Fecha final del periodo (YYYY-MM-DD). */
-  hasta: string;
+  to: string;
   /** `true` cuando `desde` es posterior a `hasta`. */
   invalidRange: boolean;
   /** `true` cuando el periodo mostrado difiere del periodo por defecto (mes en curso). */
   hasCustomPeriod: boolean;
-  onDesde: (value: string) => void;
-  onHasta: (value: string) => void;
+  onFrom: (value: string) => void;
+  onTo: (value: string) => void;
   /** Restaura el periodo por defecto (primer día del mes en curso → hoy). */
   onReset: () => void;
   onPrint: () => void;
@@ -24,12 +24,12 @@ interface Props {
  * Filtro de periodo del Estado de Resultados: fecha inicial y final (ambas inclusivas).
  */
 export function IncomeStatementFilters({
-  desde,
-  hasta,
+  from,
+  to,
   invalidRange,
   hasCustomPeriod,
-  onDesde,
-  onHasta,
+  onFrom,
+  onTo,
   onReset,
   onPrint,
 }: Readonly<Props>) {
@@ -46,9 +46,9 @@ export function IncomeStatementFilters({
           <Input
             id="income-statement-desde"
             type="date"
-            value={desde}
-            max={hasta || undefined}
-            onChange={(e) => onDesde(e.target.value)}
+            value={from}
+            max={to || undefined}
+            onChange={(e) => onFrom(e.target.value)}
             aria-label="Fecha inicial del periodo"
             className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
           />
@@ -61,9 +61,9 @@ export function IncomeStatementFilters({
           <Input
             id="income-statement-hasta"
             type="date"
-            value={hasta}
-            min={desde || undefined}
-            onChange={(e) => onHasta(e.target.value)}
+            value={to}
+            min={from || undefined}
+            onChange={(e) => onTo(e.target.value)}
             aria-label="Fecha final del periodo"
             className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
           />

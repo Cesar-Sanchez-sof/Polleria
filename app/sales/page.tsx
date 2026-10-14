@@ -124,6 +124,8 @@ function SalesManagementContent() {
 
   // Pestaña principal del módulo de ventas
   const [activeTab, setActiveTab] = useState<TabType>("tables");
+  // Los tabs se agrupan igual que el menú: Salón (mesas, bebidas, listos, no cobrados) vs. Caja (ventanilla, clientes, facturas).
+  const isSalonTab = (["tables", "drinks", "kitchen", "payments"] as TabType[]).includes(activeTab);
 
   const goToTab = useCallback((tab: TabType) => {
     setActiveTab(tab);
@@ -163,10 +165,10 @@ function SalesManagementContent() {
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [saleVouchers, setSaleVouchers] = useState<IssuedVoucher[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySalesSummary>({
-    totalRecaudado: 0,
-    cantidadVentas: 0,
-    desgloseMetodos: { efectivo: 0, yape: 0, tarjeta: 0, otros: 0 },
-    desgloseComprobantes: { boletas: 0, facturas: 0, tickets: 0 },
+    totalCollected: 0,
+    salesCount: 0,
+    methodsBreakdown: { cash: 0, yape: 0, card: 0, others: 0 },
+    vouchersBreakdown: { receipts: 0, invoices: 0, tickets: 0 },
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [restaurantConfig, setRestaurantConfig] = useState<any>(null);
@@ -365,10 +367,10 @@ function SalesManagementContent() {
   const [amountGiven, setAmountGiven] = useState<string>("");
   // Partes de pago dinámicas para Pagar en Partes (Caja Ventanilla)
   const [paymentParts, setPaymentParts] = useState<
-    Array<{ id: string; paymentTypeId: number; monto: string; cashGiven?: string }>
+    Array<{ id: string; paymentTypeId: number; amount: string; cashGiven?: string }>
   >([
-    { id: "p-1", paymentTypeId: 1, monto: "" },
-    { id: "p-2", paymentTypeId: 2, monto: "" },
+    { id: "p-1", paymentTypeId: 1, amount: "" },
+    { id: "p-2", paymentTypeId: 2, amount: "" },
   ]);
 
   const [voucherModalOpen, setVoucherModalOpen] = useState<boolean>(false);
@@ -413,14 +415,14 @@ function SalesManagementContent() {
   const [waiterPaymentOrder, setWaiterPaymentOrder] = useState<OrderSummary | null>(null);
   const [waiterPaymentMethod, setWaiterPaymentMethod] = useState<"efectivo" | "yape" | "pos" | "mixto">("pos");
   const [waiterPaymentParts, setWaiterPaymentParts] = useState<
-    Array<{ id: string; paymentTypeId: number; monto: string; cashGiven?: string }>
+    Array<{ id: string; paymentTypeId: number; amount: string; cashGiven?: string }>
   >([
-    { id: "pm-1", paymentTypeId: 1, monto: "" },
-    { id: "pm-2", paymentTypeId: 2, monto: "" },
+    { id: "pm-1", paymentTypeId: 1, amount: "" },
+    { id: "pm-2", paymentTypeId: 2, amount: "" },
   ]);
   const [waiterAmountGiven, setWaiterAmountGiven] = useState<string>("");
   const [processingWaiterPayment, setProcessingWaiterPayment] = useState<boolean>(false);
-  const [tapToPayDetectado, setTapToPayDetectado] = useState<boolean>(false);
+  const [tapToPayDetected, setTapToPayDetected] = useState<boolean>(false);
   const [simulatingCard, setSimulatingCard] = useState<boolean>(false);
   const [cardSimStep, setCardSimStep] = useState<"idle" | "reading" | "approved">("idle");
   const [waiterVoucherType, setWaiterVoucherType] = useState<"Boleta" | "Factura">("Boleta");
@@ -442,11 +444,11 @@ function SalesManagementContent() {
   const [lookingUpDoc, setLookingUpDoc] = useState<boolean>(false);
 
   const lookupIdentityDocument = async (
-    tipo: "dni" | "ruc",
-    numero: string,
-    destino: "caja" | "nuevo_cliente" | "mozo"
+    type: "dni" | "ruc",
+    number: string,
+    destination: "caja" | "nuevo_cliente" | "mozo"
   ) => {
-    const num = (numero || "").trim();
+    const num = (number || "").trim();
     if (!num) {
       toast.warning("Ingrese un número de documento para consultar.");
       return;
@@ -454,7 +456,7 @@ function SalesManagementContent() {
 
     try {
       setLookingUpDoc(true);
-      const res = await fetch(`/api/document-lookup?tipo=${tipo}&numero=${encodeURIComponent(num)}`);
+      const res = await fetch(`/api/document-lookup?tipo=${type}&numero=${encodeURIComponent(num)}`);
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -462,25 +464,25 @@ function SalesManagementContent() {
       }
 
       const data = json.data;
-      if (destino === "caja") {
-        setCustomerName(data.razonSocial || data.nombreCompleto);
-        toast.success(`Datos RENIEC/SUNAT: ${data.razonSocial || data.nombreCompleto}`);
-      } else if (destino === "mozo") {
-        setWaiterCustomerName(data.razonSocial || data.nombreCompleto);
-        toast.success(`Datos RENIEC/SUNAT: ${data.razonSocial || data.nombreCompleto}`);
+      if (destination === "caja") {
+        setCustomerName(data.businessName || data.fullName);
+        toast.success(`Datos RENIEC/SUNAT: ${data.businessName || data.fullName}`);
+      } else if (destination === "mozo") {
+        setWaiterCustomerName(data.businessName || data.fullName);
+        toast.success(`Datos RENIEC/SUNAT: ${data.businessName || data.fullName}`);
       } else {
-        if (tipo === "dni") {
-          setNewCustomerName(data.nombres || data.nombreCompleto);
-          const apellidos =
-            [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(" ") ||
-            data.apellidos ||
-            data.lastNamePaterno ||
+        if (type === "dni") {
+          setNewCustomerName(data.names || data.fullName);
+          const lastNames =
+            [data.paternalLastName, data.maternalLastName].filter(Boolean).join(" ") ||
+            data.lastNames ||
+            data.paternalLastName ||
             "";
-          setNewCustomerLastName(apellidos);
+          setNewCustomerLastName(lastNames);
         } else {
-          setNewCustomerName(data.razonSocial || data.nombreCompleto);
+          setNewCustomerName(data.businessName || data.fullName);
         }
-        toast.success(`Datos encontrados: ${data.razonSocial || data.nombreCompleto}`);
+        toast.success(`Datos encontrados: ${data.businessName || data.fullName}`);
       }
     } catch (err: any) {
       toast.error(err.message || "Error al consultar documento.");
@@ -568,11 +570,11 @@ function SalesManagementContent() {
 
   // Listado de cobros no cobrados (comandas activas de mesas ocupadas + comandas activas para llevar)
   const uncollectedPayments = useMemo(() => {
-    const pendientes: Array<{
+    const pending: Array<{
       orderId: number;
       code: string;
-      tipo: "Mesa" | "Llevar";
-      identificador: string;
+      type: "Mesa" | "Llevar";
+      identifier: string;
       orderedAt: string;
       kitchenStatus: string;
       items: OrderLineItem[];
@@ -585,7 +587,7 @@ function SalesManagementContent() {
     // Mesas ocupadas
     for (const m of tables) {
       if (m.occupied && m.activeOrder) {
-        const pedObj: OrderSummary = {
+        const orderObj: OrderSummary = {
           id: m.activeOrder.id,
           orderTableId: m.activeOrder.orderTableId,
           code: m.activeOrder.code,
@@ -599,18 +601,18 @@ function SalesManagementContent() {
           editable: m.activeOrder.editable,
         };
 
-        pendientes.push({
+        pending.push({
           orderId: m.activeOrder.id,
           code: m.activeOrder.code,
-          tipo: "Mesa",
-          identificador: `Mesa ${m.number}`,
+          type: "Mesa",
+          identifier: `Mesa ${m.number}`,
           orderedAt: m.activeOrder.orderedAt,
           kitchenStatus: m.activeOrder.status,
           items: m.activeOrder.items,
           total: m.activeOrder.total,
           editable: m.activeOrder.editable,
           tableObj: m,
-          orderObj: pedObj,
+          orderObj: orderObj,
         });
       }
     }
@@ -618,11 +620,11 @@ function SalesManagementContent() {
     // Pedidos para llevar que aún no se cobraron
     for (const p of takeoutOrders) {
       if (p.status !== "Closed" && p.status !== "Cancelled") {
-        pendientes.push({
+        pending.push({
           orderId: p.id,
           code: p.code,
-          tipo: "Llevar",
-          identificador: `Para Llevar (${p.code})`,
+          type: "Llevar",
+          identifier: `Para Llevar (${p.code})`,
           orderedAt: p.orderedAt,
           kitchenStatus: p.status,
           items: p.items,
@@ -633,16 +635,16 @@ function SalesManagementContent() {
       }
     }
 
-    return pendientes;
+    return pending;
   }, [tables, takeoutOrders]);
 
   const readyOrdersForDelivery = useMemo(() => {
     const list: Array<{
       orderId: number;
       code: string;
-      tipo: "Mesa" | "Llevar";
-      identificador: string;
-      clienteOInfo: string;
+      type: "Mesa" | "Llevar";
+      identifier: string;
+      customerOrInfo: string;
       tableNumber?: number;
       orderedAt: string;
       kitchenStatus: string;
@@ -656,7 +658,7 @@ function SalesManagementContent() {
     // 1. Comandas de Mesas en Salón
     for (const m of tables) {
       if (m.occupied && m.activeOrder) {
-        const pedObj: OrderSummary = {
+        const orderObj: OrderSummary = {
           id: m.activeOrder.id,
           orderTableId: m.activeOrder.orderTableId,
           code: m.activeOrder.code,
@@ -675,9 +677,9 @@ function SalesManagementContent() {
         list.push({
           orderId: m.activeOrder.id,
           code: m.activeOrder.code,
-          tipo: "Mesa",
-          identificador: `Mesa #${m.number}`,
-          clienteOInfo: m.activeOrder.tableNotes
+          type: "Mesa",
+          identifier: `Mesa #${m.number}`,
+          customerOrInfo: m.activeOrder.tableNotes
             ? m.activeOrder.tableNotes
             : `Mesa en Salón (${m.capacity} comensales)`,
           tableNumber: m.number,
@@ -686,7 +688,7 @@ function SalesManagementContent() {
           items: m.activeOrder.items,
           total: m.activeOrder.total,
           notes: m.activeOrder.tableNotes,
-          orderObj: pedObj,
+          orderObj: orderObj,
           isDelivered,
         });
       }
@@ -705,9 +707,9 @@ function SalesManagementContent() {
         list.push({
           orderId: p.id,
           code: p.code,
-          tipo: "Llevar",
-          identificador: `Para Llevar — ${p.code}`,
-          clienteOInfo: clientName,
+          type: "Llevar",
+          identifier: `Para Llevar — ${p.code}`,
+          customerOrInfo: clientName,
           orderedAt: p.orderedAt,
           kitchenStatus: p.status,
           items: p.items,
@@ -736,25 +738,25 @@ function SalesManagementContent() {
   }, [readyOrdersForDelivery]);
 
   const displayedDeliveryOrders = useMemo(() => {
-    return readyOrdersForDelivery.filter((ord) => {
+    return readyOrdersForDelivery.filter((order) => {
       // Filtro de estado de entrega
       if (readyStatusMode === "solo-listos") {
-        if (ord.kitchenStatus !== "Served" || ord.isDelivered) {
+        if (order.kitchenStatus !== "Served" || order.isDelivered) {
           return false;
         }
       }
 
       // Filtro de origen
-      if (readyFilter === "mesas" && ord.tipo !== "Mesa") return false;
-      if (readyFilter === "llevar" && ord.tipo !== "Llevar") return false;
+      if (readyFilter === "mesas" && order.type !== "Mesa") return false;
+      if (readyFilter === "llevar" && order.type !== "Llevar") return false;
 
       // Búsqueda textual
       if (readySearch.trim()) {
         const q = readySearch.toLowerCase();
-        const matchCode = ord.code.toLowerCase().includes(q);
-        const matchIdent = ord.identificador.toLowerCase().includes(q);
-        const matchClient = ord.clienteOInfo.toLowerCase().includes(q);
-        const matchItems = ord.items.some((i) => (i.name || i.dishName || "").toLowerCase().includes(q));
+        const matchCode = order.code.toLowerCase().includes(q);
+        const matchIdent = order.identifier.toLowerCase().includes(q);
+        const matchClient = order.customerOrInfo.toLowerCase().includes(q);
+        const matchItems = order.items.some((i) => (i.name || i.dishName || "").toLowerCase().includes(q));
         if (!matchCode && !matchIdent && !matchClient && !matchItems) {
           return false;
         }
@@ -764,21 +766,21 @@ function SalesManagementContent() {
     });
   }, [readyOrdersForDelivery, readyStatusMode, readyFilter, readySearch]);
 
-  const toggleDelivered = (orderId: number, identificador: string) => {
+  const toggleDelivered = (orderId: number, identifier: string) => {
     setDeliveredOrderIds((prev) => {
       const next = new Set(prev);
       if (next.has(orderId)) {
         next.delete(orderId);
-        toast.info(`Comanda ${identificador} marcada como pendiente de entrega.`);
+        toast.info(`Comanda ${identifier} marcada como pendiente de entrega.`);
       } else {
         next.add(orderId);
-        toast.success(`¡Comanda ${identificador} entregada con éxito!`);
+        toast.success(`¡Comanda ${identifier} entregada con éxito!`);
       }
       return next;
     });
   };
 
-  const totalPorCobrar = useMemo(() => {
+  const totalReceivable = useMemo(() => {
     return uncollectedPayments.reduce((sum, c) => sum + c.total, 0);
   }, [uncollectedPayments]);
 
@@ -798,31 +800,31 @@ function SalesManagementContent() {
   // ---------------------------------------------------------------------------
   // ACCIONES COMANDA
   // ---------------------------------------------------------------------------
-  const openTakeTableOrder = (mesa: TableItem) => {
+  const openTakeTableOrder = (table: TableItem) => {
     if (!cashSessionState.isOpened) {
       toast.error("La caja se encuentra cerrada. Debe aperturar el turno en Caja antes de tomar pedidos.");
       setActiveTab("cashier");
       setOpenCashModal(true);
       return;
     }
-    if (mesa.occupied) {
-      if (mesa.activeOrder) {
+    if (table.occupied) {
+      if (table.activeOrder) {
         openEditOrder({
-          id: mesa.activeOrder.id,
-          tableNote: mesa.activeOrder.tableNotes,
-          items: mesa.activeOrder.items,
+          id: table.activeOrder.id,
+          tableNote: table.activeOrder.tableNotes,
+          items: table.activeOrder.items,
           orderType: "Mesa",
-          status: mesa.activeOrder.status,
-          table: { id: mesa.id, number: mesa.number },
+          status: table.activeOrder.status,
+          table: { id: table.id, number: table.number },
         });
         return;
       }
-      toast.info(`La Mesa ${mesa.number} ya tiene un pedido en curso.`);
+      toast.info(`La Mesa ${table.number} ya tiene un pedido en curso.`);
       return;
     }
     setIsEditing(false);
     setEditingOrderId(null);
-    setSelectedTable(mesa);
+    setSelectedTable(table);
     setAdditionalTables([]);
     setIsTakeaway(false);
     setTableNote("");
@@ -851,7 +853,7 @@ function SalesManagementContent() {
     setOrderModalOpen(true);
   };
 
-  const openEditOrder = (pedido: {
+  const openEditOrder = (order: {
     id: number;
     tableNote?: string;
     notes?: string;
@@ -860,26 +862,26 @@ function SalesManagementContent() {
     status?: string;
     table?: { id: number; number: number } | null;
   }) => {
-    if (pedido.status && !canEditOrder(pedido.status)) {
+    if (order.status && !canEditOrder(order.status)) {
       toast.warning("El pedido no puede ser modificado porque ya fue cerrado o cancelado.");
       return;
     }
     setIsEditing(true);
-    setEditingOrderId(pedido.id);
-    if (pedido.table) {
+    setEditingOrderId(order.id);
+    if (order.table) {
       setSelectedTable({
-        id: pedido.table.id,
-        number: pedido.table.number,
+        id: order.table.id,
+        number: order.table.number,
         capacity: 4,
         occupied: true,
         activeOrder: null,
       });
     }
     setAdditionalTables([]);
-    setIsTakeaway(pedido.orderType === "Llevar");
-    setTableNote(pedido.tableNote || pedido.notes || "");
+    setIsTakeaway(order.orderType === "Llevar");
+    setTableNote(order.tableNote || order.notes || "");
     setOrderItems(
-      pedido.items.map((it) => ({
+      order.items.map((it) => ({
         dishId: it.dishId,
         name: it.name || (it as any).dishName || "",
         unitPrice: it.unitPrice,
@@ -893,24 +895,24 @@ function SalesManagementContent() {
     setOrderModalOpen(true);
   };
 
-  const addOrderItem = (plato: MenuDish) => {
+  const addOrderItem = (dish: MenuDish) => {
     // Si el producto es una bebida, preguntar automáticamente la temperatura (Helada / Sin helar)
-    if (isBeverage(plato.name, plato.description) || plato.category === "bebidas") {
-      setPendingDrinkDish(plato);
+    if (isBeverage(dish.name, dish.description) || dish.category === "bebidas") {
+      setPendingDrinkDish(dish);
       setDrinkExtraNotes("");
       setDrinkTempModalOpen(true);
       return;
     }
 
-    applyAddOrderItem(plato, "");
+    applyAddOrderItem(dish, "");
   };
 
-  const applyAddOrderItem = (plato: MenuDish, tempNote: string) => {
+  const applyAddOrderItem = (dish: MenuDish, tempNote: string) => {
     const note = tempNote.trim();
     setOrderItems((prev) => {
       // Agrupar por plato y temperatura exacta para soportar ej. 1 Helada y 1 Sin helar
       const idx = prev.findIndex(
-        (it) => it.dishId === plato.id && (it.notes || "").trim() === note
+        (it) => it.dishId === dish.id && (it.notes || "").trim() === note
       );
       if (idx >= 0) {
         return prev.map((it, i) =>
@@ -920,9 +922,9 @@ function SalesManagementContent() {
       return [
         ...prev,
         {
-          dishId: plato.id,
-          name: plato.name,
-          unitPrice: plato.price,
+          dishId: dish.id,
+          name: dish.name,
+          unitPrice: dish.price,
           quantity: 1,
           notes: note,
         },
@@ -952,7 +954,7 @@ function SalesManagementContent() {
     });
   };
 
-  const eliminarItem = (index: number) => {
+  const deleteItem = (index: number) => {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -1025,12 +1027,12 @@ function SalesManagementContent() {
   };
 
   // Cancelación de comanda con auditoría y liberación de mesas
-  const openCancelModal = (pedido: OrderSummary) => {
-    if (pedido.status === "Closed") {
+  const openCancelModal = (order: OrderSummary) => {
+    if (order.status === "Closed") {
       toast.warning("No se puede cancelar un pedido que ya fue cobrado y cerrado.");
       return;
     }
-    setOrderToCancel(pedido);
+    setOrderToCancel(order);
     setCancelReason("");
     setCancelUser("Mozo Salón");
     setCancelModalOpen(true);
@@ -1064,8 +1066,8 @@ function SalesManagementContent() {
   // ---------------------------------------------------------------------------
   // FUNCIONES AUXILIARES PARA PAGAR EN PARTES (DINÁMICO)
   // ---------------------------------------------------------------------------
-  const addPaymentPart = (destino: "caja" | "mozo") => {
-    const fnSet = destino === "caja" ? setPaymentParts : setWaiterPaymentParts;
+  const addPaymentPart = (destination: "caja" | "mozo") => {
+    const fnSet = destination === "caja" ? setPaymentParts : setWaiterPaymentParts;
     fnSet((prev) => {
       const usedIds = new Set(prev.map((p) => p.paymentTypeId));
       const availableId = paymentTypes.find((t) => !usedIds.has(t.id))?.id || paymentTypes[0]?.id || 1;
@@ -1074,14 +1076,14 @@ function SalesManagementContent() {
         {
           id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           paymentTypeId: availableId,
-          monto: "",
+          amount: "",
         },
       ];
     });
   };
 
-  const removePaymentPart = (id: string, destino: "caja" | "mozo") => {
-    const fnSet = destino === "caja" ? setPaymentParts : setWaiterPaymentParts;
+  const removePaymentPart = (id: string, destination: "caja" | "mozo") => {
+    const fnSet = destination === "caja" ? setPaymentParts : setWaiterPaymentParts;
     fnSet((prev) => {
       if (prev.length <= 2) {
         toast.warning("Debe mantener al menos 2 partes para dividir el pago.");
@@ -1093,26 +1095,26 @@ function SalesManagementContent() {
 
   const updatePaymentPart = (
     id: string,
-    campo: "paymentTypeId" | "monto" | "cashGiven",
-    valor: any,
-    destino: "caja" | "mozo"
+    field: "paymentTypeId" | "monto" | "cashGiven",
+    value: any,
+    destination: "caja" | "mozo"
   ) => {
-    const fnSet = destino === "caja" ? setPaymentParts : setWaiterPaymentParts;
+    const fnSet = destination === "caja" ? setPaymentParts : setWaiterPaymentParts;
     fnSet((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p))
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
     );
   };
 
-  const autofillRemaining = (partId: string, accountTotal: number, destino: "caja" | "mozo") => {
-    const currentParts = destino === "caja" ? paymentParts : waiterPaymentParts;
-    const fnSet = destino === "caja" ? setPaymentParts : setWaiterPaymentParts;
+  const autofillRemaining = (partId: string, accountTotal: number, destination: "caja" | "mozo") => {
+    const currentParts = destination === "caja" ? paymentParts : waiterPaymentParts;
+    const fnSet = destination === "caja" ? setPaymentParts : setWaiterPaymentParts;
     const othersSum = currentParts
       .filter((p) => p.id !== partId)
-      .reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const remaining = Math.max(0, Math.round((accountTotal - othersSum) * 100) / 100);
     fnSet((prev) =>
       prev.map((p) =>
-        p.id === partId ? { ...p, monto: remaining > 0 ? String(remaining) : "" } : p
+        p.id === partId ? { ...p, amount: remaining > 0 ? String(remaining) : "" } : p
       )
     );
   };
@@ -1120,15 +1122,15 @@ function SalesManagementContent() {
   // ---------------------------------------------------------------------------
   // ACCIONES COBRO EN VENTANILLA / CAJA
   // ---------------------------------------------------------------------------
-  const goToCounterPayment = (pedido: OrderSummary, origen: string) => {
-    setOrderToCharge(pedido);
-    setPaymentSource(origen);
+  const goToCounterPayment = (order: OrderSummary, origin: string) => {
+    setOrderToCharge(order);
+    setPaymentSource(origin);
     setAmountGiven("");
     const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
     const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
     setPaymentParts([
-      { id: "p-1", paymentTypeId: idEf, monto: "" },
-      { id: "p-2", paymentTypeId: idYap, monto: "" },
+      { id: "p-1", paymentTypeId: idEf, amount: "" },
+      { id: "p-2", paymentTypeId: idYap, amount: "" },
     ]);
     goToTab("cashier");
   };
@@ -1147,8 +1149,8 @@ function SalesManagementContent() {
 
     // Validar documento si se ingresó
     if (customerDoc.trim()) {
-      const tipoPer = voucherType === "Factura" ? "Legal" : "Natural";
-      const docValidation = validateCustomerDocument(tipoPer, customerDoc.trim());
+      const personType = voucherType === "Factura" ? "Legal" : "Natural";
+      const docValidation = validateCustomerDocument(personType, customerDoc.trim());
       if (!docValidation.isValid) {
         toast.error(docValidation.error || "Documento de cliente no válido.");
         return;
@@ -1173,7 +1175,7 @@ function SalesManagementContent() {
     if (paymentMethod === "mixto") {
       const isListValid = paymentParts
         .map((p) => ({
-          paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
+          paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.amount) || 0) * 100) / 100,
         }))
         .filter((p) => p.amount > 0);
 
@@ -1191,7 +1193,7 @@ function SalesManagementContent() {
         return;
       }
 
-      salePayload.pagos = isListValid;
+      salePayload.payments = isListValid;
       salePayload.amountReceived = counterPaymentTotal;
     } else {
       const tpObj = paymentTypes.find((t) => {
@@ -1234,8 +1236,8 @@ function SalesManagementContent() {
       const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
       const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
       setPaymentParts([
-        { id: "p-1", paymentTypeId: idEf, monto: "" },
-        { id: "p-2", paymentTypeId: idYap, monto: "" },
+        { id: "p-1", paymentTypeId: idEf, amount: "" },
+        { id: "p-2", paymentTypeId: idYap, amount: "" },
       ]);
       setCustomerDoc("");
       setCustomerName("");
@@ -1251,11 +1253,11 @@ function SalesManagementContent() {
   // ---------------------------------------------------------------------------
   // ACCIONES COBRO MÓVIL / MOZO (CELULAR / TAP TO PAY / YAPE / EFECTIVO / PARTES)
   // ---------------------------------------------------------------------------
-  const openWaiterPayment = (pedido: OrderSummary) => {
-    setWaiterPaymentOrder(pedido);
+  const openWaiterPayment = (order: OrderSummary) => {
+    setWaiterPaymentOrder(order);
     setWaiterPaymentMethod("pos");
     setWaiterAmountGiven("");
-    setTapToPayDetectado(false);
+    setTapToPayDetected(false);
     setSimulatingCard(false);
     setCardSimStep("idle");
     setWaiterVoucherType("Boleta");
@@ -1264,8 +1266,8 @@ function SalesManagementContent() {
     const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
     const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
     setWaiterPaymentParts([
-      { id: "pm-1", paymentTypeId: idEf, monto: "" },
-      { id: "pm-2", paymentTypeId: idYap, monto: "" },
+      { id: "pm-1", paymentTypeId: idEf, amount: "" },
+      { id: "pm-2", paymentTypeId: idYap, amount: "" },
     ]);
     setWaiterPaymentModalOpen(true);
   };
@@ -1321,7 +1323,7 @@ function SalesManagementContent() {
     if (waiterPaymentMethod === "mixto") {
       const isListValid = waiterPaymentParts
         .map((p) => ({
-          paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.monto) || 0) * 100) / 100,
+          paymentTypeId: p.paymentTypeId, amount: Math.round((Number(p.amount) || 0) * 100) / 100,
         }))
         .filter((p) => p.amount > 0);
 
@@ -1606,6 +1608,8 @@ function SalesManagementContent() {
 
       {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
       <div className="px-3 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
+        {isSalonTab && (
+          <>
         {/* Pestaña 1: Mesas y Salón */}
         <button
           type="button"
@@ -1653,7 +1657,7 @@ function SalesManagementContent() {
           )}
         </button>
 
-        {/* Pestaña 2: Cobros No Realizados */}
+        {/* Pestaña 2: Pedidos no cobrados */}
         <button
           type="button"
           onClick={() => goToTab("payments")}
@@ -1663,10 +1667,14 @@ function SalesManagementContent() {
             }`}
         >
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="sm:hidden">Pendientes ({uncollectedPayments.length})</span>
-          <span className="hidden sm:inline">Cobros No Realizados ({uncollectedPayments.length})</span>
+          <span className="sm:hidden">No cobrados ({uncollectedPayments.length})</span>
+          <span className="hidden sm:inline">Pedidos no cobrados ({uncollectedPayments.length})</span>
         </button>
+          </>
+        )}
 
+        {!isSalonTab && (
+          <>
         {/* Pestaña 3: Caja y Cobro en Ventanilla */}
         <button
           type="button"
@@ -1677,8 +1685,8 @@ function SalesManagementContent() {
             }`}
         >
           <CircleDollarSign className="w-4 h-4 shrink-0" />
-          <span className="sm:hidden">Caja {orderToCharge ? `(${paymentSource})` : ""}</span>
-          <span className="hidden sm:inline">Caja y Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
+          <span className="sm:hidden">Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
+          <span className="hidden sm:inline">Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
         </button>
 
         {/* Pestaña 4: Clientes */}
@@ -1693,7 +1701,11 @@ function SalesManagementContent() {
           <Users className="w-4 h-4 shrink-0" />
           <span>Clientes ({customers.length})</span>
         </button>
+          </>
+        )}
 
+        {!isSalonTab && (
+          <>
         {/* Pestaña 5: Ventas Diarias & Facturas */}
         <button
           type="button"
@@ -1705,8 +1717,10 @@ function SalesManagementContent() {
         >
           <Receipt className="w-4 h-4 shrink-0" />
           <span className="sm:hidden">Ventas ({saleVouchers.length})</span>
-          <span className="hidden sm:inline">Ventas Diarias &amp; Facturas ({saleVouchers.length})</span>
+          <span className="hidden sm:inline">Facturas de Venta ({saleVouchers.length})</span>
         </button>
+          </>
+        )}
       </div>
 
       {/* =================================================================== */}
@@ -1785,14 +1799,14 @@ function SalesManagementContent() {
 
           {/* Grid Responsivo de Mesas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredTables.map((mesa) => {
-              const hasOrder = mesa.occupied && mesa.activeOrder;
-              const pedido = mesa.activeOrder;
+            {filteredTables.map((table) => {
+              const hasOrder = table.occupied && table.activeOrder;
+              const order = table.activeOrder;
 
               return (
                 <Card
-                  key={mesa.id}
-                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${mesa.occupied
+                  key={table.id}
+                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${table.occupied
                     ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
                     : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
                     }`}
@@ -1800,27 +1814,27 @@ function SalesManagementContent() {
                   <div>
                     {/* Cabecera de la Mesa */}
                     <div
-                      className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${mesa.occupied
+                      className={`p-3.5 flex items-center justify-between gap-2 flex-wrap border-b ${table.occupied
                         ? "bg-red-50/80 dark:bg-red-900/50 border-red-100"
                         : "bg-emerald-50/50 dark:bg-emerald-900/50 border-slate-100"
                         }`}
                     >
                       <div className="flex items-center gap-2">
                         <span
-                          className={`w-3 h-3 rounded-full ${mesa.occupied ? "bg-red-600 animate-pulse" : "bg-emerald-500"
+                          className={`w-3 h-3 rounded-full ${table.occupied ? "bg-red-600 animate-pulse" : "bg-emerald-500"
                             }`}
                         />
                         <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                          Mesa {mesa.number}
+                          Mesa {table.number}
                         </h3>
-                        {hasOrder && pedido?.tableNotes?.includes("Mesas unidas:") && (
+                        {hasOrder && order?.tableNotes?.includes("Mesas unidas:") && (
                           <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
-                            {pedido.tableNotes.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
+                            {order.tableNotes.match(/\[Mesas unidas:\s*([0-9,\s]+)\]/i)?.[0].replace("[", "").replace("]", "")}
                           </Badge>
                         )}
-                        {hasOrder && (pedido?.isAnnexed || pedido?.tableNotes?.includes("Anexa a Mesa")) && (
+                        {hasOrder && (order?.isAnnexed || order?.tableNotes?.includes("Anexa a Mesa")) && (
                           <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[10px] font-bold">
-                            {pedido.tableNotes.match(/\[Anexa a Mesa\s*[0-9]+\]/i)?.[0].replace("[", "").replace("]", "") || "Mesa Anexa"}
+                            {order.tableNotes.match(/\[Anexa a Mesa\s*[0-9]+\]/i)?.[0].replace("[", "").replace("]", "") || "Mesa Anexa"}
                           </Badge>
                         )}
                       </div>
@@ -1831,31 +1845,31 @@ function SalesManagementContent() {
                           className="bg-white/80 text-[10px] font-semibold text-slate-600 border border-slate-200"
                         >
                           <Users className="w-3 h-3 mr-1 text-slate-400" />
-                          Aforo {mesa.capacity}
+                          Aforo {table.capacity}
                         </Badge>
                         <Badge
-                          className={`text-[10px] font-bold border-none ${mesa.occupied
+                          className={`text-[10px] font-bold border-none ${table.occupied
                             ? "bg-red-600 text-white"
                             : "bg-emerald-600 text-white"
                             }`}
                         >
-                          {mesa.occupied ? "Ocupada" : "Libre"}
+                          {table.occupied ? "Ocupada" : "Libre"}
                         </Badge>
                       </div>
                     </div>
 
                     {/* Cuerpo de la Mesa */}
                     <div className="p-3.5">
-                      {hasOrder && pedido ? (
+                      {hasOrder && order ? (
                         <div className="flex flex-col gap-2.5">
                           {/* Meta del pedido */}
                           <div className="flex items-center justify-between text-xs text-slate-500">
                             <span className="font-mono font-semibold text-slate-700">
-                              {pedido.code}
+                              {order.code}
                             </span>
                             <span className="flex items-center gap-1 text-[11px]">
                               <Clock className="w-3 h-3 text-slate-400" />
-                              {new Date(pedido.orderedAt).toLocaleTimeString("es-PE", {
+                              {new Date(order.orderedAt).toLocaleTimeString("es-PE", {
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}
@@ -1871,25 +1885,25 @@ function SalesManagementContent() {
                               </span>
                             </div>
                             <div className="flex items-center gap-1">
-                              {pedido.status === "Received" && (
+                              {order.status === "Received" && (
                                 <button
-                                  onClick={() => changeKitchenStatus(pedido.id, "Preparing")}
+                                  onClick={() => changeKitchenStatus(order.id, "Preparing")}
                                   className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
                                   title="Pasar a Preparando"
                                 >
                                   Recibido → Iniciar
                                 </button>
                               )}
-                              {pedido.status === "Preparing" && (
+                              {order.status === "Preparing" && (
                                 <button
-                                  onClick={() => changeKitchenStatus(pedido.id, "Served")}
+                                  onClick={() => changeKitchenStatus(order.id, "Served")}
                                   className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
                                   title="Marcar como Servido"
                                 >
                                   Preparando → Servir
                                 </button>
                               )}
-                              {pedido.status === "Served" && (
+                              {order.status === "Served" && (
                                 <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
                                   ✓ Servido en Mesa
                                 </span>
@@ -1898,15 +1912,15 @@ function SalesManagementContent() {
                           </div>
 
                           {/* Observación de la mesa */}
-                          {pedido.tableNotes && (
+                          {order.tableNotes && (
                             <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/60 italic line-clamp-1">
-                              💬 &quot;{pedido.tableNotes}&quot;
+                              💬 &quot;{order.tableNotes}&quot;
                             </p>
                           )}
 
                           {/* Detalle rápido de platos */}
                           <div className="bg-slate-50 rounded-xl p-2.5 max-h-36 overflow-y-auto border border-slate-100 flex flex-col gap-1">
-                            {pedido.items.map((item, idx) => (
+                            {order.items.map((item, idx) => (
                               <div
                                 key={idx}
                                 className="flex items-center justify-between text-xs text-slate-700 py-0.5 border-b border-slate-200/50 last:border-none"
@@ -1933,13 +1947,13 @@ function SalesManagementContent() {
                           <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                             <span className="text-xs font-bold text-slate-600">Total Cuenta:</span>
                             <span className="text-base font-extrabold text-red-700">
-                              {formatCurrency(pedido.total)}
+                              {formatCurrency(order.total)}
                             </span>
                           </div>
                         </div>
                       ) : (
                         <div
-                          onClick={() => openTakeTableOrder(mesa)}
+                          onClick={() => openTakeTableOrder(table)}
                           className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-700 transition-colors cursor-pointer"
                         >
                           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -1958,18 +1972,18 @@ function SalesManagementContent() {
 
                   {/* Botones de Acción al pie de la tarjeta */}
                   <div className="p-3 border-t border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
-                    {mesa.occupied && pedido ? (
+                    {table.occupied && order ? (
                       <>
                         {/* Botón principal: Adicionar / Agregar más platos al pedido */}
                         <Button
                           onClick={() =>
                             openEditOrder({
-                              id: pedido.id,
-                              tableNote: pedido.tableNotes,
-                              items: pedido.items,
+                              id: order.id,
+                              tableNote: order.tableNotes,
+                              items: order.items,
                               orderType: "Mesa",
-                              status: pedido.status,
-                              table: { id: mesa.id, number: mesa.number },
+                              status: order.status,
+                              table: { id: table.id, number: table.number },
                             })
                           }
                           className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
@@ -1982,17 +1996,17 @@ function SalesManagementContent() {
                         <Button
                           onClick={() =>
                             openWaiterPayment({
-                              id: pedido.id,
-                              orderTableId: pedido.orderTableId,
-                              code: pedido.code,
+                              id: order.id,
+                              orderTableId: order.orderTableId,
+                              code: order.code,
                               orderType: "Mesa",
-                              orderedAt: pedido.orderedAt,
-                              status: pedido.status,
-                              table: { id: mesa.id, number: mesa.number },
-                              notes: pedido.tableNotes,
-                              items: pedido.items,
-                              total: pedido.total,
-                              editable: pedido.editable,
+                              orderedAt: order.orderedAt,
+                              status: order.status,
+                              table: { id: table.id, number: table.number },
+                              notes: order.tableNotes,
+                              items: order.items,
+                              total: order.total,
+                              editable: order.editable,
                             })
                           }
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
@@ -2010,19 +2024,19 @@ function SalesManagementContent() {
                               setViewOrderModal({
                                 open: true,
                                 order: {
-                                  id: pedido.id,
-                                  orderTableId: pedido.orderTableId,
-                                  code: pedido.code,
+                                  id: order.id,
+                                  orderTableId: order.orderTableId,
+                                  code: order.code,
                                   orderType: "Mesa",
-                                  orderedAt: pedido.orderedAt,
-                                  status: pedido.status,
-                                  table: { id: mesa.id, number: mesa.number },
-                                  notes: pedido.tableNotes,
-                                  items: pedido.items,
-                                  total: pedido.total,
-                                  editable: pedido.editable,
+                                  orderedAt: order.orderedAt,
+                                  status: order.status,
+                                  table: { id: table.id, number: table.number },
+                                  notes: order.tableNotes,
+                                  items: order.items,
+                                  total: order.total,
+                                  editable: order.editable,
                                 },
-                                tableName: `Mesa ${mesa.number}`,
+                                tableName: `Mesa ${table.number}`,
                               })
                             }
                             className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
@@ -2038,19 +2052,19 @@ function SalesManagementContent() {
                             onClick={() =>
                               goToCounterPayment(
                                 {
-                                  id: pedido.id,
-                                  orderTableId: pedido.orderTableId,
-                                  code: pedido.code,
+                                  id: order.id,
+                                  orderTableId: order.orderTableId,
+                                  code: order.code,
                                   orderType: "Mesa",
-                                  orderedAt: pedido.orderedAt,
-                                  status: pedido.status,
-                                  table: { id: mesa.id, number: mesa.number },
-                                  notes: pedido.tableNotes,
-                                  items: pedido.items,
-                                  total: pedido.total,
-                                  editable: pedido.editable,
+                                  orderedAt: order.orderedAt,
+                                  status: order.status,
+                                  table: { id: table.id, number: table.number },
+                                  notes: order.tableNotes,
+                                  items: order.items,
+                                  total: order.total,
+                                  editable: order.editable,
                                 },
-                                `Mesa ${mesa.number}`
+                                `Mesa ${table.number}`
                               )
                             }
                             className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
@@ -2066,17 +2080,17 @@ function SalesManagementContent() {
                           size="sm"
                           onClick={() =>
                             openCancelModal({
-                              id: pedido.id,
-                              orderTableId: pedido.orderTableId,
-                              code: pedido.code,
+                              id: order.id,
+                              orderTableId: order.orderTableId,
+                              code: order.code,
                               orderType: "Mesa",
-                              orderedAt: pedido.orderedAt,
-                              status: pedido.status,
-                              table: { id: mesa.id, number: mesa.number },
-                              notes: pedido.tableNotes,
-                              items: pedido.items,
-                              total: pedido.total,
-                              editable: pedido.editable,
+                              orderedAt: order.orderedAt,
+                              status: order.status,
+                              table: { id: table.id, number: table.number },
+                              notes: order.tableNotes,
+                              items: order.items,
+                              total: order.total,
+                              editable: order.editable,
                             })
                           }
                           className="w-full text-[11px] font-semibold h-7 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
@@ -2087,7 +2101,7 @@ function SalesManagementContent() {
                       </>
                     ) : (
                       <Button
-                        onClick={() => openTakeTableOrder(mesa)}
+                        onClick={() => openTakeTableOrder(table)}
                         className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
@@ -2294,7 +2308,7 @@ function SalesManagementContent() {
 
                 return (
                   <Card
-                    key={`delivery-${order.tipo}-${order.orderId}`}
+                    key={`delivery-${order.type}-${order.orderId}`}
                     className={`rounded-2xl border transition-all overflow-hidden flex flex-col ${isReady && !isDelivered
                         ? "border-emerald-400 bg-white shadow-md ring-2 ring-emerald-500/20"
                         : isDelivered
@@ -2312,10 +2326,10 @@ function SalesManagementContent() {
                         }`}
                     >
                       <div className="flex items-center gap-2">
-                        {order.tipo === "Mesa" ? (
+                        {order.type === "Mesa" ? (
                           <div className="flex items-center gap-1.5">
                             <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-red-700 text-white shadow-xs">
-                              {order.identificador}
+                              {order.identifier}
                             </span>
                           </div>
                         ) : (
@@ -2356,16 +2370,16 @@ function SalesManagementContent() {
                     {/* Información Destino / Cliente */}
                     <div className="px-4 pt-3 pb-2 flex items-center justify-between text-xs border-b border-slate-100 bg-white">
                       <div className="flex items-center gap-1.5 font-bold text-slate-800 truncate">
-                        {order.tipo === "Mesa" ? (
+                        {order.type === "Mesa" ? (
                           <>
                             <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate">{order.clienteOInfo}</span>
+                            <span className="truncate">{order.customerOrInfo}</span>
                           </>
                         ) : (
                           <>
                             <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                             <span className="text-blue-900 truncate">
-                              Cliente: {order.clienteOInfo}
+                              Cliente: {order.customerOrInfo}
                             </span>
                           </>
                         )}
@@ -2409,7 +2423,7 @@ function SalesManagementContent() {
                         ))}
                       </div>
 
-                      {order.notes && order.tipo === "Mesa" && (
+                      {order.notes && order.type === "Mesa" && (
                         <p className="text-[11px] text-slate-500 bg-amber-50/60 border border-amber-200/60 p-2 rounded-lg italic mt-1">
                           Nota comanda: {order.notes}
                         </p>
@@ -2430,7 +2444,7 @@ function SalesManagementContent() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         {/* Botón 1: Marcar Entregado */}
                         <Button
-                          onClick={() => toggleDelivered(order.orderId, order.identificador)}
+                          onClick={() => toggleDelivered(order.orderId, order.identifier)}
                           size="sm"
                           className={`w-full font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer col-span-2 ${isDelivered
                               ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
@@ -2467,7 +2481,7 @@ function SalesManagementContent() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => goToCounterPayment(order.orderObj, order.identificador)}
+                          onClick={() => goToCounterPayment(order.orderObj, order.identifier)}
                           className="w-full bg-white hover:bg-slate-100 border-slate-200 text-slate-700 font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 cursor-pointer"
                         >
                           <Receipt className="w-3.5 h-3.5 text-blue-600" />
@@ -2496,7 +2510,7 @@ function SalesManagementContent() {
               </div>
               <div>
                 <span className="text-xs font-bold text-amber-900 uppercase">
-                  Cobros No Realizados
+                  Pedidos no cobrados
                 </span>
                 <p className="text-2xl font-extrabold text-amber-950">
                   {uncollectedPayments.length} Pendientes
@@ -2513,7 +2527,7 @@ function SalesManagementContent() {
                   Importe Total No Realizado
                 </span>
                 <p className="text-2xl font-extrabold text-red-950">
-                  {formatCurrency(totalPorCobrar)}
+                  {formatCurrency(totalReceivable)}
                 </p>
               </div>
             </Card>
@@ -2527,7 +2541,7 @@ function SalesManagementContent() {
                   Canales de Cobro
                 </span>
                 <p className="text-xs font-semibold text-emerald-800 mt-0.5">
-                  Cobro con Mozo en Mesa ó Caja Ventanilla
+                  Cobro con Mozo en Mesa ó Ventanilla
                 </p>
               </div>
             </Card>
@@ -2538,7 +2552,7 @@ function SalesManagementContent() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600" />
-                <span>Detalle de Cobros No Realizados</span>
+                <span>Detalle de Pedidos no cobrados</span>
               </h3>
               <span className="text-xs text-slate-500">
                 Actualizado en tiempo real
@@ -2557,43 +2571,43 @@ function SalesManagementContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {uncollectedPayments.map((cobro) => (
+                {uncollectedPayments.map((charge) => (
                   <Card
-                    key={cobro.orderId}
+                    key={charge.orderId}
                     className="rounded-xl border border-slate-200 bg-slate-50/50 dark:bg-slate-800/50 p-4 flex flex-col justify-between hover:shadow-md transition-shadow"
                   >
                     <div className="flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
                         <span className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
-                          {cobro.tipo === "Mesa" ? (
+                          {charge.type === "Mesa" ? (
                             <Utensils className="w-4 h-4 text-red-700" />
                           ) : (
                             <ShoppingBag className="w-4 h-4 text-amber-600" />
                           )}
-                          {cobro.identificador}
+                          {charge.identifier}
                         </span>
                         <Badge
-                          className={`text-[10px] font-bold border-none ${cobro.kitchenStatus === "Served"
+                          className={`text-[10px] font-bold border-none ${charge.kitchenStatus === "Served"
                             ? "bg-emerald-100 text-emerald-800"
-                            : cobro.kitchenStatus === "Preparing"
+                            : charge.kitchenStatus === "Preparing"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-blue-100 text-blue-800"
                             }`}
                         >
-                          {cobro.kitchenStatus === "Served"
+                          {charge.kitchenStatus === "Served"
                             ? "Servido"
-                            : cobro.kitchenStatus === "Preparing"
+                            : charge.kitchenStatus === "Preparing"
                               ? "Preparando"
-                              : cobro.kitchenStatus === "Received"
+                              : charge.kitchenStatus === "Received"
                                 ? "Recibido"
-                                : cobro.kitchenStatus}
+                                : charge.kitchenStatus}
                         </Badge>
                       </div>
 
                       <div className="text-xs text-slate-500 flex items-center justify-between">
-                        <span className="font-mono">{cobro.code}</span>
+                        <span className="font-mono">{charge.code}</span>
                         <span>
-                          {new Date(cobro.orderedAt).toLocaleTimeString("es-PE", {
+                          {new Date(charge.orderedAt).toLocaleTimeString("es-PE", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -2602,7 +2616,7 @@ function SalesManagementContent() {
 
                       {/* Ítems pedidos */}
                       <div className="bg-white p-2.5 rounded-lg border border-slate-200/80 max-h-24 overflow-y-auto text-xs text-slate-700 flex flex-col gap-1">
-                        {cobro.items.map((it, idx) => (
+                        {charge.items.map((it, idx) => (
                           <div key={idx} className="flex justify-between">
                             <span className="line-clamp-1">
                               {it.quantity}x {it.name}
@@ -2617,17 +2631,17 @@ function SalesManagementContent() {
                       <div className="flex items-center justify-between pt-1">
                         <span className="text-xs font-bold text-slate-600">Total a Cobrar:</span>
                         <span className="text-base font-extrabold text-red-700">
-                          {formatCurrency(cobro.total)}
+                          {formatCurrency(charge.total)}
                         </span>
                       </div>
                     </div>
 
                     {/* Botones de cobro directo y cancelación */}
                     <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200">
-                      {cobro.tipo === "Mesa" && (
+                      {charge.type === "Mesa" && (
                         <Button
                           size="sm"
-                          onClick={() => openWaiterPayment(cobro.orderObj)}
+                          onClick={() => openWaiterPayment(charge.orderObj)}
                           className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-8 rounded-lg cursor-pointer"
                         >
                           <Smartphone className="w-3.5 h-3.5 mr-1" />
@@ -2637,7 +2651,7 @@ function SalesManagementContent() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => goToCounterPayment(cobro.orderObj, cobro.identificador)}
+                        onClick={() => goToCounterPayment(charge.orderObj, charge.identifier)}
                         className="flex-1 text-xs font-bold h-8 rounded-lg border-slate-300 hover:bg-slate-100 cursor-pointer"
                       >
                         <Receipt className="w-3.5 h-3.5 mr-1 text-slate-600" />
@@ -2646,7 +2660,7 @@ function SalesManagementContent() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => openCancelModal(cobro.orderObj)}
+                        onClick={() => openCancelModal(charge.orderObj)}
                         title="Cancelar comanda"
                         className="text-xs font-bold h-8 px-2 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
                       >
@@ -2827,25 +2841,25 @@ function SalesManagementContent() {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                  {cashSessionState.activeSession.movements.map((mov) => (
+                  {cashSessionState.activeSession.movements.map((movement) => (
                     <div
-                      key={`mov-${mov.id}`}
+                      key={`mov-${movement.id}`}
                       className="p-2.5 rounded-xl bg-white border border-amber-200 text-xs flex flex-col justify-between shadow-2xs"
                     >
                       <div>
                         <div className="flex items-center justify-between font-bold">
                           <span className="text-rose-700 font-extrabold">
-                            -S/ {mov.amount.toFixed(2)}
+                            -S/ {movement.amount.toFixed(2)}
                           </span>
                           <span className="text-[10px] text-slate-400 font-normal">
-                            {new Date(mov.createdAt).toLocaleTimeString([], {
+                            {new Date(movement.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-700 mt-1 font-medium">
-                          {mov.reason}
+                          {movement.reason}
                         </p>
                       </div>
                       <div className="mt-2 pt-1 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
@@ -2882,7 +2896,7 @@ function SalesManagementContent() {
                           key={c.orderId}
                           onClick={() => {
                             setOrderToCharge(c.orderObj);
-                            setPaymentSource(c.identificador);
+                            setPaymentSource(c.identifier);
                             setAmountGiven("");
                           }}
                           className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${isSelected
@@ -2892,12 +2906,12 @@ function SalesManagementContent() {
                         >
                           <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
                             <span className="flex items-center gap-1.5">
-                              {c.tipo === "Mesa" ? (
+                              {c.type === "Mesa" ? (
                                 <Utensils className="w-3.5 h-3.5 text-red-700" />
                               ) : (
                                 <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
                               )}
-                              {c.identificador}
+                              {c.identifier}
                             </span>
                             <span className="text-red-700 font-extrabold text-sm">
                               {formatCurrency(c.total)}
@@ -3039,23 +3053,23 @@ function SalesManagementContent() {
                         Tipo de Comprobante:
                       </label>
                       <div className="grid grid-cols-2 gap-2">
-                        {(["Boleta", "Factura"] as const).map((tipo) => (
+                        {(["Boleta", "Factura"] as const).map((type) => (
                           <button
-                            key={tipo}
+                            key={type}
                             type="button"
                             onClick={() => {
-                              setVoucherType(tipo);
-                              if (tipo === "Factura" && (!customerDoc || customerDoc.length !== 11)) {
+                              setVoucherType(type);
+                              if (type === "Factura" && (!customerDoc || customerDoc.length !== 11)) {
                                 setCustomerDoc("20601234567");
                                 setCustomerName("EMPRESA GASTRONÓMICA S.A.C.");
                               }
                             }}
-                            className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${voucherType === tipo
+                            className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${voucherType === type
                               ? "bg-red-700 text-white border-red-700 shadow-xs"
                               : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                               }`}
                           >
-                            {tipo}
+                            {type}
                           </button>
                         ))}
                       </div>
@@ -3200,14 +3214,14 @@ function SalesManagementContent() {
                               className="bg-white text-xs h-9 w-36 rounded-lg font-bold"
                             />
                             <div className="flex gap-1">
-                              {[20, 50, 100, 200].map((billete) => (
+                              {[20, 50, 100, 200].map((banknote) => (
                                 <button
-                                  key={billete}
+                                  key={banknote}
                                   type="button"
-                                  onClick={() => setAmountGiven(String(billete))}
+                                  onClick={() => setAmountGiven(String(banknote))}
                                   className="px-2 py-1 bg-white border border-emerald-300 rounded text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 cursor-pointer"
                                 >
-                                  S/{billete}
+                                  S/{banknote}
                                 </button>
                               ))}
                             </div>
@@ -3279,17 +3293,17 @@ function SalesManagementContent() {
 
                         {/* Listado dinámico de partes de pago */}
                         <div className="flex flex-col gap-2">
-                          {paymentParts.map((parte, index) => {
-                            const selectedPaymentType = paymentTypes.find((t) => t.id === parte.paymentTypeId);
-                            const esEfectivo = selectedPaymentType?.name.toLowerCase().includes("efectivo");
+                          {paymentParts.map((part, index) => {
+                            const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
+                            const isCash = selectedPaymentType?.name.toLowerCase().includes("efectivo");
                             const isYape = selectedPaymentType?.name.toLowerCase().includes("yape");
-                            const parteMontoNum = Number(parte.monto) || 0;
+                            const partAmountNum = Number(part.amount) || 0;
 
                             const partYapeQr =
-                              isYape && parteMontoNum > 0 && orderToCharge
+                              isYape && partAmountNum > 0 && orderToCharge
                                 ? generateDynamicYapeQR({
                                     phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321",
-                                    amount: parteMontoNum,
+                                    amount: partAmountNum,
                                     merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
                                     orderCode: `${orderToCharge.code}-P${index + 1}`,
                                   })
@@ -3297,13 +3311,13 @@ function SalesManagementContent() {
 
                             // Calcular cuánto falta considerando las otras partes
                             const otherSum = paymentParts
-                              .filter((p) => p.id !== parte.id)
-                              .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                              .filter((p) => p.id !== part.id)
+                              .reduce((s, p) => s + (Number(p.amount) || 0), 0);
                             const remainingForThis = Math.max(0, Math.round((counterPaymentTotal - otherSum) * 100) / 100);
 
                             return (
                               <div
-                                key={parte.id}
+                                key={part.id}
                                 className="bg-white p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col gap-2"
                               >
                                 <div className="flex items-center gap-2">
@@ -3314,9 +3328,9 @@ function SalesManagementContent() {
                                   {/* Selector de método de pago */}
                                   <div className="flex-1 min-w-[130px]">
                                     <select
-                                      value={parte.paymentTypeId}
+                                      value={part.paymentTypeId}
                                       onChange={(e) =>
-                                        updatePaymentPart(parte.id, "paymentTypeId", Number(e.target.value), "caja")
+                                        updatePaymentPart(part.id, "paymentTypeId", Number(e.target.value), "caja")
                                       }
                                       className="w-full h-8 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 focus:ring-1 focus:ring-amber-500 focus:outline-none"
                                     >
@@ -3337,19 +3351,19 @@ function SalesManagementContent() {
                                       type="number"
                                       step="any"
                                       placeholder="0.00"
-                                      value={parte.monto}
+                                      value={part.amount}
                                       onChange={(e) =>
-                                        updatePaymentPart(parte.id, "monto", e.target.value, "caja")
+                                        updatePaymentPart(part.id, "monto", e.target.value, "caja")
                                       }
                                       className="h-8 pl-7 text-xs font-bold text-slate-900 rounded-lg bg-slate-50"
                                     />
                                   </div>
 
                                   {/* Botón rápido para autocompletar lo que resta para esta parte */}
-                                  {remainingForThis > 0 && Number(parte.monto) !== remainingForThis && (
+                                  {remainingForThis > 0 && Number(part.amount) !== remainingForThis && (
                                     <button
                                       type="button"
-                                      onClick={() => autofillRemaining(parte.id, counterPaymentTotal, "caja")}
+                                      onClick={() => autofillRemaining(part.id, counterPaymentTotal, "caja")}
                                       className="text-[10px] font-bold px-2 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors cursor-pointer shrink-0 hidden sm:inline"
                                       title={`Asignar el saldo restante de S/ ${remainingForThis.toFixed(2)}`}
                                     >
@@ -3361,7 +3375,7 @@ function SalesManagementContent() {
                                   {paymentParts.length > 2 && (
                                     <button
                                       type="button"
-                                      onClick={() => removePaymentPart(parte.id, "caja")}
+                                      onClick={() => removePaymentPart(part.id, "caja")}
                                       className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
                                       title="Eliminar esta parte"
                                     >
@@ -3371,7 +3385,7 @@ function SalesManagementContent() {
                                 </div>
 
                                 {/* Helper para Efectivo: Vuelto si el cliente entrega un billete más grande */}
-                                {esEfectivo && Number(parte.monto) > 0 && (
+                                {isCash && Number(part.amount) > 0 && (
                                   <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-600">
                                     <span className="text-[10px] text-slate-500 font-semibold">
                                       ¿Cliente paga con billete mayor?
@@ -3381,15 +3395,15 @@ function SalesManagementContent() {
                                         type="number"
                                         step="any"
                                         placeholder="Billete (ej: 20)"
-                                        value={parte.cashGiven || ""}
+                                        value={part.cashGiven || ""}
                                         onChange={(e) =>
-                                          updatePaymentPart(parte.id, "cashGiven", e.target.value, "caja")
+                                          updatePaymentPart(part.id, "cashGiven", e.target.value, "caja")
                                         }
                                         className="h-6 w-24 text-[10px] rounded px-1.5 bg-slate-50"
                                       />
-                                      {Number(parte.cashGiven) > Number(parte.monto) && (
+                                      {Number(part.cashGiven) > Number(part.amount) && (
                                         <span className="text-emerald-700 font-bold text-[10px]">
-                                          Vuelto: S/ {(Number(parte.cashGiven) - Number(parte.monto)).toFixed(2)}
+                                          Vuelto: S/ {(Number(part.cashGiven) - Number(part.amount)).toFixed(2)}
                                         </span>
                                       )}
                                     </div>
@@ -3397,7 +3411,7 @@ function SalesManagementContent() {
                                 )}
 
                                 {/* Helper para Yape: QR Dinámico con monto específico para esta parte */}
-                                {isYape && parteMontoNum > 0 && partYapeQr && (
+                                {isYape && partAmountNum > 0 && partYapeQr && (
                                   <div className="p-3 bg-purple-50/90 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center gap-3 pt-2">
                                     <div className="p-2 bg-white border border-purple-300 rounded-xl shadow-2xs shrink-0 flex flex-col items-center">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3416,11 +3430,11 @@ function SalesManagementContent() {
                                           YAPE PARTE #{index + 1}
                                         </span>
                                         <span className="font-extrabold text-purple-900 text-xs">
-                                          Monto Exacto: S/ {parteMontoNum.toFixed(2)}
+                                          Monto Exacto: S/ {partAmountNum.toFixed(2)}
                                         </span>
                                       </div>
                                       <p className="text-[11px] text-purple-800">
-                                        Muestra este QR al comensal #{index + 1}. Al escanear con la app Yape, se precarga <strong>S/ {parteMontoNum.toFixed(2)}</strong> automáticamente. Solo debe pulsar <strong>&quot;YAPEAR&quot;</strong>.
+                                        Muestra este QR al comensal #{index + 1}. Al escanear con la app Yape, se precarga <strong>S/ {partAmountNum.toFixed(2)}</strong> automáticamente. Solo debe pulsar <strong>&quot;YAPEAR&quot;</strong>.
                                       </p>
                                       <div className="text-[10px] text-purple-900 bg-white/80 px-2 py-1 rounded-lg border border-purple-200 flex items-center justify-between">
                                         <span>Titular: <strong>{partYapeQr.merchantName}</strong></span>
@@ -3454,13 +3468,13 @@ function SalesManagementContent() {
 
                         {/* Balance y validación en tiempo real */}
                         {(() => {
-                          const cubierto = Math.round(
-                            paymentParts.reduce((sum, p) => sum + (Number(p.monto) || 0), 0) * 100
+                          const covered = Math.round(
+                            paymentParts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) * 100
                           ) / 100;
-                          const diferencia = Math.round((counterPaymentTotal - cubierto) * 100) / 100;
-                          const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
-                          const porcentaje = counterPaymentTotal > 0
-                            ? Math.min(100, Math.round((cubierto / counterPaymentTotal) * 100))
+                          const difference = Math.round((counterPaymentTotal - covered) * 100) / 100;
+                          const isExact = Math.abs(difference) <= 0.05 && covered > 0;
+                          const percent = counterPaymentTotal > 0
+                            ? Math.min(100, Math.round((covered / counterPaymentTotal) * 100))
                             : 0;
 
                           return (
@@ -3468,40 +3482,40 @@ function SalesManagementContent() {
                               {/* Barra visual de progreso */}
                               <div>
                                 <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                                  <span>Progreso del Pago: {porcentaje}%</span>
+                                  <span>Progreso del Pago: {percent}%</span>
                                   <span>
-                                    Suma de Partes: <strong className="text-slate-900">S/ {cubierto.toFixed(2)}</strong> de{" "}
+                                    Suma de Partes: <strong className="text-slate-900">S/ {covered.toFixed(2)}</strong> de{" "}
                                     <strong className="text-red-700">{formatCurrency(counterPaymentTotal)}</strong>
                                   </span>
                                 </div>
                                 <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
                                   <div
-                                    className={`h-full transition-all duration-300 ${esExacto ? "bg-emerald-500" : diferencia > 0 ? "bg-amber-500" : "bg-rose-500"
+                                    className={`h-full transition-all duration-300 ${isExact ? "bg-emerald-500" : difference > 0 ? "bg-amber-500" : "bg-rose-500"
                                       }`}
-                                    style={{ width: `${Math.min(100, porcentaje)}%` }}
+                                    style={{ width: `${Math.min(100, percent)}%` }}
                                   />
                                 </div>
                               </div>
 
                               <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                                {esExacto ? (
+                                {isExact ? (
                                   <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
                                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                     <span>¡Excelente! Cuenta 100% cubierta con las partes indicadas.</span>
                                   </div>
-                                ) : diferencia > 0 ? (
+                                ) : difference > 0 ? (
                                   <div className="flex items-center gap-1.5 text-amber-800 font-bold">
                                     <AlertCircle className="w-4 h-4 text-amber-600" />
-                                    <span>Falta cubrir: S/ {diferencia.toFixed(2)}</span>
+                                    <span>Falta cubrir: S/ {difference.toFixed(2)}</span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1.5 text-rose-700 font-bold">
                                     <AlertCircle className="w-4 h-4 text-rose-600" />
-                                    <span>Las partes exceden el total por: S/ {Math.abs(diferencia).toFixed(2)}</span>
+                                    <span>Las partes exceden el total por: S/ {Math.abs(difference).toFixed(2)}</span>
                                   </div>
                                 )}
 
-                                {esExacto ? (
+                                {isExact ? (
                                   <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
                                     Listo para cobrar
                                   </Badge>
@@ -3684,10 +3698,10 @@ function SalesManagementContent() {
                 </div>
               </div>
               <p className="text-xl sm:text-2xl font-extrabold text-slate-900">
-                {formatCurrency(dailySummary.totalRecaudado)}
+                {formatCurrency(dailySummary.totalCollected)}
               </p>
               <span className="text-[11px] text-slate-500 mt-1">
-                {dailySummary.cantidadVentas} comprobantes emitidos
+                {dailySummary.salesCount} comprobantes emitidos
               </span>
             </Card>
 
@@ -3699,7 +3713,7 @@ function SalesManagementContent() {
                 </div>
               </div>
               <p className="text-xl sm:text-2xl font-extrabold text-emerald-700">
-                {formatCurrency(dailySummary.desgloseMetodos.efectivo)}
+                {formatCurrency(dailySummary.methodsBreakdown.cash)}
               </p>
               <span className="text-[11px] text-slate-500 mt-1">
                 Dinero físico availableId
@@ -3714,7 +3728,7 @@ function SalesManagementContent() {
                 </div>
               </div>
               <p className="text-xl sm:text-2xl font-extrabold text-purple-700">
-                {formatCurrency(dailySummary.desgloseMetodos.yape)}
+                {formatCurrency(dailySummary.methodsBreakdown.yape)}
               </p>
               <span className="text-[11px] text-slate-500 mt-1">
                 Pagos digitales QR
@@ -3729,7 +3743,7 @@ function SalesManagementContent() {
                 </div>
               </div>
               <p className="text-xl sm:text-2xl font-extrabold text-blue-700">
-                {formatCurrency(dailySummary.desgloseMetodos.tarjeta)}
+                {formatCurrency(dailySummary.methodsBreakdown.card)}
               </p>
               <span className="text-[11px] text-slate-500 mt-1">
                 Mercado Pago &amp; Tarjetas
@@ -3979,23 +3993,23 @@ function SalesManagementContent() {
 
           {/* Grid de Platos de la Carta */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1 border rounded-xl bg-slate-50/50">
-            {filteredDishes.map((plato) => (
+            {filteredDishes.map((dish) => (
               <div
-                key={plato.id}
-                onClick={() => addOrderItem(plato)}
+                key={dish.id}
+                onClick={() => addOrderItem(dish)}
                 className="bg-white p-2.5 rounded-xl border border-slate-200 hover:border-red-400 hover:shadow-xs cursor-pointer flex flex-col justify-between transition-all"
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900 line-clamp-1">
-                    {plato.name}
+                    {dish.name}
                   </h4>
                   <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
-                    {plato.description}
+                    {dish.description}
                   </p>
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
                   <span className="font-bold text-xs text-red-700">
-                    S/ {plato.price.toFixed(2)}
+                    S/ {dish.price.toFixed(2)}
                   </span>
                   <span className="text-[10px] font-bold text-white bg-red-700 px-1.5 py-0.5 rounded-md">
                     + Añadir
@@ -4048,8 +4062,8 @@ function SalesManagementContent() {
                           <button
                             type="button"
                             onClick={() => {
-                              const isHelada = (item.notes || "").toLowerCase().includes("helada");
-                              const newTemp = isHelada ? "Sin helar" : "Helada";
+                              const isCold = (item.notes || "").toLowerCase().includes("helada");
+                              const newTemp = isCold ? "Sin helar" : "Helada";
                               setOrderItems((prev) =>
                                 prev.map((it, i) => (i === idx ? { ...it, notes: newTemp } : it))
                               );
@@ -4102,7 +4116,7 @@ function SalesManagementContent() {
 
                       <button
                         type="button"
-                        onClick={() => eliminarItem(idx)}
+                        onClick={() => deleteItem(idx)}
                         className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
                         title="Eliminar plato"
                       >
@@ -4276,16 +4290,16 @@ function SalesManagementContent() {
                 <Button
                   size="sm"
                   onClick={() => {
-                    const ord = viewOrderModal.order;
+                    const order = viewOrderModal.order;
                     setViewOrderModal({ open: false, order: null });
-                    if (ord) {
+                    if (order) {
                       openEditOrder({
-                        id: ord.id,
-                        tableNote: ord.notes,
-                        items: ord.items,
-                        orderType: ord.orderType,
-                        status: ord.status,
-                        table: ord.table,
+                        id: order.id,
+                        tableNote: order.notes,
+                        items: order.items,
+                        orderType: order.orderType,
+                        status: order.status,
+                        table: order.table,
                       });
                     }
                   }}
@@ -4756,29 +4770,29 @@ function SalesManagementContent() {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    {waiterPaymentParts.map((parte, index) => {
-                      const selectedPaymentType = paymentTypes.find((t) => t.id === parte.paymentTypeId);
+                    {waiterPaymentParts.map((part, index) => {
+                      const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
                       const isYape = selectedPaymentType?.name.toLowerCase().includes("yape");
-                      const parteMontoNum = Number(parte.monto) || 0;
+                      const partAmountNum = Number(part.amount) || 0;
 
                       const waiterPartYapeQr =
-                        isYape && parteMontoNum > 0 && waiterPaymentOrder
+                        isYape && partAmountNum > 0 && waiterPaymentOrder
                           ? generateDynamicYapeQR({
                               phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321",
-                              amount: parteMontoNum,
+                              amount: partAmountNum,
                               merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
                               orderCode: `${waiterPaymentOrder.code}-P${index + 1}`,
                             })
                           : null;
 
                       const otherSum = waiterPaymentParts
-                        .filter((p) => p.id !== parte.id)
-                        .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                        .filter((p) => p.id !== part.id)
+                        .reduce((s, p) => s + (Number(p.amount) || 0), 0);
                       const remainingForThis = Math.max(0, Math.round((waiterPaymentOrder.total - otherSum) * 100) / 100);
 
                       return (
                         <div
-                          key={parte.id}
+                          key={part.id}
                           className="bg-white p-2.5 rounded-xl border border-amber-200 flex flex-col gap-2"
                         >
                           <div className="flex items-center gap-2">
@@ -4786,9 +4800,9 @@ function SalesManagementContent() {
                               #{index + 1}
                             </span>
                             <select
-                              value={parte.paymentTypeId}
+                              value={part.paymentTypeId}
                               onChange={(e) =>
-                                updatePaymentPart(parte.id, "paymentTypeId", Number(e.target.value), "mozo")
+                                updatePaymentPart(part.id, "paymentTypeId", Number(e.target.value), "mozo")
                               }
                               className="flex-1 h-7 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-1.5"
                             >
@@ -4806,17 +4820,17 @@ function SalesManagementContent() {
                                 type="number"
                                 step="any"
                                 placeholder="0.00"
-                                value={parte.monto}
+                                value={part.amount}
                                 onChange={(e) =>
-                                  updatePaymentPart(parte.id, "monto", e.target.value, "mozo")
+                                  updatePaymentPart(part.id, "monto", e.target.value, "mozo")
                                 }
                                 className="h-7 pl-6 text-xs font-bold rounded-lg bg-slate-50"
                               />
                             </div>
-                            {remainingForThis > 0 && Number(parte.monto) !== remainingForThis && (
+                            {remainingForThis > 0 && Number(part.amount) !== remainingForThis && (
                               <button
                                 type="button"
-                                onClick={() => autofillRemaining(parte.id, waiterPaymentOrder.total, "mozo")}
+                                onClick={() => autofillRemaining(part.id, waiterPaymentOrder.total, "mozo")}
                                 className="text-[10px] font-bold px-1.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded transition-colors cursor-pointer shrink-0"
                                 title="Asignar restante"
                               >
@@ -4826,7 +4840,7 @@ function SalesManagementContent() {
                             {waiterPaymentParts.length > 2 && (
                               <button
                                 type="button"
-                                onClick={() => removePaymentPart(parte.id, "mozo")}
+                                onClick={() => removePaymentPart(part.id, "mozo")}
                                 className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -4835,7 +4849,7 @@ function SalesManagementContent() {
                           </div>
 
                           {/* Helper para Yape: QR Dinámico con monto específico para esta parte */}
-                          {isYape && parteMontoNum > 0 && waiterPartYapeQr && (
+                          {isYape && partAmountNum > 0 && waiterPartYapeQr && (
                             <div className="p-2.5 bg-purple-50/90 border border-purple-200 rounded-xl flex flex-col items-center gap-1.5 text-center mt-1">
                               <div className="flex items-center gap-1.5">
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white">
@@ -4852,7 +4866,7 @@ function SalesManagementContent() {
                                 className="w-32 h-32 rounded-xl border border-purple-200 bg-white shadow-2xs"
                               />
                               <span className="text-[10px] text-purple-800">
-                                Precarga automática en Yape: <strong>S/ {parteMontoNum.toFixed(2)}</strong>. Solo pulsar <strong>&quot;YAPEAR&quot;</strong>.
+                                Precarga automática en Yape: <strong>S/ {partAmountNum.toFixed(2)}</strong>. Solo pulsar <strong>&quot;YAPEAR&quot;</strong>.
                               </span>
                               <a
                                 href={waiterPartYapeQr.deepLink}
@@ -4883,28 +4897,28 @@ function SalesManagementContent() {
 
                   {/* Balance en mesa */}
                   {(() => {
-                    const cubierto = Math.round(
-                      waiterPaymentParts.reduce((s, p) => s + (Number(p.monto) || 0), 0) * 100
+                    const covered = Math.round(
+                      waiterPaymentParts.reduce((s, p) => s + (Number(p.amount) || 0), 0) * 100
                     ) / 100;
-                    const diferencia = Math.round((waiterPaymentOrder.total - cubierto) * 100) / 100;
-                    const esExacto = Math.abs(diferencia) <= 0.05 && cubierto > 0;
+                    const difference = Math.round((waiterPaymentOrder.total - covered) * 100) / 100;
+                    const isExact = Math.abs(difference) <= 0.05 && covered > 0;
 
                     return (
                       <div className="bg-white p-2.5 rounded-xl border border-amber-200 text-xs flex items-center justify-between">
                         <span>
-                          Suma: <strong>S/ {cubierto.toFixed(2)}</strong>
+                          Suma: <strong>S/ {covered.toFixed(2)}</strong>
                         </span>
-                        {esExacto ? (
+                        {isExact ? (
                           <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
                             ✓ 100% Cubierto
                           </Badge>
-                        ) : diferencia > 0 ? (
+                        ) : difference > 0 ? (
                           <Badge className="bg-amber-600 text-white font-bold text-[10px]">
-                            Falta: S/ {diferencia.toFixed(2)}
+                            Falta: S/ {difference.toFixed(2)}
                           </Badge>
                         ) : (
                           <Badge className="bg-rose-600 text-white font-bold text-[10px]">
-                            Excede: S/ {Math.abs(diferencia).toFixed(2)}
+                            Excede: S/ {Math.abs(difference).toFixed(2)}
                           </Badge>
                         )}
                       </div>
@@ -5468,14 +5482,14 @@ function SalesManagementContent() {
                   "Error al registrar comanda",
                   "Cliente se retiró del salón",
                   "Pedido duplicado",
-                ].map((motivo) => (
+                ].map((reason) => (
                   <button
-                    key={motivo}
+                    key={reason}
                     type="button"
-                    onClick={() => setCancelReason(motivo)}
+                    onClick={() => setCancelReason(reason)}
                     className="text-[10px] px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer"
                   >
-                    + {motivo}
+                    + {reason}
                   </button>
                 ))}
               </div>

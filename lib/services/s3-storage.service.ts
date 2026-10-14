@@ -21,27 +21,27 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  */
 
 export interface VoucherFileMetadata {
-  idComprobante: number;
-  tipoComprobante: "Boleta" | "Factura" | "Ticket";
+  voucherId: number;
+  voucherType: "Boleta" | "Factura" | "Ticket";
   serie: string;
-  numero: number;
-  formato?: "pdf" | "xml" | "json";
-  fecha?: Date | string;
+  number: number;
+  format?: "pdf" | "xml" | "json";
+  date?: Date | string;
 }
 
 export interface S3UploadResult {
-  idComprobante: number;
+  voucherId: number;
   s3Key: string;
   publicUrl: string;
   bucket: string;
-  estado: "guardado" | "simulado" | "error";
+  status: "guardado" | "simulado" | "error";
   message: string;
   timeMs?: number;
 }
 
 export interface S3BatchItem {
   meta: VoucherFileMetadata;
-  contenido?: Buffer | Uint8Array | string;
+  content?: Buffer | Uint8Array | string;
   contentType?: string;
 }
 
@@ -98,18 +98,18 @@ export function getBucketName(): string {
  * Estructura: {tipo_comprobante}/{anio}/{mes}/{dia}/{serie}-{numeroPad}.{formato}
  */
 export function buildVoucherS3Key(meta: VoucherFileMetadata): string {
-  const f = meta.fecha ? new Date(meta.fecha) : new Date();
+  const f = meta.date ? new Date(meta.date) : new Date();
   const year = f.getFullYear();
   const month = String(f.getMonth() + 1).padStart(2, "0");
   const day = String(f.getDate()).padStart(2, "0");
 
   let folderType = "boletas";
-  const voucherType = (meta.tipoComprobante || "").toLowerCase();
+  const voucherType = (meta.voucherType || "").toLowerCase();
   if (voucherType === "factura") folderType = "facturas";
   else if (voucherType === "ticket") folderType = "tickets";
 
-  const numPad = String(meta.numero).padStart(6, "0");
-  const extension = meta.formato || "pdf";
+  const numPad = String(meta.number).padStart(6, "0");
+  const extension = meta.format || "pdf";
 
   return `${folderType}/${year}/${month}/${day}/${meta.serie}-${numPad}.${extension}`;
 }
@@ -134,12 +134,12 @@ export async function uploadVoucherToS3(
     Buffer.from(
       JSON.stringify(
         {
-          idComprobante: meta.idComprobante,
-          tipoComprobante: meta.tipoComprobante,
+          voucherId: meta.voucherId,
+          voucherType: meta.voucherType,
           serie: meta.serie,
-          numero: meta.numero,
-          fecha: meta.fecha || new Date(),
-          emisor: "POLLERIA EL SABORCITO",
+          number: meta.number,
+          date: meta.date || new Date(),
+          issuer: "POLLERIA EL SABORCITO",
           ruc: "20601234567",
         },
         null,
@@ -168,11 +168,11 @@ export async function uploadVoucherToS3(
 
   if (!hasValidRemoteCreds) {
     return {
-      idComprobante: meta.idComprobante,
+      voucherId: meta.voucherId,
       s3Key,
       publicUrl: localUrl,
       bucket,
-      estado: "guardado",
+      status: "guardado",
       message: `Comprobante archivado digitalmente en almacenamiento ('${localUrl}').`,
       timeMs: Date.now() - startedAt,
     };
@@ -181,9 +181,9 @@ export async function uploadVoucherToS3(
   // MODO 2: Con credenciales oficiales de S3 remoto (Neon Object Storage / AWS S3 / Cloudflare R2)
   try {
     const contentType =
-      meta.formato === "xml"
+      meta.format === "xml"
         ? "application/xml"
-        : meta.formato === "json"
+        : meta.format === "json"
         ? "application/json"
         : "application/pdf";
 
@@ -207,22 +207,22 @@ export async function uploadVoucherToS3(
     );
 
     return {
-      idComprobante: meta.idComprobante,
+      voucherId: meta.voucherId,
       s3Key,
       publicUrl,
       bucket,
-      estado: "guardado",
+      status: "guardado",
       message: `Comprobante archivado en bucket S3 '${bucket}/${s3Key}'.`,
       timeMs: Date.now() - startedAt,
     };
   } catch (error: any) {
     console.warn("[uploadVoucherToS3] Error al subir a S3 remoto:", error);
     return {
-      idComprobante: meta.idComprobante,
+      voucherId: meta.voucherId,
       s3Key,
       publicUrl: localUrl,
       bucket,
-      estado: "guardado",
+      status: "guardado",
       message: `Comprobante archivado localmente (${error.message || "S3 remoto no disponible"}).`,
       timeMs: Date.now() - startedAt,
     };
@@ -257,17 +257,17 @@ export async function uploadVouchersBatch(
 
       while (attempt <= maxRetries) {
         try {
-          result = await uploadVoucherToS3(item.meta, item.contenido);
-          if (result.estado !== "error") break;
+          result = await uploadVoucherToS3(item.meta, item.content);
+          if (result.status !== "error") break;
         } catch (err: any) {
           attempt++;
           if (attempt > maxRetries) {
             result = {
-              idComprobante: item.meta.idComprobante,
+              voucherId: item.meta.voucherId,
               s3Key: buildVoucherS3Key(item.meta),
               publicUrl: "",
               bucket: getBucketName(),
-              estado: "error",
+              status: "error",
               message: `Fallo tras ${maxRetries} reintentos: ${err.message}`,
             };
           } else {
@@ -287,7 +287,7 @@ export async function uploadVouchersBatch(
 
   await Promise.all(workers);
 
-  const successful = results.filter((r) => r.estado !== "error").length;
+  const successful = results.filter((r) => r.status !== "error").length;
   const failed = results.length - successful;
 
   return {

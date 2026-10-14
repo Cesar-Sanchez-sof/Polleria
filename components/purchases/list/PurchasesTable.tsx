@@ -107,9 +107,9 @@ export interface PurchaseInvoice {
     items: PurchaseOrderItemLine[];
   };
   payments: PurchasePaymentItem[];
-  totalPagado: number;
-  saldoPendiente: number;
-  estadoPago: "Pendiente" | "Parcial" | "Pagado";
+  totalPaid: number;
+  pendingBalance: number;
+  paymentStatus: "Pendiente" | "Parcial" | "Pagado";
 }
 
 export interface PaymentType {
@@ -210,18 +210,18 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
   }, [initialInvoices, periodFilter, customStart, customEnd]);
 
   // KPIs calculados sobre el período activo
-  const totalCompras = periodInvoices.length;
-  const montoTotal = periodInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
+  const totalPurchases = periodInvoices.length;
+  const totalAmount = periodInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
   const subtotalTotal = periodInvoices.reduce((sum, inv) => sum + Number(inv.subtotal), 0);
   const igvTotal = periodInvoices.reduce((sum, inv) => sum + Number(inv.igv), 0);
-  const totalPagadoAcumulado = periodInvoices.reduce((sum, inv) => sum + Number(inv.totalPagado), 0);
-  const saldoPendienteAcumulado = periodInvoices.reduce((sum, inv) => sum + Number(inv.saldoPendiente), 0);
+  const accumulatedTotalPaid = periodInvoices.reduce((sum, inv) => sum + Number(inv.totalPaid), 0);
+  const accumulatedPendingBalance = periodInvoices.reduce((sum, inv) => sum + Number(inv.pendingBalance), 0);
 
-  const pendientesCount = periodInvoices.filter((inv) => inv.estadoPago === "Pendiente").length;
-  const parcialesCount = periodInvoices.filter((inv) => inv.estadoPago === "Parcial").length;
-  const pagadasCount = periodInvoices.filter((inv) => inv.estadoPago === "Pagado").length;
+  const pendingCount = periodInvoices.filter((inv) => inv.paymentStatus === "Pendiente").length;
+  const partialCount = periodInvoices.filter((inv) => inv.paymentStatus === "Parcial").length;
+  const paidCount = periodInvoices.filter((inv) => inv.paymentStatus === "Pagado").length;
 
-  const paymentRatio = montoTotal > 0 ? Math.min(100, Math.round((totalPagadoAcumulado / montoTotal) * 100)) : 0;
+  const paymentRatio = totalAmount > 0 ? Math.min(100, Math.round((accumulatedTotalPaid / totalAmount) * 100)) : 0;
 
   // Etiqueta legible del período activo
   const periodLabel = useMemo(() => {
@@ -245,16 +245,16 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
     const q = search.trim().toLowerCase();
 
     return periodInvoices.filter((inv) => {
-      const comprobante = `${inv.voucherType} ${inv.series}-${inv.number}`.toLowerCase();
-      const proveedor = `${inv.supplier.businessName} ${inv.supplier.ruc}`.toLowerCase();
-      const emp = inv.purchaseOrder.employee;
-      const empleado = emp ? `${emp.firstName} ${emp.paternalLastName || ""}`.toLowerCase() : "";
-      const matchesSearch = !q || proveedor.includes(q) || comprobante.includes(q) || empleado.includes(q);
+      const voucher = `${inv.voucherType} ${inv.series}-${inv.number}`.toLowerCase();
+      const supplier = `${inv.supplier.businessName} ${inv.supplier.ruc}`.toLowerCase();
+      const orderEmployee = inv.purchaseOrder.employee;
+      const employee = orderEmployee ? `${orderEmployee.firstName} ${orderEmployee.paternalLastName || ""}`.toLowerCase() : "";
+      const matchesSearch = !q || supplier.includes(q) || voucher.includes(q) || employee.includes(q);
 
       let matchesStatus = true;
-      if (statusFilter === "pending") matchesStatus = inv.estadoPago === "Pendiente";
-      if (statusFilter === "partial") matchesStatus = inv.estadoPago === "Parcial";
-      if (statusFilter === "paid") matchesStatus = inv.estadoPago === "Pagado";
+      if (statusFilter === "pending") matchesStatus = inv.paymentStatus === "Pendiente";
+      if (statusFilter === "partial") matchesStatus = inv.paymentStatus === "Parcial";
+      if (statusFilter === "paid") matchesStatus = inv.paymentStatus === "Pagado";
 
       return matchesSearch && matchesStatus;
     });
@@ -412,7 +412,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             <p className="text-xs text-muted-foreground font-medium">Compras del Período</p>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-mono">
-                {totalCompras}
+                {totalPurchases}
               </span>
               <span className="text-xs text-muted-foreground">comprobantes</span>
             </div>
@@ -437,7 +437,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             <p className="text-xs text-muted-foreground font-medium">Facturación ({periodLabel})</p>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl sm:text-3xl font-bold tracking-tight text-emerald-800 dark:text-emerald-300 font-mono">
-                S/ {montoTotal.toFixed(2)}
+                S/ {totalAmount.toFixed(2)}
               </span>
             </div>
           </div>
@@ -467,8 +467,8 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             </div>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-emerald-700 dark:text-emerald-400 font-medium">Pagado: S/ {totalPagadoAcumulado.toFixed(2)}</span>
-            <span className="text-rose-600 dark:text-rose-400 font-medium">Saldo: S/ {saldoPendienteAcumulado.toFixed(2)}</span>
+            <span className="text-emerald-700 dark:text-emerald-400 font-medium">Pagado: S/ {accumulatedTotalPaid.toFixed(2)}</span>
+            <span className="text-rose-600 dark:text-rose-400 font-medium">Saldo: S/ {accumulatedPendingBalance.toFixed(2)}</span>
           </div>
         </div>
 
@@ -484,21 +484,21 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
           </div>
           <div className="grid grid-cols-3 gap-1.5 pt-1">
             <div className="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/50 rounded-xl p-2 text-center">
-              <p className="text-base font-bold text-emerald-800 dark:text-emerald-300 font-mono">{pagadasCount}</p>
+              <p className="text-base font-bold text-emerald-800 dark:text-emerald-300 font-mono">{paidCount}</p>
               <p className="text-[10px] text-emerald-700 font-medium">Pagadas</p>
             </div>
             <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-800/50 rounded-xl p-2 text-center">
-              <p className="text-base font-bold text-amber-800 dark:text-amber-300 font-mono">{parcialesCount}</p>
+              <p className="text-base font-bold text-amber-800 dark:text-amber-300 font-mono">{partialCount}</p>
               <p className="text-[10px] text-amber-700 font-medium">Parcial</p>
             </div>
             <div className="bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-800/50 rounded-xl p-2 text-center">
-              <p className="text-base font-bold text-rose-800 dark:text-rose-300 font-mono">{pendientesCount}</p>
+              <p className="text-base font-bold text-rose-800 dark:text-rose-300 font-mono">{pendingCount}</p>
               <p className="text-[10px] text-rose-700 font-medium">Pendiente</p>
             </div>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
             <span>Por liquidar en período:</span>
-            <span className="font-semibold text-rose-600 dark:text-rose-400">{pendientesCount + parcialesCount} compras</span>
+            <span className="font-semibold text-rose-600 dark:text-rose-400">{pendingCount + partialCount} compras</span>
           </div>
         </div>
       </div>
@@ -549,7 +549,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
             >
               <span>Todos</span>
               <span className="text-[10px] bg-muted px-1.5 py-0.2 rounded-full font-mono">
-                {totalCompras}
+                {totalPurchases}
               </span>
             </button>
             <button
@@ -565,9 +565,9 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
               }`}
             >
               <span>Pendientes</span>
-              {pendientesCount > 0 && (
+              {pendingCount > 0 && (
                 <span className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                  {pendientesCount}
+                  {pendingCount}
                 </span>
               )}
             </button>
@@ -584,9 +584,9 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
               }`}
             >
               <span>Parcial</span>
-              {parcialesCount > 0 && (
+              {partialCount > 0 && (
                 <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                  {parcialesCount}
+                  {partialCount}
                 </span>
               )}
             </button>
@@ -603,16 +603,16 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
               }`}
             >
               <span>Pagadas</span>
-              {pagadasCount > 0 && (
+              {paidCount > 0 && (
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                  {pagadasCount}
+                  {paidCount}
                 </span>
               )}
             </button>
           </div>
 
           {/* Botón directo a Añadir Compra */}
-          <Link href="/purchases/add">
+          <Link href="/purchases/list?tab=add">
             <Button
               size="sm"
               className="h-10 px-4 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
@@ -675,7 +675,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                           Mostrar Todo el Histórico
                         </Button>
                       ) : (
-                        <Link href="/purchases/add">
+                        <Link href="/purchases/list?tab=add">
                           <Button size="sm" className="mt-2 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5">
                             <Plus className="h-3.5 w-3.5" /> Registrar Primera Compra
                           </Button>
@@ -689,9 +689,9 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                   const subtotal = Number(inv.subtotal);
                   const igv = Number(inv.igv);
                   const total = Number(inv.totalAmount);
-                  const saldo = Number(inv.saldoPendiente);
+                  const balance = Number(inv.pendingBalance);
 
-                  const isFactura = inv.voucherType.toLowerCase().includes("factura");
+                  const isInvoice = inv.voucherType.toLowerCase().includes("factura");
 
                   return (
                     <TableRow key={inv.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
@@ -726,7 +726,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                         <div className="flex items-center gap-2">
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider border ${
-                              isFactura
+                              isInvoice
                                 ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
                                 : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
                             }`}
@@ -769,24 +769,24 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
 
                       {/* Estado de Pago */}
                       <TableCell className="py-3.5 px-4 text-center">
-                        {inv.estadoPago === "Pagado" && (
+                        {inv.paymentStatus === "Pagado" && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-900 border border-emerald-300/80 dark:bg-emerald-950/60 dark:text-emerald-200">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
                             Pagado
                           </span>
                         )}
-                        {inv.estadoPago === "Parcial" && (
+                        {inv.paymentStatus === "Parcial" && (
                           <div className="inline-flex flex-col items-center">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100/80 text-amber-900 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-200">
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
                               Parcial
                             </span>
                             <span className="text-[10px] text-rose-600 dark:text-rose-400 font-mono font-medium mt-0.5">
-                              Resta S/ {saldo.toFixed(2)}
+                              Resta S/ {balance.toFixed(2)}
                             </span>
                           </div>
                         )}
-                        {inv.estadoPago === "Pendiente" && (
+                        {inv.paymentStatus === "Pendiente" && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100/80 text-rose-900 border border-rose-300/80 dark:bg-rose-950/60 dark:text-rose-200">
                             <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
                             Pendiente
@@ -809,7 +809,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
                             <span className="hidden xl:inline">Detalle</span>
                           </Button>
                           
-                          {inv.estadoPago !== "Pagado" && (
+                          {inv.paymentStatus !== "Pagado" && (
                             <Button
                               type="button"
                               variant="ghost"

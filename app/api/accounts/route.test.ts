@@ -33,9 +33,9 @@ function createRequest(body: unknown): NextRequest {
 /** Valid full body to create an account. */
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
-    codigo: "10101",
-    nombre: "Caja chica",
-    tipo: "Activo",
+    code: "10101",
+    name: "Caja chica",
+    type: "Activo",
     ...overrides,
   };
 }
@@ -95,9 +95,9 @@ describe("GET /api/accounts (listar el plan contable)", () => {
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual([
-      { id: 1, codigo: "1", nombre: "Activo", tipo: "Activo", idPadre: null, activo: true, usos: 0 },
-      { id: 2, codigo: "101", nombre: "Caja", tipo: "Activo", idPadre: 1, activo: true, usos: 12 },
-      { id: 3, codigo: "104", nombre: "Bancos", tipo: "Activo", idPadre: 1, activo: false, usos: 0 },
+      { id: 1, code: "1", name: "Activo", type: "Activo", parentId: null, active: true, uses: 0 },
+      { id: 2, code: "101", name: "Caja", type: "Activo", parentId: 1, active: true, uses: 12 },
+      { id: 3, code: "104", name: "Bancos", type: "Activo", parentId: 1, active: false, uses: 0 },
     ]);
 
     expect(findManyMock).toHaveBeenCalledWith({
@@ -112,8 +112,8 @@ describe("GET /api/accounts (listar el plan contable)", () => {
     const response = await GET();
     const body = await response.json();
 
-    expect(body.data[0].activo).toBe(false);
-    expect(body.data[0].usos).toBe(3);
+    expect(body.data[0].active).toBe(false);
+    expect(body.data[0].uses).toBe(3);
   });
 
   it("responde 500 si la base de datos falla", async () => {
@@ -149,12 +149,12 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
     expect(response.status).toBe(201);
     expect(body).toEqual({
       id: 40,
-      codigo: "10101",
-      nombre: "Caja chica",
-      tipo: "Activo",
-      idPadre: null,
-      activo: true,
-      usos: 0,
+      code: "10101",
+      name: "Caja chica",
+      type: "Activo",
+      parentId: null,
+      active: true,
+      uses: 0,
     });
 
     expect(createMock).toHaveBeenCalledTimes(1);
@@ -173,7 +173,7 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
     });
 
     const response = await POST(
-      createRequest(validBody({ codigo: "101", nombre: "Caja", idPadre: 1 }))
+      createRequest(validBody({ code: "101", name: "Caja", parentId: 1 }))
     );
 
     expect(response.status).toBe(201);
@@ -185,7 +185,7 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
   });
 
   it("permite dar de alta una cuenta inactiva si se pide", async () => {
-    const response = await POST(createRequest(validBody({ activo: false })));
+    const response = await POST(createRequest(validBody({ active: false })));
 
     expect(response.status).toBe(201);
     expect(createMock.mock.calls[0][0].data.active).toBe(false);
@@ -200,45 +200,45 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
   const VALIDATIONS: ValidationCase[] = [
     {
       caseDescription: "falta el código",
-      body: validBody({ codigo: "" }),
+      body: validBody({ code: "" }),
       message: "El código de la cuenta es obligatorio.",
     },
     {
       caseDescription: "el código tiene espacios o caracteres no permitidos",
-      body: validBody({ codigo: "1 01" }),
+      body: validBody({ code: "1 01" }),
       message:
         "El código sólo puede tener hasta 10 caracteres con letras, números, punto o guion.",
     },
     {
       caseDescription: "el código pasa de 10 caracteres",
-      body: validBody({ codigo: "12345678901" }),
+      body: validBody({ code: "12345678901" }),
       message:
         "El código sólo puede tener hasta 10 caracteres con letras, números, punto o guion.",
     },
     {
       caseDescription: "falta el nombre",
-      body: validBody({ nombre: "   " }),
+      body: validBody({ name: "   " }),
       message: "El nombre de la cuenta es obligatorio.",
     },
     {
       caseDescription: "el nombre supera los 100 caracteres",
-      body: validBody({ nombre: "n".repeat(101) }),
+      body: validBody({ name: "n".repeat(101) }),
       message: "El nombre de la cuenta no puede superar los 100 caracteres.",
     },
     {
       caseDescription: "el tipo no pertenece al PCGE",
-      body: validBody({ tipo: "Patrimonio neto" }),
+      body: validBody({ type: "Patrimonio neto" }),
       message:
         "El tipo de cuenta no es válido (valores admitidos: Activo, Pasivo, Patrimonio, Ingreso, Gasto, Costo).",
     },
     {
       caseDescription: "el id del padre no es un entero",
-      body: validBody({ idPadre: "cualquiera" }),
+      body: validBody({ parentId: "cualquiera" }),
       message: "La cuenta padre indicada no es válida.",
     },
     {
       caseDescription: "el estado no es booleano",
-      body: validBody({ activo: "si" }),
+      body: validBody({ active: "si" }),
       message: "El estado de la cuenta debe ser activo o inactivo.",
     },
   ];
@@ -249,7 +249,7 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
 
     expect(response.status).toBe(400);
     expect(responseBody.error).toBe(message);
-    expect(responseBody.errores).toContain(message);
+    expect(responseBody.errors).toContain(message);
 
     expect(createMock).not.toHaveBeenCalled();
     expect(findUniqueMock).not.toHaveBeenCalled();
@@ -277,7 +277,7 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
   it("devuelve 409 si el código ya está en uso por otra cuenta", async () => {
     configureLookups({ existingCode: { id: 7 } });
 
-    const response = await POST(createRequest(validBody({ codigo: "101" })));
+    const response = await POST(createRequest(validBody({ code: "101" })));
     const body = await response.json();
 
     expect(response.status).toBe(409);
@@ -303,11 +303,11 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
   it("rechaza la subcuenta si el padre no existe", async () => {
     configureLookups({ parent: null });
 
-    const response = await POST(createRequest(validBody({ idPadre: 999 })));
+    const response = await POST(createRequest(validBody({ parentId: 999 })));
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain("La cuenta padre indicada no existe.");
+    expect(body.errors).toContain("La cuenta padre indicada no existe.");
     expect(createMock).not.toHaveBeenCalled();
   });
 
@@ -316,11 +316,11 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
       parent: { id: 1, type: "Activo", active: false },
     });
 
-    const response = await POST(createRequest(validBody({ idPadre: 1 })));
+    const response = await POST(createRequest(validBody({ parentId: 1 })));
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain(
+    expect(body.errors).toContain(
       "La cuenta padre está inactiva: actívala antes de crear subcuentas."
     );
     expect(createMock).not.toHaveBeenCalled();
@@ -332,12 +332,12 @@ describe("POST /api/accounts (registrar cuenta contable)", () => {
     });
 
     const response = await POST(
-      createRequest(validBody({ idPadre: 1, tipo: "Activo" }))
+      createRequest(validBody({ parentId: 1, type: "Activo" }))
     );
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.errores).toContain("La subcuenta debe tener el mismo tipo que su cuenta padre (Pasivo).");
+    expect(body.errors).toContain("La subcuenta debe tener el mismo tipo que su cuenta padre (Pasivo).");
     expect(createMock).not.toHaveBeenCalled();
   });
 

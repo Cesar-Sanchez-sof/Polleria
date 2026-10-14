@@ -53,22 +53,22 @@ export function JournalEntryDetail({
           <div className="flex flex-wrap items-start justify-between gap-3 pr-10">
             <div>
               <SheetTitle className="text-lg font-bold text-slate-900">
-                {detail?.numero ?? "Detalle del asiento"}
+                {detail?.number ?? "Detalle del asiento"}
               </SheetTitle>
               <SheetDescription className="text-xs text-slate-500 mt-1">
                 {detail
-                  ? `${formatDate(detail.fecha)} · ${detail.diario}`
+                  ? `${formatDate(detail.date)} · ${detail.daily}`
                   : "Cargando la información del asiento..."}
               </SheetDescription>
             </div>
             {detail && (
               <Badge
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border-none shadow-none ${detail.estado === "Registrado" ? "bg-emerald-100/80 text-emerald-700" : "bg-rose-100/80 text-rose-700"}`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border-none shadow-none ${detail.status === "Registrado" ? "bg-emerald-100/80 text-emerald-700" : "bg-rose-100/80 text-rose-700"}`}
               >
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${detail.estado === "Registrado" ? "bg-emerald-600" : "bg-rose-600"}`}
+                  className={`w-1.5 h-1.5 rounded-full ${detail.status === "Registrado" ? "bg-emerald-600" : "bg-rose-600"}`}
                 />
-                {detail.estado}
+                {detail.status}
               </Badge>
             )}
           </div>
@@ -104,28 +104,28 @@ export function JournalEntryDetail({
                   <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Número / Referencia
                   </dt>
-                  <dd className="text-sm font-bold text-slate-900 mt-1">{detail.numero}</dd>
+                  <dd className="text-sm font-bold text-slate-900 mt-1">{detail.number}</dd>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
                   <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Fecha contable
                   </dt>
                   <dd className="text-sm font-bold text-slate-900 mt-1 tabular-nums">
-                    {formatDate(detail.fecha)}
+                    {formatDate(detail.date)}
                   </dd>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
                   <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Diario contable
                   </dt>
-                  <dd className="text-sm font-bold text-slate-900 mt-1">{detail.diario}</dd>
+                  <dd className="text-sm font-bold text-slate-900 mt-1">{detail.daily}</dd>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
                   <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Responsable
                   </dt>
                   <dd className="text-sm font-bold text-slate-900 mt-1">
-                    {detail.responsable || "—"}
+                    {detail.responsible || "—"}
                   </dd>
                 </div>
               </dl>
@@ -134,25 +134,25 @@ export function JournalEntryDetail({
                 <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Concepto
                 </dt>
-                <dd className="text-sm text-slate-800 mt-1">{detail.concepto}</dd>
-                {detail.observacion && (
+                <dd className="text-sm text-slate-800 mt-1">{detail.concept}</dd>
+                {detail.observation && (
                   <>
                     <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-3">
                       Observación
                     </dt>
-                    <dd className="text-xs text-slate-500 mt-1">{detail.observacion}</dd>
+                    <dd className="text-xs text-slate-500 mt-1">{detail.observation}</dd>
                   </>
                 )}
               </div>
 
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Líneas del asiento ({detail.lineas.length})
+                  Líneas del asiento ({detail.lines.length})
                 </h3>
                 <span
-                  className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${detail.cuadrado ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
+                  className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${detail.balanced ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
                 >
-                  {detail.cuadrado ? "Asiento cuadrado" : "Descuadre detectado"}
+                  {detail.balanced ? "Asiento cuadrado" : "Descuadre detectado"}
                 </span>
               </div>
 
@@ -167,18 +167,18 @@ export function JournalEntryDetail({
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-slate-100 text-sm text-slate-900">
-                    {detail.lineas.map((line) => (
+                    {detail.lines.map((line) => (
                       <TableRow key={line.id} className="hover:bg-slate-50/60 border-b border-slate-100">
                         <TableCell className="py-2.5 px-3 align-top">
-                          <span className="font-bold text-red-700 tabular-nums">{line.cuentaCodigo}</span>
-                          <span className="block text-xs text-slate-600">{line.cuentaNombre}</span>
+                          <span className="font-bold text-red-700 tabular-nums">{line.accountCode}</span>
+                          <span className="block text-xs text-slate-600">{line.accountName}</span>
                         </TableCell>
-                        <TableCell className="py-2.5 px-3 text-slate-700 text-xs align-top">{line.descripcion || "—"}</TableCell>
+                        <TableCell className="py-2.5 px-3 text-slate-700 text-xs align-top">{line.description || "—"}</TableCell>
                         <TableCell className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900 align-top">
-                          {line.debe > 0 ? formatCurrency(line.debe) : ""}
+                          {line.debit > 0 ? formatCurrency(line.debit) : ""}
                         </TableCell>
                         <TableCell className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900 align-top">
-                          {line.haber > 0 ? formatCurrency(line.haber) : ""}
+                          {line.credit > 0 ? formatCurrency(line.credit) : ""}
                         </TableCell>
                       </TableRow>
                     ))}

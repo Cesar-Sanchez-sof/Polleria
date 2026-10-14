@@ -31,7 +31,7 @@ import { exportJournalEntriesToExcel } from "@/lib/services/accounting-export.se
  * Presentation logic lives in ./<Component>Asientos.tsx and data access
  * in lib/services/asientos.service.ts.
  */
-function AsientosPageContent() {
+function EntriesPageContent() {
   const searchParams = useSearchParams();
   const journalParam = searchParams.get("journal");
 
@@ -89,12 +89,12 @@ function AsientosPageContent() {
       setExporting(true);
       await exportJournalEntriesToExcel({
         filters: {
-          desde: from,
-          hasta: to,
-          diario: journal === "todos" ? "" : journal,
-          estado: statusFilter === "todos" ? "" : statusFilter,
+          from: from,
+          to: to,
+          daily: journal === "todos" ? "" : journal,
+          status: statusFilter === "todos" ? "" : statusFilter,
           q: search,
-          orden: order.field,
+          order: order.field,
           dir: order.dir,
         },
         journalTitle: journal,
@@ -141,14 +141,14 @@ function AsientosPageContent() {
     setErrorMessage(null);
     try {
       const data = await listJournalEntries({
-        desde: from,
-        hasta: to,
-        diario: journal === "todos" ? "" : journal,
-        estado: statusFilter === "todos" ? "" : statusFilter,
+        from: from,
+        to: to,
+        daily: journal === "todos" ? "" : journal,
+        status: statusFilter === "todos" ? "" : statusFilter,
         q: search,
         page,
         pageSize,
-        orden: order.field,
+        order: order.field,
         dir: order.dir,
       });
       if (requestId !== requestRef.current) return;
@@ -309,12 +309,12 @@ function AsientosPageContent() {
   const rows = pageData?.data ?? [];
   const meta = pageData?.meta;
   const total = meta?.total ?? 0;
-  const totalPages = meta?.totalPaginas ?? 1;
+  const totalPages = meta?.totalPages ?? 1;
 
   const fromShown = total === 0 ? 0 : (Math.min(page, totalPages) - 1) * pageSize + 1;
   const toShown = total === 0 ? 0 : Math.min(fromShown + rows.length - 1, total);
 
-  const journals = options?.diarios ?? [];
+  const journals = options?.daily ?? [];
 
   return (
     <>
@@ -416,7 +416,7 @@ function AsientosPageContent() {
       {/* ALTA MANUAL DE UN ASIENTO */}
       <NewJournalEntryDialog
         open={newOpen}
-        journals={options?.diarios ?? []}
+        journals={options?.daily ?? []}
         onClose={() => setNewOpen(false)}
         onCreated={handleCreatedEntry}
       />
@@ -424,7 +424,7 @@ function AsientosPageContent() {
   );
 }
 
-export default function AsientosPage() {
+export default function EntriesPage() {
   return (
     <Suspense
       fallback={
@@ -433,7 +433,7 @@ export default function AsientosPage() {
         </div>
       }
     >
-      <AsientosPageContent />
+      <EntriesPageContent />
     </Suspense>
   );
 }

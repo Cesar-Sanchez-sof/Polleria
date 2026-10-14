@@ -113,4 +113,4 @@ export function DailyBookFilters({
 }
 
 /** @deprecated Use DailyBookFilters */
-export const FiltrosDiario = DailyBookFilters;
+export const DailyFilters = DailyBookFilters;

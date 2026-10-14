@@ -16,40 +16,40 @@ export type JournalEntryStatus = "Registrado" | "Anulado";
 /** Filters applied concurrently. */
 export interface JournalEntriesFilter {
   /** Start date (YYYY-MM-DD, inclusive). */
-  desde?: string;
+  from?: string;
   /** End date (YYYY-MM-DD, inclusive). */
-  hasta?: string;
+  to?: string;
   /** Specific journal book. Empty = all. */
-  diario?: string;
+  daily?: string;
   /** "registrado" | "anulado". Empty = all. */
-  estado?: string;
+  status?: string;
   /** Free-text search: number/code, description (glosa), or account. */
   q?: string;
   page?: number;
   pageSize?: number;
-  orden?: JournalEntrySort;
+  order?: JournalEntrySort;
   dir?: SortDirection;
 }
 
 export interface JournalEntrySummary {
   id: number;
-  numero: string;
-  fecha: string;
-  diario: string;
-  concepto: string;
-  responsable: string | null;
-  estado: JournalEntryStatus;
+  number: string;
+  date: string;
+  daily: string;
+  concept: string;
+  responsible: string | null;
+  status: JournalEntryStatus;
   total: number;
 }
 
 export interface JournalEntriesMeta {
   total: number;
-  registrados: number;
-  anulados: number;
+  registered: number;
+  annulled: number;
   page: number;
   pageSize: number;
-  totalPaginas: number;
-  orden: JournalEntrySort;
+  totalPages: number;
+  order: JournalEntrySort;
   dir: SortDirection;
 }
 
@@ -60,71 +60,71 @@ export interface JournalEntriesPage {
 
 export interface JournalEntryLine {
   id: number;
-  cuentaCodigo: string;
-  cuentaNombre: string;
-  cuentaTipo: string;
-  descripcion: string;
-  debe: number;
-  haber: number;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  description: string;
+  debit: number;
+  credit: number;
 }
 
 export interface JournalEntryDetail {
   id: number;
-  numero: string;
-  fecha: string;
-  diario: string;
-  concepto: string;
-  estado: JournalEntryStatus;
-  responsable: string;
-  observacion: string;
-  fechaCreacion: string;
-  fechaActualizacion: string;
+  number: string;
+  date: string;
+  daily: string;
+  concept: string;
+  status: JournalEntryStatus;
+  responsible: string;
+  observation: string;
+  createdAt: string;
+  updatedAt: string;
   total: number;
-  cuadrado: boolean;
-  totales: { debe: number; haber: number };
-  lineas: JournalEntryLine[];
+  balanced: boolean;
+  totals: { debit: number; credit: number };
+  lines: JournalEntryLine[];
 }
 
 export interface JournalBookOption {
-  nombre: string;
+  name: string;
   total: number;
 }
 
 export interface JournalStatusOption {
-  valor: string;
-  etiqueta: string;
+  value: string;
+  label: string;
   total: number;
 }
 
 export interface JournalEntriesOptions {
-  diarios: JournalBookOption[];
-  estados: JournalStatusOption[];
+  daily: JournalBookOption[];
+  statuses: JournalStatusOption[];
 }
 
 /** Chart of accounts item available for an entry line. */
 export interface AccountingAccount {
   id: number;
-  codigo: string;
-  nombre: string;
-  tipo: string;
+  code: string;
+  name: string;
+  type: string;
 }
 
 /** Line item of a manual journal entry. */
 export interface NewJournalEntryLine {
-  idCuenta: number;
-  descripcion?: string;
-  debe: number;
-  haber: number;
+  accountId: number;
+  description?: string;
+  debit: number;
+  credit: number;
 }
 
 /** Input payload to register a manual journal entry. */
 export interface NewJournalEntryInput {
-  fecha: string;
-  diario: string;
-  glosa: string;
-  responsable?: string;
-  observacion?: string;
-  lineas: NewJournalEntryLine[];
+  date: string;
+  daily: string;
+  description: string;
+  responsible?: string;
+  observation?: string;
+  lines: NewJournalEntryLine[];
 }
 
 const VALID_SORTS: JournalEntrySort[] = [
@@ -142,15 +142,15 @@ export { ApiError };
 export function buildQuery(filters: JournalEntriesFilter): string {
   const params = new URLSearchParams();
 
-  if (filters.desde) params.set("desde", filters.desde);
-  if (filters.hasta) params.set("hasta", filters.hasta);
-  if (filters.diario) params.set("diario", filters.diario);
-  if (filters.estado) params.set("estado", filters.estado);
+  if (filters.from) params.set("desde", filters.from);
+  if (filters.to) params.set("hasta", filters.to);
+  if (filters.daily) params.set("diario", filters.daily);
+  if (filters.status) params.set("estado", filters.status);
   if (filters.q?.trim()) params.set("q", filters.q.trim());
   if (filters.page) params.set("page", String(filters.page));
   if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
 
-  const sort = filters.orden && VALID_SORTS.includes(filters.orden) ? filters.orden : "fecha";
+  const sort = filters.order && VALID_SORTS.includes(filters.order) ? filters.order : "fecha";
   params.set("orden", sort);
   params.set("dir", filters.dir === "asc" ? "asc" : "desc");
 
@@ -183,8 +183,8 @@ export async function listAccountingAccounts(): Promise<AccountingAccount[]> {
 /** Preview of the next suggested code for the given date. */
 export async function getNextJournalEntryCode(date: string): Promise<string> {
   const params = date ? `?fecha=${encodeURIComponent(date)}` : "";
-  const response = await getJson<{ codigo: string }>(`${BASE_URL}/next-code${params}`);
-  return response.codigo;
+  const response = await getJson<{ code: string }>(`${BASE_URL}/next-code${params}`);
+  return response.code;
 }
 
 /** Registers a manual journal entry and returns its summary. */

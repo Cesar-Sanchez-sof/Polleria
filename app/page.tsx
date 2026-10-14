@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { exigirSesionServidor } from "@/lib/auth/guard";
+import { requireServerSession } from "@/lib/auth/guard";
 import {
   ArrowRight,
   BookOpen,
@@ -34,7 +34,7 @@ const QUICK_ACTIONS = [
   },
   {
     href: "/sales?tab=cashier",
-    label: "Caja y ventanilla",
+    label: "Ventanilla",
     hint: "Cerrar cuentas",
     icon: CreditCard,
   },
@@ -87,7 +87,7 @@ function formatToday(): string {
 }
 
 export default async function HomePage() {
-  await exigirSesionServidor();
+  await requireServerSession();
   const today = formatToday();
 
   return (

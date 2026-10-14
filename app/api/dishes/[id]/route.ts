@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getDishStock, setDishStock } from "@/lib/services/redis-stock.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +29,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["platos.ver", "pedidos.crear", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["platos.ver", "pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);
@@ -80,8 +80,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("platos.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("platos.editar");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);
@@ -129,8 +129,8 @@ export async function PUT(
 
         // Crear nuevas recetas
         for (const item of ingredients) {
-          const supplyId = Number(item.supplyId ?? item.id_insumo);
-          const quantityRequired = Number(item.quantityRequired ?? item.cantidad);
+          const supplyId = Number(item.supplyId ?? item.supply_id);
+          const quantityRequired = Number(item.quantityRequired ?? item.quantity);
           if (supplyId && quantityRequired > 0) {
             await tx.dishRecipe.create({
               data: {
@@ -174,8 +174,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("platos.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("platos.editar");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);
@@ -184,11 +184,11 @@ export async function PATCH(
     }
 
     const body = await request.json().catch(() => ({}));
-    if (body.active === undefined && body.estado === undefined) {
+    if (body.active === undefined && body.status === undefined) {
       return NextResponse.json({ error: "Debe enviar el nuevo estado (active: true/false)." }, { status: 400 });
     }
 
-    const newActiveState = Boolean(body.active ?? body.estado);
+    const newActiveState = Boolean(body.active ?? body.status);
 
     const updated = await prisma.dish.update({
       where: { id: dishId },
@@ -212,8 +212,8 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("platos.eliminar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("platos.eliminar");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const dishId = Number.parseInt(idParam, 10);

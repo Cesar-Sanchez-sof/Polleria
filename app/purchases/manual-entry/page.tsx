@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function ManualEntryPage() {
-  redirect("/purchases/purchase-without-voucher");
+export default function Page() {
+  redirect("/purchases/list?tab=informal");
 }

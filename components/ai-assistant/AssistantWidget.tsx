@@ -38,7 +38,7 @@ import {
 const SLOW_QUERY_MS = 20_000;
 const CONNECTION_ERROR = "No pude comunicarme con el asistente. Revisa tu conexión e inténtalo de nuevo.";
 
-type Status = { habilitado: boolean; datosFicticios?: boolean; usuario?: number; sugerencias?: string[] };
+type Status = { enabled: boolean; fakeData?: boolean; usuario?: number; suggestions?: string[] };
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now() + Math.random());
@@ -57,10 +57,10 @@ function CalculationDetail({ detalle }: { detalle: ReplyDetail }) {
           <dd className="font-medium">{detalle.cuenta}</dd>
           <dt className="text-muted-foreground">Período</dt>
           <dd className="font-medium">{detalle.periodo}</dd>
-          {detalle.filas.map((fila) => (
-            <div key={fila.etiqueta} className="contents">
-              <dt className="text-muted-foreground">{fila.etiqueta}</dt>
-              <dd className="font-medium tabular-nums">{fila.valor}</dd>
+          {detalle.filas.map((row) => (
+            <div key={row.etiqueta} className="contents">
+              <dt className="text-muted-foreground">{row.etiqueta}</dt>
+              <dd className="font-medium tabular-nums">{row.valor}</dd>
             </div>
           ))}
         </dl>
@@ -123,7 +123,7 @@ export default function AssistantWidget() {
       .then((r) => r.json().catch(() => null))
       .then((data: Status | null) => {
         const key = userKeyFrom(data);
-        setStatus(data && data.habilitado ? data : null);
+        setStatus(data && data.enabled ? data : null);
         if (key !== state.userKey) dispatch({ type: "reset", userKey: key });
         if (!key) setOpen(false);
       })
@@ -178,8 +178,8 @@ export default function AssistantWidget() {
     [state, pathname],
   );
 
-  if (onLogin || !status?.habilitado) return null;
-  const suggestions = status.sugerencias ?? [];
+  if (onLogin || !status?.enabled) return null;
+  const suggestions = status.suggestions ?? [];
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-end p-3 sm:p-5">
@@ -198,7 +198,7 @@ export default function AssistantWidget() {
               <h2 className="truncate text-sm font-semibold leading-tight">Asistente financiero</h2>
               <p className="truncate text-[11px] text-muted-foreground">Consultas de saldos de cuentas</p>
             </div>
-            {status.datosFicticios ? (
+            {status.fakeData ? (
               <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400">
                 Datos ficticios
               </Badge>

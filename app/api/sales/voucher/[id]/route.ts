@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getVoucherPresignedUrl } from "@/lib/services/s3-storage.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +17,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("ventas.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("ventas.ver");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const voucherId = Number.parseInt(idParam, 10);

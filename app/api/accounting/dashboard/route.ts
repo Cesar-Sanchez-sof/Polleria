@@ -10,7 +10,7 @@ import {
   type MonthlyRow,
   type PreviousAggregates,
 } from "@/lib/accounting/dashboard";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -87,19 +87,19 @@ const isBalance = (a: AccountMovement): boolean => !PNL_TYPES.has(a.type);
  *         description: Error interno al generar el dashboard.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   try {
-    const desde = (request.nextUrl.searchParams.get("desde") ?? "").trim();
-    const hasta = (request.nextUrl.searchParams.get("hasta") ?? "").trim();
+    const from = (request.nextUrl.searchParams.get("desde") ?? "").trim();
+    const to = (request.nextUrl.searchParams.get("hasta") ?? "").trim();
 
-    const rangeError = validateRange(desde, hasta);
+    const rangeError = validateRange(from, to);
     if (rangeError) {
       return Response.json({ error: rangeError }, { status: 400 });
     }
 
-    const desdeDate = parseUtcDate(desde);
-    const hastaDate = parseUtcDate(hasta);
+    const fromDate = parseUtcDate(from);
+    const toDate = parseUtcDate(to);
 
     const accounts = await prisma.accountingAccount.findMany({
       where: { active: true },
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     );
     const accountIds = accounts.map((a) => a.id);
 
-    const previous = resolvePreviousRange(desde, hasta);
+    const previous = resolvePreviousRange(from, to);
 
     const [
       periodAgg,
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
           by: ["accountId"],
           where: {
             accountId: { in: accountIds },
-            entry: { status: true, entryDate: { gte: desdeDate, lte: hastaDate } },
+            entry: { status: true, entryDate: { gte: fromDate, lte: toDate } },
           },
           _sum: { debit: true, credit: true },
         }),
@@ -142,12 +142,12 @@ export async function GET(request: NextRequest) {
           by: ["accountId"],
           where: {
             accountId: { in: accountIds },
-            entry: { status: true, entryDate: { lte: hastaDate } },
+            entry: { status: true, entryDate: { lte: toDate } },
           },
           _sum: { debit: true, credit: true },
         }),
         prisma.journalEntry.count({
-          where: { status: true, entryDate: { gte: desdeDate, lte: hastaDate } },
+          where: { status: true, entryDate: { gte: fromDate, lte: toDate } },
         }),
         previous
           ? prisma.journalEntryDetail.groupBy({
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
                 accountId: { in: accountIds },
                 entry: {
                   status: true,
-                  entryDate: { gte: parseUtcDate(previous.desde), lte: parseUtcDate(previous.hasta) },
+                  entryDate: { gte: parseUtcDate(previous.from), lte: parseUtcDate(previous.to) },
                 },
               },
               _sum: { debit: true, credit: true },
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
               by: ["accountId"],
               where: {
                 accountId: { in: accountIds },
-                entry: { status: true, entryDate: { lte: parseUtcDate(previous.hasta) } },
+                entry: { status: true, entryDate: { lte: parseUtcDate(previous.to) } },
               },
               _sum: { debit: true, credit: true },
             })
@@ -176,30 +176,30 @@ export async function GET(request: NextRequest) {
           ? prisma.journalEntry.count({
               where: {
                 status: true,
-                entryDate: { gte: parseUtcDate(previous.desde), lte: parseUtcDate(previous.hasta) },
+                entryDate: { gte: parseUtcDate(previous.from), lte: parseUtcDate(previous.to) },
               },
             })
           : Promise.resolve(0),
         // Serie mensual P&L (research R3): una sola consulta con date_trunc.
-        prisma.$queryRaw<Array<{ mes: Date; tipo: string; debit: unknown; credit: unknown }>>`
-          SELECT date_trunc('month', e.entry_date) AS mes,
-                 a.type AS tipo,
+        prisma.$queryRaw<Array<{ month: Date; type: string; debit: unknown; credit: unknown }>>`
+          SELECT date_trunc('month', e.entry_date) AS month,
+                 a.type AS type,
                  COALESCE(SUM(d.debit), 0)  AS debit,
                  COALESCE(SUM(d.credit), 0) AS credit
           FROM journal_entry_detail d
           JOIN journal_entry e ON e.id = d.entry_id AND e.status = TRUE
           JOIN accounting_account a ON a.id = d.account_id AND a.active = TRUE
-          WHERE e.entry_date BETWEEN ${desdeDate} AND ${hastaDate}
+          WHERE e.entry_date BETWEEN ${fromDate} AND ${toDate}
             AND a.type IN ('Ingreso','Gasto','Costo')
           GROUP BY 1, 2
           ORDER BY 1
         `,
       ]);
 
-    // `mes` llega como timestamp UTC a medianoche (date_trunc sobre @db.Date).
+    // `month` llega como timestamp UTC a medianoche (date_trunc sobre @db.Date).
     const monthlyRows: MonthlyRow[] = monthlyAgg.map((row) => ({
-      month: `${row.mes.getUTCFullYear()}-${String(row.mes.getUTCMonth() + 1).padStart(2, "0")}`,
-      type: row.tipo,
+      month: `${row.month.getUTCFullYear()}-${String(row.month.getUTCMonth() + 1).padStart(2, "0")}`,
+      type: row.type,
       debit: Number(row.debit ?? 0),
       credit: Number(row.credit ?? 0),
     }));
@@ -209,8 +209,8 @@ export async function GET(request: NextRequest) {
 
     const previousAggregates: PreviousAggregates | null = previous
       ? {
-          desde: previous.desde,
-          hasta: previous.hasta,
+          from: previous.from,
+          to: previous.to,
           periodAccounts: toMovements(prevPeriodAgg, accountsById).filter(isPnl),
           balanceAccounts: toMovements(prevBalanceAgg, accountsById).filter(isBalance),
           entryCount: prevEntryCount,
@@ -218,8 +218,8 @@ export async function GET(request: NextRequest) {
       : null;
 
     const payload = buildDashboard({
-      desde,
-      hasta,
+      from,
+      to,
       periodAccounts: periodMovements.filter(isPnl),
       balanceAccounts: balanceMovements.filter(isBalance),
       previous: previousAggregates,

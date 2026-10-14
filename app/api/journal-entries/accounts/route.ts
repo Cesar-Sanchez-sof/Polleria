@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 /**
  * @openapi
@@ -24,11 +24,11 @@ import { autorizar } from "@/lib/auth/permisos";
  *                     properties:
  *                       id:
  *                         type: integer
- *                       codigo:
+ *                       code:
  *                         type: string
- *                       nombre:
+ *                       name:
  *                         type: string
- *                       tipo:
+ *                       type:
  *                         type: string
  *       500:
  *         description: Error interno del servidor.
@@ -39,8 +39,8 @@ import { autorizar } from "@/lib/auth/permisos";
  * Returns only active accounts, ordered by code.
  */
 export async function GET() {
-  const auth = await autorizar(["asientos.ver", "asientos.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["asientos.ver", "asientos.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const accounts = await prisma.accountingAccount.findMany({
       where: { active: true },
@@ -56,9 +56,9 @@ export async function GET() {
     return Response.json({
       data: accounts.map((account) => ({
         id: account.id,
-        codigo: account.code,
-        nombre: account.name,
-        tipo: account.type,
+        code: account.code,
+        name: account.name,
+        type: account.type,
       })),
     });
   } catch (error) {

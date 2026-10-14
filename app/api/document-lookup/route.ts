@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { lookupIdentityDocument } from "@/lib/services/document-lookup.service";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -18,25 +18,25 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
-    const tipo = (searchParams.get("tipo") || "dni").toLowerCase() as "dni" | "ruc";
-    const numero = (searchParams.get("numero") || "").trim();
+    const type = (searchParams.get("tipo") || "dni").toLowerCase() as "dni" | "ruc";
+    const number = (searchParams.get("numero") || "").trim();
 
-    if (!numero) {
+    if (!number) {
       return Response.json({ error: "Debe ingresar el número de documento." }, { status: 400 });
     }
 
     // Validar formato inicial
-    const tipoPersona = tipo === "ruc" ? "Juridico" : "Natural";
-    const validation = validateCustomerDocument(tipoPersona, numero);
+    const personType = type === "ruc" ? "Juridico" : "Natural";
+    const validation = validateCustomerDocument(personType, number);
     if (!validation.isValid) {
       return Response.json({ error: validation.error }, { status: 400 });
     }
 
-    const result = await lookupIdentityDocument(tipo, numero);
+    const result = await lookupIdentityDocument(type, number);
 
     return Response.json({
       success: true,
@@ -52,24 +52,24 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => ({}));
-    const tipo = (body?.tipo || "dni").toLowerCase() as "dni" | "ruc";
-    const numero = (body?.numero || "").trim();
+    const type = (body?.type || "dni").toLowerCase() as "dni" | "ruc";
+    const number = (body?.number || "").trim();
 
-    if (!numero) {
+    if (!number) {
       return Response.json({ error: "Debe ingresar el número de documento." }, { status: 400 });
     }
 
-    const tipoPersona = tipo === "ruc" ? "Juridico" : "Natural";
-    const validation = validateCustomerDocument(tipoPersona, numero);
+    const personType = type === "ruc" ? "Juridico" : "Natural";
+    const validation = validateCustomerDocument(personType, number);
     if (!validation.isValid) {
       return Response.json({ error: validation.error }, { status: 400 });
     }
 
-    const result = await lookupIdentityDocument(tipo, numero);
+    const result = await lookupIdentityDocument(type, number);
 
     return Response.json({
       success: true,

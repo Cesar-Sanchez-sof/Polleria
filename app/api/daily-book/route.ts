@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -68,8 +68,8 @@ function parseInteger(value: string | null, defaultValue: number, min: number, m
  *         description: Error interno del servidor.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const fromDate = (searchParams.get("desde") ?? "").trim();
@@ -141,28 +141,28 @@ export async function GET(request: NextRequest) {
     const data = entries.map((entry) => {
       const lines = entry.entryDetails.map((line) => ({
         id: line.id,
-        cuentaCodigo: line.account.code,
-        cuentaNombre: line.account.name,
-        cuentaTipo: line.account.type,
-        descripcion: line.description ?? "",
-        debe: Number(line.debit),
-        haber: Number(line.credit),
+        accountCode: line.account.code,
+        accountName: line.account.name,
+        accountType: line.account.type,
+        description: line.description ?? "",
+        debit: Number(line.debit),
+        credit: Number(line.credit),
       }));
 
-      const totalDebit = lines.reduce((sum, line) => sum + line.debe, 0);
-      const totalCredit = lines.reduce((sum, line) => sum + line.haber, 0);
+      const totalDebit = lines.reduce((sum, line) => sum + line.debit, 0);
+      const totalCredit = lines.reduce((sum, line) => sum + line.credit, 0);
 
       return {
         id: entry.id,
-        numero: entry.code,
-        fecha: formatDateToIso(entry.entryDate),
-        diario: entry.book,
-        concepto: entry.description,
-        responsable: entry.responsible,
-        estado: entry.status ? ("Registrado" as const) : ("Anulado" as const),
-        totales: { debe: totalDebit, haber: totalCredit },
-        cuadrado: Math.abs(totalDebit - totalCredit) < 0.005,
-        lineas: lines,
+        number: entry.code,
+        date: formatDateToIso(entry.entryDate),
+        daily: entry.book,
+        concept: entry.description,
+        responsible: entry.responsible,
+        status: entry.status ? ("Registrado" as const) : ("Anulado" as const),
+        totals: { debit: totalDebit, credit: totalCredit },
+        balanced: Math.abs(totalDebit - totalCredit) < 0.005,
+        lines: lines,
       };
     });
 
@@ -172,9 +172,9 @@ export async function GET(request: NextRequest) {
         total,
         page: effectivePage,
         pageSize,
-        totalPaginas: totalPages,
-        desde: fromDate,
-        hasta: toDate,
+        totalPages: totalPages,
+        from: fromDate,
+        to: toDate,
       },
     });
   } catch (error) {

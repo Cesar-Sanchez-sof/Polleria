@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isBeverage } from "@/lib/utils/dish-category";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +21,8 @@ const CLOSED_STATUSES = ["Closed", "Cancelled"];
  *     summary: Cambia el estado de entrega de una bebida (Pending / Delivered)
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("pedidos.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("pedidos.ver");
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const filterStatus = searchParams.get("status"); // "Pending" | "Delivered" | "all"
@@ -131,8 +131,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await autorizar("pedidos.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("pedidos.editar");
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {

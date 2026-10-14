@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { InventoryMovementType, Prisma } from "@prisma/client";
-import { exigirPermiso } from "@/lib/auth/permisos";
+import { requirePermission } from "@/lib/auth/permissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos de filtros
@@ -81,7 +81,7 @@ export type EnrichedInventoryMovement = MovementWithIncludes & {
    * Saldo acumulado del insumo hasta este movimiento.
    * Solo se calcula cuando se filtra por supplyId; de lo contrario undefined.
    */
-  saldoCorrido?: number;
+  runningBalance?: number;
 };
 
 export interface PaginatedInventoryMovements {
@@ -173,7 +173,7 @@ function deriveReference(m: MovementWithIncludes): string | null {
 export async function getInventoryMovementsPaginated(
   filters: GetInventoryMovementsFilters = {}
 ): Promise<PaginatedInventoryMovements> {
-  await exigirPermiso("inventario.ver");
+  await requirePermission("inventario.ver");
   const page = filters.page && filters.page > 0 ? filters.page : 1;
   const pageSize =
     filters.pageSize && filters.pageSize > 0 ? filters.pageSize : 15;
@@ -228,7 +228,7 @@ export async function getInventoryMovementsPaginated(
       ...m,
       reference: deriveReference(m),
       ...(filters.supplyId !== undefined && {
-        saldoCorrido: runningBalances[m.id] ?? 0,
+        runningBalance: runningBalances[m.id] ?? 0,
       }),
     }));
 

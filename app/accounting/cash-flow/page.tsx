@@ -47,8 +47,8 @@ function startOfMonthIso(): string {
 }
 
 export default function CashFlowStatementPage() {
-  const [desde, setDesde] = useState<string>(startOfYearIso);
-  const [hasta, setHasta] = useState<string>(todayIso);
+  const [from, setFrom] = useState<string>(startOfYearIso);
+  const [to, setTo] = useState<string>(todayIso);
   const [statement, setStatement] = useState<CashFlowStatementResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export default function CashFlowStatementPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getCashFlowStatement({ desde: start, hasta: end });
+      const data = await getCashFlowStatement({ from: start, to: end });
       if (req !== requestRef.current) return;
       setStatement(data);
     } catch (e) {
@@ -81,10 +81,10 @@ export default function CashFlowStatementPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      void load(desde, hasta);
+      void load(from, to);
     }, 0);
     return () => clearTimeout(timer);
-  }, [desde, hasta, load]);
+  }, [from, to, load]);
 
   const handleExportCsv = () => {
     if (!statement) return;
@@ -142,7 +142,7 @@ export default function CashFlowStatementPage() {
         iconClassName="bg-slate-900 text-white dark:bg-primary dark:text-primary-foreground"
       >
         <span className="bg-card border border-border px-2.5 py-1.5 rounded-lg text-xs font-semibold text-foreground shadow-2xs">
-          Rango: {formatCutOffDate(desde)} — {formatCutOffDate(hasta)}
+          Rango: {formatCutOffDate(from)} — {formatCutOffDate(to)}
         </span>
       </ModuleHeader>
 
@@ -157,16 +157,16 @@ export default function CashFlowStatementPage() {
                   <span className="font-medium text-muted-foreground">Desde:</span>
                   <input
                     type="date"
-                    value={desde}
-                    onChange={(e) => setDesde(e.target.value)}
+                    value={from}
+                    onChange={(e) => setFrom(e.target.value)}
                     className="bg-transparent text-xs font-semibold text-foreground focus:outline-hidden cursor-pointer"
                   />
                   <span className="text-muted-foreground">—</span>
                   <span className="font-medium text-muted-foreground">Hasta:</span>
                   <input
                     type="date"
-                    value={hasta}
-                    onChange={(e) => setHasta(e.target.value)}
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
                     className="bg-transparent text-xs font-semibold text-foreground focus:outline-hidden cursor-pointer"
                   />
                 </div>
@@ -180,8 +180,8 @@ export default function CashFlowStatementPage() {
                   size="sm"
                   className="h-8 text-xs rounded-lg"
                   onClick={() => {
-                    setDesde(startOfMonthIso());
-                    setHasta(todayIso());
+                    setFrom(startOfMonthIso());
+                    setTo(todayIso());
                   }}
                 >
                   Este mes
@@ -192,8 +192,8 @@ export default function CashFlowStatementPage() {
                   size="sm"
                   className="h-8 text-xs rounded-lg"
                   onClick={() => {
-                    setDesde(startOfYearIso());
-                    setHasta(todayIso());
+                    setFrom(startOfYearIso());
+                    setTo(todayIso());
                   }}
                 >
                   Año actual (YTD)
@@ -205,7 +205,7 @@ export default function CashFlowStatementPage() {
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1.5 px-2.5"
-                onClick={() => void load(desde, hasta)}
+                onClick={() => void load(from, to)}
                 disabled={loading}
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : "text-muted-foreground"}`} />
@@ -321,7 +321,7 @@ export default function CashFlowStatementPage() {
             <Card className="p-6 bg-destructive/5 border border-destructive/20 rounded-2xl text-center flex flex-col items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <p className="text-sm font-semibold text-destructive">{error}</p>
-              <Button size="sm" variant="outline" onClick={() => void load(desde, hasta)}>
+              <Button size="sm" variant="outline" onClick={() => void load(from, to)}>
                 Reintentar
               </Button>
             </Card>
