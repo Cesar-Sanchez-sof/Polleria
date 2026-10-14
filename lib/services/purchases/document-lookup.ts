@@ -1,5 +1,6 @@
+"use server";
 
-import { exigirPermiso } from "@/lib/auth/permisos";"use server";
+import { exigirPermiso } from "@/lib/auth/permisos";
 
 /**
  * lookupDocument — Server Action para consultar RUC/DNI vía JSON.PE

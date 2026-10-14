@@ -90,12 +90,19 @@ describe("ninguna API queda sin control de acceso", () => {
 });
 
 describe("ninguna server action de compras queda sin control de acceso", () => {
+  // Cualquier archivo que mencione "use server" se considera server action.
   const acciones = archivos(join(RAIZ, "lib/services/purchases"), /\.ts$/)
-    .filter((r) => !/\.test\.ts$/.test(r) && /^\s*["']use server["']/.test(readFileSync(r, "utf8")))
+    .filter((r) => !/\.test\.ts$/.test(r) && /["']use server["']/.test(readFileSync(r, "utf8")))
     .map((r) => relative(RAIZ, r).replace(/\\/g, "/"));
 
   it("encuentra las server actions", () => {
     expect(acciones.length).toBeGreaterThan(5);
+  });
+
+  // Si la directiva no es lo primero del archivo, Next.js no lo trata como server action
+  // y el build de producción falla al llevarlo al navegador.
+  it.each(acciones)("%s: la directiva 'use server' está al inicio del archivo", (ruta) => {
+    expect(readFileSync(join(RAIZ, ruta), "utf8")).toMatch(/^\uFEFF?\s*["']use server["']/);
   });
 
   it.each(acciones)("%s: cada acción exige permiso", (ruta) => {
