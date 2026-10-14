@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { seedCuentas } from "./seed-accounts";
 import bcrypt from "bcryptjs";
+import { seedRolesPermisos } from "./seed-roles";
 
 const prisma = new PrismaClient();
 
@@ -65,7 +66,7 @@ async function main() {
     },
   });
   console.log("✔ Usuario admin creado o actualizado.");
-
+    await seedRolesPermisos(prisma);
 
   // 2. MÉTODOS DE PAGO
   const paymentMethods = [

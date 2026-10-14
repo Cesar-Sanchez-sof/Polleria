@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { leerJson, noAutorizado, respuestaError } from "@/lib/auth/respuestas";
-import { sesionActual } from "@/lib/auth/sesion-actual";
+import { leerJson, respuestaError } from "@/lib/auth/respuestas";
+import { autorizar } from "@/lib/auth/permisos";
+import { verificarRolAsignable, verificarUsuarioModificable } from "@/lib/services/roles.service";
 import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 import { actualizarUsuario, cambiarEstadoUsuario, type DatosUsuario } from "@/lib/services/usuarios.service";
 
@@ -32,6 +33,8 @@ export const dynamic = "force-dynamic";
  *         description: Petición inválida
  *       401:
  *         description: No autorizado
+ *       403:
+ *         description: Sin permiso usuarios.editar
  *   patch:
  *     tags:
  *       - Usuarios
@@ -50,7 +53,7 @@ export const dynamic = "force-dynamic";
  *           schema:
  *             type: object
  *             properties:
- *               activo:
+ *               estado:
  *                 type: boolean
  *                 description: Nuevo estado activo del usuario
  *     responses:
@@ -60,6 +63,8 @@ export const dynamic = "force-dynamic";
  *         description: Petición inválida
  *       401:
  *         description: No autorizado
+ *       403:
+ *         description: Sin permiso usuarios.editar
  */
 
 type Contexto = { params: Promise<{ id: string }> };
@@ -71,13 +76,17 @@ async function leerId(ctx: Contexto): Promise<number | null> {
 
 /** Modifica los datos del usuario. */
 export async function PUT(request: NextRequest, ctx: Contexto) {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutorizado();
+  const auth = await autorizar("usuarios.editar");
+  if (!auth.ok) return auth.respuesta;
+  const sesion = auth.sesion;
   const id = await leerId(ctx);
   const cuerpo = await leerJson(request);
   if (!id || !cuerpo) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
   try {
-        const actualizado = await actualizarUsuario(id, { ...cuerpo, id_rol: Number(cuerpo.id_rol) } as DatosUsuario);
+    // Solo un administrador puede tocar a otro administrador o asignar un rol de sistema.
+    await verificarUsuarioModificable(id, auth.superusuario);
+    await verificarRolAsignable(cuerpo.id_rol, auth.superusuario);
+    const actualizado = await actualizarUsuario(id, { ...cuerpo, id_rol: Number(cuerpo.id_rol) } as DatosUsuario);
     await registrarAuditoria({
       actor: { userId: sesion.idUsuario, username: sesion.username },
       action: "UPDATE",
@@ -99,8 +108,9 @@ export async function PUT(request: NextRequest, ctx: Contexto) {
 
 /** Activa o desactiva: body `{ "estado": boolean }`. */
 export async function PATCH(request: NextRequest, ctx: Contexto) {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutorizado();
+  const auth = await autorizar("usuarios.editar");
+  if (!auth.ok) return auth.respuesta;
+  const sesion = auth.sesion;
   const id = await leerId(ctx);
   const cuerpo = await leerJson(request);
   if (!id || typeof cuerpo?.estado !== "boolean") {
@@ -110,7 +120,8 @@ export async function PATCH(request: NextRequest, ctx: Contexto) {
     return NextResponse.json({ error: "No puedes desactivar tu propio usuario" }, { status: 400 });
   }
   try {
-        const actualizado = await cambiarEstadoUsuario(id, cuerpo.estado);
+    await verificarUsuarioModificable(id, auth.superusuario);
+    const actualizado = await cambiarEstadoUsuario(id, cuerpo.estado);
     await registrarAuditoria({
       actor: { userId: sesion.idUsuario, username: sesion.username },
       action: "STATUS_CHANGE",

@@ -298,7 +298,8 @@ export async function autenticar(identificador: string, password: string) {
   const valido = await verificarPassword(password, usuario?.password ?? HASH_RELLENO).catch(() => false);
   if (!usuario || !valido) throw new ErrorUsuario("Usuario o contraseña incorrectos", 401);
   if (!usuario.estado) throw new ErrorUsuario("Tu usuario está desactivado. Contacta al administrador", 403);
-
+  if (usuario.role.active === false) throw new ErrorUsuario("Tu rol está desactivado. Contacta al administrador", 403);
+  
   await prisma.user.update({
     where: { id: usuario.id },
     data: { lastAccessAt: new Date() },

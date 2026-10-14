@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { leerJson, noAutorizado, respuestaError } from "@/lib/auth/respuestas";
-import { sesionActual } from "@/lib/auth/sesion-actual";
+import { leerJson, respuestaError } from "@/lib/auth/respuestas";
+import { autorizar } from "@/lib/auth/permisos";
+import { verificarRolAsignable } from "@/lib/services/roles.service";
 import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 import {
   listarUsuarios,
@@ -22,6 +23,8 @@ export const dynamic = "force-dynamic";
  *         description: Lista de usuarios
  *       401:
  *         description: No autenticado
+ *       403:
+ *         description: Sin permiso usuarios.ver
  *   post:
  *     tags:
  *       - Usuarios
@@ -39,11 +42,13 @@ export const dynamic = "force-dynamic";
  *         description: Datos inválidos
  *       401:
  *         description: No autenticado
+ *       403:
+ *         description: Sin permiso usuarios.crear
  */
 export async function GET() {
   try {
-    const sesion = await sesionActual().catch(() => null);
-    if (!sesion) return noAutorizado();
+    const auth = await autorizar("usuarios.ver");
+    if (!auth.ok) return auth.respuesta;
 
     const usuarios = await listarUsuarios();
     return NextResponse.json(usuarios);
@@ -54,16 +59,20 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const sesion = await sesionActual().catch(() => null);
-    if (!sesion) return noAutorizado();
+    const auth = await autorizar("usuarios.crear");
+    if (!auth.ok) return auth.respuesta;
+    const sesion = auth.sesion;
 
     const body = (await leerJson(request)) as unknown as DatosUsuario;
     if (!body) {
       return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 });
     }
 
+    // El rol debe existir, estar activo y, si es de sistema, solo lo asigna un administrador.
+    await verificarRolAsignable(body.id_rol, auth.superusuario);
+
     const nuevoUsuario = await crearUsuario(body);
-        await registrarAuditoria({
+    await registrarAuditoria({
       actor: { userId: sesion.idUsuario, username: sesion.username },
       action: "CREATE",
       module: "Usuarios",
