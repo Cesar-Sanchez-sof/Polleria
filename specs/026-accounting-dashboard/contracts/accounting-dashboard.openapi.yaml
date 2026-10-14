@@ -1,0 +1,224 @@
+# Contract: GET /api/accounting/dashboard (dashboard contable)
+#
+# Feature: 026-accounting-dashboard | Fecha: 2026-10-12
+# Contrato objetivo (a implementar) del resumen financiero: KPIs, series mensuales,
+# distribución de gastos y cuentas con mayor movimiento para un rango de fechas.
+# Sin autenticación (equivalente a GET /api/balance-sheet). Respuesta sin caché.
+# Formato: OpenAPI 3.0.3 (compatible con swagger-jsdoc de app/api/openapi).
+
+openapi: 3.0.3
+info:
+  title: Polleria API — Dashboard contable (fragmento)
+  version: 1.0.0
+  description: >
+    Contrato del dashboard contable. Solo lectura. Los valores se calculan con los
+    mismos criterios que GET /api/balance-sheet (cuentas activas, asientos vigentes,
+    signedBalance, redondeo a 2 decimales), por lo que ingresos/gastos/utilidad del
+    rango deben coincidir exactamente con el estado de resultados del mismo rango.
+paths:
+  /api/accounting/dashboard:
+    get:
+      tags:
+        - Accounting Dashboard
+      summary: Obtener el dashboard contable de un rango de fechas
+      description: >
+        Devuelve KPIs del período con su variación respecto del período anterior de
+        igual duración, serie mensual de los últimos 12 meses, distribución de gastos
+        por categoría de cuenta y las cuentas con mayor monto movido.
+      parameters:
+        - in: query
+          name: desde
+          schema:
+            type: string
+            format: date
+          required: true
+          description: Inicio del rango (YYYY-MM-DD).
+          example: "2026-01-01"
+        - in: query
+          name: hasta
+          schema:
+            type: string
+            format: date
+          required: true
+          description: Fin del rango inclusive (YYYY-MM-DD).
+          example: "2026-10-12"
+      responses:
+        "200":
+          description: Dashboard generado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardPayload"
+              example:
+                period:
+                  desde: "2026-01-01"
+                  hasta: "2026-10-12"
+                  label: "01 de enero — 12 de octubre de 2026"
+                previousPeriod:
+                  desde: "2025-03-19"
+                  hasta: "2025-12-31"
+                kpis:
+                  - key: ingresos
+                    label: Ingresos
+                    value: 185420.5
+                    kind: currency
+                    variation: { percent: 12.4, direction: up }
+                  - key: utilidad
+                    label: Utilidad neta
+                    value: 23110.75
+                    kind: currency
+                    variation: { percent: -4.1, direction: down }
+                  - key: asientos
+                    label: Asientos registrados
+                    value: 412
+                    kind: count
+                    variation: { percent: 8, direction: up }
+                monthlySeries:
+                  - { month: "2025-11", label: "nov 2025", ingresos: 15200, gastos: 12900, utilidad: 2300 }
+                expenseBreakdown:
+                  - { category: "Gastos de personal", code: "62", amount: 9800, percent: 42.1 }
+                topAccounts:
+                  - { code: "621", name: "Sueldos y remuneraciones", amount: 9800 }
+                meta: { currency: "PEN", empty: false, generatedAt: "2026-10-12T22:50:00.000Z" }
+        "400":
+          description: Parámetros de fecha inválidos o rango invertido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Las fechas deben tener el formato YYYY-MM-DD y desde no puede ser posterior a hasta."
+        "404":
+          description: No hay cuentas contables activas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "No hay cuentas contables activas para elaborar el dashboard."
+        "500":
+          description: Error interno al generar el dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "No se pudo generar el Dashboard Contable."
+components:
+  schemas:
+    Variation:
+      type: object
+      required: [percent, direction]
+      properties:
+        percent:
+          type: number
+          description: Variación porcentual redondeada a 1 decimal.
+          example: 12.4
+        direction:
+          type: string
+          enum: [up, down, flat]
+    Kpi:
+      type: object
+      required: [key, label, value, kind, variation]
+      properties:
+        key:
+          type: string
+          enum:
+            [ingresos, gastos, utilidad, caja_bancos, por_cobrar, por_pagar, asientos]
+        label:
+          type: string
+        value:
+          type: number
+          description: >
+            Importe en PEN (kind=currency, 2 decimales) o cantidad (kind=count).
+        kind:
+          type: string
+          enum: [currency, count]
+        variation:
+          oneOf:
+            - $ref: "#/components/schemas/Variation"
+            - type: "null"
+          description: null cuando no existe período anterior comparable o su valor es 0.
+    MonthlyPoint:
+      type: object
+      required: [month, label, ingresos, gastos, utilidad]
+      properties:
+        month:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}$"
+        label:
+          type: string
+          example: "oct 2026"
+        ingresos: { type: number }
+        gastos: { type: number }
+        utilidad:
+          type: number
+          description: ingresos − gastos (negativo = pérdida).
+    ExpenseCategory:
+      type: object
+      required: [category, code, amount, percent]
+      properties:
+        category: { type: string, example: "Gastos de personal" }
+        code: { type: string, example: "62" }
+        amount: { type: number }
+        percent:
+          type: number
+          description: Proporción del total de gastos del rango (0–100; suma 100 si hay gastos).
+    TopAccount:
+      type: object
+      required: [code, name, amount]
+      properties:
+        code: { type: string, example: "621" }
+        name: { type: string }
+        amount: { type: number, description: "abs(suma(debit) − suma(credit)) del rango" }
+    DashboardPayload:
+      type: object
+      required: [period, kpis, monthlySeries, expenseBreakdown, topAccounts, meta]
+      properties:
+        period:
+          type: object
+          required: [desde, hasta, label]
+          properties:
+            desde: { type: string, format: date }
+            hasta: { type: string, format: date }
+            label: { type: string }
+        previousPeriod:
+          oneOf:
+            - type: object
+              properties:
+                desde: { type: string, format: date }
+                hasta: { type: string, format: date }
+            - type: "null"
+        kpis:
+          type: array
+          items:
+            $ref: "#/components/schemas/Kpi"
+        monthlySeries:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyPoint"
+          description: Hasta 12 meses terminados en el rango/hasta, meses sin datos en 0.
+        expenseBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseCategory"
+        topAccounts:
+          type: array
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/TopAccount"
+        meta:
+          type: object
+          required: [currency, empty, generatedAt]
+          properties:
+            currency: { type: string, enum: [PEN] }
+            empty:
+              type: boolean
+              description: true cuando no hay movimientos en el rango.
+            generatedAt: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

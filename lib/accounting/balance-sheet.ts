@@ -64,7 +64,8 @@ export interface BalanceSheetStatement {
   difference: number;
 }
 
-function round2(n: number): number {
+/** Rounds to 2 decimal places (shared with the dashboard module — SC-002 exact match). */
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
