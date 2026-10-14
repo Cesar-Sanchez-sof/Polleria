@@ -1,22 +1,29 @@
 // d:/backs/Polleria/app/accounting/periods/page.tsx
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useMemo, useState, FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
-import { BookOpen } from "lucide-react";
+import { BookOpen, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import {
+  availableFiscalYears,
+  currentFiscalYear,
+  filterByFiscalYear,
+  formatDate,
+  groupByFiscalYear,
+  statusLabel,
+  type AccountingPeriod,
+} from "./fiscal-years";
 
-interface AccountingPeriod {
-  id: number;
-  startDate: string;
-  endDate: string;
-  status: string;
-}
+/** Valor del selector que desactiva el filtro de año fiscal. */
+const TODOS_LOS_ANIOS = "todos";
 
 export default function AccountingPeriodsPage() {
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
@@ -28,7 +35,18 @@ export default function AccountingPeriodsPage() {
   const [month, setMonth] = useState<string>(String(now.getMonth() + 1));
   const [year, setYear] = useState<string>(String(now.getFullYear()));
   const [creating, setCreating] = useState(false);
+  // Año fiscal por defecto: todos los registrados (la lista se agrupa igual por año).
+  const [fiscalYear, setFiscalYear] = useState<string>(TODOS_LOS_ANIOS);
   // No se necesita estado local para errores de creación; se muestra vía toast.
+
+  const fiscalYears = useMemo(() => availableFiscalYears(periods), [periods]);
+  const groups = useMemo(
+    () =>
+      groupByFiscalYear(
+        filterByFiscalYear(periods, fiscalYear === TODOS_LOS_ANIOS ? null : Number(fiscalYear))
+      ),
+    [periods, fiscalYear]
+  );
 
   const fetchPeriods = async () => {
     setLoading(true);
@@ -73,47 +91,123 @@ export default function AccountingPeriodsPage() {
     }
   };
 
+  const columns = 5;
+
   return (
     <>
       <ModuleHeader
         title="Periodos Contables"
-        subtitle="Lista de periodos abiertos y cerrados"
+        subtitle="Períodos mensuales agrupados por año fiscal (enero – diciembre)"
         icon={BookOpen}
         iconClassName="bg-red-100 text-red-700"
       />
 
       <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <div className="w-full max-w-2xl space-y-6">
+        <div className="w-full max-w-3xl space-y-6">
           <Card>
-            <CardContent>
+            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  Períodos por año fiscal
+                </CardTitle>
+                <CardDescription>
+                  Cada año fiscal agrupa sus períodos mensuales con sus fechas y estado.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <Label htmlFor="anio-fiscal" className="text-xs text-muted-foreground">
+                  Año fiscal
+                </Label>
+                <NativeSelect
+                  id="anio-fiscal"
+                  className="w-56"
+                  aria-label="Filtrar por año fiscal"
+                  value={fiscalYear}
+                  onChange={(e) => setFiscalYear(e.target.value)}
+                >
+                  <option value={TODOS_LOS_ANIOS}>Todos los años fiscales</option>
+                  {fiscalYears.map((y) => (
+                    <option key={y} value={String(y)}>
+                      Año fiscal {y}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
               {loading && <p>Cargando...</p>}
               {error && <p className="text-sm text-destructive">{error}</p>}
               {!loading && !error && (
                 <table className="w-full table-auto">
                   <thead>
-                    <tr className="bg-gray-100 dark:bg-slate-800/75">
-                      <th className="p-2 text-left">ID</th>
-                      <th className="p-2 text-left">Inicio</th>
-                      <th className="p-2 text-left">Fin</th>
-                      <th className="p-2 text-left">Estado</th>
-                      <th className="p-2 text-left">Acciones</th>
+                    <tr className="bg-gray-100 text-left dark:bg-slate-800/75">
+                      <th className="p-2">ID</th>
+                      <th className="p-2">Inicio</th>
+                      <th className="p-2">Fin</th>
+                      <th className="p-2">Estado</th>
+                      <th className="p-2">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {periods.map((p) => (
-                      <tr key={p.id} className="border-t">
-                        <td className="p-2">{p.id}</td>
-                        <td className="p-2">{new Date(p.startDate).toLocaleDateString()}</td>
-                        <td className="p-2">{new Date(p.endDate).toLocaleDateString()}</td>
-                        <td className="p-2">{p.status}</td>
-                        <td className="p-2">
-                          <Link className="text-primary hover:underline" href={`/accounting/journal?from=${p.startDate}&to=${p.endDate}`} data-path="libro-diario-periodo">
-                            Ver Asientos
-                          </Link>
+                  {periods.length === 0 && (
+                    <tbody>
+                      <tr className="border-t">
+                        <td colSpan={columns} className="p-4 text-center text-sm text-muted-foreground">
+                          Aún no hay períodos contables. Crea el período del mes actual más abajo.
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
+                    </tbody>
+                  )}
+                  {periods.length > 0 && groups.length === 0 && (
+                    <tbody>
+                      <tr className="border-t">
+                        <td colSpan={columns} className="p-4 text-center text-sm text-muted-foreground">
+                          El año fiscal {fiscalYear} aún no tiene períodos registrados.
+                        </td>
+                      </tr>
+                    </tbody>
+                  )}
+                  {groups.map((group) => (
+                    <tbody key={group.year}>
+                      <tr className="bg-muted/60">
+                        <th
+                          colSpan={columns}
+                          scope="colgroup"
+                          className="p-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                        >
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-bold text-foreground">
+                              Año fiscal {group.year}
+                            </span>
+                            <Badge variant="secondary">
+                              {group.periods.length}{" "}
+                              {group.periods.length === 1 ? "período" : "períodos"}
+                            </Badge>
+                            <span className="text-xs font-normal normal-case tracking-normal">
+                              {group.open} abiertos · {group.closed} cerrados
+                            </span>
+                          </span>
+                        </th>
+                      </tr>
+                      {group.periods.map((p) => (
+                        <tr key={p.id} className="border-t">
+                          <td className="p-2">{p.id}</td>
+                          <td className="p-2">{formatDate(p.startDate)}</td>
+                          <td className="p-2">{formatDate(p.endDate)}</td>
+                          <td className="p-2">
+                            <Badge variant={p.status === "OPEN" ? "default" : "secondary"}>
+                              {statusLabel(p.status)}
+                            </Badge>
+                          </td>
+                          <td className="p-2">
+                            <Link className="text-primary hover:underline" href={`/accounting/journal?from=${p.startDate}&to=${p.endDate}`} data-path="libro-diario-periodo">
+                              Ver Asientos
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
                 </table>
               )}
             </CardContent>
@@ -122,7 +216,11 @@ export default function AccountingPeriodsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Crear Nuevo Periodo</CardTitle>
-              <CardDescription>El mes y año mostrados siempre corresponden al mes actual y no pueden modificarse. Sólo se pueden crear períodos contables completos (mes completo) y no se permiten duplicados.</CardDescription>
+              <CardDescription>
+                El mes y año mostrados siempre corresponden al mes actual y no pueden modificarse.
+                Sólo se pueden crear períodos contables completos (mes completo) y no se permiten
+                duplicados.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreate} className="flex flex-col gap-4">
@@ -134,6 +232,12 @@ export default function AccountingPeriodsPage() {
                   <Label>Año</Label>
                   <Input value={year} disabled className="border rounded p-2 bg-gray-100" />
                 </div>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                  El período se creará dentro del{" "}
+                  <strong className="text-foreground">año fiscal {currentFiscalYear()}</strong>{" "}
+                  (enero – diciembre).
+                </p>
                 {/* No se muestra error local, se muestra vía toast */}
                 <Button type="submit" disabled={creating}>
                   {creating ? "Creando..." : "Crear Periodo"}

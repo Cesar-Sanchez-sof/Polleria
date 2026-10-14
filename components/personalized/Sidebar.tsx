@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Component, User, LogOut, X, Menu } from "lucide-react";
+import { Component, User, LogOut, X, Menu, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 import React from "react";
@@ -17,6 +17,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
   const searchParams = useSearchParams();
   const [internalOpen, setInternalOpen] = useState(false);
   const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (key: string) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const isSectionOpen = (key: string) => !!openSections[key];
 
   useEffect(() => {
     if (pathname === "/login") return;
@@ -177,411 +187,542 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           <ThemeToggle />
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-0.5 px-space-xs">
+          <nav className="flex flex-col gap-1 px-space-xs">
             {/* VENTAS Section */}
             <div className="flex flex-col gap-0.5">
-              <div className="px-space-md pt-1">
-                <span className="font-label text-[11px] font-bold text-on-surface">
+              <button
+                type="button"
+                onClick={() => toggleSection("ventas")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
                   VENTAS
                 </span>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/sales?tab=tables")}
-                  data-path="ordenes-de-venta"
-                  href="/sales?tab=tables"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Salón de mesas
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/sales?tab=drinks")}
-                  data-path="despacho-bebidas"
-                  href="/sales?tab=drinks"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Despacho de Bebidas
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                </Link>
-                <Link
-                  className={getLinkClass("/sales?tab=kitchen")}
-                  data-path="kitchen"
-                  href="/sales?tab=kitchen"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Pedidos Listos
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/sales?tab=payments")}
-                  data-path="cobros-pendientes"
-                  href="/sales?tab=payments"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Cobros No Realizados 
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/sales?tab=cashier")}
-                  data-path="caja-ventanilla"
-                  href="/sales?tab=cashier"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Caja y ventanilla
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/sales?tab=customers")}
-                  data-path="clientes"
-                  href="/sales?tab=customers"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Clientes
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/sales?tab=invoices")}
-                  data-path="facturas-de-venta"
-                  href="/sales?tab=invoices"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Facturas de Venta
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
-                </Link>
-
-              </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("ventas") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("ventas") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/sales?tab=tables")}
+                    data-path="ordenes-de-venta"
+                    href="/sales?tab=tables"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Salón de mesas
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/sales?tab=drinks")}
+                    data-path="despacho-bebidas"
+                    href="/sales?tab=drinks"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Despacho de Bebidas
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/sales?tab=kitchen")}
+                    data-path="kitchen"
+                    href="/sales?tab=kitchen"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Pedidos Listos
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/sales?tab=payments")}
+                    data-path="cobros-pendientes"
+                    href="/sales?tab=payments"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Cobros No Realizados
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/sales?tab=cashier")}
+                    data-path="caja-ventanilla"
+                    href="/sales?tab=cashier"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Caja y ventanilla
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/sales?tab=customers")}
+                    data-path="clientes"
+                    href="/sales?tab=customers"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Clientes
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/sales?tab=invoices")}
+                    data-path="facturas-de-venta"
+                    href="/sales?tab=invoices"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Facturas de Venta
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" />
+                  </Link>
+                </div>
+              )}
             </div>
 
-            {/* COCINA Y RESTAURANTE Section */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="px-space-md pt-1">
-                <span className="font-label text-[11px] font-bold text-on-surface">
+            {/* COCINA Section */}
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("cocina")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
                   COCINA
                 </span>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/restaurant/kitchen")}
-                  data-path="cocina-kds"
-                  href="/restaurant/kitchen"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Cocina (KDS)
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/restaurant/dishes")}
-                  data-path="platos-recetas"
-                  href="/restaurant/dishes"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Platos e Ingredientes (Carta)
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" /* bg-rose-600 */ />
-                </Link>
-              </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("cocina") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("cocina") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/restaurant/kitchen")}
+                    data-path="cocina-kds"
+                    href="/restaurant/kitchen"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Cocina (KDS)
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/restaurant/dishes")}
+                    data-path="platos-recetas"
+                    href="/restaurant/dishes"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Platos e Ingredientes (Carta)
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/restaurant/tables")}
+                    data-path="gestion-mesas"
+                    href="/restaurant/tables"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Registrar y Gestionar Mesas
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* COMPRAS E INVENTARIO Section */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="px-space-md pt-1">
-                <Link
-                  href="/purchases"
-                  onClick={handleLinkClick}
-                  className="font-label text-[11px] font-bold text-on-surface hover:text-primary transition-colors"
-                >
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("compras")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
                   COMPRAS E INVENTARIO
-                </Link>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/purchases/add")}
-                  data-path="add"
-                  href="/purchases/add"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Añadir Compra
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/list")}
-                  data-path="list"
-                  href="/purchases/list"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Listar Compras
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/inventory")}
-                  data-path="inventory"
-                  href="/purchases/inventory"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Inventario / Insumos
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/transformation")}
-                  data-path="transformation"
-                  href="/purchases/transformation"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Transformación
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/suppliers")}
-                  data-path="suppliers"
-                  href="/purchases/suppliers"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Proveedores
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/purchases/purchase-without-voucher")}
-                  data-path="purchase-without-voucher"
-                  href="/purchases/purchase-without-voucher"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Compra Menor sin Comprobante
-                </Link>
-              </div>
-            </div>
-
-            {/* CONTABILIDAD Section */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="px-space-md pt-1">
-                <span className="font-label text-[11px] font-bold text-on-surface">
-                  CONTABILIDAD
                 </span>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/accounting/dashboard")}
-                  data-path="dashboard-contable"
-                  href="/accounting/dashboard"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Dashboard Contable
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/dashboard")}
-                  data-path="dashboard-contable"
-                  href="/accounting/dashboard"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Dashboard Contable
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/guide")}
-                  data-path="guide-contable"
-                  href="/accounting/guide"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Guía Contable
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/entries")}
-                  data-path="dashboard-contabilidad"
-                  href="/accounting/entries"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Asientos / Libro Diario
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/entries?journal=Caja%20y%20bancos")}
-                  data-path="contabilidad-caja"
-                  href="/accounting/entries?journal=Caja%20y%20bancos"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Contabilidad Caja
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-
-                <Link
-                  className={getLinkClass("/accounting/accounts")}
-                  data-path="dashboard-contabilidad"
-                  href="/accounting/accounts"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  <span>Cuentas contables</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/ledger")}
-                  data-path="libro-mayor"
-                  href="/accounting/ledger"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Libro Mayor
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/balance")}
-                  data-path="balance-general"
-                  href="/accounting/balance"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Balance General
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/income-statement")}
-                  data-path="estado-de-resultados"
-                  href="/accounting/income-statement"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Estado de Resultados
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/accounting/periods")}
-                  data-path="periodos-contables"
-                  href="/accounting/periods"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Periodos Contables
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-              </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("compras") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("compras") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/purchases")}
+                    data-path="purchases-home"
+                    href="/purchases"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Resumen Compras
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/purchases/add")}
+                    data-path="add"
+                    href="/purchases/add"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Añadir Compra
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/purchases/list")}
+                    data-path="list"
+                    href="/purchases/list"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Listar Compras
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/purchases/inventory")}
+                    data-path="inventory"
+                    href="/purchases/inventory"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Inventario / Insumos
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/purchases/transformation")}
+                    data-path="transformation"
+                    href="/purchases/transformation"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Transformación
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/purchases/suppliers")}
+                    data-path="suppliers"
+                    href="/purchases/suppliers"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Proveedores
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/purchases/purchase-without-voucher")}
+                    data-path="purchase-without-voucher"
+                    href="/purchases/purchase-without-voucher"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Compra Menor sin Comprobante
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                </div>
+              )}
             </div>
+
+            {/* REGISTROS CONTABLES Section */}
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("registros")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
+                  REGISTROS CONTABLES
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("registros") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("registros") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/accounting/entries")}
+                    data-path="asientos-contables"
+                    href="/accounting/entries"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Asientos Contables
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/entries?journal=Caja%20y%20bancos")}
+                    data-path="contabilidad-caja"
+                    href="/accounting/entries?journal=Caja%20y%20bancos"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Contabilidad Caja
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/payables")}
+                    data-path="cuentas-por-pagar"
+                    href="/accounting/payables"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Cuentas por Pagar
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/accounts")}
+                    data-path="cuentas-contables"
+                    href="/accounting/accounts"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Cuentas Contables
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/periods")}
+                    data-path="periodos-contables"
+                    href="/accounting/periods"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Periodos Contables
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/guide")}
+                    data-path="guide-contable"
+                    href="/accounting/guide"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Guía Contable
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* REPORTES CONTABLES Section */}
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("reportes")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
+                  REPORTES CONTABLES
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("reportes") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("reportes") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/accounting/dashboard")}
+                    data-path="dashboard-contable"
+                    href="/accounting/dashboard"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Dashboard Contable
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/trial-balance")}
+                    data-path="balance-de-comprobacion"
+                    href="/accounting/trial-balance"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Balance de Comprobación
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/cash-flow")}
+                    data-path="flujo-de-efectivo"
+                    href="/accounting/cash-flow"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Flujo de Efectivo
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/balance")}
+                    data-path="balance-general"
+                    href="/accounting/balance"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Balance General
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/income-statement")}
+                    data-path="estado-de-resultados"
+                    href="/accounting/income-statement"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Estado de Resultados
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/accounting/ledger")}
+                    data-path="libro-mayor"
+                    href="/accounting/ledger"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Libro Mayor
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                </div>
+              )}
+            </div>
+
             {/* SEGURIDAD Section */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="px-space-md pt-1">
-                <span className="font-label text-[11px] font-bold text-on-surface">
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("seguridad")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
                   SEGURIDAD
                 </span>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/usuarios")}
-                  data-path="usuarios"
-                  href="/usuarios"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Usuarios
-                </Link>
-                <Link
-                  className={getLinkClass("/audit")}
-                  data-path="auditoria"
-                  href="/audit"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Auditoría
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-              </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("seguridad") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("seguridad") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/usuarios")}
+                    data-path="usuarios"
+                    href="/usuarios"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Usuarios
+                  </Link>
+                  <Link
+                    className={getLinkClass("/audit")}
+                    data-path="auditoria"
+                    href="/audit"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Auditoría
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* CONFIGURACIÓN Section */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="px-space-md pt-1">
-                <span className="font-label text-[11px] font-bold text-on-surface">
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("configuracion")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
                   CONFIGURACIÓN
                 </span>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/restaurant/tables")}
-                  data-path="gestion-mesas"
-                  href="/restaurant/tables"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Registrar y Gestionar Mesas
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                </Link>
-                <Link
-                  className={getLinkClass("/restaurant/areas")}
-                  data-path="salones-areas"
-                  href="/restaurant/areas"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  <span>Salones y Áreas</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                </Link>
-                <Link
-                  className={getLinkClass("/restaurant/settings/business")}
-                  data-path="datos-empresa"
-                  href="/restaurant/settings/business"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  <span>Datos del Restaurante</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                </Link>
-                <Link
-                  className={getLinkClass("/restaurant/settings/printers")}
-                  data-path="impresoras-comanderas"
-                  href="/restaurant/settings/printers"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  <span>Comprobantes e Impresión</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                </Link>
-              </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("configuracion") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("configuracion") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/restaurant/tables")}
+                    data-path="gestion-mesas"
+                    href="/restaurant/tables"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Registrar y Gestionar Mesas
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/restaurant/areas")}
+                    data-path="salones-areas"
+                    href="/restaurant/areas"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Salones y Áreas
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/restaurant/settings/business")}
+                    data-path="datos-empresa"
+                    href="/restaurant/settings/business"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Datos del Restaurante
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/restaurant/settings/printers")}
+                    data-path="impresoras-comanderas"
+                    href="/restaurant/settings/printers"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Comprobantes e Impresión
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* DOCUMENTACIÓN Section */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="px-space-md pt-1">
-                <span className="font-label text-[11px] font-bold text-on-surface">
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <button
+                type="button"
+                onClick={() => toggleSection("documentacion")}
+                className="w-full flex items-center justify-between px-space-md py-1 text-left rounded-lg hover:bg-surface-container/60 transition-colors cursor-pointer group select-none"
+              >
+                <span className="font-label text-[11px] font-bold text-on-surface tracking-wider group-hover:text-primary transition-colors">
                   DOCUMENTACIÓN
                 </span>
-              </div>
-              <div className="flex flex-col pl-2 gap-0.5">
-                <Link
-                  className={getLinkClass("/swagger")}
-                  data-path="endpoints"
-                  href="/swagger"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Endpoints
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /* bg-rose-600 */ />
-                </Link>
-                <Link
-                  className={getLinkClass("/db-diagram")}
-                  data-path="db-diagram"
-                  href="/db-diagram"
-                  target="_top"
-                  onClick={handleLinkClick}
-                >
-                  Diagrama DB
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" /* bg-rose-600 */ />
-                </Link>
-              </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isSectionOpen("documentacion") ? "rotate-0" : "rotate-180"
+                    }`}
+                />
+              </button>
+              {isSectionOpen("documentacion") && (
+                <div className="flex flex-col pl-2 gap-0.5">
+                  <Link
+                    className={getLinkClass("/swagger")}
+                    data-path="endpoints"
+                    href="/swagger"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Endpoints
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
+                    className={getLinkClass("/db-diagram")}
+                    data-path="db-diagram"
+                    href="/db-diagram"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Diagrama DB
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" />
+                  </Link>
+                </div>
+              )}
             </div>
           </nav>
         </div>
