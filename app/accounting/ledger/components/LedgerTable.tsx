@@ -220,6 +220,9 @@ export function LedgerTable({
                 )}
               </TableCell>
               <TableCell className="py-2.5 px-3 text-slate-700 text-xs align-top max-w-72">
+                {ledger && movement.accountCode !== ledger.account.code && (
+                  <span className="block text-[10px] font-semibold text-red-700 mb-0.5">{movement.accountCode} · {movement.accountName}</span>
+                )}
                 <span className="line-clamp-2">{movement.description || movement.entryDescription}</span>
                 {movement.description && movement.entryDescription && movement.description !== movement.entryDescription && (
                   <span className="block text-[10px] text-slate-400 mt-0.5 line-clamp-1">{movement.entryDescription}</span>

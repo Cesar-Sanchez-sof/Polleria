@@ -182,8 +182,8 @@ export async function GET(request: NextRequest) {
           : Promise.resolve(0),
         // Serie mensual P&L (research R3): una sola consulta con date_trunc.
         prisma.$queryRaw<Array<{ month: Date; type: string; debit: unknown; credit: unknown }>>`
-          SELECT date_trunc('month', e.entry_date) AS mes,
-                 a.type AS tipo,
+          SELECT date_trunc('month', e.entry_date) AS month,
+                 a.type AS type,
                  COALESCE(SUM(d.debit), 0)  AS debit,
                  COALESCE(SUM(d.credit), 0) AS credit
           FROM journal_entry_detail d
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
         `,
       ]);
 
-    // `mes` llega como timestamp UTC a medianoche (date_trunc sobre @db.Date).
+    // `month` llega como timestamp UTC a medianoche (date_trunc sobre @db.Date).
     const monthlyRows: MonthlyRow[] = monthlyAgg.map((row) => ({
       month: `${row.month.getUTCFullYear()}-${String(row.month.getUTCMonth() + 1).padStart(2, "0")}`,
       type: row.type,

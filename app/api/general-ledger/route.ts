@@ -78,6 +78,23 @@ export async function GET(request: NextRequest) {
       return Response.json({ error: "Cuenta contable no encontrada." }, { status: 404 });
     }
 
+    // Una cuenta padre incluye los movimientos de todas sus cuentas descendientes.
+    const allAccounts =
+      (await prisma.accountingAccount.findMany({ select: { id: true, parentId: true } })) ?? [];
+    const childrenByParent = new Map<number, number[]>();
+    for (const item of allAccounts) {
+      if (item.parentId === null) continue;
+      const siblings = childrenByParent.get(item.parentId) ?? [];
+      siblings.push(item.id);
+      childrenByParent.set(item.parentId, siblings);
+    }
+    const accountIds = [account.id];
+    for (let i = 0; i < accountIds.length; i++) {
+      accountIds.push(...(childrenByParent.get(accountIds[i]) ?? []));
+    }
+    const accountFilter: Prisma.JournalEntryDetailWhereInput["accountId"] =
+      accountIds.length === 1 ? account.id : { in: accountIds };
+
     const dateRange: Prisma.DateTimeFilter<"JournalEntry"> = {};
     if (fromDate) dateRange.gte = parseUtcDate(fromDate);
     if (toDate) dateRange.lte = parseUtcDate(toDate);
@@ -87,7 +104,7 @@ export async function GET(request: NextRequest) {
       const priorAgg = await prisma.journalEntryDetail.aggregate({
         _sum: { debit: true, credit: true },
         where: {
-          accountId: account.id,
+          accountId: accountFilter,
           entry: { entryDate: { lt: parseUtcDate(fromDate) } },
         },
       });
@@ -96,7 +113,7 @@ export async function GET(request: NextRequest) {
     }
 
     const whereFilter: Prisma.JournalEntryDetailWhereInput = {
-      accountId: account.id,
+      accountId: accountFilter,
     };
     if (fromDate || toDate) whereFilter.entry = { entryDate: dateRange };
 
@@ -112,6 +129,7 @@ export async function GET(request: NextRequest) {
         description: true,
         debit: true,
         credit: true,
+        account: { select: { code: true, name: true } },
         entry: {
           select: {
             id: true,
@@ -146,6 +164,8 @@ export async function GET(request: NextRequest) {
         date: formatDateToIso(entry.entryDate),
         entryDescription: entry.description,
         description: detail.description ?? "",
+        accountCode: detail.account?.code ?? account.code,
+        accountName: detail.account?.name ?? account.name,
         module: entry.book,
         reference: getEntryReference(entry),
         status: entry.status ? ("Registrado" as const) : ("Anulado" as const),

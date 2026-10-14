@@ -29,6 +29,9 @@ export interface GeneralLedgerMovement {
   date: string;
   entryDescription: string;
   description: string;
+  /** Account the movement was posted to (differs from the queried one for parent accounts). */
+  accountCode: string;
+  accountName: string;
   module: string;
   reference: string | null;
   status: "Registrado" | "Anulado";

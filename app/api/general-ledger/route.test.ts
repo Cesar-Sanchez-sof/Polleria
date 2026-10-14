@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
 import { parseUtcDate } from "@/lib/dates";
 
-const { accountFindUniqueMock, detailAggregateMock, detailFindManyMock } = vi.hoisted(
+const { accountFindManyMock, accountFindUniqueMock, detailAggregateMock, detailFindManyMock } = vi.hoisted(
   () => ({
+    accountFindManyMock: vi.fn(),
     accountFindUniqueMock: vi.fn(),
     detailAggregateMock: vi.fn(),
     detailFindManyMock: vi.fn(),
@@ -12,7 +13,7 @@ const { accountFindUniqueMock, detailAggregateMock, detailFindManyMock } = vi.ho
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    accountingAccount: { findUnique: accountFindUniqueMock },
+    accountingAccount: { findUnique: accountFindUniqueMock, findMany: accountFindManyMock },
     journalEntryDetail: {
       aggregate: detailAggregateMock,
       findMany: detailFindManyMock,
@@ -74,8 +75,27 @@ describe("GET /api/general-ledger (libro mayor)", () => {
     vi.resetAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     accountFindUniqueMock.mockResolvedValue(createAccount());
+    accountFindManyMock.mockResolvedValue([{ id: 1, parentId: null }]);
     detailAggregateMock.mockResolvedValue({ _sum: { debit: 0, credit: 0 } });
     detailFindManyMock.mockResolvedValue([]);
+  });
+
+  it("incluye los movimientos de las cuentas hijas al consultar una cuenta padre", async () => {
+    accountFindManyMock.mockResolvedValueOnce([
+      { id: 1, parentId: null },
+      { id: 2, parentId: 1 },
+      { id: 3, parentId: 2 },
+      { id: 9, parentId: null },
+    ]);
+    detailFindManyMock.mockResolvedValueOnce([
+      { ...createDetailRow(), account: { code: "1011", name: "Caja chica" } },
+    ]);
+
+    const body = await (await GET(createRequest("?codigo=101"))).json();
+
+    const where = detailFindManyMock.mock.calls[0][0].where as Record<string, unknown>;
+    expect(where.accountId).toEqual({ in: [1, 2, 3] });
+    expect(body.movements[0]).toMatchObject({ accountCode: "1011", accountName: "Caja chica" });
   });
 
   it("exige la cuenta contable a consultar (C01)", async () => {

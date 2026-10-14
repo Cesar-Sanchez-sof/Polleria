@@ -19,6 +19,8 @@ const LEDGER_DATA: GeneralLedger = {
       date: "2025-06-18",
       entryDescription: "Venta mostrador",
       description: "Cobro en efectivo",
+      accountCode: "101",
+      accountName: "Caja",
       module: "Facturas de cliente",
       reference: "Factura 001-461",
       status: "Registrado",
