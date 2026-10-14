@@ -173,6 +173,8 @@ function predominantType(accounts: TrialBalanceAccountInput[]): string | null {
 interface SubgroupNode {
   code: string;
   amounts: TrialBalanceAmounts;
+  /** The sub-element account itself when posted directly (code length 2). */
+  headers: TrialBalanceAccountInput[];
   /** Children with codes longer than the sub-element (101, 421...). */
   children: TrialBalanceAccountInput[];
 }
@@ -198,15 +200,14 @@ export function buildTrialBalance(input: {
   const ungrouped: TrialBalanceAccountInput[] = [];
   const totals = emptyAmounts();
 
-  const groupFor = (key: string, isSinGrupo: boolean): GroupNode => {
+  const groupFor = (key: string): GroupNode => {
     let node = groups.get(key);
     if (!node) {
       node = {
-        code: isSinGrupo ? null as unknown as string : key,
+        code: key,
         amounts: emptyAmounts(),
         headers: [],
         subgroups: new Map(),
-        isSinGrupo,
       };
       groups.set(key, node);
     }
@@ -222,7 +223,7 @@ export function buildTrialBalance(input: {
       continue;
     }
 
-    const group = groupFor(element, false);
+    const group = groupFor(element);
     addAmounts(group.amounts, account);
 
     const sub = subKeyOf(account.code);
@@ -234,7 +235,7 @@ export function buildTrialBalance(input: {
 
     let subgroup = group.subgroups.get(sub);
     if (!subgroup) {
-      subgroup = { code: sub, amounts: emptyAmounts(), children: [] };
+      subgroup = { code: sub, amounts: emptyAmounts(), headers: [], children: [] };
       group.subgroups.set(sub, subgroup);
     }
     addAmounts(subgroup.amounts, account);

@@ -530,6 +530,16 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                   </Link>
                   <Link
+                    className={getLinkClass("/accounting/trial-balance")}
+                    data-path="balance-de-comprobacion"
+                    href="/accounting/trial-balance"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Balance de Comprobación
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </Link>
+                  <Link
                     className={getLinkClass("/accounting/cash-flow")}
                     data-path="flujo-de-efectivo"
                     href="/accounting/cash-flow"
