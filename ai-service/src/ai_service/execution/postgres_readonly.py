@@ -50,6 +50,7 @@ SESSION_STATEMENTS: tuple[str, ...] = (
     "SET LOCAL lock_timeout = '2s'",
 )
 READ_ONLY_CHECK = "SHOW transaction_read_only"
+WRITE_PRIVILEGE_CHECK = "SELECT has_table_privilege(%s, 'INSERT, UPDATE, DELETE, TRUNCATE')"
 
 ConnectionFactory = Callable[[], Any]
 
@@ -95,8 +96,9 @@ def probe_connection(connection_factory: ConnectionFactory, allowlist: Allowlist
     """Comprobación segura de la conexión real: SIN leer filas de negocio.
 
     Misma sesión acotada que el Executor (READ ONLY, 5 s, 2 s) y solo: ``SELECT 1``, el modo de solo
-    lectura efectivo y los privilegios SELECT del catálogo para las tablas y columnas de la
-    allowlist. Errores clasificados sin mensajes del controlador.
+    lectura efectivo, los privilegios SELECT del catálogo para las tablas y columnas de la
+    allowlist y que el rol NO tenga privilegios de escritura sobre esas tablas (``writable`` debe
+    quedar vacío). Errores clasificados sin mensajes del controlador.
     """
     try:
         with connection_factory() as connection:
@@ -106,8 +108,12 @@ def probe_connection(connection_factory: ConnectionFactory, allowlist: Allowlist
                 read_only = connection.execute(READ_ONLY_CHECK).fetchone()
                 select_one = connection.execute("SELECT 1").fetchone()
                 tables: dict[str, dict[str, bool]] = {}
+                writable: list[str] = []
                 for table, columns in allowlist.tables.items():
                     qualified = f"{allowlist.schema}.{table}"
+                    write = connection.execute(WRITE_PRIVILEGE_CHECK, (qualified,)).fetchone()
+                    if write is None or write[0]:
+                        writable.append(table)  # sin respuesta clara se trata como escribible
                     table_ok = connection.execute("SELECT has_table_privilege(%s, 'SELECT')", (qualified,)).fetchone()
                     tables[table] = {
                         column: bool(
@@ -126,6 +132,7 @@ def probe_connection(connection_factory: ConnectionFactory, allowlist: Allowlist
         "select_1": bool(select_one and select_one[0] == 1),
         "read_only": bool(read_only and read_only[0] == "on"),
         "privileges": tables,
+        "writable": writable,
     }
 
 

@@ -158,7 +158,7 @@ describe("configuración del modo evaluación (Vercel Preview)", () => {
   });
 
   it("Production solo con las dos banderas exactas; la segunda no sirve en otros entornos", () => {
-    const prod = { ...env, VERCEL_ENV: "production" };
+    const prod = { ...env, VERCEL_ENV: "production", AI_ASSISTANT_EVAL_USER_IDS: "7" };
     expect(readAssistantConfig(prod)).toEqual({ enabled: false, reason: "production" });
     for (const value of ["true", "0", " 1", undefined]) {
       expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: value })).toEqual({ enabled: false, reason: "production" });
@@ -168,8 +168,22 @@ describe("configuración del modo evaluación (Vercel Preview)", () => {
       .toEqual({ enabled: false, reason: "production" });
     expect(readAssistantConfig({ ...env, VERCEL_ENV: "development", AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" }))
       .toEqual({ enabled: false, reason: "production" });
-    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1", AI_ASSISTANT_REAL_DATA: "1" }))
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" })).toMatchObject({ allowedUserIds: [7], realData: false });
+    // Production sin cuentas evaluadoras: nunca para todos los ADMIN.
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1", AI_ASSISTANT_EVAL_USER_IDS: undefined }))
       .toEqual({ enabled: false, reason: "misconfigured" });
+  });
+
+  it("datos reales en evaluación: explícitos y solo con cuentas evaluadoras", () => {
+    const prod = { ...env, VERCEL_ENV: "production", AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1", AI_ASSISTANT_REAL_DATA: "1" };
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_EVAL_USER_IDS: "7, 12" })).toMatchObject({
+      enabled: true, realData: true, allowedUserIds: [7, 12], identityKey: identity,
+    });
+    expect(readAssistantConfig(prod)).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_REAL_DATA: "1" })).toEqual({ enabled: false, reason: "misconfigured" });
+    for (const ids of ["admin", "0", "7;8", "-1"]) {
+      expect(readAssistantConfig({ ...prod, AI_ASSISTANT_EVAL_USER_IDS: ids })).toEqual({ enabled: false, reason: "misconfigured" });
+    }
   });
 
   it("falla cerrado ante URL, claves o datos reales no válidos", () => {

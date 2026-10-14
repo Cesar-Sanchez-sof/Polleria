@@ -94,9 +94,10 @@ def build_dev_orchestrator(
     """
     xiyan = settings.sql_generator == XIYAN_GENERATOR
     real_db = settings.sql_executor == POSTGRES_EXECUTOR
-    if settings.eval_mode and (real_db or readonly_connection_factory is not None):
-        # Defensa en profundidad: la evaluación académica nunca ensambla el Executor real.
-        raise ValueError("El modo evaluación solo admite el Executor ficticio.")
+    if settings.eval_mode and not settings.eval_real_data and (real_db or readonly_connection_factory is not None):
+        # Defensa en profundidad: sin autorización explícita de datos reales, la evaluación nunca
+        # ensambla el Executor real.
+        raise ValueError("El modo evaluación sin datos reales autorizados solo admite el Executor ficticio.")
     dataset_file, allowlist_file = (
         ("dev_dataset_erp.json", "allowlist.dev_erp.json") if xiyan else ("dev_dataset.json", "allowlist.example.json")
     )

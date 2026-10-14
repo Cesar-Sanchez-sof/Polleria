@@ -426,9 +426,10 @@ class ProbeTests(GuardedTestCase):
     """Comprobación segura de la conexión real con una conexión simulada (sin filas de negocio)."""
 
     class CatalogConnection(FakeConnection):
-        def __init__(self, denied: frozenset[str] = frozenset(), **kwargs) -> None:
+        def __init__(self, denied: frozenset[str] = frozenset(), writable: frozenset[str] = frozenset(), **kwargs) -> None:
             super().__init__(**kwargs)
             self.denied = denied
+            self.writable = writable
             self.params: list = []
 
         def execute(self, sql, params=None):
@@ -443,6 +444,8 @@ class ProbeTests(GuardedTestCase):
                 raise self.error
             if sql == "SELECT 1":
                 return SimpleNamespace(fetchone=lambda: (1,))
+            if "INSERT" in sql:
+                return SimpleNamespace(fetchone=lambda: (any(params[0].endswith(w) for w in self.writable),))
             target = ".".join(params[:2]) if "column" in sql else params[0]
             return SimpleNamespace(fetchone=lambda: (not any(target.endswith(d) for d in self.denied),))
 
@@ -453,6 +456,7 @@ class ProbeTests(GuardedTestCase):
         result = probe_connection(Factory(connection), ALLOWLIST)
         self.assertEqual((result["select_1"], result["read_only"]), (True, True))
         self.assertTrue(all(all(cols.values()) for cols in result["privileges"].values()))
+        self.assertEqual(result["writable"], [])
         self.assertEqual(connection.statements[:4], [*SESSION_STATEMENTS, READ_ONLY_CHECK])
         allowed = ("SET ", READ_ONLY_CHECK, "SELECT 1", "SELECT has_table_privilege(", "SELECT has_column_privilege(")
         self.assertTrue(all(statement.startswith(allowed) for statement in connection.statements))
@@ -463,6 +467,8 @@ class ProbeTests(GuardedTestCase):
 
         result = probe_connection(Factory(self.CatalogConnection(denied=frozenset({"journal_entry.status"}))), ALLOWLIST)
         self.assertFalse(result["privileges"]["journal_entry"]["status"])
+        writable = probe_connection(Factory(self.CatalogConnection(writable=frozenset({"journal_entry"}))), ALLOWLIST)
+        self.assertEqual(writable["writable"], ["journal_entry"])  # un rol con escritura se detecta
         with self.assertRaises(ExecutionUnavailable) as ctx:
             probe_connection(Factory(self.CatalogConnection(error=DbError("42501"))), ALLOWLIST)
         self.assertEqual(ctx.exception.code, "READ_PERMISSION_MISSING")
