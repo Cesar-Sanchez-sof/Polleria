@@ -61,6 +61,7 @@ import {
   validateAccount,
   validationResponse,
 } from "@/lib/chart-of-accounts";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,8 @@ export const dynamic = "force-dynamic";
  * ensuring a subaccount is never separated from its parent.
  */
 export async function GET() {
+  const auth = await autorizar(["cuentas.ver", "asientos.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const accounts = await prisma.accountingAccount.findMany({
       orderBy: { code: "asc" },
@@ -119,6 +122,8 @@ export async function GET() {
  *         description: Error interno al crear la cuenta.
  */
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("cuentas.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {

@@ -18,6 +18,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    setupFiles: ["./test/setup-permisos.ts"],
     include: ["**/*.test.ts"],
     exclude: ["node_modules/**", ".next/**", "out/**", "build/**"],
   },

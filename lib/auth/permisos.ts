@@ -41,20 +41,34 @@ export type ResultadoAutorizacion =
   | { ok: false; respuesta: NextResponse };
 
 /**
- * Para APIs: exige sesión válida y el permiso indicado.
+ * Para APIs: exige sesión válida y el permiso indicado (o, si se pasa una lista,
+ * al menos uno de ellos).
  *
  *   const auth = await autorizar("usuarios.crear");
  *   if (!auth.ok) return auth.respuesta;   // 401 sin sesión, 403 sin permiso
  */
-export async function autorizar(codigo: string): Promise<ResultadoAutorizacion> {
+export async function autorizar(codigo: string | string[]): Promise<ResultadoAutorizacion> {
   const sesion = await sesionActual().catch(() => null);
   if (!sesion) return { ok: false, respuesta: noAutorizado() };
   const acceso = await permisosDeUsuario(sesion.idUsuario);
-  if (!tienePermiso(acceso, codigo)) {
+  const codigos = Array.isArray(codigo) ? codigo : [codigo];
+  if (!codigos.some((c) => tienePermiso(acceso, c))) {
     return {
       ok: false,
       respuesta: NextResponse.json({ error: "No tienes permiso para realizar esta acción" }, { status: 403 }),
     };
   }
   return { ok: true, sesion, superusuario: acceso.superusuario };
+}
+
+/**
+ * Para server actions (funciones "use server"): lanza un error si no hay sesión
+ * o permiso. Se llama como primera línea de cada acción.
+ */
+export async function exigirPermiso(codigo: string | string[]): Promise<PayloadSesion> {
+  const auth = await autorizar(codigo);
+  if (!auth.ok) {
+    throw new Error(auth.respuesta.status === 401 ? "No autenticado" : "No tienes permiso para realizar esta acción");
+  }
+  return auth.sesion;
 }

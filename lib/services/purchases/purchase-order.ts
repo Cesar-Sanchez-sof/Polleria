@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { PurchaseOrderStatus, InventoryMovementType, AffectationIgv } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
+import { exigirPermiso } from "@/lib/auth/permisos";
 
 export interface PurchaseOrderLineInput {
   supplyId: number;
@@ -36,6 +37,7 @@ export interface UnifiedPurchaseInput {
 }
 
 export async function generateOrderNumber(): Promise<string> {
+  await exigirPermiso("compras.crear");
   const count = await prisma.purchaseOrder.count();
   const year = new Date().getFullYear();
   const num = (count + 1).toString().padStart(5, "0");
@@ -43,6 +45,7 @@ export async function generateOrderNumber(): Promise<string> {
 }
 
 export async function createPurchaseOrder(data: PurchaseOrderInput) {
+  await exigirPermiso("compras.crear");
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
   }
@@ -116,6 +119,7 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
 }
 
 export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
+  await exigirPermiso("compras.crear");
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
   }
@@ -320,6 +324,7 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
 }
 
 export async function getPurchaseOrders() {
+  await exigirPermiso("compras.ver");
   try {
     return await prisma.purchaseOrder.findMany({
       include: {
@@ -341,6 +346,7 @@ export async function getPurchaseOrders() {
 }
 
 export async function getPurchaseOrderById(id: number) {
+  await exigirPermiso("compras.ver");
   try {
     return await prisma.purchaseOrder.findUnique({
       where: { id },

@@ -10,6 +10,7 @@ import {
   type MonthlyRow,
   type PreviousAggregates,
 } from "@/lib/accounting/dashboard";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,8 @@ const isBalance = (a: AccountMovement): boolean => !PNL_TYPES.has(a.type);
  *         description: Error interno al generar el dashboard.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("reportes.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const desde = (request.nextUrl.searchParams.get("desde") ?? "").trim();
     const hasta = (request.nextUrl.searchParams.get("hasta") ?? "").trim();

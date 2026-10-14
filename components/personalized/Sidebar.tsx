@@ -6,6 +6,16 @@ import Link from "next/link";
 import React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { usePermisos } from "@/components/personalized/PermisosProvider";
+import { SECCIONES, permisoDeEnlace } from "@/lib/auth/rutas-permisos";
+
+/** Enlace del menú: no se muestra si el usuario no tiene el permiso "ver" de esa pantalla. */
+function NavLink({ href, ...props }: React.ComponentProps<typeof Link>) {
+  const { puede } = usePermisos();
+  const permiso = typeof href === "string" ? permisoDeEnlace(href) : null;
+  if (permiso && !puede(permiso)) return null;
+  return <Link href={href} {...props} />;
+}
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -15,6 +25,7 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: SidebarProps = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { puedeAlguno } = usePermisos();
   const [internalOpen, setInternalOpen] = useState(false);
   const [usuario, setUsuario] = useState<{ username: string; rol: string } | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -171,14 +182,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
             <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950 flex items-center justify-center">
               <Component className="w-7 text-primary-container" />
             </div>
-            <Link
+            <NavLink
               className="font-headline text-[16px] font-bold text-on-surface tracking-wider mt-space-xs uppercase"
               href="/"
               target="_top"
               onClick={handleLinkClick}
             >
               ERP EMPRESARIAL
-            </Link>
+            </NavLink>
             <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
               SISTEMA INTEGRAL
             </span>
@@ -189,6 +200,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs">
             {/* VENTAS Section */}
+            {puedeAlguno(SECCIONES.ventas) && (
             <div className="flex flex-col gap-0.5">
               <button
                 type="button"
@@ -205,7 +217,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("ventas") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/sales?tab=tables")}
                     data-path="ordenes-de-venta"
                     href="/sales?tab=tables"
@@ -214,8 +226,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Salón de mesas
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/sales?tab=drinks")}
                     data-path="despacho-bebidas"
                     href="/sales?tab=drinks"
@@ -224,8 +236,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Despacho de Bebidas
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/sales?tab=kitchen")}
                     data-path="kitchen"
                     href="/sales?tab=kitchen"
@@ -234,8 +246,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Pedidos Listos
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/sales?tab=payments")}
                     data-path="cobros-pendientes"
                     href="/sales?tab=payments"
@@ -244,8 +256,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Cobros No Realizados
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/sales?tab=cashier")}
                     data-path="caja-ventanilla"
                     href="/sales?tab=cashier"
@@ -254,8 +266,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Caja y ventanilla
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/sales?tab=customers")}
                     data-path="clientes"
                     href="/sales?tab=customers"
@@ -264,8 +276,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Clientes
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/sales?tab=invoices")}
                     data-path="facturas-de-venta"
                     href="/sales?tab=invoices"
@@ -274,12 +286,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Facturas de Venta
                     <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* COCINA Section */}
+            {puedeAlguno(SECCIONES.cocina) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -296,7 +310,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("cocina") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/restaurant/kitchen")}
                     data-path="cocina-kds"
                     href="/restaurant/kitchen"
@@ -305,8 +319,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Cocina (KDS)
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/restaurant/dishes")}
                     data-path="platos-recetas"
                     href="/restaurant/dishes"
@@ -315,8 +329,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Platos e Ingredientes (Carta)
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/restaurant/tables")}
                     data-path="gestion-mesas"
                     href="/restaurant/tables"
@@ -325,12 +339,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Registrar y Gestionar Mesas
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* COMPRAS E INVENTARIO Section */}
+            {puedeAlguno(SECCIONES.compras) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -347,7 +363,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("compras") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/purchases")}
                     data-path="purchases-home"
                     href="/purchases"
@@ -356,8 +372,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Resumen Compras
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/purchases/add")}
                     data-path="add"
                     href="/purchases/add"
@@ -366,8 +382,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Añadir Compra
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/purchases/list")}
                     data-path="list"
                     href="/purchases/list"
@@ -376,8 +392,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Listar Compras
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/purchases/inventory")}
                     data-path="inventory"
                     href="/purchases/inventory"
@@ -386,8 +402,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Inventario / Insumos
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/purchases/transformation")}
                     data-path="transformation"
                     href="/purchases/transformation"
@@ -396,8 +412,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Transformación
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/purchases/suppliers")}
                     data-path="suppliers"
                     href="/purchases/suppliers"
@@ -406,8 +422,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Proveedores
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/purchases/purchase-without-voucher")}
                     data-path="purchase-without-voucher"
                     href="/purchases/purchase-without-voucher"
@@ -416,12 +432,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Compra Menor sin Comprobante
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* REGISTROS CONTABLES Section */}
+            {puedeAlguno(SECCIONES.registros) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -438,7 +456,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("registros") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/accounting/entries")}
                     data-path="asientos-contables"
                     href="/accounting/entries"
@@ -447,8 +465,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Asientos Contables
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/entries?journal=Caja%20y%20bancos")}
                     data-path="contabilidad-caja"
                     href="/accounting/entries?journal=Caja%20y%20bancos"
@@ -457,8 +475,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Contabilidad Caja
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/payables")}
                     data-path="cuentas-por-pagar"
                     href="/accounting/payables"
@@ -467,8 +485,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Cuentas por Pagar
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/accounts")}
                     data-path="cuentas-contables"
                     href="/accounting/accounts"
@@ -477,8 +495,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Cuentas Contables
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/periods")}
                     data-path="periodos-contables"
                     href="/accounting/periods"
@@ -487,8 +505,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Periodos Contables
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/guide")}
                     data-path="guide-contable"
                     href="/accounting/guide"
@@ -497,12 +515,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Guía Contable
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* REPORTES CONTABLES Section */}
+            {puedeAlguno(SECCIONES.reportes) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -519,7 +539,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("reportes") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/accounting/dashboard")}
                     data-path="dashboard-contable"
                     href="/accounting/dashboard"
@@ -528,8 +548,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Dashboard Contable
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/executive-summary")}
                     data-path="resumen-ejecutivo"
                     href="/accounting/executive-summary"
@@ -538,8 +558,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Resumen Ejecutivo
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/trial-balance")}
                     data-path="balance-de-comprobacion"
                     href="/accounting/trial-balance"
@@ -548,8 +568,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Balance de Comprobación
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/cash-flow")}
                     data-path="flujo-de-efectivo"
                     href="/accounting/cash-flow"
@@ -558,8 +578,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Flujo de Efectivo
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/balance")}
                     data-path="balance-general"
                     href="/accounting/balance"
@@ -568,8 +588,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Balance General
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/income-statement")}
                     data-path="estado-de-resultados"
                     href="/accounting/income-statement"
@@ -578,8 +598,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Estado de Resultados
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/accounting/ledger")}
                     data-path="libro-mayor"
                     href="/accounting/ledger"
@@ -588,12 +608,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Libro Mayor
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* SEGURIDAD Section */}
+            {puedeAlguno(SECCIONES.seguridad) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -610,7 +632,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("seguridad") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/usuarios")}
                     data-path="usuarios"
                     href="/usuarios"
@@ -618,8 +640,18 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                     onClick={handleLinkClick}
                   >
                     Usuarios
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
+                    className={getLinkClass("/roles")}
+                    data-path="roles"
+                    href="/roles"
+                    target="_top"
+                    onClick={handleLinkClick}
+                  >
+                    Roles y Permisos
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/audit")}
                     data-path="auditoria"
                     href="/audit"
@@ -628,12 +660,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Auditoría
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* CONFIGURACIÓN Section */}
+            {puedeAlguno(SECCIONES.configuracion) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -650,7 +684,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("configuracion") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/restaurant/tables")}
                     data-path="gestion-mesas"
                     href="/restaurant/tables"
@@ -659,8 +693,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Registrar y Gestionar Mesas
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/restaurant/areas")}
                     data-path="salones-areas"
                     href="/restaurant/areas"
@@ -669,8 +703,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Salones y Áreas
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/restaurant/settings/business")}
                     data-path="datos-empresa"
                     href="/restaurant/settings/business"
@@ -679,8 +713,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Datos del Restaurante
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/restaurant/settings/printers")}
                     data-path="impresoras-comanderas"
                     href="/restaurant/settings/printers"
@@ -689,12 +723,14 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Comprobantes e Impresión
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
 
+            )}
             {/* DOCUMENTACIÓN Section */}
+            {puedeAlguno(SECCIONES.documentacion) && (
             <div className="flex flex-col gap-0.5 mt-0.5">
               <button
                 type="button"
@@ -711,7 +747,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               </button>
               {isSectionOpen("documentacion") && (
                 <div className="flex flex-col pl-2 gap-0.5">
-                  <Link
+                  <NavLink
                     className={getLinkClass("/swagger")}
                     data-path="endpoints"
                     href="/swagger"
@@ -720,8 +756,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Endpoints
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  </Link>
-                  <Link
+                  </NavLink>
+                  <NavLink
                     className={getLinkClass("/db-diagram")}
                     data-path="db-diagram"
                     href="/db-diagram"
@@ -730,10 +766,11 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   >
                     Diagrama DB
                     <span className="w-1.5 h-1.5 rounded-full bg-yellow-600" />
-                  </Link>
+                  </NavLink>
                 </div>
               )}
             </div>
+            )}
           </nav>
         </div>
 

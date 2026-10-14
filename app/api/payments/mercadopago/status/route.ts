@@ -5,6 +5,7 @@ import {
   searchMercadoPagoPaymentsByOrder,
   processMercadoPagoPaymentApproval,
 } from "@/lib/services/mercadopago.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("ventas.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { searchParams } = new URL(request.url);
     const orderIdParam = searchParams.get("orderId") || searchParams.get("id_pedido");

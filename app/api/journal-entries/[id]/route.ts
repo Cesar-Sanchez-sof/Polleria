@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso } from "@/lib/dates";
+import { autorizar } from "@/lib/auth/permisos";
 
 /**
  * @openapi
@@ -36,6 +37,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar("asientos.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const entryId = Number.parseInt(idParam, 10);

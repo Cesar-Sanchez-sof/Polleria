@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { InventoryMovementType, SupplyType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
+import { exigirPermiso } from "@/lib/auth/permisos";
 
 export interface TransformationLineInput {
   supplyId: number;
@@ -29,6 +30,7 @@ export interface TransformationRecipeInput {
 // -------------------------------------------------------------
 
 export async function getTransformationRecipes() {
+  await exigirPermiso("transformacion.ver");
   try {
     const recipes = await prisma.transformationRecipe.findMany({
       include: {
@@ -79,6 +81,7 @@ export async function getTransformationRecipes() {
 }
 
 export async function createTransformationRecipe(data: TransformationRecipeInput) {
+  await exigirPermiso("transformacion.crear");
   if (!data.producedSupplyId) throw new Error("Debe seleccionar un producto producido");
   if (!data.consumedSupplyId) throw new Error("Debe seleccionar un insumo consumido");
   if (data.producedSupplyId === data.consumedSupplyId) {
@@ -131,6 +134,7 @@ export async function updateTransformationRecipe(
   id: number,
   data: Partial<TransformationRecipeInput>
 ) {
+  await exigirPermiso("transformacion.crear");
   const existing = await prisma.transformationRecipe.findUnique({ where: { id } });
   if (!existing) throw new Error("Receta de transformación no encontrada");
 
@@ -155,6 +159,7 @@ export async function updateTransformationRecipe(
 }
 
 export async function toggleTransformationRecipe(id: number, active: boolean) {
+  await exigirPermiso("transformacion.crear");
   return await prisma.transformationRecipe.update({
     where: { id },
     data: { active },
@@ -166,6 +171,7 @@ export async function toggleTransformationRecipe(id: number, active: boolean) {
 }
 
 export async function deleteTransformationRecipe(id: number) {
+  await exigirPermiso("transformacion.eliminar");
   const recipe = await prisma.transformationRecipe.findUnique({
     where: { id },
   });
@@ -204,6 +210,7 @@ export async function executeTransformation(
   notes?: string,
   employeeId?: number
 ) {
+  await exigirPermiso("transformacion.crear");
   if (!recipeId) throw new Error("Debe seleccionar una receta");
   if (!times || times <= 0) {
     throw new Error("La cantidad de veces debe ser mayor a 0");
@@ -348,6 +355,7 @@ export async function executeTransformation(
 // -------------------------------------------------------------
 
 export async function registerTransformation(data: TransformationInput) {
+  await exigirPermiso("transformacion.crear");
   if (!data.consumos || data.consumos.length === 0) {
     throw new Error("Debe agregar al menos un insumo consumido (Materia Prima)");
   }
@@ -456,6 +464,7 @@ export async function registerTransformation(data: TransformationInput) {
 // -------------------------------------------------------------
 
 export async function getTransformations() {
+  await exigirPermiso("transformacion.ver");
   try {
     const list = await prisma.transformation.findMany({
       include: {
@@ -499,6 +508,7 @@ export async function annulTransformation(
   motivo: string,
   employeeId?: number
 ) {
+  await exigirPermiso("transformacion.eliminar");
   if (!id) {
     throw new Error("ID de transformación inválido");
   }

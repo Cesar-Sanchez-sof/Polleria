@@ -7,6 +7,7 @@ import {
   buildCashFlowStatement,
   type PeriodMovement,
 } from "@/lib/accounting/cash-flow-statement";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,8 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  *         description: Error interno al generar el estado.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("reportes.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const params = request.nextUrl.searchParams;
     const desde = (params.get("desde") ?? "").trim();

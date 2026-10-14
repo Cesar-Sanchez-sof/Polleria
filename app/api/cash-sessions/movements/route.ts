@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sesionActual } from "@/lib/auth/sesion-actual";
 import { postCashMovementExpenseJournalEntry } from "@/lib/services/accounting-posting.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("caja.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const { searchParams } = new URL(request.url);
     const sessionIdParam = searchParams.get("sessionId");
@@ -57,6 +60,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("caja.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     const sesion = await sesionActual().catch(() => null);
     const body = await request.json().catch(() => ({}));

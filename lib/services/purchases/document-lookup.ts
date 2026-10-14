@@ -1,4 +1,5 @@
-"use server";
+
+import { exigirPermiso } from "@/lib/auth/permisos";"use server";
 
 /**
  * lookupDocument — Server Action para consultar RUC/DNI vía JSON.PE
@@ -36,6 +37,7 @@ const TIMEOUT_MS = 5_000;
 export async function lookupDocument(
   documentNumber: string
 ): Promise<LookupDocumentResult> {
+  await exigirPermiso(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
   const doc = documentNumber ? documentNumber.trim().replace(/\D/g, "") : "";
 
   if (doc.length !== 8 && doc.length !== 11) {

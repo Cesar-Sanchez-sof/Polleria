@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,8 @@ function normalizePersonType(value: unknown): PersonTypeValue {
  *         description: Error interno del servidor.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["clientes.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get("q") || "").trim();
@@ -113,6 +116,8 @@ export async function GET(request: NextRequest) {
  *         description: Error interno al crear cliente.
  */
 export async function POST(request: NextRequest) {
+  const auth = await autorizar(["clientes.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {

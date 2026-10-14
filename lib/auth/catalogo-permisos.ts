@@ -25,6 +25,7 @@ export const MODULOS_PERMISOS: readonly ModuloPermisos[] = [
   { codigo: "cocina", nombre: "Cocina", grupo: "Restaurante", acciones: ["ver", "editar"] },
   { codigo: "platos", nombre: "Platos y recetas", grupo: "Restaurante", acciones: CRUD },
   { codigo: "mesas", nombre: "Mesas", grupo: "Restaurante", acciones: CRUD },
+    { codigo: "configuracion", nombre: "Configuración del restaurante (salones, datos, impresión)", grupo: "Restaurante", acciones: ["ver", "editar"] },
   // Compras e inventario
   { codigo: "compras", nombre: "Compras", grupo: "Compras e inventario", acciones: CRUD },
   { codigo: "proveedores", nombre: "Proveedores", grupo: "Compras e inventario", acciones: CRUD },

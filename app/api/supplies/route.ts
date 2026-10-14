@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
  *     summary: Listar insumos e ingredientes activos para recetas e inventario
  */
 export async function GET() {
+  const auth = await autorizar(["inventario.ver", "compras.ver", "transformacion.ver", "platos.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const supplies = await prisma.supply.findMany({
       where: { active: true },

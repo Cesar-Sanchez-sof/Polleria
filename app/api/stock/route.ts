@@ -6,6 +6,7 @@ import {
   releaseDishStock,
   reserveDishStock
 } from "@/lib/services/redis-stock.service";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 /**
@@ -32,6 +33,8 @@ export const dynamic = "force-dynamic";
  * Si no se pasa parámetro, retorna el stock de todos los platos activos.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["platos.ver", "pedidos.ver", "ventas.ver", "cocina.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const searchParams = request.nextUrl.searchParams;
     const dishIdParam = searchParams.get("dishId") ?? searchParams.get("id_plato");
@@ -81,6 +84,8 @@ export async function GET(request: NextRequest) {
  * Body: { dishId: number, stock: number }
  */
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("platos.editar");
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
@@ -128,6 +133,8 @@ export async function POST(request: NextRequest) {
  * Body: { dishId: number, quantity: number, operation: "add" | "reduce" }
  */
 export async function PATCH(request: NextRequest) {
+  const auth = await autorizar(["platos.editar", "pedidos.crear", "cocina.editar"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
 import { actorActual } from "@/lib/auth/actor-auditoria";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,8 @@ async function requireRole(request: NextRequest, allowedRoles: number[]): Promis
  *         description: Error interno.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("periodos.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const status = request.nextUrl.searchParams.get("status");
     const monthParam = request.nextUrl.searchParams.get("month");
@@ -123,6 +126,8 @@ export async function GET(request: NextRequest) {
  *         description: Error del servidor
  */
 export async function POST(request: NextRequest) {
+  const auth = await autorizar("periodos.crear");
+  if (!auth.ok) return auth.respuesta;
   try {
     // Authorization – only ADMIN can create periods
     const userId = await requireRole(request, [ADMIN_ROLE_ID]);
@@ -209,6 +214,8 @@ export async function POST(request: NextRequest) {
  *         description: Error del servidor
  */
 export async function PATCH(request: NextRequest) {
+  const auth = await autorizar("periodos.editar");
+  if (!auth.ok) return auth.respuesta;
   try {
     const userId = await requireRole(request, [ADMIN_ROLE_ID]);
     const body = await request.json();

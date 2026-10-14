@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { releaseDishStock } from "@/lib/services/redis-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 /**
@@ -44,6 +45,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar(["pedidos.ver", "cocina.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -102,6 +105,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar(["pedidos.editar", "ventas.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -210,6 +215,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await autorizar(["pedidos.editar", "cocina.editar", "ventas.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);

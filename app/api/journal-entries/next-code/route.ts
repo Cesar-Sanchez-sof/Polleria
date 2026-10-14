@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { parseUtcDate } from "@/lib/dates";
 import { generateJournalEntryCode } from "@/lib/journal-entry-code";
+import { autorizar } from "@/lib/auth/permisos";
 
 /**
  * @openapi
@@ -41,6 +42,8 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  * at the moment of entry creation.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["asientos.ver", "asientos.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const param = request.nextUrl.searchParams.get("fecha");
     const date = param && DATE_REGEX.test(param) ? parseUtcDate(param) : new Date();

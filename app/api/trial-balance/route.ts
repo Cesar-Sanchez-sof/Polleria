@@ -6,6 +6,7 @@ import {
   buildTrialBalance,
   type TrialBalanceAccountInput,
 } from "@/lib/accounting/trial-balance";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,8 @@ function firstDayOfMonthIso(iso: string): string {
  *         description: Error interno al generar el balance.
  */
 export async function GET(request: NextRequest) {
+  const auth = await autorizar("reportes.ver");
+  if (!auth.ok) return auth.respuesta;
   try {
     const rawTo = (request.nextUrl.searchParams.get("hasta") ?? "").trim() || todayIsoUtc();
     const rawFrom =

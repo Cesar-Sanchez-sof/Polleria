@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
+import { autorizar } from "@/lib/auth/permisos";
 
 export const dynamic = "force-dynamic";
 /**
@@ -85,6 +86,8 @@ function mapOrderResponse(p: {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await autorizar(["pedidos.ver", "cocina.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const searchParams = request.nextUrl.searchParams;
     const orderType = searchParams.get("orderType") ?? searchParams.get("tipo");
@@ -127,6 +130,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await autorizar(["pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {

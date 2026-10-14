@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { autorizar } from "@/lib/auth/permisos";
 
 /**
  * @openapi
@@ -38,6 +39,8 @@ import { prisma } from "@/lib/prisma";
  *                         type: integer
  */
 export async function GET() {
+  const auth = await autorizar(["asientos.ver", "asientos.crear"]);
+  if (!auth.ok) return auth.respuesta;
   try {
     const [books, statuses] = await Promise.all([
       prisma.journalEntry.groupBy({
