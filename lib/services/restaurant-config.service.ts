@@ -1,4 +1,4 @@
-import fs from "fs";
+  import fs from "fs";
 import path from "path";
 
 export interface RestaurantInfo {
@@ -12,6 +12,8 @@ export interface RestaurantInfo {
   ticketFooter: string;
   currency: string;
   logoUrl?: string;
+  yapePhone?: string;
+  yapeName?: string;
 }
 
 export interface DiningArea {
@@ -64,6 +66,8 @@ const DEFAULT_CONFIG: RestaurantGlobalConfig = {
     ticketFooter: "¡Gracias por su visita! Pollería & Brasas les desea un excelente día. Para comprobante electrónico visite www.elbuensabor.pe",
     currency: "S/ PEN",
     logoUrl: "",
+    yapePhone: "987654321",
+    yapeName: "El Buen Sabor a la Brasa",
   },
   areas: [
     {

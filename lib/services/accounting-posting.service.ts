@@ -112,7 +112,7 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
       const defaultName =
         code === "659" ? "Otros Gastos de Gestión" :
         code === "101" ? "Caja" :
-        code === "102" ? "Billeteras Digitales (Yape / Plin)" :
+        code === "102" ? "Billeteras Digitales (Yape)" :
         code === "104" ? "Bancos - Cuentas Corrientes" :
         code === "701" ? "Ventas de Mercaderías" :
         `Cuenta ${code}`;
@@ -239,12 +239,12 @@ export function pickPaymentAccountTarget(
   paymentMethodName: string,
 ): PaymentAccountTarget {
   const name = (paymentMethodName || "").toLowerCase();
-  if (name.includes("yape") || name.includes("plin") || name.includes("billetera")) {
+  if (name.includes("yape") || name.includes("billetera")) {
     const accountId = accounts.get(ACCOUNT_CODES.digitalWallet) ?? accounts.get(ACCOUNT_CODES.banks)!;
     return {
       accountId,
       accountCode: ACCOUNT_CODES.digitalWallet,
-      label: "Billetera Digital (Yape / Plin)",
+      label: "Billetera Digital (Yape)",
     };
   }
   if (name.includes("tarjeta") || name.includes("pos") || name.includes("visa") || name.includes("mastercard") || name.includes("tap")) {

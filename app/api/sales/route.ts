@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 import { uploadVoucherToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
+import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 
 export const dynamic = "force-dynamic";
 /**
@@ -434,6 +435,25 @@ export async function POST(request: NextRequest) {
       : (paymentType?.name ?? "Efectivo");
 
     const safeIssuedAt = (transaction.invoice.createdAt || now).toISOString();
+
+    // Sincronización en tiempo real: Liberación de mesas y notificación de cobro en caja
+    try {
+      broadcastRealtimeEvent("PAYMENT_RECEIVED", {
+        orderId: order.id,
+        orderCode: order.code,
+        voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
+        total: roundedTotal,
+        paymentMethod: paymentMethodName,
+        origin: associatedTable ? `Mesa ${associatedTable.number}` : "Llevar",
+      });
+
+      broadcastRealtimeEvent("TABLE_UPDATED", {
+        orderId: order.id,
+        reason: "COBRO_FINALIZADO",
+      });
+    } catch (rtErr) {
+      console.warn("[api/sales] Error al emitir evento en tiempo real:", rtErr);
+    }
 
     return Response.json(
       {

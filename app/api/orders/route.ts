@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.service";
+import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 
 export const dynamic = "force-dynamic";
 /**
@@ -347,10 +348,32 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      const mappedOrder = fullOrder ? mapOrderResponse(fullOrder) : null;
+
+      // Sincronización en tiempo real: Cocina KDS y Salón
+      try {
+        broadcastRealtimeEvent("ORDER_CREATED", {
+          order: mappedOrder,
+          orderId: result.id,
+          orderCode: code,
+          orderType,
+        });
+
+        if (orderType === "Mesa") {
+          broadcastRealtimeEvent("TABLE_UPDATED", {
+            tableId,
+            reason: "NUEVA_COMANDA",
+            orderId: result.id,
+          });
+        }
+      } catch (rtErr) {
+        console.warn("[api/orders] Advertencia al emitir evento en tiempo real:", rtErr);
+      }
+
       return Response.json(
         {
           message: "Pedido registrado con éxito.",
-          order: fullOrder ? mapOrderResponse(fullOrder) : null
+          order: mappedOrder
         },
         { status: 201 }
       );

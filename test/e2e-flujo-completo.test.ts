@@ -118,7 +118,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
       // 2. Validación contable: Medio de pago Yape
       const mockAccounts = new Map<string, number>([
         ["101", 1], // Caja
-        ["102", 2], // Billeteras Digitales (Yape / Plin)
+        ["102", 2], // Billeteras Digitales (Yape)
         ["104", 3], // Bancos
         ["121", 4], // Cuentas por cobrar
         ["401", 5], // IGV
@@ -182,7 +182,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
 
       // Verificamos el asiento 2 (Cobro con Yape en cuenta 102)
       const asientoCobro = createdEntries[1];
-      expect(asientoCobro.description).toContain("Billetera Digital (Yape / Plin)");
+      expect(asientoCobro.description).toContain("Billetera Digital (Yape)");
       expect(asientoCobro.observation).toContain("Cuenta 102");
       const detalleDebe = asientoCobro.entryDetails.create.find((d: any) => d.debit > 0);
       expect(detalleDebe.accountId).toBe(2); // Cuenta 102
