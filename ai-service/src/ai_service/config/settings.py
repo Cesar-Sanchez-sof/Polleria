@@ -39,6 +39,17 @@ Modelo 1 (interpretación y explicación):
   (por defecto 0.02: el peor caso de una consulta no puede superarlo), ``AI_LLM_TIMEOUT_S`` (1–60,
   por defecto 20) y ``AI_LLM_REASONING_EFFORT`` (opcional).
 
+Modo evaluación académica (``AI_SERVICE_EVAL_MODE=1``; el ERP en un Preview de Vercel llega por un
+túnel HTTPS temporal a este servicio, que sigue escuchando solo en ``127.0.0.1``):
+
+- Exige los modelos reales y el RAG remoto: ``AI_SQL_GENERATOR=xiyansql``, ``AI_LLM_PROVIDER=openai``
+  y ``AI_RAG_MODE=milvus``.
+- Exige ``AI_SQL_EXECUTOR=ficticio`` (explícito): con ``postgres_readonly`` no arranca, y tampoco si
+  ``DATABASE_URL_READONLY`` está en el entorno del proceso. Nunca hay datos financieros reales.
+- Exige ``AI_ASSISTANT_IDENTITY_KEY`` (P-9): cada solicitud debe traer la identidad firmada.
+- Peor caso de espera: ``AI_SQLGEN_TIMEOUT_S`` + 2 × ``AI_LLM_TIMEOUT_S`` ≤ 50 s, por debajo del
+  tiempo de espera del proxy de Next.js en Vercel (55 s).
+
 Ningún mensaje de error ni ``repr`` incluye valores de estas variables.
 
 El token interno **no es autenticación real del ERP**: identifica al proxy, no a los usuarios. Los
@@ -84,6 +95,8 @@ ZILLIZ_TOKEN_VAR = "ZILLIZ_CLOUD_TOKEN"
 RAG_COLLECTION_VAR = "AI_RAG_MILVUS_COLLECTION"
 RAG_APPROVED_CORPUS_VAR = "AI_RAG_REMOTE_CORPUS_SHA256"
 RAG_MODEL_EVIDENCE_VAR = "AI_RAG_MODEL_EVIDENCE"
+EVAL_MODE_VAR = "AI_SERVICE_EVAL_MODE"
+EVAL_MAX_WAIT_S = 50
 # Únicas claves que pueden leerse de ai-service/.env (ignorado por Git); el entorno tiene prioridad.
 # Nunca se lee DATABASE_URL (conexión principal del ERP).
 DOTENV_KEYS = frozenset(
@@ -213,6 +226,7 @@ class ServiceSettings:
     llm: LlmSettings | None = None
     identity_key: bytes | None = field(default=None, repr=False)
     rag: RagSettings = field(default_factory=RagSettings)
+    eval_mode: bool = False
 
     def __repr__(self) -> str:
         return (
@@ -221,7 +235,7 @@ class ServiceSettings:
             f"sql_generator={self.sql_generator!r}, sqlgen={self.sqlgen!r}, "
             f"sql_executor={self.sql_executor!r}, readonly_dsn={'***' if self.readonly_dsn else None}, "
             f"llm_provider={self.llm_provider!r}, llm={self.llm!r}, "
-            f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r})"
+            f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r}, eval_mode={self.eval_mode})"
         )
 
     def token_matches(self, provided: str | None) -> bool:
@@ -332,6 +346,13 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
     llm = _load_llm_settings(env, from_file) if llm_provider == OPENAI_LLM else None
     rag = _load_rag_settings(env, from_file)
 
+    eval_text = _read(env, EVAL_MODE_VAR)
+    if eval_text not in ("", "0", "1"):
+        raise ServiceConfigError(f"{EVAL_MODE_VAR} debe ser '1' o no definirse.")
+    eval_mode = eval_text == "1"
+    if eval_mode:
+        _check_eval_profile(env, generator, executor, llm_provider, rag.mode, identity_key, sqlgen, llm)
+
     return ServiceSettings(
         environment=environment,
         host=host,
@@ -346,7 +367,39 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
         llm=llm,
         identity_key=identity_key,
         rag=rag,
+        eval_mode=eval_mode,
     )
+
+
+def _check_eval_profile(
+    env: Mapping[str, str],
+    generator: str,
+    executor: str,
+    llm_provider: str,
+    rag_mode: str,
+    identity_key: bytes | None,
+    sqlgen: SqlGenSettings | None,
+    llm: LlmSettings | None,
+) -> None:
+    """Perfil de evaluación: modelos reales + Milvus, SOLO Executor ficticio y P-9 obligatorio."""
+    # Datos financieros reales: imposibles en evaluación, aunque alguien los active por error.
+    if executor != FIXTURE_EXECUTOR or _read(env, SQL_EXECUTOR_VAR) != FIXTURE_EXECUTOR:
+        raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige {SQL_EXECUTOR_VAR}={FIXTURE_EXECUTOR} (explícito).")
+    if READONLY_DSN_VAR in env:
+        raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 no admite {READONLY_DSN_VAR} en el entorno del proceso.")
+    if generator != XIYAN_GENERATOR or llm_provider != OPENAI_LLM or rag_mode != "milvus":
+        raise ServiceConfigError(
+            f"{EVAL_MODE_VAR}=1 exige {SQL_GENERATOR_VAR}={XIYAN_GENERATOR}, {LLM_PROVIDER_VAR}={OPENAI_LLM} "
+            f"y {RAG_MODE_VAR}=milvus."
+        )
+    if identity_key is None:
+        raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige {IDENTITY_KEY_VAR} (P-9).")
+    if sqlgen is None or llm is None:
+        raise ServiceConfigError(f"{EVAL_MODE_VAR}=1 exige la configuración completa de ambos modelos.")
+    if sqlgen.timeout_s + 2 * llm.timeout_s > EVAL_MAX_WAIT_S:
+        raise ServiceConfigError(
+            f"{EVAL_MODE_VAR}=1 exige {SQLGEN_TIMEOUT_VAR} + 2 × {LLM_TIMEOUT_VAR} ≤ {EVAL_MAX_WAIT_S} s."
+        )
 
 
 def _load_rag_settings(env: Mapping[str, str], from_file: Mapping[str, str]) -> RagSettings:

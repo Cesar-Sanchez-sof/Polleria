@@ -2,7 +2,8 @@
  * Proxy del asistente financiero: navegador → Next.js (servidor) → `ai-service` (`POST /v1/queries`).
  *
  * Controles (GET y POST):
- * - Asistente habilitado solo en modo demostración local (ver `config.ts`).
+ * - Asistente habilitado solo en modo demostración local o en evaluación sobre un Preview de Vercel
+ *   (ver `config.ts`); el tiempo de espera hacia `ai-service` lo fija ese modo.
  * - Sesión del ERP validada en el servidor (`sesionActual`); el rol del asistente se deriva de la
  *   sesión y nunca del navegador. Roles no permitidos → 403.
  * - El navegador solo puede enviar `mensaje`, `historial` y `ruta`; cualquier otra clave → 400.
@@ -28,7 +29,6 @@ import { IDENTITY_HEADER, signIdentity } from "@/lib/ai-assistant/identity";
 import { MESSAGES, toAssistantReply } from "@/lib/ai-assistant/presentation";
 
 export const MAX_BODY_BYTES = 16 * 1024;
-export const SERVICE_TIMEOUT_MS = 120_000;
 const TOKEN_HEADER = "X-Internal-Token";
 
 export interface ProxyDeps {
@@ -155,7 +155,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
       body: JSON.stringify(payload),
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(SERVICE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(checked.config.timeoutMs),
     });
   } catch (exc) {
     const name = exc instanceof Error ? exc.name : "";

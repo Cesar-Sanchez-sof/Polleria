@@ -4,6 +4,9 @@ import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
 
 export const dynamic = "force-dynamic";
+// Vercel: límite de la función (60 s cabe en todos los planes). El proxy corta antes (55 s en evaluación)
+// para responder un error sencillo en lugar de que la plataforma cierre la conexión.
+export const maxDuration = 60;
 
 function deps(): ProxyDeps {
   return {
