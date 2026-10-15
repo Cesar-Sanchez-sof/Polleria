@@ -83,7 +83,7 @@ export function FinancialHealthBanner({ payload }: Readonly<FinancialHealthBanne
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/accounting/income-statement"
+            href="/reports/income-statement"
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium"
           >
             <TrendingUp className="h-3 w-3 text-emerald-500" />
@@ -91,7 +91,7 @@ export function FinancialHealthBanner({ payload }: Readonly<FinancialHealthBanne
           </Link>
           <span className="text-border">•</span>
           <Link
-            href="/accounting/balance"
+            href="/reports/balance"
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium"
           >
             <Scale className="h-3 w-3 text-blue-500" />
@@ -107,7 +107,7 @@ export function FinancialHealthBanner({ payload }: Readonly<FinancialHealthBanne
           </Link>
           <span className="text-border">•</span>
           <Link
-            href="/accounting/ledger"
+            href="/reports/ledger"
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium"
           >
             <FileText className="h-3 w-3 text-amber-500" />

@@ -59,7 +59,7 @@ export default function RolesPage() {
         icon={ShieldCheck}
       >
         <div className="flex gap-2">
-          <Button variant="outline" render={<Link href="/users" />}>
+          <Button variant="outline" nativeButton={false} render={<Link href="/users" />}>
             Usuarios
           </Button>
           {can("roles.crear") && <Button onClick={() => abrir(null)}>Nuevo rol</Button>}

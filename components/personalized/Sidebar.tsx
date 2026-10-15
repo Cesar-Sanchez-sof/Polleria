@@ -79,13 +79,14 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: "reportes", label: "REPORTES CONTABLES", icon: FileText, permissions: "reports",
     items: [
-      { label: "Balance de Comprobación", href: "/accounting/trial-balance", path: "balance-de-comprobacion" },
-      { label: "Balance General", href: "/accounting/balance", path: "balance-general" },
-      { label: "Dashboard Contable", href: "/accounting/dashboard", path: "dashboard-contable" },
-      { label: "Estado de Resultados", href: "/accounting/income-statement", path: "estado-de-resultados" },
-      { label: "Flujo de Efectivo", href: "/accounting/cash-flow", path: "flujo-de-efectivo" },
-      { label: "Libro Mayor", href: "/accounting/ledger", path: "libro-mayor" },
-      { label: "Resumen Ejecutivo", href: "/accounting/executive-summary", path: "resumen-ejecutivo" },
+      { label: "Balance de Comprobación", href: "/reports/trial-balance", path: "balance-de-comprobacion" },
+      { label: "Balance General", href: "/reports/balance", path: "balance-general" },
+      { label: "Dashboard Contable", href: "/reports/dashboard", path: "dashboard-contable" },
+      { label: "Estado de Resultados", href: "/reports/income-statement", path: "estado-de-resultados" },
+      { label: "Flujo de Efectivo", href: "/reports/cash-flow", path: "flujo-de-efectivo" },
+      { label: "Libro Mayor", href: "/reports/ledger", path: "libro-mayor" },
+      { label: "Libros SUNAT (PLE)", href: "/reports/ple", path: "libros-sunat-ple" },
+      { label: "Resumen Ejecutivo", href: "/reports/executive-summary", path: "resumen-ejecutivo" },
     ],
   },
   {

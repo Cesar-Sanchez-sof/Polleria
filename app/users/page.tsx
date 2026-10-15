@@ -70,9 +70,9 @@ export default function UsersPage() {
   icon={Users}
 >
     <div className="flex gap-2">
-    <Button variant="outline" render={<Link href="/" />}>Volver al inicio</Button>
+    <Button variant="outline" nativeButton={false} render={<Link href="/" />}>Volver al inicio</Button>
     {can("roles.ver") && (
-      <Button variant="outline" render={<Link href="/roles" />}>Roles y permisos</Button>
+      <Button variant="outline" nativeButton={false} render={<Link href="/roles" />}>Roles y permisos</Button>
     )}
     <Button variant="outline" onClick={closeSession}>Cerrar sesión</Button>
     {can("usuarios.crear") && <Button onClick={() => abrir(null)}>Nuevo usuario</Button>}

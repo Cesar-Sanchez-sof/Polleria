@@ -45,7 +45,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     badgeBg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
     accentText: "text-emerald-600 dark:text-emerald-400",
     description: "Ventas y rentas del período (PCGE Clase 7)",
-    reportLink: { href: "/accounting/income-statement", label: "Ver Estado de Resultados" },
+    reportLink: { href: "/reports/income-statement", label: "Ver Estado de Resultados" },
   },
   expenses: {
     icon: Receipt,
@@ -55,7 +55,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     badgeBg: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
     accentText: "text-rose-600 dark:text-rose-400",
     description: "Gastos operativos y compras (PCGE Clases 6 y 9)",
-    reportLink: { href: "/accounting/income-statement", label: "Ver Detalle de Gastos" },
+    reportLink: { href: "/reports/income-statement", label: "Ver Detalle de Gastos" },
     invertVariationColor: true, // Si el gasto sube, es negativo en control de costos
   },
   profit: {
@@ -66,7 +66,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     badgeBg: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
     accentText: "text-blue-600 dark:text-blue-400",
     description: "Resultado neto del período (Ingresos − Gastos)",
-    reportLink: { href: "/accounting/income-statement", label: "Ver P&L Completo" },
+    reportLink: { href: "/reports/income-statement", label: "Ver P&L Completo" },
   },
   caja_bancos: {
     icon: Landmark,
@@ -76,7 +76,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     badgeBg: "bg-teal-500/15 text-teal-700 dark:text-teal-300",
     accentText: "text-teal-600 dark:text-teal-400",
     description: "Efectivo y depósitos bancarios acumulados (Cta. 10)",
-    reportLink: { href: "/accounting/balance", label: "Ver Balance General" },
+    reportLink: { href: "/reports/balance", label: "Ver Balance General" },
   },
   por_cobrar: {
     icon: Users,
@@ -86,7 +86,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     badgeBg: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
     accentText: "text-amber-600 dark:text-amber-400",
     description: "Derechos de cobro a clientes acumulados (Cta. 12)",
-    reportLink: { href: "/accounting/balance", label: "Ver Cuentas por Cobrar" },
+    reportLink: { href: "/reports/balance", label: "Ver Cuentas por Cobrar" },
   },
   por_pagar: {
     icon: CreditCard,
@@ -96,7 +96,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     badgeBg: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
     accentText: "text-purple-600 dark:text-purple-400",
     description: "Obligaciones comerciales con proveedores (Cta. 42)",
-    reportLink: { href: "/accounting/balance", label: "Ver Cuentas por Pagar" },
+    reportLink: { href: "/reports/balance", label: "Ver Cuentas por Pagar" },
     invertVariationColor: true,
   },
   entries: {

@@ -67,10 +67,7 @@ function Balance({ value, type }: Readonly<{ value: number; type: BalanceType }>
         {formatCurrency(value)}
       </span>
       <span className="block text-[10px] uppercase tracking-wide text-slate-400">
-        {type === "deudor" ? "Debtor" : type === "acreedor" ? "Creditor" : ""}
-      </span>
-      <span className="block text-[10px] uppercase tracking-wide text-slate-400">
-        {type ?? ""}
+        {type === "deudor" ? "Deudor" : type === "acreedor" ? "Acreedor" : ""}
       </span>
     </TableCell>
   );
@@ -103,7 +100,7 @@ export function LedgerTable({
       {/* C02: consulted account */}
       {ledger && (
         <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 dark:bg-slate-800/70 rounded-lg px-3 py-2.5 mb-3">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Account</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cuenta</span>
           <span className="text-sm font-bold text-red-700 tabular-nums">{ledger.account.code}</span>
           <span className="text-sm font-semibold text-slate-900">{ledger.account.name}</span>
           <Badge className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none bg-slate-100 text-slate-600">
@@ -111,7 +108,7 @@ export function LedgerTable({
           </Badge>
           <span className="ml-auto text-xs text-slate-500">
             <span className="tabular-nums font-semibold text-slate-900">{ledger.totals.movements}</span>{" "}
-            movement{ledger.totals.movements === 1 ? "" : "s"} · Final balance:{" "}
+            movimiento{ledger.totals.movements === 1 ? "" : "s"} · Saldo final:{" "}
             <span className={`block tabular-nums font-semibold ${ledger.finalBalance < 0 ? "text-rose-600" : "text-slate-900"}`}>
               {formatCurrency(ledger.finalBalance)}
             </span>
@@ -122,13 +119,13 @@ export function LedgerTable({
       <Table className="w-full text-left border-collapse min-w-175">
         <TableHeader>
           <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 hover:bg-slate-50/75">
-            <Th>Date</Th>
-            <Th>Entry</Th>
-            <Th>Description</Th>
-            <Th>Module / Reference</Th>
-            <Th align="right">Debit</Th>
-            <Th align="right">Credit</Th>
-            <Th align="right">Balance</Th>
+            <Th>Fecha</Th>
+            <Th>Asiento</Th>
+            <Th>Descripción</Th>
+            <Th>Módulo / Referencia</Th>
+            <Th align="right">Debe</Th>
+            <Th align="right">Haber</Th>
+            <Th align="right">Saldo</Th>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y divide-slate-100 text-sm text-slate-900">
@@ -157,7 +154,7 @@ export function LedgerTable({
                   {!invalidRange && (
                     <Button type="button" onClick={onRetry} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold cursor-pointer">
                       <RefreshCw className="w-3.5 h-3.5" />
-                      Retry
+                      Reintentar
                     </Button>
                   )}
                 </div>
@@ -183,12 +180,12 @@ export function LedgerTable({
               <TableCell colSpan={7} className="py-10 text-center">
                 <div className="flex flex-col items-center gap-3 text-slate-500">
                   <Inbox className="w-8 h-8 text-slate-400" />
-                  <p className="text-sm font-semibold text-slate-700">No movements exist for the selected account and period</p>
-                  <p className="text-xs">Adjust the start and end dates to widen the queried range.</p>
+                  <p className="text-sm font-semibold text-slate-700">No hay movimientos para la cuenta y el periodo seleccionados</p>
+                  <p className="text-xs">Ajusta las fechas inicial y final para ampliar el rango consultado.</p>
                   {hasFilters && (
                     <Button type="button" onClick={onClearFilters} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer">
                       <X className="w-3.5 h-3.5" />
-                      Clear filters
+                      Limpiar filtros
                     </Button>
                   )}
                 </div>
@@ -199,7 +196,7 @@ export function LedgerTable({
           {/* Previous balance before the queried period */}
           {hasPreviousBalance && (
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-              <TableCell colSpan={4} className="py-2.5 px-3 text-xs font-semibold text-slate-500 italic">Balance before period</TableCell>
+              <TableCell colSpan={4} className="py-2.5 px-3 text-xs font-semibold text-slate-500 italic">Saldo anterior al periodo</TableCell>
               <TableCell className="py-2.5 px-3" />
               <TableCell className="py-2.5 px-3" />
               <Balance value={ledger!.previousBalance} type={ledger!.previousBalance > 0 ? "deudor" : "acreedor"} />
@@ -244,7 +241,7 @@ export function LedgerTable({
           {ledger && movements.length > 0 && !error && (
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 font-bold">
               <TableCell colSpan={4} className="py-3 px-3 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Total of consulted movements (<span className="tabular-nums">{ledger.totals.movements}</span>)
+                Total de movimientos consultados (<span className="tabular-nums">{ledger.totals.movements}</span>)
               </TableCell>
               <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.debit)}</TableCell>
               <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.credit)}</TableCell>
@@ -253,7 +250,7 @@ export function LedgerTable({
                   {formatCurrency(ledger.finalBalance)}
                 </span>
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">
-                  {ledger.finalBalance > 0.004 ? "Debtor" : ledger.finalBalance < -0.004 ? "Creditor" : ""}
+                  {ledger.finalBalance > 0.004 ? "Deudor" : ledger.finalBalance < -0.004 ? "Acreedor" : ""}
                 </span>
               </TableCell>
             </TableRow>

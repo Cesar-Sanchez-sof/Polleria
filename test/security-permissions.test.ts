@@ -55,7 +55,7 @@ describe("catálogo de permisos", () => {
     expect(requiredPermissions("/purchases/inventory")).toEqual(["inventario.ver"]);
     expect(requiredPermissions("/purchases/add")).toEqual(["compras.ver"]);
     expect(requiredPermissions("/accounting/accounts")).toEqual(["cuentas.ver"]);
-    expect(requiredPermissions("/accounting/ledger")).toEqual(["reportes.ver"]);
+    expect(requiredPermissions("/reports/ledger")).toEqual(["reportes.ver"]);
     expect(requiredPermissions("/")).toBeNull();
     expect(requiredPermissions("/login")).toBeNull();
   });
