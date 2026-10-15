@@ -120,7 +120,7 @@ describe("solicitud hacia ai-service", () => {
           { rol: "usuario", texto: "Hola" },
           { rol: "asistente", texto: "El saldo neto fue S/ 1,149.60." },
         ],
-        ruta: "/accounting/ledger",
+        ruta: "/reports/ledger",
       },
       d,
     );
@@ -133,7 +133,7 @@ describe("solicitud hacia ai-service", () => {
       id_traza: TRACE,
       usuario: { id: 7, rol: "contador_demo" },
       mensaje: "¿Cuál fue el saldo de caja en septiembre?",
-      contexto: { ruta: "/accounting/ledger", filtros: {} },
+      contexto: { ruta: "/reports/ledger", filtros: {} },
       historial: [{ rol: "usuario", texto: "Hola" }],
       fecha_referencia_lima: "2026-10-12",
     });

@@ -2,12 +2,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, FormEvent } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { BookOpen, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +49,41 @@ export default function AccountingPeriodsPage() {
       ),
     [periods, fiscalYear]
   );
+
+  const tableRows = useMemo(() => groups.flatMap((group) => group.periods), [groups]);
+  const yearOfPeriod = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const group of groups) for (const period of group.periods) map.set(period.id, group.year);
+    return map;
+  }, [groups]);
+
+  const columns: DataTableColumn<AccountingPeriod>[] = [
+    { key: "id", header: "ID", width: "w-20", cell: (p) => p.id },
+    { key: "start", header: "Inicio", cell: (p) => formatDate(p.startDate) },
+    { key: "end", header: "Fin", cell: (p) => formatDate(p.endDate) },
+    {
+      key: "status",
+      header: "Estado",
+      cell: (p) => (
+        <StatusBadge tone={p.status === "OPEN" ? "success" : "neutral"} size="sm">
+          {statusLabel(p.status)}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      cell: (p) => (
+        <RowActions
+          mode="label"
+          align="start"
+          actions={[
+            { key: "entries", label: "Ver Asientos", tone: "blue", href: `/accounting/journal?from=${p.startDate}&to=${p.endDate}` },
+          ]}
+        />
+      ),
+    },
+  ];
 
   const fetchPeriods = async () => {
     setLoading(true);
@@ -91,8 +128,6 @@ export default function AccountingPeriodsPage() {
     }
   };
 
-  const columns = 5;
-
   return (
     <>
       <ModuleHeader
@@ -136,80 +171,40 @@ export default function AccountingPeriodsPage() {
               </div>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              {loading && <p>Cargando...</p>}
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              {!loading && !error && (
-                <table className="w-full table-auto">
-                  <thead>
-                    <tr className="bg-gray-100 text-left dark:bg-slate-800/75">
-                      <th className="p-2">ID</th>
-                      <th className="p-2">Inicio</th>
-                      <th className="p-2">Fin</th>
-                      <th className="p-2">Estado</th>
-                      <th className="p-2">Acciones</th>
-                    </tr>
-                  </thead>
-                  {periods.length === 0 && (
-                    <tbody>
-                      <tr className="border-t">
-                        <td colSpan={columns} className="p-4 text-center text-sm text-muted-foreground">
-                          Aún no hay períodos contables. Crea el período del mes actual más abajo.
-                        </td>
-                      </tr>
-                    </tbody>
-                  )}
-                  {periods.length > 0 && groups.length === 0 && (
-                    <tbody>
-                      <tr className="border-t">
-                        <td colSpan={columns} className="p-4 text-center text-sm text-muted-foreground">
-                          El año fiscal {fiscalYear} aún no tiene períodos registrados.
-                        </td>
-                      </tr>
-                    </tbody>
-                  )}
-                  {groups.map((group) => (
-                    <tbody key={group.year}>
-                      <tr className="bg-muted/60">
-                        <th
-                          colSpan={columns}
-                          scope="colgroup"
-                          className="p-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                        >
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-bold text-foreground">
-                              Año fiscal {group.year}
-                            </span>
-                            <Badge variant="secondary">
-                              {group.periods.length}{" "}
-                              {group.periods.length === 1 ? "período" : "períodos"}
-                            </Badge>
-                            <span className="text-xs font-normal normal-case tracking-normal">
-                              {group.open} abiertos · {group.closed} cerrados
-                            </span>
-                          </span>
-                        </th>
-                      </tr>
-                      {group.periods.map((p) => (
-                        <tr key={p.id} className="border-t">
-                          <td className="p-2">{p.id}</td>
-                          <td className="p-2">{formatDate(p.startDate)}</td>
-                          <td className="p-2">{formatDate(p.endDate)}</td>
-                          <td className="p-2">
-                            <Badge variant={p.status === "OPEN" ? "default" : "secondary"}>
-                              {statusLabel(p.status)}
-                            </Badge>
-                          </td>
-                          <td className="p-2">
-                            <Link className="text-primary hover:underline" href={`/accounting/journal?from=${p.startDate}&to=${p.endDate}`} data-path="libro-diario-periodo">
-                              Ver Asientos
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  ))}
-                </table>
-              )}
+              <DataTable
+                columns={columns}
+                rows={tableRows}
+                rowKey={(p) => p.id}
+                enableCard={false}
+                density="compact"
+                loading={loading}
+                loadingMode="auto"
+                error={error}
+                onRetry={() => void fetchPeriods()}
+                groupBy={(p) => yearOfPeriod.get(p.id) ?? 0}
+                renderGroupHeader={(key) => {
+                  const group = groups.find((g) => g.year === key);
+                  if (!group) return null;
+                  return (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-foreground">Año fiscal {group.year}</span>
+                      <Badge variant="secondary">
+                        {group.periods.length} {group.periods.length === 1 ? "período" : "períodos"}
+                      </Badge>
+                      <span className="text-xs font-normal normal-case tracking-normal text-muted-foreground">
+                        {group.open} abiertos · {group.closed} cerrados
+                      </span>
+                    </span>
+                  );
+                }}
+                emptyState={{
+                  icon: <CalendarDays className="h-7 w-7" />,
+                  title:
+                    periods.length === 0
+                      ? "Aún no hay períodos contables. Crea el período del mes actual más abajo."
+                      : `El año fiscal ${fiscalYear} aún no tiene períodos registrados.`,
+                }}
+              />
             </CardContent>
           </Card>
 

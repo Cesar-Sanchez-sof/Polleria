@@ -44,18 +44,20 @@ const LINK_PERMISSION: Record<string, string> = {
   "/accounting/accounts": "cuentas.ver",
   "/accounting/periods": "periodos.ver",
   "/accounting/guide": "reportes.ver",
-  "/accounting/dashboard": "reportes.ver",
-  "/accounting/executive-summary": "reportes.ver",
-  "/accounting/trial-balance": "reportes.ver",
-  "/accounting/cash-flow": "reportes.ver",
-  "/accounting/balance": "reportes.ver",
-  "/accounting/income-statement": "reportes.ver",
-  "/accounting/ledger": "reportes.ver",
+  "/reports/dashboard": "reportes.ver",
+  "/reports/executive-summary": "reportes.ver",
+  "/reports/trial-balance": "reportes.ver",
+  "/reports/cash-flow": "reportes.ver",
+  "/reports/balance": "reportes.ver",
+  "/reports/income-statement": "reportes.ver",
+  "/reports/ledger": "reportes.ver",
+  "/reports/ple": "reportes.ver",
   "/users": "usuarios.ver",
   "/roles": "roles.ver",
   "/audit": "auditoria.ver",
   "/swagger": "documentacion.ver",
   "/db-diagram": "documentacion.ver",
+  "/style-guide": "documentacion.ver",
 };
 
 /** Permiso del enlace del menú, o `null` si es libre (p. ej. el inicio). */
@@ -81,11 +83,13 @@ const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
   { prefix: "/accounting/accounts", permissions: ["cuentas.ver"] },
   { prefix: "/accounting/periods", permissions: ["periodos.ver"] },
   { prefix: "/accounting", permissions: ["reportes.ver"] },
+  { prefix: "/reports", permissions: ["reportes.ver"] },
   { prefix: "/users", permissions: ["usuarios.ver"] },
   { prefix: "/roles", permissions: ["roles.ver"] },
   { prefix: "/audit", permissions: ["auditoria.ver"] },
   { prefix: "/swagger", permissions: ["documentacion.ver"] },
   { prefix: "/db-diagram", permissions: ["documentacion.ver"] },
+  { prefix: "/style-guide", permissions: ["documentacion.ver"] },
 ].sort((a, b) => b.prefix.length - a.prefix.length);
 
 /** Permisos que abren esta ruta (cualquiera de ellos), o `null` si cualquier usuario con sesión puede entrar. */

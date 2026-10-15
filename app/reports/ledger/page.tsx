@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { BookMarked } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
-import { JournalEntryDetail } from "../entries/components/JournalEntryDetail";
+import { JournalEntryDetail } from "@/app/accounting/entries/components/JournalEntryDetail";
 import { LedgerFilters } from "./components/LedgerFilters";
 import { LedgerTable } from "./components/LedgerTable";
 import {

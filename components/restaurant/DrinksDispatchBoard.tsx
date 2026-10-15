@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -355,52 +356,19 @@ export function DrinksDispatchBoard() {
           />
         </div>
 
-        {/* Filtros de Estado */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <Button
-            size="sm"
-            variant={filter === "pendientes" ? "default" : "outline"}
-            onClick={() => setFilter("pendientes")}
-            className={`h-8 px-3 rounded-xl text-xs font-bold cursor-pointer ${
-              filter === "pendientes"
-                ? "bg-amber-600 hover:bg-amber-700 text-white"
-                : "border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span>Por Entregar</span>
-            {stats.pendingCount > 0 && (
-              <Badge className="ml-1.5 bg-white text-amber-700 text-[10px] font-black px-1.5 py-0 h-4 rounded-full">
-                {stats.pendingCount}
-              </Badge>
-            )}
-          </Button>
-
-          <Button
-            size="sm"
-            variant={filter === "entregados" ? "default" : "outline"}
-            onClick={() => setFilter("entregados")}
-            className={`h-8 px-3 rounded-xl text-xs font-bold cursor-pointer ${
-              filter === "entregados"
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                : "border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span>Entregadas</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant={filter === "todos" ? "default" : "outline"}
-            onClick={() => setFilter("todos")}
-            className={`h-8 px-3 rounded-xl text-xs font-bold cursor-pointer ${
-              filter === "todos"
-                ? "bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900"
-                : "border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span>Todas</span>
-          </Button>
-        </div>
+        {/* Filtros de estado (SegmentedTabs de la guía de estilos) */}
+        <SegmentedTabs
+          items={[
+            { value: "pendientes", label: "Por Entregar", count: stats.pendingCount, tone: "warning" },
+            { value: "entregados", label: "Entregadas", tone: "success" },
+            { value: "todos", label: "Todas" },
+          ]}
+          value={filter}
+          onValueChange={setFilter}
+          hideZeroCount
+          className="max-w-full overflow-x-auto"
+          ariaLabel="Estado de las bebidas"
+        />
       </div>
 
       {/* Grid de Despacho por Mesas */}
