@@ -8,21 +8,20 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "cn";
 import {
   Search,
-  Filter,
   Download,
   CreditCard,
   Eye,
-  CheckCircle2,
-  Clock,
   AlertCircle,
   BookOpen,
   ArrowUpDown,
   Building2,
-  Calendar,
   X,
-  FileSpreadsheet,
 } from "lucide-react";
 import type { PayableInvoice } from "@/lib/services/accounting-payables.service";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Tag } from "@/components/shared/TagCell";
 import { PayablePaymentDialog } from "./PayablePaymentDialog";
 import { PayableDetailDialog } from "./PayableDetailDialog";
 
@@ -37,8 +36,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
   const [statusFilter, setStatusFilter] = useState<"todos" | "Pendiente" | "Parcial" | "Pagado">("todos");
   const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
-  const [page, setPage] = useState(1);
-  const pageSize = 12;
 
   // Modals state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -70,9 +67,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
       });
   }, [invoices, search, statusFilter, onlyOverdue, sortOrder]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleOpenPayment = (inv: PayableInvoice) => {
     setSelectedInvoice(inv);
@@ -145,6 +139,134 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
     }
   };
 
+  const columns: DataTableColumn<PayableInvoice>[] = [
+    {
+      key: "issued",
+      header: "Emisión / Antigüedad",
+      sortable: true,
+      sortValue: (inv) => new Date(inv.issuedAt).getTime(),
+      cell: (inv) => (
+        <div>
+          <div className="font-medium text-foreground">{formatDate(inv.issuedAt)}</div>
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span>{inv.daysOpen} d.</span>
+            {inv.isOverdue && <span className="font-semibold text-rose-600">• Vencido</span>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "voucher",
+      header: "Comprobante",
+      cell: (inv) => (
+        <div>
+          <div className="font-mono font-semibold text-foreground">{inv.voucherLabel}</div>
+          <div className="text-[10px] uppercase text-muted-foreground">{inv.voucherType}</div>
+        </div>
+      ),
+    },
+    {
+      key: "supplier",
+      header: "Proveedor",
+      width: "max-w-[220px]",
+      primary: {
+        title: (inv) => inv.supplier.businessName,
+        subtitle: (inv) => `RUC: ${inv.supplier.ruc}`,
+        icon: <Building2 />,
+      },
+    },
+    {
+      key: "account",
+      header: "Cta. Contable",
+      cell: () => (
+        <Tag tone="neutral" size="sm">
+          4212 Pasivo
+        </Tag>
+      ),
+    },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      cellClassName: "font-mono font-medium text-foreground",
+      cell: (inv) => `S/ ${inv.totalAmount.toFixed(2)}`,
+    },
+    {
+      key: "paid",
+      header: "Amortizado",
+      align: "right",
+      cellClassName: "font-mono font-medium text-emerald-600 dark:text-emerald-400",
+      cell: (inv) => `S/ ${inv.totalPaid.toFixed(2)}`,
+    },
+    {
+      key: "pending",
+      header: "Saldo Pendiente",
+      align: "right",
+      cellClassName: "font-mono font-bold",
+      cell: (inv) => (
+        <span
+          className={
+            inv.pendingBalance > 0
+              ? "rounded border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-300"
+              : "text-muted-foreground"
+          }
+        >
+          S/ {inv.pendingBalance.toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Estado",
+      align: "center",
+      cell: (inv) => (
+        <StatusBadge tone={inv.status === "Pagado" ? "success" : inv.status === "Parcial" ? "info" : "warning"} size="sm">
+          {inv.status === "Pagado" ? "Cancelado" : inv.status}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: "entries",
+      header: "Asientos",
+      align: "center",
+      cell: (inv) => (
+        <button
+          type="button"
+          onClick={() => handleOpenDetail(inv)}
+          className="inline-flex cursor-pointer items-center gap-1 font-mono text-[11px] font-medium text-primary hover:underline"
+          title="Ver asientos contables vinculados"
+        >
+          <BookOpen className="h-3 w-3" />
+          <span>
+            {inv.journalEntries.length} asiento{inv.journalEntries.length !== 1 ? "s" : ""}
+          </span>
+        </button>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (inv) => (
+        <RowActions
+          size="sm"
+          actions={[
+            {
+              key: "pay",
+              label: "Pagar",
+              icon: <CreditCard />,
+              tone: "emerald",
+              mode: "both",
+              hidden: inv.pendingBalance <= 0,
+              onClick: () => handleOpenPayment(inv),
+            },
+            { key: "detail", label: "Ver detalle del comprobante y asientos", icon: <Eye />, tone: "neutral", onClick: () => handleOpenDetail(inv) },
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <>
       <Card className="p-5 bg-white dark:bg-card border-border/80 shadow-xs rounded-xl space-y-4">
@@ -159,7 +281,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1);
               }}
               className="pl-9 pr-8 text-xs"
             />
@@ -220,7 +341,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
             type="button"
             onClick={() => {
               setStatusFilter("todos");
-              setPage(1);
             }}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "todos"
@@ -235,7 +355,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
             type="button"
             onClick={() => {
               setStatusFilter("Pendiente");
-              setPage(1);
             }}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "Pendiente"
@@ -250,7 +369,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
             type="button"
             onClick={() => {
               setStatusFilter("Parcial");
-              setPage(1);
             }}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "Parcial"
@@ -265,7 +383,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
             type="button"
             onClick={() => {
               setStatusFilter("Pagado");
-              setPage(1);
             }}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "Pagado"
@@ -282,7 +399,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
             type="button"
             onClick={() => {
               setOnlyOverdue(!onlyOverdue);
-              setPage(1);
             }}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
               onlyOverdue
@@ -294,185 +410,22 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
           </button>
         </div>
 
-        {/* Main Table */}
-        <div className="border border-border/80 rounded-xl overflow-hidden overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-muted/60 border-b border-border/80 text-muted-foreground">
-              <tr>
-                <th className="py-2.5 px-3 font-semibold">Emisión / Antigüedad</th>
-                <th className="py-2.5 px-3 font-semibold">Comprobante</th>
-                <th className="py-2.5 px-3 font-semibold">Proveedor</th>
-                <th className="py-2.5 px-3 font-semibold">Cta. Contable</th>
-                <th className="py-2.5 px-3 font-semibold text-right">Total</th>
-                <th className="py-2.5 px-3 font-semibold text-right">Amortizado</th>
-                <th className="py-2.5 px-3 font-semibold text-right">Saldo Pendiente</th>
-                <th className="py-2.5 px-3 font-semibold text-center">Estado</th>
-                <th className="py-2.5 px-3 font-semibold text-center">Asientos</th>
-                <th className="py-2.5 px-3 font-semibold text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="py-10 text-center text-muted-foreground">
-                    <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
-                    <p className="font-medium">No se encontraron cuentas por pagar con los filtros seleccionados.</p>
-                  </td>
-                </tr>
-              ) : (
-                paginated.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
-                    {/* Fecha de Emisión */}
-                    <td className="py-3 px-3">
-                      <div className="font-medium text-foreground">{formatDate(inv.issuedAt)}</div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <span>{inv.daysOpen} d.</span>
-                        {inv.isOverdue && (
-                          <span className="text-rose-600 font-semibold">• Vencido</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Comprobante */}
-                    <td className="py-3 px-3">
-                      <div className="font-semibold text-foreground font-mono">{inv.voucherLabel}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase">{inv.voucherType}</div>
-                    </td>
-
-                    {/* Proveedor */}
-                    <td className="py-3 px-3 max-w-[200px]">
-                      <div className="font-medium text-foreground truncate" title={inv.supplier.businessName}>
-                        {inv.supplier.businessName}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground font-mono">
-                        RUC: {inv.supplier.ruc}
-                      </div>
-                    </td>
-
-                    {/* Cuenta Contable */}
-                    <td className="py-3 px-3">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] bg-muted font-mono font-medium text-muted-foreground">
-                        4212 Pasivo
-                      </span>
-                    </td>
-
-                    {/* Total */}
-                    <td className="py-3 px-3 text-right font-mono font-medium text-foreground">
-                      S/ {inv.totalAmount.toFixed(2)}
-                    </td>
-
-                    {/* Amortizado */}
-                    <td className="py-3 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-medium">
-                      S/ {inv.totalPaid.toFixed(2)}
-                    </td>
-
-                    {/* Saldo Pendiente */}
-                    <td className="py-3 px-3 text-right font-mono font-bold">
-                      <span
-                        className={
-                          inv.pendingBalance > 0
-                            ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200/60 dark:border-amber-900/40"
-                            : "text-muted-foreground"
-                        }
-                      >
-                        S/ {inv.pendingBalance.toFixed(2)}
-                      </span>
-                    </td>
-
-                    {/* Estado */}
-                    <td className="py-3 px-3 text-center">
-                      {inv.status === "Pagado" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          <CheckCircle2 className="w-3 h-3" /> Cancelado
-                        </span>
-                      ) : inv.status === "Parcial" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                          <Clock className="w-3 h-3" /> Parcial
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                          <Clock className="w-3 h-3" /> Pendiente
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Asientos */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDetail(inv)}
-                        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-mono font-medium cursor-pointer"
-                        title="Ver asientos contables vinculados"
-                      >
-                        <BookOpen className="w-3 h-3" />
-                        <span>{inv.journalEntries.length} asiento{inv.journalEntries.length !== 1 ? "s" : ""}</span>
-                      </button>
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {inv.pendingBalance > 0 && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenPayment(inv)}
-                            className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
-                            title="Registrar amortización o pago"
-                          >
-                            <CreditCard className="w-3 h-3 mr-1" />
-                            Pagar
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDetail(inv)}
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
-                          title="Ver detalle del comprobante y asientos"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
-            <div>
-              Mostrando {(currentPage - 1) * pageSize + 1} -{" "}
-              {Math.min(currentPage * pageSize, filtered.length)} de {filtered.length} comprobantes
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-7 text-xs"
-              >
-                Anterior
-              </Button>
-              <span className="font-medium px-2">
-                Pág. {currentPage} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-7 text-xs"
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Main Table (DataTable compartido) */}
+        <DataTable
+          columns={columns}
+          rows={filtered}
+          rowKey={(inv) => inv.id}
+          density="compact"
+          sort={{ key: "issued", direction: sortOrder }}
+          manualSort
+          onSortChange={(next) => setSortOrder(next?.direction ?? "desc")}
+          pageResetKey={`${search}|${statusFilter}|${onlyOverdue}`}
+          pagination={{ defaultPageSize: 12, itemLabel: "comprobantes" }}
+          emptyState={{
+            icon: <AlertCircle className="h-7 w-7" />,
+            title: "No se encontraron cuentas por pagar con los filtros seleccionados.",
+          }}
+        />
       </Card>
 
       {/* Payment Modal */}

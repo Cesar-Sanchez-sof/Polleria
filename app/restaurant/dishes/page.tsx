@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { StatCard } from "@/components/shared/StatCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -354,61 +355,10 @@ export default function DishesManagementPage() {
       <main className="flex-1 p-4 sm:p-6 flex flex-col gap-5 max-w-7xl mx-auto w-full">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Total Platos
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-foreground mt-0.5">
-                {metrics.total}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 flex items-center justify-center">
-              <UtensilsCrossed className="w-4 h-4" />
-            </div>
-          </Card>
-
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">
-                Activos en Carta
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">
-                {metrics.active}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </Card>
-
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">
-                Pausados / Inactivos
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-amber-700 dark:text-amber-400 mt-0.5">
-                {metrics.inactive}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 flex items-center justify-center">
-              <AlertCircle className="w-4 h-4" />
-            </div>
-          </Card>
-
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">
-                Con Receta (Escandallo)
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-blue-700 dark:text-blue-400 mt-0.5">
-                {metrics.withRecipe}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 flex items-center justify-center">
-              <Scale className="w-4 h-4" />
-            </div>
-          </Card>
+          <StatCard layout="label-first" tone="neutral" icon={<UtensilsCrossed />} label="Total Platos" value={metrics.total} />
+          <StatCard layout="label-first" tone="emerald" icon={<CheckCircle2 />} label="Activos en Carta" value={metrics.active} colorValue />
+          <StatCard layout="label-first" tone="amber" icon={<AlertCircle />} label="Pausados / Inactivos" value={metrics.inactive} colorValue />
+          <StatCard layout="label-first" tone="blue" icon={<Scale />} label="Con Receta (Escandallo)" value={metrics.withRecipe} colorValue />
         </div>
 
         {/* Controles de Filtros y Búsqueda */}
