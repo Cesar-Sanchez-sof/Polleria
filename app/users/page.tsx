@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Tag } from "@/components/shared/TagCell";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Users } from "lucide-react";
 import { UserForm, type Role, type UserRow } from "./UserForm";
@@ -62,6 +64,75 @@ export default function UsersPage() {
     setFormOpen(true);
   }
 
+  const columns: DataTableColumn<UserRow>[] = [
+    {
+      key: "name",
+      header: "Nombre",
+      sortable: true,
+      sortValue: (u) => `${u.employee.first_name} ${u.employee.paternal_last_name}`,
+      primary: {
+        title: (u) => `${u.employee.first_name} ${u.employee.paternal_last_name}`,
+        subtitle: (u) => `@${u.username}`,
+        icon: <Users />,
+      },
+    },
+    {
+      key: "dni",
+      header: "Documento",
+      cell: (u) => (
+        <div className="flex items-center gap-2">
+          <Tag tone="amber" size="sm">
+            DNI
+          </Tag>
+          <span className="font-mono text-sm font-semibold">{u.employee.dni}</span>
+        </div>
+      ),
+    },
+    { key: "username", header: "Usuario", sortable: true, sortValue: (u) => u.username, cell: (u) => u.username },
+    { key: "email", header: "Correo", cell: (u) => u.email ?? "—" },
+    {
+      key: "role",
+      header: "Rol",
+      sortable: true,
+      sortValue: (u) => u.role.name,
+      cell: (u) => (
+        <Tag tone="indigo" variant="soft">
+          {u.role.name}
+        </Tag>
+      ),
+    },
+    {
+      key: "status",
+      header: "Estado",
+      cell: (u) => (
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={u.active}
+            disabled={u.user_id === yo || !can("usuarios.editar")}
+            onCheckedChange={(v) => changeStatus(u, v)}
+            aria-label={`${u.active ? "Desactivar" : "Activar"} a ${u.username}`}
+          />
+          <StatusBadge tone={u.active ? "success" : "neutral"} size="sm">
+            {u.active ? "Activo" : "Inactivo"}
+          </StatusBadge>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (u) => (
+        <RowActions
+          mode="label"
+          variant="outline"
+          size="sm"
+          actions={[{ key: "edit", label: "Editar", hidden: !can("usuarios.editar"), onClick: () => abrir(u) }]}
+        />
+      ),
+    },
+  ];
+
   return (
     <main className="mx-auto w-full max-w-6xl p-6">
 <ModuleHeader
@@ -85,64 +156,14 @@ export default function UsersPage() {
         </p>
       )}
 
-      <Table>
-        <TableHeader >
-          <TableRow className="dark:bg-slate-800/75">
-            <TableHead>Nombre</TableHead>
-            <TableHead>Documento</TableHead>
-            <TableHead>Usuario</TableHead>
-            <TableHead>Correo</TableHead>
-            <TableHead>Rol</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">
-                Cargando...
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading && users.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">
-                No hay usuarios registrados.
-              </TableCell>
-            </TableRow>
-          )}
-          {users.map((u) => (
-            <TableRow key={u.user_id}>
-              <TableCell>
-                {u.employee.first_name} {u.employee.paternal_last_name}
-              </TableCell>
-              <TableCell>{u.employee.dni}</TableCell>
-              <TableCell>{u.username}</TableCell>
-              <TableCell>{u.email ?? "—"}</TableCell>
-              <TableCell>{u.role.name}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={u.active}
-                    disabled={u.user_id === yo || !can("usuarios.editar")}
-                    onCheckedChange={(v) => changeStatus(u, v)}
-                    aria-label={`${u.active ? "Desactivar" : "Activar"} a ${u.username}`}
-                  />
-                  <Badge variant={u.active ? "default" : "secondary"}>{u.active ? "Activo" : "Inactivo"}</Badge>
-                </div>
-              </TableCell>
-              <TableCell className="text-right">
-                                {can("usuarios.editar") && (
-                  <Button size="sm" variant="outline" onClick={() => abrir(u)}>
-                    Editar
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        rows={users}
+        rowKey={(u) => u.user_id}
+        loading={loading}
+        loadingMode="auto"
+        emptyState={{ title: "No hay usuarios registrados." }}
+      />
 
       <UserForm
         open={formOpen}

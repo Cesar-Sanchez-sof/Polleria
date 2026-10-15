@@ -1,14 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,7 +15,8 @@ import {
 import { SupplyDialog } from "./SupplyDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
 import { KardexDialog } from "./KardexDialog";
-import { TablePagination } from "@/components/purchases/shared/TablePagination";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
 import {
   Plus,
   Search,
@@ -38,15 +31,8 @@ import {
   ShieldAlert,
   Boxes,
   Pencil,
-  Info,
   ListOrdered,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { SupplyType, AffectationIgv } from "@prisma/client";
 import { updateSupplyMinimum, updateSupplyUnit, setSupplyStatus } from "@/lib/services/purchases/supply";
 import { toast } from "sonner";
@@ -123,8 +109,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const rawPct = totalSupplies === 0 ? 0 : Math.round((rawMaterials / totalSupplies) * 100);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
 
   const filtered = supplies.filter((i) => {
     const q = search.toLowerCase();
@@ -147,10 +131,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     return matchesSearch && matchesStatus;
   });
 
-  const paginatedSupplies = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
 
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
@@ -296,6 +276,224 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     if (!cost || num === 0) return "-";
     return `S/ ${num.toFixed(2)}`;
   };
+
+  const columns: DataTableColumn<Supply>[] = [
+    {
+      key: "code",
+      header: "Código",
+      sortable: true,
+      sortValue: (item) => item.id,
+      cellClassName: "font-mono text-xs font-semibold",
+      cell: (item) => `INS-${item.id.toString().padStart(3, "0")}`,
+    },
+    {
+      key: "name",
+      header: "Nombre Insumo",
+      sortable: true,
+      sortValue: (item) => item.name,
+      cellClassName: "font-medium",
+      cell: (item) => item.name,
+    },
+    {
+      key: "type",
+      header: "Tipo",
+      cell: (item) => {
+        const isRawMaterial = item.type === SupplyType.RawMaterial;
+        return (
+          <Badge
+            className={
+              isRawMaterial
+                ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 font-medium"
+                : "bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 font-medium"
+            }
+          >
+            {isRawMaterial ? "Materia Prima" : "Producto Terminado"}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "affectationIgv",
+      header: "Afectación IGV",
+      cell: (item) =>
+        item.affectationIgv === null || item.affectationIgv === undefined ? (
+          <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 font-medium dark:bg-slate-800 dark:text-slate-400">
+            —
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className={
+              item.affectationIgv === AffectationIgv.Included
+                ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                : "bg-slate-50 text-slate-700 border-slate-200 font-medium"
+            }
+          >
+            {item.affectationIgv === AffectationIgv.Included ? "Incluido" : "Excluido"}
+          </Badge>
+        ),
+    },
+    {
+      key: "unit",
+      header: "Unidad",
+      width: "w-[115px]",
+      headerIcon: <Pencil />,
+      info: (
+        <div className="space-y-1">
+          <p className="font-semibold text-white">Unidades permitidas:</p>
+          <div className="space-y-0.5 text-[11px] text-slate-200">
+            <div>• <strong className="font-semibold text-white">UNID</strong> — piezas discretas (pollo, gaseosas)</div>
+            <div>• <strong className="font-semibold text-white">KG</strong> — peso (papa, arroz, carne)</div>
+            <div>• <strong className="font-semibold text-white">LT</strong> — volumen (aceite, leche)</div>
+          </div>
+        </div>
+      ),
+      cell: (item) =>
+        editingUnitId === item.id ? (
+          <Input
+            type="text"
+            value={editUnitValue}
+            onChange={(e) => setEditUnitValue(e.target.value.toUpperCase())}
+            onKeyDown={(e) => handleKeyDownUnit(e, item.id)}
+            onBlur={() => handleSaveUnit(item.id)}
+            autoFocus
+            className="h-7 w-20 px-1.5 py-0 text-xs uppercase font-mono"
+            disabled={savingUnitId === item.id}
+            maxLength={10}
+          />
+        ) : (
+          <span
+            onClick={() => handleStartEditUnit(item)}
+            className="inline-block cursor-pointer font-mono text-xs font-semibold hover:text-foreground hover:underline"
+            title="Haz clic para editar la unidad de medida"
+          >
+            {item.unitOfMeasure}
+          </span>
+        ),
+    },
+    {
+      key: "currentStock",
+      header: "Stock Actual",
+      align: "right",
+      width: "w-[130px] whitespace-nowrap",
+      sortable: true,
+      sortValue: (item) => Number(item.currentStock),
+      cell: (item) => (
+        <div className="inline-flex items-baseline justify-end">
+          <span className="font-mono text-sm font-medium text-foreground">{Number(item.currentStock).toFixed(2)}</span>
+          <span className="ml-1.5 w-10 truncate text-left text-xs font-normal text-muted-foreground">{item.unitOfMeasure}</span>
+        </div>
+      ),
+    },
+    {
+      key: "minimumStock",
+      header: "Stock Mínimo",
+      align: "right",
+      width: "w-[130px] whitespace-nowrap",
+      sortable: true,
+      sortValue: (item) => Number(item.minimumStock),
+      cell: (item) =>
+        editingId === item.id ? (
+          <div className="inline-flex items-center justify-end">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, item.id)}
+              onBlur={() => handleSaveMinimum(item.id)}
+              autoFocus
+              className="h-7 w-18 px-1.5 py-0 text-right text-xs font-mono"
+              disabled={savingId === item.id}
+            />
+            <span className="ml-1.5 w-10 shrink-0 truncate text-left text-xs font-normal text-muted-foreground">{item.unitOfMeasure}</span>
+          </div>
+        ) : (
+          <div
+            onClick={() => handleStartEdit(item)}
+            className="group inline-flex cursor-pointer items-baseline justify-end"
+            title="Haz clic para editar stock mínimo"
+          >
+            <span className="font-mono text-sm text-muted-foreground group-hover:text-foreground group-hover:underline">
+              {Number(item.minimumStock).toFixed(2)}
+            </span>
+            <span className="ml-1.5 w-10 truncate text-left text-xs font-normal text-muted-foreground">{item.unitOfMeasure}</span>
+          </div>
+        ),
+    },
+    {
+      key: "lastCost",
+      header: "Último Costo",
+      align: "right",
+      width: "w-[120px] whitespace-nowrap",
+      cellClassName: "font-mono text-sm text-foreground/90",
+      cell: (item) => formatCost(item.lastCost),
+    },
+    {
+      key: "averageCost",
+      header: "Costo Promedio",
+      align: "right",
+      width: "w-[120px] whitespace-nowrap",
+      cellClassName: "font-mono text-sm text-foreground/90",
+      cell: (item) => formatCost(item.averageCost),
+    },
+    {
+      key: "active",
+      header: "Estado",
+      width: "w-[90px]",
+      cell: (item) => (
+        <Badge
+          className={
+            item.active
+              ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+              : "bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200"
+          }
+        >
+          {item.active ? "Activo" : "Inactivo"}
+        </Badge>
+      ),
+    },
+    {
+      key: "stockStatus",
+      header: "Estado Stock",
+      width: "w-[110px]",
+      cell: (item) =>
+        Number(item.currentStock) <= Number(item.minimumStock) ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600">
+            <AlertTriangle className="h-3 w-3" /> Bajo Stock
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
+            <CheckCircle2 className="h-3 w-3" /> Óptimo
+          </span>
+        ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      align: "right",
+      width: "w-[110px]",
+      cell: (item) => (
+        <RowActions
+          mode="both"
+          variant="outline"
+          size="sm"
+          actions={[
+            { key: "adjust", label: "Ajustar", icon: <SlidersHorizontal />, tone: "neutral", onClick: () => handleOpenAdjustment(item) },
+            {
+              key: "toggle",
+              label: item.active ? "Desactivar" : "Activar",
+              icon: <Power />,
+              tone: item.active ? "rose" : "emerald",
+              mode: "icon",
+              onClick: () => handleToggleStatus(item),
+            },
+          ]}
+        />
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -490,7 +688,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setCurrentPage(1);
             }}
             className="pl-9 h-9 text-xs"
           />
@@ -503,7 +700,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
               type="button"
               onClick={() => {
                 setStatusFilter("all");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "all"
@@ -520,7 +716,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
               type="button"
               onClick={() => {
                 setStatusFilter("active");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "active"
@@ -537,7 +732,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
               type="button"
               onClick={() => {
                 setStatusFilter("inactive");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "inactive"
@@ -571,265 +765,26 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
         </div>
       </div>
 
-      {/* ── Table ── */}
-      <div className="rounded-md border bg-card overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre Insumo</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Afectación IGV</TableHead>
-              <TableHead className="w-[115px]">
-                <div className="inline-flex items-center gap-1.5 select-none">
-                  <div
-                    className="inline-flex items-center gap-1 cursor-help text-foreground/80 hover:text-foreground transition-colors"
-                    title="Clic en el valor para editar la unidad de medida"
-                  >
-                    <span>Unidad</span>
-                    <Pencil className="h-3 w-3 text-muted-foreground/70" />
-                  </div>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="inline-flex items-center text-muted-foreground/70 hover:text-foreground cursor-help transition-colors p-0.5 rounded">
-                        <Info className="h-3 w-3" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" align="center" className="max-w-xs text-xs p-2.5 block space-y-1">
-                        <p className="font-semibold text-background">Unidades permitidas:</p>
-                        <div className="space-y-0.5 text-[11px] text-background/90">
-                          <div>• <strong className="font-semibold text-background">UNID</strong> — piezas discretas (pollo, gaseosas)</div>
-                          <div>• <strong className="font-semibold text-background">KG</strong> — peso (papa, arroz, carne)</div>
-                          <div>• <strong className="font-semibold text-background">LT</strong> — volumen (aceite, leche)</div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </TableHead>
-              <TableHead className="text-right w-[130px] whitespace-nowrap">Stock Actual</TableHead>
-              <TableHead className="text-right w-[130px] whitespace-nowrap">Stock Mínimo</TableHead>
-              <TableHead className="text-right w-[120px] whitespace-nowrap">Último Costo</TableHead>
-              <TableHead className="text-right w-[120px] whitespace-nowrap">Costo Promedio</TableHead>
-              <TableHead className="w-[90px]">Estado</TableHead>
-              <TableHead className="w-[110px]">Estado Stock</TableHead>
-              <TableHead className="text-right w-[110px]">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={12} className="py-12">
-                  <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="rounded-full bg-muted p-4">
-                      {hasActiveFilter ? (
-                        <Search className="h-7 w-7 text-muted-foreground" />
-                      ) : (
-                        <Package className="h-7 w-7 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">
-                        {hasActiveFilter
-                          ? "No se encontraron coincidencias"
-                          : "No hay insumos registrados"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {hasActiveFilter
-                          ? "Prueba con otros términos o cambia el filtro de estado."
-                          : "Registra tu primer insumo para comenzar a gestionar el inventario."}
-                      </p>
-                    </div>
-                    {!hasActiveFilter && (
-                      <Button
-                        size="sm"
-                        onClick={() => setSupplyDialogOpen(true)}
-                        className="mt-1 flex items-center gap-1.5"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Nuevo Insumo
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedSupplies.map((item) => {
-                const code = `INS-${item.id.toString().padStart(3, "0")}`;
-                const currentStock = Number(item.currentStock);
-                const minStock = Number(item.minimumStock);
-                const lowStock = currentStock <= minStock;
-                const isRawMaterial = item.type === SupplyType.RawMaterial;
-                const isIncludedIgv = item.affectationIgv === AffectationIgv.Included;
-
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono text-xs font-semibold">{code}</TableCell>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          isRawMaterial
-                            ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 font-medium"
-                            : "bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 font-medium"
-                        }
-                      >
-                        {isRawMaterial ? "Materia Prima" : "Producto Terminado"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.affectationIgv === null || item.affectationIgv === undefined ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-slate-100 text-slate-500 border-slate-200 font-medium dark:bg-slate-800 dark:text-slate-400"
-                        >
-                          —
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className={
-                            isIncludedIgv
-                              ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
-                              : "bg-slate-50 text-slate-700 border-slate-200 font-medium"
-                          }
-                        >
-                          {isIncludedIgv ? "Incluido" : "Excluido"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {/* Unidad de medida — editable inline */}
-                      {editingUnitId === item.id ? (
-                        <Input
-                          type="text"
-                          value={editUnitValue}
-                          onChange={(e) => setEditUnitValue(e.target.value.toUpperCase())}
-                          onKeyDown={(e) => handleKeyDownUnit(e, item.id)}
-                          onBlur={() => handleSaveUnit(item.id)}
-                          autoFocus
-                          className="h-7 w-20 px-1.5 py-0 text-xs uppercase font-mono"
-                          disabled={savingUnitId === item.id}
-                          maxLength={10}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => handleStartEditUnit(item)}
-                          className="cursor-pointer hover:underline hover:text-foreground font-mono text-xs font-semibold inline-block"
-                          title="Haz clic para editar la unidad de medida"
-                        >
-                          {item.unitOfMeasure}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex items-baseline justify-end">
-                        <span className="font-mono font-medium text-foreground text-sm">
-                          {currentStock.toFixed(2)}
-                        </span>
-                        <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal truncate">
-                          {item.unitOfMeasure}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editingId === item.id ? (
-                        <div className="inline-flex items-center justify-end">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, item.id)}
-                            onBlur={() => handleSaveMinimum(item.id)}
-                            autoFocus
-                            className="h-7 w-18 text-right px-1.5 py-0 text-xs font-mono"
-                            disabled={savingId === item.id}
-                          />
-                          <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal shrink-0 truncate">
-                            {item.unitOfMeasure}
-                          </span>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => handleStartEdit(item)}
-                          className="inline-flex items-baseline justify-end cursor-pointer group"
-                          title="Haz clic para editar stock mínimo"
-                        >
-                          <span className="font-mono text-sm text-muted-foreground group-hover:text-foreground group-hover:underline">
-                            {minStock.toFixed(2)}
-                          </span>
-                          <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal truncate">
-                            {item.unitOfMeasure}
-                          </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-foreground/90">
-                      {formatCost(item.lastCost)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-foreground/90">
-                      {formatCost(item.averageCost)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          item.active
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
-                            : "bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200"
-                        }
-                      >
-                        {item.active ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {lowStock ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-                          <AlertTriangle className="h-3 w-3" /> Bajo Stock
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="h-3 w-3" /> Óptimo
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenAdjustment(item)}
-                        className="items-center gap-1.5 text-xs inline-flex"
-                      >
-                        <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustar
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleStatus(item)}
-                        className={item.active ? "text-destructive" : "text-emerald-600"}
-                        title={item.active ? "Desactivar" : "Activar"}
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-
-        {filtered.length > 0 && (
-          <TablePagination
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalItems={filtered.length}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-            itemLabel="insumos"
-          />
-        )}
-      </div>
+      {/* ── Table (DataTable compartido) ── */}
+      <DataTable
+        columns={columns}
+        rows={filtered}
+        rowKey={(item) => item.id}
+        pageResetKey={`${search}|${statusFilter}`}
+        pagination={{ defaultPageSize: 15, itemLabel: "insumos" }}
+        emptyState={{
+          icon: hasActiveFilter ? <Search className="h-7 w-7" /> : <Package className="h-7 w-7" />,
+          title: hasActiveFilter ? "No se encontraron coincidencias" : "No hay insumos registrados",
+          description: hasActiveFilter
+            ? "Prueba con otros términos o cambia el filtro de estado."
+            : "Registra tu primer insumo para comenzar a gestionar el inventario.",
+          action: hasActiveFilter ? undefined : (
+            <Button size="sm" onClick={() => setSupplyDialogOpen(true)} className="mt-1 flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Nuevo Insumo
+            </Button>
+          ),
+        }}
+      />
 
       <SupplyDialog
         open={supplyDialogOpen}

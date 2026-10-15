@@ -5,9 +5,11 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Tag } from "@/components/shared/TagCell";
 import { RoleForm, type RoleRow } from "./RoleForm";
 
 export default function RolesPage() {
@@ -51,6 +53,67 @@ export default function RolesPage() {
     await load();
   }
 
+  const columns: DataTableColumn<RoleRow>[] = [
+    {
+      key: "name",
+      header: "Rol",
+      sortable: true,
+      sortValue: (r) => r.name,
+      cell: (r) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{r.name}</span>
+          {r.is_system && (
+            <Tag tone="neutral" size="sm">
+              Sistema
+            </Tag>
+          )}
+        </div>
+      ),
+    },
+    { key: "description", header: "Descripción", cell: (r) => r.description ?? "—" },
+    {
+      key: "users",
+      header: "Usuarios",
+      align: "center",
+      sortable: true,
+      sortValue: (r) => r.total_users,
+      cell: (r) => r.total_users,
+    },
+    {
+      key: "permissions",
+      header: "Permisos",
+      align: "center",
+      sortable: true,
+      sortValue: (r) => r.permissions.length,
+      cell: (r) => r.permissions.length,
+    },
+    {
+      key: "status",
+      header: "Estado",
+      cell: (r) => (
+        <StatusBadge tone={r.active ? "success" : "neutral"} size="sm">
+          {r.active ? "Activo" : "Inactivo"}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (r) => (
+        <RowActions
+          mode="label"
+          variant="outline"
+          size="sm"
+          actions={[
+            { key: "edit", label: r.is_system ? "Ver" : "Editar", hidden: !can("roles.editar"), onClick: () => abrir(r) },
+            { key: "delete", label: "Eliminar", tone: "rose", hidden: !can("roles.eliminar") || r.is_system, onClick: () => removeRole(r) },
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <main className="mx-auto w-full max-w-6xl p-6">
       <ModuleHeader
@@ -72,64 +135,14 @@ export default function RolesPage() {
         </p>
       )}
 
-      <Table>
-        <TableHeader>
-          <TableRow className="dark:bg-slate-800/75">
-            <TableHead>Rol</TableHead>
-            <TableHead>Descripción</TableHead>
-            <TableHead className="text-center">Usuarios</TableHead>
-            <TableHead className="text-center">Permisos</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
-                Cargando...
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading && roles.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
-                No hay roles registrados.
-              </TableCell>
-            </TableRow>
-          )}
-          {roles.map((r) => (
-            <TableRow key={r.role_id}>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{r.name}</span>
-                  {r.is_system && <Badge variant="secondary">Sistema</Badge>}
-                </div>
-              </TableCell>
-              <TableCell>{r.description ?? "—"}</TableCell>
-              <TableCell className="text-center">{r.total_users}</TableCell>
-              <TableCell className="text-center">{r.permissions.length}</TableCell>
-              <TableCell>
-                <Badge variant={r.active ? "default" : "secondary"}>{r.active ? "Activo" : "Inactivo"}</Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  {can("roles.editar") && (
-                    <Button size="sm" variant="outline" onClick={() => abrir(r)}>
-                      {r.is_system ? "Ver" : "Editar"}
-                    </Button>
-                  )}
-                  {can("roles.eliminar") && !r.is_system && (
-                    <Button size="sm" variant="outline" onClick={() => removeRole(r)}>
-                      Eliminar
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        rows={roles}
+        rowKey={(r) => r.role_id}
+        loading={loading}
+        loadingMode="auto"
+        emptyState={{ title: "No hay roles registrados." }}
+      />
 
       <RoleForm
         open={formOpen}

@@ -112,6 +112,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Endpoints", href: "/swagger", path: "endpoints" },
       { label: "Diagrama DB", href: "/db-diagram", path: "db-diagram" },
+      { label: "Guía de Estilos", href: "/style-guide", path: "style-guide" },
     ],
   },
 ];

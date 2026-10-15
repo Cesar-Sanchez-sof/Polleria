@@ -1,22 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AlertCircle, ExternalLink, Inbox, RefreshCw, X } from "lucide-react";
+import { Inbox, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { PrimaryCell } from "@/components/shared/PrimaryCell";
+import { Tag } from "@/components/shared/TagCell";
 import {
   formatDate,
   formatCurrency,
   type GeneralLedger,
+  type GeneralLedgerMovement,
   type BalanceType,
 } from "@/lib/services/general-ledger.service";
 
@@ -33,48 +28,24 @@ interface Props {
   onClearFilters: () => void;
 }
 
-/** Column header component (chronological order: oldest first). */
-function Th({
-  children,
-  align = "left",
-}: Readonly<{ children: ReactNode; align?: "left" | "right" }>) {
+/** Amount with colour and debtor/creditor indication. */
+function BalanceValue({ value, type }: Readonly<{ value: number; type: BalanceType }>) {
   return (
-    <TableHead
-      className={`py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] dark:bg-slate-800/75 ${align === "right" ? "text-right" : ""
-        }`}
-    >
-      {children}
-    </TableHead>
-  );
-}
-
-/** Amount cell – leaves blank the column that does not correspond to the movement. */
-function Amount({ value }: Readonly<{ value: number }>) {
-  return (
-    <TableCell className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900 align-top">
-      {value > 0 ? formatCurrency(value) : ""}
-    </TableCell>
-  );
-}
-
-/** Balance cell – amount with colour and debtor/creditor indication. */
-function Balance({ value, type }: Readonly<{ value: number; type: BalanceType }>) {
-  return (
-    <TableCell className="py-2.5 px-3 text-right align-top">
-      <span
-        className={`block tabular-nums font-bold ${value < 0 ? "text-rose-600" : "text-slate-900"}`}
-      >
+    <>
+      <span className={`block font-bold tabular-nums ${value < 0 ? "text-rose-600" : "text-slate-900"}`}>
         {formatCurrency(value)}
       </span>
       <span className="block text-[10px] uppercase tracking-wide text-slate-400">
         {type === "deudor" ? "Deudor" : type === "acreedor" ? "Acreedor" : ""}
       </span>
-    </TableCell>
+    </>
   );
 }
 
 /**
- * Ledger table: the consulted account (C02) and its chronological movements with date, entry, description, module/reference, debit or credit (C07), running balance (C08) and period totals (C11).
+ * Ledger table built on the shared DataTable: the consulted account (C02) and its chronological
+ * movements with date, entry, description, module/reference, debit or credit (C07), running
+ * balance (C08), the balance before the period and the period totals (C11).
  */
 export function LedgerTable({
   ledger,
@@ -87,176 +58,176 @@ export function LedgerTable({
   onRetry,
   onClearFilters,
 }: Readonly<Props>) {
-  const movements = ledger?.movements ?? [];
-
-  const skeleton = loading && !ledger && !error;
-  const noRecords =
-    !error && !loading && !noAccountMessage && ledger !== null && movements.length === 0;
-  const noAccountState = !error && !loading && noAccountMessage !== null;
+  const movements = noAccountMessage ? [] : (ledger?.movements ?? []);
   const hasPreviousBalance = ledger !== null && Math.abs(ledger.previousBalance) >= 0.005;
 
+  const columns: DataTableColumn<GeneralLedgerMovement>[] = [
+    {
+      key: "date",
+      header: "Fecha",
+      cellClassName: "align-top tabular-nums font-medium text-slate-800",
+      cell: (movement) => formatDate(movement.date),
+    },
+    {
+      key: "entry",
+      header: "Asiento",
+      cellClassName: "align-top",
+      cell: (movement) => (
+        <div>
+          <PrimaryCell
+            title={movement.number}
+            onClick={() => onOpenDetail(movement.entryId)}
+            showLinkIcon
+          />
+          {movement.status === "Anulado" && (
+            <Tag tone="rose" size="sm" className="mt-1">
+              Anulado
+            </Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "description",
+      header: "Descripción",
+      width: "max-w-72",
+      cellClassName: "align-top text-xs text-slate-700",
+      cell: (movement) => (
+        <>
+          {ledger && movement.accountCode !== ledger.account.code && (
+            <span className="mb-0.5 block text-[10px] font-semibold text-red-700">
+              {movement.accountCode} · {movement.accountName}
+            </span>
+          )}
+          <span className="line-clamp-2">{movement.description || movement.entryDescription}</span>
+          {movement.description && movement.entryDescription && movement.description !== movement.entryDescription && (
+            <span className="mt-0.5 line-clamp-1 block text-[10px] text-slate-400">{movement.entryDescription}</span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: "module",
+      header: "Módulo / Referencia",
+      cellClassName: "align-top text-xs",
+      cell: (movement) => (
+        <>
+          <span className="text-slate-700">{movement.module}</span>
+          {movement.reference && <span className="mt-0.5 block text-[10px] text-slate-400">{movement.reference}</span>}
+        </>
+      ),
+    },
+    {
+      key: "debit",
+      header: "Debe",
+      align: "right",
+      cellClassName: "align-top font-semibold tabular-nums text-slate-900",
+      cell: (movement) => (movement.debit > 0 ? formatCurrency(movement.debit) : ""),
+    },
+    {
+      key: "credit",
+      header: "Haber",
+      align: "right",
+      cellClassName: "align-top font-semibold tabular-nums text-slate-900",
+      cell: (movement) => (movement.credit > 0 ? formatCurrency(movement.credit) : ""),
+    },
+    {
+      key: "balance",
+      header: "Saldo",
+      align: "right",
+      cellClassName: "align-top",
+      cell: (movement) => <BalanceValue value={movement.balance} type={movement.balanceType} />,
+    },
+  ];
+
+  const previousBalanceRow = hasPreviousBalance ? (
+    <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
+      <TableCell colSpan={4} className="px-3 py-2.5 text-xs font-semibold italic text-slate-500">
+        Saldo anterior al periodo
+      </TableCell>
+      <TableCell className="px-3 py-2.5" />
+      <TableCell className="px-3 py-2.5" />
+      <TableCell className="px-3 py-2.5 text-right align-top">
+        <BalanceValue
+          value={ledger!.previousBalance}
+          type={ledger!.previousBalance > 0 ? "deudor" : "acreedor"}
+        />
+      </TableCell>
+    </TableRow>
+  ) : undefined;
+
+  const totalsRow = ledger ? (
+    <TableRow className="bg-slate-50/70 font-bold hover:bg-slate-50/70">
+      <TableCell colSpan={4} className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-600">
+        Total de movimientos consultados (<span className="tabular-nums">{ledger.totals.movements}</span>)
+      </TableCell>
+      <TableCell className="px-3 py-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.debit)}</TableCell>
+      <TableCell className="px-3 py-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.credit)}</TableCell>
+      <TableCell className="px-3 py-3 text-right align-top">
+        <BalanceValue
+          value={ledger.finalBalance}
+          type={ledger.finalBalance > 0.004 ? "deudor" : ledger.finalBalance < -0.004 ? "acreedor" : null}
+        />
+      </TableCell>
+    </TableRow>
+  ) : undefined;
+
+  const emptyState = noAccountMessage
+    ? { icon: <Inbox className="h-8 w-8" />, title: noAccountMessage }
+    : {
+        icon: <Inbox className="h-8 w-8" />,
+        title: "No hay movimientos para la cuenta y el periodo seleccionados",
+        description: "Ajusta las fechas inicial y final para ampliar el rango consultado.",
+        action: hasFilters ? (
+          <Button
+            type="button"
+            onClick={onClearFilters}
+            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800"
+          >
+            <X className="h-3.5 w-3.5" />
+            Limpiar filtros
+          </Button>
+        ) : undefined,
+      };
+
   return (
-    <div className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && ledger ? "opacity-60" : ""}`}>
+    <div>
       {/* C02: consulted account */}
       {ledger && (
-        <div className="flex flex-wrap items-center gap-3 bg-slate-50/70 dark:bg-slate-800/70 rounded-lg px-3 py-2.5 mb-3">
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50/70 px-3 py-2.5 dark:bg-slate-800/70">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cuenta</span>
-          <span className="text-sm font-bold text-red-700 tabular-nums">{ledger.account.code}</span>
+          <span className="text-sm font-bold tabular-nums text-red-700">{ledger.account.code}</span>
           <span className="text-sm font-semibold text-slate-900">{ledger.account.name}</span>
-          <Badge className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border-none shadow-none bg-slate-100 text-slate-600">
+          <Badge className="inline-flex items-center rounded-full border-none bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 shadow-none">
             {ledger.account.type}
           </Badge>
           <span className="ml-auto text-xs text-slate-500">
-            <span className="tabular-nums font-semibold text-slate-900">{ledger.totals.movements}</span>{" "}
+            <span className="font-semibold tabular-nums text-slate-900">{ledger.totals.movements}</span>{" "}
             movimiento{ledger.totals.movements === 1 ? "" : "s"} · Saldo final:{" "}
-            <span className={`block tabular-nums font-semibold ${ledger.finalBalance < 0 ? "text-rose-600" : "text-slate-900"}`}>
+            <span className={`block font-semibold tabular-nums ${ledger.finalBalance < 0 ? "text-rose-600" : "text-slate-900"}`}>
               {formatCurrency(ledger.finalBalance)}
             </span>
           </span>
         </div>
       )}
 
-      <Table className="w-full text-left border-collapse min-w-175">
-        <TableHeader>
-          <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 hover:bg-slate-50/75">
-            <Th>Fecha</Th>
-            <Th>Asiento</Th>
-            <Th>Descripción</Th>
-            <Th>Módulo / Referencia</Th>
-            <Th align="right">Debe</Th>
-            <Th align="right">Haber</Th>
-            <Th align="right">Saldo</Th>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="divide-y divide-slate-100 text-sm text-slate-900">
-          {/* Initial loading skeleton */}
-          {skeleton &&
-            Array.from({ length: 6 }).map((_, i) => (
-              <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-20" /></TableCell>
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-44" /></TableCell>
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                <TableCell className="py-3 px-3"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-              </TableRow>
-            ))}
-
-
-          {/* Loading or validation error */}
-          {error && !loading && (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={7} className="py-10 text-center">
-                <div className="flex flex-col items-center gap-3 text-slate-600">
-                  <AlertCircle className="w-8 h-8 text-rose-600" />
-                  <p className="text-sm font-semibold">{error}</p>
-                  {!invalidRange && (
-                    <Button type="button" onClick={onRetry} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold cursor-pointer">
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Reintentar
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-
-          {/* No account selected / accounting plan unavailable */}
-          {noAccountState && (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={7} className="py-10 text-center">
-                <div className="flex flex-col items-center gap-3 text-slate-500">
-                  <Inbox className="w-8 h-8 text-slate-400" />
-                  <p className="text-sm font-semibold text-slate-700">{noAccountMessage}</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-
-          {/* No movements for the selected account and period */}
-          {noRecords && (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={7} className="py-10 text-center">
-                <div className="flex flex-col items-center gap-3 text-slate-500">
-                  <Inbox className="w-8 h-8 text-slate-400" />
-                  <p className="text-sm font-semibold text-slate-700">No hay movimientos para la cuenta y el periodo seleccionados</p>
-                  <p className="text-xs">Ajusta las fechas inicial y final para ampliar el rango consultado.</p>
-                  {hasFilters && (
-                    <Button type="button" onClick={onClearFilters} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer">
-                      <X className="w-3.5 h-3.5" />
-                      Limpiar filtros
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-
-          {/* Previous balance before the queried period */}
-          {hasPreviousBalance && (
-            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-              <TableCell colSpan={4} className="py-2.5 px-3 text-xs font-semibold text-slate-500 italic">Saldo anterior al periodo</TableCell>
-              <TableCell className="py-2.5 px-3" />
-              <TableCell className="py-2.5 px-3" />
-              <Balance value={ledger!.previousBalance} type={ledger!.previousBalance > 0 ? "deudor" : "acreedor"} />
-            </TableRow>
-          )}
-
-          {/* Chronological movements */}
-          {!error && !noAccountMessage && movements.map((movement) => (
-            <TableRow key={movement.id} onClick={() => onOpenDetail(movement.entryId)} className="hover:bg-(--color-background) transition-colors cursor-pointer group" title="View entry detail">
-              <TableCell className="py-2.5 px-3 align-top tabular-nums font-medium text-slate-800">{formatDate(movement.date)}</TableCell>
-              <TableCell className="py-2.5 px-3 align-top">
-                <span className="inline-flex items-center gap-1.5 font-semibold text-red-700">
-                  {movement.number}
-                  <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity" />
-                </span>
-                {movement.status === "Anulado" && (
-                  <span className="mt-1 inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">Cancelled</span>
-                )}
-              </TableCell>
-              <TableCell className="py-2.5 px-3 text-slate-700 text-xs align-top max-w-72">
-                {ledger && movement.accountCode !== ledger.account.code && (
-                  <span className="block text-[10px] font-semibold text-red-700 mb-0.5">{movement.accountCode} · {movement.accountName}</span>
-                )}
-                <span className="line-clamp-2">{movement.description || movement.entryDescription}</span>
-                {movement.description && movement.entryDescription && movement.description !== movement.entryDescription && (
-                  <span className="block text-[10px] text-slate-400 mt-0.5 line-clamp-1">{movement.entryDescription}</span>
-                )}
-              </TableCell>
-              <TableCell className="py-2.5 px-3 text-xs align-top">
-                <span className="text-slate-700">{movement.module}</span>
-                {movement.reference && (
-                  <span className="block text-[10px] text-slate-400 mt-0.5">{movement.reference}</span>
-                )}
-              </TableCell>
-              <Amount value={movement.debit} />
-              <Amount value={movement.credit} />
-              <Balance value={movement.balance} type={movement.balanceType} />
-            </TableRow>
-          ))}
-
-          {/* Totals */}
-          {ledger && movements.length > 0 && !error && (
-            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 font-bold">
-              <TableCell colSpan={4} className="py-3 px-3 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Total de movimientos consultados (<span className="tabular-nums">{ledger.totals.movements}</span>)
-              </TableCell>
-              <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.debit)}</TableCell>
-              <TableCell className="py-3 px-3 text-right tabular-nums text-slate-900">{formatCurrency(ledger.totals.credit)}</TableCell>
-              <TableCell className="py-3 px-3 text-right align-top">
-                <span className={`block tabular-nums font-bold ${ledger.finalBalance < 0 ? "text-rose-600" : "text-slate-900"}`}>
-                  {formatCurrency(ledger.finalBalance)}
-                </span>
-                <span className="block text-[10px] uppercase tracking-wide text-slate-400">
-                  {ledger.finalBalance > 0.004 ? "Deudor" : ledger.finalBalance < -0.004 ? "Acreedor" : ""}
-                </span>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        rows={movements}
+        rowKey={(movement) => movement.id}
+        density="compact"
+        enableCard={false}
+        loading={loading}
+        loadingMode="auto"
+        skeletonRows={6}
+        error={error}
+        onRetry={invalidRange ? undefined : onRetry}
+        onRowClick={(movement) => onOpenDetail(movement.entryId)}
+        rowTitle="Ver detalle del asiento"
+        prependRows={previousBalanceRow}
+        appendRows={totalsRow}
+        emptyState={emptyState}
+      />
     </div>
   );
 }

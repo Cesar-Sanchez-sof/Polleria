@@ -3,6 +3,11 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
+import { SegmentedTabs, type SegmentedTabItem } from "@/components/shared/SegmentedTabs";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { StatCard } from "@/components/shared/StatCard";
+import { Tag } from "@/components/shared/TagCell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +56,6 @@ import {
   FileText,
   DollarSign,
   TrendingUp,
-  Tag,
   ArrowRight,
   XCircle,
   Lock,
@@ -1535,6 +1539,147 @@ function SalesManagementContent() {
     toast.info(`Cliente ${cli.fullName} seleccionado para facturación.`);
   };
 
+  const customerColumns: DataTableColumn<CustomerItem>[] = [
+    {
+      key: "document",
+      header: "Documento",
+      sortable: true,
+      sortValue: (cli) => cli.documentNumber,
+      cell: (cli) => (
+        <div className="flex items-center gap-2">
+          <Tag tone={cli.documentNumber.length === 11 ? "amber" : "blue"} size="sm">
+            {cli.documentNumber.length === 11 ? "RUC" : "DNI"}
+          </Tag>
+          <span className="font-mono font-bold text-slate-900">{cli.documentNumber}</span>
+        </div>
+      ),
+    },
+    {
+      key: "personType",
+      header: "Tipo",
+      cell: (cli) => (
+        <Tag tone={cli.personType === "Legal" ? "blue" : "neutral"} variant="soft" size="sm">
+          {cli.personType === "Legal" ? "Jurídica" : "Natural"}
+        </Tag>
+      ),
+    },
+    {
+      key: "name",
+      header: "Cliente / Razón Social",
+      sortable: true,
+      sortValue: (cli) => cli.fullName,
+      primary: {
+        title: (cli) => cli.fullName,
+        icon: (cli) => (cli.personType === "Legal" ? <Building /> : <User />),
+        iconTone: "neutral",
+      },
+    },
+    {
+      key: "phone",
+      header: "Teléfono",
+      cellClassName: "font-mono text-slate-600",
+      cell: (cli) => cli.phone || "—",
+    },
+    {
+      key: "purchases",
+      header: "Compras",
+      align: "center",
+      sortable: true,
+      sortValue: (cli) => cli.totalPurchases,
+      cell: (cli) => (
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+          {cli.totalPurchases}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Acción",
+      align: "right",
+      cell: (cli) => (
+        <RowActions
+          mode="label"
+          variant="outline"
+          size="sm"
+          actions={[{ key: "invoice", label: "Facturar", onClick: () => selectCustomerForSale(cli) }]}
+        />
+      ),
+    },
+  ];
+
+  // Pestañas del módulo: Salón (mesas, bebidas, listos, no cobrados) o Caja (ventanilla, clientes, facturas).
+  const salesTabItems: SegmentedTabItem<TabType>[] = isSalonTab
+    ? [
+        {
+          value: "tables",
+          label: (
+            <>
+              <span className="sm:hidden">Mesas</span>
+              <span className="hidden sm:inline">Salón de Mesas</span>
+            </>
+          ),
+          count: `${summary.occupied}/${summary.total}`,
+          tone: "brand",
+          icon: <LayoutGrid />,
+        },
+        {
+          value: "drinks",
+          label: (
+            <>
+              <span className="sm:hidden">Bebidas</span>
+              <span className="hidden sm:inline">Despacho de Bebidas</span>
+            </>
+          ),
+          tone: "info",
+          icon: <GlassWater className="text-blue-600" />,
+        },
+        {
+          value: "kitchen",
+          label: (
+            <>
+              <span className="sm:hidden">Listos</span>
+              <span className="hidden sm:inline">Pedidos Listos</span>
+            </>
+          ),
+          count: onlyReadyCount,
+          tone: "brand",
+          icon: <BellRing className={onlyReadyCount > 0 ? "animate-bounce text-red-600" : ""} />,
+        },
+        {
+          value: "payments",
+          label: (
+            <>
+              <span className="sm:hidden">No cobrados</span>
+              <span className="hidden sm:inline">Pedidos no cobrados</span>
+            </>
+          ),
+          count: uncollectedPayments.length,
+          tone: "warning",
+          icon: <AlertCircle className="text-amber-600" />,
+        },
+      ]
+    : [
+        {
+          value: "cashier",
+          label: `Ventanilla${orderToCharge ? ` (${paymentSource})` : ""}`,
+          tone: "brand",
+          icon: <CircleDollarSign />,
+        },
+        { value: "customers", label: "Clientes", count: customers.length, tone: "brand", icon: <Users /> },
+        {
+          value: "invoices",
+          label: (
+            <>
+              <span className="sm:hidden">Ventas</span>
+              <span className="hidden sm:inline">Facturas de Venta</span>
+            </>
+          ),
+          count: saleVouchers.length,
+          tone: "brand",
+          icon: <Receipt />,
+        },
+      ];
+
   return (
     <>
       {/* Header Superior Responsivo */}
@@ -1606,121 +1751,19 @@ function SalesManagementContent() {
         </div>
       </header>
 
-      {/* Barra de Navegación por Pestañas del Módulo Ventas (Scroll horizontal en móvil) */}
-      <div className="px-3 sm:px-6 pt-3 bg-white border-b border-slate-200 flex items-center overflow-x-auto no-scrollbar gap-1 sm:gap-2">
-        {isSalonTab && (
-          <>
-        {/* Pestaña 1: Mesas y Salón */}
-        <button
-          type="button"
-          onClick={() => goToTab("tables")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "tables"
-            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 hover:dark:bg-slate-800"
-            }`}
-        >
-          <LayoutGrid className="w-4 h-4 shrink-0" />
-          <span className="sm:hidden">Mesas ({summary.occupied}/{summary.total})</span>
-          <span className="hidden sm:inline">Salón de Mesas ({summary.occupied}/{summary.total})</span>
-        </button>
-
-        {/* Pestaña: Despacho de Bebidas por Mozo */}
-        <button
-          type="button"
-          onClick={() => goToTab("drinks")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "drinks"
-            ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 bg-blue-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-        >
-          <GlassWater className="w-4 h-4 shrink-0 text-blue-600" />
-          <span className="sm:hidden">Bebidas</span>
-          <span className="hidden sm:inline">Despacho de Bebidas</span>
-        </button>
-
-        {/* Pestaña: Pedidos Listos para Entrega */}
-        <button
-          type="button"
-          onClick={() => goToTab("kitchen")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "kitchen"
-            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-        >
-          <BellRing className={`w-4 h-4 shrink-0 ${onlyReadyCount > 0 ? "text-red-600 animate-bounce" : ""}`} />
-          <span className="sm:hidden">Listos {onlyReadyCount > 0 ? `(${onlyReadyCount})` : ""}</span>
-          <span className="hidden sm:inline">Pedidos Listos {onlyReadyCount > 0 ? `(${onlyReadyCount})` : ""}</span>
-          {onlyReadyCount > 0 && (
-            <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-red-600 text-white shadow-xs">
-              {onlyReadyCount}
-            </span>
-          )}
-        </button>
-
-        {/* Pestaña 2: Pedidos no cobrados */}
-        <button
-          type="button"
-          onClick={() => goToTab("payments")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "payments"
-            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-        >
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="sm:hidden">No cobrados ({uncollectedPayments.length})</span>
-          <span className="hidden sm:inline">Pedidos no cobrados ({uncollectedPayments.length})</span>
-        </button>
-          </>
-        )}
-
-        {!isSalonTab && (
-          <>
-        {/* Pestaña 3: Caja y Cobro en Ventanilla */}
-        <button
-          type="button"
-          onClick={() => goToTab("cashier")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "cashier"
-            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-        >
-          <CircleDollarSign className="w-4 h-4 shrink-0" />
-          <span className="sm:hidden">Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
-          <span className="hidden sm:inline">Ventanilla {orderToCharge ? `(${paymentSource})` : ""}</span>
-        </button>
-
-        {/* Pestaña 4: Clientes */}
-        <button
-          type="button"
-          onClick={() => goToTab("customers")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "customers"
-            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-        >
-          <Users className="w-4 h-4 shrink-0" />
-          <span>Clientes ({customers.length})</span>
-        </button>
-          </>
-        )}
-
-        {!isSalonTab && (
-          <>
-        {/* Pestaña 5: Ventas Diarias & Facturas */}
-        <button
-          type="button"
-          onClick={() => goToTab("invoices")}
-          className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === "invoices"
-            ? "border-red-700 text-red-700 dark:text-white dark:border-white bg-red-50/60 dark:bg-slate-800/60"
-            : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-        >
-          <Receipt className="w-4 h-4 shrink-0" />
-          <span className="sm:hidden">Ventas ({saleVouchers.length})</span>
-          <span className="hidden sm:inline">Facturas de Venta ({saleVouchers.length})</span>
-        </button>
-          </>
-        )}
+      {/* Barra de pestañas del módulo Ventas (SegmentedTabs de la guía de estilos, scroll horizontal en móvil) */}
+      <div className="no-scrollbar overflow-x-auto border-b border-slate-200 bg-white px-3 py-3 sm:px-6">
+        <SegmentedTabs
+          items={salesTabItems}
+          value={activeTab}
+          onValueChange={goToTab}
+          variant="segmented"
+          size="md"
+          rounded="xl"
+          hideZeroCount
+          ariaLabel="Secciones de ventas"
+          className="min-w-max"
+        />
       </div>
 
       {/* =================================================================== */}
@@ -2132,56 +2175,30 @@ function SalesManagementContent() {
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* Tarjetas resumen de estado de entrega */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <Card className="bg-emerald-50 border-emerald-200 p-4 rounded-2xl flex items-center gap-3 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <BellRing className={`w-6 h-6 ${onlyReadyCount > 0 ? "animate-bounce" : ""}`} />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
-                  Listos para Servir
-                </span>
-                <p className="text-2xl font-black text-emerald-950">
-                  {onlyReadyCount} {onlyReadyCount === 1 ? "Comanda" : "Comandas"}
-                </p>
-                <p className="text-[11px] text-emerald-700 font-medium truncate">
-                  {onlyReadyCount > 0 ? "Esperando que el mozo las retire" : "Sin platos pendientes en mostrador"}
-                </p>
-              </div>
-            </Card>
-
-            <Card className="bg-amber-50 border-amber-200 p-4 rounded-2xl flex items-center gap-3 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <ChefHat className="w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
-                  En Cocina (Preparando)
-                </span>
-                <p className="text-2xl font-black text-amber-950">
-                  {readyOrdersForDelivery.filter((o) => o.kitchenStatus === "Preparing" || o.kitchenStatus === "Received").length} Comandas
-                </p>
-                <p className="text-[11px] text-amber-700 font-medium truncate">
-                  El personal de cocina está cocinando
-                </p>
-              </div>
-            </Card>
-
-            <Card className="bg-slate-50 border-slate-200 p-4 rounded-2xl flex items-center gap-3 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-slate-700 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <PackageCheck className="w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Entregados a Mesas
-                </span>
-                <p className="text-2xl font-black text-slate-900">
-                  {deliveredOrderIds.size} Entregas
-                </p>
-                <p className="text-[11px] text-slate-600 font-medium truncate">
-                  Confirmados por el mesero en salón
-                </p>
-              </div>
-            </Card>
+            <StatCard
+              tone="emerald"
+              icon={<BellRing className={onlyReadyCount > 0 ? "animate-bounce" : ""} />}
+              label="Listos para Servir"
+              value={onlyReadyCount}
+              unit={onlyReadyCount === 1 ? "Comanda" : "Comandas"}
+              footerLeft={onlyReadyCount > 0 ? "Esperando que el mozo las retire" : "Sin platos pendientes en mostrador"}
+            />
+            <StatCard
+              tone="amber"
+              icon={<ChefHat />}
+              label="En Cocina (Preparando)"
+              value={readyOrdersForDelivery.filter((o) => o.kitchenStatus === "Preparing" || o.kitchenStatus === "Received").length}
+              unit="Comandas"
+              footerLeft="El personal de cocina está cocinando"
+            />
+            <StatCard
+              tone="neutral"
+              icon={<PackageCheck />}
+              label="Entregados a Mesas"
+              value={deliveredOrderIds.size}
+              unit="Entregas"
+              footerLeft="Confirmados por el mesero en salón"
+            />
           </div>
 
           {/* Barra de Filtros y Controles de Despacho */}
@@ -2504,47 +2521,25 @@ function SalesManagementContent() {
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* Banner de Resumen de Cuentas por Cobrar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="bg-amber-500/10 border-amber-200 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-amber-900 uppercase">
-                  Pedidos no cobrados
-                </span>
-                <p className="text-2xl font-extrabold text-amber-950">
-                  {uncollectedPayments.length} Pendientes
-                </p>
-              </div>
-            </Card>
-
-            <Card className="bg-red-500/10 border-red-200 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-red-700 text-white flex items-center justify-center shrink-0">
-                <DollarSign className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-red-900 uppercase">
-                  Importe Total No Realizado
-                </span>
-                <p className="text-2xl font-extrabold text-red-950">
-                  {formatCurrency(totalReceivable)}
-                </p>
-              </div>
-            </Card>
-
-            <Card className="bg-emerald-500/10 border-emerald-200 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                <Smartphone className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-emerald-900 uppercase">
-                  Canales de Cobro
-                </span>
-                <p className="text-xs font-semibold text-emerald-800 mt-0.5">
-                  Cobro con Mozo en Mesa ó Ventanilla
-                </p>
-              </div>
-            </Card>
+            <StatCard
+              tone="amber"
+              icon={<AlertCircle />}
+              label="Pedidos no cobrados"
+              value={uncollectedPayments.length}
+              unit="Pendientes"
+            />
+            <StatCard
+              tone="brand"
+              icon={<DollarSign />}
+              label="Importe Total No Realizado"
+              value={formatCurrency(totalReceivable)}
+            />
+            <StatCard
+              tone="emerald"
+              icon={<Smartphone />}
+              label="Canales de Cobro"
+              footerLeft="Cobro con Mozo en Mesa ó Ventanilla"
+            />
           </div>
 
           {/* Listado de Comandas Pendientes */}
@@ -3615,69 +3610,22 @@ function SalesManagementContent() {
               </Button>
             </div>
 
-            {/* Tabla Responsiva de Clientes */}
-            <div className="overflow-x-auto mt-4">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70 dark:bg-slate-800/70">
-                    <th className="py-2.5 px-3">Documento</th>
-                    <th className="py-2.5 px-3">Tipo</th>
-                    <th className="py-2.5 px-3">Cliente / Razón Social</th>
-                    <th className="py-2.5 px-3">Teléfono</th>
-                    <th className="py-2.5 px-3 text-center">Compras</th>
-                    <th className="py-2.5 px-3 text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCustomers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        No se encontraron customers registrados.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCustomers.map((cli) => (
-                      <tr key={cli.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-3 font-mono font-bold text-slate-900">
-                          {cli.documentNumber}
-                        </td>
-                        <td className="py-3 px-3">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] ${cli.personType === "Legal"
-                              ? "border-blue-300 text-blue-800 bg-blue-50"
-                              : "border-slate-300 text-slate-700 bg-slate-100"
-                              }`}
-                          >
-                            {cli.personType === "Legal" ? "Jurídica" : "Natural"}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-slate-800">
-                          {cli.fullName}
-                        </td>
-                        <td className="py-3 px-3 text-slate-600 font-mono">
-                          {cli.phone || "—"}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                            {cli.totalPurchases}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => selectCustomerForSale(cli)}
-                            className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
-                          >
-                            Facturar
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            {/* Tabla de clientes (DataTable compartido) */}
+            <div className="mt-4">
+              <DataTable
+                columns={customerColumns}
+                rows={filteredCustomers}
+                rowKey={(cli) => cli.id}
+                density="compact"
+                enableCard={false}
+                pageResetKey={customerSearch}
+                pagination={{ defaultPageSize: 15, itemLabel: "clientes" }}
+                emptyState={{
+                  icon: <Users className="h-7 w-7" />,
+                  title: "No se encontraron clientes registrados.",
+                  description: customerSearch ? "Prueba con otro DNI, RUC o nombre." : "Registra el primer cliente con «Nuevo Cliente».",
+                }}
+              />
             </div>
           </Card>
         </main>
@@ -3690,65 +3638,41 @@ function SalesManagementContent() {
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* Tarjetas KPI de Resumen de Ventas Diarias */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 mb-1">
-                <span className="text-xs font-bold uppercase">Total Recaudado</span>
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-extrabold text-slate-900">
-                {formatCurrency(dailySummary.totalCollected)}
-              </p>
-              <span className="text-[11px] text-slate-500 mt-1">
-                {dailySummary.salesCount} comprobantes emitidos
-              </span>
-            </Card>
-
-            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-emerald-700 mb-1">
-                <span className="text-xs font-bold uppercase">Efectivo en Caja</span>
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <Banknote className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-extrabold text-emerald-700">
-                {formatCurrency(dailySummary.methodsBreakdown.cash)}
-              </p>
-              <span className="text-[11px] text-slate-500 mt-1">
-                Dinero físico availableId
-              </span>
-            </Card>
-
-            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-purple-700 mb-1">
-                <span className="text-xs font-bold uppercase">Yape QR</span>
-                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-                  <QrCode className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-extrabold text-purple-700">
-                {formatCurrency(dailySummary.methodsBreakdown.yape)}
-              </p>
-              <span className="text-[11px] text-slate-500 mt-1">
-                Pagos digitales QR
-              </span>
-            </Card>
-
-            <Card className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-blue-700 mb-1">
-                <span className="text-xs font-bold uppercase">POS / Tap to Pay</span>
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                  <CreditCard className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-xl sm:text-2xl font-extrabold text-blue-700">
-                {formatCurrency(dailySummary.methodsBreakdown.card)}
-              </p>
-              <span className="text-[11px] text-slate-500 mt-1">
-                Mercado Pago &amp; Tarjetas
-              </span>
-            </Card>
+            <StatCard
+              layout="label-first"
+              tone="brand"
+              icon={<TrendingUp />}
+              label="Total Recaudado"
+              value={formatCurrency(dailySummary.totalCollected)}
+              footerLeft={`${dailySummary.salesCount} comprobantes emitidos`}
+            />
+            <StatCard
+              layout="label-first"
+              tone="emerald"
+              icon={<Banknote />}
+              label="Efectivo en Caja"
+              value={formatCurrency(dailySummary.methodsBreakdown.cash)}
+              colorValue
+              footerLeft="Dinero físico disponible"
+            />
+            <StatCard
+              layout="label-first"
+              tone="purple"
+              icon={<QrCode />}
+              label="Yape QR"
+              value={formatCurrency(dailySummary.methodsBreakdown.yape)}
+              colorValue
+              footerLeft="Pagos digitales QR"
+            />
+            <StatCard
+              layout="label-first"
+              tone="blue"
+              icon={<CreditCard />}
+              label="POS / Tap to Pay"
+              value={formatCurrency(dailySummary.methodsBreakdown.card)}
+              colorValue
+              footerLeft="Mercado Pago & Tarjetas"
+            />
           </div>
 
           {/* Listado y Filtro de Comprobantes Emitidos */}
