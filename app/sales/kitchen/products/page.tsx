@@ -9,13 +9,10 @@ import {
   AlertCircle,
   Edit2,
   Trash2,
-  Layers,
-  DollarSign,
   ChefHat,
   RefreshCw,
   Scale,
   Sparkles,
-  Eye,
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,15 +36,15 @@ import {
 
 interface RecipeItem {
   id?: number;
-  supplyId: number;
+  ingredientId: number;
   quantityRequired: number;
-  supplyName?: string;
+  ingredientName?: string;
   unitOfMeasure?: string;
   costPerUnit?: number;
   estimatedCost?: number;
 }
 
-interface DishItem {
+interface ProductItem {
   id: number;
   name: string;
   description: string;
@@ -55,12 +52,14 @@ interface DishItem {
   category: string;
   active: boolean;
   stock: number;
+  type: "FinishedProduct" | "RawMaterial";
+  unitOfMeasure: string;
   available: boolean;
-  recipes: RecipeItem[];
+  recipe: RecipeItem[];
   recipeCost: number;
 }
 
-interface SupplyOption {
+interface IngredientOption {
   id: number;
   name: string;
   type: string;
@@ -70,52 +69,52 @@ interface SupplyOption {
   averageCost: number;
 }
 
-export default function DishesManagementPage() {
-  const [dishes, setDishes] = useState<DishItem[]>([]);
-  const [supplies, setSupplies] = useState<SupplyOption[]>([]);
+export default function ProductsCatalogPage() {
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [ingredients, setIngredients] = useState<IngredientOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("todos");
   const [statusFilter, setStatusFilter] = useState<"todos" | "active" | "inactive">("todos");
 
-  // Modal Crear / Editar Plato
+  // Modal Crear / Editar Producto
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingDish, setEditingDish] = useState<DishItem | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Formulario de Plato
+  // Formulario de Producto
   const [formName, setFormName] = useState("");
   const [formPrice, setFormPrice] = useState("");
-  const [formCategory, setFormCategory] = useState("pollos");
   const [formDescription, setFormDescription] = useState("");
-  const [formStock, setFormStock] = useState("50");
+  const [formType, setFormType] = useState<"FinishedProduct" | "RawMaterial">("FinishedProduct");
+  const [formUnit, setFormUnit] = useState("UND");
   const [formRecipes, setFormRecipes] = useState<
-    Array<{ supplyId: number; quantityRequired: number }>
+    Array<{ ingredientId: number; quantityRequired: number }>
   >([]);
 
-  // Modal Confirmar Desactivación (Eliminar plato cambiando estado)
+  // Modal Confirmar Desactivación (Eliminar producto cambiando estado)
   const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
-  const [dishToDeactivate, setDishToDeactivate] = useState<DishItem | null>(null);
+  const [productToDeactivate, setProductToDeactivate] = useState<ProductItem | null>(null);
 
-  // Cargar platos y suministros
+  // Cargar productos y suministros
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [resDishes, resSupplies] = await Promise.all([
-        fetch("/api/dishes?includeInactive=true&includeRecipes=true"),
-        fetch("/api/supplies"),
+      const [resProducts, resIngredients] = await Promise.all([
+        fetch("/api/products?sellable=true&includeInactive=true&includeRecipes=true"),
+        fetch("/api/products"),
       ]);
 
-      if (resDishes.ok) {
-        const json = await resDishes.json();
-        setDishes(json.data || []);
+      if (resProducts.ok) {
+        const json = await resProducts.json();
+        setProducts(json.data || []);
       }
-      if (resSupplies.ok) {
-        const json = await resSupplies.json();
-        setSupplies(json.data || []);
+      if (resIngredients.ok) {
+        const json = await resIngredients.json();
+        setIngredients(json.data || []);
       }
     } catch (err: any) {
-      toast.error("Error al cargar carta de platos o insumos.");
+      toast.error("Error al cargar la carta de productos.");
     } finally {
       setLoading(false);
     }
@@ -125,29 +124,29 @@ export default function DishesManagementPage() {
     void loadData();
   }, [loadData]);
 
-  // Abrir modal para crear plato nuevo
+  // Abrir modal para crear producto nuevo
   const handleOpenCreateModal = () => {
-    setEditingDish(null);
+    setEditingProduct(null);
     setFormName("");
     setFormPrice("");
-    setFormCategory("pollos");
     setFormDescription("");
-    setFormStock("50");
+    setFormType("FinishedProduct");
+    setFormUnit("UND");
     setFormRecipes([]);
     setModalOpen(true);
   };
 
-  // Abrir modal para editar plato
-  const handleOpenEditModal = (dish: DishItem) => {
-    setEditingDish(dish);
-    setFormName(dish.name);
-    setFormPrice(String(dish.price));
-    setFormCategory(dish.category || "pollos");
-    setFormDescription(dish.description || "");
-    setFormStock(String(dish.stock || 50));
+  // Abrir modal para editar producto
+  const handleOpenEditModal = (product: ProductItem) => {
+    setEditingProduct(product);
+    setFormName(product.name);
+    setFormPrice(String(product.price));
+    setFormDescription(product.description || "");
+    setFormType(product.type === "RawMaterial" ? "RawMaterial" : "FinishedProduct");
+    setFormUnit(product.unitOfMeasure || "UND");
     setFormRecipes(
-      dish.recipes.map((r) => ({
-        supplyId: r.supplyId,
+      product.recipe.map((r) => ({
+        ingredientId: r.ingredientId,
         quantityRequired: r.quantityRequired,
       }))
     );
@@ -156,21 +155,21 @@ export default function DishesManagementPage() {
 
   // Añadir fila de ingrediente a la receta
   const handleAddRecipeItem = () => {
-    if (supplies.length === 0) {
+    if (ingredients.length === 0) {
       toast.error("No hay insumos registrados en el almacén.");
       return;
     }
     // Seleccionar el primer insumo disponible que aún no esté en la receta
-    const usedIds = new Set(formRecipes.map((r) => r.supplyId));
-    const firstAvailable = supplies.find((s) => !usedIds.has(s.id)) || supplies[0];
+    const usedIds = new Set(formRecipes.map((r) => r.ingredientId));
+    const firstAvailable = ingredients.find((s) => !usedIds.has(s.id)) || ingredients[0];
 
-    setFormRecipes([...formRecipes, { supplyId: firstAvailable.id, quantityRequired: 1 }]);
+    setFormRecipes([...formRecipes, { ingredientId: firstAvailable.id, quantityRequired: 1 }]);
   };
 
   // Actualizar fila de receta
   const handleUpdateRecipeItem = (
     index: number,
-    field: "supplyId" | "quantityRequired",
+    field: "ingredientId" | "quantityRequired",
     val: number
   ) => {
     const updated = [...formRecipes];
@@ -186,11 +185,11 @@ export default function DishesManagementPage() {
   // Calcular costo estimado en tiempo real en el formulario
   const calculatedFormRecipeCost = useMemo(() => {
     return formRecipes.reduce((sum, item) => {
-      const sup = supplies.find((s) => s.id === item.supplyId);
+      const sup = ingredients.find((s) => s.id === item.ingredientId);
       const unitCost = sup ? sup.averageCost || sup.lastCost || 0 : 0;
       return sum + item.quantityRequired * unitCost;
     }, 0);
-  }, [formRecipes, supplies]);
+  }, [formRecipes, ingredients]);
 
   const estimatedFormMargin = useMemo(() => {
     const priceNum = Number(formPrice);
@@ -199,13 +198,13 @@ export default function DishesManagementPage() {
     return Math.round((profit / priceNum) * 100);
   }, [formPrice, calculatedFormRecipeCost]);
 
-  // Guardar (Crear o Actualizar) Plato
-  const handleSaveDish = async () => {
+  // Guardar (Crear o Actualizar) Producto
+  const handleSaveProduct = async () => {
     const name = formName.trim();
     const price = Number(formPrice);
 
     if (!name) {
-      toast.error("Ingrese el nombre del plato.");
+      toast.error("Ingrese el nombre del producto.");
       return;
     }
     if (!price || price <= 0) {
@@ -219,17 +218,18 @@ export default function DishesManagementPage() {
         name,
         description: formDescription.trim(),
         price,
-        stock: Number(formStock) || 50,
-        ingredients: formRecipes
-          .filter((r) => r.supplyId && r.quantityRequired > 0)
+        type: formType,
+        unitOfMeasure: formUnit.trim() || "UND",
+        recipe: formRecipes
+          .filter((r) => r.ingredientId && r.quantityRequired > 0)
           .map((r) => ({
-            supplyId: r.supplyId,
+            ingredientId: r.ingredientId,
             quantityRequired: r.quantityRequired,
           })),
       };
 
-      const url = editingDish ? `/api/dishes/${editingDish.id}` : "/api/dishes";
-      const method = editingDish ? "PUT" : "POST";
+      const url = editingProduct ? `/api/products/${editingProduct.id}` : "/api/products";
+      const method = editingProduct ? "PUT" : "POST";
 
       const res = await fetch(url, {
         method,
@@ -239,24 +239,24 @@ export default function DishesManagementPage() {
 
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.error || "Error al guardar el plato.");
+        throw new Error(json.error || "Error al guardar el producto.");
       }
 
-      toast.success(editingDish ? "Plato actualizado correctamente." : "Plato creado exitosamente.");
+      toast.success(editingProduct ? "Producto actualizado correctamente." : "Producto creado exitosamente.");
       setModalOpen(false);
       void loadData();
     } catch (err: any) {
-      toast.error(err.message || "No se pudo guardar el plato.");
+      toast.error(err.message || "No se pudo guardar el producto.");
     } finally {
       setSaving(false);
     }
   };
 
-  // Alternar estado activo / inactivo (Soft Delete / Pausar plato)
-  const handleToggleDishStatus = async (dish: DishItem) => {
-    const nextStatus = !dish.active;
+  // Alternar estado activo / inactivo (Soft Delete / Pausar producto)
+  const handleToggleProductStatus = async (product: ProductItem) => {
+    const nextStatus = !product.active;
     try {
-      const res = await fetch(`/api/dishes/${dish.id}`, {
+      const res = await fetch(`/api/products/${product.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: nextStatus }),
@@ -267,8 +267,8 @@ export default function DishesManagementPage() {
 
       toast.success(
         nextStatus
-          ? `Plato "${dish.name}" habilitado en la carta.`
-          : `Plato "${dish.name}" pausado (desactivado de la carta).`
+          ? `Producto "${product.name}" habilitado en la carta.`
+          : `Producto "${product.name}" pausado (desactivado de la carta).`
       );
       void loadData();
     } catch (err: any) {
@@ -278,64 +278,64 @@ export default function DishesManagementPage() {
 
   // Confirmar eliminación / desactivación suave
   const handleConfirmDeactivate = async () => {
-    if (!dishToDeactivate) return;
+    if (!productToDeactivate) return;
     try {
-      const res = await fetch(`/api/dishes/${dishToDeactivate.id}`, {
+      const res = await fetch(`/api/products/${productToDeactivate.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Error al desactivar plato.");
+      if (!res.ok) throw new Error(json.error || "Error al desactivar producto.");
 
-      toast.success(`Plato "${dishToDeactivate.name}" marcado como inactivo.`);
+      toast.success(`Producto "${productToDeactivate.name}" marcado como inactivo.`);
       setDeactivateModalOpen(false);
-      setDishToDeactivate(null);
+      setProductToDeactivate(null);
       void loadData();
     } catch (err: any) {
-      toast.error(err.message || "No se pudo desactivar el plato.");
+      toast.error(err.message || "No se pudo desactivar el producto.");
     }
   };
 
-  // Filtrado de platos
-  const filteredDishes = useMemo(() => {
-    return dishes.filter((dish) => {
+  // Filtrado de productos
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
       const matchesSearch =
-        dish.name.toLowerCase().includes(search.toLowerCase()) ||
-        dish.description.toLowerCase().includes(search.toLowerCase()) ||
-        dish.recipes.some((r) => r.supplyName?.toLowerCase().includes(search.toLowerCase()));
+        product.name.toLowerCase().includes(search.toLowerCase()) ||
+        product.description.toLowerCase().includes(search.toLowerCase()) ||
+        product.recipe.some((r) => r.ingredientName?.toLowerCase().includes(search.toLowerCase()));
 
       const matchesCat =
-        categoryFilter === "todos" || dish.category.toLowerCase() === categoryFilter.toLowerCase();
+        categoryFilter === "todos" || product.category.toLowerCase() === categoryFilter.toLowerCase();
 
       const matchesStatus =
         statusFilter === "todos"
           ? true
           : statusFilter === "active"
-          ? dish.active
-          : !dish.active;
+          ? product.active
+          : !product.active;
 
       return matchesSearch && matchesCat && matchesStatus;
     });
-  }, [dishes, search, categoryFilter, statusFilter]);
+  }, [products, search, categoryFilter, statusFilter]);
 
   // Métricas
   const metrics = useMemo(() => {
-    const total = dishes.length;
-    const active = dishes.filter((d) => d.active).length;
+    const total = products.length;
+    const active = products.filter((d) => d.active).length;
     const inactive = total - active;
-    const withRecipe = dishes.filter((d) => d.recipes && d.recipes.length > 0).length;
+    const withRecipe = products.filter((d) => d.recipe && d.recipe.length > 0).length;
     return { total, active, inactive, withRecipe };
-  }, [dishes]);
+  }, [products]);
 
-  const columns: DataTableColumn<DishItem>[] = [
+  const columns: DataTableColumn<ProductItem>[] = [
     {
       key: "name",
-      header: "Plato",
+      header: "Producto",
       width: "min-w-[240px]",
       sortable: true,
-      sortValue: (dish) => dish.name,
+      sortValue: (product) => product.name,
       primary: {
-        title: (dish) => dish.name,
-        subtitle: (dish) => dish.description || undefined,
+        title: (product) => product.name,
+        subtitle: (product) => product.description || undefined,
         icon: <UtensilsCrossed />,
         iconTone: "amber",
       },
@@ -345,10 +345,10 @@ export default function DishesManagementPage() {
       header: "Categoría",
       width: "w-32",
       sortable: true,
-      sortValue: (dish) => dish.category,
-      cell: (dish) => (
-        <Tag tone={dish.category === "pollos" ? "rose" : dish.category === "bebidas" ? "blue" : "amber"} size="sm" className="capitalize">
-          {dish.category}
+      sortValue: (product) => product.category,
+      cell: (product) => (
+        <Tag tone={product.category === "pollos" ? "rose" : product.category === "bebidas" ? "blue" : "amber"} size="sm" className="capitalize">
+          {product.category}
         </Tag>
       ),
     },
@@ -357,18 +357,34 @@ export default function DishesManagementPage() {
       header: "Precio Venta",
       width: "w-32",
       sortable: true,
-      sortValue: (dish) => dish.price,
+      sortValue: (product) => product.price,
       cellClassName: "font-mono text-sm font-extrabold text-foreground",
-      cell: (dish) => `S/ ${dish.price.toFixed(2)}`,
+      cell: (product) => `S/ ${product.price.toFixed(2)}`,
+    },
+    {
+      key: "stock",
+      header: "Stock",
+      align: "right",
+      width: "w-28",
+      sortable: true,
+      sortValue: (product) => product.stock,
+      cell: (product) => (
+        <span
+          className={`font-mono text-sm font-bold ${product.stock <= 0 ? "text-rose-600" : "text-foreground"}`}
+          title="Se llena con compras, transformaciones o ajustes en Kardex e Inventario"
+        >
+          {product.stock} <span className="text-[10px] font-normal text-muted-foreground">{product.unitOfMeasure}</span>
+        </span>
+      ),
     },
     {
       key: "recipe",
       header: "Receta e Ingredientes",
       width: "min-w-[240px]",
-      cell: (dish) =>
-        dish.recipes && dish.recipes.length > 0 ? (
+      cell: (product) =>
+        product.recipe && product.recipe.length > 0 ? (
           <div className="flex max-w-xs flex-wrap gap-1">
-            {dish.recipes.map((r, idx) => (
+            {product.recipe.map((r, idx) => (
               <span
                 key={idx}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -377,7 +393,7 @@ export default function DishesManagementPage() {
                 <span className="font-bold text-primary">
                   {r.quantityRequired} {r.unitOfMeasure}
                 </span>
-                <span>{r.supplyName}</span>
+                <span>{r.ingredientName}</span>
               </span>
             ))}
           </div>
@@ -393,15 +409,15 @@ export default function DishesManagementPage() {
       header: "Costo Estimado",
       width: "w-36",
       sortable: true,
-      sortValue: (dish) => dish.recipeCost,
-      cell: (dish) =>
-        dish.recipeCost > 0 ? (
+      sortValue: (product) => product.recipeCost,
+      cell: (product) =>
+        product.recipeCost > 0 ? (
           <div>
             <span className="block font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
-              S/ {dish.recipeCost.toFixed(2)}
+              S/ {product.recipeCost.toFixed(2)}
             </span>
-            <span className={`text-[10px] font-bold ${dish.price > dish.recipeCost ? "text-emerald-600" : "text-rose-600"}`}>
-              Margen: {Math.round(((dish.price - dish.recipeCost) / dish.price) * 100)}%
+            <span className={`text-[10px] font-bold ${product.price > product.recipeCost ? "text-emerald-600" : "text-rose-600"}`}>
+              Margen: {Math.round(((product.price - product.recipeCost) / product.price) * 100)}%
             </span>
           </div>
         ) : (
@@ -414,16 +430,16 @@ export default function DishesManagementPage() {
       align: "center",
       width: "w-36",
       sortable: true,
-      sortValue: (dish) => (dish.active ? 1 : 0),
-      cell: (dish) => (
+      sortValue: (product) => (product.active ? 1 : 0),
+      cell: (product) => (
         <button
           type="button"
-          onClick={() => handleToggleDishStatus(dish)}
+          onClick={() => handleToggleProductStatus(product)}
           className="cursor-pointer"
           title="Haga clic para alternar disponibilidad en la carta"
         >
-          <StatusBadge tone={dish.active ? "success" : "neutral"} pulse={dish.active}>
-            {dish.active ? "En Carta" : "Pausado"}
+          <StatusBadge tone={product.active ? "success" : "neutral"} pulse={product.active}>
+            {product.active ? "En Carta" : "Pausado"}
           </StatusBadge>
         </button>
       ),
@@ -433,18 +449,18 @@ export default function DishesManagementPage() {
       header: "Acciones",
       align: "right",
       width: "w-36",
-      cell: (dish) => (
+      cell: (product) => (
         <RowActions
           size="sm"
           actions={[
-            { key: "edit", label: "Editar plato y receta", icon: <Edit2 />, tone: "blue", onClick: () => handleOpenEditModal(dish) },
+            { key: "edit", label: "Editar producto y receta", icon: <Edit2 />, tone: "blue", onClick: () => handleOpenEditModal(product) },
             {
               key: "deactivate",
-              label: "Desactivar / ocultar plato de la carta",
+              label: "Desactivar / ocultar producto de la carta",
               icon: <Trash2 />,
               tone: "rose",
               onClick: () => {
-                setDishToDeactivate(dish);
+                setProductToDeactivate(product);
                 setDeactivateModalOpen(true);
               },
             },
@@ -457,8 +473,8 @@ export default function DishesManagementPage() {
   return (
     <>
       <ModuleHeader
-        title="Platos y Carta"
-        subtitle="Registro de platos, vinculación con ingredientes/insumos del almacén y control de disponibilidad"
+        title="Productos y Carta"
+        subtitle="Lo que se vende en el salón: precio, receta referencial para el cocinero y stock disponible"
         icon={ChefHat}
         iconClassName="bg-amber-100 text-amber-800"
       >
@@ -478,15 +494,15 @@ export default function DishesManagementPage() {
             className="text-xs h-9 font-bold gap-1.5 rounded-xl bg-red-700 hover:bg-red-800 text-white shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Nuevo Plato</span>
+            <span>Nuevo Producto</span>
           </Button>
         </div>
       </ModuleHeader>
 
-      <main className="flex-1 p-4 sm:p-6 flex flex-col gap-5 max-w-7xl mx-auto w-full">
+      <main className="flex-1 w-full min-w-0 p-4 sm:p-6 flex flex-col gap-5">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard layout="label-first" tone="neutral" icon={<UtensilsCrossed />} label="Total Platos" value={metrics.total} />
+          <StatCard layout="label-first" tone="neutral" icon={<UtensilsCrossed />} label="Total Productos" value={metrics.total} />
           <StatCard layout="label-first" tone="emerald" icon={<CheckCircle2 />} label="Activos en Carta" value={metrics.active} colorValue />
           <StatCard layout="label-first" tone="amber" icon={<AlertCircle />} label="Pausados / Inactivos" value={metrics.inactive} colorValue />
           <StatCard layout="label-first" tone="blue" icon={<Scale />} label="Con Receta (Escandallo)" value={metrics.withRecipe} colorValue />
@@ -498,7 +514,7 @@ export default function DishesManagementPage() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Buscar plato o ingrediente..."
+              placeholder="Buscar producto o ingrediente..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 text-xs rounded-xl h-9"
@@ -551,20 +567,20 @@ export default function DishesManagementPage() {
           </div>
         </Card>
 
-        {/* Tabla / Listado de Platos */}
+        {/* Tabla / Listado de Productos */}
         <DataTable
           columns={columns}
-          rows={filteredDishes}
-          rowKey={(dish) => dish.id}
+          rows={filteredProducts}
+          rowKey={(product) => product.id}
           defaultSort={{ key: "name", direction: "asc" }}
           pageResetKey={`${search}|${categoryFilter}|${statusFilter}`}
-          pagination={{ defaultPageSize: 15, itemLabel: "platos" }}
+          pagination={{ defaultPageSize: 15, itemLabel: "productos" }}
           loading={loading}
           loadingMode="auto"
-          rowClassName={(dish) => (dish.active ? undefined : "opacity-60")}
+          rowClassName={(product) => (product.active ? undefined : "opacity-60")}
           emptyState={{
             icon: <UtensilsCrossed className="h-7 w-7" />,
-            title: "No se encontraron platos que coincidan con los criterios de búsqueda.",
+            title: "No se encontraron productos que coincidan con los criterios de búsqueda.",
           }}
         />
       </main>
@@ -577,10 +593,10 @@ export default function DishesManagementPage() {
           <DialogHeader className="pb-3 border-b border-border">
             <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
               <ChefHat className="w-5 h-5 text-red-700" />
-              <span>{editingDish ? "Editar Plato y Receta" : "Registrar Nuevo Plato"}</span>
+              <span>{editingProduct ? "Editar Producto y Receta" : "Registrar Nuevo Producto"}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Configure los datos de venta del plato y vincule los ingredientes necesarios para su
+              Configure los datos de venta del producto y vincule los ingredientes necesarios para su
               preparación y costeo automático.
             </DialogDescription>
           </DialogHeader>
@@ -590,7 +606,7 @@ export default function DishesManagementPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-foreground mb-1">
-                  Nombre del Plato <span className="text-red-500">*</span>
+                  Nombre del Producto <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="text"
@@ -616,33 +632,40 @@ export default function DishesManagementPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground mb-1">
-                  Categoría
-                </label>
+                <label className="block text-xs font-bold text-foreground mb-1">Tipo de producto</label>
                 <select
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
+                  value={formType}
+                  onChange={(e) => setFormType(e.target.value as "FinishedProduct" | "RawMaterial")}
                   className="w-full text-xs h-9 rounded-xl border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="pollos">Pollos y Brasas</option>
-                  <option value="adicionales">Guarniciones y Adicionales</option>
-                  <option value="bebidas">Bebidas y Refrescos</option>
-                  <option value="otros">Otros</option>
+                  <option value="FinishedProduct">Producto terminado</option>
+                  <option value="RawMaterial">Materia prima</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground mb-1">
-                  Stock Diario Sugerido (Porciones)
-                </label>
+                <label className="block text-xs font-bold text-foreground mb-1">Unidad de medida</label>
                 <Input
-                  type="number"
-                  placeholder="50"
-                  value={formStock}
-                  onChange={(e) => setFormStock(e.target.value)}
-                  className="text-xs h-9 rounded-xl font-mono"
+                  type="text"
+                  placeholder="UND"
+                  value={formUnit}
+                  onChange={(e) => setFormUnit(e.target.value)}
+                  className="text-xs h-9 rounded-xl font-mono uppercase"
                 />
               </div>
+
+              {editingProduct ? (
+                <p className="sm:col-span-2 rounded-xl bg-muted/50 p-2.5 text-[11px] text-muted-foreground">
+                  Stock actual: <strong className="font-mono text-foreground">{editingProduct.stock}</strong>{" "}
+                  {editingProduct.unitOfMeasure}. El stock sube por compra o transformación y se corrige con un ajuste en{" "}
+                  <strong>Kardex e Inventario</strong>.
+                </p>
+              ) : (
+                <p className="sm:col-span-2 rounded-xl bg-muted/50 p-2.5 text-[11px] text-muted-foreground">
+                  El producto nace con stock 0. Agrégalo con una compra, una transformación o un ajuste en{" "}
+                  <strong>Kardex e Inventario</strong>.
+                </p>
+              )}
             </div>
 
             <div>
@@ -667,7 +690,7 @@ export default function DishesManagementPage() {
                     <span>Ingredientes y Cantidades Requeridas (Escandallo)</span>
                   </h4>
                   <p className="text-[11px] text-muted-foreground">
-                    Vincula los insumos del almacén que se descuentan o costean por cada porción servida.
+                    Receta referencial para el cocinero: sirve para costear, no descuenta stock. El stock del producto sube por compra o transformación.
                   </p>
                 </div>
                 <Button
@@ -684,7 +707,7 @@ export default function DishesManagementPage() {
 
               {formRecipes.length === 0 ? (
                 <div className="text-center py-6 border border-dashed border-border rounded-xl text-muted-foreground text-xs">
-                  <p className="font-medium">No se han vinculado ingredientes a este plato.</p>
+                  <p className="font-medium">No se han vinculado ingredientes a este producto.</p>
                   <p className="text-[11px] text-muted-foreground/80 mt-0.5">
                     Haga clic en &quot;Añadir Ingrediente&quot; para vincular insumos del almacén con sus
                     cantidades exactas.
@@ -693,9 +716,9 @@ export default function DishesManagementPage() {
               ) : (
                 <div className="flex flex-col gap-2">
                   {formRecipes.map((item, idx) => {
-                    const selectedSupply = supplies.find((s) => s.id === item.supplyId);
-                    const unitCost = selectedSupply
-                      ? selectedSupply.averageCost || selectedSupply.lastCost || 0
+                    const selectedProduct = ingredients.find((s) => s.id === item.ingredientId);
+                    const unitCost = selectedProduct
+                      ? selectedProduct.averageCost || selectedProduct.lastCost || 0
                       : 0;
                     const lineCost = item.quantityRequired * unitCost;
 
@@ -707,16 +730,16 @@ export default function DishesManagementPage() {
                         {/* Selector de Insumo */}
                         <div className="flex-1 min-w-[200px]">
                           <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">
-                            Insumo de Almacén #{idx + 1}
+                            Ingrediente #{idx + 1}
                           </label>
                           <select
-                            value={item.supplyId}
+                            value={item.ingredientId}
                             onChange={(e) =>
-                              handleUpdateRecipeItem(idx, "supplyId", Number(e.target.value))
+                              handleUpdateRecipeItem(idx, "ingredientId", Number(e.target.value))
                             }
                             className="w-full text-xs h-8 rounded-lg border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-primary"
                           >
-                            {supplies.map((s) => (
+                            {ingredients.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name} ({s.unitOfMeasure}) — Stock: {s.currentStock}
                               </option>
@@ -727,7 +750,7 @@ export default function DishesManagementPage() {
                         {/* Cantidad requerida */}
                         <div className="w-28">
                           <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">
-                            Cantidad ({selectedSupply?.unitOfMeasure || "und"})
+                            Cantidad ({selectedProduct?.unitOfMeasure || "und"})
                           </label>
                           <Input
                             type="number"
@@ -802,12 +825,12 @@ export default function DishesManagementPage() {
             </Button>
             <Button
               size="sm"
-              onClick={handleSaveDish}
+              onClick={handleSaveProduct}
               disabled={saving}
               className="bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <ChefHat className="w-3.5 h-3.5" />
-              <span>{saving ? "Guardando..." : editingDish ? "Actualizar Plato" : "Guardar Plato"}</span>
+              <span>{saving ? "Guardando..." : editingProduct ? "Actualizar Producto" : "Guardar Producto"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -821,18 +844,18 @@ export default function DishesManagementPage() {
           <DialogHeader className="pb-2 border-b border-border">
             <DialogTitle className="text-sm font-bold text-foreground flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600" />
-              <span>Pausar / Desactivar Plato</span>
+              <span>Pausar / Desactivar Producto</span>
             </DialogTitle>
           </DialogHeader>
 
           <div className="py-3 text-xs text-muted-foreground flex flex-col gap-2">
             <p>
-              ¿Está seguro de que desea retirar el plato{" "}
-              <strong className="text-foreground">&quot;{dishToDeactivate?.name}&quot;</strong> de la
+              ¿Está seguro de que desea retirar el producto{" "}
+              <strong className="text-foreground">&quot;{productToDeactivate?.name}&quot;</strong> de la
               carta?
             </p>
             <p className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-2.5 rounded-xl text-amber-800 dark:text-amber-200">
-              ℹ️ El plato se marcará como <strong>Inactivo</strong>. No se eliminarán sus registros
+              ℹ️ El producto se marcará como <strong>Inactivo</strong>. No se eliminarán sus registros
               contables ni las ventas pasadas donde fue consumido, pero no aparecerá en el salón para
               nuevos pedidos.
             </p>

@@ -12,11 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SupplyDialog } from "./SupplyDialog";
+import { ProductDialog } from "./ProductDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
 import { KardexDialog } from "./KardexDialog";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
+import { Tag } from "@/components/shared/TagCell";
 import {
   Plus,
   Search,
@@ -28,25 +29,27 @@ import {
   Pencil,
   ListOrdered,
 } from "lucide-react";
-import { SupplyType, AffectationIgv } from "@prisma/client";
-import { updateSupplyMinimum, updateSupplyUnit, setSupplyStatus } from "@/lib/services/purchases/supply";
+import { ProductType, AffectationIgv } from "@prisma/client";
+import { updateProductMinimum, updateProductUnit, setProductStatus } from "@/lib/services/purchases/product";
 import { toast } from "sonner";
 
-interface Supply {
+interface Product {
   id: number;
   name: string;
-  type: SupplyType;
+  type: ProductType;
   affectationIgv?: AffectationIgv;
   unitOfMeasure: string;
   currentStock: number | string;
   minimumStock: number | string;
   lastCost?: number | string | null;
   averageCost?: number | string | null;
+  sellable?: boolean;
+  price?: number | string | null;
   active: boolean;
 }
 
 interface InventoryTableProps {
-  initialSupplies: Supply[];
+  initialProducts: Product[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -55,13 +58,13 @@ const STATUS_LABELS: Record<string, string> = {
   inactive: "Solo inactivos",
 };
 
-export function InventoryTable({ initialSupplies }: InventoryTableProps) {
-  const [supplies, setSupplies] = useState<Supply[]>(initialSupplies);
+export function InventoryTable({ initialProducts }: InventoryTableProps) {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
-  const [supplyToAdjust, setSupplyToAdjust] = useState<Supply | null>(null);
+  const [productToAdjust, setProductToAdjust] = useState<Product | null>(null);
   const [kardexOpen, setKardexOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -72,14 +75,14 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
   const [editUnitValue, setEditUnitValue] = useState<string>("");
   const [savingUnitId, setSavingUnitId] = useState<number | null>(null);
-  // Pending unit change (awaiting confirm when supply has movements)
-  const [pendingUnitChange, setPendingUnitChange] = useState<{ supplyId: number; unit: string } | null>(null);
+  // Pending unit change (awaiting confirm when product has movements)
+  const [pendingUnitChange, setPendingUnitChange] = useState<{ productId: number; unit: string } | null>(null);
 
 
-  const filtered = supplies.filter((i) => {
+  const filtered = products.filter((i) => {
     const q = search.toLowerCase();
     const code = `INS-${i.id.toString().padStart(3, "0")}`.toLowerCase();
-    const typeLabel = i.type === SupplyType.RawMaterial ? "materia prima" : "producto terminado";
+    const typeLabel = i.type === ProductType.RawMaterial ? "materia prima" : "producto terminado";
     const affectationLabel =
       i.affectationIgv === AffectationIgv.Included ? "incluido" : "excluido";
     const matchesSearch =
@@ -100,26 +103,26 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
-  const handleNewSupplySuccess = (created: Supply) => {
-    setSupplies((prev) => [created, ...prev]);
+  const handleNewProductSuccess = (created: Product) => {
+    setProducts((prev) => [created, ...prev]);
   };
 
-  const handleAdjustmentSuccess = (updated: Supply) => {
-    setSupplies((prev) =>
+  const handleAdjustmentSuccess = (updated: Product) => {
+    setProducts((prev) =>
       prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i))
     );
   };
 
-  const handleOpenAdjustment = (supply: Supply) => {
-    setSupplyToAdjust(supply);
+  const handleOpenAdjustment = (product: Product) => {
+    setProductToAdjust(product);
     setAdjustmentDialogOpen(true);
   };
 
-  const handleToggleStatus = async (item: Supply) => {
+  const handleToggleStatus = async (item: Product) => {
     const newStatus = !item.active;
     try {
-      await setSupplyStatus(item.id, newStatus);
-      setSupplies((prev) =>
+      await setProductStatus(item.id, newStatus);
+      setProducts((prev) =>
         prev.map((s) => (s.id === item.id ? { ...s, active: newStatus } : s))
       );
       toast.success(`Insumo ${newStatus ? "activado" : "desactivado"} exitosamente`);
@@ -128,13 +131,13 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     }
   };
 
-  const handleStartEdit = (item: Supply) => {
+  const handleStartEdit = (item: Product) => {
     setEditingId(item.id);
     setEditValue(String(Number(item.minimumStock)));
   };
 
-  const handleSaveMinimum = async (supplyId: number) => {
-    if (editingId !== supplyId) return;
+  const handleSaveMinimum = async (productId: number) => {
+    if (editingId !== productId) return;
     const num = parseFloat(editValue);
     if (isNaN(num) || num < 0) {
       toast.error("El stock mínimo no puede ser negativo");
@@ -142,18 +145,18 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
       return;
     }
 
-    const currentItem = supplies.find((s) => s.id === supplyId);
+    const currentItem = products.find((s) => s.id === productId);
     if (currentItem && Number(currentItem.minimumStock) === num) {
       setEditingId(null);
       return;
     }
 
-    setSavingId(supplyId);
+    setSavingId(productId);
     try {
-      const updated = await updateSupplyMinimum(supplyId, num);
-      setSupplies((prev) =>
+      const updated = await updateProductMinimum(productId, num);
+      setProducts((prev) =>
         prev.map((s) =>
-          s.id === supplyId ? { ...s, minimumStock: Number(updated.minimumStock) } : s
+          s.id === productId ? { ...s, minimumStock: Number(updated.minimumStock) } : s
         )
       );
       toast.success("Stock mínimo actualizado");
@@ -167,29 +170,29 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    supplyId: number
+    productId: number
   ) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleSaveMinimum(supplyId);
+      handleSaveMinimum(productId);
     } else if (e.key === "Escape") {
       e.preventDefault();
       setEditingId(null);
     }
   };
 
-  const handleStartEditUnit = (item: Supply) => {
+  const handleStartEditUnit = (item: Product) => {
     setEditingUnitId(item.id);
     setEditUnitValue(item.unitOfMeasure);
   };
 
-  const doSaveUnit = async (supplyId: number, unit: string) => {
-    setSavingUnitId(supplyId);
+  const doSaveUnit = async (productId: number, unit: string) => {
+    setSavingUnitId(productId);
     try {
-      const updated = await updateSupplyUnit(supplyId, unit);
-      setSupplies((prev) =>
+      const updated = await updateProductUnit(productId, unit);
+      setProducts((prev) =>
         prev.map((s) =>
-          s.id === supplyId ? { ...s, unitOfMeasure: updated.unitOfMeasure } : s
+          s.id === productId ? { ...s, unitOfMeasure: updated.unitOfMeasure } : s
         )
       );
       toast.success("Unidad actualizada exitosamente");
@@ -201,10 +204,10 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     }
   };
 
-  const handleSaveUnit = async (supplyId: number) => {
-    if (editingUnitId !== supplyId) return;
+  const handleSaveUnit = async (productId: number) => {
+    if (editingUnitId !== productId) return;
     const newUnit = editUnitValue.trim().toUpperCase();
-    const currentItem = supplies.find((s) => s.id === supplyId);
+    const currentItem = products.find((s) => s.id === productId);
     if (!newUnit) {
       setEditingUnitId(null);
       return;
@@ -218,19 +221,19 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     // Si el insumo tiene stock o movimientos, pedir confirmación
     const hasHistory = Number(currentItem?.currentStock || 0) !== 0;
     if (hasHistory) {
-      setPendingUnitChange({ supplyId, unit: newUnit });
+      setPendingUnitChange({ productId, unit: newUnit });
       return;
     }
-    await doSaveUnit(supplyId, newUnit);
+    await doSaveUnit(productId, newUnit);
   };
 
   const handleKeyDownUnit = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    supplyId: number
+    productId: number
   ) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleSaveUnit(supplyId);
+      handleSaveUnit(productId);
     } else if (e.key === "Escape") {
       e.preventDefault();
       setEditingUnitId(null);
@@ -243,7 +246,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     return `S/ ${num.toFixed(2)}`;
   };
 
-  const columns: DataTableColumn<Supply>[] = [
+  const columns: DataTableColumn<Product>[] = [
     {
       key: "code",
       header: "Código",
@@ -254,17 +257,26 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     },
     {
       key: "name",
-      header: "Nombre Insumo",
+      header: "Producto",
       sortable: true,
       sortValue: (item) => item.name,
       cellClassName: "font-medium",
-      cell: (item) => item.name,
+      cell: (item) => (
+        <span className="flex flex-wrap items-center gap-2">
+          {item.name}
+          {item.sellable ? (
+            <Tag tone="blue" size="sm">
+              En carta · S/ {Number(item.price ?? 0).toFixed(2)}
+            </Tag>
+          ) : null}
+        </span>
+      ),
     },
     {
       key: "type",
       header: "Tipo",
       cell: (item) => {
-        const isRawMaterial = item.type === SupplyType.RawMaterial;
+        const isRawMaterial = item.type === ProductType.RawMaterial;
         return (
           <Badge
             className={
@@ -494,7 +506,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             >
               <span>Todos</span>
               <span className="text-[10px] bg-muted px-1.5 py-0.2 rounded-full font-mono">
-                {supplies.length}
+                {products.length}
               </span>
             </button>
             <button
@@ -510,7 +522,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             >
               <span>Activos</span>
               <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {supplies.filter((s) => s.active).length}
+                {products.filter((s) => s.active).length}
               </span>
             </button>
             <button
@@ -526,7 +538,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             >
               <span>Inactivos</span>
               <span className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {supplies.filter((s) => !s.active).length}
+                {products.filter((s) => !s.active).length}
               </span>
             </button>
           </div>
@@ -541,7 +553,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
           </Button>
 
           <Button
-            onClick={() => setSupplyDialogOpen(true)}
+            onClick={() => setProductDialogOpen(true)}
             size="sm"
             className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
@@ -564,23 +576,23 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             ? "Prueba con otros términos o cambia el filtro de estado."
             : "Registra tu primer insumo para comenzar a gestionar el inventario.",
           action: hasActiveFilter ? undefined : (
-            <Button size="sm" onClick={() => setSupplyDialogOpen(true)} className="mt-1 flex items-center gap-1.5">
+            <Button size="sm" onClick={() => setProductDialogOpen(true)} className="mt-1 flex items-center gap-1.5">
               <Plus className="h-3.5 w-3.5" /> Nuevo Insumo
             </Button>
           ),
         }}
       />
 
-      <SupplyDialog
-        open={supplyDialogOpen}
-        onOpenChange={setSupplyDialogOpen}
-        onSuccess={handleNewSupplySuccess}
+      <ProductDialog
+        open={productDialogOpen}
+        onOpenChange={setProductDialogOpen}
+        onSuccess={handleNewProductSuccess}
       />
 
       <AdjustmentDialog
         open={adjustmentDialogOpen}
         onOpenChange={setAdjustmentDialogOpen}
-        supply={supplyToAdjust}
+        product={productToAdjust}
         onSuccess={handleAdjustmentSuccess}
       />
 
@@ -609,7 +621,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             <Button
               onClick={() => {
                 if (pendingUnitChange) {
-                  doSaveUnit(pendingUnitChange.supplyId, pendingUnitChange.unit);
+                  doSaveUnit(pendingUnitChange.productId, pendingUnitChange.unit);
                 }
               }}
             >
@@ -623,7 +635,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
       <KardexDialog
         open={kardexOpen}
         onOpenChange={setKardexOpen}
-        supplies={supplies.map((s) => ({
+        products={products.map((s) => ({
           id: s.id,
           name: s.name,
           unitOfMeasure: s.unitOfMeasure,

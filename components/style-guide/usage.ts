@@ -27,7 +27,7 @@ export interface UsedByView {
 // Ventas
 const SALES: UsedByView = { label: "Ventas", href: "/sales", module: "Ventas" };
 const CUSTOMERS: UsedByView = { label: "Clientes", href: "/sales?tab=customers", module: "Ventas" };
-const DISHES: UsedByView = { label: "Platos y carta", href: "/sales/kitchen/dishes", module: "Ventas" };
+const CATALOG: UsedByView = { label: "Productos y carta", href: "/sales/kitchen/products", module: "Ventas" };
 const DRINKS: UsedByView = { label: "Despacho de bebidas", href: "/sales?tab=drinks", module: "Ventas" };
 const READY: UsedByView = { label: "Pedidos listos", href: "/sales?tab=kitchen", module: "Ventas" };
 const UNCOLLECTED: UsedByView = { label: "Pedidos no cobrados", href: "/sales?tab=payments", module: "Ventas" };
@@ -37,7 +37,7 @@ const KDS: UsedByView = { label: "Flujo de cocina (KDS)", href: "/sales/kitchen/
 // Compras e inventario
 const PURCHASES_DASHBOARD: UsedByView = { label: "Dashboard de compras", href: "/purchases/dashboard", module: "Compras e inventario" };
 const PURCHASES: UsedByView = { label: "Compras", href: "/purchases/list", module: "Compras e inventario" };
-const INVENTORY: UsedByView = { label: "Inventario / insumos", href: "/purchases/inventory", module: "Compras e inventario" };
+const INVENTORY: UsedByView = { label: "Kardex e Inventario", href: "/purchases/inventory", module: "Compras e inventario" };
 const TRANSFORMATION: UsedByView = { label: "Transformación (recetas e historial)", href: "/purchases/transformation", module: "Compras e inventario" };
 const SUPPLIERS: UsedByView = { label: "Proveedores", href: "/purchases/suppliers", module: "Compras e inventario" };
 
@@ -58,21 +58,21 @@ const AREAS: UsedByView = { label: "Salones y áreas", href: "/settings/areas", 
 
 export const COMPONENT_USAGE: Record<StyleGuideComponent, readonly UsedByView[]> = {
   table: [
-    CUSTOMERS, DISHES,
+    CUSTOMERS, CATALOG,
     PURCHASES, INVENTORY, TRANSFORMATION, SUPPLIERS,
     ENTRIES, PAYABLES, PERIODS, JOURNAL, LEDGER,
     USERS, ROLES, AUDIT,
   ],
   tabs: [SALES, DRINKS, PURCHASES],
-  "status-badge": [DISHES, PURCHASES, TRANSFORMATION, SUPPLIERS, ENTRIES, PAYABLES, PERIODS, JOURNAL, USERS, ROLES],
+  "status-badge": [CATALOG, PURCHASES, TRANSFORMATION, SUPPLIERS, ENTRIES, PAYABLES, PERIODS, JOURNAL, USERS, ROLES],
   "stat-card": [
-    INVOICES, READY, UNCOLLECTED, DRINKS, KDS, DISHES,
+    INVOICES, READY, UNCOLLECTED, DRINKS, KDS, CATALOG,
     PURCHASES_DASHBOARD,
     AREAS,
   ],
-  "primary-cell": [CUSTOMERS, DISHES, PURCHASES, TRANSFORMATION, SUPPLIERS, ENTRIES, PAYABLES, LEDGER, USERS],
-  "tag-cell": [CUSTOMERS, DISHES, PURCHASES, SUPPLIERS, PAYABLES, JOURNAL, LEDGER, USERS, ROLES],
-  "row-actions": [CUSTOMERS, DISHES, PURCHASES, INVENTORY, TRANSFORMATION, SUPPLIERS, PAYABLES, PERIODS, USERS, ROLES, AUDIT],
+  "primary-cell": [CUSTOMERS, CATALOG, PURCHASES, TRANSFORMATION, SUPPLIERS, ENTRIES, PAYABLES, LEDGER, USERS],
+  "tag-cell": [CUSTOMERS, CATALOG, PURCHASES, SUPPLIERS, PAYABLES, JOURNAL, LEDGER, USERS, ROLES],
+  "row-actions": [CUSTOMERS, CATALOG, PURCHASES, INVENTORY, TRANSFORMATION, SUPPLIERS, PAYABLES, PERIODS, USERS, ROLES, AUDIT],
   button: [],
   "nav-tree": [{ label: "Guía de estilos (menú lateral)", href: "/docs/style-guide", module: "Documentación" }],
 };

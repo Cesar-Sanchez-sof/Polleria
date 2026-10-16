@@ -57,7 +57,7 @@ function TabsSection() {
 
   const code = `<SegmentedTabs
   items={[
-    { value: "all", label: "Todos", count: supplies.length },
+    { value: "all", label: "Todos", count: products.length },
     { value: "active", label: "Activos", count: activeCount, tone: "success" },
     { value: "inactive", label: "Inactivos", count: inactiveCount, tone: "danger" },
   ]}

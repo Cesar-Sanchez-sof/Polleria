@@ -1,12 +1,12 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { InventoryMovementType, SupplyType } from "@prisma/client";
+import { InventoryMovementType, ProductType } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
 
 export interface TransformationLineInput {
-  supplyId: number;
+  productId: number;
   quantity: number;
   unitCost?: number;
 }
@@ -19,8 +19,8 @@ export interface TransformationInput {
 }
 
 export interface TransformationRecipeInput {
-  producedSupplyId: number;
-  consumedSupplyId: number;
+  producedProductId: number;
+  consumedProductId: number;
   producedQuantity: number;
   requiredQuantity: number;
 }
@@ -34,8 +34,8 @@ export async function getTransformationRecipes() {
   try {
     const recipes = await prisma.transformationRecipe.findMany({
       include: {
-        producedSupply: true,
-        consumedSupply: true,
+        producedProduct: true,
+        consumedProduct: true,
       },
       orderBy: { id: "asc" },
     });
@@ -57,17 +57,17 @@ export async function getTransformationRecipes() {
           producedQuantity: Number(r.producedQuantity),
           requiredQuantity: Number(r.requiredQuantity),
           timesUsed: usageCount,
-          producedSupply: {
-            ...r.producedSupply,
-            currentStock: Number(r.producedSupply.currentStock),
-            averageCost: Number(r.producedSupply.averageCost),
-            lastCost: Number(r.producedSupply.lastCost),
+          producedProduct: {
+            ...r.producedProduct,
+            currentStock: Number(r.producedProduct.currentStock),
+            averageCost: Number(r.producedProduct.averageCost),
+            lastCost: Number(r.producedProduct.lastCost),
           },
-          consumedSupply: {
-            ...r.consumedSupply,
-            currentStock: Number(r.consumedSupply.currentStock),
-            averageCost: Number(r.consumedSupply.averageCost),
-            lastCost: Number(r.consumedSupply.lastCost),
+          consumedProduct: {
+            ...r.consumedProduct,
+            currentStock: Number(r.consumedProduct.currentStock),
+            averageCost: Number(r.consumedProduct.averageCost),
+            lastCost: Number(r.consumedProduct.lastCost),
           },
         };
       })
@@ -82,9 +82,9 @@ export async function getTransformationRecipes() {
 
 export async function createTransformationRecipe(data: TransformationRecipeInput) {
   await requirePermission("transformacion.crear");
-  if (!data.producedSupplyId) throw new Error("Debe seleccionar un producto producido");
-  if (!data.consumedSupplyId) throw new Error("Debe seleccionar un insumo consumido");
-  if (data.producedSupplyId === data.consumedSupplyId) {
+  if (!data.producedProductId) throw new Error("Debe seleccionar un producto producido");
+  if (!data.consumedProductId) throw new Error("Debe seleccionar un insumo consumido");
+  if (data.producedProductId === data.consumedProductId) {
     throw new Error("El insumo producido no puede ser el mismo que el consumido");
   }
   if (!data.producedQuantity || data.producedQuantity <= 0) {
@@ -94,19 +94,19 @@ export async function createTransformationRecipe(data: TransformationRecipeInput
     throw new Error("La cantidad requerida debe ser mayor a 0");
   }
 
-  const [producedSupply, consumedSupply] = await Promise.all([
-    prisma.supply.findUnique({ where: { id: data.producedSupplyId } }),
-    prisma.supply.findUnique({ where: { id: data.consumedSupplyId } }),
+  const [producedProduct, consumedProduct] = await Promise.all([
+    prisma.product.findUnique({ where: { id: data.producedProductId } }),
+    prisma.product.findUnique({ where: { id: data.consumedProductId } }),
   ]);
 
-  if (!producedSupply) throw new Error("Producto terminado no encontrado");
-  if (!consumedSupply) throw new Error("Insumo consumido no encontrado");
+  if (!producedProduct) throw new Error("Producto terminado no encontrado");
+  if (!consumedProduct) throw new Error("Insumo consumido no encontrado");
 
   const existing = await prisma.transformationRecipe.findUnique({
     where: {
-      producedSupplyId_consumedSupplyId: {
-        producedSupplyId: data.producedSupplyId,
-        consumedSupplyId: data.consumedSupplyId,
+      producedProductId_consumedProductId: {
+        producedProductId: data.producedProductId,
+        consumedProductId: data.consumedProductId,
       },
     },
   });
@@ -117,15 +117,15 @@ export async function createTransformationRecipe(data: TransformationRecipeInput
 
   return await prisma.transformationRecipe.create({
     data: {
-      producedSupplyId: data.producedSupplyId,
-      consumedSupplyId: data.consumedSupplyId,
+      producedProductId: data.producedProductId,
+      consumedProductId: data.consumedProductId,
       producedQuantity: data.producedQuantity,
       requiredQuantity: data.requiredQuantity,
       active: true,
     },
     include: {
-      producedSupply: true,
-      consumedSupply: true,
+      producedProduct: true,
+      consumedProduct: true,
     },
   });
 }
@@ -152,8 +152,8 @@ export async function updateTransformationRecipe(
       requiredQuantity: data.requiredQuantity,
     },
     include: {
-      producedSupply: true,
-      consumedSupply: true,
+      producedProduct: true,
+      consumedProduct: true,
     },
   });
 }
@@ -164,8 +164,8 @@ export async function toggleTransformationRecipe(id: number, active: boolean) {
     where: { id },
     data: { active },
     include: {
-      producedSupply: true,
-      consumedSupply: true,
+      producedProduct: true,
+      consumedProduct: true,
     },
   });
 }
@@ -219,8 +219,8 @@ export async function executeTransformation(
   const recipe = await prisma.transformationRecipe.findUnique({
     where: { id: recipeId },
     include: {
-      producedSupply: true,
-      consumedSupply: true,
+      producedProduct: true,
+      consumedProduct: true,
     },
   });
 
@@ -233,22 +233,22 @@ export async function executeTransformation(
 
   return await prisma.$transaction(
     async (tx) => {
-      const consumedSupply = await tx.supply.findUnique({
-        where: { id: recipe.consumedSupplyId },
+      const consumedProduct = await tx.product.findUnique({
+        where: { id: recipe.consumedProductId },
       });
-      if (!consumedSupply) throw new Error("Insumo consumido no encontrado");
+      if (!consumedProduct) throw new Error("Insumo consumido no encontrado");
 
-      const currentStockConsumed = Number(consumedSupply.currentStock);
+      const currentStockConsumed = Number(consumedProduct.currentStock);
       if (currentStockConsumed < totalConsumedQty) {
         throw new Error(
           `Stock insuficiente. Disponibles: ${currentStockConsumed}, necesarios: ${totalConsumedQty}`
         );
       }
 
-      const producedSupply = await tx.supply.findUnique({
-        where: { id: recipe.producedSupplyId },
+      const producedProduct = await tx.product.findUnique({
+        where: { id: recipe.producedProductId },
       });
-      if (!producedSupply) throw new Error("Insumo producido no encontrado");
+      if (!producedProduct) throw new Error("Insumo producido no encontrado");
 
       const validEmployeeId = await getOrCreateActiveEmployee(tx, employeeId);
 
@@ -261,10 +261,10 @@ export async function executeTransformation(
       });
 
     const unitCostConsumed =
-      Number(consumedSupply.averageCost) > 0
-        ? Number(consumedSupply.averageCost)
-        : Number(consumedSupply.lastCost) > 0
-        ? Number(consumedSupply.lastCost)
+      Number(consumedProduct.averageCost) > 0
+        ? Number(consumedProduct.averageCost)
+        : Number(consumedProduct.lastCost) > 0
+        ? Number(consumedProduct.lastCost)
         : 0;
 
     const totalValueConsumed = totalConsumedQty * unitCostConsumed;
@@ -274,7 +274,7 @@ export async function executeTransformation(
     const itemConsumption = await tx.transformationItem.create({
       data: {
         transformationId: transformation.id,
-        supplyId: recipe.consumedSupplyId,
+        productId: recipe.consumedProductId,
         itemType: "Consumo",
         quantity: totalConsumedQty,
         unitCost: unitCostConsumed,
@@ -285,7 +285,7 @@ export async function executeTransformation(
     const producedItem = await tx.transformationItem.create({
       data: {
         transformationId: transformation.id,
-        supplyId: recipe.producedSupplyId,
+        productId: recipe.producedProductId,
         itemType: "Producido",
         quantity: totalProducedQty,
         unitCost: unitCostProduced,
@@ -295,7 +295,7 @@ export async function executeTransformation(
     // 3. InventoryMovement Out
     await tx.inventoryMovement.create({
       data: {
-        supplyId: recipe.consumedSupplyId,
+        productId: recipe.consumedProductId,
         transformationItemId: itemConsumption.id,
         movementType: InventoryMovementType.TransformationOut,
         quantity: totalConsumedQty,
@@ -307,7 +307,7 @@ export async function executeTransformation(
     // 4. InventoryMovement In
     await tx.inventoryMovement.create({
       data: {
-        supplyId: recipe.producedSupplyId,
+        productId: recipe.producedProductId,
         transformationItemId: producedItem.id,
         movementType: InventoryMovementType.TransformationIn,
         quantity: totalProducedQty,
@@ -318,14 +318,14 @@ export async function executeTransformation(
 
     // 5. Update Stock Consumed
     const newStockConsumed = currentStockConsumed - totalConsumedQty;
-    await tx.supply.update({
-      where: { id: recipe.consumedSupplyId },
+    await tx.product.update({
+      where: { id: recipe.consumedProductId },
       data: { currentStock: newStockConsumed },
     });
 
     // 6. Update Stock & Average Cost Produced (Promedio ponderado móvil)
-    const currentStockProduced = Number(producedSupply.currentStock);
-    const currentAvgCostProduced = Number(producedSupply.averageCost);
+    const currentStockProduced = Number(producedProduct.currentStock);
+    const currentAvgCostProduced = Number(producedProduct.averageCost);
     const newStockProduced = currentStockProduced + totalProducedQty;
 
     let newAvgCostProduced = 0;
@@ -335,8 +335,8 @@ export async function executeTransformation(
         newStockProduced;
     }
 
-    await tx.supply.update({
-      where: { id: recipe.producedSupplyId },
+    await tx.product.update({
+      where: { id: recipe.producedProductId },
       data: {
         currentStock: newStockProduced,
         lastCost: Math.round(unitCostProduced * 100) / 100,
@@ -383,20 +383,20 @@ export async function registerTransformation(data: TransformationInput) {
 
     // 1. Process Consumos (Salida)
     for (const c of data.consumptions) {
-      const supply = await tx.supply.findUnique({ where: { id: c.supplyId } });
-      if (!supply) throw new Error(`Insumo ID ${c.supplyId} no encontrado`);
+      const product = await tx.product.findUnique({ where: { id: c.productId } });
+      if (!product) throw new Error(`Insumo ID ${c.productId} no encontrado`);
 
-      const currentStock = Number(supply.currentStock);
+      const currentStock = Number(product.currentStock);
       if (currentStock < c.quantity) {
         throw new Error(
-          `Stock insuficiente para el insumo ${supply.name}. Disponibles: ${currentStock}, requeridos: ${c.quantity}`
+          `Stock insuficiente para el insumo ${product.name}. Disponibles: ${currentStock}, requeridos: ${c.quantity}`
         );
       }
 
       const item = await tx.transformationItem.create({
         data: {
           transformationId: transformation.id,
-          supplyId: c.supplyId,
+          productId: c.productId,
           itemType: "Consumo",
           quantity: c.quantity,
           unitCost: c.unitCost || null,
@@ -405,7 +405,7 @@ export async function registerTransformation(data: TransformationInput) {
 
       await tx.inventoryMovement.create({
         data: {
-          supplyId: c.supplyId,
+          productId: c.productId,
           transformationItemId: item.id,
           movementType: InventoryMovementType.TransformationOut,
           quantity: c.quantity,
@@ -415,21 +415,21 @@ export async function registerTransformation(data: TransformationInput) {
       });
 
       const newStock = currentStock - c.quantity;
-      await tx.supply.update({
-        where: { id: c.supplyId },
+      await tx.product.update({
+        where: { id: c.productId },
         data: { currentStock: newStock },
       });
     }
 
     // 2. Process Producidos (Entrada)
     for (const p of data.produced) {
-      const supply = await tx.supply.findUnique({ where: { id: p.supplyId } });
-      if (!supply) throw new Error(`Insumo ID ${p.supplyId} no encontrado`);
+      const product = await tx.product.findUnique({ where: { id: p.productId } });
+      if (!product) throw new Error(`Insumo ID ${p.productId} no encontrado`);
 
       const item = await tx.transformationItem.create({
         data: {
           transformationId: transformation.id,
-          supplyId: p.supplyId,
+          productId: p.productId,
           itemType: "Producido",
           quantity: p.quantity,
           unitCost: p.unitCost || null,
@@ -438,7 +438,7 @@ export async function registerTransformation(data: TransformationInput) {
 
       await tx.inventoryMovement.create({
         data: {
-          supplyId: p.supplyId,
+          productId: p.productId,
           transformationItemId: item.id,
           movementType: InventoryMovementType.TransformationIn,
           quantity: p.quantity,
@@ -447,10 +447,10 @@ export async function registerTransformation(data: TransformationInput) {
         },
       });
 
-      const currentStock = Number(supply.currentStock);
+      const currentStock = Number(product.currentStock);
       const newStock = currentStock + p.quantity;
-      await tx.supply.update({
-        where: { id: p.supplyId },
+      await tx.product.update({
+        where: { id: p.productId },
         data: { currentStock: newStock },
       });
     }
@@ -472,7 +472,7 @@ export async function getTransformations() {
         annulledBy: true,
         items: {
           include: {
-            supply: true,
+            product: true,
           },
         },
       },
@@ -485,11 +485,11 @@ export async function getTransformations() {
         ...i,
         quantity: Number(i.quantity),
         unitCost: i.unitCost ? Number(i.unitCost) : 0,
-        supply: {
-          ...i.supply,
-          currentStock: Number(i.supply.currentStock),
-          averageCost: Number(i.supply.averageCost),
-          lastCost: Number(i.supply.lastCost),
+        product: {
+          ...i.product,
+          currentStock: Number(i.product.currentStock),
+          averageCost: Number(i.product.averageCost),
+          lastCost: Number(i.product.lastCost),
         },
       })),
     }));
@@ -524,7 +524,7 @@ export async function annulTransformation(
     include: {
       items: {
         include: {
-          supply: true,
+          product: true,
         },
       },
     },
@@ -548,14 +548,14 @@ export async function annulTransformation(
       // Validamos primero que haya suficiente stock de todos los insumos producidos antes de modificar nada
       for (const item of transformation.items) {
         if (item.itemType === "Producido") {
-          const supply = await tx.supply.findUnique({
-            where: { id: item.supplyId },
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
           });
-          if (!supply) {
-            throw new Error(`Insumo ID ${item.supplyId} no encontrado`);
+          if (!product) {
+            throw new Error(`Insumo ID ${item.productId} no encontrado`);
           }
 
-          const currentStock = Number(supply.currentStock);
+          const currentStock = Number(product.currentStock);
           const itemQty = Number(item.quantity);
 
           if (currentStock < itemQty) {
@@ -575,7 +575,7 @@ export async function annulTransformation(
           // Se devuelve la materia prima al almacén
           await tx.inventoryMovement.create({
             data: {
-              supplyId: item.supplyId,
+              productId: item.productId,
               transformationItemId: item.id,
               movementType: InventoryMovementType.TransformationIn,
               quantity: itemQty,
@@ -584,8 +584,8 @@ export async function annulTransformation(
             },
           });
 
-          await tx.supply.update({
-            where: { id: item.supplyId },
+          await tx.product.update({
+            where: { id: item.productId },
             data: {
               currentStock: {
                 increment: itemQty,
@@ -596,7 +596,7 @@ export async function annulTransformation(
           // Se descuenta el producto terminado generado previamente
           await tx.inventoryMovement.create({
             data: {
-              supplyId: item.supplyId,
+              productId: item.productId,
               transformationItemId: item.id,
               movementType: InventoryMovementType.TransformationOut,
               quantity: itemQty,
@@ -605,8 +605,8 @@ export async function annulTransformation(
             },
           });
 
-          await tx.supply.update({
-            where: { id: item.supplyId },
+          await tx.product.update({
+            where: { id: item.productId },
             data: {
               currentStock: {
                 decrement: itemQty,
@@ -630,7 +630,7 @@ export async function annulTransformation(
           annulledBy: true,
           items: {
             include: {
-              supply: true,
+              product: true,
             },
           },
         },

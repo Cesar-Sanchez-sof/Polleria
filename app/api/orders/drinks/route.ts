@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isBeverage } from "@/lib/utils/dish-category";
+import { isBeverage } from "@/lib/utils/product-category";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           include: { table: true },
         },
         items: {
-          include: { dish: true },
+          include: { product: true },
           orderBy: { id: "asc" },
         },
       },
@@ -53,11 +53,11 @@ export async function GET(request: NextRequest) {
       tableNumber: number | null;
       tableName: string;
       orderedAt: string;
-      dishId: number;
+      productId: number;
       name: string;
       quantity: number;
       notes: string;
-      dishStatus: string;
+      itemStatus: string;
       isDelivered: boolean;
       orderStatus: string;
     }> = [];
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
       }
 
       for (const item of order.items) {
-        if (isBeverage(item.dish.name, item.dish.description)) {
-          const isDelivered = item.dishStatus === "Delivered" || item.dishStatus === "Served";
+        if (isBeverage(item.product.name, item.product.description)) {
+          const isDelivered = item.itemStatus === "Delivered" || item.itemStatus === "Served";
 
           if (filterStatus === "Pending" && isDelivered) continue;
           if (filterStatus === "Delivered" && !isDelivered) continue;
@@ -95,11 +95,11 @@ export async function GET(request: NextRequest) {
             tableNumber,
             tableName,
             orderedAt: order.orderedAt.toISOString(),
-            dishId: item.dishId,
-            name: item.dish.name,
+            productId: item.productId,
+            name: item.product.name,
             quantity: item.quantity,
             notes: item.notes ?? "",
-            dishStatus: item.dishStatus,
+            itemStatus: item.itemStatus,
             isDelivered,
             orderStatus: order.status,
           });
@@ -146,7 +146,7 @@ export async function PATCH(request: NextRequest) {
       const ids = body.itemIds.map((n: unknown) => Number(n)).filter((n: number) => !Number.isNaN(n));
       const res = await prisma.orderItem.updateMany({
         where: { id: { in: ids } },
-        data: { dishStatus: targetStatus },
+        data: { itemStatus: targetStatus },
       });
       return Response.json({
         success: true,
@@ -161,11 +161,11 @@ export async function PATCH(request: NextRequest) {
       const orderId = Number(body.orderId);
       const orderItems = await prisma.orderItem.findMany({
         where: { orderId },
-        include: { dish: true },
+        include: { product: true },
       });
 
       const drinkItemIds = orderItems
-        .filter((it) => isBeverage(it.dish.name, it.dish.description))
+        .filter((it) => isBeverage(it.product.name, it.product.description))
         .map((it) => it.id);
 
       if (drinkItemIds.length === 0) {
@@ -174,7 +174,7 @@ export async function PATCH(request: NextRequest) {
 
       const res = await prisma.orderItem.updateMany({
         where: { id: { in: drinkItemIds } },
-        data: { dishStatus: targetStatus },
+        data: { itemStatus: targetStatus },
       });
 
       try {
@@ -203,7 +203,7 @@ export async function PATCH(request: NextRequest) {
 
     const updated = await prisma.orderItem.update({
       where: { id: itemId },
-      data: { dishStatus: targetStatus },
+      data: { itemStatus: targetStatus },
     });
 
     try {

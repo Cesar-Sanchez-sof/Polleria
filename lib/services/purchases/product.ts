@@ -1,24 +1,28 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { SupplyType, InventoryMovementType, AffectationIgv } from "@prisma/client";
+import { ProductType, InventoryMovementType, AffectationIgv } from "@prisma/client";
 import { requirePermission } from "@/lib/auth/permissions";
 
-export interface SupplyInput {
+export interface ProductInput {
   name: string;
-  type?: SupplyType;
+  type?: ProductType;
   affectationIgv?: AffectationIgv | null;
   unitOfMeasure: string;
   minimumStock?: number;
+  /** Si se vende en la carta (aparece al mozo y a cocina). Requiere `price`. */
+  sellable?: boolean;
+  price?: number | null;
+  description?: string | null;
 }
 
-export async function getSupplies() {
+export async function getProducts() {
   await requirePermission(["inventario.ver", "compras.ver", "transformacion.ver", "platos.ver"]);
   try {
-    const supplies = await prisma.supply.findMany({
+    const products = await prisma.product.findMany({
       orderBy: { name: "asc" },
     });
-    return supplies.map((s) => ({
+    return products.map((s) => ({
       ...s,
       currentStock: Number(s.currentStock),
       minimumStock: Number(s.minimumStock),
@@ -31,7 +35,7 @@ export async function getSupplies() {
   }
 }
 
-export async function createSupply(data: SupplyInput) {
+export async function createProduct(data: ProductInput) {
   await requirePermission("inventario.crear");
   if (!data.name || data.name.trim() === "") {
     throw new Error("El nombre del insumo es obligatorio");
@@ -40,10 +44,17 @@ export async function createSupply(data: SupplyInput) {
     throw new Error("La unidad de medida es obligatoria");
   }
 
-  const res = await prisma.supply.create({
+  if (data.sellable && !(Number(data.price) > 0)) {
+    throw new Error("Un producto que se vende necesita un precio de venta mayor a 0");
+  }
+
+  const res = await prisma.product.create({
     data: {
       name: data.name.trim(),
-      type: data.type || SupplyType.RawMaterial,
+      description: data.description?.trim() || null,
+      sellable: Boolean(data.sellable),
+      price: data.sellable ? Number(data.price) : null,
+      type: data.type || ProductType.RawMaterial,
       affectationIgv: data.affectationIgv !== undefined ? data.affectationIgv : null,
       unitOfMeasure: data.unitOfMeasure.trim(),
       currentStock: 0,
@@ -61,22 +72,22 @@ export async function createSupply(data: SupplyInput) {
   };
 }
 
-export async function updateSupplyMinimum(supplyId: number, minimumStock: number) {
+export async function updateProductMinimum(productId: number, minimumStock: number) {
   await requirePermission("inventario.editar");
   if (minimumStock < 0) {
     throw new Error("El stock mínimo no puede ser negativo");
   }
 
-  const supply = await prisma.supply.findUnique({
-    where: { id: supplyId },
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
   });
 
-  if (!supply) {
+  if (!product) {
     throw new Error("Insumo no encontrado");
   }
 
-  const updated = await prisma.supply.update({
-    where: { id: supplyId },
+  const updated = await prisma.product.update({
+    where: { id: productId },
     data: {
       minimumStock,
     },
@@ -91,22 +102,22 @@ export async function updateSupplyMinimum(supplyId: number, minimumStock: number
   };
 }
 
-export async function updateSupplyUnit(supplyId: number, unitOfMeasure: string) {
+export async function updateProductUnit(productId: number, unitOfMeasure: string) {
   await requirePermission("inventario.editar");
   if (!unitOfMeasure || unitOfMeasure.trim() === "") {
     throw new Error("La unidad de medida es obligatoria");
   }
 
-  const supply = await prisma.supply.findUnique({
-    where: { id: supplyId },
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
   });
 
-  if (!supply) {
+  if (!product) {
     throw new Error("Insumo no encontrado");
   }
 
-  const updated = await prisma.supply.update({
-    where: { id: supplyId },
+  const updated = await prisma.product.update({
+    where: { id: productId },
     data: {
       unitOfMeasure: unitOfMeasure.trim(),
     },
@@ -122,7 +133,7 @@ export async function updateSupplyUnit(supplyId: number, unitOfMeasure: string) 
 }
 
 export async function registerInventoryAdjustment(
-  supplyId: number,
+  productId: number,
   actualQuantity: number,
   reason: string,
   movementType: InventoryMovementType = InventoryMovementType.Adjustment
@@ -136,27 +147,27 @@ export async function registerInventoryAdjustment(
   }
 
   return await prisma.$transaction(async (tx) => {
-    const supply = await tx.supply.findUnique({
-      where: { id: supplyId },
+    const product = await tx.product.findUnique({
+      where: { id: productId },
     });
-    if (!supply) {
+    if (!product) {
       throw new Error("Insumo no encontrado");
     }
 
-    const currentStock = Number(supply.currentStock);
+    const currentStock = Number(product.currentStock);
     const difference = actualQuantity - currentStock;
 
     const movement = await tx.inventoryMovement.create({
       data: {
-        supplyId,
+        productId,
         movementType,
         quantity: difference,
         reason: reason.trim(),
       },
     });
 
-    const updatedSupply = await tx.supply.update({
-      where: { id: supplyId },
+    const updatedProduct = await tx.product.update({
+      where: { id: productId },
       data: { currentStock: actualQuantity },
     });
 
@@ -166,29 +177,29 @@ export async function registerInventoryAdjustment(
         quantity: Number(movement.quantity),
         unitCost: movement.unitCost ? Number(movement.unitCost) : null,
       },
-      supply: {
-        ...updatedSupply,
-        currentStock: Number(updatedSupply.currentStock),
-        minimumStock: Number(updatedSupply.minimumStock),
-        lastCost: Number(updatedSupply.lastCost),
-        averageCost: Number(updatedSupply.averageCost),
+      product: {
+        ...updatedProduct,
+        currentStock: Number(updatedProduct.currentStock),
+        minimumStock: Number(updatedProduct.minimumStock),
+        lastCost: Number(updatedProduct.lastCost),
+        averageCost: Number(updatedProduct.averageCost),
       },
     };
   });
 }
 
-export async function setSupplyStatus(supplyId: number, active: boolean) {
+export async function setProductStatus(productId: number, active: boolean) {
   await requirePermission("inventario.editar");
-  const supply = await prisma.supply.findUnique({
-    where: { id: supplyId },
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
   });
 
-  if (!supply) {
+  if (!product) {
     throw new Error("Insumo no encontrado");
   }
 
-  const updated = await prisma.supply.update({
-    where: { id: supplyId },
+  const updated = await prisma.product.update({
+    where: { id: productId },
     data: { active },
   });
 
@@ -201,13 +212,13 @@ export async function setSupplyStatus(supplyId: number, active: boolean) {
   };
 }
 
-export async function getInventoryMovements(supplyId?: number) {
+export async function getInventoryMovements(productId?: number) {
   await requirePermission("inventario.ver");
   try {
     const movements = await prisma.inventoryMovement.findMany({
-      where: supplyId ? { supplyId } : undefined,
+      where: productId ? { productId } : undefined,
       include: {
-        supply: true,
+        product: true,
         purchaseOrderItem: {
           include: {
             purchaseOrder: true,
@@ -221,12 +232,12 @@ export async function getInventoryMovements(supplyId?: number) {
       ...m,
       quantity: Number(m.quantity),
       unitCost: m.unitCost ? Number(m.unitCost) : null,
-      supply: {
-        ...m.supply,
-        currentStock: Number(m.supply.currentStock),
-        minimumStock: Number(m.supply.minimumStock),
-        lastCost: Number(m.supply.lastCost),
-        averageCost: Number(m.supply.averageCost),
+      product: {
+        ...m.product,
+        currentStock: Number(m.product.currentStock),
+        minimumStock: Number(m.product.minimumStock),
+        lastCost: Number(m.product.lastCost),
+        averageCost: Number(m.product.averageCost),
       },
     }));
   } catch (error) {
@@ -235,10 +246,10 @@ export async function getInventoryMovements(supplyId?: number) {
   }
 }
 
-export async function searchSupplies(query: string, limit: number = 10) {
+export async function searchProducts(query: string, limit: number = 10) {
   await requirePermission(["compras.ver", "inventario.ver", "transformacion.ver", "platos.ver"]);
   try {
-    const results = await prisma.supply.findMany({
+    const results = await prisma.product.findMany({
       where: {
         active: true,
         name: {
@@ -271,7 +282,7 @@ export async function searchSupplies(query: string, limit: number = 10) {
       currentStock: Number(s.currentStock),
     }));
   } catch (error) {
-    console.error("Error en searchSupplies:", error);
+    console.error("Error en searchProducts:", error);
     return [];
   }
 }

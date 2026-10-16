@@ -70,7 +70,7 @@ import {
 import { toast } from "sonner";
 import {
   listTables,
-  listDishes,
+  listProducts,
   listOrders,
   listPaymentMethods as listPaymentTypes,
   createOrder,
@@ -83,7 +83,7 @@ import {
   listDailySales,
   formatCurrency,
   type TableItem,
-  type MenuDish,
+  type MenuProduct,
   type OrderSummary,
   type TablesSummary,
   type OrderLineItem,
@@ -98,7 +98,7 @@ import {
   validateCustomerDocument,
   canEditOrder,
 } from "@/lib/utils/sales-helpers";
-import { isBeverage } from "@/lib/utils/dish-category";
+import { isBeverage } from "@/lib/utils/product-category";
 import { KitchenBoard } from "@/components/restaurant/KitchenBoard";
 import { DrinksDispatchBoard } from "@/components/restaurant/DrinksDispatchBoard";
 import {
@@ -164,7 +164,7 @@ function SalesManagementContent() {
   const [summary, setSummary] = useState<TablesSummary>({ total: 0, available: 0, occupied: 0 });
   const [takeoutOrders, setTakeoutOrders] = useState<OrderSummary[]>([]);
   const [allOrders, setAllOrders] = useState<OrderSummary[]>([]);
-  const [dishes, setDishes] = useState<MenuDish[]>([]);
+  const [products, setProducts] = useState<MenuProduct[]>([]);
   const [paymentTypes, setPaymentTypes] = useState<PaymentMethodItem[]>([]);
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [saleVouchers, setSaleVouchers] = useState<IssuedVoucher[]>([]);
@@ -201,11 +201,11 @@ function SalesManagementContent() {
         .then((d) => d?.data && setRestaurantConfig(d.data))
         .catch(() => null);
 
-      const [tablesRes, takeoutRes, ordersRes, dishesRes, typesRes, customersRes, salesRes] = await Promise.all([
+      const [tablesRes, takeoutRes, ordersRes, productsRes, typesRes, customersRes, salesRes] = await Promise.all([
         listTables(),
         listOrders({ orderType: "Llevar", status: "activos" }),
         listOrders(),
-        listDishes(),
+        listProducts(),
         listPaymentTypes(),
         listCustomers(),
         listDailySales(salesDateFilter),
@@ -214,7 +214,7 @@ function SalesManagementContent() {
       setSummary(tablesRes.summary);
       setTakeoutOrders(takeoutRes);
       setAllOrders(ordersRes);
-      setDishes(dishesRes);
+      setProducts(productsRes);
       setPaymentTypes(typesRes);
       setCustomers(customersRes);
       setSaleVouchers(salesRes.data);
@@ -230,6 +230,7 @@ function SalesManagementContent() {
     } catch (err: any) {
       toast.error(err.message || "Error al conectar con la base de datos.");
     } finally {
+      setCashChecked(true);
       setLoading(false);
     }
   }, [salesDateFilter]);
@@ -324,11 +325,13 @@ function SalesManagementContent() {
   const [isTakeaway, setIsTakeaway] = useState<boolean>(false);
   const [tableNote, setTableNote] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
-  const [dishSearch, setDishSearch] = useState<string>("");
+  const [productSearch, setProductSearch] = useState<string>("");
   const [orderItems, setOrderItems] = useState<
-    Array<{ dishId: number; name: string; unitPrice: number; quantity: number; notes: string }>
+    Array<{ productId: number; name: string; unitPrice: number; quantity: number; notes: string }>
   >([]);
   const [savingOrder, setSavingOrder] = useState<boolean>(false);
+  /** Al editar: unidades de cada producto que la comanda ya descontó del stock. */
+  const [reservedProductQty, setReservedProductQty] = useState<Record<number, number>>({});
 
   // Modal para agregar observación a un plato de la comanda
   const [notesModalOpen, setNotesModalOpen] = useState<boolean>(false);
@@ -337,7 +340,7 @@ function SalesManagementContent() {
 
   // Modal para selección automática de temperatura de bebida (Helada / Sin helar)
   const [drinkTempModalOpen, setDrinkTempModalOpen] = useState<boolean>(false);
-  const [pendingDrinkDish, setPendingDrinkDish] = useState<MenuDish | null>(null);
+  const [pendingDrinkProduct, setPendingDrinkProduct] = useState<MenuProduct | null>(null);
   const [drinkExtraNotes, setDrinkExtraNotes] = useState<string>("");
 
   // ---------------------------------------------------------------------------
@@ -392,6 +395,8 @@ function SalesManagementContent() {
     register: null,
     activeSession: null,
   });
+  /** false hasta que termina la primera consulta del estado de caja (evita mostrar "cerrada" mientras carga). */
+  const [cashChecked, setCashChecked] = useState<boolean>(false);
   const [openCashModal, setOpenCashModal] = useState<boolean>(false);
   const [closeCashModal, setCloseCashModal] = useState<boolean>(false);
   const [initialCashInput, setInitialCashInput] = useState<string>("100.00");
@@ -510,16 +515,16 @@ function SalesManagementContent() {
     return tables;
   }, [tables, tableFilter]);
 
-  const filteredDishes = useMemo(() => {
-    return dishes.filter((p) => {
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
       const matchCat = selectedCategory === "todos" || p.category === selectedCategory;
       const matchText =
-        !dishSearch.trim() ||
-        p.name.toLowerCase().includes(dishSearch.toLowerCase()) ||
-        p.description.toLowerCase().includes(dishSearch.toLowerCase());
+        !productSearch.trim() ||
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        p.description.toLowerCase().includes(productSearch.toLowerCase());
       return matchCat && matchText;
     });
-  }, [dishes, selectedCategory, dishSearch]);
+  }, [products, selectedCategory, productSearch]);
 
   const orderTotal = useMemo(() => {
     return orderItems.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
@@ -760,7 +765,7 @@ function SalesManagementContent() {
         const matchCode = order.code.toLowerCase().includes(q);
         const matchIdent = order.identifier.toLowerCase().includes(q);
         const matchClient = order.customerOrInfo.toLowerCase().includes(q);
-        const matchItems = order.items.some((i) => (i.name || i.dishName || "").toLowerCase().includes(q));
+        const matchItems = order.items.some((i) => (i.name || i.productName || "").toLowerCase().includes(q));
         if (!matchCode && !matchIdent && !matchClient && !matchItems) {
           return false;
         }
@@ -833,8 +838,9 @@ function SalesManagementContent() {
     setIsTakeaway(false);
     setTableNote("");
     setOrderItems([]);
+    setReservedProductQty({});
     setSelectedCategory("todos");
-    setDishSearch("");
+    setProductSearch("");
     setOrderModalOpen(true);
   };
 
@@ -852,8 +858,9 @@ function SalesManagementContent() {
     setIsTakeaway(true);
     setTableNote("");
     setOrderItems([]);
+    setReservedProductQty({});
     setSelectedCategory("todos");
-    setDishSearch("");
+    setProductSearch("");
     setOrderModalOpen(true);
   };
 
@@ -884,39 +891,66 @@ function SalesManagementContent() {
     setAdditionalTables([]);
     setIsTakeaway(order.orderType === "Llevar");
     setTableNote(order.tableNote || order.notes || "");
+    setReservedProductQty(
+      order.items.reduce<Record<number, number>>((acc, it) => {
+        acc[it.productId] = (acc[it.productId] ?? 0) + it.quantity;
+        return acc;
+      }, {})
+    );
     setOrderItems(
       order.items.map((it) => ({
-        dishId: it.dishId,
-        name: it.name || (it as any).dishName || "",
+        productId: it.productId,
+        name: it.name || (it as any).productName || "",
         unitPrice: it.unitPrice,
         quantity: it.quantity,
         notes: it.notes || "",
-        dishStatus: it.dishStatus,
+        itemStatus: it.itemStatus,
       }))
     );
     setSelectedCategory("todos");
-    setDishSearch("");
+    setProductSearch("");
     setOrderModalOpen(true);
   };
 
-  const addOrderItem = (dish: MenuDish) => {
+  const addOrderItem = (product: MenuProduct) => {
     // Si el producto es una bebida, preguntar automáticamente la temperatura (Helada / Sin helar)
-    if (isBeverage(dish.name, dish.description) || dish.category === "bebidas") {
-      setPendingDrinkDish(dish);
+    if (isBeverage(product.name, product.description) || product.category === "bebidas") {
+      setPendingDrinkProduct(product);
       setDrinkExtraNotes("");
       setDrinkTempModalOpen(true);
       return;
     }
 
-    applyAddOrderItem(dish, "");
+    applyAddOrderItem(product, "");
   };
 
-  const applyAddOrderItem = (dish: MenuDish, tempNote: string) => {
+  /** Máximo de unidades que se pueden pedir de un producto según su stock (null = stock desconocido). */
+  const getProductMaxQty = (productId: number): number | null => {
+    const stock = products.find((d) => d.id === productId)?.stock;
+    if (stock === undefined) return null;
+    return stock + (reservedProductQty[productId] ?? 0);
+  };
+
+  const orderedQtyOf = (productId: number) =>
+    orderItems.filter((it) => it.productId === productId).reduce((sum, it) => sum + it.quantity, 0);
+
+  /** Avisa y devuelve false si agregar una unidad más superaría el stock disponible. */
+  const canAddUnit = (productId: number, name: string): boolean => {
+    const max = getProductMaxQty(productId);
+    if (max !== null && orderedQtyOf(productId) >= max) {
+      toast.warning(`Solo hay ${max} unidad(es) disponibles de ${name}.`);
+      return false;
+    }
+    return true;
+  };
+
+  const applyAddOrderItem = (product: MenuProduct, tempNote: string) => {
+    if (!canAddUnit(product.id, product.name)) return;
     const note = tempNote.trim();
     setOrderItems((prev) => {
       // Agrupar por plato y temperatura exacta para soportar ej. 1 Helada y 1 Sin helar
       const idx = prev.findIndex(
-        (it) => it.dishId === dish.id && (it.notes || "").trim() === note
+        (it) => it.productId === product.id && (it.notes || "").trim() === note
       );
       if (idx >= 0) {
         return prev.map((it, i) =>
@@ -926,9 +960,9 @@ function SalesManagementContent() {
       return [
         ...prev,
         {
-          dishId: dish.id,
-          name: dish.name,
-          unitPrice: dish.price,
+          productId: product.id,
+          name: product.name,
+          unitPrice: product.price,
           quantity: 1,
           notes: note,
         },
@@ -937,16 +971,23 @@ function SalesManagementContent() {
   };
 
   const confirmDrinkTemperature = (temp: "Helada" | "Sin helar") => {
-    if (!pendingDrinkDish) return;
+    if (!pendingDrinkProduct) return;
+    if (!canAddUnit(pendingDrinkProduct.id, pendingDrinkProduct.name)) {
+      setDrinkTempModalOpen(false);
+      setPendingDrinkProduct(null);
+      return;
+    }
     const finalNote = drinkExtraNotes.trim() ? `${temp} - ${drinkExtraNotes.trim()}` : temp;
-    applyAddOrderItem(pendingDrinkDish, finalNote);
+    applyAddOrderItem(pendingDrinkProduct, finalNote);
     setDrinkTempModalOpen(false);
-    setPendingDrinkDish(null);
+    setPendingDrinkProduct(null);
     setDrinkExtraNotes("");
-    toast.success(`✔ ${pendingDrinkDish.name} (${temp}) añadida a la comanda`);
+    toast.success(`✔ ${pendingDrinkProduct.name} (${temp}) añadida a la comanda`);
   };
 
   const changeItemQuantity = (index: number, delta: number) => {
+    const current = orderItems[index];
+    if (delta > 0 && current && !canAddUnit(current.productId, current.name)) return;
     setOrderItems((prev) => {
       const nextQty = prev[index].quantity + delta;
       if (nextQty <= 0) {
@@ -981,10 +1022,10 @@ function SalesManagementContent() {
         await editOrder(editingOrderId, {
           notes: tableNote,
           items: orderItems.map((it) => ({
-            dishId: it.dishId,
+            productId: it.productId,
             quantity: it.quantity,
             notes: it.notes,
-            dishStatus: (it as any).dishStatus,
+            itemStatus: (it as any).itemStatus,
           })),
         });
         toast.success("Comanda actualizada. Nuevos platos registrados y enviados.");
@@ -995,7 +1036,7 @@ function SalesManagementContent() {
           additionalTables: !isTakeaway && additionalTables.length > 0 ? additionalTables : undefined,
           notes: tableNote,
           items: orderItems.map((it) => ({
-            dishId: it.dishId,
+            productId: it.productId,
             quantity: it.quantity,
             notes: it.notes,
           })),
@@ -1680,6 +1721,108 @@ function SalesManagementContent() {
         },
       ];
 
+  const voucherColumns: DataTableColumn<IssuedVoucher>[] = [
+    {
+      key: "code",
+      header: "Comprobante",
+      width: "min-w-[170px]",
+      sortable: true,
+      sortValue: (comp) => comp.fullCode,
+      cell: (comp) => (
+        <div className="flex items-center gap-2">
+          <Tag tone={comp.voucherType === "Factura" ? "blue" : "neutral"} size="sm">
+            {comp.voucherType}
+          </Tag>
+          <span className="font-mono text-xs font-bold text-foreground">{comp.fullCode}</span>
+        </div>
+      ),
+    },
+    {
+      key: "issuedAt",
+      header: "Fecha y Hora",
+      width: "w-40",
+      sortable: true,
+      sortValue: (comp) => new Date(comp.issuedAt).getTime(),
+      cellClassName: "font-mono text-[11px] text-muted-foreground",
+      cell: (comp) => new Date(comp.issuedAt).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" }),
+    },
+    {
+      key: "customer",
+      header: "Cliente",
+      width: "min-w-[200px]",
+      sortable: true,
+      sortValue: (comp) => comp.customer.firstName,
+      primary: {
+        title: (comp) => comp.customer.firstName,
+        subtitle: (comp) => `Doc: ${comp.customer.documentNumber}`,
+        subtitleMono: true,
+        icon: <Users />,
+        iconTone: "neutral",
+      },
+    },
+    {
+      key: "origin",
+      header: "Origen",
+      width: "w-32",
+      sortable: true,
+      sortValue: (comp) => comp.origin,
+      cellClassName: "text-xs font-semibold text-muted-foreground",
+      cell: (comp) => comp.origin,
+    },
+    {
+      key: "paymentMethod",
+      header: "Método Pago",
+      width: "w-36",
+      cell: (comp) => (
+        <Tag tone="neutral" size="sm">
+          {comp.paymentMethod}
+        </Tag>
+      ),
+    },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      width: "w-32",
+      sortable: true,
+      sortValue: (comp) => Number(comp.total),
+      cellClassName: "font-mono text-sm font-extrabold text-red-700",
+      cell: (comp) => formatCurrency(comp.total),
+    },
+    {
+      key: "actions",
+      header: "Acción",
+      align: "right",
+      width: "w-40",
+      cell: (comp) => (
+        <RowActions
+          mode="both"
+          size="sm"
+          actions={[
+            {
+              key: "ticket",
+              label: "Ver Ticket",
+              icon: <Printer />,
+              tone: "neutral",
+              onClick: () => {
+                setIssuedVoucher(comp);
+                setTicketModalOpen(true);
+              },
+            },
+            {
+              key: "s3",
+              label: "S3",
+              icon: <FileText />,
+              tone: "blue",
+              hidden: !comp.s3Url,
+              href: `/api/sales/voucher/${comp.id}`,
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <>
       {/* Header Superior Responsivo */}
@@ -1771,8 +1914,17 @@ function SalesManagementContent() {
       {/* =================================================================== */}
       {activeTab === "tables" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {/* Mientras se consulta el estado de la caja no se asume cerrada */}
+          {!cashChecked && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600 shadow-2xs">
+              <Loader2 className="w-4 h-4 animate-spin text-slate-500 shrink-0" />
+              <span>
+                <strong>Verificando caja:</strong> comprobando si el turno de caja está abierto...
+              </span>
+            </div>
+          )}
           {/* Alerta si la caja está cerrada */}
-          {!cashSessionState.isOpened && (
+          {cashChecked && !cashSessionState.isOpened && (
             <div className="p-3 bg-amber-50/90 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-900 shadow-2xs">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -2422,7 +2574,7 @@ function SalesManagementContent() {
                                 {item.quantity}x
                               </span>
                               <span className="text-slate-800 font-medium">
-                                {item.name || item.dishName}
+                                {item.name || item.productName}
                               </span>
                               {item.notes && (
                                 <p className="text-[10px] text-amber-700 italic mt-0.5 font-medium">
@@ -2668,7 +2820,9 @@ function SalesManagementContent() {
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* BANNER DE CONTROL DE APERTURA / CIERRE DE CAJA */}
           <Card
-            className={`p-4 rounded-2xl border transition-all ${cashSessionState.isOpened
+            className={`p-4 rounded-2xl border transition-all ${!cashChecked
+              ? "bg-slate-50 border-slate-200 shadow-xs"
+              : cashSessionState.isOpened
               ? "bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 border-emerald-200 dark:from-emerald-800/70 dark:via-slate-800 dark:to-slate-900 shadow-xs"
               : "bg-gradient-to-r from-amber-50/80 via-white to-red-50/40 border-amber-300 shadow-xs"
               }`}
@@ -2676,12 +2830,16 @@ function SalesManagementContent() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3">
                 <div
-                  className={`p-2.5 rounded-xl flex items-center justify-center ${cashSessionState.isOpened
+                  className={`p-2.5 rounded-xl flex items-center justify-center ${!cashChecked
+                    ? "bg-slate-400 text-white shadow-sm"
+                    : cashSessionState.isOpened
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "bg-amber-500 text-white shadow-sm"
                     }`}
                 >
-                  {cashSessionState.isOpened ? (
+                  {!cashChecked ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : cashSessionState.isOpened ? (
                     <Unlock className="w-5 h-5" />
                   ) : (
                     <Lock className="w-5 h-5" />
@@ -2694,12 +2852,14 @@ function SalesManagementContent() {
                     </span>
                     <Badge
                       className={
-                        cashSessionState.isOpened
+                        !cashChecked
+                          ? "bg-slate-500 hover:bg-slate-500 text-white text-[11px] font-bold"
+                          : cashSessionState.isOpened
                           ? "bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold"
                           : "bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold"
                       }
                     >
-                      {cashSessionState.isOpened ? "TURNO ABIERTO" : "TURNO CERRADO"}
+                      {!cashChecked ? "VERIFICANDO..." : cashSessionState.isOpened ? "TURNO ABIERTO" : "TURNO CERRADO"}
                     </Badge>
                     {cashSessionState.activeSession && (
                       <span className="text-xs text-slate-500 font-medium">
@@ -2711,7 +2871,9 @@ function SalesManagementContent() {
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {cashSessionState.isOpened
+                    {!cashChecked
+                      ? "Comprobando si el turno de caja está abierto..."
+                      : cashSessionState.isOpened
                       ? `Turno iniciado a las ${new Date(
                         cashSessionState.activeSession?.openedAt || Date.now()
                       ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • Listo para emisión de Boletas y Facturas.`
@@ -2764,7 +2926,7 @@ function SalesManagementContent() {
                   </div>
                 )}
 
-                {cashSessionState.isOpened ? (
+                {!cashChecked ? null : cashSessionState.isOpened ? (
                   <div className="flex items-center gap-2">
                     <Button
                       onClick={() => {
@@ -2914,7 +3076,7 @@ function SalesManagementContent() {
                               <div key={idx} className="flex justify-between items-center text-[11px]">
                                 <span className="truncate pr-2">
                                   <strong className="text-red-700 font-mono mr-1">{it.quantity}x</strong>
-                                  {it.name || (it as any).dishName}
+                                  {it.name || (it as any).productName}
                                   {it.notes && (
                                     <span className="text-[10px] text-amber-700 italic ml-1">
                                       ({it.notes})
@@ -3017,7 +3179,7 @@ function SalesManagementContent() {
                                 <strong className="text-red-700 font-mono mr-1.5">
                                   {it.quantity}x
                                 </strong>
-                                {it.name || (it as any).dishName}
+                                {it.name || (it as any).productName}
                               </span>
                               {it.notes && (
                                 <span className="text-[10px] text-amber-700 italic">
@@ -3628,17 +3790,20 @@ function SalesManagementContent() {
       {activeTab === "invoices" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* Tarjetas KPI de Resumen de Ventas Diarias */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             <StatCard
-              layout="label-first"
+              enableGradient={false}
+              enableHover={false}
               tone="brand"
               icon={<TrendingUp />}
               label="Total Recaudado"
               value={formatCurrency(dailySummary.totalCollected)}
+              colorValue
               footerLeft={`${dailySummary.salesCount} comprobantes emitidos`}
             />
             <StatCard
-              layout="label-first"
+              enableGradient={false}
+              enableHover={false}
               tone="emerald"
               icon={<Banknote />}
               label="Efectivo en Caja"
@@ -3647,7 +3812,8 @@ function SalesManagementContent() {
               footerLeft="Dinero físico disponible"
             />
             <StatCard
-              layout="label-first"
+              enableGradient={false}
+              enableHover={false}
               tone="purple"
               icon={<QrCode />}
               label="Yape QR"
@@ -3656,7 +3822,8 @@ function SalesManagementContent() {
               footerLeft="Pagos digitales QR"
             />
             <StatCard
-              layout="label-first"
+              enableGradient={false}
+              enableHover={false}
               tone="blue"
               icon={<CreditCard />}
               label="POS / Tap to Pay"
@@ -3666,140 +3833,49 @@ function SalesManagementContent() {
             />
           </div>
 
-          {/* Listado y Filtro de Comprobantes Emitidos */}
-          <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                  <Receipt className="w-4 h-4 text-red-700" />
-                  <span>Comprobantes de Venta Emitidos</span>
-                </h3>
-                <Badge variant="outline" className="text-[10px]">
-                  {saleVouchers.length} Emitidos
-                </Badge>
-              </div>
-
-              {/* Filtro de Fecha */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500 font-semibold">Filtrar:</span>
-                <Button
-                  size="sm"
-                  variant={salesDateFilter === "hoy" ? "default" : "outline"}
-                  onClick={() => setSalesDateFilter("hoy")}
-                  className={`text-xs h-7 rounded-lg cursor-pointer ${salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""
-                    }`}
-                >
-                  Hoy
-                </Button>
-                <Button
-                  size="sm"
-                  variant={salesDateFilter === "todas" ? "default" : "outline"}
-                  onClick={() => setSalesDateFilter("todas")}
-                  className={`text-xs h-7 rounded-lg cursor-pointer ${salesDateFilter === "todas" ? "bg-red-700 text-white" : ""
-                    }`}
-                >
-                  Todas las Fechas
-                </Button>
-              </div>
+          {/* Filtro de fecha */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-card p-3 shadow-xs sm:px-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <Receipt className="h-4 w-4 text-red-700" />
+              <span>Comprobantes de Venta Emitidos</span>
+              <Badge variant="outline" className="text-[10px]">
+                {saleVouchers.length} Emitidos
+              </Badge>
+            </h3>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-500">Filtrar:</span>
+              <Button
+                size="sm"
+                variant={salesDateFilter === "hoy" ? "default" : "outline"}
+                onClick={() => setSalesDateFilter("hoy")}
+                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""}`}
+              >
+                Hoy
+              </Button>
+              <Button
+                size="sm"
+                variant={salesDateFilter === "todas" ? "default" : "outline"}
+                onClick={() => setSalesDateFilter("todas")}
+                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "todas" ? "bg-red-700 text-white" : ""}`}
+              >
+                Todas las Fechas
+              </Button>
             </div>
+          </div>
 
-            {/* Tabla de Facturas y Boletas */}
-            <div className="overflow-x-auto mt-4">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] bg-slate-50/70 dark:bg-slate-800/70">
-                    <th className="py-2.5 px-3">Comprobante</th>
-                    <th className="py-2.5 px-3">Fecha y Hora</th>
-                    <th className="py-2.5 px-3">Cliente</th>
-                    <th className="py-2.5 px-3">Origen</th>
-                    <th className="py-2.5 px-3">Método Pago</th>
-                    <th className="py-2.5 px-3 text-right">Total</th>
-                    <th className="py-2.5 px-3 text-center">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {saleVouchers.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
-                        No se han emitido comprobantes para la fecha seleccionada.
-                      </td>
-                    </tr>
-                  ) : (
-                    saleVouchers.map((comp) => (
-                      <tr key={comp.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-3">
-                          <span className="font-mono font-bold text-slate-900 block">
-                            {comp.fullCode}
-                          </span>
-                          <Badge
-                            className={`text-[9px] font-bold border-none ${comp.voucherType === "Factura"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-slate-100 text-slate-800"
-                              }`}
-                          >
-                            {comp.voucherType}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
-                          {new Date(comp.issuedAt).toLocaleString("es-PE", {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="font-semibold text-slate-800 block line-clamp-1">
-                            {comp.customer.firstName}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            Doc: {comp.customer.documentNumber}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-600 font-semibold">
-                          {comp.origin}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
-                            {comp.paymentMethod}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right font-extrabold text-sm text-red-700 font-mono">
-                          {formatCurrency(comp.total)}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setIssuedVoucher(comp);
-                                setTicketModalOpen(true);
-                              }}
-                              className="text-[11px] h-7 px-2.5 rounded-lg border-slate-300 hover:bg-slate-100 font-semibold cursor-pointer"
-                            >
-                              <Printer className="w-3.5 h-3.5 mr-1" />
-                              Ver Ticket
-                            </Button>
-                            {comp.s3Url && (
-                              <a
-                                href={`/api/sales/voucher/${comp.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center text-[11px] h-7 px-2.5 rounded-lg border border-blue-200 hover:bg-blue-100 font-semibold text-blue-700 bg-blue-50 cursor-pointer transition-colors"
-                                title="Ver archivo en S3"
-                              >
-                                <FileText className="w-3.5 h-3.5 mr-1" />
-                                S3
-                              </a>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          {/* Tabla de Facturas y Boletas */}
+          <DataTable
+            columns={voucherColumns}
+            rows={saleVouchers}
+            rowKey={(comp) => comp.id}
+            defaultSort={{ key: "issuedAt", direction: "desc" }}
+            pageResetKey={salesDateFilter}
+            pagination={{ defaultPageSize: 15, itemLabel: "comprobantes" }}
+            emptyState={{
+              icon: <Receipt className="h-7 w-7" />,
+              title: "No se han emitido comprobantes para la fecha seleccionada.",
+            }}
+          />
         </main>
       )}
 
@@ -3826,63 +3902,6 @@ function SalesManagementContent() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Selección de Mesas Unidas (cuando el cliente ocupa más de 1 mesa) */}
-          {!isTakeaway && !isEditing && selectedTable && (
-            <div className="mt-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/70">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Unir mesa(s) adicional(es) para este cliente (Opcional):</span>
-                </label>
-                {additionalTables.length > 0 && (
-                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
-                    +{additionalTables.length} unida(s)
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {tables
-                  .filter((m) => !m.occupied && m.id !== selectedTable.id)
-                  .map((m) => {
-                    const isSelected = additionalTables.includes(m.id);
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          setAdditionalTables((prev) =>
-                            isSelected ? prev.filter((id) => id !== m.id) : [...prev, m.id]
-                          );
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${isSelected
-                          ? "bg-amber-500 text-white border-amber-600 shadow-xs ring-2 ring-amber-300"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
-                      >
-                        + Mesa {m.number} (Aforo {m.capacity})
-                      </button>
-                    );
-                  })}
-                {tables.filter((m) => !m.occupied && m.id !== selectedTable.id).length === 0 && (
-                  <span className="text-[11px] text-slate-400 italic">No hay otras tables disponibles en el salón para unir.</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Observación general */}
-          <div className="mt-2">
-            <label className="text-xs font-bold text-slate-700 block mb-1">
-              Observaciones de la Comanda / Mesa:
-            </label>
-            <Input
-              placeholder="Ej: Mesa con niños pequeños, traer servilletas extra, etc."
-              value={tableNote}
-              onChange={(e) => setTableNote(e.target.value)}
-              className="bg-slate-50 text-xs h-8 rounded-lg"
-            />
-          </div>
-
           {/* Categorías y Filtro */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
             {[
@@ -3906,42 +3925,56 @@ function SalesManagementContent() {
             ))}
           </div>
 
-          {/* Grid de Platos de la Carta */}
+          {/* Grid de productos de la carta */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1 border rounded-xl bg-slate-50/50">
-            {filteredDishes.map((dish) => (
+            {filteredProducts.map((product) => {
+              const max = getProductMaxQty(product.id);
+              const remaining = max === null ? null : max - orderedQtyOf(product.id);
+              const soldOut = remaining !== null && remaining <= 0;
+              return (
               <div
-                key={dish.id}
-                onClick={() => addOrderItem(dish)}
-                className="bg-white p-2.5 rounded-xl border border-slate-200 hover:border-red-400 hover:shadow-xs cursor-pointer flex flex-col justify-between transition-all"
+                key={product.id}
+                onClick={() => addOrderItem(product)}
+                className={`bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between transition-all ${soldOut
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:border-red-400 hover:shadow-xs cursor-pointer"
+                  }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900 line-clamp-1">
-                    {dish.name}
+                    {product.name}
                   </h4>
                   <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
-                    {dish.description}
+                    {product.description}
                   </p>
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
                   <span className="font-bold text-xs text-red-700">
-                    S/ {dish.price.toFixed(2)}
+                    S/ {product.price.toFixed(2)}
                   </span>
-                  <span className="text-[10px] font-bold text-white bg-red-700 px-1.5 py-0.5 rounded-md">
-                    + Añadir
-                  </span>
+                  {soldOut ? (
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">
+                      Agotado
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-white bg-red-700 px-1.5 py-0.5 rounded-md">
+                      + Añadir{remaining !== null ? ` · ${remaining}` : ""}
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Resumen de Ítems Seleccionados */}
           <div className="mt-3">
             <span className="text-xs font-bold text-slate-700 block mb-1">
-              Platos Seleccionados en la Comanda ({orderItems.length}):
+              Productos Seleccionados en la Comanda ({orderItems.length}{orderItems.length > 0 ? ` · ${orderItems.reduce((sum, it) => sum + it.quantity, 0)} unid.` : ""}):
             </span>
             {orderItems.length === 0 ? (
               <p className="text-xs text-slate-400 italic py-2 text-center">
-                Toca cualquier plato de la lista superior para agregarlo.
+                Toca cualquier producto de la lista superior para agregarlo.
               </p>
             ) : (
               <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
@@ -3958,6 +3991,18 @@ function SalesManagementContent() {
                         <span className="text-[11px] text-slate-500">
                           Unit: S/ {item.unitPrice.toFixed(2)}
                         </span>
+                        {getProductMaxQty(item.productId) !== null && (
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              orderedQtyOf(item.productId) >= (getProductMaxQty(item.productId) ?? 0)
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                            title="Máximo de unidades que se pueden vender según el stock en cocina"
+                          >
+                            Máx. {getProductMaxQty(item.productId)}
+                          </span>
+                        )}
                         {item.notes && (
                           <span
                             className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
@@ -4019,7 +4064,11 @@ function SalesManagementContent() {
                         <button
                           type="button"
                           onClick={() => changeItemQuantity(idx, 1)}
-                          className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          disabled={
+                            getProductMaxQty(item.productId) !== null &&
+                            orderedQtyOf(item.productId) >= (getProductMaxQty(item.productId) ?? 0)
+                          }
+                          className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           +
                         </button>
@@ -4043,6 +4092,63 @@ function SalesManagementContent() {
               </div>
             )}
           </div>
+
+          {/* Observación general */}
+          <div className="mt-2">
+            <label className="text-xs font-bold text-slate-700 block mb-1">
+              Observaciones de la Comanda / Mesa:
+            </label>
+            <Input
+              placeholder="Ej: Mesa con niños pequeños, traer servilletas extra, etc."
+              value={tableNote}
+              onChange={(e) => setTableNote(e.target.value)}
+              className="bg-slate-50 text-xs h-8 rounded-lg"
+            />
+          </div>
+
+          {/* Selección de Mesas Unidas (cuando el cliente ocupa más de 1 mesa) */}
+          {!isTakeaway && !isEditing && selectedTable && (
+            <div className="mt-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Unir mesa(s) adicional(es) para este cliente (Opcional):</span>
+                </label>
+                {additionalTables.length > 0 && (
+                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
+                    +{additionalTables.length} unida(s)
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {tables
+                  .filter((m) => !m.occupied && m.id !== selectedTable.id)
+                  .map((m) => {
+                    const isSelected = additionalTables.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setAdditionalTables((prev) =>
+                            isSelected ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                          );
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${isSelected
+                          ? "bg-amber-500 text-white border-amber-600 shadow-xs ring-2 ring-amber-300"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                      >
+                        + Mesa {m.number} (Aforo {m.capacity})
+                      </button>
+                    );
+                  })}
+                {tables.filter((m) => !m.occupied && m.id !== selectedTable.id).length === 0 && (
+                  <span className="text-[11px] text-slate-400 italic">No hay otras tables disponibles en el salón para unir.</span>
+                )}
+              </div>
+            </div>
+          )}
 
           <DialogFooter className="flex gap-2 mt-4 pt-3 border-t border-slate-200">
             <Button
@@ -4153,7 +4259,7 @@ function SalesManagementContent() {
                           <span className="text-red-700 mr-1.5 font-mono">
                             {it.quantity}x
                           </span>
-                          {it.name || (it as any).dishName}
+                          {it.name || (it as any).productName}
                         </span>
                         <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
                           <span>Unitario: S/ {it.unitPrice.toFixed(2)}</span>
@@ -5076,7 +5182,7 @@ function SalesManagementContent() {
         onOpenChange={(open) => {
           if (!open) {
             setDrinkTempModalOpen(false);
-            setPendingDrinkDish(null);
+            setPendingDrinkProduct(null);
             setDrinkExtraNotes("");
           }
         }}
@@ -5092,7 +5198,7 @@ function SalesManagementContent() {
                   ¿Cómo desea la bebida?
                 </DialogTitle>
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {pendingDrinkDish ? pendingDrinkDish.name : "Seleccione temperatura"}
+                  {pendingDrinkProduct ? pendingDrinkProduct.name : "Seleccione temperatura"}
                 </p>
               </div>
             </div>
@@ -5169,7 +5275,7 @@ function SalesManagementContent() {
               size="sm"
               onClick={() => {
                 setDrinkTempModalOpen(false);
-                setPendingDrinkDish(null);
+                setPendingDrinkProduct(null);
                 setDrinkExtraNotes("");
               }}
               className="text-xs rounded-xl cursor-pointer"
@@ -5345,7 +5451,7 @@ function SalesManagementContent() {
               <ul className="list-disc pl-5 space-y-0.5 text-[11px] text-rose-800">
                 <li>El pedido pasará inmediatamente a estado <strong>Cancelado</strong>.</li>
                 <li>Si ocupaba mesa(s), <strong>quedarán disponibles</strong> de inmediato.</li>
-                <li>Se repondrá el stock reservado en cocina para los dishes.</li>
+                <li>Se devolverá al stock el inventario descontado por los productos del pedido.</li>
                 <li><strong>No generará ventas ni movimientos contables</strong>.</li>
               </ul>
             </div>

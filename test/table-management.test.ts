@@ -314,16 +314,16 @@ describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
         name: "1/4 Pollo a la Brasa",
         price: 24.5,
         categoryId: 1,
-        supplies: [
-          { supplyId: 101, quantity: 0.25, unit: "UNIDAD" }, // 1/4 pollo
-          { supplyId: 102, quantity: 0.35, unit: "KG" },     // Papas
-          { supplyId: 103, quantity: 0.05, unit: "KG" },     // Ensalada
+        products: [
+          { productId: 101, quantity: 0.25, unit: "UNIDAD" }, // 1/4 pollo
+          { productId: 102, quantity: 0.35, unit: "KG" },     // Papas
+          { productId: 103, quantity: 0.05, unit: "KG" },     // Ensalada
         ],
       };
 
-      expect(dishWithRecipe.supplies.length).toBe(3);
+      expect(dishWithRecipe.products.length).toBe(3);
       expect(dishWithRecipe.price).toBe(24.5);
-      expect(dishWithRecipe.supplies[0].quantity).toBe(0.25);
+      expect(dishWithRecipe.products[0].quantity).toBe(0.25);
     });
   });
 });

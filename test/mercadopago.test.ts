@@ -317,8 +317,8 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
         status: "Received",
         tables: [{ id: 1, tableId: 5, notes: null, table: { id: 5, number: 5 } }],
         items: [
-          { id: 1, dishId: 2, quantity: 1, unitPrice: 59.0, subtotal: 59.0 },
-          { id: 2, dishId: 4, quantity: 2, unitPrice: 10.0, subtotal: 20.0 },
+          { id: 1, productId: 2, quantity: 1, unitPrice: 59.0, subtotal: 59.0 },
+          { id: 2, productId: 4, quantity: 2, unitPrice: 10.0, subtotal: 20.0 },
         ],
       };
 
@@ -428,7 +428,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
           code: "PED-042",
           status: "Received",
           items: [
-            { id: 1, quantity: 1, unitPrice: 65.0, subtotal: 65.0, dish: { name: "1 Pollo" } },
+            { id: 1, quantity: 1, unitPrice: 65.0, subtotal: 65.0, product: { name: "1 Pollo" } },
           ],
         } as any);
 

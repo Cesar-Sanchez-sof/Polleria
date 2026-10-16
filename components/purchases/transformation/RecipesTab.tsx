@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   RecipeDialog,
-  RecipeSupplyItem,
+  RecipeProductItem,
   TransformationRecipeItem,
 } from "./RecipeDialog";
 import {
@@ -29,10 +29,10 @@ import {
 
 interface RecipesTabProps {
   recipes: TransformationRecipeItem[];
-  supplies: RecipeSupplyItem[];
+  products: RecipeProductItem[];
 }
 
-export function RecipesTab({ recipes, supplies }: RecipesTabProps) {
+export function RecipesTab({ recipes, products }: RecipesTabProps) {
   const router = useRouter();
   const [recipeDialogOpen, setRecipeDialogOpen] = useState(false);
   const [selectedRecipeToEdit, setSelectedRecipeToEdit] =
@@ -87,8 +87,8 @@ export function RecipesTab({ recipes, supplies }: RecipesTabProps) {
       header: "Materia Prima (Insumo Base)",
       width: "min-w-[200px]",
       sortable: true,
-      sortValue: (r) => r.consumedSupply.name,
-      primary: { title: (r) => r.consumedSupply.name, icon: <Package />, iconTone: "rose" },
+      sortValue: (r) => r.consumedProduct.name,
+      primary: { title: (r) => r.consumedProduct.name, icon: <Package />, iconTone: "rose" },
     },
     {
       key: "formula",
@@ -97,12 +97,12 @@ export function RecipesTab({ recipes, supplies }: RecipesTabProps) {
       cell: (r) => (
         <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs shadow-2xs dark:border-slate-800 dark:bg-slate-900">
           <span className="font-mono font-bold text-rose-700 dark:text-rose-400">
-            {r.requiredQuantity} {r.consumedSupply.unitOfMeasure}
+            {r.requiredQuantity} {r.consumedProduct.unitOfMeasure}
           </span>
           <span className="px-0.5 text-[11px] font-medium text-muted-foreground">rinde</span>
           <ArrowRight className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
           <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-            {r.producedQuantity} {r.producedSupply.unitOfMeasure}
+            {r.producedQuantity} {r.producedProduct.unitOfMeasure}
           </span>
         </div>
       ),
@@ -112,8 +112,8 @@ export function RecipesTab({ recipes, supplies }: RecipesTabProps) {
       header: "Producto Terminado (Resultado)",
       width: "min-w-[220px]",
       sortable: true,
-      sortValue: (r) => r.producedSupply.name,
-      primary: { title: (r) => r.producedSupply.name, icon: <Sparkles />, iconTone: "emerald" },
+      sortValue: (r) => r.producedProduct.name,
+      primary: { title: (r) => r.producedProduct.name, icon: <Sparkles />, iconTone: "emerald" },
     },
     {
       key: "status",
@@ -190,7 +190,7 @@ export function RecipesTab({ recipes, supplies }: RecipesTabProps) {
       <RecipeDialog
         open={recipeDialogOpen}
         onOpenChange={setRecipeDialogOpen}
-        supplies={supplies}
+        products={products}
         recipeToEdit={selectedRecipeToEdit}
       />
 
@@ -215,19 +215,19 @@ export function RecipesTab({ recipes, supplies }: RecipesTabProps) {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Producto Terminado:</span>
                 <span className="font-semibold text-foreground">
-                  {recipeToDelete.producedSupply.name} ({recipeToDelete.producedSupply.unitOfMeasure})
+                  {recipeToDelete.producedProduct.name} ({recipeToDelete.producedProduct.unitOfMeasure})
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Insumo Consumido:</span>
                 <span className="font-semibold text-foreground">
-                  {recipeToDelete.consumedSupply.name} ({recipeToDelete.consumedSupply.unitOfMeasure})
+                  {recipeToDelete.consumedProduct.name} ({recipeToDelete.consumedProduct.unitOfMeasure})
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ratio:</span>
                 <span className="font-semibold font-mono">
-                  {recipeToDelete.requiredQuantity} {recipeToDelete.consumedSupply.unitOfMeasure} → {recipeToDelete.producedQuantity} {recipeToDelete.producedSupply.unitOfMeasure}
+                  {recipeToDelete.requiredQuantity} {recipeToDelete.consumedProduct.unitOfMeasure} → {recipeToDelete.producedQuantity} {recipeToDelete.producedProduct.unitOfMeasure}
                 </span>
               </div>
             </div>

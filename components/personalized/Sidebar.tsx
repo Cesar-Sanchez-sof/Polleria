@@ -54,7 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
       { group: "Salón", label: "Pedidos Listos", href: "/sales?tab=kitchen", path: "kitchen" },
       { group: "Salón", label: "Pedidos no cobrados", href: "/sales?tab=payments", path: "cobros-pendientes" },
       { group: "Cocina", label: "Flujo de Cocina (KDS)", href: "/sales/kitchen/kds", path: "cocina-kds" },
-      { group: "Cocina", label: "Platos y carta", href: "/sales/kitchen/dishes", path: "platos-recetas" },
+      { group: "Cocina", label: "Productos y carta", href: "/sales/kitchen/products", path: "productos-carta" },
       { group: "Caja", label: "Ventanilla", href: "/sales?tab=cashier", path: "caja-ventanilla" },
       { group: "Caja", label: "Clientes", href: "/sales?tab=customers", path: "clientes" },
       { group: "Caja", label: "Facturas de Venta", href: "/sales?tab=invoices", path: "facturas-de-venta" },
@@ -65,7 +65,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/purchases/dashboard", path: "dashboard-compras" },
       { label: "Compras", href: "/purchases/list", path: "list" },
-      { label: "Inventario / Insumos", href: "/purchases/inventory", path: "inventory" },
+      { label: "Kardex e Inventario", href: "/purchases/inventory", path: "inventory" },
       { label: "Transformación", href: "/purchases/transformation", path: "transformation" },
       { label: "Proveedores", href: "/purchases/suppliers", path: "suppliers" },
     ],
@@ -198,7 +198,10 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
     const cleanHref = hrefPath || "/";
 
     if (cleanHref === "/") return pathname === "/";
-    if (!(pathname === cleanHref || pathname.startsWith(cleanHref + "/"))) return false;
+    // Los enlaces con query (/sales?tab=...) y /sales son pantallas de una sola ruta: sus subrutas
+    // (/sales/kitchen/products, /sales/kitchen/kds...) tienen su propio enlace en el menú.
+    const exactOnly = Boolean(hrefQuery) || cleanHref === "/sales";
+    if (!(pathname === cleanHref || (!exactOnly && pathname.startsWith(cleanHref + "/")))) return false;
 
     // Si el enlace trae query (p.ej. ?tab=tables), solo activo si coincide exactamente
     if (hrefQuery) {

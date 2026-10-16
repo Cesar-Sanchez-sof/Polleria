@@ -32,7 +32,7 @@ export async function getReceiptsWithoutVoucher() {
         supplier: true,
         items: {
           include: {
-            supply: true,
+            product: true,
           },
         },
       },
@@ -161,7 +161,7 @@ export async function getPurchaseVouchers() {
             receivedBy: true,
             items: {
               include: {
-                supply: true,
+                product: true,
               },
             },
           },

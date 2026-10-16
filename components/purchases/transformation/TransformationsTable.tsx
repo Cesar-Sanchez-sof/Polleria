@@ -53,14 +53,14 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
         const lotNumberSimple = `tr-${t.id}`.toLowerCase();
         const employeeName = `${t.employee.firstName} ${t.employee.paternalLastName || ""}`.toLowerCase();
         const notes = (t.notes || "").toLowerCase();
-        const supplyNames = t.items.map((i) => i.supply.name.toLowerCase()).join(" ");
+        const productNames = t.items.map((i) => i.product.name.toLowerCase()).join(" ");
 
         const matches =
           lotNumber.includes(query) ||
           lotNumberSimple.includes(query) ||
           employeeName.includes(query) ||
           notes.includes(query) ||
-          supplyNames.includes(query);
+          productNames.includes(query);
 
         if (!matches) return false;
       }
@@ -106,7 +106,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
             .filter((i) => i.itemType === "Consumo")
             .map((c) => (
               <div key={c.id} className={t.annulled ? "text-muted-foreground line-through" : "font-medium text-rose-700"}>
-                - {Number(c.quantity).toFixed(2)} {c.supply.unitOfMeasure} {c.supply.name}
+                - {Number(c.quantity).toFixed(2)} {c.product.unitOfMeasure} {c.product.name}
               </div>
             ))}
         </div>
@@ -123,7 +123,7 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
             .filter((i) => i.itemType === "Producido")
             .map((p) => (
               <div key={p.id} className={t.annulled ? "text-muted-foreground line-through" : "font-medium text-emerald-700"}>
-                + {Number(p.quantity).toFixed(2)} {p.supply.unitOfMeasure} {p.supply.name}
+                + {Number(p.quantity).toFixed(2)} {p.product.unitOfMeasure} {p.product.name}
               </div>
             ))}
         </div>

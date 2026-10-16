@@ -36,7 +36,7 @@ const LINK_PERMISSION: Record<string, string> = {
   "/sales?tab=customers": "clientes.ver",
   "/sales?tab=invoices": "facturas.ver",
   "/sales/kitchen/kds": "cocina.ver",
-  "/sales/kitchen/dishes": "platos.ver",
+  "/sales/kitchen/products": "platos.ver",
   "/settings/tables": "mesas.ver",
   "/settings/areas": "areas.ver",
   "/settings/business": "datos.ver",
@@ -78,7 +78,7 @@ export function linkPermission(href: string): string | null {
 const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
   { prefix: "/sales", permissions: SECTIONS.sales },
   { prefix: "/sales/kitchen/kds", permissions: ["cocina.ver"] },
-  { prefix: "/sales/kitchen/dishes", permissions: ["platos.ver"] },
+  { prefix: "/sales/kitchen/products", permissions: ["platos.ver"] },
   { prefix: "/settings/tables", permissions: ["mesas.ver"] },
   { prefix: "/settings/areas", permissions: ["areas.ver"] },
   { prefix: "/settings/business", permissions: ["datos.ver"] },

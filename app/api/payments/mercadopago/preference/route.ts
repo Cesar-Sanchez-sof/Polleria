@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const order = await prisma.salesOrder.findUnique({
       where: { id: orderId },
       include: {
-        items: { include: { dish: true } },
+        items: { include: { product: true } },
       },
     });
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const roundedTotal = Math.round(total * 100) / 100;
 
     const items = order.items.map((it) => ({
-      title: it.dish.name,
+      title: it.product.name,
       quantity: it.quantity,
       unitPrice: Number(it.unitPrice),
     }));

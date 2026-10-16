@@ -19,14 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createSupply, SupplyInput } from "@/lib/services/purchases/supply";
-import { SupplyType, AffectationIgv } from "@prisma/client";
+import { createProduct, ProductInput } from "@/lib/services/purchases/product";
+import { ProductType, AffectationIgv } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
-const SUPPLY_TYPE_LABELS: Record<SupplyType, string> = {
-  [SupplyType.RawMaterial]: "Materia Prima",
-  [SupplyType.FinishedProduct]: "Producto Terminado",
+const SUPPLY_TYPE_LABELS: Record<ProductType, string> = {
+  [ProductType.RawMaterial]: "Materia Prima",
+  [ProductType.FinishedProduct]: "Producto Terminado",
 };
 
 const AFFECTATION_LABELS: Record<AffectationIgv, string> = {
@@ -34,36 +34,38 @@ const AFFECTATION_LABELS: Record<AffectationIgv, string> = {
   [AffectationIgv.Included]: "Incluido",
 };
 
-interface SupplyDialogProps {
+interface ProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: (createdSupply: any) => void;
+  onSuccess: (createdProduct: any) => void;
   prefilledName?: string;
-  prefilledType?: SupplyType;
+  prefilledType?: ProductType;
   prefilledAffectationIgv?: AffectationIgv | null;
   showAffectationIgv?: boolean;
 }
 
-export function SupplyDialog({
+export function ProductDialog({
   open,
   onOpenChange,
   onSuccess,
   prefilledName = "",
-  prefilledType = SupplyType.RawMaterial,
+  prefilledType = ProductType.RawMaterial,
   prefilledAffectationIgv,
   showAffectationIgv = false,
-}: SupplyDialogProps) {
+}: ProductDialogProps) {
   const defaultAffectation = showAffectationIgv
     ? (prefilledAffectationIgv ?? null)
     : null;
 
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<SupplyInput>({
+  const [formData, setFormData] = useState<ProductInput>({
     name: prefilledName,
     type: prefilledType,
     affectationIgv: defaultAffectation,
     unitOfMeasure: "KG",
-    minimumStock: prefilledType === SupplyType.FinishedProduct ? 0 : 5,
+    minimumStock: prefilledType === ProductType.FinishedProduct ? 0 : 5,
+    sellable: false,
+    price: null,
   });
 
   React.useEffect(() => {
@@ -73,7 +75,9 @@ export function SupplyDialog({
         type: prefilledType,
         affectationIgv: defaultAffectation,
         unitOfMeasure: "KG",
-        minimumStock: prefilledType === SupplyType.FinishedProduct ? 0 : 5,
+        minimumStock: prefilledType === ProductType.FinishedProduct ? 0 : 5,
+        sellable: false,
+        price: null,
       });
     }
   }, [open, prefilledName, prefilledType, defaultAffectation]);
@@ -82,16 +86,16 @@ export function SupplyDialog({
     e.preventDefault();
     setLoading(true);
     try {
-      const payload: SupplyInput = {
+      const payload: ProductInput = {
         ...formData,
         affectationIgv: showAffectationIgv ? (formData.affectationIgv ?? null) : null,
       };
-      const created = await createSupply(payload);
-      toast.success("Insumo creado exitosamente");
+      const created = await createProduct(payload);
+      toast.success("Producto creado exitosamente");
       onSuccess(created);
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message || "Error al crear insumo");
+      toast.error(err.message || "Error al crear producto");
     } finally {
       setLoading(false);
     }
@@ -122,16 +126,16 @@ export function SupplyDialog({
 
           {!showAffectationIgv ? (
             <div className="space-y-1.5">
-              <Label htmlFor="type">Tipo de Insumo</Label>
+              <Label htmlFor="type">Tipo de Producto</Label>
               <Select
                 value={formData.type}
                 onValueChange={(val) => {
-                  const newType = val as SupplyType;
+                  const newType = val as ProductType;
                   setFormData((prev) => ({
                     ...prev,
                     type: newType,
                     minimumStock:
-                      newType === SupplyType.FinishedProduct
+                      newType === ProductType.FinishedProduct
                         ? 0
                         : prev.minimumStock === 0
                           ? 5
@@ -145,8 +149,8 @@ export function SupplyDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="w-(--anchor-width)">
-                  <SelectItem value={SupplyType.RawMaterial}>Materia Prima</SelectItem>
-                  <SelectItem value={SupplyType.FinishedProduct}>
+                  <SelectItem value={ProductType.RawMaterial}>Materia Prima</SelectItem>
+                  <SelectItem value={ProductType.FinishedProduct}>
                     Producto Terminado
                   </SelectItem>
                 </SelectContent>
@@ -155,16 +159,16 @@ export function SupplyDialog({
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="type">Tipo de Insumo</Label>
+                <Label htmlFor="type">Tipo de Producto</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(val) => {
-                    const newType = val as SupplyType;
+                    const newType = val as ProductType;
                     setFormData((prev) => ({
                       ...prev,
                       type: newType,
                       minimumStock:
-                        newType === SupplyType.FinishedProduct
+                        newType === ProductType.FinishedProduct
                           ? 0
                           : prev.minimumStock === 0
                             ? 5
@@ -178,8 +182,8 @@ export function SupplyDialog({
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="w-(--anchor-width)">
-                    <SelectItem value={SupplyType.RawMaterial}>Materia Prima</SelectItem>
-                    <SelectItem value={SupplyType.FinishedProduct}>
+                    <SelectItem value={ProductType.RawMaterial}>Materia Prima</SelectItem>
+                    <SelectItem value={ProductType.FinishedProduct}>
                       Producto Terminado
                     </SelectItem>
                   </SelectContent>
@@ -243,6 +247,34 @@ export function SupplyDialog({
                 }
               />
             </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.sellable)}
+                  onChange={(e) => setFormData({ ...formData, sellable: e.target.checked })}
+                  className="h-4 w-4 accent-blue-700"
+                />
+                Se vende en la carta (lo ven el mozo y la cocina)
+              </label>
+              {formData.sellable && (
+                <div className="space-y-1.5 pt-1">
+                  <Label htmlFor="price">Precio de venta (S/)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.10"
+                    min="0.01"
+                    value={formData.price ?? ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, price: e.target.value === "" ? null : parseFloat(e.target.value) })
+                    }
+                    required
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <DialogFooter className="pt-2">
@@ -256,7 +288,7 @@ export function SupplyDialog({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Spinner className="mr-2 h-4 w-4" />}
-              Guardar Insumo
+              Guardar Producto
             </Button>
           </DialogFooter>
         </form>

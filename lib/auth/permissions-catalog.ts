@@ -26,14 +26,14 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
   { code: "listos", name: "Pedidos listos", group: "Ventas", subgroup: "Salón", parent: "pedidos", actions: ["ver"] },
   { code: "ventas", name: "Pedidos no cobrados", group: "Ventas", subgroup: "Salón", actions: CRUD },
   { code: "cocina", name: "Flujo de cocina (KDS)", group: "Ventas", subgroup: "Cocina", actions: ["ver", "editar"] },
-  { code: "platos", name: "Platos e ingredientes (carta)", group: "Ventas", subgroup: "Cocina", actions: CRUD },
+  { code: "platos", name: "Productos y carta", group: "Ventas", subgroup: "Cocina", actions: CRUD },
   { code: "caja", name: "Ventanilla (apertura, cierre, movimientos)", group: "Ventas", subgroup: "Caja", actions: WITHOUT_DELETE },
   { code: "clientes", name: "Clientes", group: "Ventas", subgroup: "Caja", actions: WITHOUT_DELETE },
   { code: "facturas", name: "Facturas de venta", group: "Ventas", subgroup: "Caja", parent: "ventas", actions: ["ver"] },
   // Compras e inventario
   { code: "dashcompras", name: "Dashboard de compras", group: "Compras e inventario", parent: "compras", actions: ["ver"] },
   { code: "compras", name: "Compras", group: "Compras e inventario", actions: CRUD },
-  { code: "inventario", name: "Inventario / insumos", group: "Compras e inventario", actions: WITHOUT_DELETE },
+  { code: "inventario", name: "Kardex e Inventario", group: "Compras e inventario", actions: WITHOUT_DELETE },
   { code: "transformacion", name: "Transformación de insumos", group: "Compras e inventario", actions: ["ver", "crear", "eliminar"] },
   { code: "proveedores", name: "Proveedores", group: "Compras e inventario", actions: CRUD },
   // Contabilidad

@@ -180,7 +180,7 @@ export function PayableDetailDialog({
                   <tbody className="divide-y divide-border/40">
                     {invoice.orderItems.map((item) => (
                       <tr key={item.id} className="hover:bg-muted/30">
-                        <td className="py-2 px-3 font-medium text-foreground">{item.supplyName}</td>
+                        <td className="py-2 px-3 font-medium text-foreground">{item.productName}</td>
                         <td className="py-2 px-3 text-center text-muted-foreground">{item.unitOfMeasure}</td>
                         <td className="py-2 px-3 text-right font-mono">{item.quantity}</td>
                         <td className="py-2 px-3 text-right font-mono">S/ {item.unitPrice.toFixed(2)}</td>

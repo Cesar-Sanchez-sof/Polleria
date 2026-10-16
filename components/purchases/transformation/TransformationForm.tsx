@@ -28,17 +28,17 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { TransformationRecipeItem, RecipeSupplyItem } from "./RecipeDialog";
+import { TransformationRecipeItem, RecipeProductItem } from "./RecipeDialog";
 
 interface TransformationFormProps {
   recipes: TransformationRecipeItem[];
-  supplies: RecipeSupplyItem[];
+  products: RecipeProductItem[];
   onGoToRecipesTab?: () => void;
 }
 
 export function TransformationForm({
   recipes,
-  supplies,
+  products,
   onGoToRecipesTab,
 }: TransformationFormProps) {
   const router = useRouter();
@@ -59,33 +59,33 @@ export function TransformationForm({
   }, [activeRecipes, selectedRecipeId]);
 
   // Datos del insumo consumido en tiempo real
-  const consumedSupply = useMemo(() => {
+  const consumedProduct = useMemo(() => {
     if (!selectedRecipe) return null;
     return (
-      supplies.find((s) => s.id === selectedRecipe.consumedSupplyId) ||
-      selectedRecipe.consumedSupply
+      products.find((s) => s.id === selectedRecipe.consumedProductId) ||
+      selectedRecipe.consumedProduct
     );
-  }, [selectedRecipe, supplies]);
+  }, [selectedRecipe, products]);
 
-  const producedSupply = useMemo(() => {
+  const producedProduct = useMemo(() => {
     if (!selectedRecipe) return null;
     return (
-      supplies.find((s) => s.id === selectedRecipe.producedSupplyId) ||
-      selectedRecipe.producedSupply
+      products.find((s) => s.id === selectedRecipe.producedProductId) ||
+      selectedRecipe.producedProduct
     );
-  }, [selectedRecipe, supplies]);
+  }, [selectedRecipe, products]);
 
   // Cálculos derivados
   const runTimes = Math.max(1, Number(times) || 1);
   const totalConsumed = selectedRecipe ? Number(selectedRecipe.requiredQuantity) * runTimes : 0;
   const totalProduced = selectedRecipe ? Number(selectedRecipe.producedQuantity) * runTimes : 0;
 
-  const currentAvailableStock = Number((consumedSupply as any)?.currentStock || 0);
-  const currentProducedStock = Number((producedSupply as any)?.currentStock || 0);
+  const currentAvailableStock = Number((consumedProduct as any)?.currentStock || 0);
+  const currentProducedStock = Number((producedProduct as any)?.currentStock || 0);
   const hasInsufficientStock = selectedRecipe ? currentAvailableStock < totalConsumed : false;
 
   // Costos estimados
-  const consumedUnitCost = Number((consumedSupply as any)?.averageCost || (consumedSupply as any)?.lastCost || 0);
+  const consumedUnitCost = Number((consumedProduct as any)?.averageCost || (consumedProduct as any)?.lastCost || 0);
   const totalConsumedCost = totalConsumed * consumedUnitCost;
   const estimatedProducedUnitCost = totalProduced > 0 ? totalConsumedCost / totalProduced : 0;
 
@@ -181,15 +181,15 @@ export function TransformationForm({
               <SelectTrigger id="recipeSelect" className="h-10 text-xs bg-background">
                 <SelectValue placeholder="Seleccionar receta">
                   {selectedRecipe
-                    ? `${selectedRecipe.consumedSupply.name} (${selectedRecipe.requiredQuantity} ${selectedRecipe.consumedSupply.unitOfMeasure}) → ${selectedRecipe.producedSupply.name} (${selectedRecipe.producedQuantity} ${selectedRecipe.producedSupply.unitOfMeasure})`
+                    ? `${selectedRecipe.consumedProduct.name} (${selectedRecipe.requiredQuantity} ${selectedRecipe.consumedProduct.unitOfMeasure}) → ${selectedRecipe.producedProduct.name} (${selectedRecipe.producedQuantity} ${selectedRecipe.producedProduct.unitOfMeasure})`
                     : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {activeRecipes.map((r) => (
                   <SelectItem key={r.id} value={r.id.toString()}>
-                    {r.consumedSupply.name} ({r.requiredQuantity} {r.consumedSupply.unitOfMeasure}) →{" "}
-                    {r.producedSupply.name} ({r.producedQuantity} {r.producedSupply.unitOfMeasure})
+                    {r.consumedProduct.name} ({r.requiredQuantity} {r.consumedProduct.unitOfMeasure}) →{" "}
+                    {r.producedProduct.name} ({r.producedQuantity} {r.producedProduct.unitOfMeasure})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -251,7 +251,7 @@ export function TransformationForm({
                       Insumo a Consumir
                     </span>
                     <span className="text-xs font-semibold text-foreground">
-                      {consumedSupply?.name}
+                      {consumedProduct?.name}
                     </span>
                   </div>
                 </div>
@@ -267,7 +267,7 @@ export function TransformationForm({
                     - {totalConsumed.toFixed(2)}
                   </span>
                   <span className="text-xs font-semibold text-rose-900 dark:text-rose-300">
-                    {consumedSupply?.unitOfMeasure}
+                    {consumedProduct?.unitOfMeasure}
                   </span>
                 </div>
               </div>
@@ -276,7 +276,7 @@ export function TransformationForm({
                 <span>
                   Disponible:{" "}
                   <strong className={hasInsufficientStock ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
-                    {currentAvailableStock.toFixed(2)} {consumedSupply?.unitOfMeasure}
+                    {currentAvailableStock.toFixed(2)} {consumedProduct?.unitOfMeasure}
                   </strong>
                 </span>
                 {consumedUnitCost > 0 && (
@@ -306,7 +306,7 @@ export function TransformationForm({
                       Producto a Generar
                     </span>
                     <span className="text-xs font-semibold text-foreground">
-                      {producedSupply?.name}
+                      {producedProduct?.name}
                     </span>
                   </div>
                 </div>
@@ -322,7 +322,7 @@ export function TransformationForm({
                     + {totalProduced.toFixed(2)}
                   </span>
                   <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-300">
-                    {producedSupply?.unitOfMeasure}
+                    {producedProduct?.unitOfMeasure}
                   </span>
                 </div>
               </div>
@@ -331,7 +331,7 @@ export function TransformationForm({
                 <span>
                   Stock actual:{" "}
                   <strong className="text-foreground">
-                    {currentProducedStock.toFixed(2)} {producedSupply?.unitOfMeasure}
+                    {currentProducedStock.toFixed(2)} {producedProduct?.unitOfMeasure}
                   </strong>
                 </span>
                 {estimatedProducedUnitCost > 0 && (
@@ -350,8 +350,8 @@ export function TransformationForm({
               <div className="space-y-0.5">
                 <p className="font-bold">Stock insuficiente para ejecutar este lote</p>
                 <p className="text-[11px] text-rose-800 dark:text-rose-300">
-                  Disponibles en almacén: <strong>{currentAvailableStock.toFixed(2)} {consumedSupply?.unitOfMeasure}</strong>.
-                  Requeridos para {runTimes} lote{runTimes > 1 ? "s" : ""}: <strong>{totalConsumed.toFixed(2)} {consumedSupply?.unitOfMeasure}</strong>.
+                  Disponibles en almacén: <strong>{currentAvailableStock.toFixed(2)} {consumedProduct?.unitOfMeasure}</strong>.
+                  Requeridos para {runTimes} lote{runTimes > 1 ? "s" : ""}: <strong>{totalConsumed.toFixed(2)} {consumedProduct?.unitOfMeasure}</strong>.
                 </p>
               </div>
             </div>

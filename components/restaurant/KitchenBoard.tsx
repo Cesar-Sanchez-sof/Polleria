@@ -22,7 +22,7 @@ import {
   updateOrderStatus,
   type OrderSummary,
 } from "@/lib/services/tables.service";
-import { isBeverage } from "@/lib/utils/dish-category";
+import { isBeverage } from "@/lib/utils/product-category";
 
 type KitchenFilter = "todos" | "Received" | "Preparing" | "Served";
 type KitchenStatus = "Received" | "Preparing" | "Served";
@@ -295,7 +295,7 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
                           {order.items
                             .filter((item) => !excludeBeverages || !isBeverage(item.name))
                             .map((item, idx) => (
-                              <div key={`${order.id}-${item.dishId}-${idx}`} className="flex flex-col">
+                              <div key={`${order.id}-${item.productId}-${idx}`} className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                   <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-100 font-mono text-[11px] font-bold text-red-700">
                                     {item.quantity}x

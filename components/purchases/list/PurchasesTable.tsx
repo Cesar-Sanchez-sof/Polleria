@@ -39,12 +39,12 @@ export interface PurchasePaymentItem {
 
 export interface PurchaseOrderItemLine {
   id: number;
-  supplyId: number;
+  productId: number;
   quantityOrdered: number | string;
   quantityReceived: number | string | null;
   unitPrice: number | string;
   affectationIgv: string;
-  supply: {
+  product: {
     id: number;
     name: string;
     unitOfMeasure: string;

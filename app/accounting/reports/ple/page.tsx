@@ -2,35 +2,39 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, BookOpenCheck, Download, FileText, Loader2, Sheet } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, Download, FileText, FlaskConical, Loader2, Sheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { BOOK_FORMATS, type PleBookId } from "@/lib/ple/constants";
 import {
   downloadPle,
   getPlePreview,
+  simulateSireTest,
   type PleDownloadFormat,
   type PlePreview,
+  type SireTestResult,
 } from "@/lib/services/ple-client.service";
 
 interface BookEntry {
-  id: PleBookId;
+  id?: PleBookId;
+  format: string;
   label: string;
   description: string;
 }
 
 const BOOKS: readonly BookEntry[] = [
-  { id: "sales-register", label: "Registro de Ventas", description: "Registro de Ventas e Ingresos" },
-  { id: "purchases-register", label: "Registro de Compras", description: "Compras con y sin derecho a crédito fiscal" },
-  { id: "cash-book", label: "Libro Caja y Bancos - efectivo", description: "Movimientos de las cuentas 101 a 103" },
-  { id: "general-journal", label: "Libro Diario", description: "Todos los asientos del mes" },
-  { id: "chart-of-accounts", label: "Detalle del Plan Contable", description: "Cuentas utilizadas en el Diario" },
-  { id: "general-ledger", label: "Libro Mayor", description: "Movimientos agrupados por cuenta" },
+  { id: "sales-register", format: "14.1", label: "Registro de Ventas", description: "Registro de Ventas e Ingresos" },
+  { id: "purchases-register", format: "8.1", label: "Registro de Compras", description: "Compras con y sin derecho a crédito fiscal" },
+  { id: "cash-book", format: "1.1", label: "Libro Caja y Bancos - efectivo", description: "Movimientos de las cuentas 101 a 103" },
+  { id: "general-journal", format: "5.1", label: "Libro Diario", description: "Todos los asientos del mes" },
+  { id: "chart-of-accounts", format: "5.3", label: "Detalle del Plan Contable", description: "Cuentas utilizadas en el Diario" },
+  { id: "general-ledger", format: "6.1", label: "Libro Mayor", description: "Movimientos agrupados por cuenta" },
 ];
 
 /** Formats of the SUNAT catalog whose layout is not implemented yet (shown disabled). */
-const PENDING_BOOKS: readonly { format: string; label: string; description: string }[] = [
+const PENDING_BOOKS: readonly BookEntry[] = [
   { format: "1.2", label: "Libro Caja y Bancos - cuenta corriente", description: "Movimientos de las cuentas corrientes" },
   { format: "4.1", label: "Libro de Retenciones (inc. e y f, art. 34 LIR)", description: "Retenciones de rentas de quinta categoría" },
   { format: "5.2", label: "Libro Diario Simplificado", description: "Diario en formato simplificado" },
@@ -39,6 +43,10 @@ const PENDING_BOOKS: readonly { format: string; label: string; description: stri
   { format: "3.20", label: "Estado de Resultados - PCGE 2019 (comparativo)", description: "Formato 3.20 comparativo PCGE 2019" },
   { format: "13.1", label: "Registro de Inventario Permanente Valorizado", description: "Inventario permanente valorizado" },
 ];
+
+const ALL_BOOKS = [...BOOKS, ...PENDING_BOOKS].sort((a, b) =>
+  a.label.localeCompare(b.label, "es")
+);
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -61,6 +69,8 @@ export default function PleBooksPage() {
   const [preview, setPreview] = useState<PlePreview | null>(null);
   const [loading, setLoading] = useState<PleBookId | null>(null);
   const [downloading, setDownloading] = useState<PleDownloadFormat | null>(null);
+  const [testingSire, setTestingSire] = useState(false);
+  const [sireTest, setSireTest] = useState<SireTestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const years = useMemo(() => {
@@ -73,12 +83,32 @@ export default function PleBooksPage() {
     setLoading(book);
     setError(null);
     setPreview(null);
+    setSireTest(null);
     try {
       setPreview(await getPlePreview(book, year, month));
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo validar el libro.");
     } finally {
       setLoading(null);
+    }
+  };
+
+  const testSire = async () => {
+    if (active !== "sales-register" && active !== "purchases-register") return;
+    setTestingSire(true);
+    setError(null);
+    try {
+      const result = await simulateSireTest(active, year, month);
+      setSireTest(result);
+      if (result.status === "validated") {
+        toast.success(`Prueba local ${result.register} validada.`);
+      } else {
+        toast.error(`Prueba local ${result.register} rechazada por validaciones.`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo completar la prueba local de SIRE.");
+    } finally {
+      setTestingSire(false);
     }
   };
 
@@ -114,6 +144,7 @@ export default function PleBooksPage() {
                 onChange={(e) => {
                   setYear(Number(e.target.value));
                   setPreview(null);
+                  setSireTest(null);
                 }}
                 className="h-8 w-auto rounded-lg border border-slate-200 bg-white px-2 text-sm font-normal normal-case text-slate-800"
               >
@@ -131,6 +162,7 @@ export default function PleBooksPage() {
                 onChange={(e) => {
                   setMonth(Number(e.target.value));
                   setPreview(null);
+                  setSireTest(null);
                 }}
                 className="h-8 w-auto rounded-lg border border-slate-200 bg-white px-2 text-sm font-normal normal-case text-slate-800"
               >
@@ -152,16 +184,19 @@ export default function PleBooksPage() {
           </p>
         </Card>
 
-        <Card className="gap-0 divide-y divide-slate-100 p-0 dark:divide-slate-800">
-          {BOOKS.map((book) => (
-            <div
-              key={book.id}
-              className={`flex items-center justify-between gap-3 px-5 py-4 ${
-                active === book.id ? "bg-blue-50/60 dark:bg-slate-800/60" : ""
-              }`}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {ALL_BOOKS.map((book) => {
+            const bookId = book.id;
+            const available = bookId !== undefined;
+            return (
+            <Card
+              key={book.format}
+              className={`flex min-h-28 items-center justify-between gap-3 p-4 ${
+                active === bookId ? "border-blue-200 bg-blue-50/60 dark:bg-slate-800/60" : ""
+              } ${available ? "" : "opacity-60"}`}
             >
               <div className="flex min-w-0 items-center gap-3">
-                <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                <FileText className={`h-4 w-4 shrink-0 ${available ? "text-slate-400" : "text-slate-300"}`} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
                     {book.label}
@@ -172,35 +207,21 @@ export default function PleBooksPage() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={loading !== null}
-                onClick={() => validate(book.id)}
-                aria-label={`Validar y generar PLE ${BOOK_FORMATS[book.id]}`}
+                disabled={!available || loading !== null}
+                onClick={available ? () => validate(bookId) : undefined}
+                title={available ? undefined : "Disponible próximamente"}
+                aria-label={available ? `Validar y generar PLE ${BOOK_FORMATS[bookId]}` : undefined}
               >
-                {loading === book.id ? (
+                {available && loading === bookId ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  `PLE ${BOOK_FORMATS[book.id]}`
+                  `PLE ${book.format}`
                 )}
               </Button>
-            </div>
-          ))}
-          {PENDING_BOOKS.map((book) => (
-            <div key={book.format} className="flex items-center justify-between gap-3 px-5 py-4 opacity-60">
-              <div className="flex min-w-0 items-center gap-3">
-                <FileText className="h-4 w-4 shrink-0 text-slate-300" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                    {book.label}
-                  </p>
-                  <p className="truncate text-xs text-slate-500">{book.description}</p>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" disabled title="Disponible próximamente">
-                PLE {book.format}
-              </Button>
-            </div>
-          ))}
-        </Card>
+            </Card>
+          );
+          })}
+        </div>
 
         {error && (
           <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</Card>
@@ -225,6 +246,43 @@ export default function PleBooksPage() {
                 </p>
               </div>
               <div className="flex gap-2">
+                {(active === "sales-register" || active === "purchases-register") && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button variant="outline" onClick={testSire} disabled={testingSire || downloading !== null} />
+                        }
+                      >
+                        {testingSire ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <FlaskConical className="mr-2 h-4 w-4" />
+                        )}
+                        Probar SIRE
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="end" className="max-w-sm flex-col items-start gap-1.5 p-3 text-xs leading-snug">
+                        <p className="font-semibold">Prueba local de SIRE (no envía nada a SUNAT)</p>
+                        <ul className="list-disc space-y-1 pl-4">
+                          <li>
+                            Toma el libro que estás viendo y su periodo: el Registro de Ventas (RVIE) o el de Compras (RCE),
+                            con los mismos datos y validaciones del PLE.
+                          </li>
+                          <li>Revisa cada registro y reporta los errores y advertencias que SUNAT rechazaría.</li>
+                          <li>
+                            Devuelve un ticket de prueba (LOCAL-RVIE/RCE-AAAAMM-OK o -ERR), la cantidad de registros, los
+                            totales y si la validación fue aprobada o rechazada.
+                          </li>
+                          <li>
+                            Es 100 % local: no se comunica con SUNAT, no usa credenciales ni guarda nada, y no descarga
+                            ningún archivo.
+                          </li>
+                          <li>Requiere el RUC de 11 dígitos configurado en los datos del restaurante.</li>
+                        </ul>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => download("csv")}
@@ -265,9 +323,28 @@ export default function PleBooksPage() {
             )}
 
             <PreviewTable preview={preview} />
+
+            {sireTest && <SireTestCard result={sireTest} />}
           </Card>
         )}
       </main>
+    </div>
+  );
+}
+
+function SireTestCard({ result }: Readonly<{ result: SireTestResult }>) {
+  const accepted = result.status === "validated";
+  return (
+    <div className={`rounded-lg border p-3 text-sm ${accepted ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+      <p className={accepted ? "font-semibold text-emerald-800" : "font-semibold text-red-800"}>
+        SIRE {result.register}: {accepted ? "validación local aprobada" : "prueba local rechazada"}
+      </p>
+      <p className="mt-1 text-xs text-slate-600">
+        Ticket {result.ticket} · {result.recordCount} registro(s) · periodo {result.period}.
+      </p>
+      <p className="mt-1 text-xs text-slate-600">
+        Entorno local de prueba: no se enviaron datos ni se usaron credenciales de SUNAT.
+      </p>
     </div>
   );
 }

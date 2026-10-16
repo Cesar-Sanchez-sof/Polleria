@@ -31,11 +31,11 @@ export interface DrinkOrderItem {
   tableNumber: number | null;
   tableName: string;
   orderedAt: string;
-  dishId: number;
+  productId: number;
   name: string;
   quantity: number;
   notes: string;
-  dishStatus: string;
+  itemStatus: string;
   isDelivered: boolean;
   orderStatus: string;
 }

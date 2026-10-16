@@ -3,7 +3,7 @@ import { FileText } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getPurchaseVouchers, getPaymentTypes } from "@/lib/services/purchases/invoices";
 import { getSuppliers } from "@/lib/services/purchases/supplier";
-import { getSupplies } from "@/lib/services/purchases/supply";
+import { getProducts } from "@/lib/services/purchases/product";
 import { getPurchasesWithoutVoucher } from "@/lib/services/purchases/purchase-without-voucher";
 import { PurchasesTable } from "@/components/purchases/list/PurchasesTable";
 import { PurchasesViewTabs } from "@/components/purchases/list/PurchasesViewTabs";
@@ -34,23 +34,23 @@ export default async function PurchasesPage({
 
   let content: React.ReactNode;
   if (tab === "add") {
-    const [suppliers, supplies, paymentTypes] = await Promise.all([
+    const [suppliers, products, paymentTypes] = await Promise.all([
       getSuppliers(),
-      getSupplies(),
+      getProducts(),
       getPaymentTypes(),
     ]);
     content = (
       <PurchaseOrderForm
         initialSuppliers={json(suppliers)}
-        initialSupplies={json(supplies)}
+        initialProducts={json(products)}
         paymentTypes={json(paymentTypes)}
       />
     );
   } else if (tab === "informal") {
-    const [supplies, purchases] = await Promise.all([getSupplies(), getPurchasesWithoutVoucher()]);
+    const [products, purchases] = await Promise.all([getProducts(), getPurchasesWithoutVoucher()]);
     content = (
       <>
-        <PurchaseWithoutVoucherForm supplies={json(supplies)} />
+        <PurchaseWithoutVoucherForm products={json(products)} />
         <PurchasesWithoutVoucherTable purchases={json(purchases)} />
       </>
     );
@@ -66,10 +66,11 @@ export default async function PurchasesPage({
         subtitle="Historial, registro de compras con comprobante y compras menores sin comprobante"
         icon={FileText}
         iconClassName="bg-blue-100 text-blue-800"
-      />
+      >
+        <PurchasesViewTabs active={tab} />
+      </ModuleHeader>
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
-          <PurchasesViewTabs active={tab} />
           {content}
         </div>
       </main>

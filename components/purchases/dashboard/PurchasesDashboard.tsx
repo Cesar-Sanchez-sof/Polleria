@@ -25,17 +25,17 @@ import {
   AlertCircle,
   type LucideIcon,
 } from "lucide-react";
-import { SupplyType } from "@prisma/client";
+import { ProductType } from "@prisma/client";
 import { StatCard } from "@/components/shared/StatCard";
 import { SegmentedTabs, type SegmentedTabItem } from "@/components/shared/SegmentedTabs";
 import type { PurchaseInvoice } from "@/components/purchases/list/PurchasesTable";
 import type { Supplier } from "@/components/purchases/suppliers/SuppliersTable";
 import type { TransformationDetailRecord } from "@/components/purchases/transformation/TransformationDetailDialog";
 
-interface DashboardSupply {
+interface DashboardProduct {
   id: number;
   name: string;
-  type: SupplyType;
+  type: ProductType;
   unitOfMeasure: string;
   currentStock: number | string;
   minimumStock: number | string;
@@ -45,7 +45,7 @@ interface DashboardSupply {
 
 interface PurchasesDashboardProps {
   invoices: PurchaseInvoice[];
-  supplies: DashboardSupply[];
+  products: DashboardProduct[];
   suppliers: Supplier[];
   transformations: TransformationDetailRecord[];
 }
@@ -92,7 +92,7 @@ function Section({ icon: Icon, title, subtitle, action, children }: {
   );
 }
 
-export function PurchasesDashboard({ invoices, supplies, suppliers, transformations }: PurchasesDashboardProps) {
+export function PurchasesDashboard({ invoices, products, suppliers, transformations }: PurchasesDashboardProps) {
   const [period, setPeriod] = useState<Period>("this_month");
 
   // ── Compras ────────────────────────────────────────────────────────────────
@@ -137,18 +137,18 @@ export function PurchasesDashboard({ invoices, supplies, suppliers, transformati
   const pendingCount = periodInvoices.filter((inv) => inv.paymentStatus === "Pendiente").length;
 
   // ── Inventario ─────────────────────────────────────────────────────────────
-  const totalSupplies = supplies.length;
-  const rawMaterials = supplies.filter((s) => s.type === SupplyType.RawMaterial).length;
-  const finishedProducts = supplies.filter((s) => s.type === SupplyType.FinishedProduct).length;
-  const lowStockItems = supplies.filter((s) => Number(s.currentStock) <= Number(s.minimumStock));
+  const totalProducts = products.length;
+  const rawMaterials = products.filter((s) => s.type === ProductType.RawMaterial).length;
+  const finishedProducts = products.filter((s) => s.type === ProductType.FinishedProduct).length;
+  const lowStockItems = products.filter((s) => Number(s.currentStock) <= Number(s.minimumStock));
   const lowStockCount = lowStockItems.length;
-  const inventoryValue = supplies.reduce(
+  const inventoryValue = products.reduce(
     (total, s) => total + Number(s.currentStock) * Number(s.averageCost || s.lastCost || 0),
     0,
   );
-  const healthPct = totalSupplies === 0 ? 100 : Math.round(((totalSupplies - lowStockCount) / totalSupplies) * 100);
-  const rawPct = totalSupplies === 0 ? 0 : Math.round((rawMaterials / totalSupplies) * 100);
-  const finishedPct = totalSupplies === 0 ? 0 : 100 - rawPct;
+  const healthPct = totalProducts === 0 ? 100 : Math.round(((totalProducts - lowStockCount) / totalProducts) * 100);
+  const rawPct = totalProducts === 0 ? 0 : Math.round((rawMaterials / totalProducts) * 100);
+  const finishedPct = totalProducts === 0 ? 0 : 100 - rawPct;
 
   const healthTone =
     healthPct >= 80 ? "text-emerald-700 dark:text-emerald-400"
@@ -317,7 +317,7 @@ export function PurchasesDashboard({ invoices, supplies, suppliers, transformati
                     {healthPct >= 80 ? "Stock saludable" : healthPct >= 50 ? "Atención requerida" : "Estado crítico"}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {totalSupplies - lowStockCount} de {totalSupplies} insumos sobre mínimo
+                    {totalProducts - lowStockCount} de {totalProducts} insumos sobre mínimo
                   </p>
                   <p className="mt-2 font-mono text-xs font-semibold text-muted-foreground">
                     Valor est. almacén: <span className="text-foreground">S/ {inventoryValue.toFixed(2)}</span>
@@ -332,7 +332,7 @@ export function PurchasesDashboard({ invoices, supplies, suppliers, transformati
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300"><Wheat className="h-3 w-3" /> Materias Primas</span>
-                    <span className="font-mono font-bold text-amber-800 dark:text-amber-300">{rawMaterials} <span className="font-normal text-muted-foreground">/ {totalSupplies}</span></span>
+                    <span className="font-mono font-bold text-amber-800 dark:text-amber-300">{rawMaterials} <span className="font-normal text-muted-foreground">/ {totalProducts}</span></span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-amber-100 dark:bg-amber-950/40">
                     <div className="h-full rounded-full bg-amber-400 transition-all duration-700 dark:bg-amber-500" style={{ width: `${rawPct}%` }} />
@@ -341,7 +341,7 @@ export function PurchasesDashboard({ invoices, supplies, suppliers, transformati
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5 font-medium text-orange-800 dark:text-orange-300"><UtensilsCrossed className="h-3 w-3" /> Prod. Terminados</span>
-                    <span className="font-mono font-bold text-orange-800 dark:text-orange-300">{finishedProducts} <span className="font-normal text-muted-foreground">/ {totalSupplies}</span></span>
+                    <span className="font-mono font-bold text-orange-800 dark:text-orange-300">{finishedProducts} <span className="font-normal text-muted-foreground">/ {totalProducts}</span></span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-orange-100 dark:bg-orange-950/40">
                     <div className="h-full rounded-full bg-orange-400 transition-all duration-700 dark:bg-orange-500" style={{ width: `${finishedPct}%` }} />

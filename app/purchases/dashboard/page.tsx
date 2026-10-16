@@ -3,7 +3,7 @@ import { LayoutDashboard } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getPurchaseVouchers } from "@/lib/services/purchases/invoices";
 import { getSuppliers } from "@/lib/services/purchases/supplier";
-import { getSupplies } from "@/lib/services/purchases/supply";
+import { getProducts } from "@/lib/services/purchases/product";
 import { getTransformations } from "@/lib/services/purchases/transformation";
 import { PurchasesDashboard } from "@/components/purchases/dashboard/PurchasesDashboard";
 
@@ -17,9 +17,9 @@ export const metadata = {
 const json = (value: unknown): any => JSON.parse(JSON.stringify(value));
 
 export default async function PurchasesDashboardPage() {
-  const [invoices, supplies, suppliers, transformations] = await Promise.all([
+  const [invoices, products, suppliers, transformations] = await Promise.all([
     getPurchaseVouchers().catch(() => []),
-    getSupplies().catch(() => []),
+    getProducts().catch(() => []),
     getSuppliers().catch(() => []),
     getTransformations().catch(() => []),
   ]);
@@ -35,7 +35,7 @@ export default async function PurchasesDashboardPage() {
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <PurchasesDashboard
           invoices={json(invoices)}
-          supplies={json(supplies)}
+          products={json(products)}
           suppliers={json(suppliers)}
           transformations={json(transformations)}
         />

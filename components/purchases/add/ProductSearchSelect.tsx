@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Loader2, Check } from "lucide-react";
-import { searchSupplies } from "@/lib/services/purchases/supply";
+import { searchProducts } from "@/lib/services/purchases/product";
 import { AffectationIgv } from "@prisma/client";
 
-export interface SupplyItem {
+export interface ProductItem {
   id: number;
   name: string;
   unitOfMeasure: string;
@@ -16,64 +16,64 @@ export interface SupplyItem {
   active?: boolean;
 }
 
-interface SupplySearchSelectProps {
-  selectedSupplyId: number | "";
-  onSelectSupply: (supply: SupplyItem) => void;
-  onRequestCreateSupply: (suggestedName: string) => void;
-  initialSuppliesList?: SupplyItem[];
+interface ProductSearchSelectProps {
+  selectedProductId: number | "";
+  onSelectProduct: (product: ProductItem) => void;
+  onRequestCreateProduct: (suggestedName: string) => void;
+  initialProductsList?: ProductItem[];
 }
 
-export function SupplySearchSelect({
-  selectedSupplyId,
-  onSelectSupply,
-  onRequestCreateSupply,
-  initialSuppliesList = [],
-}: SupplySearchSelectProps) {
+export function ProductSearchSelect({
+  selectedProductId,
+  onSelectProduct,
+  onRequestCreateProduct,
+  initialProductsList = [],
+}: ProductSearchSelectProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [serverResults, setServerResults] = useState<SupplyItem[]>([]);
+  const [serverResults, setServerResults] = useState<ProductItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Synchronize query with selectedSupplyId when dropdown is closed
-  const selectedSupply = useMemo(() => {
-    return initialSuppliesList.find((s) => s.id === Number(selectedSupplyId)) || null;
-  }, [selectedSupplyId, initialSuppliesList]);
+  // Synchronize query with selectedProductId when dropdown is closed
+  const selectedProduct = useMemo(() => {
+    return initialProductsList.find((s) => s.id === Number(selectedProductId)) || null;
+  }, [selectedProductId, initialProductsList]);
 
   useEffect(() => {
     if (!isOpen) {
-      if (selectedSupply) {
-        setQuery(`${selectedSupply.name} (${selectedSupply.unitOfMeasure})`);
-      } else if (!selectedSupplyId) {
+      if (selectedProduct) {
+        setQuery(`${selectedProduct.name} (${selectedProduct.unitOfMeasure})`);
+      } else if (!selectedProductId) {
         setQuery("");
       }
     }
-  }, [selectedSupply, selectedSupplyId, isOpen]);
+  }, [selectedProduct, selectedProductId, isOpen]);
 
   // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
-        if (selectedSupply) {
-          setQuery(`${selectedSupply.name} (${selectedSupply.unitOfMeasure})`);
-        } else if (!selectedSupplyId) {
+        if (selectedProduct) {
+          setQuery(`${selectedProduct.name} (${selectedProduct.unitOfMeasure})`);
+        } else if (!selectedProductId) {
           setQuery("");
         }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [selectedSupply, selectedSupplyId]);
+  }, [selectedProduct, selectedProductId]);
 
   const cleanQuery = query.trim().toLowerCase();
 
-  // Instant local filtering against all available supplies
+  // Instant local filtering against all available products
   const localFiltered = useMemo(() => {
     if (!cleanQuery) {
-      return initialSuppliesList.filter((s) => s.active !== false).slice(0, 10);
+      return initialProductsList.filter((s) => s.active !== false).slice(0, 10);
     }
-    return initialSuppliesList
+    return initialProductsList
       .filter((s) => {
         if (s.active === false) return false;
         const nameMatch = s.name.toLowerCase().includes(cleanQuery);
@@ -81,7 +81,7 @@ export function SupplySearchSelect({
         return nameMatch || combinedMatch;
       })
       .slice(0, 10);
-  }, [cleanQuery, initialSuppliesList]);
+  }, [cleanQuery, initialProductsList]);
 
   // Server debounced search
   useEffect(() => {
@@ -94,9 +94,9 @@ export function SupplySearchSelect({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await searchSupplies(cleanQuery, 10);
+        const res = await searchProducts(cleanQuery, 10);
         if (isMounted && res) {
-          const formatted: SupplyItem[] = res.map((item) => ({
+          const formatted: ProductItem[] = res.map((item) => ({
             id: item.id,
             name: item.name,
             unitOfMeasure: item.unitOfMeasure,
@@ -123,22 +123,22 @@ export function SupplySearchSelect({
   const displayedResults = useMemo(() => {
     if (!cleanQuery) return localFiltered;
 
-    const map = new Map<number, SupplyItem>();
+    const map = new Map<number, ProductItem>();
     localFiltered.forEach((item) => map.set(item.id, item));
     serverResults.forEach((item) => map.set(item.id, item));
     return Array.from(map.values()).slice(0, 10);
   }, [cleanQuery, localFiltered, serverResults]);
 
-  const handleSelect = (supply: SupplyItem) => {
-    setQuery(`${supply.name} (${supply.unitOfMeasure})`);
-    onSelectSupply(supply);
+  const handleSelect = (product: ProductItem) => {
+    setQuery(`${product.name} (${product.unitOfMeasure})`);
+    onSelectProduct(product);
     setIsOpen(false);
   };
 
   const handleCreateNew = () => {
     const nameToPass = query.trim();
     setIsOpen(false);
-    onRequestCreateSupply(nameToPass);
+    onRequestCreateProduct(nameToPass);
   };
 
   return (
@@ -173,7 +173,7 @@ export function SupplySearchSelect({
         <div className="absolute z-[9999] left-0 top-full mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-2xl space-y-0.5 min-w-[280px] w-full">
           {displayedResults.length > 0 ? (
             displayedResults.map((item) => {
-              const isSelected = item.id === Number(selectedSupplyId);
+              const isSelected = item.id === Number(selectedProductId);
               return (
                 <button
                   key={item.id}

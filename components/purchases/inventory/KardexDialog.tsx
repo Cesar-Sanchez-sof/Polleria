@@ -123,7 +123,7 @@ interface KardexDialogProps {
 // Componente principal
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Supply {
+interface Product {
   id: number;
   name: string;
   unitOfMeasure: string;
@@ -132,11 +132,11 @@ interface Supply {
 export function KardexDialog({
   open,
   onOpenChange,
-  supplies = [],
-}: KardexDialogProps & { supplies?: Supply[] }) {
+  products = [],
+}: KardexDialogProps & { products?: Product[] }) {
   // ── Filtros ──
   const [search, setSearch] = useState("");
-  const [supplyId, setSupplyId] = useState<string>("all");
+  const [productId, setProductId] = useState<string>("all");
   const [movementType, setMovementType] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -161,7 +161,7 @@ export function KardexDialog({
         page,
         pageSize,
         search: search.trim() || undefined,
-        supplyId: supplyId !== "all" ? Number(supplyId) : undefined,
+        productId: productId !== "all" ? Number(productId) : undefined,
         movementType:
           movementType !== "all"
             ? (movementType as InventoryMovementType)
@@ -176,7 +176,7 @@ export function KardexDialog({
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, supplyId, movementType, startDate, endDate]);
+  }, [page, pageSize, search, productId, movementType, startDate, endDate]);
 
   // Cargar datos al abrir el dialog o cambiar filtros/página
   useEffect(() => {
@@ -188,7 +188,7 @@ export function KardexDialog({
 
   const handleClearFilters = () => {
     setSearch("");
-    setSupplyId("all");
+    setProductId("all");
     setMovementType("all");
     setStartDate("");
     setEndDate("");
@@ -197,7 +197,7 @@ export function KardexDialog({
 
   const hasFilters =
     search.trim() !== "" ||
-    supplyId !== "all" ||
+    productId !== "all" ||
     movementType !== "all" ||
     startDate !== "" ||
     endDate !== "";
@@ -243,24 +243,24 @@ export function KardexDialog({
                 </span>
               </span>
               <Select
-                value={supplyId}
+                value={productId}
                 onValueChange={(v) => {
-                  setSupplyId(v ?? "all");
+                  setProductId(v ?? "all");
                   resetPage();
                 }}
               >
                 <SelectTrigger className="h-9 text-xs w-full">
                   <SelectValue placeholder="Todos los insumos">
-                    {supplyId === "all"
+                    {productId === "all"
                       ? "Todos los insumos"
-                      : supplies.find((s) => s.id === Number(supplyId))?.name ?? "Todos los insumos"}
+                      : products.find((s) => s.id === Number(productId))?.name ?? "Todos los insumos"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-xs">
                     Todos los insumos
                   </SelectItem>
-                  {supplies.map((s) => (
+                  {products.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)} className="text-xs">
                       {s.name}{" "}
                       <span className="text-muted-foreground">({s.unitOfMeasure})</span>
@@ -443,7 +443,7 @@ export function KardexDialog({
 
                           {/* Insumo */}
                           <TableCell className="font-medium">
-                            {m.supply?.name ?? "—"}
+                            {m.product?.name ?? "—"}
                           </TableCell>
 
                           {/* Tipo */}
@@ -490,7 +490,7 @@ export function KardexDialog({
 
                           {/* Unidad */}
                           <TableCell className="text-muted-foreground">
-                            {m.supply?.unitOfMeasure ?? "—"}
+                            {m.product?.unitOfMeasure ?? "—"}
                           </TableCell>
 
                           {/* Costo unitario */}
