@@ -20,6 +20,8 @@ import { InformalPurchaseType, ExpenseCategory, AffectationIgv } from "@prisma/c
 vi.mock("@/lib/services/accounting-posting.service", () => ({
   postPurchaseJournalEntries: vi.fn().mockResolvedValue([1, 2, 3, 4]),
   postPurchasePaymentJournalEntry: vi.fn().mockResolvedValue(10),
+  postInformalPurchaseJournalEntry: vi.fn().mockResolvedValue(101),
+  annulInformalPurchaseJournalEntry: vi.fn().mockResolvedValue(102),
 }));
 
 // Mock Prisma Client
@@ -1117,6 +1119,60 @@ describe("Modulo Compras Services", () => {
           items: [],
         })
       ).rejects.toThrow("La orden debe tener al menos una línea de insumo");
+    });
+
+    it("debe pasar items diferenciados con supplyType y cuadre a postPurchaseJournalEntries", async () => {
+      const { postPurchaseJournalEntries } = await import("@/lib/services/accounting-posting.service");
+      (prisma.purchaseInvoice.findUnique as any).mockResolvedValue(null);
+      (prisma.purchaseOrder.create as any).mockResolvedValue({
+        id: 4,
+        status: "FullyReceived",
+        items: [
+          {
+            id: 20,
+            supplyId: 1,
+            quantityReceived: 2,
+            unitPrice: 10,
+            subtotalLine: 20,
+            supply: { type: "RawMaterial" },
+          },
+          {
+            id: 21,
+            supplyId: 2,
+            quantityReceived: 1,
+            unitPrice: 30,
+            subtotalLine: 30,
+            supply: { type: "FinishedProduct" },
+          },
+        ],
+      });
+      (prisma.purchaseInvoice.create as any).mockResolvedValue({ id: 4 });
+      (prisma.supply.findUnique as any).mockResolvedValue({ id: 1, currentStock: 0, averageCost: 0 });
+
+      await registerUnifiedPurchase({
+        supplierId: 1,
+        voucherType: "Factura",
+        series: "F005",
+        number: 127,
+        issuedAt: new Date(),
+        paymentCondition: "Credito",
+        items: [
+          { supplyId: 1, quantity: 2, unitPrice: 10, affectationIgv: "Excluded" },
+          { supplyId: 2, quantity: 1, unitPrice: 30, affectationIgv: "Excluded" },
+        ],
+      });
+
+      expect(postPurchaseJournalEntries).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          purchaseInvoiceId: 4,
+          subtotal: 50,
+          items: [
+            { supplyType: "RawMaterial", subtotalLine: 20 },
+            { supplyType: "FinishedProduct", subtotalLine: 30 },
+          ],
+        })
+      );
     });
   });
 });

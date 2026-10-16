@@ -8,6 +8,10 @@ import {
 } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
+import {
+  postInformalPurchaseJournalEntry,
+  annulInformalPurchaseJournalEntry,
+} from "@/lib/services/accounting-posting.service";
 
 export interface PurchaseWithoutVoucherInput {
   purchaseType?: InformalPurchaseType | "InventoryItem" | "OperatingExpense";
@@ -71,6 +75,15 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
         },
       });
 
+      await postInformalPurchaseJournalEntry(tx, {
+        informalPurchaseId: purchase.id,
+        entryDate: purchaseDate,
+        purchaseType: "OperatingExpense",
+        amount: data.amountPaid,
+        description: data.itemDescription!.trim(),
+        responsible: "Compras",
+      });
+
       return purchase;
     }
 
@@ -126,6 +139,15 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
         lastCost: Math.round(unitCost * 100) / 100,
         averageCost: Math.round(newAverageCost * 100) / 100,
       },
+    });
+
+    await postInformalPurchaseJournalEntry(tx, {
+      informalPurchaseId: purchase.id,
+      entryDate: purchaseDate,
+      purchaseType: "InventoryItem",
+      amount: data.amountPaid,
+      description: supply.name,
+      responsible: "Compras",
     });
 
     return purchase;
@@ -211,6 +233,15 @@ export async function annulInformalPurchase(
         annulledById: validEmployeeId,
         annulmentReason: reason.trim(),
       },
+    });
+
+    await annulInformalPurchaseJournalEntry(tx, {
+      informalPurchaseId: purchase.id,
+      entryDate: new Date(),
+      purchaseType: purchase.purchaseType as "InventoryItem" | "OperatingExpense",
+      amount: Number(purchase.amountPaid),
+      reason: reason.trim(),
+      responsible: "Compras",
     });
 
     return updated;
