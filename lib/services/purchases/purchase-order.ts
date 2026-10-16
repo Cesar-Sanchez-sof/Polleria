@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PurchaseOrderStatus, InventoryMovementType, AffectationIgv } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
+import { postPurchaseJournalEntries } from "@/lib/services/accounting-posting.service";
 
 export interface PurchaseOrderLineInput {
   supplyId: number;
@@ -241,7 +242,11 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
           },
         },
         include: {
-          items: true,
+          items: {
+            include: {
+              supply: true,
+            },
+          },
         },
       });
 
@@ -259,7 +264,13 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
         },
       });
 
+      let paymentMethodName = "Efectivo";
       if (data.paymentCondition === "Contado" && data.paymentTypeId) {
+        const paymentType = await tx.paymentType.findUnique({
+          where: { id: data.paymentTypeId },
+        });
+        paymentMethodName = paymentType?.name || "Efectivo";
+
         await tx.purchasePayment.create({
           data: {
             purchaseInvoiceId: invoice.id,
@@ -269,6 +280,35 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
           },
         });
       }
+
+      const itemsForEntries = order.items.map((item) => ({
+        supplyType: (item.supply?.type || "RawMaterial") as "RawMaterial" | "FinishedProduct",
+        subtotalLine: Number(item.subtotalLine ?? 0),
+      }));
+
+      // Verificar consistencia: cuadrar la suma de subtotalLine con subtotalGeneral si hay diferencias por redondeo
+      if (itemsForEntries.length > 0) {
+        const sumLines = itemsForEntries.reduce((acc, curr) => acc + curr.subtotalLine, 0);
+        const diff = Math.round((subtotalGeneral - sumLines) * 100) / 100;
+        if (Math.abs(diff) > 0.0001) {
+          itemsForEntries[itemsForEntries.length - 1].subtotalLine =
+            Math.round((itemsForEntries[itemsForEntries.length - 1].subtotalLine + diff) * 100) / 100;
+        }
+      }
+
+      const voucherLabel = `${data.voucherType} ${data.series}-${data.number}`;
+      await postPurchaseJournalEntries(tx, {
+        purchaseInvoiceId: invoice.id,
+        voucherLabel,
+        entryDate: issuedDate,
+        subtotal: subtotalGeneral,
+        igv: igvGeneral,
+        total: totalGeneral,
+        paymentCondition: data.paymentCondition,
+        paymentMethodName,
+        responsible: "Compras",
+        items: itemsForEntries,
+      });
 
       for (let i = 0; i < order.items.length; i++) {
         const poItem = order.items[i];
