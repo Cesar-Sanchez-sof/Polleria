@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseQueryResponse } from "@/lib/ai-assistant/contract";
 import { formatPen, periodText, toAssistantReply } from "@/lib/ai-assistant/presentation";
-import { assistantRoleFor, EVAL_TIMEOUT_MS, readAssistantConfig } from "@/lib/ai-assistant/config";
+import { assistantRoleFor, EVAL_NGROK_URL, EVAL_TIMEOUT_MS, readAssistantConfig } from "@/lib/ai-assistant/config";
 
 const TOKEN = "cd".repeat(32);
 
@@ -200,5 +200,40 @@ describe("configuración del modo evaluación (Vercel Preview)", () => {
     expect(readAssistantConfig({ ...env, AI_ASSISTANT_IDENTITY_KEY: TOKEN })).toEqual({ enabled: false, reason: "misconfigured" });
     expect(readAssistantConfig({ ...env, AI_ASSISTANT_REAL_DATA: "1" })).toEqual({ enabled: false, reason: "misconfigured" });
     expect(JSON.stringify(readAssistantConfig({ ...env, AI_SERVICE_URL: "x" }))).not.toContain(identity);
+  });
+
+  it("de ngrok solo acepta el dominio estático del proyecto, por coincidencia exacta", () => {
+    expect(EVAL_NGROK_URL).toBe("https://charlott-unflagitious-unselfishly.ngrok-free.dev");
+    expect(readAssistantConfig({ ...env, AI_SERVICE_URL: EVAL_NGROK_URL })).toMatchObject({
+      enabled: true, mode: "eval", serviceUrl: EVAL_NGROK_URL, identityKey: identity, timeoutMs: EVAL_TIMEOUT_MS,
+    });
+    for (const url of [
+      "https://otro-subdominio.ngrok-free.dev", // otro subdominio válido de ngrok
+      "http://charlott-unflagitious-unselfishly.ngrok-free.dev", // sin TLS
+      "https://charlott-unflagitious-unselfishly.ngrok-free.dev/", // barra final
+      "https://charlott-unflagitious-unselfishly.ngrok-free.dev/v1", // ruta
+      "https://charlott-unflagitious-unselfishly.ngrok-free.dev:443", // puerto
+      "https://user@charlott-unflagitious-unselfishly.ngrok-free.dev", // credenciales
+      "https://charlott-unflagitious-unselfishly.ngrok-free.dev.example.com", // sufijo engañoso
+      "https://a.charlott-unflagitious-unselfishly.ngrok-free.dev", // subdominio adicional
+      "https://charlott-unflagitious-unselfishly.ngrok-free.app", // otro dominio de ngrok
+      "https://CHARLOTT-UNFLAGITIOUS-UNSELFISHLY.ngrok-free.dev", // variante de mayúsculas
+      "https://ngrok-free.dev",
+    ]) {
+      expect(readAssistantConfig({ ...env, AI_SERVICE_URL: url }), url).toEqual({ enabled: false, reason: "misconfigured" });
+    }
+  });
+
+  it("con ngrok siguen vigentes las restricciones de Production y P-9", () => {
+    const ngrok = { ...env, AI_SERVICE_URL: EVAL_NGROK_URL };
+    const prod = { ...ngrok, VERCEL_ENV: "production", AI_ASSISTANT_EVAL_USER_IDS: "1" };
+    expect(readAssistantConfig(prod)).toEqual({ enabled: false, reason: "production" });
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1", AI_ASSISTANT_REAL_DATA: "1" }))
+      .toMatchObject({ enabled: true, realData: true, allowedUserIds: [1], serviceUrl: EVAL_NGROK_URL });
+    expect(readAssistantConfig({ ...prod, AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1", AI_ASSISTANT_EVAL_USER_IDS: undefined }))
+      .toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...ngrok, AI_ASSISTANT_IDENTITY_KEY: undefined })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...ngrok, AI_ASSISTANT_IDENTITY_KEY: TOKEN })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...ngrok, AI_SERVICE_INTERNAL_TOKEN: "corto" })).toEqual({ enabled: false, reason: "misconfigured" });
   });
 });
