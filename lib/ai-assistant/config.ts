@@ -14,14 +14,16 @@
  * Con `NODE_ENV=production` el modo demostración queda SIEMPRE deshabilitado. Ningún modo omite la
  * autenticación del ERP: exige sesión válida (`sesionActual()`) y un rol permitido.
  *
- * Modo evaluación académica (despliegue en Vercel, ver docs/financial-assistant/deployment-evaluation.md):
+ * Modo evaluación académica (despliegue en Vercel):
  * - `AI_ASSISTANT_EVAL_ENABLED`: exactamente `1`. Surte efecto con `VERCEL_ENV=preview` (Vercel lo fija
  *   en cada despliegue). Con `VERCEL_ENV=production` exige ADEMÁS `AI_ASSISTANT_ALLOW_PRODUCTION_EVAL=1`
  *   (habilitación temporal y explícita para la evaluación). En `development` o fuera de Vercel queda
  *   deshabilitado. `NODE_ENV` no sirve para distinguirlos: Preview y Production compilan con `production`.
  *   Ambas banderas son privadas del servidor (sin `NEXT_PUBLIC_`).
- * - `AI_SERVICE_URL`: exactamente `https://<subdominio>.trycloudflare.com` (túnel temporal hacia el
- *   FastAPI local). `AI_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY` (P-9) son obligatorios.
+ * - `AI_SERVICE_URL`: túnel HTTPS temporal hacia el FastAPI local, exactamente
+ *   `https://<subdominio>.trycloudflare.com` (Cloudflare Quick Tunnel) o el dominio estático de ngrok
+ *   del proyecto (`EVAL_NGROK_URL`); ningún otro dominio de ngrok. Sin puerto, ruta ni `/` final.
+ *   `AI_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY` (P-9) son obligatorios.
  * - `AI_ASSISTANT_EVAL_USER_IDS`: ids del ERP (`sesionActual().idUsuario`) de las cuentas evaluadoras,
  *   separados por comas. Obligatorio en Production y con datos reales: solo esas cuentas ADMIN usan el
  *   asistente; los demás administradores reciben 403.
@@ -49,6 +51,9 @@ export type AssistantConfig =
 
 const URL_RE = /^http:\/\/127\.0\.0\.1:(\d{4,5})$/;
 const EVAL_URL_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.trycloudflare\.com$/;
+/** Dominio estático de ngrok del proyecto: se compara de forma exacta, no por sufijo. */
+export const EVAL_NGROK_URL = "https://charlott-unflagitious-unselfishly.ngrok-free.dev";
+const isEvalTunnelUrl = (url: string) => EVAL_URL_RE.test(url) || url === EVAL_NGROK_URL;
 const TOKEN_RE = /^[0-9a-fA-F]{64,}$/;
 const USER_IDS_RE = /^[1-9]\d{0,9}(,[1-9]\d{0,9}){0,9}$/;
 /** Local: la primera inferencia de XiYanSQL puede tardar más. */
@@ -70,7 +75,7 @@ function readEvalConfig(env: Record<string, string | undefined>): AssistantConfi
   if (usersText && !USER_IDS_RE.test(usersText)) return { enabled: false, reason: "misconfigured" };
   const allowedUserIds = usersText ? usersText.split(",").map(Number) : null;
   if (
-    !EVAL_URL_RE.test(url) ||
+    !isEvalTunnelUrl(url) ||
     !TOKEN_RE.test(token) ||
     !TOKEN_RE.test(identityKey) ||
     identityKey.toLowerCase() === token.toLowerCase() ||
