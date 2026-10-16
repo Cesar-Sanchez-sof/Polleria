@@ -2,7 +2,6 @@ import React from "react";
 import { Users } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSuppliers } from "@/lib/services/purchases/supplier";
-import { getPurchaseVouchers } from "@/lib/services/purchases/invoices";
 import { SuppliersTable } from "@/components/purchases/suppliers/SuppliersTable";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +11,7 @@ export const metadata = {
 };
 
 export default async function SuppliersPage() {
-  const [suppliers, vouchers] = await Promise.all([
-    getSuppliers(),
-    getPurchaseVouchers().catch(() => []),
-  ]);
+  const suppliers = await getSuppliers();
 
   return (
     <>
@@ -29,7 +25,6 @@ export default async function SuppliersPage() {
         <div className="flex flex-col w-full gap-5">
           <SuppliersTable
             initialSuppliers={JSON.parse(JSON.stringify(suppliers))}
-            vouchers={JSON.parse(JSON.stringify(vouchers))}
           />
         </div>
       </main>

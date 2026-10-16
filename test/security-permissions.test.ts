@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { PERMISSIONS_CATALOG, VALID_CODES, PERMISSION_MODULES } from "@/lib/auth/permissions-catalog";
+import { PERMISSIONS_CATALOG, VALID_CODES, PERMISSION_MODULES, satisfiesPermission } from "@/lib/auth/permissions-catalog";
 import { SECTIONS, linkPermission, requiredPermissions } from "@/lib/auth/route-permissions";
 
 const ROOT = process.cwd();
@@ -42,20 +42,37 @@ describe("catálogo de permisos", () => {
   it("las rutas y los enlaces del menú solo usan permisos que existen", () => {
     const used = [
       ...Object.values(SECTIONS).flat(),
-      ...["/sales", "/users", "/roles", "/audit", "/purchases", "/accounting", "/restaurant/areas"].flatMap(
+      ...["/sales", "/security/users", "/security/roles", "/security/audit", "/purchases", "/accounting", "/settings/areas"].flatMap(
         (r) => requiredPermissions(r) ?? [],
       ),
     ];
     used.forEach((c) => expect(VALID_CODES.has(c), c).toBe(true));
-    expect(linkPermission("/roles")).toBe("roles.ver");
+    expect(linkPermission("/security/roles")).toBe("roles.ver");
     expect(linkPermission("/")).toBeNull();
+  });
+
+  it("cada pantalla del menú tiene su propio permiso y los permisos padre cubren a sus pantallas", () => {
+    for (const href of ["/sales?tab=drinks", "/accounting/reports/ple", "/settings/accounting-guide", "/docs/swagger"]) {
+      expect(VALID_CODES.has(linkPermission(href)!), href).toBe(true);
+    }
+    expect(satisfiesPermission(["ple.ver"], "reportes.ver")).toBe(true);
+    expect(satisfiesPermission(["ple.ver"], "reportes.editar")).toBe(false);
+    expect(satisfiesPermission(["bebidas.ver"], "pedidos.ver")).toBe(true);
+    expect(satisfiesPermission(["caja.ver"], "pedidos.ver")).toBe(false);
+  });
+
+  it("todo enlace del menú lateral tiene permiso asignado (denegado por defecto)", () => {
+    const src = readFileSync(join(ROOT, "components/personalized/Sidebar.tsx"), "utf8");
+    const hrefs = [...src.matchAll(/href: "([^"]+)", path:/g)].map((m) => m[1]);
+    expect(hrefs.length).toBeGreaterThan(20);
+    hrefs.forEach((h) => expect(VALID_CODES.has(linkPermission(h) ?? ""), h).toBe(true));
   });
 
   it("gana la regla más específica de cada ruta", () => {
     expect(requiredPermissions("/purchases/inventory")).toEqual(["inventario.ver"]);
     expect(requiredPermissions("/purchases/add")).toEqual(["compras.ver"]);
     expect(requiredPermissions("/accounting/accounts")).toEqual(["cuentas.ver"]);
-    expect(requiredPermissions("/reports/ledger")).toEqual(["reportes.ver"]);
+    expect(requiredPermissions("/accounting/reports/ledger")).toEqual(["mayor.ver"]);
     expect(requiredPermissions("/")).toBeNull();
     expect(requiredPermissions("/login")).toBeNull();
   });

@@ -305,7 +305,7 @@ export async function payPayableInvoiceAction(
 
   revalidatePath("/accounting/payables");
   revalidatePath("/accounting/entries");
-  revalidatePath("/reports/dashboard");
+  revalidatePath("/accounting/reports/dashboard");
   revalidatePath("/purchases/list");
   revalidatePath("/purchases/suppliers");
 

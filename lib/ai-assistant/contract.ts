@@ -21,8 +21,8 @@ export const AUTHORIZED_ROUTES = [
   "/accounting/entries",
   "/accounting/journal",
   "/accounting/accounts",
-  "/reports/ledger",
-  "/reports/balance",
+  "/accounting/reports/ledger",
+  "/accounting/reports/balance",
   "/accounting/periods",
 ] as const;
 export type AuthorizedRoute = (typeof AUTHORIZED_ROUTES)[number];

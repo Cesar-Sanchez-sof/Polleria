@@ -2181,7 +2181,6 @@ function SalesManagementContent() {
               label="Listos para Servir"
               value={onlyReadyCount}
               unit={onlyReadyCount === 1 ? "Comanda" : "Comandas"}
-              footerLeft={onlyReadyCount > 0 ? "Esperando que el mozo las retire" : "Sin platos pendientes en mostrador"}
             />
             <StatCard
               tone="amber"
@@ -2189,7 +2188,6 @@ function SalesManagementContent() {
               label="En Cocina (Preparando)"
               value={readyOrdersForDelivery.filter((o) => o.kitchenStatus === "Preparing" || o.kitchenStatus === "Received").length}
               unit="Comandas"
-              footerLeft="El personal de cocina está cocinando"
             />
             <StatCard
               tone="neutral"
@@ -2197,7 +2195,6 @@ function SalesManagementContent() {
               label="Entregados a Mesas"
               value={deliveredOrderIds.size}
               unit="Entregas"
-              footerLeft="Confirmados por el mesero en salón"
             />
           </div>
 
@@ -2520,7 +2517,7 @@ function SalesManagementContent() {
       {activeTab === "payments" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
           {/* Banner de Resumen de Cuentas por Cobrar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <StatCard
               tone="amber"
               icon={<AlertCircle />}
@@ -2533,12 +2530,6 @@ function SalesManagementContent() {
               icon={<DollarSign />}
               label="Importe Total No Realizado"
               value={formatCurrency(totalReceivable)}
-            />
-            <StatCard
-              tone="emerald"
-              icon={<Smartphone />}
-              label="Canales de Cobro"
-              footerLeft="Cobro con Mozo en Mesa ó Ventanilla"
             />
           </div>
 

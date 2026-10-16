@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/shared/StatCard";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -270,77 +271,10 @@ export function DrinksDispatchBoard() {
 
       {/* Tarjetas KPI de Estado */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {/* KPI 1: Pendientes de entrega */}
-        <Card className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-400">
-              Bebidas por Entregar
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">
-                {stats.pendingCount}
-              </span>
-              <span className="text-[11px] text-amber-600 dark:text-amber-400">unidades</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-            <GlassWater className={`w-5 h-5 ${stats.pendingCount > 0 ? "animate-bounce" : ""}`} />
-          </div>
-        </Card>
-
-        {/* KPI 2: Mesas Esperando */}
-        <Card className="p-3.5 rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-900 dark:text-blue-400">
-              Mesas Esperando
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-blue-700 dark:text-blue-300 tabular-nums">
-                {stats.tablesWaiting}
-              </span>
-              <span className="text-[11px] text-blue-600 dark:text-blue-400">mesas</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
-            <Utensils className="w-5 h-5" />
-          </div>
-        </Card>
-
-        {/* KPI 3: Entregadas */}
-        <Card className="p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-400">
-              Bebidas Entregadas
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                {stats.deliveredCount}
-              </span>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400">unidades</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </Card>
-
-        {/* KPI 4: Total solicitadas */}
-        <Card className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Total Solicitadas
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-slate-800 dark:text-slate-200 tabular-nums">
-                {stats.total}
-              </span>
-              <span className="text-[11px] text-slate-400">ítems</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-        </Card>
+        <StatCard enableGradient={false} enableHover={false} tone="amber" icon={<GlassWater className={stats.pendingCount > 0 ? "animate-bounce" : ""} />} label="Bebidas por Entregar" value={stats.pendingCount} unit="unidades" />
+        <StatCard enableGradient={false} enableHover={false} tone="blue" icon={<Utensils />} label="Mesas Esperando" value={stats.tablesWaiting} unit="mesas" />
+        <StatCard enableGradient={false} enableHover={false} tone="emerald" icon={<CheckCircle2 />} label="Bebidas Entregadas" value={stats.deliveredCount} unit="unidades" />
+        <StatCard enableGradient={false} enableHover={false} tone="neutral" icon={<Sparkles />} label="Total Solicitadas" value={stats.total} unit="ítems" />
       </div>
 
       {/* Barra de Filtros y Búsqueda */}

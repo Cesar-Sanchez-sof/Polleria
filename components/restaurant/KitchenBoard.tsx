@@ -12,7 +12,9 @@ import {
   ShoppingBag,
   Utensils,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { StatCard } from "@/components/shared/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,9 +55,11 @@ function nextKitchenStatus(status: string): KitchenStatus | null {
 interface KitchenBoardProps {
   /** Muestra el reloj y botón de refresco en la barra superior del panel. */
   showToolbar?: boolean;
+  /** Si se indica, el reloj y el refresco se dibujan ahí (p. ej. en el encabezado del módulo). */
+  toolbarSlot?: HTMLElement | null;
 }
 
-export function KitchenBoard({ showToolbar = true }: KitchenBoardProps) {
+export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardProps) {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<KitchenFilter>("todos");
@@ -147,85 +151,47 @@ export function KitchenBoard({ showToolbar = true }: KitchenBoardProps) {
     { id: "Served", label: "Servidos" },
   ];
 
+  const toolbar = (
+    <>
+      <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        </span>
+        <span className="text-xs font-semibold text-slate-700">Auto-refresco activo</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900">
+          <Flame className="h-3.5 w-3.5" />
+          <span>{currentTime || "—"}</span>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs cursor-pointer"
+          onClick={() => void loadOrders()}
+          disabled={loading}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-5 w-full min-w-0">
-      {showToolbar && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            </span>
-            <span className="text-xs font-semibold text-slate-700">Auto-refresco activo</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900">
-              <Flame className="h-3.5 w-3.5" />
-              <span>{currentTime || "—"}</span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs cursor-pointer"
-              onClick={() => void loadOrders()}
-              disabled={loading}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              Actualizar
-            </Button>
-          </div>
-        </div>
+      {!toolbarSlot && showToolbar && (
+        <div className="flex flex-wrap items-center justify-between gap-2">{toolbar}</div>
       )}
+      {toolbarSlot && createPortal(toolbar, toolbarSlot)}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="flex min-h-[88px] items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              Total comandas
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{stats.total}</p>
-          </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-red-700">
-            <ListOrdered className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="flex min-h-[88px] items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/60 p-4 shadow-xs">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-blue-900">
-              1. Recibido (nuevos)
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-blue-700">{stats.received}</p>
-          </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-            <Inbox className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="flex min-h-[88px] items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-xs">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-900">
-              2. En preparación
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-700">{stats.preparing}</p>
-          </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-            <Flame className="h-5 w-5 animate-spin" />
-          </div>
-        </div>
-
-        <div className="flex min-h-[88px] items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-xs">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-900">
-              3. Servido (listo)
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700">{stats.served}</p>
-          </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-            <CheckCircle2 className="h-5 w-5" />
-          </div>
-        </div>
+        <StatCard enableGradient={false} enableHover={false} tone="neutral" icon={<ListOrdered />} label="Total comandas" value={stats.total} />
+        <StatCard enableGradient={false} enableHover={false} tone="blue" icon={<Inbox />} label="1. Recibido (nuevos)" value={stats.received} />
+        <StatCard enableGradient={false} enableHover={false} tone="amber" icon={<Flame className="animate-spin" />} label="2. En preparación" value={stats.preparing} />
+        <StatCard enableGradient={false} enableHover={false} tone="emerald" icon={<CheckCircle2 />} label="3. Servido (listo)" value={stats.served} />
       </div>
 
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
