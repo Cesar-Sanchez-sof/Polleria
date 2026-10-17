@@ -31,7 +31,7 @@ const ACCOUNT_CODES = {
   purchases: "601",       // Compras (Elemento 6)
   inventoryVariation: "611", // Variación de inventarios (Elemento 6 — cuenta correctora)
   payables: "421",
-  igvCredit: "167",       // IGV crédito fiscal (Elemento 1)
+  igvCredit: "40111",       // IGV - Cuenta propia (Elemento 4)
   sales: "701",
   costOfSales: "691",
   otherExpenses: "659",   // Otros Gastos de Gestión (salidas de caja chica / emergencias / faltantes)
