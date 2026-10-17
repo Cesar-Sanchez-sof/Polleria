@@ -19,11 +19,11 @@ async function readId(params: Promise<{ id: string }>): Promise<number | null> {
  *   get:
  *     tags:
  *       - Products
- *     summary: Obtener un producto con su receta referencial
+ *     summary: Obtener un producto con su receta
  *   put:
  *     tags:
  *       - Products
- *     summary: Actualizar un producto de la carta y su receta referencial (el stock no se edita aquí)
+ *     summary: Actualizar un producto de la carta y su receta (el stock no se edita aquí)
  *   patch:
  *     tags:
  *       - Products
@@ -92,6 +92,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     if (unitOfMeasure !== undefined && !unitOfMeasure) {
       return NextResponse.json({ error: "La unidad de medida no puede estar vacía." }, { status: 400 });
+    }
+
+    // El tipo decide la cuenta contable del inventario (241 / 201 / 211): con movimientos ya no se puede cambiar.
+    if (type !== undefined && type !== existing.type) {
+      const movements = await prisma.inventoryMovement.count({ where: { productId: id } });
+      if (movements > 0) {
+        return NextResponse.json(
+          { error: "No se puede cambiar el tipo de un producto que ya tiene movimientos de inventario." },
+          { status: 409 }
+        );
+      }
     }
 
     await prisma.$transaction(async (tx) => {

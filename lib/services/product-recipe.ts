@@ -10,7 +10,7 @@ export interface RecipeRow {
   } | null;
 }
 
-/** Receta referencial de un producto con el costo estimado de sus ingredientes (no mueve stock). */
+/** Receta de un producto (ingredientes por 1 unidad) con el costo estimado; la ejecuta una transformación. */
 export function mapRecipe(rows: readonly RecipeRow[]) {
   const recipe = rows.map((r) => {
     const unitCost = Number(r.ingredient?.averageCost || r.ingredient?.lastCost || 0);

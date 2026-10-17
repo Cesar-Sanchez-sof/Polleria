@@ -473,7 +473,7 @@ export default function ProductsCatalogPage() {
     <>
       <ModuleHeader
         title="Productos y Carta"
-        subtitle="Lo que se vende en el salón: precio, receta referencial para el cocinero y stock disponible"
+        subtitle="Lo que se vende en el salón: precio, receta (ingredientes por unidad) y stock disponible"
         icon={ChefHat}
         iconClassName="bg-amber-100 text-amber-800"
       >
@@ -654,7 +654,7 @@ export default function ProductsCatalogPage() {
                     <span>Ingredientes y Cantidades Requeridas (Escandallo)</span>
                   </h4>
                   <p className="text-[11px] text-muted-foreground">
-                    Receta referencial para el cocinero: sirve para costear, no descuenta stock. El stock del producto sube por compra o transformación.
+                    Ingredientes por 1 unidad: sirven para costear y son los que consume una transformación (Compras → Transformación). La venta descuenta el stock del propio producto.
                   </p>
                 </div>
                 <Button
@@ -718,8 +718,8 @@ export default function ProductsCatalogPage() {
                           </label>
                           <Input
                             type="number"
-                            step="0.01"
-                            min="0.01"
+                            step="0.0001"
+                            min="0.0001"
                             value={item.quantityRequired}
                             onChange={(e) =>
                               handleUpdateRecipeItem(idx, "quantityRequired", Number(e.target.value))

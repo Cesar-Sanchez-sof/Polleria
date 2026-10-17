@@ -28,47 +28,81 @@ import {
 import { ProductType } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
-import { Sparkles, Plus } from "lucide-react";
+import { Sparkles, Plus, Trash2 } from "lucide-react";
 
 export interface RecipeProductItem {
   id: number;
   name: string;
   type: ProductType;
   unitOfMeasure: string;
+  currentStock?: number;
+  averageCost?: number;
+  lastCost?: number;
 }
 
-export interface TransformationRecipeItem {
+export interface RecipeIngredientItem {
   id: number;
-  producedProductId: number;
-  consumedProductId: number;
-  producedQuantity: number;
-  requiredQuantity: number;
+  ingredientId: number;
+  /** Cantidad del ingrediente por 1 unidad producida. */
+  quantityRequired: number;
+  ingredient: {
+    id: number;
+    name: string;
+    type: ProductType;
+    unitOfMeasure: string;
+    currentStock: number;
+    averageCost: number;
+    lastCost: number;
+  };
+}
+
+/** Receta de un producto: lo que se consume (ingredientes) para obtener 1 unidad del producto. */
+export interface TransformationRecipeItem {
+  /** Igual a `productId`: una receta por producto. */
+  id: number;
+  productId: number;
   active: boolean;
   timesUsed?: number;
-  producedProduct: {
+  product: {
     id: number;
     name: string;
+    type: ProductType;
     unitOfMeasure: string;
+    currentStock: number;
+    averageCost: number;
+    lastCost: number;
   };
-  consumedProduct: {
-    id: number;
-    name: string;
-    unitOfMeasure: string;
-  };
+  ingredients: RecipeIngredientItem[];
+}
+
+interface IngredientRow {
+  key: number;
+  ingredientId: number | "";
+  quantity: number | "";
 }
 
 interface RecipeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   products: RecipeProductItem[];
+  /** Productos que ya tienen receta (no se pueden elegir al crear una nueva). */
+  usedProductIds?: number[];
   recipeToEdit?: TransformationRecipeItem | null;
   onSuccess?: () => void;
 }
+
+let rowKey = 0;
+const newRow = (ingredientId: number | "" = "", quantity: number | "" = 1): IngredientRow => ({
+  key: ++rowKey,
+  ingredientId,
+  quantity,
+});
 
 export function RecipeDialog({
   open,
   onOpenChange,
   products: initialProducts,
+  usedProductIds = [],
   recipeToEdit,
   onSuccess,
 }: RecipeDialogProps) {
@@ -77,13 +111,8 @@ export function RecipeDialog({
   const [loading, setLoading] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
 
-  const [consumedProductId, setConsumedProductId] = useState<number | "">("");
-  const [requiredQuantity, setRequiredQuantity] = useState<number | "">(1);
-  const [producedProductId, setProducedProductId] = useState<number | "">("");
-  const [producedQuantity, setProducedQuantity] = useState<number | "">(8);
-
-  const rawMaterials = productsList.filter((s) => s.type === ProductType.RawMaterial);
-  const finishedProducts = productsList.filter((s) => s.type === ProductType.FinishedProduct);
+  const [productId, setProductId] = useState<number | "">("");
+  const [rows, setRows] = useState<IngredientRow[]>([newRow()]);
 
   useEffect(() => {
     setProductsList(initialProducts);
@@ -91,60 +120,56 @@ export function RecipeDialog({
 
   useEffect(() => {
     if (recipeToEdit) {
-      setConsumedProductId(recipeToEdit.consumedProductId);
-      setRequiredQuantity(Number(recipeToEdit.requiredQuantity));
-      setProducedProductId(recipeToEdit.producedProductId);
-      setProducedQuantity(Number(recipeToEdit.producedQuantity));
+      setProductId(recipeToEdit.productId);
+      setRows(recipeToEdit.ingredients.map((i) => newRow(i.ingredientId, Number(i.quantityRequired))));
     } else {
-      setConsumedProductId("");
-      setRequiredQuantity(1);
-      setProducedProductId("");
-      setProducedQuantity(8);
+      setProductId("");
+      setRows([newRow()]);
     }
   }, [recipeToEdit, open]);
 
-  const selectedConsumed = productsList.find((s) => s.id === Number(consumedProductId));
-  const selectedProduced = productsList.find((s) => s.id === Number(producedProductId));
+  const finishedProducts = productsList.filter(
+    (p) => p.type === ProductType.FinishedProduct && (recipeToEdit || !usedProductIds.includes(p.id))
+  );
+  const selectedProduct = productsList.find((p) => p.id === Number(productId));
+  const ingredientOptions = productsList.filter((p) => p.id !== Number(productId));
+
+  const updateRow = (key: number, patch: Partial<IngredientRow>) =>
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!consumedProductId) {
-      toast.error("Debe seleccionar un insumo consumido (Materia Prima)");
+    if (!productId) {
+      toast.error("Debe seleccionar el producto que se obtiene");
       return;
     }
-    if (!producedProductId) {
-      toast.error("Debe seleccionar un producto producido (Producto Terminado)");
+    if (rows.length === 0 || rows.some((r) => !r.ingredientId)) {
+      toast.error("Seleccione el ingrediente de cada línea");
       return;
     }
-    if (Number(consumedProductId) === Number(producedProductId)) {
-      toast.error("El insumo producido no puede ser el mismo que el consumido");
+    if (rows.some((r) => !r.quantity || Number(r.quantity) <= 0)) {
+      toast.error("La cantidad de cada ingrediente debe ser mayor a 0");
       return;
     }
-    if (!requiredQuantity || Number(requiredQuantity) <= 0) {
-      toast.error("La cantidad requerida debe ser mayor a 0");
+    const ids = rows.map((r) => Number(r.ingredientId));
+    if (new Set(ids).size !== ids.length) {
+      toast.error("Hay ingredientes repetidos en la receta");
       return;
     }
-    if (!producedQuantity || Number(producedQuantity) <= 0) {
-      toast.error("La cantidad producida debe ser mayor a 0");
-      return;
-    }
+
+    const ingredients = rows.map((r) => ({
+      ingredientId: Number(r.ingredientId),
+      quantityRequired: Number(r.quantity),
+    }));
 
     setLoading(true);
     try {
       if (recipeToEdit) {
-        await updateTransformationRecipe(recipeToEdit.id, {
-          requiredQuantity: Number(requiredQuantity),
-          producedQuantity: Number(producedQuantity),
-        });
+        await updateTransformationRecipe(recipeToEdit.productId, { ingredients });
         toast.success("Receta actualizada exitosamente");
       } else {
-        await createTransformationRecipe({
-          consumedProductId: Number(consumedProductId),
-          producedProductId: Number(producedProductId),
-          requiredQuantity: Number(requiredQuantity),
-          producedQuantity: Number(producedQuantity),
-        });
+        await createTransformationRecipe({ productId: Number(productId), ingredients });
         toast.success("Receta creada exitosamente");
       }
 
@@ -162,74 +187,39 @@ export function RecipeDialog({
     if (created) {
       setProductsList((prev) => [...prev, created]);
       if (created.type === ProductType.FinishedProduct) {
-        setProducedProductId(created.id);
-      } else if (created.type === ProductType.RawMaterial) {
-        setConsumedProductId(created.id);
+        setProductId(created.id);
       }
     }
   };
 
+  const formula = rows
+    .map((r) => {
+      const ingredient = productsList.find((p) => p.id === Number(r.ingredientId));
+      return ingredient && r.quantity ? `${r.quantity} ${ingredient.unitOfMeasure} ${ingredient.name}` : null;
+    })
+    .filter(Boolean)
+    .join(" + ");
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-amber-500" />
-              {recipeToEdit ? "Editar Receta de Transformación" : "Nueva Receta de Transformación"}
+              {recipeToEdit ? "Editar Receta" : "Nueva Receta"}
             </DialogTitle>
             <DialogDescription>
-              Define la proporción de insumos para convertir materia prima en producto terminado.
+              Define qué ingredientes se consumen para obtener 1 unidad del producto terminado.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            {/* Insumo Consumido */}
-            <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
-              <Label htmlFor="consumedProduct" className="text-xs font-semibold text-rose-700">
-                1. Materia Prima *
-              </Label>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <Select
-                    value={consumedProductId ? consumedProductId.toString() : ""}
-                    onValueChange={(val) => setConsumedProductId(Number(val))}
-                    disabled={!!recipeToEdit}
-                  >
-                    <SelectTrigger id="consumedProduct" className="text-xs">
-                      <SelectValue placeholder="Seleccionar materia prima">
-                        {selectedConsumed ? selectedConsumed.name : undefined}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rawMaterials.map((s) => (
-                        <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="Cantidad"
-                    value={requiredQuantity}
-                    onChange={(e) => setRequiredQuantity(parseFloat(e.target.value) || "")}
-                    className="text-xs"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Insumo Producido */}
+            {/* Producto que se obtiene */}
             <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
               <div className="flex items-center justify-between">
                 <Label htmlFor="producedProduct" className="text-xs font-semibold text-emerald-700">
-                  2. Producto Terminado *
+                  1. Producto Terminado *
                 </Label>
                 {!recipeToEdit && (
                   <button
@@ -237,51 +227,108 @@ export function RecipeDialog({
                     onClick={() => setProductDialogOpen(true)}
                     className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                   >
-                    <Plus className="h-3 w-3" /> Crear Insumo
+                    <Plus className="h-3 w-3" /> Crear Producto
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <Select
-                    value={producedProductId ? producedProductId.toString() : ""}
-                    onValueChange={(val) => setProducedProductId(Number(val))}
-                    disabled={!!recipeToEdit}
-                  >
-                    <SelectTrigger id="producedProduct" className="text-xs">
-                      <SelectValue placeholder="Seleccionar producto terminado">
-                        {selectedProduced ? selectedProduced.name : undefined}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {finishedProducts.map((s) => (
-                        <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="Cantidad"
-                    value={producedQuantity}
-                    onChange={(e) => setProducedQuantity(parseFloat(e.target.value) || "")}
-                    className="text-xs"
-                    required
-                  />
-                </div>
-              </div>
+              <Select
+                value={productId ? productId.toString() : ""}
+                onValueChange={(val) => setProductId(Number(val))}
+                disabled={!!recipeToEdit}
+              >
+                <SelectTrigger id="producedProduct" className="text-xs">
+                  <SelectValue placeholder="Seleccionar producto terminado">
+                    {selectedProduct ? selectedProduct.name : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {finishedProducts.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Vista Previa de la Fórmula */}
-            {selectedConsumed && selectedProduced && (
+            {/* Ingredientes */}
+            <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-rose-700">
+                  2. Ingredientes por 1 {selectedProduct?.unitOfMeasure ?? "unidad"} *
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setRows((prev) => [...prev, newRow()])}
+                  className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" /> Agregar ingrediente
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {rows.map((row) => {
+                  const selected = productsList.find((p) => p.id === Number(row.ingredientId));
+                  return (
+                    <div key={row.key} className="grid grid-cols-[1fr_6.5rem_auto] gap-2 items-center">
+                      <Select
+                        value={row.ingredientId ? row.ingredientId.toString() : ""}
+                        onValueChange={(val) => updateRow(row.key, { ingredientId: Number(val) })}
+                      >
+                        <SelectTrigger className="text-xs">
+                          <SelectValue placeholder="Seleccionar ingrediente">
+                            {selected ? selected.name : undefined}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ingredientOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id.toString()}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          min="0.0001"
+                          placeholder="Cantidad"
+                          value={row.quantity}
+                          onChange={(e) => updateRow(row.key, { quantity: parseFloat(e.target.value) || "" })}
+                          className="text-xs pr-9"
+                          required
+                        />
+                        {selected && (
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">
+                            {selected.unitOfMeasure}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-rose-600"
+                        aria-label="Quitar ingrediente"
+                        disabled={rows.length === 1}
+                        onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Cantidad por 1 unidad producida. Si 1 pollo rinde 8 presas, cada presa lleva 0.125 de pollo.
+              </p>
+            </div>
+
+            {/* Vista previa de la fórmula */}
+            {selectedProduct && formula && (
               <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-900 text-xs text-center font-medium">
-                Fórmula: {requiredQuantity || 1} {selectedConsumed.name} →{" "}
-                {producedQuantity || 1} {selectedProduced.name}
+                1 {selectedProduct.unitOfMeasure} {selectedProduct.name} = {formula}
               </div>
             )}
 

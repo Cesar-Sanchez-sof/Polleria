@@ -293,12 +293,10 @@ model Product {
   transformationItems TransformationItem[]
   informalPurchases   InformalPurchase[]
   orderItems          OrderItem[]
-  /// Reference recipe of this product (what the cook uses). Informative only: it never moves stock.
+  /// Recipe of this product: ingredients per 1 unit produced. Transformations consume them and add stock to the product.
   recipe              ProductRecipe[]        @relation("RecipeOf")
   /// Recipes of other products where this product appears as an ingredient.
   usedInRecipes       ProductRecipe[]        @relation("RecipeIngredient")
-  recipesProduced     TransformationRecipe[] @relation("RecipeProduced")
-  recipesConsumed     TransformationRecipe[] @relation("RecipeConsumed")
 
   @@map("product")
 }
@@ -400,6 +398,7 @@ model Transformation {
   employee        Employee             @relation("EmployeeTransformations", fields: [employeeId], references: [id], onDelete: Restrict)
   annulledBy      Employee?            @relation("AnnulledTransformations", fields: [annulledById], references: [id], onDelete: Restrict)
   items           TransformationItem[]
+  journalEntries  JournalEntry[]
 
   @@index([employeeId], map: "idx_transformation_employee")
   @@index([annulledById], map: "idx_transformation_annulled_by")
@@ -420,22 +419,6 @@ model TransformationItem {
   @@index([transformationId], map: "idx_transformation_item_transformation")
   @@index([productId], map: "idx_transformation_item_product")
   @@map("transformation_item")
-}
-
-model TransformationRecipe {
-  id               Int     @id @default(autoincrement())
-  producedProductId Int    @map("produced_product_id")
-  consumedProductId Int    @map("consumed_product_id")
-  producedQuantity Decimal @default(1) @map("produced_quantity") @db.Decimal(10, 2)
-  requiredQuantity Decimal @map("required_quantity") @db.Decimal(10, 2)
-  active           Boolean @default(true)
-  producedProduct  Product @relation("RecipeProduced", fields: [producedProductId], references: [id], onDelete: Restrict)
-  consumedProduct  Product @relation("RecipeConsumed", fields: [consumedProductId], references: [id], onDelete: Restrict)
-
-  @@unique([producedProductId, consumedProductId], map: "uq_transformation_recipe")
-  @@index([producedProductId], map: "idx_transformation_recipe_produced")
-  @@index([consumedProductId], map: "idx_transformation_recipe_consumed")
-  @@map("transformation_recipe")
 }
 
 model InformalPurchase {
@@ -498,7 +481,9 @@ model ProductRecipe {
   id               Int     @id @default(autoincrement())
   productId        Int     @map("product_id")
   ingredientId     Int     @map("ingredient_id")
-  quantityRequired Decimal @map("quantity_required") @db.Decimal(10, 2)
+  /// Ingredient quantity needed per 1 unit of `product`.
+  quantityRequired Decimal @map("quantity_required") @db.Decimal(10, 4)
+  active           Boolean @default(true)
   product          Product @relation("RecipeOf", fields: [productId], references: [id], onDelete: Cascade)
   ingredient       Product @relation("RecipeIngredient", fields: [ingredientId], references: [id], onDelete: Restrict)
 
@@ -642,6 +627,7 @@ model JournalEntry {
   salesInvoiceId    Int?                 @map("sales_invoice_id")
   purchaseInvoiceId Int?                 @map("purchase_invoice_id")
   payrollId         Int?                 @map("payroll_id")
+  transformationId  Int?                 @map("transformation_id")
   entryDate         DateTime             @default(now()) @map("entry_date") @db.Date
   periodId          Int                  @map("period_id")
   period            AccountingPeriod     @relation(fields: [periodId], references: [id])
@@ -656,12 +642,14 @@ model JournalEntry {
   salesInvoice      SalesInvoice?        @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
   purchaseInvoice   PurchaseInvoice?     @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Restrict)
   payroll           Payroll?             @relation(fields: [payrollId], references: [id], onDelete: Restrict)
+  transformation    Transformation?      @relation(fields: [transformationId], references: [id], onDelete: Restrict)
   entryDetails      JournalEntryDetail[]
 
   @@index([salesInvoiceId], map: "idx_journal_entry_sales_invoice")
   @@index([purchaseInvoiceId], map: "idx_journal_entry_purchase_invoice")
   @@index([periodId], map: "idx_journal_entry_period")
   @@index([payrollId], map: "idx_journal_entry_payroll")
+  @@index([transformationId], map: "idx_journal_entry_transformation")
   @@index([entryDate], map: "idx_journal_entry_date")
   @@index([book], map: "idx_journal_entry_book")
   @@index([status], map: "idx_journal_entry_status")

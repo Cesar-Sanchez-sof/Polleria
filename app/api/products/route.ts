@@ -27,11 +27,11 @@ const LIST_PERMISSIONS = [
  *     summary: Lista productos (materias primas y productos terminados) con su stock
  *     description: >
  *       Filtros: `sellable=true` (solo lo que se vende en la carta), `includeInactive=true`,
- *       `includeRecipes=true` (receta referencial), `category`, `q`.
+ *       `includeRecipes=true` (receta del producto), `category`, `q`.
  *   post:
  *     tags:
  *       - Products
- *     summary: Registrar un producto de la carta con su receta referencial
+ *     summary: Registrar un producto de la carta con su receta
  */
 export async function GET(request: NextRequest) {
   const auth = await authorize(LIST_PERMISSIONS);

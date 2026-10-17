@@ -286,17 +286,6 @@ const ENTITIES: EntityDef[] = [
 		],
 	},
 	{
-		id: 'TransformationRecipe', label: 'TransformationRecipe', module: 'Compras', color: '#f59e0b',
-		fields: [
-			{ name: 'id', type: 'Int', kind: 'pk' },
-			{ name: 'producedProductId', type: 'Int', kind: 'fk' },
-			{ name: 'consumedProductId', type: 'Int', kind: 'fk' },
-			{ name: 'producedQuantity', type: 'Decimal', kind: 'field' },
-			{ name: 'requiredQuantity', type: 'Decimal', kind: 'field' },
-			{ name: 'active', type: 'Boolean', kind: 'field' },
-		],
-	},
-	{
 		id: 'InformalPurchase', label: 'InformalPurchase', module: 'Compras', color: '#f59e0b',
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
@@ -340,6 +329,7 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'productId', type: 'Int', kind: 'fk' },
 			{ name: 'ingredientId', type: 'Int', kind: 'fk' },
 			{ name: 'quantityRequired', type: 'Decimal', kind: 'field' },
+			{ name: 'active', type: 'Boolean', kind: 'field' },
 		],
 	},
 	{
@@ -433,6 +423,7 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'salesInvoiceId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'purchaseInvoiceId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'payrollId', type: 'Int', kind: 'fk', optional: true },
+			{ name: 'transformationId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'entryDate', type: 'Date', kind: 'field' },
 			{ name: 'description', type: 'String', kind: 'field' },
 			{ name: 'book', type: 'String', kind: 'field' },
@@ -520,8 +511,6 @@ const RELATIONS: RelationDef[] = [
 	{ id: 're-transf-annulled', child: 'Transformation', fk: 'annulledById', parent: 'Employee', label: 'annulled_by' },
 	{ id: 're-ti-transf', child: 'TransformationItem', fk: 'transformationId', parent: 'Transformation', label: 'contains' },
 	{ id: 're-ti-product', child: 'TransformationItem', fk: 'productId', parent: 'Product', label: 'transformed_in' },
-	{ id: 're-trecipe-produced', child: 'TransformationRecipe', fk: 'producedProductId', parent: 'Product', label: 'produces' },
-	{ id: 're-trecipe-consumed', child: 'TransformationRecipe', fk: 'consumedProductId', parent: 'Product', label: 'consumes' },
 	{ id: 're-inf-product', child: 'InformalPurchase', fk: 'productId', parent: 'Product', label: 'purchased_as' },
 	{ id: 're-inf-emp', child: 'InformalPurchase', fk: 'employeeId', parent: 'Employee', label: 'registers' },
 	{ id: 're-inf-annulled', child: 'InformalPurchase', fk: 'annulledById', parent: 'Employee', label: 'annulled_by' },
@@ -542,6 +531,7 @@ const RELATIONS: RelationDef[] = [
 	{ id: 're-je-sinv', child: 'JournalEntry', fk: 'salesInvoiceId', parent: 'SalesInvoice', label: 'generates' },
 	{ id: 're-je-pinv', child: 'JournalEntry', fk: 'purchaseInvoiceId', parent: 'PurchaseInvoice', label: 'generates' },
 	{ id: 're-je-payroll', child: 'JournalEntry', fk: 'payrollId', parent: 'Payroll', label: 'generates' },
+	{ id: 're-je-transf', child: 'JournalEntry', fk: 'transformationId', parent: 'Transformation', label: 'generates' },
 	{ id: 're-jed-je', child: 'JournalEntryDetail', fk: 'entryId', parent: 'JournalEntry', label: 'has' },
 	{ id: 're-jed-acc', child: 'JournalEntryDetail', fk: 'accountId', parent: 'AccountingAccount', label: 'records' },
 	{ id: 're-session-reg', child: 'CashSession', fk: 'cashRegisterId', parent: 'CashRegister', label: 'has' },
@@ -551,7 +541,7 @@ const RELATIONS: RelationDef[] = [
 ];
 
 const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
-	S0: { col: -4, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'TransformationRecipe', 'TransformationItem'] },
+	S0: { col: -4, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'TransformationItem'] },
 	S1: { col: -3, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'ProductRecipe'] },
 	S2: { col: -2, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'Shift', 'Transformation', 'Product',] },
 	S: { col: -1, rows: ['RolePermission', '__SPACER__', '__SPACER__', 'Employee', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'InventoryMovement', '__SPACER__', '__SPACER__', '__SPACER__'] },

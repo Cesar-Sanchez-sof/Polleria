@@ -8,9 +8,15 @@ import { createPurchaseVoucher } from "./invoices";
 import {
   registerTransformation,
   createTransformationRecipe,
+  toggleTransformationRecipe,
+  deleteTransformationRecipe,
   executeTransformation,
   annulTransformation,
 } from "./transformation";
+import {
+  postTransformationJournalEntries,
+  reverseTransformationJournalEntries,
+} from "@/lib/services/accounting-posting.service";
 import {
   registerPurchaseWithoutVoucher,
   annulInformalPurchase,
@@ -22,6 +28,10 @@ vi.mock("@/lib/services/accounting-posting.service", () => ({
   postPurchasePaymentJournalEntry: vi.fn().mockResolvedValue(10),
   postInformalPurchaseJournalEntry: vi.fn().mockResolvedValue(101),
   annulInformalPurchaseJournalEntry: vi.fn().mockResolvedValue(102),
+  postTransformationJournalEntries: vi.fn().mockResolvedValue([201]),
+  reverseTransformationJournalEntries: vi.fn().mockResolvedValue([202]),
+  inventoryAccountCode: (product: { type: string; hasRecipe: boolean }) =>
+    product.type === "RawMaterial" ? "241" : product.hasRecipe ? "211" : "201",
 }));
 
 // Mock Prisma Client
@@ -77,12 +87,15 @@ vi.mock("@/lib/prisma", () => {
     },
     transformationItem: {
       create: vi.fn().mockResolvedValue({ id: 1 }),
+      count: vi.fn(),
     },
-    transformationRecipe: {
-      create: vi.fn(),
+    productRecipe: {
       findMany: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
+      findFirst: vi.fn(),
+      count: vi.fn(),
+      createMany: vi.fn(),
+      deleteMany: vi.fn(),
+      updateMany: vi.fn(),
     },
     informalPurchase: {
       create: vi.fn(),
@@ -432,11 +445,12 @@ describe("Modulo Compras Services", () => {
   });
 
   describe("Módulo 6: Transformación", () => {
-    it("debe registrar transformación descontando materia prima e incrementando producto terminado", async () => {
+    it("debe registrar transformación descontando materia prima, incrementando producto terminado y asentando 241 → 211", async () => {
       (prisma.transformation.create as any).mockResolvedValue({ id: 50 });
       (prisma.product.findUnique as any)
-        .mockResolvedValueOnce({ id: 1, currentStock: 20 })
-        .mockResolvedValueOnce({ id: 2, currentStock: 0 });
+        .mockResolvedValueOnce({ id: 1, currentStock: 20, averageCost: 10, type: "RawMaterial" })
+        .mockResolvedValueOnce({ id: 2, currentStock: 0, type: "FinishedProduct" });
+      (prisma.productRecipe.findMany as any).mockResolvedValueOnce([]);
 
       await registerTransformation({
         consumptions: [{ productId: 1, quantity: 5 }],
@@ -451,127 +465,125 @@ describe("Modulo Compras Services", () => {
         where: { id: 2 },
         data: { currentStock: 4 },
       });
-    });
-
-    it("debe crear una receta de transformación validando insumos y cantidades", async () => {
-      (prisma.product.findUnique as any)
-        .mockResolvedValueOnce({ id: 2, name: "Presas de pollo", type: "FinishedProduct" })
-        .mockResolvedValueOnce({ id: 1, name: "Pollo entero", type: "RawMaterial" });
-      (prisma.transformationRecipe.findUnique as any).mockResolvedValue(null);
-      (prisma.transformationRecipe.create as any).mockResolvedValue({
-        id: 1,
-        producedProductId: 2,
-        consumedProductId: 1,
-        producedQuantity: 8,
-        requiredQuantity: 1,
-        active: true,
-      });
-
-      const res = await createTransformationRecipe({
-        producedProductId: 2,
-        consumedProductId: 1,
-        producedQuantity: 8,
-        requiredQuantity: 1,
-      });
-
-      expect(res.id).toBe(1);
-      expect(prisma.transformationRecipe.create).toHaveBeenCalledWith(
+      // 5 × S/ 10 de materia prima (241) pasan a productos terminados
+      expect(postTransformationJournalEntries).toHaveBeenCalledWith(
+        prisma,
         expect.objectContaining({
-          data: expect.objectContaining({
-            producedProductId: 2,
-            consumedProductId: 1,
-            producedQuantity: 8,
-            requiredQuantity: 1,
-            active: true,
-          }),
+          transformationId: 50,
+          consumed: [{ accountCode: "241", amount: 50 }],
         })
       );
     });
 
-    it("debe rechazar receta si producido y consumido son el mismo insumo o cantidades <= 0", async () => {
-      await expect(
-        createTransformationRecipe({
-          producedProductId: 1,
-          consumedProductId: 1,
-          producedQuantity: 8,
-          requiredQuantity: 1,
-        })
-      ).rejects.toThrow("El insumo producido no puede ser el mismo que el consumido");
+    it("debe crear una receta con varios ingredientes (1/4 pollo = pollo + papas)", async () => {
+      (prisma.product.findUnique as any).mockResolvedValueOnce({ id: 2, name: "1/4 Pollo a la Brasa" });
+      (prisma.productRecipe.count as any).mockResolvedValue(0);
+      (prisma.productRecipe.findFirst as any).mockResolvedValue(null);
+      (prisma.product.findMany as any).mockResolvedValueOnce([{ id: 1 }, { id: 3 }]);
+      (prisma.productRecipe.findMany as any).mockResolvedValueOnce([
+        { id: 1, productId: 2, ingredientId: 1, quantityRequired: 0.25, active: true },
+        { id: 2, productId: 2, ingredientId: 3, quantityRequired: 0.2, active: true },
+      ]);
 
-      await expect(
-        createTransformationRecipe({
-          producedProductId: 2,
-          consumedProductId: 1,
-          producedQuantity: 0,
-          requiredQuantity: 1,
-        })
-      ).rejects.toThrow("La cantidad producida debe ser mayor a 0");
-    });
-
-    it("debe rechazar receta duplicada si ya existe combinación", async () => {
-      (prisma.product.findUnique as any)
-        .mockResolvedValueOnce({ id: 2, name: "Presas de pollo" })
-        .mockResolvedValueOnce({ id: 1, name: "Pollo entero" });
-      (prisma.transformationRecipe.findUnique as any).mockResolvedValue({ id: 99 });
-
-      await expect(
-        createTransformationRecipe({
-          producedProductId: 2,
-          consumedProductId: 1,
-          producedQuantity: 8,
-          requiredQuantity: 1,
-        })
-      ).rejects.toThrow("Ya existe una receta para esta combinación de insumos");
-    });
-
-    it("debe ejecutar receta por lote, descontar stock consumido, aumentar producido y actualizar averageCost", async () => {
-      (prisma.transformationRecipe.findUnique as any).mockResolvedValue({
-        id: 1,
-        consumedProductId: 1,
-        producedProductId: 2,
-        requiredQuantity: 1,
-        producedQuantity: 8,
-        active: true,
+      const res = await createTransformationRecipe({
+        productId: 2,
+        ingredients: [
+          { ingredientId: 1, quantityRequired: 0.25 },
+          { ingredientId: 3, quantityRequired: 0.2 },
+        ],
       });
+
+      expect(res).toHaveLength(2);
+      expect(prisma.productRecipe.createMany).toHaveBeenCalledWith({
+        data: [
+          { productId: 2, ingredientId: 1, quantityRequired: 0.25, active: true },
+          { productId: 2, ingredientId: 3, quantityRequired: 0.2, active: true },
+        ],
+      });
+    });
+
+    it("debe rechazar recetas sin ingredientes, repetidos, con el propio producto o cantidades <= 0", async () => {
+      await expect(createTransformationRecipe({ productId: 2, ingredients: [] })).rejects.toThrow(
+        "Debe agregar al menos un ingrediente a la receta"
+      );
+      await expect(
+        createTransformationRecipe({ productId: 1, ingredients: [{ ingredientId: 1, quantityRequired: 1 }] })
+      ).rejects.toThrow("El producto no puede ser ingrediente de sí mismo");
+      await expect(
+        createTransformationRecipe({
+          productId: 2,
+          ingredients: [
+            { ingredientId: 1, quantityRequired: 1 },
+            { ingredientId: 1, quantityRequired: 2 },
+          ],
+        })
+      ).rejects.toThrow("Hay ingredientes repetidos en la receta");
+      await expect(
+        createTransformationRecipe({ productId: 2, ingredients: [{ ingredientId: 1, quantityRequired: 0 }] })
+      ).rejects.toThrow("La cantidad de cada ingrediente debe ser mayor a 0");
+    });
+
+    it("debe rechazar crear una receta si el producto ya tiene una", async () => {
+      (prisma.product.findUnique as any).mockResolvedValueOnce({ id: 2, name: "Presas de pollo" });
+      (prisma.productRecipe.count as any).mockResolvedValue(1);
+
+      await expect(
+        createTransformationRecipe({ productId: 2, ingredients: [{ ingredientId: 1, quantityRequired: 0.125 }] })
+      ).rejects.toThrow("Este producto ya tiene una receta");
+    });
+
+    it("debe rechazar una receta circular (el ingrediente ya se elabora con el producto)", async () => {
+      (prisma.product.findUnique as any).mockResolvedValueOnce({ id: 2, name: "Presas de pollo" });
+      (prisma.productRecipe.count as any).mockResolvedValue(0);
+      (prisma.productRecipe.findFirst as any).mockResolvedValue({ id: 9 });
+
+      await expect(
+        createTransformationRecipe({ productId: 2, ingredients: [{ ingredientId: 1, quantityRequired: 1 }] })
+      ).rejects.toThrow("Receta circular");
+    });
+
+    it("debe ejecutar la receta de varios ingredientes, descontar cada uno, costear el producto y asentar 241 → 211", async () => {
+      (prisma.productRecipe.findMany as any)
+        .mockResolvedValueOnce([
+          { id: 1, productId: 2, ingredientId: 1, quantityRequired: 0.25, active: true },
+          { id: 2, productId: 2, ingredientId: 3, quantityRequired: 0.2, active: true },
+        ])
+        .mockResolvedValueOnce([]); // ningún ingrediente se elabora con receta propia
       (prisma.product.findUnique as any)
-        .mockResolvedValueOnce({ id: 1, currentStock: 48, averageCost: 10, lastCost: 10 }) // consumed
-        .mockResolvedValueOnce({ id: 2, currentStock: 0, averageCost: 0, lastCost: 0 }); // produced
+        .mockResolvedValueOnce({ id: 2, name: "1/4 Pollo", currentStock: 0, averageCost: 0, type: "FinishedProduct" }) // producido
+        .mockResolvedValueOnce({ id: 1, name: "Pollo entero", currentStock: 48, averageCost: 10, lastCost: 10, type: "RawMaterial" })
+        .mockResolvedValueOnce({ id: 3, name: "Papas", currentStock: 5, averageCost: 3, lastCost: 3, type: "RawMaterial" });
 
       (prisma.transformation.create as any).mockResolvedValue({ id: 10 });
       (prisma.transformationItem.create as any)
-        .mockResolvedValueOnce({ id: 101 }) // consumo item
-        .mockResolvedValueOnce({ id: 102 }); // producido item
+        .mockResolvedValueOnce({ id: 101 }) // consumo pollo
+        .mockResolvedValueOnce({ id: 102 }) // consumo papas
+        .mockResolvedValueOnce({ id: 103 }); // producido
 
-      const res = await executeTransformation(1, 5, "Producción del turno mañana");
+      const res = await executeTransformation(2, 4, "Producción del turno mañana");
 
       expect(res.id).toBe(10);
-      // Consumido: 5 * 1 = 5. Stock: 48 - 5 = 43
+      // Pollo: 0.25 × 4 = 1 → 48 - 1 = 47. Papas: 0.2 × 4 = 0.8 → 5 - 0.8 = 4.2
       expect(prisma.product.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 1 },
-          data: { currentStock: 43 },
-        })
+        expect.objectContaining({ where: { id: 1 }, data: { currentStock: 47 } })
       );
-      // Producido: 5 * 8 = 40. Valor consumido: 5 * 10 = 50. Costo unitario: 50 / 40 = 1.25.
-      // Nuevo promedio ponderado: (0*0 + 40*1.25)/40 = 1.25
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 3 }, data: { currentStock: 4.2 } })
+      );
+      // Valor consumido: 1 × 10 + 0.8 × 3 = 12.4. Costo unitario del producido: 12.4 / 4 = 3.1
       expect(prisma.product.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 2 },
-          data: {
-            currentStock: 40,
-            lastCost: 1.25,
-            averageCost: 1.25,
-          },
+          data: { currentStock: 4, lastCost: 3.1, averageCost: 3.1 },
         })
       );
-      // InventoryMovement out & in
       expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             productId: 1,
             transformationItemId: 101,
             movementType: "TransformationOut",
-            quantity: 5,
+            quantity: 1,
             unitCost: 10,
           }),
         })
@@ -580,36 +592,84 @@ describe("Modulo Compras Services", () => {
         expect.objectContaining({
           data: expect.objectContaining({
             productId: 2,
-            transformationItemId: 102,
+            transformationItemId: 103,
             movementType: "TransformationIn",
-            quantity: 40,
-            unitCost: 1.25,
+            quantity: 4,
+            unitCost: 3.1,
           }),
         })
       );
+      // Asiento en el diario general: Debe 211 / Haber 241 por el valor consumido
+      expect(postTransformationJournalEntries).toHaveBeenCalledTimes(1);
+      const posted = (postTransformationJournalEntries as any).mock.calls[0][1];
+      expect(posted.transformationId).toBe(10);
+      expect(posted.label).toBe("TR-10");
+      expect(posted.consumed).toHaveLength(2);
+      expect(posted.consumed.every((c: any) => c.accountCode === "241")).toBe(true);
+      expect(posted.consumed.reduce((sum: number, c: any) => sum + c.amount, 0)).toBeCloseTo(12.4, 2);
     });
 
-    it("debe rechazar ejecución si el stock del insumo consumido es insuficiente", async () => {
-      (prisma.transformationRecipe.findUnique as any).mockResolvedValue({
-        id: 1,
-        consumedProductId: 1,
-        producedProductId: 2,
-        requiredQuantity: 1,
-        producedQuantity: 8,
-        active: true,
-      });
-      (prisma.product.findUnique as any).mockResolvedValueOnce({
-        id: 1,
-        currentStock: 3,
-        averageCost: 10,
-      });
+    it("debe enviar a la cuenta 211 el insumo que ya es un producto transformado", async () => {
+      (prisma.productRecipe.findMany as any)
+        .mockResolvedValueOnce([{ id: 1, productId: 5, ingredientId: 2, quantityRequired: 1, active: true }])
+        .mockResolvedValueOnce([{ productId: 2 }]); // el ingrediente tiene receta propia
+      (prisma.product.findUnique as any)
+        .mockResolvedValueOnce({ id: 5, name: "Combo", currentStock: 0, averageCost: 0, type: "FinishedProduct" })
+        .mockResolvedValueOnce({ id: 2, name: "1/4 Pollo", currentStock: 10, averageCost: 4, type: "FinishedProduct" });
+      (prisma.transformation.create as any).mockResolvedValue({ id: 11 });
+      (prisma.transformationItem.create as any).mockResolvedValue({ id: 1 });
 
-      await expect(executeTransformation(1, 5)).rejects.toThrow(
-        "Stock insuficiente. Disponibles: 3, necesarios: 5"
+      await executeTransformation(5, 2);
+
+      const posted = (postTransformationJournalEntries as any).mock.calls[0][1];
+      expect(posted.consumed).toEqual([{ accountCode: "211", amount: 8 }]);
+    });
+
+    it("debe rechazar la ejecución si falta stock de algún ingrediente y no mover nada", async () => {
+      (prisma.productRecipe.findMany as any).mockResolvedValueOnce([
+        { id: 1, productId: 2, ingredientId: 1, quantityRequired: 1, active: true },
+        { id: 2, productId: 2, ingredientId: 3, quantityRequired: 0.2, active: true },
+      ]);
+      (prisma.product.findUnique as any)
+        .mockResolvedValueOnce({ id: 2, name: "Presas", currentStock: 0, averageCost: 0 })
+        .mockResolvedValueOnce({ id: 1, name: "Pollo entero", currentStock: 3, averageCost: 10 })
+        .mockResolvedValueOnce({ id: 3, name: "Papas", currentStock: 50, averageCost: 3 });
+
+      await expect(executeTransformation(2, 5)).rejects.toThrow(
+        "Stock insuficiente. Pollo entero: disponibles 3, necesarios 5"
       );
+      expect(prisma.transformation.create).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+      expect(postTransformationJournalEntries).not.toHaveBeenCalled();
     });
 
-    it("debe anular una transformación exitosamente revirtiendo stock con movimientos inversos", async () => {
+    it("debe rechazar la ejecución de una receta inexistente o desactivada", async () => {
+      (prisma.productRecipe.findMany as any).mockResolvedValueOnce([]);
+      await expect(executeTransformation(2, 1)).rejects.toThrow("Receta no encontrada o inactiva");
+
+      (prisma.productRecipe.findMany as any).mockResolvedValueOnce([
+        { id: 1, productId: 2, ingredientId: 1, quantityRequired: 1, active: false },
+      ]);
+      await expect(executeTransformation(2, 1)).rejects.toThrow("Receta no encontrada o inactiva");
+    });
+
+    it("debe desactivar una receta completa y bloquear su eliminación si ya fue usada", async () => {
+      (prisma.productRecipe.updateMany as any).mockResolvedValue({ count: 2 });
+      await toggleTransformationRecipe(2, false);
+      expect(prisma.productRecipe.updateMany).toHaveBeenCalledWith({
+        where: { productId: 2 },
+        data: { active: false },
+      });
+
+      (prisma.productRecipe.count as any).mockResolvedValue(2);
+      (prisma.transformationItem.count as any).mockResolvedValue(3);
+      await expect(deleteTransformationRecipe(2)).rejects.toThrow(
+        "No se puede eliminar la receta porque ya tiene registros de ejecución histórica"
+      );
+      expect(prisma.productRecipe.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("debe anular una transformación exitosamente revirtiendo stock y el asiento del diario", async () => {
       (prisma.transformation.findUnique as any).mockResolvedValue({
         id: 10,
         annulled: false,
@@ -683,7 +743,13 @@ describe("Modulo Compras Services", () => {
         })
       );
 
-      // 3. Update transformation
+      // 3. Asiento inverso en el diario
+      expect(reverseTransformationJournalEntries).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ transformationId: 10, label: "TR-10", reason: "Error de cantidad" })
+      );
+
+      // 4. Update transformation
       expect(prisma.transformation.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 10 },
@@ -724,6 +790,7 @@ describe("Modulo Compras Services", () => {
       await expect(annulTransformation(10, "Error en lote")).rejects.toThrow(
         "Stock insuficiente para revertir el producto terminado. Stock actual: 10, necesario: 40"
       );
+      expect(reverseTransformationJournalEntries).not.toHaveBeenCalled();
     });
 
     it("debe rechazar anulación si ya está anulada", async () => {

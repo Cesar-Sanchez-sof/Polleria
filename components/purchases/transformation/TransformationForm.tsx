@@ -36,6 +36,8 @@ interface TransformationFormProps {
   onGoToRecipesTab?: () => void;
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 export function TransformationForm({
   recipes,
   products,
@@ -47,77 +49,74 @@ export function TransformationForm({
   // Solo recetas activas
   const activeRecipes = useMemo(() => recipes.filter((r) => r.active), [recipes]);
 
-  // Selección de receta
-  const [selectedRecipeId, setSelectedRecipeId] = useState<number | "">(
-    activeRecipes.length > 0 ? activeRecipes[0].id : ""
+  // Selección de receta (una por producto terminado)
+  const [selectedProductId, setSelectedProductId] = useState<number | "">(
+    activeRecipes.length > 0 ? activeRecipes[0].productId : ""
   );
-  const [times, setTimes] = useState<number | "">(1);
+  const [quantity, setQuantity] = useState<number | "">(1);
   const [notes, setNotes] = useState("");
 
   const selectedRecipe = useMemo(() => {
-    return activeRecipes.find((r) => r.id === Number(selectedRecipeId)) || null;
-  }, [activeRecipes, selectedRecipeId]);
+    return activeRecipes.find((r) => r.productId === Number(selectedProductId)) || null;
+  }, [activeRecipes, selectedProductId]);
 
-  // Datos del insumo consumido en tiempo real
-  const consumedProduct = useMemo(() => {
-    if (!selectedRecipe) return null;
-    return (
-      products.find((s) => s.id === selectedRecipe.consumedProductId) ||
-      selectedRecipe.consumedProduct
-    );
-  }, [selectedRecipe, products]);
-
+  // Stock vigente del producto a generar (la lista de productos se refresca tras cada lote)
   const producedProduct = useMemo(() => {
     if (!selectedRecipe) return null;
-    return (
-      products.find((s) => s.id === selectedRecipe.producedProductId) ||
-      selectedRecipe.producedProduct
-    );
+    return products.find((p) => p.id === selectedRecipe.productId) ?? selectedRecipe.product;
   }, [selectedRecipe, products]);
 
   // Cálculos derivados
-  const runTimes = Math.max(1, Number(times) || 1);
-  const totalConsumed = selectedRecipe ? Number(selectedRecipe.requiredQuantity) * runTimes : 0;
-  const totalProduced = selectedRecipe ? Number(selectedRecipe.producedQuantity) * runTimes : 0;
+  const runQuantity = Math.max(0, Number(quantity) || 0);
+  const lines = useMemo(() => {
+    if (!selectedRecipe) return [];
+    return selectedRecipe.ingredients.map((i) => {
+      const live = products.find((p) => p.id === i.ingredientId);
+      const available = Number(live?.currentStock ?? i.ingredient.currentStock);
+      const unitCost = Number(
+        live?.averageCost || live?.lastCost || i.ingredient.averageCost || i.ingredient.lastCost || 0
+      );
+      const needed = round2(i.quantityRequired * runQuantity);
+      return { ...i, available, unitCost, needed, short: available < needed };
+    });
+  }, [selectedRecipe, products, runQuantity]);
 
-  const currentAvailableStock = Number((consumedProduct as any)?.currentStock || 0);
-  const currentProducedStock = Number((producedProduct as any)?.currentStock || 0);
-  const hasInsufficientStock = selectedRecipe ? currentAvailableStock < totalConsumed : false;
-
-  // Costos estimados
-  const consumedUnitCost = Number((consumedProduct as any)?.averageCost || (consumedProduct as any)?.lastCost || 0);
-  const totalConsumedCost = totalConsumed * consumedUnitCost;
-  const estimatedProducedUnitCost = totalProduced > 0 ? totalConsumedCost / totalProduced : 0;
+  const hasInsufficientStock = lines.some((l) => l.short);
+  const totalConsumedCost = lines.reduce((sum, l) => sum + l.needed * l.unitCost, 0);
+  const estimatedProducedUnitCost = runQuantity > 0 ? totalConsumedCost / runQuantity : 0;
+  const currentProducedStock = Number(producedProduct?.currentStock ?? 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedRecipeId) {
-      toast.error("Debe seleccionar una receta de transformación");
+    if (!selectedProductId) {
+      toast.error("Debe seleccionar una receta de producción");
       return;
     }
-    if (!times || Number(times) <= 0) {
-      toast.error("La cantidad de veces a ejecutar debe ser mayor a 0");
+    if (!quantity || Number(quantity) <= 0) {
+      toast.error("La cantidad a producir debe ser mayor a 0");
       return;
     }
     if (hasInsufficientStock) {
-      toast.error(
-        `Stock insuficiente. Disponibles: ${currentAvailableStock}, necesarios: ${totalConsumed}`
-      );
+      const missing = lines
+        .filter((l) => l.short)
+        .map((l) => `${l.ingredient.name} (disponibles ${l.available}, necesarios ${l.needed})`)
+        .join("; ");
+      toast.error(`Stock insuficiente: ${missing}`);
       return;
     }
 
     setLoading(true);
     try {
       await executeTransformation(
-        Number(selectedRecipeId),
-        Number(times),
+        Number(selectedProductId),
+        Number(quantity),
         notes.trim() || undefined
       );
 
       toast.success("Transformación ejecutada exitosamente");
       router.refresh();
-      setTimes(1);
+      setQuantity(1);
       setNotes("");
     } catch (err: any) {
       toast.error(err.message || "Error al ejecutar transformación");
@@ -133,9 +132,9 @@ export function TransformationForm({
           <Sparkles className="h-7 w-7" />
         </div>
         <div className="space-y-1.5">
-          <h3 className="text-base font-bold text-foreground">No hay recetas de transformación activas</h3>
+          <h3 className="text-base font-bold text-foreground">No hay recetas de producción activas</h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Para ejecutar una transformación por lote, primero debes configurar una receta (ej: 1 Pollo entero → 8 Presas de pollo).
+            Para producir por lote, primero configura una receta (ej: 1/4 Pollo = 0.25 Pollo entero + 0.2 kg Papas).
           </p>
         </div>
         {onGoToRecipesTab && (
@@ -159,7 +158,7 @@ export function TransformationForm({
             <div>
               <h2 className="text-base font-bold text-foreground">Estación de Transformación</h2>
               <p className="text-xs text-muted-foreground">
-                Selecciona la receta y la cantidad de repeticiones para calcular el impacto en inventario.
+                Selecciona la receta y cuántas unidades producir para calcular el impacto en inventario.
               </p>
             </div>
           </div>
@@ -172,62 +171,59 @@ export function TransformationForm({
           {/* Selector de Receta */}
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="recipeSelect" className="text-xs font-semibold">
-              Seleccionar Receta de Producción <span className="text-red-500">*</span>
+              Producto a producir <span className="text-red-500">*</span>
             </Label>
             <Select
-              value={selectedRecipeId ? selectedRecipeId.toString() : ""}
-              onValueChange={(val) => setSelectedRecipeId(Number(val))}
+              value={selectedProductId ? selectedProductId.toString() : ""}
+              onValueChange={(val) => setSelectedProductId(Number(val))}
             >
               <SelectTrigger id="recipeSelect" className="h-10 text-xs bg-background">
                 <SelectValue placeholder="Seleccionar receta">
-                  {selectedRecipe
-                    ? `${selectedRecipe.consumedProduct.name} (${selectedRecipe.requiredQuantity} ${selectedRecipe.consumedProduct.unitOfMeasure}) → ${selectedRecipe.producedProduct.name} (${selectedRecipe.producedQuantity} ${selectedRecipe.producedProduct.unitOfMeasure})`
-                    : undefined}
+                  {selectedRecipe ? selectedRecipe.product.name : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {activeRecipes.map((r) => (
-                  <SelectItem key={r.id} value={r.id.toString()}>
-                    {r.consumedProduct.name} ({r.requiredQuantity} {r.consumedProduct.unitOfMeasure}) →{" "}
-                    {r.producedProduct.name} ({r.producedQuantity} {r.producedProduct.unitOfMeasure})
+                  <SelectItem key={r.productId} value={r.productId.toString()}>
+                    {r.product.name} — {r.ingredients.map((i) => i.ingredient.name).join(" + ")}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Multiplicador (Veces) */}
+          {/* Cantidad a producir */}
           <div className="space-y-2">
-            <Label htmlFor="times" className="text-xs font-semibold">
-              ¿Cuántas veces ejecutar el lote? <span className="text-red-500">*</span>
+            <Label htmlFor="quantity" className="text-xs font-semibold">
+              ¿Cuántas unidades producir? <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
               <Input
-                id="times"
+                id="quantity"
                 type="number"
-                min="1"
-                step="1"
-                value={times}
-                onChange={(e) => setTimes(parseInt(e.target.value) || "")}
+                min="0.01"
+                step="0.01"
+                value={quantity}
+                onChange={(e) => setQuantity(parseFloat(e.target.value) || "")}
                 required
                 className="h-10 text-xs font-mono font-bold pr-14 bg-background"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium pointer-events-none">
-                lotes
+                {producedProduct?.unitOfMeasure}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Previsualización Gráfica del Flujo de Transformación (Input → Output) ── */}
+      {/* ── Previsualización Gráfica del Flujo de Transformación (Ingredientes → Producto) ── */}
       {selectedRecipe && (
         <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/20 dark:to-amber-950/10 p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                Flujo del Lote Programado (× {runTimes})
+                Flujo del Lote Programado (× {runQuantity})
               </span>
             </div>
             {totalConsumedCost > 0 && (
@@ -239,52 +235,41 @@ export function TransformationForm({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-11 gap-4 items-stretch">
-            {/* INSUMO BASE (CONSUMO / ENTRADA) */}
-            <div className="lg:col-span-5 rounded-xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 p-4 flex flex-col justify-between space-y-3">
+            {/* INGREDIENTES (CONSUMO / SALIDA) */}
+            <div className="lg:col-span-5 rounded-xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 flex items-center justify-center">
                     <Package className="h-4 w-4" />
                   </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wide block">
-                      Insumo a Consumir
-                    </span>
-                    <span className="text-xs font-semibold text-foreground">
-                      {consumedProduct?.name}
-                    </span>
-                  </div>
+                  <span className="text-[11px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wide">
+                    Ingredientes a Consumir
+                  </span>
                 </div>
                 <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/60 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <TrendingDown className="h-3 w-3" /> Salida
                 </span>
               </div>
 
-              <div>
-                <p className="text-[11px] text-muted-foreground font-medium">Cantidad Total a Descontar</p>
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-bold font-mono text-rose-700 dark:text-rose-400">
-                    - {totalConsumed.toFixed(2)}
-                  </span>
-                  <span className="text-xs font-semibold text-rose-900 dark:text-rose-300">
-                    {consumedProduct?.unitOfMeasure}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>
-                  Disponible:{" "}
-                  <strong className={hasInsufficientStock ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
-                    {currentAvailableStock.toFixed(2)} {consumedProduct?.unitOfMeasure}
-                  </strong>
-                </span>
-                {consumedUnitCost > 0 && (
-                  <span className="font-mono text-slate-600 dark:text-slate-400">
-                    Costo unit.: S/ {consumedUnitCost.toFixed(2)}
-                  </span>
-                )}
-              </div>
+              <ul className="divide-y divide-rose-200/60 dark:divide-rose-900/40">
+                {lines.map((l) => (
+                  <li key={l.id} className="py-2 flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground truncate">{l.ingredient.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Disponible:{" "}
+                        <strong className={l.short ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
+                          {l.available.toFixed(2)} {l.ingredient.unitOfMeasure}
+                        </strong>
+                        {l.unitCost > 0 && <span className="font-mono"> · S/ {l.unitCost.toFixed(2)} c/u</span>}
+                      </p>
+                    </div>
+                    <span className="font-mono font-bold text-base text-rose-700 dark:text-rose-400 whitespace-nowrap">
+                      - {l.needed.toFixed(2)} {l.ingredient.unitOfMeasure}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* CONECTOR FLECHA */}
@@ -294,7 +279,7 @@ export function TransformationForm({
               </div>
             </div>
 
-            {/* PRODUCTO TERMINADO (PRODUCCIÓN / SALIDA) */}
+            {/* PRODUCTO TERMINADO (PRODUCCIÓN / ENTRADA) */}
             <div className="lg:col-span-5 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 flex flex-col justify-between space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -319,7 +304,7 @@ export function TransformationForm({
                 <p className="text-[11px] text-muted-foreground font-medium">Cantidad Total a Ingresar</p>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl sm:text-3xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
-                    + {totalProduced.toFixed(2)}
+                    + {runQuantity.toFixed(2)}
                   </span>
                   <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-300">
                     {producedProduct?.unitOfMeasure}
@@ -349,10 +334,16 @@ export function TransformationForm({
               <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
               <div className="space-y-0.5">
                 <p className="font-bold">Stock insuficiente para ejecutar este lote</p>
-                <p className="text-[11px] text-rose-800 dark:text-rose-300">
-                  Disponibles en almacén: <strong>{currentAvailableStock.toFixed(2)} {consumedProduct?.unitOfMeasure}</strong>.
-                  Requeridos para {runTimes} lote{runTimes > 1 ? "s" : ""}: <strong>{totalConsumed.toFixed(2)} {consumedProduct?.unitOfMeasure}</strong>.
-                </p>
+                <ul className="text-[11px] text-rose-800 dark:text-rose-300">
+                  {lines
+                    .filter((l) => l.short)
+                    .map((l) => (
+                      <li key={l.id}>
+                        {l.ingredient.name}: disponibles <strong>{l.available.toFixed(2)} {l.ingredient.unitOfMeasure}</strong>,
+                        requeridos <strong>{l.needed.toFixed(2)} {l.ingredient.unitOfMeasure}</strong>.
+                      </li>
+                    ))}
+                </ul>
               </div>
             </div>
           )}
@@ -360,7 +351,7 @@ export function TransformationForm({
           {!hasInsufficientStock && (
             <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/50 p-2.5 rounded-xl">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>Stock disponible verificado. La operación descontará materia prima e incrementará el producto terminado en Kardex.</span>
+              <span>Stock disponible verificado. La operación descontará los ingredientes, incrementará el producto terminado en Kardex y registrará el asiento 211 / 241 en el diario.</span>
             </div>
           )}
         </div>
@@ -386,7 +377,7 @@ export function TransformationForm({
         <div className="flex justify-end pt-1">
           <Button
             type="submit"
-            disabled={loading || hasInsufficientStock}
+            disabled={loading || hasInsufficientStock || runQuantity <= 0}
             className="h-10 px-6 font-semibold text-xs flex items-center gap-2 cursor-pointer shadow-xs"
           >
             {loading ? <Spinner className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}

@@ -6,8 +6,11 @@ import {
   validateCustomerDocument,
 } from "../lib/utils/sales-helpers";
 import {
+  inventoryAccountCode,
   pickPaymentAccountTarget,
   postSaleJournalEntries,
+  postTransformationJournalEntries,
+  reverseTransformationJournalEntries,
 } from "../lib/services/accounting-posting.service";
 
 describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo y Asientos Contables", () => {
@@ -126,6 +129,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
         ["691", 7], // Costo de ventas
         ["201", 8], // Mercaderías
         ["241", 9], // Materias primas
+        ["211", 10], // Productos terminados
       ]);
 
       const targetYape = pickPaymentAccountTarget(mockAccounts, "Yape");
@@ -147,6 +151,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
             { id: 7, code: "691" },
             { id: 8, code: "201" },
             { id: 9, code: "241" },
+            { id: 10, code: "211" },
           ]),
           upsert: vi.fn(),
         },
@@ -188,6 +193,12 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
       expect(detailDebit.accountId).toBe(2); // Cuenta 102
       expect(detailDebit.debit).toBe(118.0);
 
+      // El costo de ventas da de baja mercaderías (201) y productos terminados (211), no materias primas
+      const cogsCredits = createdEntries
+        .filter((e) => e.description.startsWith("Costo de ventas"))
+        .map((e) => e.entryDetails.create.find((d: any) => d.credit > 0).accountId);
+      expect(cogsCredits).toEqual([8, 10]);
+
       // 4. Al completar la venta, ambas mesas se liberan
       const tablesAfterRelease = [
         { id: 2, number: 2, capacity: 4, occupied: false, active: true, activeOrder: null },
@@ -221,6 +232,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
         ["691", 7],
         ["201", 8],
         ["241", 9],
+        ["211", 10],
       ]);
 
       const targetCard = pickPaymentAccountTarget(mockAccounts, "Tarjeta / POS (Tap to Pay)");
@@ -242,6 +254,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
             { id: 7, code: "691" },
             { id: 8, code: "201" },
             { id: 9, code: "241" },
+            { id: 10, code: "211" },
           ]),
           upsert: vi.fn(),
         },
@@ -301,6 +314,151 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
       expect(targetCash.accountCode).toBe("101");
       expect(targetCash.accountId).toBe(1);
       expect(targetCash.label).toBe("Caja Efectivo");
+    });
+  });
+
+  describe("Escenario 6: Transformación de insumos (pollo + papas → 1/4 de pollo) en el diario general", () => {
+    type Line = { accountId: number; debit: number; credit: number };
+    type Entry = { book: string; description: string; observation?: string; transformationId: number; entryDetails: { create: Line[] } };
+    const accountIds: Record<string, number> = { "201": 8, "241": 9, "211": 10 };
+
+    function buildTx(existingEntries: unknown[] = []) {
+      const createdEntries: Entry[] = [];
+      const tx = {
+        accountingAccount: {
+          findMany: vi.fn().mockImplementation(({ where }: { where: { code: { in: string[] } } }) =>
+            Promise.resolve(
+              where.code.in
+                .filter((code) => accountIds[code])
+                .map((code) => ({ id: accountIds[code], code }))
+            )
+          ),
+          upsert: vi.fn(),
+        },
+        accountingPeriod: { findFirst: vi.fn().mockResolvedValue({ id: 10 }) },
+        journalEntry: {
+          findMany: vi.fn().mockImplementation((args?: { include?: unknown }) =>
+            args?.include ? Promise.resolve(existingEntries) : Promise.resolve([])
+          ),
+          findUnique: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockImplementation((args: { data: Entry }) => {
+            const id = createdEntries.length + 1;
+            createdEntries.push({ id, ...args.data } as Entry);
+            return Promise.resolve({ id });
+          }),
+        },
+      };
+      return { tx: tx as never, createdEntries };
+    }
+
+    it("debe clasificar la cuenta de inventario: materia prima 241, producto transformado 211 y mercadería 201", () => {
+      expect(inventoryAccountCode({ type: "RawMaterial", hasRecipe: false })).toBe("241");
+      expect(inventoryAccountCode({ type: "FinishedProduct", hasRecipe: true })).toBe("211");
+      expect(inventoryAccountCode({ type: "FinishedProduct", hasRecipe: false })).toBe("201");
+    });
+
+    it("debe registrar un solo asiento en 'Operaciones varias': Debe 211 / Haber 241 por el valor consumido", async () => {
+      const { tx, createdEntries } = buildTx();
+
+      // 4 × 1/4 de pollo: 1 pollo (S/ 10.00) + 0.8 kg de papas (S/ 2.40)
+      const ids = await postTransformationJournalEntries(tx, {
+        transformationId: 10,
+        label: "TR-10",
+        consumed: [
+          { accountCode: "241", amount: 10 },
+          { accountCode: "241", amount: 2.4 },
+        ],
+      });
+
+      expect(ids).toHaveLength(1);
+      expect(createdEntries).toHaveLength(1);
+      const entry = createdEntries[0];
+      expect(entry.book).toBe("Operaciones varias");
+      expect(entry.transformationId).toBe(10);
+      expect(entry.description).toContain("TR-10");
+
+      const details = entry.entryDetails.create;
+      const debit = details.filter((d: Line) => d.debit > 0);
+      const credit = details.filter((d: Line) => d.credit > 0);
+      expect(debit).toHaveLength(1);
+      expect(debit[0]).toMatchObject({ accountId: 10, debit: 12.4 }); // 211 Productos terminados
+      expect(credit).toHaveLength(1);
+      expect(credit[0]).toMatchObject({ accountId: 9, credit: 12.4 }); // 241 Materias primas
+    });
+
+    it("debe repartir el Haber entre 241 y 201 cuando un insumo es mercadería, manteniendo el asiento cuadrado", async () => {
+      const { tx, createdEntries } = buildTx();
+
+      await postTransformationJournalEntries(tx, {
+        transformationId: 11,
+        label: "TR-11",
+        consumed: [
+          { accountCode: "241", amount: 10 },
+          { accountCode: "201", amount: 3.5 },
+        ],
+      });
+
+      const details = createdEntries[0].entryDetails.create;
+      const totalDebit = details.reduce((sum: number, d: Line) => sum + d.debit, 0);
+      const totalCredit = details.reduce((sum: number, d: Line) => sum + d.credit, 0);
+      expect(totalDebit).toBeCloseTo(13.5, 2);
+      expect(totalCredit).toBeCloseTo(13.5, 2);
+      expect(details.find((d: Line) => d.accountId === 8)).toMatchObject({ credit: 3.5 }); // 201
+      expect(details.find((d: Line) => d.accountId === 9)).toMatchObject({ credit: 10 }); // 241
+    });
+
+    it("no debe asentar nada cuando los insumos no tienen costo", async () => {
+      const { tx, createdEntries } = buildTx();
+
+      const ids = await postTransformationJournalEntries(tx, {
+        transformationId: 12,
+        label: "TR-12",
+        consumed: [{ accountCode: "241", amount: 0 }],
+      });
+
+      expect(ids).toEqual([]);
+      expect(createdEntries).toHaveLength(0);
+    });
+
+    it("al anular el lote debe generar el asiento inverso: Debe 241 / Haber 211", async () => {
+      const original = {
+        id: 1,
+        code: "MISC/2026/10/0001",
+        entryDetails: [
+          { accountId: 10, description: "Ingreso de productos terminados", debit: 12.4, credit: 0 },
+          { accountId: 9, description: "Consumo de insumos de la cuenta 241", debit: 0, credit: 12.4 },
+        ],
+      };
+      const { tx, createdEntries } = buildTx([original]);
+
+      const ids = await reverseTransformationJournalEntries(tx, {
+        transformationId: 10,
+        label: "TR-10",
+        reason: "Error de cantidad",
+      });
+
+      expect(ids).toHaveLength(1);
+      const entry = createdEntries[0];
+      expect(entry.book).toBe("Operaciones varias");
+      expect(entry.description).toContain("Anulación");
+      expect(entry.observation).toContain("Error de cantidad");
+      const debit = entry.entryDetails.create.find((d: Line) => d.debit > 0);
+      const credit = entry.entryDetails.create.find((d: Line) => d.credit > 0);
+      expect(debit).toMatchObject({ accountId: 9, debit: 12.4 }); // vuelve a 241
+      expect(credit).toMatchObject({ accountId: 10, credit: 12.4 }); // sale de 211
+    });
+
+    it("al anular un lote anterior a los asientos (sin asiento original) no debe crear nada", async () => {
+      const { tx, createdEntries } = buildTx([]);
+
+      const ids = await reverseTransformationJournalEntries(tx, {
+        transformationId: 3,
+        label: "TR-3",
+        reason: "Lote histórico",
+      });
+
+      expect(ids).toEqual([]);
+      expect(createdEntries).toHaveLength(0);
     });
   });
 });

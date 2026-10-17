@@ -54,7 +54,7 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
   const handleToggleActive = async (recipe: TransformationRecipeItem) => {
     setTogglingId(recipe.id);
     try {
-      await toggleTransformationRecipe(recipe.id, !recipe.active);
+      await toggleTransformationRecipe(recipe.productId, !recipe.active);
       toast.success(
         `Receta ${!recipe.active ? "activada" : "desactivada"} exitosamente`
       );
@@ -70,7 +70,7 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
     if (!recipeToDelete) return;
     setDeleting(true);
     try {
-      await deleteTransformationRecipe(recipeToDelete.id);
+      await deleteTransformationRecipe(recipeToDelete.productId);
       toast.success("Receta eliminada exitosamente");
       setRecipeToDelete(null);
       router.refresh();
@@ -83,37 +83,37 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
 
   const columns: DataTableColumn<TransformationRecipeItem>[] = [
     {
-      key: "consumed",
-      header: "Materia Prima (Insumo Base)",
-      width: "min-w-[200px]",
-      sortable: true,
-      sortValue: (r) => r.consumedProduct.name,
-      primary: { title: (r) => r.consumedProduct.name, icon: <Package />, iconTone: "rose" },
-    },
-    {
-      key: "formula",
-      header: "Transformación",
-      width: "min-w-[260px]",
-      cell: (r) => (
-        <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-          <span className="font-mono font-bold text-rose-700 dark:text-rose-400">
-            {r.requiredQuantity} {r.consumedProduct.unitOfMeasure}
-          </span>
-          <span className="px-0.5 text-[11px] font-medium text-muted-foreground">rinde</span>
-          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-          <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-            {r.producedQuantity} {r.producedProduct.unitOfMeasure}
-          </span>
-        </div>
-      ),
-    },
-    {
       key: "produced",
       header: "Producto Terminado (Resultado)",
       width: "min-w-[220px]",
       sortable: true,
-      sortValue: (r) => r.producedProduct.name,
-      primary: { title: (r) => r.producedProduct.name, icon: <Sparkles />, iconTone: "emerald" },
+      sortValue: (r) => r.product.name,
+      primary: { title: (r) => r.product.name, icon: <Sparkles />, iconTone: "emerald" },
+    },
+    {
+      key: "formula",
+      header: "Ingredientes por 1 unidad",
+      width: "min-w-[320px]",
+      cell: (r) => (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          {r.ingredients.map((i) => (
+            <span
+              key={i.id}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 px-2.5 py-1 shadow-2xs dark:border-slate-800 dark:bg-slate-900"
+            >
+              <Package className="h-3 w-3 shrink-0 text-rose-600" />
+              <span className="font-medium text-foreground">{i.ingredient.name}</span>
+              <span className="font-mono font-bold text-rose-700 dark:text-rose-400">
+                {i.quantityRequired} {i.ingredient.unitOfMeasure}
+              </span>
+            </span>
+          ))}
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+            1 {r.product.unitOfMeasure}
+          </span>
+        </div>
+      ),
     },
     {
       key: "status",
@@ -166,7 +166,7 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
             Recetas de Producción Configuradas
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configura proporciones predeterminadas de transformación para ejecutarlas por lote.
+            Define los ingredientes de cada producto terminado para producirlo por lote.
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
       <DataTable
         columns={columns}
         rows={recipes}
-        rowKey={(r) => r.id}
+        rowKey={(r) => r.productId}
         pagination={{ defaultPageSize: 15, itemLabel: "recetas" }}
         emptyState={{
           icon: <Sparkles className="h-7 w-7" />,
@@ -191,6 +191,7 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
         open={recipeDialogOpen}
         onOpenChange={setRecipeDialogOpen}
         products={products}
+        usedProductIds={recipes.map((r) => r.productId)}
         recipeToEdit={selectedRecipeToEdit}
       />
 
@@ -215,19 +216,15 @@ export function RecipesTab({ recipes, products }: RecipesTabProps) {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Producto Terminado:</span>
                 <span className="font-semibold text-foreground">
-                  {recipeToDelete.producedProduct.name} ({recipeToDelete.producedProduct.unitOfMeasure})
+                  {recipeToDelete.product.name} ({recipeToDelete.product.unitOfMeasure})
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Insumo Consumido:</span>
-                <span className="font-semibold text-foreground">
-                  {recipeToDelete.consumedProduct.name} ({recipeToDelete.consumedProduct.unitOfMeasure})
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ratio:</span>
-                <span className="font-semibold font-mono">
-                  {recipeToDelete.requiredQuantity} {recipeToDelete.consumedProduct.unitOfMeasure} → {recipeToDelete.producedQuantity} {recipeToDelete.producedProduct.unitOfMeasure}
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Ingredientes:</span>
+                <span className="font-semibold font-mono text-right">
+                  {recipeToDelete.ingredients
+                    .map((i) => `${i.quantityRequired} ${i.ingredient.unitOfMeasure} ${i.ingredient.name}`)
+                    .join(" + ")}
                 </span>
               </div>
             </div>
