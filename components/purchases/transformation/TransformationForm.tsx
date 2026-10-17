@@ -177,7 +177,7 @@ export function TransformationForm({
               value={selectedProductId ? selectedProductId.toString() : ""}
               onValueChange={(val) => setSelectedProductId(Number(val))}
             >
-              <SelectTrigger id="recipeSelect" className="h-10 text-xs bg-background">
+              <SelectTrigger id="recipeSelect" className="h-10 w-full text-xs bg-background">
                 <SelectValue placeholder="Seleccionar receta">
                   {selectedRecipe ? selectedRecipe.product.name : undefined}
                 </SelectValue>
