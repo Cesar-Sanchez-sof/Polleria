@@ -324,28 +324,26 @@ function EntriesPageContent() {
         subtitle="Registro y consulta de asientos del periodo"
         icon={Calculator}
         iconClassName="bg-red-100 text-red-700"
-      />
+      >
+        <JournalEntryToolbar
+          q={searchQuery}
+          onSearch={setSearchQuery}
+          onClearSearch={clearSearch}
+          onNew={() => setNewOpen(true)}
+          onExport={handleExport}
+          exporting={exporting}
+          fromShown={fromShown}
+          toShown={toShown}
+          total={total}
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          onPage={changePage}
+        />
+      </ModuleHeader>
       {/* Main Content */}
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
-          {/* MAIN LEDGER APPLICATION CARD */}
-          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-            <JournalEntryToolbar
-              q={searchQuery}
-              onSearch={setSearchQuery}
-              onClearSearch={clearSearch}
-              onNew={() => setNewOpen(true)}
-              onExport={handleExport}
-              exporting={exporting}
-              fromShown={fromShown}
-              toShown={toShown}
-              total={total}
-              loading={loading}
-              page={page}
-              totalPages={totalPages}
-              onPage={changePage}
-            />
-          </Card>
           <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-3">
               <JournalEntryTabs

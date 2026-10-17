@@ -1,8 +1,10 @@
 "use client";
 
+import { SegmentedTabs, type SegmentedTabItem } from "@/components/shared/SegmentedTabs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  BellRing,
   CheckCircle2,
   Clock,
   Flame,
@@ -24,18 +26,20 @@ import {
 } from "@/lib/services/tables.service";
 import { isBeverage } from "@/lib/utils/product-category";
 
-type KitchenFilter = "todos" | "Received" | "Preparing" | "Served";
-type KitchenStatus = "Received" | "Preparing" | "Served";
+type KitchenFilter = "todos" | "Received" | "Preparing" | "Ready" | "Served";
+type KitchenStatus = "Received" | "Preparing" | "Ready" | "Served";
 
 const STATUS_ORDER: Record<KitchenStatus, number> = {
   Received: 1,
   Preparing: 2,
-  Served: 3,
+  Ready: 3,
+  Served: 4,
 };
 
 const STATUS_LABEL: Record<KitchenStatus, string> = {
   Received: "recibido",
   Preparing: "preparando",
+  Ready: "listo para servir",
   Served: "servido",
 };
 
@@ -48,7 +52,7 @@ function formatOrderTime(iso: string): string {
 
 function nextKitchenStatus(status: string): KitchenStatus | null {
   if (status === "Received") return "Preparing";
-  if (status === "Preparing") return "Served";
+  if (status === "Preparing") return "Ready";
   return null;
 }
 
@@ -73,7 +77,7 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
       const data = await listOrders({ status: "activos" });
       setOrders(
         data.filter((order) =>
-          ["Received", "Preparing", "Served"].includes(order.status),
+          ["Received", "Preparing", "Ready", "Served"].includes(order.status),
         ),
       );
     } catch (err: unknown) {
@@ -111,6 +115,7 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
       total: kitchenOrders.length,
       received: kitchenOrders.filter((o) => o.status === "Received").length,
       preparing: kitchenOrders.filter((o) => o.status === "Preparing").length,
+      ready: kitchenOrders.filter((o) => o.status === "Ready").length,
       served: kitchenOrders.filter((o) => o.status === "Served").length,
     }),
     [kitchenOrders],
@@ -144,11 +149,12 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
     }
   };
 
-  const filters: Array<{ id: KitchenFilter; label: string }> = [
-    { id: "todos", label: "Todos" },
-    { id: "Received", label: "Recibidos" },
-    { id: "Preparing", label: "En preparación" },
-    { id: "Served", label: "Servidos" },
+  const filters: SegmentedTabItem<KitchenFilter>[] = [
+    { value: "todos", label: "Todos", tone: "brand" },
+    { value: "Received", label: "Recibidos", tone: "info" },
+    { value: "Preparing", label: "En preparación", tone: "warning" },
+    { value: "Ready", label: "Listos para servir", tone: "purple" },
+    { value: "Served", label: "Servidos", tone: "cyan" },
   ];
 
   const toolbar = (
@@ -187,11 +193,12 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
       )}
       {toolbarSlot && createPortal(toolbar, toolbarSlot)}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <StatCard enableGradient={false} enableHover={false} tone="neutral" icon={<ListOrdered />} label="Total comandas" value={stats.total} />
         <StatCard enableGradient={false} enableHover={false} tone="blue" icon={<Inbox />} label="1. Recibido (nuevos)" value={stats.received} />
         <StatCard enableGradient={false} enableHover={false} tone="amber" icon={<Flame className="animate-spin" />} label="2. En preparación" value={stats.preparing} />
-        <StatCard enableGradient={false} enableHover={false} tone="emerald" icon={<CheckCircle2 />} label="3. Servido (listo)" value={stats.served} />
+        <StatCard enableGradient={false} enableHover={false} tone="purple" icon={<BellRing />} label="3. Listo para servir" value={stats.ready} />
+        <StatCard enableGradient={false} enableHover={false} tone="cyan" icon={<CheckCircle2 />} label="4. Servido" value={stats.served} />
       </div>
 
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
@@ -214,20 +221,13 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
               <span>{excludeBeverages ? "🔥 Solo Cocina (Sin bebidas)" : "📋 Todas las Líneas"}</span>
             </button>
             <div className="h-4 w-px bg-slate-300 hidden sm:block mx-1" />
-            {filters.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setFilter(item.id)}
-                className={`rounded-lg px-3 py-1 text-xs cursor-pointer transition ${
-                  filter === item.id
-                    ? "bg-red-700 font-bold text-white shadow-xs"
-                    : "bg-slate-100 font-semibold text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+            <SegmentedTabs
+              ariaLabel="Filtrar por estado"
+              value={filter}
+              onValueChange={setFilter}
+              className="max-w-full overflow-x-auto"
+              items={filters}
+            />
           </div>
         </div>
 
@@ -338,9 +338,15 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
                             preparando
                           </span>
                         )}
+                        {order.status === "Ready" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs font-bold text-purple-900">
+                            <span className="h-2 w-2 rounded-full bg-purple-600" />
+                            listo para servir
+                          </span>
+                        )}
                         {order.status === "Served" && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-900">
-                            <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-900">
+                            <span className="h-2 w-2 rounded-full bg-cyan-600" />
                             servido
                           </span>
                         )}
@@ -358,20 +364,26 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
                             Avanzar → Preparando
                           </Button>
                         )}
-                        {next === "Served" && (
+                        {next === "Ready" && (
                           <Button
                             type="button"
                             size="sm"
-                            className="h-9 w-full cursor-pointer gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+                            className="h-9 w-full cursor-pointer gap-1.5 rounded-xl bg-purple-600 text-xs font-bold text-white hover:bg-purple-700"
                             disabled={updatingId === order.id}
                             onClick={() => void advanceOrder(order)}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Avanzar → Servido
+                            <BellRing className="h-3.5 w-3.5" />
+                            Avanzar → Listo para servir
                           </Button>
                         )}
-                        {!next && (
-                          <span className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+                        {order.status === "Ready" && (
+                          <span className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-800">
+                            <BellRing className="h-3.5 w-3.5" />
+                            Esperando al mozo
+                          </span>
+                        )}
+                        {order.status === "Served" && (
+                          <span className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-800">
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Completado
                           </span>
@@ -387,8 +399,8 @@ export function KitchenBoard({ showToolbar = true, toolbarSlot }: KitchenBoardPr
 
         <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <span className="font-medium">
-            Flujo: <strong>recibido</strong> → <strong>preparando</strong> → <strong>servido</strong>{" "}
-            (sin retroceso).
+            Flujo: <strong>recibido</strong> → <strong>preparando</strong> → <strong>listo para servir</strong> →{" "}
+            <strong>servido</strong> (el mozo marca «servido»; sin retroceso).
           </span>
           <span className="font-mono text-[11px] text-slate-400">KDS Pollería</span>
         </div>

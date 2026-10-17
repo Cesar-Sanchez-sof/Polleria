@@ -165,7 +165,7 @@ export async function PUT(
       // Si el pedido ya estaba Servido y se adicionan o modifican platos,
       // actualizamos el estado del pedido a Preparing para avisar a Cocina/Despacho
       let newOrderStatus = existingOrder.status;
-      if (existingOrder.status === "Served") {
+      if (existingOrder.status === "Served" || existingOrder.status === "Ready") {
         newOrderStatus = "Preparing";
         await tx.salesOrder.update({
           where: { id },
@@ -203,7 +203,7 @@ export async function PUT(
             quantity,
             unitPrice,
             subtotal,
-            itemStatus: itemStatus || (existingOrder.status === "Served" ? "Pending" : existingOrder.status),
+            itemStatus: itemStatus || (existingOrder.status === "Served" || existingOrder.status === "Ready" ? "Pending" : existingOrder.status),
             notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
           }
         });
@@ -247,7 +247,7 @@ export async function PUT(
   }
 }
 
-// Transición de estado del pedido (Received -> Preparing -> Served)
+// Transición de estado del pedido (Received -> Preparing -> Ready -> Served)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -268,16 +268,19 @@ export async function PATCH(
     const statusAliases: Record<string, string> = {
       Recibido: "Received",
       Preparando: "Preparing",
+      "Listo para servir": "Ready",
+      Listo: "Ready",
       Servido: "Served",
       Cancelado: "Cancelled",
       Received: "Received",
       Preparing: "Preparing",
+      Ready: "Ready",
       Served: "Served",
       Cancelled: "Cancelled",
     };
     const newStatus = statusAliases[rawStatus] ?? rawStatus;
 
-    const validStatuses = ["Received", "Preparing", "Served", "Cancelled"];
+    const validStatuses = ["Received", "Preparing", "Ready", "Served", "Cancelled"];
     if (!validStatuses.includes(newStatus)) {
       return Response.json(
         { error: `Estado inválido. Los estados permitidos son: ${validStatuses.join(", ")}.` },
@@ -382,7 +385,7 @@ export async function PATCH(
         previousStatus: order.status,
       });
 
-      if (newStatus === "Cancelled" || newStatus === "Served") {
+      if (newStatus === "Cancelled" || newStatus === "Ready" || newStatus === "Served") {
         broadcastRealtimeEvent("TABLE_UPDATED", {
           orderId: id,
           reason: newStatus,

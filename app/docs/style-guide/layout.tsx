@@ -1,13 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Home, LayoutGrid, MousePointerClick, Navigation, Palette } from "lucide-react";
+import { Home, LayoutGrid, Droplet, MousePointerClick, Navigation, Palette } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { NavTree, type NavTreeNode } from "@/components/shared/NavTree";
 import { entryHref, STYLE_GUIDE_CATEGORIES } from "@/components/style-guide/registry";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_ICONS: Record<string, ReactNode> = {
+  foundations: <Droplet />,
   visualization: <LayoutGrid />,
   navigation: <Navigation />,
   inputs: <MousePointerClick />,

@@ -193,26 +193,27 @@ export default function AccountsPage() {
         subtitle="Plan de cuentas, jerarquía y estado de cada cuenta"
         icon={BookOpen}
         iconClassName="bg-red-100 text-red-700"
-      />
+      >
+        <AccountsToolbar
+          q={searchQuery}
+          onSearch={setSearchQuery}
+          onClearSearch={() => setSearchQuery("")}
+          type={typeFilter}
+          onType={setTypeFilter}
+          status={statusFilter}
+          onStatus={setStatusFilter}
+          onNew={handleCreateAccount}
+          loading={isLoading}
+        />
+      </ModuleHeader>
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
           <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-            <AccountsToolbar
-              q={searchQuery}
-              onSearch={setSearchQuery}
-              onClearSearch={() => setSearchQuery("")}
-              type={typeFilter}
-              onType={setTypeFilter}
-              status={statusFilter}
-              onStatus={setStatusFilter}
-              onNew={handleCreateAccount}
-              visible={rows.length}
-              total={accounts.length}
-              loading={isLoading}
-            />
-          </Card>
-
-          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
+            <p className="text-xs text-slate-500">
+              {isLoading
+                ? "Cargando cuentas…"
+                : `${rows.length} de ${accounts.length} cuenta${accounts.length === 1 ? "" : "s"} en pantalla`}
+            </p>
             {noticeMessage && (
               <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
                 <p className="flex items-start gap-1.5">

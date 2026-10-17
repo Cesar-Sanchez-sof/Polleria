@@ -32,7 +32,7 @@ export interface OrderSummary {
   code: string;
   orderType: "Mesa" | "Llevar";
   orderedAt: string;
-  status: string; // "Received" | "Preparing" | "Served" | "Closed" | "Cancelled"
+  status: string; // "Received" | "Preparing" | "Ready" | "Served" | "Closed" | "Cancelled"
   table: { id: number; number: number } | null;
   notes: string;
   items: OrderLineItem[];
@@ -264,7 +264,7 @@ export async function editOrder(
 
 export async function updateOrderStatus(
   id: number,
-  status: "Received" | "Preparing" | "Served"
+  status: "Received" | "Preparing" | "Ready" | "Served"
 ): Promise<{ message: string }> {
   const res = await fetch(`/api/orders/${id}`, {
     method: "PATCH",

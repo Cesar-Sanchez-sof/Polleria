@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { StatCard } from "@/components/shared/StatCard";
+import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +28,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const FLAT = { enableGradient: false, enableHover: false } as const;
 
 interface TableOrder {
   id: number;
@@ -247,7 +251,43 @@ export default function TablesManagementPage() {
         icon={Armchair}
         iconClassName="bg-emerald-100 text-emerald-800"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="relative w-52">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar por número de mesa..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 text-xs rounded-xl h-9"
+            />
+          </div>
+          {areas.length > 0 && (
+            <select
+              value={selectedAreaId}
+              onChange={(e) => setSelectedAreaId(e.target.value)}
+              className="h-9 text-xs rounded-xl border border-input bg-background text-foreground px-2.5 font-semibold focus:outline-none"
+            >
+              <option value="todos">Todos los Salones</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <SegmentedTabs
+            ariaLabel="Filtrar mesas por estado"
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            className="max-w-full overflow-x-auto"
+            items={[
+              { value: "todos", label: "Todas", tone: "brand" },
+              { value: "disponible", label: "Disponibles", tone: "success" },
+              { value: "ocupada", label: "Ocupadas", tone: "danger" },
+              { value: "inactiva", label: "Inactivas", tone: "neutral" },
+            ]}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -271,115 +311,13 @@ export default function TablesManagementPage() {
       <main className="flex-1 p-4 sm:p-6 flex flex-col gap-5 max-w-7xl mx-auto w-full">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Total Mesas
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-foreground mt-0.5">
-                {metrics.total}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 flex items-center justify-center">
-              <Armchair className="w-4 h-4" />
-            </div>
-          </Card>
-
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">
-                Mesas Disponibles
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">
-                {metrics.available}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </Card>
-
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">
-                Mesas Ocupadas
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-rose-700 dark:text-rose-400 mt-0.5">
-                {metrics.occupied}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 flex items-center justify-center">
-              <Utensils className="w-4 h-4" />
-            </div>
-          </Card>
-
-          <Card className="p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">
-                Aforo Salón (Sillas)
-              </p>
-              <p className="text-xl sm:text-2xl font-extrabold text-blue-700 dark:text-blue-400 mt-0.5">
-                {metrics.totalCapacity}
-              </p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </Card>
+          <StatCard {...FLAT} tone="neutral" icon={<Armchair />} label="Total Mesas" value={metrics.total} />
+          <StatCard {...FLAT} tone="emerald" icon={<CheckCircle2 />} label="Mesas Disponibles" value={metrics.available} colorValue />
+          <StatCard {...FLAT} tone="rose" icon={<Utensils />} label="Mesas Ocupadas" value={metrics.occupied} colorValue />
+          <StatCard {...FLAT} tone="blue" icon={<Users />} label="Aforo Salón (Sillas)" value={metrics.totalCapacity} colorValue />
         </div>
 
         {/* Filtros */}
-        <Card className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar por número de mesa..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-xs rounded-xl h-9"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {areas.length > 0 && (
-              <select
-                value={selectedAreaId}
-                onChange={(e) => setSelectedAreaId(e.target.value)}
-                className="h-9 text-xs rounded-xl border border-input bg-background text-foreground px-2.5 font-semibold focus:outline-none"
-              >
-                <option value="todos">Todos los Salones</option>
-                {areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs">
-              {[
-                { id: "todos", label: "Todas" },
-                { id: "disponible", label: "Disponibles" },
-                { id: "ocupada", label: "Ocupadas" },
-                { id: "inactiva", label: "Inactivas" },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setStatusFilter(f.id as any)}
-                  className={`px-3 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                    statusFilter === f.id
-                      ? "bg-background text-foreground shadow-2xs font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </Card>
-
         {/* Grilla de Mesas */}
         {loading ? (
           <div className="py-20 text-center text-muted-foreground text-xs">

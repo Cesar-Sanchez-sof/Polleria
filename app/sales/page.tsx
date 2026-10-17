@@ -190,7 +190,6 @@ function SalesManagementContent() {
   const [readySearch, setReadySearch] = useState<string>("");
   const [readyFilter, setReadyFilter] = useState<"todos" | "mesas" | "llevar">("todos");
   const [readyStatusMode, setReadyStatusMode] = useState<"solo-listos" | "todos-activos">("solo-listos");
-  const [deliveredOrderIds, setDeliveredOrderIds] = useState<Set<number>>(new Set());
 
   // Carga general de datos desde la API
   const loadData = useCallback(async () => {
@@ -240,7 +239,7 @@ function SalesManagementContent() {
   }, [loadData]);
 
   // Conexión en tiempo real para sincronizar automáticamente Mozos, Cocina, Bebidas y Caja
-  const { isConnected: isRealtimeConnected } = useRealtimeEvents({
+  useRealtimeEvents({
     onOrderCreated: (payload) => {
       void loadData();
       toast.info(`Nueva comanda recibida: ${payload?.orderCode || ""}`);
@@ -681,7 +680,7 @@ function SalesManagementContent() {
           editable: m.activeOrder.editable,
         };
 
-        const isDelivered = deliveredOrderIds.has(m.activeOrder.id);
+        const isDelivered = m.activeOrder.status === "Served";
 
         list.push({
           orderId: m.activeOrder.id,
@@ -711,7 +710,7 @@ function SalesManagementContent() {
           clientName = clientName.substring(8).trim();
         }
 
-        const isDelivered = deliveredOrderIds.has(p.id);
+        const isDelivered = p.status === "Served";
 
         list.push({
           orderId: p.id,
@@ -730,19 +729,19 @@ function SalesManagementContent() {
       }
     }
 
-    // Ordenar: Los que están "Served" (Listos para entregar) y no entregados van primero
+    // Ordenar: los "Ready" (listos para servir) y no entregados van primero
     return list.sort((a, b) => {
-      const aReady = a.kitchenStatus === "Served" && !a.isDelivered;
-      const bReady = b.kitchenStatus === "Served" && !b.isDelivered;
+      const aReady = a.kitchenStatus === "Ready" && !a.isDelivered;
+      const bReady = b.kitchenStatus === "Ready" && !b.isDelivered;
       if (aReady && !bReady) return -1;
       if (!aReady && bReady) return 1;
       return new Date(a.orderedAt).getTime() - new Date(b.orderedAt).getTime();
     });
-  }, [tables, takeoutOrders, deliveredOrderIds]);
+  }, [tables, takeoutOrders]);
 
   const onlyReadyCount = useMemo(() => {
     return readyOrdersForDelivery.filter(
-      (o) => o.kitchenStatus === "Served" && !o.isDelivered
+      (o) => o.kitchenStatus === "Ready" && !o.isDelivered
     ).length;
   }, [readyOrdersForDelivery]);
 
@@ -750,7 +749,7 @@ function SalesManagementContent() {
     return readyOrdersForDelivery.filter((order) => {
       // Filtro de estado de entrega
       if (readyStatusMode === "solo-listos") {
-        if (order.kitchenStatus !== "Served" || order.isDelivered) {
+        if (order.kitchenStatus !== "Ready" || order.isDelivered) {
           return false;
         }
       }
@@ -775,18 +774,16 @@ function SalesManagementContent() {
     });
   }, [readyOrdersForDelivery, readyStatusMode, readyFilter, readySearch]);
 
-  const toggleDelivered = (orderId: number, identifier: string) => {
-    setDeliveredOrderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(orderId)) {
-        next.delete(orderId);
-        toast.info(`Comanda ${identifier} marcada como pendiente de entrega.`);
-      } else {
-        next.add(orderId);
-        toast.success(`¡Comanda ${identifier} entregada con éxito!`);
-      }
-      return next;
-    });
+  // El mozo marca "Servido" al entregar en mesa (o lo devuelve a "Listo para servir").
+  const toggleDelivered = async (orderId: number, identifier: string, delivered: boolean) => {
+    try {
+      await updateOrderStatus(orderId, delivered ? "Ready" : "Served");
+      if (delivered) toast.info(`Comanda ${identifier} marcada como pendiente de entrega.`);
+      else toast.success(`¡Comanda ${identifier} entregada con éxito!`);
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado.");
+    }
   };
 
   const totalReceivable = useMemo(() => {
@@ -1056,18 +1053,6 @@ function SalesManagementContent() {
       toast.error(err.message || "Error al procesar el pedido.");
     } finally {
       setSavingOrder(false);
-    }
-  };
-
-  const changeKitchenStatus = async (orderIdParam: number, newStatus: "Preparing" | "Served") => {
-    try {
-      await updateOrderStatus(orderIdParam, newStatus);
-      const statusLabel =
-        newStatus === "Preparing" ? "Preparando" : newStatus === "Served" ? "Servido" : newStatus;
-      toast.success(`Pedido actualizado a estado: ${statusLabel}`);
-      await loadData();
-    } catch (err: any) {
-      toast.error(err.message || "No se pudo actualizar el estado.");
     }
   };
 
@@ -1826,7 +1811,7 @@ function SalesManagementContent() {
   return (
     <>
       {/* Header Superior Responsivo */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 shadow-xs">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-700 flex items-center justify-center text-white shadow-xs shrink-0">
             <Utensils className="w-5 h-5" />
@@ -1837,49 +1822,32 @@ function SalesManagementContent() {
               <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">
                 Módulo de Ventas &amp; Salón
               </h1>
-              <Badge className="hidden sm:inline-flex bg-red-100 text-red-800 text-[10px] font-bold border-none shrink-0">
-                ERP Pollería
-              </Badge>
             </div>
             <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-              Mesas, Clientes, Ventas Diarias, Cobro Mozo &amp; Ventanilla
+              Salón, Clientes, Ventanilla
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <Button
-            onClick={openTakeawayOrder}
-            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span className="hidden sm:inline">+ Para Llevar</span>
-            <span className="sm:hidden">+ Llevar</span>
-          </Button>
+        {/* Pestañas del módulo Ventas (SegmentedTabs de la guía de estilos, scroll horizontal si no caben) */}
+        <div className="no-scrollbar order-last flex w-full min-w-0 justify-start overflow-x-auto md:order-none md:w-auto md:flex-1 md:justify-center">
+          <SegmentedTabs
+            items={salesTabItems}
+            value={activeTab}
+            onValueChange={goToTab}
+            variant="segmented"
+            size="md"
+            rounded="xl"
+            hideZeroCount
+            ariaLabel="Secciones de ventas"
+            className="min-w-max"
+          />
+        </div>
 
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>{currentTime || "12:00:00"}</span>
-          </div>
-
-          <div
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-              isRealtimeConnected
-                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                : "bg-amber-50 text-amber-800 border-amber-300"
-            }`}
-            title={
-              isRealtimeConnected
-                ? "Conexión en tiempo real activa (WebSockets / SSE)"
-                : "Reconectando con el servidor en tiempo real..."
-            }
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isRealtimeConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
-              }`}
-            />
-            <span>{isRealtimeConnected ? "En Vivo" : "Sincronizando..."}</span>
           </div>
 
           <Button
@@ -1893,21 +1861,6 @@ function SalesManagementContent() {
           </Button>
         </div>
       </header>
-
-      {/* Barra de pestañas del módulo Ventas (SegmentedTabs de la guía de estilos, scroll horizontal en móvil) */}
-      <div className="no-scrollbar overflow-x-auto border-b border-slate-200 bg-white px-3 py-3 sm:px-6">
-        <SegmentedTabs
-          items={salesTabItems}
-          value={activeTab}
-          onValueChange={goToTab}
-          variant="segmented"
-          size="md"
-          rounded="xl"
-          hideZeroCount
-          ariaLabel="Secciones de ventas"
-          className="min-w-max"
-        />
-      </div>
 
       {/* =================================================================== */}
       {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
@@ -1946,35 +1899,25 @@ function SalesManagementContent() {
           )}
 
           {/* Barra de Filtros y Leyenda */}
-          <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex justify-between">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-700 mr-1">Filtrar Salón:</span>
+              <SegmentedTabs
+                ariaLabel="Filtrar salón"
+                value={tableFilter}
+                onValueChange={(value) => setTableFilter(value)}
+                className="max-w-full overflow-x-auto"
+                items={[
+                  { value: "todas", label: "Todas", count: summary.total, tone: "brand" },
+                  { value: "disponibles", label: "Disponibles", count: summary.available, tone: "success" },
+                  { value: "ocupadas", label: "Ocupadas", count: summary.occupied, tone: "danger" },
+                ]}
+              />
               <Button
-                size="sm"
-                variant={tableFilter === "todas" ? "default" : "outline"}
-                onClick={() => setTableFilter("todas")}
-                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "todas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
-                  }`}
+                onClick={openTakeawayOrder}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
-                Todas ({summary.total})
-              </Button>
-              <Button
-                size="sm"
-                variant={tableFilter === "disponibles" ? "default" : "outline"}
-                onClick={() => setTableFilter("disponibles")}
-                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""
-                  }`}
-              >
-                Disponibles ({summary.available})
-              </Button>
-              <Button
-                size="sm"
-                variant={tableFilter === "ocupadas" ? "default" : "outline"}
-                onClick={() => setTableFilter("ocupadas")}
-                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
-                  }`}
-              >
-                Ocupadas ({summary.occupied})
+                <ShoppingBag className="w-4 h-4" />
+                <span>+ Para Llevar</span>
               </Button>
             </div>
 
@@ -1986,11 +1929,14 @@ function SalesManagementContent() {
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin"></span> Preparando
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Servido
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span> Listo para servir
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span> Servido
               </span>
             </div>
-          </Card>
+          </div>
 
           {/* Grid Responsivo de Mesas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -2001,7 +1947,7 @@ function SalesManagementContent() {
               return (
                 <Card
                   key={table.id}
-                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${table.occupied
+                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between py-0! ${table.occupied
                     ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
                     : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
                     }`}
@@ -2050,6 +1996,30 @@ function SalesManagementContent() {
                         >
                           {table.occupied ? "Ocupada" : "Libre"}
                         </Badge>
+                        {hasOrder && order && (
+                          <div className="flex items-center gap-1">
+                            {order.status === "Received" && (
+                              <span className="bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                                Recibido
+                              </span>
+                            )}
+                            {order.status === "Preparing" && (
+                              <span className="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                                Preparando
+                              </span>
+                            )}
+                            {order.status === "Ready" && (
+                              <span className="bg-purple-100 text-purple-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                                Listo para servir
+                              </span>
+                            )}
+                            {order.status === "Served" && (
+                              <span className="bg-cyan-100 text-cyan-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                                ✓ Servido en Mesa
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2071,40 +2041,6 @@ function SalesManagementContent() {
                             </span>
                           </div>
 
-                          {/* Estado de cocina interactivo */}
-                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200/80">
-                            <div className="flex items-center gap-1.5">
-                              <ChefHat className="w-4 h-4 text-slate-500" />
-                              <span className="text-xs font-semibold text-slate-700">
-                                Cocina:
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {order.status === "Received" && (
-                                <button
-                                  onClick={() => changeKitchenStatus(order.id, "Preparing")}
-                                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
-                                  title="Pasar a Preparando"
-                                >
-                                  Recibido → Iniciar
-                                </button>
-                              )}
-                              {order.status === "Preparing" && (
-                                <button
-                                  onClick={() => changeKitchenStatus(order.id, "Served")}
-                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
-                                  title="Marcar como Servido"
-                                >
-                                  Preparando → Servir
-                                </button>
-                              )}
-                              {order.status === "Served" && (
-                                <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                  ✓ Servido en Mesa
-                                </span>
-                              )}
-                            </div>
-                          </div>
 
                           {/* Observación de la mesa */}
                           {order.tableNotes && (
@@ -2166,10 +2102,12 @@ function SalesManagementContent() {
                   </div>
 
                   {/* Botones de Acción al pie de la tarjeta */}
+                  {table.occupied && order && (
                   <div className="p-3 border-t border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
-                    {table.occupied && order ? (
                       <>
-                        {/* Botón principal: Adicionar / Agregar más platos al pedido */}
+                        {/* Fila 1: agregar productos y cobrar en mesa */}
+                        <div className="grid grid-cols-2 gap-2">
+                        {/* Botón principal: agregar más productos al pedido */}
                         <Button
                           onClick={() =>
                             openEditOrder({
@@ -2184,7 +2122,7 @@ function SalesManagementContent() {
                           className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                         >
                           <Plus className="w-4 h-4" />
-                          <span>+ Adicionar / Agregar Platos</span>
+                          <span>Agregar producto</span>
                         </Button>
 
                         {/* Botón para Cobro Móvil desde el Mozo */}
@@ -2207,10 +2145,12 @@ function SalesManagementContent() {
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                         >
                           <Smartphone className="w-4 h-4" />
-                          <span>Cobrar en Mesa (Mozo)</span>
+                          <span>Cobrar en mesa</span>
                         </Button>
+                        </div>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Fila 2: detalle, ventanilla y cancelar */}
+                        <div className="grid grid-cols-3 gap-2">
                           {/* Ver Detalle Completo de la Comanda */}
                           <Button
                             variant="outline"
@@ -2237,7 +2177,7 @@ function SalesManagementContent() {
                             className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                            Ver Detalle
+                            Detalle
                           </Button>
 
                           {/* Enviar a Cobro en Ventanilla */}
@@ -2265,9 +2205,8 @@ function SalesManagementContent() {
                             className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
                             <Receipt className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                            A Ventanilla
+                            Ventanilla
                           </Button>
-                        </div>
 
                         {/* Cancelar Comanda con trazabilidad */}
                         <Button
@@ -2288,22 +2227,16 @@ function SalesManagementContent() {
                               editable: order.editable,
                             })
                           }
-                          className="w-full text-[11px] font-semibold h-7 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                          title="Cancelar comanda"
+                          className="text-xs font-semibold h-8 rounded-lg border border-rose-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
                         >
                           <XCircle className="w-3.5 h-3.5 mr-1 text-rose-500" />
-                          Cancelar Comanda
+                          Cancelar
                         </Button>
+                        </div>
                       </>
-                    ) : (
-                      <Button
-                        onClick={() => openTakeTableOrder(table)}
-                        className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 shadow-xs cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Tomar Pedido</span>
-                      </Button>
-                    )}
                   </div>
+                  )}
                 </Card>
               );
             })}
@@ -2328,7 +2261,7 @@ function SalesManagementContent() {
           {/* Tarjetas resumen de estado de entrega */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <StatCard
-              tone="emerald"
+              tone="purple"
               icon={<BellRing className={onlyReadyCount > 0 ? "animate-bounce" : ""} />}
               label="Listos para Servir"
               value={onlyReadyCount}
@@ -2345,7 +2278,7 @@ function SalesManagementContent() {
               tone="neutral"
               icon={<PackageCheck />}
               label="Entregados a Mesas"
-              value={deliveredOrderIds.size}
+              value={readyOrdersForDelivery.filter((o) => o.isDelivered).length}
               unit="Entregas"
             />
           </div>
@@ -2359,11 +2292,11 @@ function SalesManagementContent() {
                   type="button"
                   onClick={() => setReadyStatusMode("solo-listos")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${readyStatusMode === "solo-listos"
-                      ? "bg-white text-emerald-700 shadow-xs"
+                      ? "bg-white text-purple-700 shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
                     }`}
                 >
-                  <Flame className="w-3.5 h-3.5 text-emerald-600" />
+                  <Flame className="w-3.5 h-3.5 text-purple-600" />
                   <span>Solo Listos ({onlyReadyCount})</span>
                 </button>
                 <button
@@ -2469,14 +2402,14 @@ function SalesManagementContent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayedDeliveryOrders.map((order) => {
-                const isReady = order.kitchenStatus === "Served";
+                const isReady = order.kitchenStatus === "Ready";
                 const isDelivered = order.isDelivered;
 
                 return (
                   <Card
                     key={`delivery-${order.type}-${order.orderId}`}
                     className={`rounded-2xl border transition-all overflow-hidden flex flex-col ${isReady && !isDelivered
-                        ? "border-emerald-400 bg-white shadow-md ring-2 ring-emerald-500/20"
+                        ? "border-purple-400 bg-white shadow-md ring-2 ring-purple-500/20"
                         : isDelivered
                           ? "border-slate-200 bg-slate-50/70 opacity-80"
                           : "border-slate-200 bg-white shadow-xs"
@@ -2485,7 +2418,7 @@ function SalesManagementContent() {
                     {/* Header de la Tarjeta */}
                     <div
                       className={`p-3.5 border-b flex items-center justify-between ${isReady && !isDelivered
-                          ? "bg-emerald-50/70 border-emerald-100"
+                          ? "bg-purple-50/70 border-purple-100"
                           : isDelivered
                             ? "bg-slate-100/70 border-slate-200"
                             : "bg-slate-50 border-slate-200"
@@ -2518,7 +2451,7 @@ function SalesManagementContent() {
                           Entregado
                         </Badge>
                       ) : isReady ? (
-                        <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[10px] animate-pulse flex items-center gap-1">
+                        <Badge className="bg-purple-600 text-white hover:bg-purple-700 font-bold text-[10px] animate-pulse flex items-center gap-1">
                           <Flame className="w-3 h-3" />
                           LISTO PARA SERVIR
                         </Badge>
@@ -2610,12 +2543,12 @@ function SalesManagementContent() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         {/* Botón 1: Marcar Entregado */}
                         <Button
-                          onClick={() => toggleDelivered(order.orderId, order.identifier)}
+                          onClick={() => void toggleDelivered(order.orderId, order.identifier, order.isDelivered)}
                           size="sm"
                           className={`w-full font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer col-span-2 ${isDelivered
                               ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
                               : isReady
-                                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                ? "bg-purple-600 hover:bg-purple-700 text-white shadow-xs"
                                 : "bg-slate-800 hover:bg-slate-900 text-white"
                             }`}
                         >
@@ -2726,7 +2659,9 @@ function SalesManagementContent() {
                         </span>
                         <Badge
                           className={`text-[10px] font-bold border-none ${charge.kitchenStatus === "Served"
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "bg-cyan-100 text-cyan-800"
+                            : charge.kitchenStatus === "Ready"
+                              ? "bg-purple-100 text-purple-800"
                             : charge.kitchenStatus === "Preparing"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-blue-100 text-blue-800"
@@ -2734,6 +2669,8 @@ function SalesManagementContent() {
                         >
                           {charge.kitchenStatus === "Served"
                             ? "Servido"
+                            : charge.kitchenStatus === "Ready"
+                              ? "Listo para servir"
                             : charge.kitchenStatus === "Preparing"
                               ? "Preparando"
                               : charge.kitchenStatus === "Received"
@@ -3833,36 +3770,6 @@ function SalesManagementContent() {
             />
           </div>
 
-          {/* Filtro de fecha */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-card p-3 shadow-xs sm:px-4">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Receipt className="h-4 w-4 text-red-700" />
-              <span>Comprobantes de Venta Emitidos</span>
-              <Badge variant="outline" className="text-[10px]">
-                {saleVouchers.length} Emitidos
-              </Badge>
-            </h3>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-semibold text-slate-500">Filtrar:</span>
-              <Button
-                size="sm"
-                variant={salesDateFilter === "hoy" ? "default" : "outline"}
-                onClick={() => setSalesDateFilter("hoy")}
-                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""}`}
-              >
-                Hoy
-              </Button>
-              <Button
-                size="sm"
-                variant={salesDateFilter === "todas" ? "default" : "outline"}
-                onClick={() => setSalesDateFilter("todas")}
-                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "todas" ? "bg-red-700 text-white" : ""}`}
-              >
-                Todas las Fechas
-              </Button>
-            </div>
-          </div>
-
           {/* Tabla de Facturas y Boletas */}
           <DataTable
             columns={voucherColumns}
@@ -4204,7 +4111,9 @@ function SalesManagementContent() {
                 <Badge
                   className={
                     viewOrderModal.order.status === "Served"
-                      ? "bg-emerald-600 text-white"
+                      ? "bg-cyan-600 text-white"
+                      : viewOrderModal.order.status === "Ready"
+                        ? "bg-purple-600 text-white"
                       : viewOrderModal.order.status === "Preparing"
                         ? "bg-amber-500 text-white"
                         : "bg-blue-600 text-white"
@@ -4212,6 +4121,8 @@ function SalesManagementContent() {
                 >
                   {viewOrderModal.order.status === "Served"
                     ? "Servido"
+                    : viewOrderModal.order.status === "Ready"
+                      ? "Listo para servir"
                     : viewOrderModal.order.status === "Preparing"
                       ? "En Preparación"
                       : "Recibido"}
@@ -4339,7 +4250,7 @@ function SalesManagementContent() {
       {/* MODAL 2: COBRO MÓVIL DEL MOZO (CON CELULAR / TAP TO PAY / YAPE) */}
       {/* =================================================================== */}
       <Dialog open={waiterPaymentModalOpen} onOpenChange={setWaiterPaymentModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-md rounded-2xl p-4 sm:p-6 bg-white">
+        <DialogContent className="w-[95vw] sm:max-w-md lg:max-w-4xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6 bg-white">
           <DialogHeader className="pb-3 border-b border-slate-200">
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-8">
               <span className="flex items-center gap-2">
@@ -4355,7 +4266,8 @@ function SalesManagementContent() {
           </DialogHeader>
 
           {waiterPaymentOrder && (
-            <div className="flex flex-col gap-4 mt-2">
+            <div className="grid gap-4 mt-2 lg:grid-cols-2 lg:items-start">
+              <div className="flex flex-col gap-4">
               {/* Importe Total en Grande */}
               <div className="bg-slate-900 text-white p-4 rounded-2xl text-center">
                 <span className="text-xs text-slate-400 font-bold uppercase block">
@@ -4508,6 +4420,9 @@ function SalesManagementContent() {
                 </div>
               </div>
 
+              </div>
+
+              <div className="flex flex-col gap-4">
               {/* Selector de Método de Cobro Móvil */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
@@ -4948,15 +4863,9 @@ function SalesManagementContent() {
                 </div>
               )}
 
-              <DialogFooter className="flex gap-2 pt-2 border-t border-slate-200">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setWaiterPaymentModalOpen(false)}
-                  className="text-xs font-semibold rounded-xl"
-                >
-                  Cancelar
-                </Button>
+              </div>
+
+              <DialogFooter className="flex gap-2 pt-2 border-t border-slate-200 lg:col-span-2">
                 <Button
                   size="sm"
                   onClick={executeWaiterPayment}

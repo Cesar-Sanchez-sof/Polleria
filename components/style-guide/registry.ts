@@ -13,10 +13,18 @@ export interface StyleGuideCategory {
 /** Navigation of the style guide: categories and their component pages. */
 export const STYLE_GUIDE_CATEGORIES: readonly StyleGuideCategory[] = [
   {
+    key: "foundations",
+    label: "Fundamentos",
+    entries: [
+      { slug: "colors", title: "Colores", description: "Qué significa cada color: rojo, verde, azul, amarillo y cyan." },
+    ],
+  },
+  {
     key: "inputs",
     label: "Entradas",
     entries: [
       { slug: "button", title: "AppButton", description: "Botón principal y variantes, con icono, carga y tamaños." },
+      { slug: "typeahead", title: "Typeahead", description: "Select con búsqueda: se elige de la lista o se escribe para filtrar." },
     ],
   },
   {

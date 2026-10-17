@@ -6,7 +6,7 @@ import { BookMarked } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
 import { JournalEntryDetail } from "@/app/accounting/(records)/entries/components/JournalEntryDetail";
-import { LedgerFilters } from "./components/LedgerFilters";
+import { LedgerFilters, LedgerFilterMessages } from "./components/LedgerFilters";
 import { LedgerTable } from "./components/LedgerTable";
 import {
   listAccountingAccounts,
@@ -181,10 +181,22 @@ export default function GeneralLedgerPage() {
       {/* Main content area */}
       <ModuleHeader
         title="Libro mayor"
-        subtitle="Movimientos de la cuenta seleccionada, en orden cronológico del más antiguo al más reciente."
+        subtitle="Movimientos de la cuenta seleccionada, del más antiguo al más reciente."
         icon={BookMarked}
         iconClassName="bg-red-100 text-red-700"
       >
+        <LedgerFilters
+          accounts={accounts}
+          code={code}
+          from={from}
+          to={to}
+          loadingAccounts={loadingAccounts}
+          hasFilters={hasFilters}
+          onCode={setCode}
+          onFrom={(value) => changePeriod("from", value)}
+          onTo={(value) => changePeriod("to", value)}
+          onClear={clearFilters}
+        />
         <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
           <span className="tabular-nums font-semibold text-slate-900">
             {movementCount}
@@ -198,20 +210,7 @@ export default function GeneralLedgerPage() {
         <div className="flex flex-col w-full gap-5">
           {/* FILTROS Y TABLA */}
           <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-            <LedgerFilters
-              accounts={accounts}
-              code={code}
-              from={from}
-              to={to}
-              loadingAccounts={loadingAccounts}
-              hasFilters={hasFilters}
-              invalidRange={invalidRange}
-              accountsError={accountsError}
-              onCode={setCode}
-              onFrom={(value) => changePeriod("from", value)}
-              onTo={(value) => changePeriod("to", value)}
-              onClear={clearFilters}
-            />
+            <LedgerFilterMessages invalidRange={invalidRange} accountsError={accountsError} />
 
             <LedgerTable
               ledger={ledger}

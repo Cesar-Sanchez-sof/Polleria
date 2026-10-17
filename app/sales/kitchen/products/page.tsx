@@ -1,5 +1,6 @@
 "use client";
 
+import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   UtensilsCrossed,
@@ -10,7 +11,6 @@ import {
   Edit2,
   Trash2,
   ChefHat,
-  RefreshCw,
   Scale,
   Sparkles,
   Info,
@@ -22,7 +22,6 @@ import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -478,16 +477,40 @@ export default function ProductsCatalogPage() {
         icon={ChefHat}
         iconClassName="bg-amber-100 text-amber-800"
       >
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void loadData()}
-            className="text-xs h-9 font-semibold gap-1.5 rounded-xl border-border hover:bg-muted cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Refrescar</span>
-          </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="relative w-56">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar producto o ingrediente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 text-xs rounded-xl h-9"
+            />
+          </div>
+          <SegmentedTabs
+            ariaLabel="Filtrar por categoría"
+            value={categoryFilter}
+            onValueChange={setCategoryFilter}
+            className="max-w-full overflow-x-auto"
+            items={[
+              { value: "todos", label: "Todos", tone: "brand" },
+              { value: "pollos", label: "Pollos", tone: "brand" },
+              { value: "adicionales", label: "Guarniciones", tone: "brand" },
+              { value: "bebidas", label: "Bebidas", tone: "brand" },
+            ]}
+          />
+          <SegmentedTabs
+            ariaLabel="Filtrar por estado"
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            className="max-w-full overflow-x-auto"
+            items={[
+              { value: "todos", label: "Todo Estado", tone: "brand" },
+              { value: "active", label: "Activos", tone: "success" },
+              { value: "inactive", label: "Pausados", tone: "warning" },
+            ]}
+          />
           <Button
             size="sm"
             onClick={handleOpenCreateModal}
@@ -507,65 +530,6 @@ export default function ProductsCatalogPage() {
           <StatCard layout="label-first" tone="amber" icon={<AlertCircle />} label="Pausados / Inactivos" value={metrics.inactive} colorValue />
           <StatCard layout="label-first" tone="blue" icon={<Scale />} label="Con Receta (Escandallo)" value={metrics.withRecipe} colorValue />
         </div>
-
-        {/* Controles de Filtros y Búsqueda */}
-        <Card className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar producto o ingrediente..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-xs rounded-xl h-9"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Categorías */}
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs">
-              {[
-                { id: "todos", label: "Todos" },
-                { id: "pollos", label: "Pollos" },
-                { id: "adicionales", label: "Guarniciones" },
-                { id: "bebidas", label: "Bebidas" },
-              ].map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCategoryFilter(c.id)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                    categoryFilter === c.id
-                      ? "bg-background text-foreground shadow-2xs font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Estado */}
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs">
-              {[
-                { id: "todos", label: "Todo Estado" },
-                { id: "active", label: "Activos" },
-                { id: "inactive", label: "Pausados" },
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setStatusFilter(s.id as any)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                    statusFilter === s.id
-                      ? "bg-background text-foreground shadow-2xs font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </Card>
 
         {/* Tabla / Listado de Productos */}
         <DataTable

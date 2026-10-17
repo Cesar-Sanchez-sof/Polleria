@@ -3,13 +3,7 @@
 import { FunnelX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Typeahead } from "@/components/shared/Typeahead";
 import type { AccountingAccount } from "@/lib/services/general-ledger.service";
 
 interface Props {
@@ -21,10 +15,6 @@ interface Props {
   loadingAccounts: boolean;
   /** `true` cuando hay un periodo aplicado. */
   hasFilters: boolean;
-  /** `true` cuando el rango no tiene sentido (inicial > final). */
-  invalidRange: boolean;
-  /** Error al cargar el plan contable, si lo hubo. */
-  accountsError: string | null;
   onCode: (value: string) => void;
   onFrom: (value: string) => void;
   onTo: (value: string) => void;
@@ -43,108 +33,91 @@ export function LedgerFilters({
   to,
   loadingAccounts,
   hasFilters,
-  invalidRange,
-  accountsError,
   onCode,
   onFrom,
   onTo,
   onClear,
 }: Readonly<Props>) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg px-3 py-2.5">
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="ledger-account"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
-          >
-            Cuenta contable
-          </label>
-          <Select
-            value={code}
-            onValueChange={(value) => {
-              if (value) onCode(value);
-            }}
-          >
-            <SelectTrigger
-              id="ledger-account"
-              disabled={loadingAccounts}
-              className="h-9 w-80 rounded-lg border-slate-200 bg-white text-xs shadow-none"
-            >
-              <SelectValue placeholder="Seleccione una cuenta" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.code} className="text-xs">
-                  <span className="font-bold text-red-700 tabular-nums">
-                    {account.code}
-                  </span>
-                  <span className="text-slate-600"> · {account.name}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="flex flex-wrap items-center gap-2">
+       <label htmlFor="ledger-from" className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          Cuenta
+        </label>
+      <Typeahead
+        items={accounts.map((account) => ({
+          value: account.code,
+          label: account.name,
+          prefix: <span className="font-bold tabular-nums text-red-700">{account.code}</span>,
+        }))}
+        value={code}
+        onValueChange={(value) => {
+          if (value) onCode(value);
+        }}
+        clearable={false}
+        disabled={loadingAccounts}
+        placeholder="Cuenta contable"
+        ariaLabel="Cuenta contable"
+        className="w-80"
+      />
 
-        <div className="flex flex-row items-center gap-2 self-end pb-0">
-          <label
-            htmlFor="ledger-from"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
-          >
-            De
-          </label>
-          <Input
-            id="ledger-from"
-            type="date"
-            value={from}
-            max={to || undefined}
-            onChange={(e) => onFrom(e.target.value)}
-            aria-label="Fecha inicial del periodo"
-            className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
-          />
-          <label
-            htmlFor="ledger-to"
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
-          >
-            A
-          </label>
-          <Input
-            id="ledger-to"
-            type="date"
-            value={to}
-            min={from || undefined}
-            onChange={(e) => onTo(e.target.value)}
-            aria-label="Fecha final del periodo"
-            className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
-          />
-        </div>
-
-        <span className="text-[11px] text-slate-400 self-end pb-2.5">
-          Sin fechas se muestran todos los movimientos de la cuenta.
-        </span>
-
-        <div className="ml-auto self-end">
-          <Button
-            variant="outline"
-            type="button"
-            onClick={onClear}
-            disabled={!hasFilters}
-            title="Limpiar filtros"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-800 hover:bg-red-900 text-white hover:text-white rounded-lg text-xs font-semibold border-slate-200 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed h-9"
-          >
-            <FunnelX className="w-5 h-5" />
-          </Button>
-        </div>
+      <div className="flex flex-row items-center gap-2">
+        <label htmlFor="ledger-from" className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          De
+        </label>
+        <Input
+          id="ledger-from"
+          type="date"
+          value={from}
+          max={to || undefined}
+          onChange={(e) => onFrom(e.target.value)}
+          aria-label="Fecha inicial del periodo"
+          title="Sin fechas se muestran todos los movimientos de la cuenta."
+          className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
+        />
+        <label htmlFor="ledger-to" className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          A
+        </label>
+        <Input
+          id="ledger-to"
+          type="date"
+          value={to}
+          min={from || undefined}
+          onChange={(e) => onTo(e.target.value)}
+          aria-label="Fecha final del periodo"
+          title="Sin fechas se muestran todos los movimientos de la cuenta."
+          className="h-9 w-36 rounded-lg border-slate-200 bg-white text-xs shadow-none"
+        />
       </div>
 
+      <Button
+        variant="outline"
+        type="button"
+        onClick={onClear}
+        disabled={!hasFilters}
+        title="Limpiar filtros"
+        className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border-slate-200 bg-red-800 px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-red-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <FunnelX className="h-5 w-5" />
+      </Button>
+    </div>
+  );
+}
+
+/** Avisos de los filtros del libro mayor (rango invertido o error al cargar el plan contable). */
+export function LedgerFilterMessages({
+  invalidRange,
+  accountsError,
+}: Readonly<{ invalidRange: boolean; accountsError: string | null }>) {
+  if (!invalidRange && !accountsError) return null;
+  return (
+    <div className="flex flex-col gap-2">
       {invalidRange && (
-        <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
           La fecha inicial no puede ser posterior a la fecha final.
         </p>
       )}
-
       {accountsError && (
-        <p className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
           {accountsError}
         </p>
       )}
