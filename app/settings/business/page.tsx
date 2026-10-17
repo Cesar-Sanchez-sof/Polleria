@@ -17,9 +17,11 @@ import {
   Upload,
   ImageIcon,
   Trash2,
+  Crop,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { ImageCropperModal } from "@/components/shared/ImageCropperModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +30,8 @@ import type { RestaurantInfo } from "@/lib/services/restaurant-config.service";
 export default function RestaurantBusinessSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [cropperModalOpen, setCropperModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string>("");
   const [form, setForm] = useState<RestaurantInfo>({
     name: "",
     commercialName: "",
@@ -302,7 +306,7 @@ export default function RestaurantBusinessSettingsPage() {
                 Sube la imagen de tu código QR oficial (el que descargas desde tu app Yape en <strong>Cobrar con QR</strong> o la foto de tu sticker oficial). Al mostrar tu QR oficial, cualquier cliente podrá escanearlo desde la app de Yape en su celular de forma inmediata y 100% compatible.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 pt-1">
                 <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold transition-colors">
                   <Upload className="w-3.5 h-3.5" />
                   <span>Subir imagen de mi QR Yape</span>
@@ -313,57 +317,88 @@ export default function RestaurantBusinessSettingsPage() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      if (file.size > 2 * 1024 * 1024) {
-                        toast.error("La imagen no debe superar los 2MB.");
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error("La imagen no debe superar los 5MB.");
                         return;
                       }
                       const reader = new FileReader();
                       reader.onload = (event) => {
                         const base64 = event.target?.result as string;
                         if (base64) {
-                          handleChange("yapeQrImageUrl", base64);
-                          toast.success("Imagen de QR Yape cargada con éxito.");
+                          setImageToCrop(base64);
+                          setCropperModalOpen(true);
                         }
                       };
                       reader.readAsDataURL(file);
+                      e.target.value = "";
                     }}
                   />
                 </label>
 
                 {form.yapeQrImageUrl && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      handleChange("yapeQrImageUrl", "");
-                      toast.info("Imagen de QR Yape eliminada.");
-                    }}
-                    className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    Quitar imagen
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setImageToCrop(form.yapeQrImageUrl || "");
+                        setCropperModalOpen(true);
+                      }}
+                      className="text-xs text-purple-800 border-purple-300 hover:bg-purple-100/70 h-8 font-semibold rounded-xl"
+                    >
+                      <Crop className="w-3.5 h-3.5 mr-1" />
+                      Recortar / Ajustar QR
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        handleChange("yapeQrImageUrl", "");
+                        toast.info("Imagen de QR Yape eliminada.");
+                      }}
+                      className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Quitar imagen
+                    </Button>
+                  </>
                 )}
               </div>
 
               {form.yapeQrImageUrl && (
-                <div className="mt-2 p-3 bg-purple-50/50 border border-purple-200 rounded-xl flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={form.yapeQrImageUrl}
-                    alt="Vista previa QR Oficial Yape"
-                    className="w-24 h-24 object-contain rounded-lg border border-purple-200 bg-white p-1 shadow-2xs"
-                  />
-                  <div className="text-xs text-purple-950 flex flex-col gap-0.5">
-                    <span className="font-bold flex items-center gap-1 text-emerald-700">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      QR Oficial Configurado
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      Este código QR se mostrará en las pantallas de cobro de los mozos y en caja para que los clientes lo escaneen directamente con su app Yape.
-                    </span>
+                <div className="mt-2 p-3 bg-purple-50/50 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={form.yapeQrImageUrl}
+                      alt="Vista previa QR Oficial Yape"
+                      className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg border border-purple-200 bg-white p-1 shadow-2xs shrink-0"
+                    />
+                    <div className="text-xs text-purple-950 flex flex-col gap-0.5">
+                      <span className="font-bold flex items-center gap-1 text-emerald-700">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        QR Oficial Listo y Encuadrado
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        Este código QR se mostrará optimizado en las pantallas de cobro de los mozos y en caja para que los clientes lo escaneen directamente con su app Yape.
+                      </span>
+                    </div>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setImageToCrop(form.yapeQrImageUrl || "");
+                      setCropperModalOpen(true);
+                    }}
+                    className="text-xs font-bold text-purple-800 border-purple-300 hover:bg-purple-100/70 h-8 rounded-xl cursor-pointer shrink-0 self-end sm:self-auto"
+                  >
+                    <Crop className="w-3.5 h-3.5 mr-1" />
+                    Reajustar Recorte
+                  </Button>
                 </div>
               )}
             </div>
@@ -472,6 +507,18 @@ export default function RestaurantBusinessSettingsPage() {
         </div>
       </div>
       </main>
+
+      <ImageCropperModal
+        isOpen={cropperModalOpen}
+        onClose={() => setCropperModalOpen(false)}
+        imageSrc={imageToCrop}
+        onCropComplete={(croppedBase64) => {
+          handleChange("yapeQrImageUrl", croppedBase64);
+          toast.success("¡QR recortado con éxito! Recuerda pulsar 'Guardar Configuración' para aplicar los cambios.");
+        }}
+        title="Recortar y Encuadrar QR de Yape"
+        description="Enfoca solo el código QR cuadrado. Elimina bordes o capturas de pantalla para un escaneo perfecto."
+      />
     </>
   );
 }

@@ -77,7 +77,6 @@ export interface YapePaymentResult {
   status: "pending" | "approved" | "simulado";
   qrCode: string; // Cadena EMVCo oficial interoperable que la app Yape lee directamente
   qrImageUrl: string;
-  checkoutUrl?: string; // Enlace web directo a la pantalla de Yapear simulado
   ticketUrl?: string;
   deepLink: string;
   amountFormatted: string;
@@ -428,24 +427,18 @@ export async function createMercadoPagoYapePayment(
     };
   }
 
-  const checkoutUrl = `${baseUrl}/checkout/yape?orderId=${data.orderId}`;
-  const simulationQrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=2&data=${encodeURIComponent(
-    checkoutUrl
-  )}`;
-
   // MODO 1: Sin Token configurado (Modo Simulación)
   if (!token) {
     return {
       paymentId: `MP-YAPE-SIM-${Date.now()}-${data.orderId}`,
       status: "simulado",
       qrCode: localDynamicYape.emvcoPayload,
-      qrImageUrl: simulationQrImageUrl,
-      checkoutUrl,
+      qrImageUrl: localDynamicYape.qrImageUrl,
       deepLink: localDynamicYape.deepLink,
       amountFormatted: localDynamicYape.amountFormatted,
       amount: roundedAmount,
       isSimulated: true,
-      message: "QR de simulación Yape generado con éxito (Escanear para abrir la vista de Yapear tanto a tal número).",
+      message: "QR de cobro Yape generado con éxito para el comercio.",
     };
   }
 
@@ -486,7 +479,6 @@ export async function createMercadoPagoYapePayment(
         status: json.status || "pending",
         qrCode: mpQrCode,
         qrImageUrl,
-        checkoutUrl,
         ticketUrl: json.point_of_interaction?.transaction_data?.ticket_url,
         deepLink: localDynamicYape.deepLink,
         amountFormatted: `S/ ${roundedAmount.toFixed(2)}`,
@@ -502,18 +494,17 @@ export async function createMercadoPagoYapePayment(
     console.warn("[MercadoPago Service] Error conectando a API Payments de Mercado Pago:", error.message);
   }
 
-  // Fallback seguro: siempre retornar QR con enlace directo a la vista de Yapear y emvcoPayload
+  // Fallback seguro: siempre retornar QR con enlace directo al celular del comercio y emvcoPayload
   return {
     paymentId: `MP-YAPE-FB-${Date.now()}-${data.orderId}`,
     status: "pending",
     qrCode: localDynamicYape.emvcoPayload,
-    qrImageUrl: simulationQrImageUrl,
-    checkoutUrl,
+    qrImageUrl: localDynamicYape.qrImageUrl,
     deepLink: localDynamicYape.deepLink,
     amountFormatted: localDynamicYape.amountFormatted,
     amount: roundedAmount,
     isSimulated: true,
-    message: "QR de cobro Yape generado. Al escanearlo se abre la vista de yapear el costo de la comanda al celular del comercio.",
+    message: "QR de cobro Yape generado con éxito para el comercio.",
   };
 }
 

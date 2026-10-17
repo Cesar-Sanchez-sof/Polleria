@@ -15,15 +15,12 @@ export interface DynamicYapeQRInput {
   orderCode?: string; // Código de comanda / referencia (ej: PED-015)
   city?: string; // Ciudad (por defecto Lima)
   customQrImageUrl?: string; // Imagen oficial subida por el restaurante
-  checkoutUrl?: string; // URL directa al checkout móvil no editable para escanear con cámara
 }
 
 export interface DynamicYapeQRResult {
   emvcoPayload: string; // Cadena codificada oficial EMVCo
   qrImageUrl: string; // URL directa de imagen del código QR listo para renderizar
-  checkoutQrImageUrl?: string; // QR directo a la vista móvil de cobro no editable
   deepLink: string; // Enlace nativo para abrir Yape si está en el mismo móvil
-  checkoutUrl?: string; // URL de cobro web móvil
   amountFormatted: string;
   phoneClean: string;
   phoneDisplay: string;
@@ -131,13 +128,6 @@ export function generateDynamicYapeQR(input: DynamicYapeQRInput): DynamicYapeQRR
         emvcoPayload
       )}`;
 
-  // QR que apunta directamente a la vista web móvil de pago no editable
-  const checkoutQrImageUrl = input.checkoutUrl && input.checkoutUrl.trim().length > 0
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=2&data=${encodeURIComponent(
-        input.checkoutUrl.trim()
-      )}`
-    : undefined;
-
   // Enlace directo universal para dispositivos móviles
   const deepLink = `yape://pay?phone=${phoneClean}&amount=${amountStr}&ref=${encodeURIComponent(orderRef)}`;
 
@@ -148,9 +138,7 @@ export function generateDynamicYapeQR(input: DynamicYapeQRInput): DynamicYapeQRR
   return {
     emvcoPayload,
     qrImageUrl,
-    checkoutQrImageUrl,
     deepLink,
-    checkoutUrl: input.checkoutUrl,
     amountFormatted: `S/ ${amountStr}`,
     phoneClean,
     phoneDisplay,

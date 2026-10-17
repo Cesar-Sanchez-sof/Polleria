@@ -267,38 +267,8 @@ function SalesManagementContent() {
 
   // Estados y funciones auxiliares para Cobro Directo con Yape
   const [yapeOperationCode, setYapeOperationCode] = useState<string>("");
-  const [yapeProcessing, setYapeProcessing] = useState<boolean>(false);
   const [waiterYapeProofImage, setWaiterYapeProofImage] = useState<string>("");
   const [counterYapeProofImage, setCounterYapeProofImage] = useState<string>("");
-
-  const handleSimulateInstantYapePayment = async (orderId: number) => {
-    try {
-      setYapeProcessing(true);
-      const res = await fetch("/api/checkout/yape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId,
-          voucherType: "Boleta",
-          operationCode: yapeOperationCode.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al procesar el pago con Yape.");
-      toast.success(data.message || "¡Pago con Yape confirmado con éxito! Mesa liberada.");
-      setWaiterPaymentModalOpen(false);
-      setYapeOperationCode("");
-      if (data.invoice) {
-        setIssuedVoucher(data.invoice);
-        setTicketModalOpen(true);
-      }
-      await loadData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al procesar pago Yape.");
-    } finally {
-      setYapeProcessing(false);
-    }
-  };
 
   // ---------------------------------------------------------------------------
   // ESTADO MODAL COMANDA (TOMAR / EDITAR PEDIDO)
@@ -423,31 +393,6 @@ function SalesManagementContent() {
   const [waiterVoucherType, setWaiterVoucherType] = useState<"Boleta" | "Factura">("Boleta");
   const [waiterCustomerDoc, setWaiterCustomerDoc] = useState<string>("");
   const [waiterCustomerName, setWaiterCustomerName] = useState<string>("");
-  const [waiterClientYapeDetected, setWaiterClientYapeDetected] = useState<boolean>(false);
-  const [waiterYapeQrTab, setWaiterYapeQrTab] = useState<"checkout_mobile" | "yape_app">("checkout_mobile");
-
-  // Detección en tiempo real de si el cliente completó el Yapeo desde su celular
-  useEffect(() => {
-    if (!waiterPaymentModalOpen || !waiterPaymentOrder) {
-      setWaiterClientYapeDetected(false);
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/checkout/yape?orderId=${waiterPaymentOrder.id}`);
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.status === "Closed" || json.existingInvoice) {
-          setWaiterClientYapeDetected(true);
-        }
-      } catch {
-        // Polling silencioso
-      }
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [waiterPaymentModalOpen, waiterPaymentOrder]);
 
   // ---------------------------------------------------------------------------
   // ESTADO MODAL REGISTRO DE CLIENTE
@@ -563,20 +508,17 @@ function SalesManagementContent() {
     return Math.round((given - waiterPaymentTotal) * 100) / 100;
   }, [waiterAmountGiven, waiterPaymentTotal]);
 
-  // Códigos QR Dinámicos Yape con monto específico automático
+  // Códigos QR Oficiales / Estándar Yape
   const counterYapeQr = useMemo(() => {
     if (!orderToCharge || counterPaymentTotal <= 0) return null;
     const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272";
     const name = restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria";
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const checkoutUrl = origin ? `${origin}/checkout/yape?orderId=${orderToCharge.id}` : "";
     return generateDynamicYapeQR({
       phone,
       amount: counterPaymentTotal,
       merchantName: name,
       orderCode: orderToCharge.code,
       customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
-      checkoutUrl,
     });
   }, [orderToCharge, counterPaymentTotal, restaurantConfig]);
 
@@ -584,15 +526,12 @@ function SalesManagementContent() {
     if (!waiterPaymentOrder || waiterPaymentTotal <= 0) return null;
     const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272";
     const name = restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria";
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const checkoutUrl = origin ? `${origin}/checkout/yape?orderId=${waiterPaymentOrder.id}` : "";
     return generateDynamicYapeQR({
       phone,
       amount: waiterPaymentTotal,
       merchantName: name,
       orderCode: waiterPaymentOrder.code,
       customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
-      checkoutUrl,
     });
   }, [waiterPaymentOrder, waiterPaymentTotal, restaurantConfig]);
 
@@ -1259,6 +1198,9 @@ function SalesManagementContent() {
 
       salePayload.payments = isListValid;
       salePayload.amountReceived = counterPaymentTotal;
+      if (counterYapeProofImage) {
+        salePayload.yapeProofImage = counterYapeProofImage;
+      }
     } else {
       const tpObj = paymentTypes.find((t) => {
         const n = t.name.toLowerCase();
@@ -1416,6 +1358,7 @@ function SalesManagementContent() {
         customer: waiterCustomerData,
         payments: isListValid,
         amountReceived: waiterPaymentTotal,
+        yapeProofImage: waiterYapeProofImage || undefined,
       };
     } else {
       const tpObj = paymentTypes.find((t) => {
@@ -1453,39 +1396,6 @@ function SalesManagementContent() {
 
     try {
       setProcessingWaiterPayment(true);
-
-      // Verificación si el cliente ya completó el cobro desde su celular (página de checkout Yape)
-      if (waiterPaymentMethod === "yape" || waiterClientYapeDetected) {
-        const checkRes = await fetch(`/api/checkout/yape?orderId=${waiterPaymentOrder.id}`);
-        if (checkRes.ok) {
-          const checkJson = await checkRes.json();
-          if (checkJson.status === "Closed" && checkJson.existingInvoice) {
-            toast.success("¡Cobro Yape validado por el Mozo! Mesa liberada con éxito.");
-            setIssuedVoucher({
-              id: checkJson.existingInvoice.id || Date.now(),
-              orderId: waiterPaymentOrder.id,
-              voucherType: waiterVoucherType,
-              series: checkJson.existingInvoice.fullCode.split("-")[0] || "B001",
-              number: parseInt(checkJson.existingInvoice.fullCode.split("-")[1] || "1", 10),
-              fullCode: checkJson.existingInvoice.fullCode,
-              issuedAt: checkJson.existingInvoice.issuedAt || new Date().toISOString(),
-              subtotal: Math.round((waiterPaymentOrder.total / 1.18) * 100) / 100,
-              igv: Math.round((waiterPaymentOrder.total - waiterPaymentOrder.total / 1.18) * 100) / 100,
-              totalAmount: waiterPaymentOrder.total,
-              status: "Issued",
-              customer: waiterCustomerData,
-              order: waiterPaymentOrder,
-            } as any);
-            setWaiterPaymentModalOpen(false);
-            setWaiterYapeProofImage("");
-            setYapeOperationCode("");
-            setTicketModalOpen(true);
-            await loadData();
-            return;
-          }
-        }
-      }
-
       const res = await registerSale(waiterSalePayload);
 
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
@@ -3463,15 +3373,6 @@ function SalesManagementContent() {
                             <span className="text-[9.5px] text-slate-500 font-medium">
                               📷 Escanear con app Yape
                             </span>
-                            <a
-                              href={`/checkout/yape?orderId=${orderToCharge.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] font-bold text-purple-700 hover:text-purple-900 underline flex items-center gap-1 mt-0.5"
-                            >
-                              <Smartphone className="w-3 h-3" />
-                              <span>Abrir vista en web</span>
-                            </a>
                           </div>
 
                           <div className="flex flex-col gap-2 text-xs text-purple-950 text-left flex-1">
@@ -3602,22 +3503,6 @@ function SalesManagementContent() {
                                 </div>
                               )}
                             </div>
-
-                            <div className="pt-1 flex gap-2">
-                              <button
-                                type="button"
-                                disabled={yapeProcessing}
-                                onClick={() => handleSimulateInstantYapePayment(orderToCharge.id)}
-                                className="py-2 px-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                              >
-                                {yapeProcessing ? (
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                )}
-                                <span>⚡ Simular Pago Yape Aprobado (Guardar en BD)</span>
-                              </button>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -3667,7 +3552,7 @@ function SalesManagementContent() {
                         </div>
 
                         {/* Listado dinámico de partes de pago */}
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2.5 max-h-[58vh] sm:max-h-[500px] overflow-y-auto pr-1">
                           {paymentParts.map((part, index) => {
                             const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
                             const isCash = selectedPaymentType?.name.toLowerCase().includes("efectivo");
@@ -3677,7 +3562,7 @@ function SalesManagementContent() {
                             const partYapeQr =
                               isYape && partAmountNum > 0 && orderToCharge
                                 ? generateDynamicYapeQR({
-                                    phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321",
+                                    phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272",
                                     amount: partAmountNum,
                                     merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
                                     orderCode: `${orderToCharge.code}-P${index + 1}`,
@@ -3786,35 +3671,59 @@ function SalesManagementContent() {
                                   </div>
                                 )}
 
-                                {/* Helper para Yape: QR Dinámico con monto específico para esta parte */}
+                                {/* Helper para Yape: QR Oficial / Adaptado para esta parte */}
                                 {isYape && partAmountNum > 0 && partYapeQr && (
-                                  <div className="p-3 bg-purple-50/90 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center gap-3 pt-2">
-                                    <div className="p-2 bg-white border border-purple-300 rounded-xl shadow-2xs shrink-0 flex flex-col items-center">
+                                  <div className="p-3 bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center sm:items-start gap-3.5 pt-2.5 text-center sm:text-left shadow-2xs">
+                                    <div className="p-1.5 bg-white border border-purple-300 rounded-xl shadow-xs shrink-0 flex flex-col items-center">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img
                                         src={partYapeQr.qrImageUrl}
-                                        alt={`QR Dinámico Yape Parte #${index + 1}`}
-                                        className="w-28 h-28 rounded-lg bg-white"
+                                        alt={`QR Yape Parte #${index + 1}`}
+                                        className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-lg bg-white p-0.5"
                                       />
                                       <span className="text-[10px] text-purple-900 font-black mt-1">
                                         {partYapeQr.amountFormatted}
                                       </span>
                                     </div>
-                                    <div className="flex flex-col gap-1 text-left text-xs text-purple-950">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-600 text-white">
+                                    <div className="flex flex-col gap-1.5 text-left text-xs text-purple-950 flex-1 min-w-0">
+                                      <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-600 text-white shadow-2xs">
                                           YAPE PARTE #{index + 1}
                                         </span>
                                         <span className="font-extrabold text-purple-900 text-xs">
-                                          Monto Exacto: S/ {partAmountNum.toFixed(2)}
+                                          Monto: S/ {partAmountNum.toFixed(2)}
                                         </span>
+                                        {partYapeQr.isCustomImage && (
+                                          <span className="text-[9.5px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                                            ✓ QR Oficial
+                                          </span>
+                                        )}
                                       </div>
-                                      <p className="text-[11px] text-purple-800">
-                                        Muestra este QR al comensal #{index + 1}. Al escanear con la app Yape, se precarga <strong>S/ {partAmountNum.toFixed(2)}</strong> automáticamente. Solo debe pulsar <strong>&quot;YAPEAR&quot;</strong>.
+                                      <p className="text-[11px] text-purple-800 leading-snug">
+                                        El comensal #{index + 1} debe escanear el QR desde su app Yape e ingresar el monto exacto de <strong>S/ {partAmountNum.toFixed(2)}</strong>.
                                       </p>
-                                      <div className="text-[10px] text-purple-900 bg-white/80 px-2 py-1 rounded-lg border border-purple-200 flex items-center justify-between">
-                                        <span>Titular: <strong>{partYapeQr.merchantName}</strong></span>
-                                        <span>Celular: <strong>{partYapeQr.phoneClean}</strong></span>
+                                      <div className="p-2 bg-white rounded-lg border border-purple-100 text-[10.5px] flex flex-col gap-1 shadow-2xs">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-slate-500 font-medium">Celular Yape:</span>
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-mono font-bold text-purple-950">{partYapeQr.phoneDisplay || partYapeQr.phoneClean}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(partYapeQr.phoneClean);
+                                                toast.success("Celular copiado.");
+                                              }}
+                                              className="p-0.5 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
+                                              title="Copiar celular"
+                                            >
+                                              <Copy className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-purple-50 pt-1">
+                                          <span className="text-slate-500 font-medium">Titular:</span>
+                                          <span className="font-bold text-slate-800 truncate">{partYapeQr.merchantName}</span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -3823,6 +3732,78 @@ function SalesManagementContent() {
                             );
                           })}
                         </div>
+
+                        {/* Evidencia fotográfica Yape en Pago en Partes (Caja) */}
+                        {paymentParts.some((p) => {
+                          const tp = paymentTypes.find((t) => t.id === p.paymentTypeId);
+                          return tp?.name.toLowerCase().includes("yape");
+                        }) && (
+                          <div className="bg-white border-2 border-purple-200 rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
+                                <Camera className="w-3.5 h-3.5 text-purple-700" />
+                                <span>Foto Comprobante Yape (Evidencia S3):</span>
+                              </span>
+                              {counterYapeProofImage && (
+                                <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2">
+                                  ✓ Capturada
+                                </Badge>
+                              )}
+                            </div>
+                            {!counterYapeProofImage ? (
+                              <label
+                                htmlFor="counter-parts-camera-input"
+                                className="py-1.5 px-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>📸 Tomar Foto al Comprobante Yape</span>
+                                <input
+                                  id="counter-parts-camera-input"
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      toast.error("La imagen no debe superar los 5MB.");
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const b64 = ev.target?.result as string;
+                                      if (b64) {
+                                        setCounterYapeProofImage(b64);
+                                        toast.success("Foto del comprobante capturada.");
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            ) : (
+                              <div className="flex items-center gap-2 p-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={counterYapeProofImage}
+                                  alt="Foto comprobante"
+                                  className="w-10 h-10 object-cover rounded-md border border-purple-300 shrink-0"
+                                />
+                                <div className="flex-1 min-w-0 flex items-center justify-between text-[10px]">
+                                  <span className="text-slate-600 font-medium truncate">Foto lista para anexar en S3</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCounterYapeProofImage("")}
+                                    className="text-rose-600 font-bold hover:underline ml-2 cursor-pointer"
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Botón para agregar una nueva parte */}
                         <div className="flex items-center justify-between pt-1">
@@ -4942,28 +4923,6 @@ function SalesManagementContent() {
                   {/* MODO 2: YAPE DIRECTO (QR Y NÚMERO) */}
                   {waiterPaymentMethod === "yape" && (
                     <div className="bg-purple-50/70 border border-purple-200 p-4 rounded-2xl flex flex-col gap-3.5">
-                      {/* Banner de Pago Detectado en Tiempo Real */}
-                      {waiterClientYapeDetected && (
-                        <div className="w-full p-3 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-left text-xs text-emerald-950 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                              <CheckCircle2 className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <span className="font-extrabold text-emerald-900 block">
-                                ¡Yapeo realizado por el cliente desde su celular!
-                              </span>
-                              <span className="text-[11px] text-emerald-700">
-                                Monto recibido: <strong>{formatCurrency(waiterPaymentOrder.total)}</strong>. Presiona &quot;Validar Cobro&quot; para liberar la mesa.
-                              </span>
-                            </div>
-                          </div>
-                          <Badge className="bg-emerald-600 text-white font-bold text-[10px] px-2 py-0.5 shrink-0">
-                            Detectado ✔
-                          </Badge>
-                        </div>
-                      )}
-
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
                         {/* Subcolumna 1: Datos de Cobro */}
                         <div className="flex flex-col gap-3">
@@ -5137,56 +5096,15 @@ function SalesManagementContent() {
                               </div>
                             )}
                           </div>
-
-                          {/* Botón Vista Web Externa */}
-                          <a
-                            href={`/checkout/yape?orderId=${waiterPaymentOrder.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-2.5 px-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
-                          >
-                            <Smartphone className="w-3.5 h-3.5 text-purple-700" />
-                            <span>📱 Abrir Vista Web de Cobro</span>
-                          </a>
                         </div>
 
-                        {/* Subcolumna 2: Selector de QR y Renderizado */}
+                        {/* Subcolumna 2: QR Oficial y Botón de Confirmación */}
                         {waiterYapeQr && (
                           <div className="bg-white border-2 border-purple-300 rounded-2xl p-3.5 shadow-xs flex flex-col items-center gap-2.5 text-center">
-                            {/* Pestañas de Modo de QR */}
-                            <div className="grid grid-cols-2 gap-1 w-full bg-slate-100 p-1 rounded-xl">
-                              <button
-                                type="button"
-                                onClick={() => setWaiterYapeQrTab("checkout_mobile")}
-                                className={`py-1.5 px-2 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
-                                  waiterYapeQrTab === "checkout_mobile"
-                                    ? "bg-purple-700 text-white shadow-2xs"
-                                    : "text-slate-600 hover:text-slate-900"
-                                }`}
-                              >
-                                📱 QR Móvil (Monto Fijo)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setWaiterYapeQrTab("yape_app")}
-                                className={`py-1.5 px-2 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
-                                  waiterYapeQrTab === "yape_app"
-                                    ? "bg-purple-700 text-white shadow-2xs"
-                                    : "text-slate-600 hover:text-slate-900"
-                                }`}
-                              >
-                                🟣 App Yape
-                              </button>
-                            </div>
-
                             <div className="flex items-center justify-between w-full border-b border-purple-100 pb-1.5">
                               <span className="text-[11px] font-black text-purple-950 flex items-center gap-1.5">
                                 <QrCode className="w-4 h-4 text-purple-700" />
-                                {waiterYapeQrTab === "checkout_mobile"
-                                  ? "PAGO FIJO NO EDITABLE"
-                                  : waiterYapeQr.isCustomImage
-                                  ? "QR OFICIAL EMPRESA"
-                                  : "CÓDIGO YAPE DIRECTO"}
+                                {waiterYapeQr.isCustomImage ? "QR OFICIAL EMPRESA" : "CÓDIGO YAPE DIRECTO"}
                               </span>
                               <span className="text-xs font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded-lg">
                                 {waiterYapeQr.amountFormatted}
@@ -5195,41 +5113,27 @@ function SalesManagementContent() {
 
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={
-                                waiterYapeQrTab === "checkout_mobile" && waiterYapeQr.checkoutQrImageUrl
-                                  ? waiterYapeQr.checkoutQrImageUrl
-                                  : waiterYapeQr.qrImageUrl
-                              }
-                              alt="QR de Cobro Yape"
+                              src={waiterYapeQr.qrImageUrl}
+                              alt="QR Oficial Yape"
                               className="w-44 h-44 rounded-xl border border-purple-100 bg-white p-1 object-contain shadow-xs"
                             />
 
                             <span className="text-[10.5px] text-purple-950 font-black block px-1">
-                              {waiterYapeQrTab === "checkout_mobile"
-                                ? "📷 Escanea con la cámara de tu celular para cargar el pago no editable"
-                                : "📷 Escanea desde tu app Yape o transfiere al 954 316 272"}
+                              📷 Escanea desde tu app Yape o transfiere al {waiterYapeQr.phoneDisplay || waiterYapeQr.phoneClean}
                             </span>
 
                             <button
                               type="button"
-                              disabled={yapeProcessing || processingWaiterPayment}
+                              disabled={processingWaiterPayment}
                               onClick={executeWaiterPayment}
-                              className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all mt-1 ${
-                                waiterClientYapeDetected
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse"
-                                  : "bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white"
-                              }`}
+                              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all mt-1 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white"
                             >
                               {processingWaiterPayment ? (
                                 <RefreshCw className="w-4 h-4 animate-spin" />
                               ) : (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                               )}
-                              <span>
-                                {waiterClientYapeDetected
-                                  ? "✅ Validar Pago Recibido y Liberar Mesa"
-                                  : "Confirmar Cobro Yape y Liberar Mesa"}
-                              </span>
+                              <span>Confirmar Cobro Yape y Liberar Mesa</span>
                             </button>
                           </div>
                         )}
@@ -5300,7 +5204,7 @@ function SalesManagementContent() {
                         </span>
                       </div>
 
-                      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
+                      <div className="flex flex-col gap-2.5 max-h-[58vh] sm:max-h-[500px] overflow-y-auto pr-1">
                         {waiterPaymentParts.map((part, index) => {
                           const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
                           const isYape = selectedPaymentType?.name.toLowerCase().includes("yape");
@@ -5380,32 +5284,139 @@ function SalesManagementContent() {
                                 )}
                               </div>
 
-                              {/* QR Dinámico si la parte seleccionada es Yape */}
+                              {/* QR Yape Oficial adaptado para esta parte */}
                               {isYape && partAmountNum > 0 && waiterPartYapeQr && (
-                                <div className="p-2.5 bg-purple-50/90 border border-purple-200 rounded-xl flex flex-col items-center gap-1.5 text-center mt-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white">
-                                      QR YAPE PARTE #{index + 1}
-                                    </span>
-                                    <span className="text-[11px] font-bold text-purple-950">
-                                      Monto: {waiterPartYapeQr.amountFormatted}
+                                <div className="p-3 bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left mt-1.5 shadow-2xs">
+                                  <div className="p-1.5 bg-white border border-purple-200 rounded-xl shadow-xs shrink-0 flex flex-col items-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={waiterPartYapeQr.qrImageUrl}
+                                      alt={`QR Yape Parte #${index + 1}`}
+                                      className="w-32 h-32 sm:w-36 sm:h-36 object-contain rounded-lg bg-white p-0.5"
+                                    />
+                                    <span className="text-[10px] text-purple-900 font-black mt-1">
+                                      {waiterPartYapeQr.amountFormatted}
                                     </span>
                                   </div>
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={waiterPartYapeQr.qrImageUrl}
-                                    alt={`QR Dinámico Yape Parte #${index + 1}`}
-                                    className="w-32 h-32 rounded-xl border border-purple-200 bg-white shadow-2xs"
-                                  />
-                                  <span className="text-[10px] text-purple-800">
-                                    Monto precargado: <strong>S/ {partAmountNum.toFixed(2)}</strong>
-                                  </span>
+                                  <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                                    <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white shadow-2xs">
+                                        QR YAPE PARTE #{index + 1}
+                                      </span>
+                                      <span className="text-xs font-black text-purple-950">
+                                        Monto: {formatCurrency(partAmountNum)}
+                                      </span>
+                                      {waiterPartYapeQr.isCustomImage && (
+                                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                                          ✓ QR Oficial
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-purple-900 leading-snug">
+                                      El cliente debe escanear con su app Yape y transferir <strong>{formatCurrency(partAmountNum)}</strong>.
+                                    </p>
+                                    <div className="p-2 bg-white rounded-lg border border-purple-100 text-[10.5px] flex flex-col gap-1 shadow-2xs text-left">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium">Celular:</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="font-mono font-bold text-purple-950">{waiterPartYapeQr.phoneDisplay || waiterPartYapeQr.phoneClean}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(waiterPartYapeQr.phoneClean);
+                                              toast.success("Celular copiado.");
+                                            }}
+                                            className="p-0.5 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
+                                            title="Copiar celular"
+                                          >
+                                            <Copy className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between border-t border-purple-50 pt-1">
+                                        <span className="text-slate-500 font-medium">Titular:</span>
+                                        <span className="font-bold text-slate-800 truncate">{waiterPartYapeQr.merchantName}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
                           );
                         })}
                       </div>
+
+                      {/* Evidencia fotográfica Yape en Pago en Partes en Mesa */}
+                      {waiterPaymentParts.some((p) => {
+                        const tp = paymentTypes.find((t) => t.id === p.paymentTypeId);
+                        return tp?.name.toLowerCase().includes("yape");
+                      }) && (
+                        <div className="bg-white border-2 border-purple-200 rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
+                              <Camera className="w-3.5 h-3.5 text-purple-700" />
+                              <span>Foto Comprobante Yape (Evidencia S3):</span>
+                            </span>
+                            {waiterYapeProofImage && (
+                              <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2">
+                                ✓ Capturada
+                              </Badge>
+                            )}
+                          </div>
+                          {!waiterYapeProofImage ? (
+                            <label
+                              htmlFor="waiter-parts-camera-input"
+                              className="py-1.5 px-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>📸 Tomar Foto al Comprobante Yape</span>
+                              <input
+                                id="waiter-parts-camera-input"
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    toast.error("La imagen no debe superar los 5MB.");
+                                    return;
+                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => {
+                                    const b64 = ev.target?.result as string;
+                                    if (b64) {
+                                      setWaiterYapeProofImage(b64);
+                                      toast.success("Foto del comprobante capturada.");
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }}
+                              />
+                            </label>
+                          ) : (
+                            <div className="flex items-center gap-2 p-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={waiterYapeProofImage}
+                                alt="Foto comprobante"
+                                className="w-10 h-10 object-cover rounded-md border border-purple-300 shrink-0"
+                              />
+                              <div className="flex-1 min-w-0 flex items-center justify-between text-[10px]">
+                                <span className="text-slate-600 font-medium truncate">Foto lista para anexar en S3</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setWaiterYapeProofImage("")}
+                                  className="text-rose-600 font-bold hover:underline ml-2 cursor-pointer"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between pt-1">
                         <Button
