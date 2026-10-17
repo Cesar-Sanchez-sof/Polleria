@@ -5,17 +5,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  ShoppingCart,
-  DollarSign,
-  Clock,
-  CheckCircle2,
   Search,
   Eye,
   CreditCard,
@@ -24,8 +13,6 @@ import {
   Building2,
   Calendar as CalendarIcon,
   X,
-  TrendingUp,
-  Percent,
   Filter,
 } from "lucide-react";
 import { PurchaseDetailDialog } from "./PurchaseDetailDialog";
@@ -52,12 +39,12 @@ export interface PurchasePaymentItem {
 
 export interface PurchaseOrderItemLine {
   id: number;
-  supplyId: number;
+  productId: number;
   quantityOrdered: number | string;
   quantityReceived: number | string | null;
   unitPrice: number | string;
   affectationIgv: string;
-  supply: {
+  product: {
     id: number;
     name: string;
     unitOfMeasure: string;
@@ -213,17 +200,10 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
 
   // KPIs calculados sobre el período activo
   const totalPurchases = periodInvoices.length;
-  const totalAmount = periodInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
-  const subtotalTotal = periodInvoices.reduce((sum, inv) => sum + Number(inv.subtotal), 0);
-  const igvTotal = periodInvoices.reduce((sum, inv) => sum + Number(inv.igv), 0);
-  const accumulatedTotalPaid = periodInvoices.reduce((sum, inv) => sum + Number(inv.totalPaid), 0);
-  const accumulatedPendingBalance = periodInvoices.reduce((sum, inv) => sum + Number(inv.pendingBalance), 0);
 
   const pendingCount = periodInvoices.filter((inv) => inv.paymentStatus === "Pendiente").length;
   const partialCount = periodInvoices.filter((inv) => inv.paymentStatus === "Parcial").length;
   const paidCount = periodInvoices.filter((inv) => inv.paymentStatus === "Pagado").length;
-
-  const paymentRatio = totalAmount > 0 ? Math.min(100, Math.round((accumulatedTotalPaid / totalAmount) * 100)) : 0;
 
   // Etiqueta legible del período activo
   const periodLabel = useMemo(() => {
@@ -479,114 +459,6 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
           )}
         </div>
       )}
-
-      {/* ── Dashboard Executive Cards (Dinámicas según el período activo) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Card 1: Volumen de Compras */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-blue-50/20 dark:to-blue-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/60 shadow-2xs">
-              <ShoppingCart className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> {periodLabel}
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Compras del Período</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-mono">
-                {totalPurchases}
-              </span>
-              <span className="text-xs text-muted-foreground">comprobantes</span>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Histórico total:</span>
-            <span className="font-semibold text-foreground">{initialInvoices.length} compras</span>
-          </div>
-        </div>
-
-        {/* Card 2: Monto Total Facturado */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-emerald-50/20 dark:to-emerald-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/60 shadow-2xs">
-              <DollarSign className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/60 px-2 py-0.5 rounded-full font-mono">
-              PEN (S/)
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Facturación ({periodLabel})</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-emerald-800 dark:text-emerald-300 font-mono">
-                S/ {totalAmount.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Base: S/ {subtotalTotal.toFixed(2)}</span>
-            <span>IGV: S/ {igvTotal.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Card 3: Nivel de Liquidación / Pagos */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-indigo-50/20 dark:to-indigo-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/60 shadow-2xs">
-              <Percent className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-900/60 px-2 py-0.5 rounded-full font-mono">
-              {paymentRatio}% Pagado
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Cuentas por Pagar ({periodLabel})</p>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
-              <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${paymentRatio}%` }}
-              />
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-emerald-700 dark:text-emerald-400 font-medium">Pagado: S/ {accumulatedTotalPaid.toFixed(2)}</span>
-            <span className="text-rose-600 dark:text-rose-400 font-medium">Saldo: S/ {accumulatedPendingBalance.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Card 4: Distribución de Estados */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-amber-50/20 dark:to-amber-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/60 shadow-2xs">
-              <Clock className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-              Distribución
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5 pt-1">
-            <div className="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/50 rounded-xl p-2 text-center">
-              <p className="text-base font-bold text-emerald-800 dark:text-emerald-300 font-mono">{paidCount}</p>
-              <p className="text-[10px] text-emerald-700 font-medium">Pagadas</p>
-            </div>
-            <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-800/50 rounded-xl p-2 text-center">
-              <p className="text-base font-bold text-amber-800 dark:text-amber-300 font-mono">{partialCount}</p>
-              <p className="text-[10px] text-amber-700 font-medium">Parcial</p>
-            </div>
-            <div className="bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-800/50 rounded-xl p-2 text-center">
-              <p className="text-base font-bold text-rose-800 dark:text-rose-300 font-mono">{pendingCount}</p>
-              <p className="text-[10px] text-rose-700 font-medium">Pendiente</p>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Por liquidar en período:</span>
-            <span className="font-semibold text-rose-600 dark:text-rose-400">{pendingCount + partialCount} compras</span>
-          </div>
-        </div>
-      </div>
 
       {/* ── Toolbar Inteligente (Buscador + Filtros Segmentados + Botón Acción) ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-card border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 rounded-2xl shadow-xs">

@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import {
-  Component, User, LogOut, X, Menu, ChevronDown, Ticket, ChefHat, ShoppingCart, Percent,
-  FileText, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, type LucideIcon,
+  Component, User, LogOut, X, Menu, ChevronDown, Ticket, ChefHat, ShoppingCart,
+  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -41,6 +41,8 @@ const SUBGROUP_ICONS: Record<string, LucideIcon> = {
   "Salón": UtensilsCrossed,
   "Cocina": ChefHat,
   "Caja": Wallet,
+  "Registros": FileText,
+  "Reportes": BarChart3,
 };
 
 const NAV_SECTIONS: NavSection[] = [
@@ -51,8 +53,8 @@ const NAV_SECTIONS: NavSection[] = [
       { group: "Salón", label: "Despacho de Bebidas", href: "/sales?tab=drinks", path: "despacho-bebidas" },
       { group: "Salón", label: "Pedidos Listos", href: "/sales?tab=kitchen", path: "kitchen" },
       { group: "Salón", label: "Pedidos no cobrados", href: "/sales?tab=payments", path: "cobros-pendientes" },
-      { group: "Cocina", label: "Cocina (KDS)", href: "/restaurant/kitchen", path: "cocina-kds" },
-      { group: "Cocina", label: "Platos e Ingredientes (Carta)", href: "/restaurant/dishes", path: "platos-recetas" },
+      { group: "Cocina", label: "Flujo de Cocina (KDS)", href: "/sales/kitchen/kds", path: "cocina-kds" },
+      { group: "Cocina", label: "Productos y carta", href: "/sales/kitchen/products", path: "productos-carta" },
       { group: "Caja", label: "Ventanilla", href: "/sales?tab=cashier", path: "caja-ventanilla" },
       { group: "Caja", label: "Clientes", href: "/sales?tab=customers", path: "clientes" },
       { group: "Caja", label: "Facturas de Venta", href: "/sales?tab=invoices", path: "facturas-de-venta" },
@@ -61,58 +63,54 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: "compras", label: "COMPRAS E INVENTARIO", icon: ShoppingCart, permissions: "purchases",
     items: [
+      { label: "Dashboard", href: "/purchases/dashboard", path: "dashboard-compras" },
       { label: "Compras", href: "/purchases/list", path: "list" },
-      { label: "Inventario / Insumos", href: "/purchases/inventory", path: "inventory" },
+      { label: "Kardex e Inventario", href: "/purchases/inventory", path: "inventory" },
       { label: "Transformación", href: "/purchases/transformation", path: "transformation" },
       { label: "Proveedores", href: "/purchases/suppliers", path: "suppliers" },
     ],
   },
   {
-    key: "registros", label: "REGISTROS CONTABLES", icon: Percent, permissions: "records",
+    key: "contabilidad", label: "CONTABILIDAD", icon: Calculator, permissions: "accounting",
     items: [
-      { label: "Asientos Contables", href: "/accounting/entries", path: "asientos-contables" },
-      { label: "Cuentas por Pagar", href: "/accounting/payables", path: "cuentas-por-pagar" },
-      { label: "Cuentas Contables", href: "/accounting/accounts", path: "cuentas-contables" },
-      { label: "Periodos Contables", href: "/accounting/periods", path: "periodos-contables" },
-    ],
-  },
-  {
-    key: "reportes", label: "REPORTES CONTABLES", icon: FileText, permissions: "reports",
-    items: [
-      { label: "Balance de Comprobación", href: "/reports/trial-balance", path: "balance-de-comprobacion" },
-      { label: "Balance General", href: "/reports/balance", path: "balance-general" },
-      { label: "Dashboard Contable", href: "/reports/dashboard", path: "dashboard-contable" },
-      { label: "Estado de Resultados", href: "/reports/income-statement", path: "estado-de-resultados" },
-      { label: "Flujo de Efectivo", href: "/reports/cash-flow", path: "flujo-de-efectivo" },
-      { label: "Libro Mayor", href: "/reports/ledger", path: "libro-mayor" },
-      { label: "Libros SUNAT (PLE)", href: "/reports/ple", path: "libros-sunat-ple" },
-      { label: "Resumen Ejecutivo", href: "/reports/executive-summary", path: "resumen-ejecutivo" },
+      { group: "Registros", label: "Asientos Contables", href: "/accounting/entries", path: "asientos-contables" },
+      { group: "Registros", label: "Cuentas por Pagar", href: "/accounting/payables", path: "cuentas-por-pagar" },
+      { group: "Registros", label: "Cuentas Contables", href: "/accounting/accounts", path: "cuentas-contables" },
+      { group: "Registros", label: "Periodos Contables", href: "/accounting/periods", path: "periodos-contables" },
+      { group: "Reportes", label: "Balance de Comprobación", href: "/accounting/reports/trial-balance", path: "balance-de-comprobacion" },
+      { group: "Reportes", label: "Balance General", href: "/accounting/reports/balance", path: "balance-general" },
+      { group: "Reportes", label: "Dashboard Contable", href: "/accounting/reports/dashboard", path: "dashboard-contable" },
+      { group: "Reportes", label: "Estado de Resultados", href: "/accounting/reports/income-statement", path: "estado-de-resultados" },
+      { group: "Reportes", label: "Flujo de Efectivo", href: "/accounting/reports/cash-flow", path: "flujo-de-efectivo" },
+      { group: "Reportes", label: "Libro Mayor", href: "/accounting/reports/ledger", path: "libro-mayor" },
+      { group: "Reportes", label: "Libros SUNAT (PLE)", href: "/accounting/reports/ple", path: "libros-sunat-ple" },
+      { group: "Reportes", label: "Resumen Ejecutivo", href: "/accounting/reports/executive-summary", path: "resumen-ejecutivo" },
     ],
   },
   {
     key: "seguridad", label: "SEGURIDAD", icon: ShieldCheck, permissions: "security",
     items: [
-      { label: "Usuarios", href: "/users", path: "users" },
-      { label: "Roles y Permisos", href: "/roles", path: "roles" },
-      { label: "Auditoría", href: "/audit", path: "auditoria" },
+      { label: "Usuarios", href: "/security/users", path: "users" },
+      { label: "Roles y Permisos", href: "/security/roles", path: "roles" },
+      { label: "Auditoría", href: "/security/audit", path: "auditoria" },
     ],
   },
   {
     key: "configuracion", label: "CONFIGURACIÓN", icon: Settings, permissions: "settings",
     items: [
-      { label: "Comprobantes e Impresión", href: "/restaurant/settings/printers", path: "impresoras-comanderas" },
-      { label: "Datos del Restaurante", href: "/restaurant/settings/business", path: "datos-empresa" },
-      { label: "Guía Contable", href: "/accounting/guide", path: "guide-contable" },
-      { label: "Mesas", href: "/restaurant/tables", path: "gestion-mesas" },
-      { label: "Salones y Áreas", href: "/restaurant/areas", path: "salones-areas" },
+      { label: "Comprobantes e Impresión", href: "/settings/printers", path: "impresoras-comanderas" },
+      { label: "Datos del Restaurante", href: "/settings/business", path: "datos-empresa" },
+      { label: "Guía Contable", href: "/settings/accounting-guide", path: "guide-contable" },
+      { label: "Mesas", href: "/settings/tables", path: "gestion-mesas" },
+      { label: "Salones y Áreas", href: "/settings/areas", path: "salones-areas" },
     ],
   },
   {
     key: "documentacion", label: "DOCUMENTACIÓN", icon: BookOpen, permissions: "documentation",
     items: [
-      { label: "Endpoints", href: "/swagger", path: "endpoints" },
-      { label: "Diagrama DB", href: "/db-diagram", path: "db-diagram" },
-      { label: "Guía de Estilos", href: "/style-guide", path: "style-guide" },
+      { label: "Endpoints", href: "/docs/swagger", path: "endpoints" },
+      { label: "Diagrama DB", href: "/docs/db-diagram", path: "db-diagram" },
+      { label: "Guía de Estilos", href: "/docs/style-guide", path: "style-guide" },
     ],
   },
 ];
@@ -200,7 +198,10 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
     const cleanHref = hrefPath || "/";
 
     if (cleanHref === "/") return pathname === "/";
-    if (!(pathname === cleanHref || pathname.startsWith(cleanHref + "/"))) return false;
+    // Los enlaces con query (/sales?tab=...) y /sales son pantallas de una sola ruta: sus subrutas
+    // (/sales/kitchen/products, /sales/kitchen/kds...) tienen su propio enlace en el menú.
+    const exactOnly = Boolean(hrefQuery) || cleanHref === "/sales";
+    if (!(pathname === cleanHref || (!exactOnly && pathname.startsWith(cleanHref + "/")))) return false;
 
     // Si el enlace trae query (p.ej. ?tab=tables), solo activo si coincide exactamente
     if (hrefQuery) {
@@ -352,7 +353,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                       {groupItems(section.items).map(({ group, items }) => {
                         const visible = items.filter((item) => {
                           const permission = linkPermission(item.href);
-                          return !permission || can(permission);
+                          // Denegado por defecto: un enlace sin permiso asignado no se muestra.
+                          return permission !== null && can(permission);
                         });
                         if (visible.length === 0) return null;
                         const links = visible.map((item) => (

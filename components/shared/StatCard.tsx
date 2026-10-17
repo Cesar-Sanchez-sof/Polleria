@@ -28,7 +28,7 @@ export interface StatCardProps {
   progress?: number;
   tone?: StatCardTone;
   /**
-   * "icon-first": icon and badge on top, label under them (purchases dashboard).
+   * "icon-first": icon on the left; at its right the label and the badge on one line, then the value using the full width (purchases dashboard).
    * "label-first": uppercase label in the tone color with the icon at its right (sales summary).
    * "tinted": card filled with the tone color, solid icon square, label, value and a note (kitchen summary).
    * Default: "icon-first".
@@ -214,7 +214,7 @@ export function StatCard({
   layout = "icon-first",
   orientation = "horizontal",
   colorValue = false,
-  valueSize = "lg",
+  valueSize,
   enableIcon = true,
   enableBadge = true,
   enableFooter = true,
@@ -226,6 +226,7 @@ export function StatCard({
 }: Readonly<StatCardProps>) {
   const classes = TONES[tone];
   const labelFirst = layout === "label-first";
+  const size = VALUE_SIZE[valueSize ?? (layout === "icon-first" ? "md" : "lg")];
   const showIcon = enableIcon && icon;
   const showBadge = !labelFirst && enableBadge && badge;
   const showFooter = enableFooter && (footerLeft || footerRight);
@@ -255,7 +256,7 @@ export function StatCard({
         <div className="min-w-0">
           <span className={cn("block text-xs font-bold uppercase tracking-wider", tinted.label)}>{label}</span>
           {value !== undefined ? (
-            <p className={cn("font-black", VALUE_SIZE[valueSize], tinted.value)}>
+            <p className={cn("font-black", size, tinted.value)}>
               {value}
               {unit ? <span className="ml-1.5">{unit}</span> : null}
             </p>
@@ -298,7 +299,7 @@ export function StatCard({
         className={cn(
           "font-bold tracking-tight",
           labelFirst ? "font-extrabold" : "font-mono",
-          VALUE_SIZE[valueSize],
+          size,
           colorValue ? classes.value : "text-foreground"
         )}
       >
@@ -346,27 +347,27 @@ export function StatCard({
         </>
       ) : (
         <>
-          {iconNode || showBadge ? (
-            <div className="flex items-center justify-between gap-2">
-              {iconNode ?? <span />}
-              {showBadge ? (
-                <span
-                  className={cn(
-                    "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold [&_svg]:size-3",
-                    classes.pill,
-                    badgeMono && "font-mono"
-                  )}
-                >
-                  {badgeIcon}
-                  {badge}
-                </span>
-              ) : null}
+          <div className="flex items-start gap-3">
+            {iconNode}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">{labelNode}</div>
+                {showBadge ? (
+                  <span
+                    className={cn(
+                      "flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold [&_svg]:size-3",
+                      classes.pill,
+                      badgeMono && "font-mono"
+                    )}
+                  >
+                    {badgeIcon}
+                    {badge}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-1">{valueNode}</div>
+              {progressNode}
             </div>
-          ) : null}
-          <div>
-            {labelNode}
-            <div className="mt-1">{valueNode}</div>
-            {progressNode}
           </div>
         </>
       )}

@@ -108,7 +108,7 @@ class ValidQuestionsTests(GuardedTestCase):
 
     def test_screen_context_fills_missing_entities(self) -> None:
         h = build_harness()
-        contexto = {"ruta": "/accounting/ledger", "filtros": {"codigo": "101", "desde": "2026-09-01", "hasta": "2026-09-30"}}
+        contexto = {"ruta": "/accounting/reports/ledger", "filtros": {"codigo": "101", "desde": "2026-09-01", "hasta": "2026-09-30"}}
         outcome = h.orchestrator.handle(request("¿Cuál es el saldo de esta cuenta?", contexto=contexto))
         self.assertEqual(outcome.body.estado, "respondida")
         self.assertEqual(_figures(outcome.body), _expected("caja-septiembre"))

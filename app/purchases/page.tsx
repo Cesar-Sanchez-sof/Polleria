@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSuppliers } from "@/lib/services/purchases/supplier";
-import { getSupplies } from "@/lib/services/purchases/supply";
+import { getProducts } from "@/lib/services/purchases/product";
 import { getPurchaseOrders } from "@/lib/services/purchases/purchase-order";
 import { getPurchaseVouchers } from "@/lib/services/purchases/invoices";
 import { PurchaseOrderStatus } from "@prisma/client";
@@ -28,15 +28,15 @@ export const metadata = {
 
 export default async function PurchasesDashboardPage() {
    await requireServerPermission("compras.ver");
-  const [suppliers, supplies, orders, vouchers] = await Promise.all([
+  const [suppliers, products, orders, vouchers] = await Promise.all([
     getSuppliers().catch(() => []),
-    getSupplies().catch(() => []),
+    getProducts().catch(() => []),
     getPurchaseOrders().catch(() => []),
     getPurchaseVouchers().catch(() => []),
   ]);
 
   const totalSuppliers = suppliers.filter((p) => p.active).length;
-  const lowStockSupplies = supplies.filter(
+  const lowStockProducts = products.filter(
     (i) => Number(i.currentStock) <= Number(i.minimumStock)
   ).length;
   const pendingOrders = orders.filter(
@@ -84,8 +84,8 @@ export default async function PurchasesDashboardPage() {
       description: "Control de stocks actuales, stocks mínimos y registro de ajustes físicos.",
       href: "/purchases/inventory",
       icon: Boxes,
-      badge: lowStockSupplies > 0 ? `${lowStockSupplies} bajo stock` : `${supplies.length} insumos`,
-      color: lowStockSupplies > 0 ? "text-rose-600 bg-rose-50 border-rose-200" : "text-emerald-600 bg-emerald-50 border-emerald-200",
+      badge: lowStockProducts > 0 ? `${lowStockProducts} bajo stock` : `${products.length} insumos`,
+      color: lowStockProducts > 0 ? "text-rose-600 bg-rose-50 border-rose-200" : "text-emerald-600 bg-emerald-50 border-emerald-200",
     },
     {
       title: "6. Transformación de Insumos",

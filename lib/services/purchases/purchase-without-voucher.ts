@@ -8,10 +8,14 @@ import {
 } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
+import {
+  postInformalPurchaseJournalEntry,
+  annulInformalPurchaseJournalEntry,
+} from "@/lib/services/accounting-posting.service";
 
 export interface PurchaseWithoutVoucherInput {
   purchaseType?: InformalPurchaseType | "InventoryItem" | "OperatingExpense";
-  supplyId?: number;
+  productId?: number;
   expenseCategory?: ExpenseCategory;
   itemDescription?: string;
   quantity?: number;
@@ -39,7 +43,7 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
     }
   } else {
     // InventoryItem
-    if (!data.supplyId) {
+    if (!data.productId) {
       throw new Error("Debe seleccionar un insumo");
     }
     if (!data.quantity || data.quantity <= 0) {
@@ -66,24 +70,33 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
           informalPlaceOrVendor: data.informalPlaceOrVendor?.trim() || null,
           reason: data.reason?.trim() || null,
           employeeId: validEmployeeId,
-          supplyId: null,
+          productId: null,
           annulled: false,
         },
+      });
+
+      await postInformalPurchaseJournalEntry(tx, {
+        informalPurchaseId: purchase.id,
+        entryDate: purchaseDate,
+        purchaseType: "OperatingExpense",
+        amount: data.amountPaid,
+        description: data.itemDescription!.trim(),
+        responsible: "Compras",
       });
 
       return purchase;
     }
 
     // InventoryItem
-    const supply = await tx.supply.findUnique({ where: { id: data.supplyId } });
-    if (!supply) {
+    const product = await tx.product.findUnique({ where: { id: data.productId } });
+    if (!product) {
       throw new Error("Insumo no encontrado");
     }
 
     const purchase = await tx.informalPurchase.create({
       data: {
         purchaseType: InformalPurchaseType.InventoryItem,
-        supplyId: data.supplyId,
+        productId: data.productId,
         employeeId: validEmployeeId,
         quantity: data.quantity!,
         amountPaid: data.amountPaid,
@@ -100,7 +113,7 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
 
     await tx.inventoryMovement.create({
       data: {
-        supplyId: data.supplyId!,
+        productId: data.productId!,
         informalPurchaseId: purchase.id,
         movementType: InventoryMovementType.InformalPurchase,
         quantity: data.quantity!,
@@ -109,8 +122,8 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
       },
     });
 
-    const currentStock = Number(supply.currentStock);
-    const currentAverageCost = Number(supply.averageCost);
+    const currentStock = Number(product.currentStock);
+    const currentAverageCost = Number(product.averageCost);
     const newStock = currentStock + data.quantity!;
 
     let newAverageCost = 0;
@@ -119,13 +132,22 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
         (currentStock * currentAverageCost + data.quantity! * unitCost) / newStock;
     }
 
-    await tx.supply.update({
-      where: { id: data.supplyId },
+    await tx.product.update({
+      where: { id: data.productId },
       data: {
         currentStock: newStock,
         lastCost: Math.round(unitCost * 100) / 100,
         averageCost: Math.round(newAverageCost * 100) / 100,
       },
+    });
+
+    await postInformalPurchaseJournalEntry(tx, {
+      informalPurchaseId: purchase.id,
+      entryDate: purchaseDate,
+      purchaseType: "InventoryItem",
+      amount: data.amountPaid,
+      description: product.name,
+      responsible: "Compras",
     });
 
     return purchase;
@@ -145,7 +167,7 @@ export async function annulInformalPurchase(
   return await prisma.$transaction(async (tx) => {
     const purchase = await tx.informalPurchase.findUnique({
       where: { id },
-      include: { supply: true },
+      include: { product: true },
     });
 
     if (!purchase) {
@@ -160,17 +182,17 @@ export async function annulInformalPurchase(
 
     if (
       purchase.purchaseType === InformalPurchaseType.InventoryItem &&
-      purchase.supplyId
+      purchase.productId
     ) {
-      const supply = await tx.supply.findUnique({
-        where: { id: purchase.supplyId },
+      const product = await tx.product.findUnique({
+        where: { id: purchase.productId },
       });
 
-      if (!supply) {
+      if (!product) {
         throw new Error("Insumo no encontrado");
       }
 
-      const currentStock = Number(supply.currentStock);
+      const currentStock = Number(product.currentStock);
       const purchaseQty = Number(purchase.quantity);
 
       if (currentStock < purchaseQty) {
@@ -186,7 +208,7 @@ export async function annulInformalPurchase(
 
       await tx.inventoryMovement.create({
         data: {
-          supplyId: purchase.supplyId,
+          productId: purchase.productId,
           informalPurchaseId: purchase.id,
           movementType: InventoryMovementType.InformalPurchase,
           quantity: -purchaseQty,
@@ -195,8 +217,8 @@ export async function annulInformalPurchase(
         },
       });
 
-      await tx.supply.update({
-        where: { id: purchase.supplyId },
+      await tx.product.update({
+        where: { id: purchase.productId },
         data: {
           currentStock: currentStock - purchaseQty,
         },
@@ -213,6 +235,15 @@ export async function annulInformalPurchase(
       },
     });
 
+    await annulInformalPurchaseJournalEntry(tx, {
+      informalPurchaseId: purchase.id,
+      entryDate: new Date(),
+      purchaseType: purchase.purchaseType as "InventoryItem" | "OperatingExpense",
+      amount: Number(purchase.amountPaid),
+      reason: reason.trim(),
+      responsible: "Compras",
+    });
+
     return updated;
   });
 }
@@ -222,7 +253,7 @@ export async function getPurchasesWithoutVoucher() {
   try {
     const list = await prisma.informalPurchase.findMany({
       include: {
-        supply: true,
+        product: true,
         employee: true,
         annulledBy: true,
       },

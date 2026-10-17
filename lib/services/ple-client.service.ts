@@ -23,6 +23,17 @@ export interface PlePreview {
 
 export type PleDownloadFormat = "txt" | "csv";
 
+export interface SireTestResult {
+  environment: "local-test";
+  register: "RVIE" | "RCE";
+  period: string;
+  ticket: string;
+  status: "validated" | "rejected";
+  recordCount: number;
+  totals: PleTotals;
+  issues: PleIssue[];
+}
+
 function buildUrl(
   book: PleBookId,
   year: number,
@@ -45,6 +56,25 @@ export async function getPlePreview(
   month: number
 ): Promise<PlePreview> {
   return getJson<PlePreview>(buildUrl(book, year, month, "preview"));
+}
+
+/** Runs the offline RVIE/RCE validation simulator. It never contacts SUNAT. */
+export async function simulateSireTest(
+  book: Extract<PleBookId, "sales-register" | "purchases-register">,
+  year: number,
+  month: number
+): Promise<SireTestResult> {
+  const response = await fetch(`/api/sire/test/${book}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ year, month }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(body?.error ?? "No se pudo completar la prueba local de SIRE.");
+  }
+  return response.json() as Promise<SireTestResult>;
 }
 
 /** Downloads the TXT (or the CSV review copy) and triggers the browser save dialog. Returns the file name. */

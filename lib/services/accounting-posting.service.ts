@@ -461,6 +461,10 @@ export interface PostPurchaseJournalInput {
   paymentCondition: "Contado" | "Credito";
   paymentMethodName?: string;
   responsible?: string;
+  items?: Array<{
+    productType: "RawMaterial" | "FinishedProduct";
+    subtotalLine: number; // valor neto sin IGV de esa línea
+  }>;
 }
 
 /**
@@ -485,6 +489,7 @@ export async function postPurchaseJournalEntries(
     ACCOUNT_CODES.purchases,
     ACCOUNT_CODES.igvCredit,
     ACCOUNT_CODES.merchandise,
+    ACCOUNT_CODES.rawMaterials,
     ACCOUNT_CODES.inventoryVariation,
     ACCOUNT_CODES.payables,
   ]);
@@ -539,24 +544,104 @@ export async function postPurchaseJournalEntries(
 
   // -----------------------------------------------------------------------
   // 2) Destino / Ingreso al almacén
-  //    DEBE: 20 Mercaderías (inventario)
-  //    HABER: 61 Variación de inventarios (cuenta correctora del Elemento 6)
+  //    Diferenciado por productType:
+  //    - RawMaterial: DEBE 241 (Materias Primas) / HABER 611 (Variación de inventarios)
+  //    - FinishedProduct: DEBE 201 (Mercaderías) / HABER 611 (Variación de inventarios)
   // -----------------------------------------------------------------------
-  ids.push(
-    await createBalancedEntry(tx, {
-      date,
-      description: `Ingreso al almacén ${ref}`,
-      book: BOOK_PURCHASES,
-      responsible: input.responsible,
-      purchaseInvoiceId: input.purchaseInvoiceId,
-      observation: "Asiento 2/3 — Destino: ingreso físico de bienes al inventario",
-      debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
-      creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
-      amount: subtotal,
-      debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
-      creditLineDescription: "Variación de inventarios (cuenta correctora)",
-    }),
-  );
+  if (input.items && input.items.length > 0) {
+    let rawMaterialsTotal = 0;
+    let finishedProductsTotal = 0;
+
+    for (const item of input.items) {
+      const lineVal = round2(item.subtotalLine);
+      if (item.productType === "RawMaterial") {
+        rawMaterialsTotal += lineVal;
+      } else {
+        finishedProductsTotal += lineVal;
+      }
+    }
+
+    rawMaterialsTotal = round2(rawMaterialsTotal);
+    finishedProductsTotal = round2(finishedProductsTotal);
+
+    const hasBoth = rawMaterialsTotal > 0 && finishedProductsTotal > 0;
+
+    if (rawMaterialsTotal > 0) {
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          description: `Ingreso al almacén (materias primas) ${ref}`,
+          book: BOOK_PURCHASES,
+          responsible: input.responsible,
+          purchaseInvoiceId: input.purchaseInvoiceId,
+          observation: hasBoth
+            ? "Asiento 2/N — Destino mixto: materias primas y mercaderías"
+            : "Asiento 2/3 — Destino: ingreso de materias primas al inventario",
+          debitAccountId: accounts.get(ACCOUNT_CODES.rawMaterials)!,
+          creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+          amount: rawMaterialsTotal,
+          debitLineDescription: "Ingreso de materias primas / insumos al inventario",
+          creditLineDescription: "Variación de inventarios (cuenta correctora)",
+        }),
+      );
+    }
+
+    if (finishedProductsTotal > 0) {
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          description: `Ingreso al almacén (mercaderías) ${ref}`,
+          book: BOOK_PURCHASES,
+          responsible: input.responsible,
+          purchaseInvoiceId: input.purchaseInvoiceId,
+          observation: hasBoth
+            ? "Asiento 2/N — Destino mixto: materias primas y mercaderías"
+            : "Asiento 2/3 — Destino: ingreso de mercaderías al inventario",
+          debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+          creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+          amount: finishedProductsTotal,
+          debitLineDescription: "Ingreso de mercaderías al inventario",
+          creditLineDescription: "Variación de inventarios (cuenta correctora)",
+        }),
+      );
+    }
+
+    // Si ambos son 0 (por ejemplo todos con subtotalLine <= 0), usamos el fallback
+    if (rawMaterialsTotal === 0 && finishedProductsTotal === 0) {
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          description: `Ingreso al almacén ${ref}`,
+          book: BOOK_PURCHASES,
+          responsible: input.responsible,
+          purchaseInvoiceId: input.purchaseInvoiceId,
+          observation: "Asiento 2/3 — Destino: ingreso físico de bienes al inventario",
+          debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+          creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+          amount: subtotal,
+          debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
+          creditLineDescription: "Variación de inventarios (cuenta correctora)",
+        }),
+      );
+    }
+  } else {
+    // Fallback para compatibilidad
+    ids.push(
+      await createBalancedEntry(tx, {
+        date,
+        description: `Ingreso al almacén ${ref}`,
+        book: BOOK_PURCHASES,
+        responsible: input.responsible,
+        purchaseInvoiceId: input.purchaseInvoiceId,
+        observation: "Asiento 2/3 — Destino: ingreso de mercaderías al inventario",
+        debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+        creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+        amount: subtotal,
+        debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
+        creditLineDescription: "Variación de inventarios (cuenta correctora)",
+      }),
+    );
+  }
 
   // -----------------------------------------------------------------------
   // 3) Pago al contado (cancela la obligación con el proveedor)
@@ -625,6 +710,108 @@ export async function postPurchasePaymentJournalEntry(
     amount,
     debitLineDescription: "Cancelación parcial/total de cuentas por pagar",
     creditLineDescription: "Salida de caja / bancos",
+  });
+}
+
+export interface PostInformalPurchaseJournalInput {
+  informalPurchaseId: number;
+  entryDate: Date;
+  purchaseType: "InventoryItem" | "OperatingExpense";
+  amount: number;
+  description: string;
+  responsible?: string;
+}
+
+/**
+ * Posts a single direct journal entry for informal purchases (without voucher).
+ * - InventoryItem: DEBE 241 (Materias Primas) / HABER 101 (Caja)
+ * - OperatingExpense: DEBE 659 (Otros Gastos de Gestión) / HABER 101 (Caja)
+ * Book: "Caja y bancos"
+ */
+export async function postInformalPurchaseJournalEntry(
+  tx: Tx,
+  input: PostInformalPurchaseJournalInput,
+): Promise<number> {
+  const amount = round2(input.amount);
+  if (amount <= 0) {
+    throw new Error("Monto de compra menor inválido para asiento contable.");
+  }
+
+  const debitCode =
+    input.purchaseType === "InventoryItem"
+      ? ACCOUNT_CODES.rawMaterials
+      : ACCOUNT_CODES.otherExpenses;
+
+  const accounts = await resolveAccountIds(tx, [ACCOUNT_CODES.cash, debitCode]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  const debitLineDesc =
+    input.purchaseType === "InventoryItem"
+      ? `Ingreso de materias primas / insumos (${input.description})`
+      : `Gasto operativo (${input.description})`;
+
+  return createBalancedEntry(tx, {
+    date,
+    description: `Compra menor #${input.informalPurchaseId} - ${input.description}`,
+    book: BOOK_CASH,
+    responsible: input.responsible ?? "Compras",
+    observation: `Compra menor sin comprobante #${input.informalPurchaseId}`,
+    debitAccountId: accounts.get(debitCode)!,
+    creditAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+    amount,
+    debitLineDescription: debitLineDesc,
+    creditLineDescription: "Salida de caja (efectivo)",
+  });
+}
+
+export interface AnnulInformalPurchaseJournalInput {
+  informalPurchaseId: number;
+  entryDate: Date;
+  purchaseType: "InventoryItem" | "OperatingExpense";
+  amount: number;
+  reason: string;
+  responsible?: string;
+}
+
+/**
+ * Posts an inverse journal entry when an informal purchase is annulled.
+ * - InventoryItem: DEBE 101 (Caja) / HABER 241 (Materias Primas)
+ * - OperatingExpense: DEBE 101 (Caja) / HABER 659 (Otros Gastos de Gestión)
+ * Book: "Caja y bancos"
+ */
+export async function annulInformalPurchaseJournalEntry(
+  tx: Tx,
+  input: AnnulInformalPurchaseJournalInput,
+): Promise<number> {
+  const amount = round2(input.amount);
+  if (amount <= 0) {
+    throw new Error("Monto de anulación inválido para asiento contable.");
+  }
+
+  const creditCode =
+    input.purchaseType === "InventoryItem"
+      ? ACCOUNT_CODES.rawMaterials
+      : ACCOUNT_CODES.otherExpenses;
+
+  const accounts = await resolveAccountIds(tx, [ACCOUNT_CODES.cash, creditCode]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  const creditLineDesc =
+    input.purchaseType === "InventoryItem"
+      ? `Reversión materias primas / insumos (Anulación #${input.informalPurchaseId})`
+      : `Reversión gasto operativo (Anulación #${input.informalPurchaseId})`;
+
+  return createBalancedEntry(tx, {
+    date,
+    description: `Anulación compra menor #${input.informalPurchaseId} - Motivo: ${input.reason}`,
+    book: BOOK_CASH,
+    responsible: input.responsible ?? "Compras",
+    observation: `Anulación de compra menor sin comprobante #${input.informalPurchaseId}`,
+    debitAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+    creditAccountId: accounts.get(creditCode)!,
+    amount,
+    debitLineDescription: "Reintegro / ingreso a caja (efectivo)",
+    creditLineDescription: creditLineDesc,
   });
 }
 

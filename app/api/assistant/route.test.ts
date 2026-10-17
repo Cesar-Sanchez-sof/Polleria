@@ -5,7 +5,7 @@ const currentSession = vi.fn();
 vi.mock("@/lib/auth/current-session", () => ({ currentSession: () => currentSession() }));
 
 import { GET, maxDuration, POST } from "@/app/api/assistant/route";
-import { EVAL_TIMEOUT_MS } from "@/lib/ai-assistant/config";
+import { EVAL_NGROK_URL, EVAL_TIMEOUT_MS } from "@/lib/ai-assistant/config";
 
 const TOKEN = "ef".repeat(32);
 
@@ -134,6 +134,8 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
       ["AI_ASSISTANT_REAL_DATA", "1"],
       ["AI_SERVICE_URL", "http://ejemplo.trycloudflare.com"],
       ["AI_SERVICE_URL", "https://otro-dominio.example.com"],
+      ["AI_SERVICE_URL", "https://otro-subdominio.ngrok-free.dev"],
+      ["AI_SERVICE_URL", `${EVAL_NGROK_URL}/v1`],
       ["AI_ASSISTANT_IDENTITY_KEY", undefined],
     ];
     for (const [name, value] of blocked) {
@@ -168,6 +170,25 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
     expect(init.redirect).toBe("error");
     expect(JSON.parse(String(init.body)).usuario).toEqual({ id: 7, rol: "contador_demo" });
     expect(JSON.stringify(await response.json())).not.toContain(TOKEN);
+  });
+
+  it("POST llega a FastAPI por el dominio estático de ngrok con token interno e identidad firmada (P-9)", async () => {
+    vi.stubEnv("AI_SERVICE_URL", EVAL_NGROK_URL);
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => Response.json({
+      id_traza: JSON.parse(String(init.body)).id_traza, estado: "sin_datos", texto: "No encontré movimientos.",
+      cifras: [], evidencias: [], versiones: {}, detalle: null,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await post(JSON.stringify({ mensaje: "Saldo de caja en julio" }))).status).toBe(200);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${EVAL_NGROK_URL}/v1/queries`);
+    const headers = init.headers as Record<string, string>;
+    expect(headers["X-Internal-Token"]).toBe(TOKEN);
+    const { payload } = await jwtVerify(headers["X-ERP-Identity"], Buffer.from(IDENTITY_KEY, "hex"), {
+      issuer: "polleria-erp", audience: "ai-service", algorithms: ["HS256"],
+    });
+    expect(payload).toMatchObject({ sub: "7", rol: "contador_demo", jti: JSON.parse(String(init.body)).id_traza });
+    expect(init.redirect).toBe("error");
   });
 
   it("el proxy corta antes que el límite de la función en Vercel", () => {

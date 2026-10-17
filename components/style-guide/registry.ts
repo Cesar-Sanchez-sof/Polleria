@@ -42,5 +42,5 @@ export const STYLE_GUIDE_CATEGORIES: readonly StyleGuideCategory[] = [
 ];
 
 export function entryHref(categoryKey: string, slug: string): string {
-  return `/style-guide/${categoryKey}/${slug}`;
+  return `/docs/style-guide/${categoryKey}/${slug}`;
 }

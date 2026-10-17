@@ -16,7 +16,7 @@ export interface GetInventoryMovementsFilters {
   /** Fecha de fin del rango */
   endDate?: Date;
   /** ID del insumo */
-  supplyId?: number;
+  productId?: number;
   /** Tipo de movimiento (enum Prisma) */
   movementType?: InventoryMovementType;
   /** Página (1-based, default 1) */
@@ -30,7 +30,7 @@ export interface GetInventoryMovementsFilters {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const movementInclude = {
-  supply: {
+  product: {
     select: { name: true, unitOfMeasure: true },
   },
   purchaseOrderItem: {
@@ -79,7 +79,7 @@ export type EnrichedInventoryMovement = MovementWithIncludes & {
   reference: string | null;
   /**
    * Saldo acumulado del insumo hasta este movimiento.
-   * Solo se calcula cuando se filtra por supplyId; de lo contrario undefined.
+   * Solo se calcula cuando se filtra por productId; de lo contrario undefined.
    */
   runningBalance?: number;
 };
@@ -102,7 +102,7 @@ function buildWhere(
   const where: Prisma.InventoryMovementWhereInput = {};
 
   if (filters.search?.trim()) {
-    where.supply = {
+    where.product = {
       name: { contains: filters.search.trim(), mode: "insensitive" },
     };
   }
@@ -114,7 +114,7 @@ function buildWhere(
     };
   }
 
-  if (filters.supplyId) where.supplyId = filters.supplyId;
+  if (filters.productId) where.productId = filters.productId;
   if (filters.movementType) where.movementType = filters.movementType;
 
   return where;
@@ -168,7 +168,7 @@ function deriveReference(m: MovementWithIncludes): string | null {
  * Retorna los movimientos de inventario paginados y enriquecidos.
  *
  * @param filters - Filtros opcionales: search, startDate, endDate,
- *                  supplyId, movementType, page, pageSize.
+ *                  productId, movementType, page, pageSize.
  */
 export async function getInventoryMovementsPaginated(
   filters: GetInventoryMovementsFilters = {}
@@ -196,16 +196,16 @@ export async function getInventoryMovementsPaginated(
 
     // 2️⃣ saldoCorrido — solo cuando se filtra por un insumo específico
     let runningBalances: Record<number, number> = {};
-    if (filters.supplyId) {
+    if (filters.productId) {
       // Trae todos los movimientos del insumo ordenados cronológicamente (movedAt ASC, id ASC)
-      const allForSupply = await prisma.inventoryMovement.findMany({
-        where: { supplyId: filters.supplyId },
+      const allForProduct = await prisma.inventoryMovement.findMany({
+        where: { productId: filters.productId },
         orderBy: [{ movedAt: "asc" }, { id: "asc" }],
         select: { id: true, quantity: true, movementType: true },
       });
 
       let cumulative = 0;
-      for (const rec of allForSupply) {
+      for (const rec of allForProduct) {
         const rawQty = Number(rec.quantity);
         // Si el tipo es salida o merma y la cantidad guardada es positiva, resta
         // Si ya viene negativa (ej: anulación de compra menor o ajuste negativo), mantiene su signo
@@ -227,7 +227,7 @@ export async function getInventoryMovementsPaginated(
     const items: EnrichedInventoryMovement[] = movements.map((m) => ({
       ...m,
       reference: deriveReference(m),
-      ...(filters.supplyId !== undefined && {
+      ...(filters.productId !== undefined && {
         runningBalance: runningBalances[m.id] ?? 0,
       }),
     }));

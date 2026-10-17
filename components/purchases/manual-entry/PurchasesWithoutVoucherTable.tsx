@@ -57,7 +57,7 @@ export interface InformalPurchaseItem {
   annulledAt?: Date | string | null;
   annulledById?: number | null;
   annulmentReason?: string | null;
-  supply?: {
+  product?: {
     id: number;
     name: string;
     unitOfMeasure: string;
@@ -135,7 +135,7 @@ export function PurchasesWithoutVoucherTable({
       // Buscador
       if (searchTerm.trim() !== "") {
         const query = searchTerm.toLowerCase().trim();
-        const supplyName = item.supply?.name.toLowerCase() || "";
+        const productName = item.product?.name.toLowerCase() || "";
         const description = item.itemDescription?.toLowerCase() || "";
         const place = item.informalPlaceOrVendor?.toLowerCase() || "";
         const reason = item.reason?.toLowerCase() || "";
@@ -144,7 +144,7 @@ export function PurchasesWithoutVoucherTable({
           : "";
 
         const matches =
-          supplyName.includes(query) ||
+          productName.includes(query) ||
           description.includes(query) ||
           place.includes(query) ||
           reason.includes(query) ||
@@ -401,7 +401,7 @@ export function PurchasesWithoutVoucherTable({
 
                 const isInventory = c.purchaseType === InformalPurchaseType.InventoryItem;
                 const displayName = isInventory
-                  ? c.supply?.name || "Insumo eliminado"
+                  ? c.product?.name || "Insumo eliminado"
                   : c.itemDescription || "Gasto operativo";
 
                 const categoryLabel =
@@ -437,7 +437,7 @@ export function PurchasesWithoutVoucherTable({
                       {categoryLabel}
                     </TableCell>
                     <TableCell className="text-right text-xs whitespace-nowrap">
-                      {isInventory ? `${qty.toFixed(2)} ${c.supply?.unitOfMeasure || ""}` : "-"}
+                      {isInventory ? `${qty.toFixed(2)} ${c.product?.unitOfMeasure || ""}` : "-"}
                     </TableCell>
                     <TableCell className="text-right font-semibold text-xs whitespace-nowrap">
                       S/ {amount.toFixed(2)}
@@ -512,7 +512,7 @@ export function PurchasesWithoutVoucherTable({
               <AlertTriangle className="h-5 w-5" />
               Anular Compra Menor &ldquo;
               {purchaseToAnnul?.purchaseType === InformalPurchaseType.InventoryItem
-                ? purchaseToAnnul?.supply?.name
+                ? purchaseToAnnul?.product?.name
                 : purchaseToAnnul?.itemDescription}
               &rdquo;
             </DialogTitle>
@@ -536,7 +536,7 @@ export function PurchasesWithoutVoucherTable({
                   <span className="text-muted-foreground">Descripción:</span>
                   <span className="font-semibold">
                     {purchaseToAnnul.purchaseType === InformalPurchaseType.InventoryItem
-                      ? purchaseToAnnul.supply?.name
+                      ? purchaseToAnnul.product?.name
                       : purchaseToAnnul.itemDescription}
                   </span>
                 </div>
@@ -545,7 +545,7 @@ export function PurchasesWithoutVoucherTable({
                     <span className="text-muted-foreground">Cantidad:</span>
                     <span className="font-semibold">
                       {Number(purchaseToAnnul.quantity).toFixed(2)}{" "}
-                      {purchaseToAnnul.supply?.unitOfMeasure}
+                      {purchaseToAnnul.product?.unitOfMeasure}
                     </span>
                   </div>
                 )}
@@ -563,7 +563,7 @@ export function PurchasesWithoutVoucherTable({
                   <span>
                     <strong>Reversión de Inventario:</strong> Se restarán{" "}
                     {Number(purchaseToAnnul.quantity).toFixed(2)}{" "}
-                    {purchaseToAnnul.supply?.unitOfMeasure} del stock actual. Si no hay
+                    {purchaseToAnnul.product?.unitOfMeasure} del stock actual. Si no hay
                     stock suficiente, la anulación será rechazada.
                   </span>
                 </div>
@@ -682,7 +682,7 @@ export function PurchasesWithoutVoucherTable({
                     <span className="text-muted-foreground block">Insumo / Descripción:</span>
                     <span className="font-semibold text-foreground">
                       {purchaseToViewAnnulment.purchaseType === InformalPurchaseType.InventoryItem
-                        ? purchaseToViewAnnulment.supply?.name
+                        ? purchaseToViewAnnulment.product?.name
                         : purchaseToViewAnnulment.itemDescription}
                     </span>
                   </div>
@@ -692,7 +692,7 @@ export function PurchasesWithoutVoucherTable({
                       <span className="text-muted-foreground block">Cantidad Revertida:</span>
                       <span className="font-mono font-semibold text-foreground">
                         {Number(purchaseToViewAnnulment.quantity).toFixed(2)}{" "}
-                        {purchaseToViewAnnulment.supply?.unitOfMeasure}
+                        {purchaseToViewAnnulment.product?.unitOfMeasure}
                       </span>
                     </div>
                   )}

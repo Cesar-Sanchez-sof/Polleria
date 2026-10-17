@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { unauthorized } from "@/lib/auth/responses";
 import { currentSession } from "@/lib/auth/current-session";
+import { satisfiesPermission } from "@/lib/auth/permissions-catalog";
 import type { SessionPayload } from "@/lib/auth/session";
 
 export interface AccessUser {
@@ -33,7 +34,7 @@ export async function permissionsForUser(userId: number): Promise<AccessUser> {
 }
 
 export function hasPermission(access: AccessUser, code: string): boolean {
-  return access.superuser || access.codes.includes(code);
+  return access.superuser || satisfiesPermission(access.codes, code);
 }
 
 export type AuthorizationResult =

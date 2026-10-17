@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { PurchaseOrderStatus, InventoryMovementType, AffectationIgv } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
+import { postPurchaseJournalEntries } from "@/lib/services/accounting-posting.service";
 
 export interface PurchaseOrderLineInput {
-  supplyId: number;
+  productId: number;
   quantityOrdered: number;
   unitPrice: number;
 }
@@ -29,7 +30,7 @@ export interface UnifiedPurchaseInput {
   paymentCondition: "Contado" | "Credito";
   paymentTypeId?: number;
   items: Array<{
-    supplyId: number;
+    productId: number;
     quantity: number;
     unitPrice: number;
     affectationIgv: "Included" | "Excluded";
@@ -54,7 +55,7 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
   }
 
   for (const d of data.items) {
-    if (!d.supplyId) {
+    if (!d.productId) {
       throw new Error("Insumo no válido en una de las líneas");
     }
     if (d.quantityOrdered <= 0) {
@@ -97,7 +98,7 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
         notes: data.notes?.trim() || null,
         items: {
           create: data.items.map((d) => ({
-            supplyId: d.supplyId,
+            productId: d.productId,
             quantityOrdered: d.quantityOrdered,
             unitPrice: d.unitPrice,
           })),
@@ -108,7 +109,7 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
         employee: true,
         items: {
           include: {
-            supply: true,
+            product: true,
           },
         },
       },
@@ -197,7 +198,7 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
         totalGeneral += finalAmountLine;
 
         return {
-          supplyId: item.supplyId,
+          productId: item.productId,
           quantityOrdered: item.quantity,
           quantityReceived: item.quantity,
           unitPrice: item.unitPrice,
@@ -229,7 +230,7 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
           total: totalGeneral,
           items: {
             create: itemsToCreate.map((item) => ({
-              supplyId: item.supplyId,
+              productId: item.productId,
               quantityOrdered: item.quantityOrdered,
               quantityReceived: item.quantityReceived,
               unitPrice: item.unitPrice,
@@ -241,7 +242,11 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
           },
         },
         include: {
-          items: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
         },
       });
 
@@ -259,7 +264,13 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
         },
       });
 
+      let paymentMethodName = "Efectivo";
       if (data.paymentCondition === "Contado" && data.paymentTypeId) {
+        const paymentType = await tx.paymentType.findUnique({
+          where: { id: data.paymentTypeId },
+        });
+        paymentMethodName = paymentType?.name || "Efectivo";
+
         await tx.purchasePayment.create({
           data: {
             purchaseInvoiceId: invoice.id,
@@ -270,6 +281,35 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
         });
       }
 
+      const itemsForEntries = order.items.map((item) => ({
+        productType: (item.product?.type || "RawMaterial") as "RawMaterial" | "FinishedProduct",
+        subtotalLine: Number(item.subtotalLine ?? 0),
+      }));
+
+      // Verificar consistencia: cuadrar la suma de subtotalLine con subtotalGeneral si hay diferencias por redondeo
+      if (itemsForEntries.length > 0) {
+        const sumLines = itemsForEntries.reduce((acc, curr) => acc + curr.subtotalLine, 0);
+        const diff = Math.round((subtotalGeneral - sumLines) * 100) / 100;
+        if (Math.abs(diff) > 0.0001) {
+          itemsForEntries[itemsForEntries.length - 1].subtotalLine =
+            Math.round((itemsForEntries[itemsForEntries.length - 1].subtotalLine + diff) * 100) / 100;
+        }
+      }
+
+      const voucherLabel = `${data.voucherType} ${data.series}-${data.number}`;
+      await postPurchaseJournalEntries(tx, {
+        purchaseInvoiceId: invoice.id,
+        voucherLabel,
+        entryDate: issuedDate,
+        subtotal: subtotalGeneral,
+        igv: igvGeneral,
+        total: totalGeneral,
+        paymentCondition: data.paymentCondition,
+        paymentMethodName,
+        responsible: "Compras",
+        items: itemsForEntries,
+      });
+
       for (let i = 0; i < order.items.length; i++) {
         const poItem = order.items[i];
         const itemConfig = itemsToCreate[i];
@@ -277,7 +317,7 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
 
         await tx.inventoryMovement.create({
           data: {
-            supplyId: poItem.supplyId,
+            productId: poItem.productId,
             purchaseOrderItemId: poItem.id,
             movementType: InventoryMovementType.Purchase,
             quantity: quantity,
@@ -285,10 +325,10 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
           },
         });
 
-        const supply = await tx.supply.findUnique({ where: { id: poItem.supplyId } });
-        if (supply) {
-          const currentStock = Number(supply.currentStock);
-          const currentAverageCost = Number(supply.averageCost);
+        const product = await tx.product.findUnique({ where: { id: poItem.productId } });
+        if (product) {
+          const currentStock = Number(product.currentStock);
+          const currentAverageCost = Number(product.averageCost);
           const newStock = currentStock + quantity;
 
           let newAverageCost = 0;
@@ -298,8 +338,8 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
               newStock;
           }
 
-          await tx.supply.update({
-            where: { id: supply.id },
+          await tx.product.update({
+            where: { id: product.id },
             data: {
               currentStock: newStock,
               lastCost: Math.round(itemConfig.unitCost * 100) / 100,
@@ -332,7 +372,7 @@ export async function getPurchaseOrders() {
         employee: true,
         items: {
           include: {
-            supply: true,
+            product: true,
           },
         },
         invoices: true,
@@ -355,7 +395,7 @@ export async function getPurchaseOrderById(id: number) {
         employee: true,
         items: {
           include: {
-            supply: true,
+            product: true,
           },
         },
         invoices: {

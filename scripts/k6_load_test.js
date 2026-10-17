@@ -40,7 +40,7 @@ const ENDPOINTS = [
   { name: 'cash-sessions',        url: '/api/cash-sessions' },
   { name: 'customers',            url: '/api/customers' },
   { name: 'daily-book',           url: `/api/daily-book?fecha=${TODAY}` },
-  { name: 'dishes',               url: '/api/dishes' },
+  { name: 'products',               url: '/api/products' },
   { name: 'document-lookup',      url: '/api/document-lookup?tipo=dni&numero=12345678' },
   { name: 'general-ledger',       url: `/api/general-ledger?codigo=101&desde=${MONTH_START}&hasta=${TODAY}` },
   { name: 'journal-entries',      url: '/api/journal-entries' },
@@ -50,7 +50,7 @@ const ENDPOINTS = [
   { name: 'roles',                url: '/api/roles' },
   { name: 'sales',                url: '/api/sales' },
   { name: 'stock',                url: '/api/stock' },
-  { name: 'supplies',             url: '/api/supplies' },
+  { name: 'products',             url: '/api/products' },
   { name: 'tables',               url: '/api/tables' },
   { name: 'usuarios',             url: '/api/users' },
 ];
