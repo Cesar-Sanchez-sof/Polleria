@@ -24,6 +24,7 @@ import {
   Edit,
   Eye,
   CheckCircle2,
+  Camera,
   Search,
   Trash2,
   Send,
@@ -267,6 +268,8 @@ function SalesManagementContent() {
   // Estados y funciones auxiliares para Cobro Directo con Yape
   const [yapeOperationCode, setYapeOperationCode] = useState<string>("");
   const [yapeProcessing, setYapeProcessing] = useState<boolean>(false);
+  const [waiterYapeProofImage, setWaiterYapeProofImage] = useState<string>("");
+  const [counterYapeProofImage, setCounterYapeProofImage] = useState<string>("");
 
   const handleSimulateInstantYapePayment = async (orderId: number) => {
     try {
@@ -1277,6 +1280,9 @@ function SalesManagementContent() {
 
       salePayload.paymentTypeId = paymentTypeId;
       salePayload.amountReceived = paymentMethod === "efectivo" && amountGiven ? Number(amountGiven) : counterPaymentTotal;
+      if (paymentMethod === "yape" && counterYapeProofImage) {
+        salePayload.yapeProofImage = counterYapeProofImage;
+      }
       salePayload.gateway = {
         provider: paymentMethod === "yape" ? "yape_directo" : paymentMethod === "pos" ? "pos_fisico" : "efectivo",
         mode: paymentMethod === "pos" ? "tap_to_pay" : paymentMethod === "yape" ? "qr" : "manual",
@@ -1294,6 +1300,7 @@ function SalesManagementContent() {
       setOrderToCharge(null);
       setPaymentSource("");
       setAmountGiven("");
+      setCounterYapeProofImage("");
       const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
       const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
       setPaymentParts([
@@ -1436,6 +1443,7 @@ function SalesManagementContent() {
         voucherType: waiterVoucherType,
         customer: waiterCustomerData,
         amountReceived: waiterPaymentMethod === "efectivo" && waiterAmountGiven ? Number(waiterAmountGiven) : waiterPaymentTotal,
+        yapeProofImage: waiterPaymentMethod === "yape" && waiterYapeProofImage ? waiterYapeProofImage : undefined,
         gateway: {
           provider: waiterPaymentMethod === "yape" ? "yape_directo" : waiterPaymentMethod === "pos" ? "pos_fisico" : "efectivo",
           mode: waiterPaymentMethod === "pos" ? "tap_to_pay" : waiterPaymentMethod === "yape" ? "qr" : "manual",
@@ -1469,6 +1477,8 @@ function SalesManagementContent() {
               order: waiterPaymentOrder,
             } as any);
             setWaiterPaymentModalOpen(false);
+            setWaiterYapeProofImage("");
+            setYapeOperationCode("");
             setTicketModalOpen(true);
             await loadData();
             return;
@@ -1481,6 +1491,8 @@ function SalesManagementContent() {
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
       setIssuedVoucher(res.invoice);
       setWaiterPaymentModalOpen(false);
+      setWaiterYapeProofImage("");
+      setYapeOperationCode("");
       setTicketModalOpen(true);
       await loadData();
     } catch (err: any) {
@@ -3524,6 +3536,73 @@ function SalesManagementContent() {
                               />
                             </div>
 
+                            {/* Toma de foto / comprobante Yape en Caja */}
+                            <div className="bg-white p-2.5 rounded-xl border border-purple-200 flex flex-col gap-1.5 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10.5px] font-bold text-slate-700 flex items-center gap-1">
+                                  <Camera className="w-3.5 h-3.5 text-purple-700" />
+                                  <span>Foto Comprobante (Evidencia S3):</span>
+                                </span>
+                                {counterYapeProofImage && (
+                                  <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2">
+                                    ✓ Capturada
+                                  </Badge>
+                                )}
+                              </div>
+                              {!counterYapeProofImage ? (
+                                <label
+                                  htmlFor="counter-camera-input"
+                                  className="py-1.5 px-2.5 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  <span>📸 Tomar Foto / Subir Captura</span>
+                                  <input
+                                    id="counter-camera-input"
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast.error("La imagen no debe superar los 5MB.");
+                                        return;
+                                      }
+                                      const reader = new FileReader();
+                                      reader.onload = (ev) => {
+                                        const b64 = ev.target?.result as string;
+                                        if (b64) {
+                                          setCounterYapeProofImage(b64);
+                                          toast.success("Foto del comprobante capturada.");
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }}
+                                  />
+                                </label>
+                              ) : (
+                                <div className="flex items-center gap-2 p-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={counterYapeProofImage}
+                                    alt="Foto comprobante"
+                                    className="w-10 h-10 object-cover rounded-md border border-purple-300 shrink-0"
+                                  />
+                                  <div className="flex-1 min-w-0 flex items-center justify-between text-[10px]">
+                                    <span className="text-slate-600 font-medium truncate">Foto lista para S3</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCounterYapeProofImage("")}
+                                      className="text-rose-600 font-bold hover:underline ml-2"
+                                    >
+                                      Quitar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
                             <div className="pt-1 flex gap-2">
                               <button
                                 type="button"
@@ -4953,6 +5032,110 @@ function SalesManagementContent() {
                             <span className="text-[10px] text-slate-400">
                               Útil para cuadre de caja y auditoría contable.
                             </span>
+                          </div>
+
+                          {/* Tarjeta de Toma de Foto del Comprobante Yape (Evidencia S3) */}
+                          <div className="bg-white border-2 border-purple-300 rounded-xl p-3 flex flex-col gap-2 text-left shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1.5">
+                                <Camera className="w-3.5 h-3.5 text-purple-700" />
+                                <span>Foto Comprobante (Evidencia S3)</span>
+                              </span>
+                              {waiterYapeProofImage && (
+                                <Badge className="bg-emerald-600 text-white text-[9.5px] font-bold px-1.5 py-0.2">
+                                  ✓ Capturada
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 leading-tight">
+                              Toma una foto de la pantalla de Yape del cliente. Se archivará en AWS S3 vinculada a su boleta.
+                            </p>
+
+                            {!waiterYapeProofImage ? (
+                              <label
+                                htmlFor="waiter-camera-input"
+                                className="w-full py-2.5 px-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
+                              >
+                                <Camera className="w-4 h-4" />
+                                <span>📸 Tomar Foto con Cámara / Subir Captura</span>
+                                <input
+                                  id="waiter-camera-input"
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      toast.error("La imagen no debe superar los 5MB.");
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const b64 = ev.target?.result as string;
+                                      if (b64) {
+                                        setWaiterYapeProofImage(b64);
+                                        toast.success("Foto del comprobante Yape capturada con éxito.");
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            ) : (
+                              <div className="flex items-center gap-2.5 p-2 bg-purple-50 rounded-xl border border-purple-200">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={waiterYapeProofImage}
+                                  alt="Foto comprobante Yape"
+                                  className="w-14 h-14 object-cover rounded-lg border border-purple-300 shadow-2xs shrink-0"
+                                />
+                                <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                                  <span className="text-[11px] font-bold text-purple-950 truncate">
+                                    Foto de comprobante lista
+                                  </span>
+                                  <span className="text-[9.5px] text-slate-500">
+                                    Se anexará a la boleta en S3 al validar cobro
+                                  </span>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <label
+                                      htmlFor="waiter-camera-input-replace"
+                                      className="text-[10px] text-purple-700 font-bold hover:underline cursor-pointer"
+                                    >
+                                      Cambiar foto
+                                      <input
+                                        id="waiter-camera-input-replace"
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+                                          const reader = new FileReader();
+                                          reader.onload = (ev) => {
+                                            const b64 = ev.target?.result as string;
+                                            if (b64) {
+                                              setWaiterYapeProofImage(b64);
+                                              toast.success("Foto reemplazada correctamente.");
+                                            }
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => setWaiterYapeProofImage("")}
+                                      className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
+                                    >
+                                      Quitar
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Botón Vista Web Externa */}
