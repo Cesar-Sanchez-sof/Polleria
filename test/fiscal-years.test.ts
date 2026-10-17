@@ -8,7 +8,7 @@ import {
   groupByFiscalYear,
   statusLabel,
   type AccountingPeriod,
-} from "./fiscal-years";
+} from "@/app/accounting/(records)/periods/fiscal-years";
 
 function period(
   id: number,

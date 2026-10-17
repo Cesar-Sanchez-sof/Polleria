@@ -18,7 +18,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { GET, POST } from "./route";
+import { GET, POST } from "@/app/api/accounts/route";
 
 /** Constructs minimum request needed by the handler. */
 function createRequest(body: unknown): NextRequest {
