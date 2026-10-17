@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
-import { uploadVoucherToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
+import { uploadVoucherToS3, uploadPaymentProofToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
 
@@ -54,6 +54,7 @@ interface RegisterSaleInput {
     mode?: "tap_to_pay" | "qr" | "manual";
     operationId?: string;
   };
+  yapeProofImage?: string;
 }
 
 function normalizePersonType(value: unknown): PersonTypeValue {
@@ -391,7 +392,31 @@ export async function POST(request: NextRequest) {
     });
 
     let finalS3Url = initialS3Url;
-    // Archivar comprobante en S3 de manera no bloqueante y sincronizar URL en BD
+    let yapeProofUrl: string | null = null;
+
+    // Si el mozo o cajero tomó una foto del comprobante de Yape, subirla a S3
+    if (body.yapeProofImage) {
+      try {
+        const proofRes = await uploadPaymentProofToS3({
+          orderId: order.id,
+          serie: series,
+          number: sequentialNumber,
+          imageBase64: body.yapeProofImage,
+        });
+        if (proofRes.publicUrl) {
+          yapeProofUrl = proofRes.publicUrl;
+          finalS3Url = proofRes.publicUrl;
+          await prisma.salesInvoice.update({
+            where: { id: transaction.invoice.id },
+            data: { s3Url: proofRes.publicUrl },
+          }).catch(() => null);
+        }
+      } catch (proofErr) {
+        console.warn("[api/sales] Error al subir comprobante Yape a S3:", proofErr);
+      }
+    }
+
+    // Archivar comprobante en S3 de manera no bloqueante y sincronizar URL en BD (si no se reemplazó por la foto de Yape)
     try {
       const s3Res = await uploadVoucherToS3({
         voucherId: transaction.invoice.id,
@@ -401,7 +426,7 @@ export async function POST(request: NextRequest) {
         format: "pdf",
         date: transaction.invoice.issuedAt ? new Date(transaction.invoice.issuedAt) : new Date(),
       });
-      if (s3Res.publicUrl) {
+      if (s3Res.publicUrl && !yapeProofUrl) {
         finalS3Url = s3Res.publicUrl;
         if (s3Res.publicUrl !== initialS3Url) {
           await prisma.salesInvoice.update({
@@ -455,6 +480,7 @@ export async function POST(request: NextRequest) {
           number: sequentialNumber,
           fullCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
           s3Url: finalS3Url,
+          yapeProofUrl: yapeProofUrl || (finalS3Url.includes("yape-vouchers") ? finalS3Url : null),
           issuedAt: safeIssuedAt,
           subtotal: taxableSubtotal,
           igv: calculatedIgv,

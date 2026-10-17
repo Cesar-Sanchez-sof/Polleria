@@ -9,11 +9,12 @@
  */
 
 export interface DynamicYapeQRInput {
-  phone: string; // Número de celular afiliado a Yape (9 dígitos, ej: 987654321)
+  phone: string; // Número de celular afiliado a Yape (9 dígitos, ej: 954316272)
   amount: number; // Monto a cobrar en Soles (ej: 75.50)
   merchantName?: string; // Nombre del comercio o titular
   orderCode?: string; // Código de comanda / referencia (ej: PED-015)
   city?: string; // Ciudad (por defecto Lima)
+  customQrImageUrl?: string; // Imagen oficial subida por el restaurante
 }
 
 export interface DynamicYapeQRResult {
@@ -22,7 +23,9 @@ export interface DynamicYapeQRResult {
   deepLink: string; // Enlace nativo para abrir Yape si está en el mismo móvil
   amountFormatted: string;
   phoneClean: string;
+  phoneDisplay: string;
   merchantName: string;
+  isCustomImage?: boolean;
 }
 
 /**
@@ -68,7 +71,7 @@ export function sanitizeYapePhone(phone: string): string {
  * Genera el payload EMVCo dinámico con monto específico para Yape Perú.
  */
 export function generateDynamicYapeQR(input: DynamicYapeQRInput): DynamicYapeQRResult {
-  const phoneClean = sanitizeYapePhone(input.phone || "987654321");
+  const phoneClean = sanitizeYapePhone(input.phone || "954316272");
   const roundedAmount = Math.round(input.amount * 100) / 100;
   const amountStr = roundedAmount.toFixed(2);
   const merchantName = (input.merchantName || "POLLERIA REST").toUpperCase().slice(0, 25);
@@ -117,13 +120,20 @@ export function generateDynamicYapeQR(input: DynamicYapeQRInput): DynamicYapeQRR
   const checksum = calculateEmvcoCRC(partialPayload);
   const emvcoPayload = `${partialPayload}${checksum}`;
 
-  // URL del QR generador en alta resolución (fondo transparente o blanco, seguro para renderizar)
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=2&data=${encodeURIComponent(
-    emvcoPayload
-  )}`;
+  // URL del QR: si el usuario subió su QR oficial de Yape, usamos su imagen real. Si no, generamos el QR EMVCo
+  const isCustomImage = Boolean(input.customQrImageUrl && input.customQrImageUrl.trim().length > 0);
+  const qrImageUrl = isCustomImage
+    ? input.customQrImageUrl!.trim()
+    : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=2&data=${encodeURIComponent(
+        emvcoPayload
+      )}`;
 
   // Enlace directo universal para dispositivos móviles
   const deepLink = `yape://pay?phone=${phoneClean}&amount=${amountStr}&ref=${encodeURIComponent(orderRef)}`;
+
+  const phoneDisplay = phoneClean.length === 9
+    ? phoneClean.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3")
+    : phoneClean;
 
   return {
     emvcoPayload,
@@ -131,6 +141,8 @@ export function generateDynamicYapeQR(input: DynamicYapeQRInput): DynamicYapeQRR
     deepLink,
     amountFormatted: `S/ ${amountStr}`,
     phoneClean,
+    phoneDisplay,
     merchantName,
+    isCustomImage,
   };
 }

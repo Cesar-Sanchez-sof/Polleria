@@ -24,6 +24,7 @@ import {
   Edit,
   Eye,
   CheckCircle2,
+  Camera,
   Search,
   Trash2,
   Send,
@@ -57,6 +58,7 @@ import {
   DollarSign,
   TrendingUp,
   ArrowRight,
+  Copy,
   XCircle,
   Lock,
   Unlock,
@@ -190,6 +192,7 @@ function SalesManagementContent() {
   const [readySearch, setReadySearch] = useState<string>("");
   const [readyFilter, setReadyFilter] = useState<"todos" | "mesas" | "llevar">("todos");
   const [readyStatusMode, setReadyStatusMode] = useState<"solo-listos" | "todos-activos">("solo-listos");
+  const [deliveredOrderIds, setDeliveredOrderIds] = useState<Set<number>>(new Set());
 
   // Carga general de datos desde la API
   const loadData = useCallback(async () => {
@@ -239,7 +242,7 @@ function SalesManagementContent() {
   }, [loadData]);
 
   // Conexión en tiempo real para sincronizar automáticamente Mozos, Cocina, Bebidas y Caja
-  useRealtimeEvents({
+  const { isConnected: isRealtimeConnected } = useRealtimeEvents({
     onOrderCreated: (payload) => {
       void loadData();
       toast.info(`Nueva comanda recibida: ${payload?.orderCode || ""}`);
@@ -260,58 +263,12 @@ function SalesManagementContent() {
       void loadData();
       toast.success(`Pago registrado: ${payload?.voucherCode || ""} (S/ ${payload?.total || ""})`);
     },
-    onMercadoPagoApproved: (payload) => {
-      void loadData();
-      toast.success(`¡Mercado Pago Aprobado! Comprobante: ${payload?.voucherCode || ""}`);
-    },
   });
 
-  // Estados y funciones auxiliares para Mercado Pago (QR / Status)
-  const [mpQrData, setMpQrData] = useState<string | null>(null);
-  const [mpLoading, setMpLoading] = useState<boolean>(false);
-
-  const handleGenerateMercadoPagoQR = async (orderId: number) => {
-    try {
-      setMpLoading(true);
-      const res = await fetch("/api/payments/mercadopago/preference", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "No se pudo generar QR");
-      setMpQrData(data.initPoint || data.sandboxInitPoint);
-      toast.success("QR de Mercado Pago generado con éxito.");
-    } catch (err: any) {
-      toast.error(err.message || "Error al generar QR Mercado Pago.");
-    } finally {
-      setMpLoading(false);
-    }
-  };
-
-  const handleVerifyMercadoPagoStatus = async (orderId: number) => {
-    try {
-      setMpLoading(true);
-      const res = await fetch(`/api/payments/mercadopago/status?orderId=${orderId}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al verificar pago.");
-      if (data.status === "approved") {
-        toast.success("¡Pago aprobado en Mercado Pago! Comprobante emitido.");
-        setWaiterPaymentModalOpen(false);
-        if (data.invoice) {
-          setIssuedVoucher(data.invoice);
-          setTicketModalOpen(true);
-        }
-        await loadData();
-      } else {
-        toast.info(data.message || "El pago aún no ha sido confirmado.");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Error al consultar estado de Mercado Pago.");
-    } finally {
-      setMpLoading(false);
-    }
-  };
+  // Estados y funciones auxiliares para Cobro Directo con Yape
+  const [yapeOperationCode, setYapeOperationCode] = useState<string>("");
+  const [waiterYapeProofImage, setWaiterYapeProofImage] = useState<string>("");
+  const [counterYapeProofImage, setCounterYapeProofImage] = useState<string>("");
 
   // ---------------------------------------------------------------------------
   // ESTADO MODAL COMANDA (TOMAR / EDITAR PEDIDO)
@@ -551,28 +508,30 @@ function SalesManagementContent() {
     return Math.round((given - waiterPaymentTotal) * 100) / 100;
   }, [waiterAmountGiven, waiterPaymentTotal]);
 
-  // Códigos QR Dinámicos Yape con monto específico automático
+  // Códigos QR Oficiales / Estándar Yape
   const counterYapeQr = useMemo(() => {
     if (!orderToCharge || counterPaymentTotal <= 0) return null;
-    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321";
+    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272";
     const name = restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria";
     return generateDynamicYapeQR({
       phone,
       amount: counterPaymentTotal,
       merchantName: name,
       orderCode: orderToCharge.code,
+      customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
     });
   }, [orderToCharge, counterPaymentTotal, restaurantConfig]);
 
   const waiterYapeQr = useMemo(() => {
     if (!waiterPaymentOrder || waiterPaymentTotal <= 0) return null;
-    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321";
+    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272";
     const name = restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria";
     return generateDynamicYapeQR({
       phone,
       amount: waiterPaymentTotal,
       merchantName: name,
       orderCode: waiterPaymentOrder.code,
+      customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
     });
   }, [waiterPaymentOrder, waiterPaymentTotal, restaurantConfig]);
 
@@ -680,7 +639,7 @@ function SalesManagementContent() {
           editable: m.activeOrder.editable,
         };
 
-        const isDelivered = m.activeOrder.status === "Served";
+        const isDelivered = deliveredOrderIds.has(m.activeOrder.id);
 
         list.push({
           orderId: m.activeOrder.id,
@@ -710,7 +669,7 @@ function SalesManagementContent() {
           clientName = clientName.substring(8).trim();
         }
 
-        const isDelivered = p.status === "Served";
+        const isDelivered = deliveredOrderIds.has(p.id);
 
         list.push({
           orderId: p.id,
@@ -737,7 +696,7 @@ function SalesManagementContent() {
       if (!aReady && bReady) return 1;
       return new Date(a.orderedAt).getTime() - new Date(b.orderedAt).getTime();
     });
-  }, [tables, takeoutOrders]);
+  }, [tables, takeoutOrders, deliveredOrderIds]);
 
   const onlyReadyCount = useMemo(() => {
     return readyOrdersForDelivery.filter(
@@ -1056,6 +1015,18 @@ function SalesManagementContent() {
     }
   };
 
+  const changeKitchenStatus = async (orderIdParam: number, newStatus: "Preparing" | "Served") => {
+    try {
+      await updateOrderStatus(orderIdParam, newStatus);
+      const statusLabel =
+        newStatus === "Preparing" ? "Preparando" : newStatus === "Served" ? "Servido" : newStatus;
+      toast.success(`Pedido actualizado a estado: ${statusLabel}`);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar el estado.");
+    }
+  };
+
   // Cancelación de comanda con auditoría y liberación de mesas
   const openCancelModal = (order: OrderSummary) => {
     if (order.status === "Closed") {
@@ -1225,6 +1196,9 @@ function SalesManagementContent() {
 
       salePayload.payments = isListValid;
       salePayload.amountReceived = counterPaymentTotal;
+      if (counterYapeProofImage) {
+        salePayload.yapeProofImage = counterYapeProofImage;
+      }
     } else {
       const tpObj = paymentTypes.find((t) => {
         const n = t.name.toLowerCase();
@@ -1246,8 +1220,11 @@ function SalesManagementContent() {
 
       salePayload.paymentTypeId = paymentTypeId;
       salePayload.amountReceived = paymentMethod === "efectivo" && amountGiven ? Number(amountGiven) : counterPaymentTotal;
+      if (paymentMethod === "yape" && counterYapeProofImage) {
+        salePayload.yapeProofImage = counterYapeProofImage;
+      }
       salePayload.gateway = {
-        provider: "mercado_pago",
+        provider: paymentMethod === "yape" ? "yape_directo" : paymentMethod === "pos" ? "pos_fisico" : "efectivo",
         mode: paymentMethod === "pos" ? "tap_to_pay" : paymentMethod === "yape" ? "qr" : "manual",
       };
     }
@@ -1263,6 +1240,7 @@ function SalesManagementContent() {
       setOrderToCharge(null);
       setPaymentSource("");
       setAmountGiven("");
+      setCounterYapeProofImage("");
       const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
       const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
       setPaymentParts([
@@ -1378,6 +1356,7 @@ function SalesManagementContent() {
         customer: waiterCustomerData,
         payments: isListValid,
         amountReceived: waiterPaymentTotal,
+        yapeProofImage: waiterYapeProofImage || undefined,
       };
     } else {
       const tpObj = paymentTypes.find((t) => {
@@ -1405,8 +1384,9 @@ function SalesManagementContent() {
         voucherType: waiterVoucherType,
         customer: waiterCustomerData,
         amountReceived: waiterPaymentMethod === "efectivo" && waiterAmountGiven ? Number(waiterAmountGiven) : waiterPaymentTotal,
+        yapeProofImage: waiterPaymentMethod === "yape" && waiterYapeProofImage ? waiterYapeProofImage : undefined,
         gateway: {
-          provider: "mercado_pago",
+          provider: waiterPaymentMethod === "yape" ? "yape_directo" : waiterPaymentMethod === "pos" ? "pos_fisico" : "efectivo",
           mode: waiterPaymentMethod === "pos" ? "tap_to_pay" : waiterPaymentMethod === "yape" ? "qr" : "manual",
         },
       };
@@ -1419,6 +1399,8 @@ function SalesManagementContent() {
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
       setIssuedVoucher(res.invoice);
       setWaiterPaymentModalOpen(false);
+      setWaiterYapeProofImage("");
+      setYapeOperationCode("");
       setTicketModalOpen(true);
       await loadData();
     } catch (err: any) {
@@ -1811,7 +1793,7 @@ function SalesManagementContent() {
   return (
     <>
       {/* Header Superior Responsivo */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 shadow-xs">
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-slate-200 pl-12 pr-3 sm:px-6 py-3.5 flex items-center justify-between gap-2 shadow-xs">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-700 flex items-center justify-center text-white shadow-xs shrink-0">
             <Utensils className="w-5 h-5" />
@@ -1822,32 +1804,49 @@ function SalesManagementContent() {
               <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">
                 Módulo de Ventas &amp; Salón
               </h1>
+              <Badge className="hidden sm:inline-flex bg-red-100 text-red-800 text-[10px] font-bold border-none shrink-0">
+                ERP Pollería
+              </Badge>
             </div>
             <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-              Salón, Clientes, Ventanilla
+              Mesas, Clientes, Ventas Diarias, Cobro Mozo &amp; Ventanilla
             </p>
           </div>
         </div>
 
-        {/* Pestañas del módulo Ventas (SegmentedTabs de la guía de estilos, scroll horizontal si no caben) */}
-        <div className="no-scrollbar order-last flex w-full min-w-0 justify-start overflow-x-auto md:order-none md:w-auto md:flex-1 md:justify-center">
-          <SegmentedTabs
-            items={salesTabItems}
-            value={activeTab}
-            onValueChange={goToTab}
-            variant="segmented"
-            size="md"
-            rounded="xl"
-            hideZeroCount
-            ariaLabel="Secciones de ventas"
-            className="min-w-max"
-          />
-        </div>
-
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Button
+            onClick={openTakeawayOrder}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span className="hidden sm:inline">+ Para Llevar</span>
+            <span className="sm:hidden">+ Llevar</span>
+          </Button>
+
           <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>{currentTime || "12:00:00"}</span>
+          </div>
+
+          <div
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              isRealtimeConnected
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                : "bg-amber-50 text-amber-800 border-amber-300"
+            }`}
+            title={
+              isRealtimeConnected
+                ? "Conexión en tiempo real activa (WebSockets / SSE)"
+                : "Reconectando con el servidor en tiempo real..."
+            }
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isRealtimeConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+              }`}
+            />
+            <span>{isRealtimeConnected ? "En Vivo" : "Sincronizando..."}</span>
           </div>
 
           <Button
@@ -1861,6 +1860,21 @@ function SalesManagementContent() {
           </Button>
         </div>
       </header>
+
+      {/* Barra de pestañas del módulo Ventas (SegmentedTabs de la guía de estilos, scroll horizontal en móvil) */}
+      <div className="no-scrollbar overflow-x-auto border-b border-slate-200 bg-white px-3 py-3 sm:px-6">
+        <SegmentedTabs
+          items={salesTabItems}
+          value={activeTab}
+          onValueChange={goToTab}
+          variant="segmented"
+          size="md"
+          rounded="xl"
+          hideZeroCount
+          ariaLabel="Secciones de ventas"
+          className="min-w-max"
+        />
+      </div>
 
       {/* =================================================================== */}
       {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
@@ -1899,25 +1913,35 @@ function SalesManagementContent() {
           )}
 
           {/* Barra de Filtros y Leyenda */}
-          <div className="flex justify-between">
+          <Card className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <SegmentedTabs
-                ariaLabel="Filtrar salón"
-                value={tableFilter}
-                onValueChange={(value) => setTableFilter(value)}
-                className="max-w-full overflow-x-auto"
-                items={[
-                  { value: "todas", label: "Todas", count: summary.total, tone: "brand" },
-                  { value: "disponibles", label: "Disponibles", count: summary.available, tone: "success" },
-                  { value: "ocupadas", label: "Ocupadas", count: summary.occupied, tone: "danger" },
-                ]}
-              />
+              <span className="text-xs font-bold text-slate-700 mr-1">Filtrar Salón:</span>
               <Button
-                onClick={openTakeawayOrder}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                size="sm"
+                variant={tableFilter === "todas" ? "default" : "outline"}
+                onClick={() => setTableFilter("todas")}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "todas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
+                  }`}
               >
-                <ShoppingBag className="w-4 h-4" />
-                <span>+ Para Llevar</span>
+                Todas ({summary.total})
+              </Button>
+              <Button
+                size="sm"
+                variant={tableFilter === "disponibles" ? "default" : "outline"}
+                onClick={() => setTableFilter("disponibles")}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "disponibles" ? "bg-red-700 hover:bg-red-800 text-white" : ""
+                  }`}
+              >
+                Disponibles ({summary.available})
+              </Button>
+              <Button
+                size="sm"
+                variant={tableFilter === "ocupadas" ? "default" : "outline"}
+                onClick={() => setTableFilter("ocupadas")}
+                className={`text-xs font-bold h-8 rounded-lg cursor-pointer ${tableFilter === "ocupadas" ? "bg-red-700 hover:bg-red-800 text-white" : ""
+                  }`}
+              >
+                Ocupadas ({summary.occupied})
               </Button>
             </div>
 
@@ -1929,14 +1953,11 @@ function SalesManagementContent() {
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin"></span> Preparando
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span> Listo para servir
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span> Servido
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Servido
               </span>
             </div>
-          </div>
+          </Card>
 
           {/* Grid Responsivo de Mesas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1947,7 +1968,7 @@ function SalesManagementContent() {
               return (
                 <Card
                   key={table.id}
-                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between py-0! ${table.occupied
+                  className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${table.occupied
                     ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
                     : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
                     }`}
@@ -1996,30 +2017,6 @@ function SalesManagementContent() {
                         >
                           {table.occupied ? "Ocupada" : "Libre"}
                         </Badge>
-                        {hasOrder && order && (
-                          <div className="flex items-center gap-1">
-                            {order.status === "Received" && (
-                              <span className="bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                Recibido
-                              </span>
-                            )}
-                            {order.status === "Preparing" && (
-                              <span className="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                Preparando
-                              </span>
-                            )}
-                            {order.status === "Ready" && (
-                              <span className="bg-purple-100 text-purple-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                Listo para servir
-                              </span>
-                            )}
-                            {order.status === "Served" && (
-                              <span className="bg-cyan-100 text-cyan-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                ✓ Servido en Mesa
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -2041,6 +2038,40 @@ function SalesManagementContent() {
                             </span>
                           </div>
 
+                          {/* Estado de cocina interactivo */}
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                            <div className="flex items-center gap-1.5">
+                              <ChefHat className="w-4 h-4 text-slate-500" />
+                              <span className="text-xs font-semibold text-slate-700">
+                                Cocina:
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {order.status === "Received" && (
+                                <button
+                                  onClick={() => changeKitchenStatus(order.id, "Preparing")}
+                                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
+                                  title="Pasar a Preparando"
+                                >
+                                  Recibido → Iniciar
+                                </button>
+                              )}
+                              {order.status === "Preparing" && (
+                                <button
+                                  onClick={() => changeKitchenStatus(order.id, "Served")}
+                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors cursor-pointer"
+                                  title="Marcar como Servido"
+                                >
+                                  Preparando → Servir
+                                </button>
+                              )}
+                              {order.status === "Served" && (
+                                <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                                  ✓ Servido en Mesa
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
                           {/* Observación de la mesa */}
                           {order.tableNotes && (
@@ -2102,12 +2133,10 @@ function SalesManagementContent() {
                   </div>
 
                   {/* Botones de Acción al pie de la tarjeta */}
-                  {table.occupied && order && (
                   <div className="p-3 border-t border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
+                    {table.occupied && order ? (
                       <>
-                        {/* Fila 1: agregar productos y cobrar en mesa */}
-                        <div className="grid grid-cols-2 gap-2">
-                        {/* Botón principal: agregar más productos al pedido */}
+                        {/* Botón principal: Adicionar / Agregar más platos al pedido */}
                         <Button
                           onClick={() =>
                             openEditOrder({
@@ -2122,7 +2151,7 @@ function SalesManagementContent() {
                           className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                         >
                           <Plus className="w-4 h-4" />
-                          <span>Agregar producto</span>
+                          <span>+ Adicionar / Agregar Platos</span>
                         </Button>
 
                         {/* Botón para Cobro Móvil desde el Mozo */}
@@ -2145,12 +2174,10 @@ function SalesManagementContent() {
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                         >
                           <Smartphone className="w-4 h-4" />
-                          <span>Cobrar en mesa</span>
+                          <span>Cobrar en Mesa (Mozo)</span>
                         </Button>
-                        </div>
 
-                        {/* Fila 2: detalle, ventanilla y cancelar */}
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           {/* Ver Detalle Completo de la Comanda */}
                           <Button
                             variant="outline"
@@ -2177,7 +2204,7 @@ function SalesManagementContent() {
                             className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                            Detalle
+                            Ver Detalle
                           </Button>
 
                           {/* Enviar a Cobro en Ventanilla */}
@@ -2205,8 +2232,9 @@ function SalesManagementContent() {
                             className="text-xs font-semibold h-8 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
                             <Receipt className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                            Ventanilla
+                            A Ventanilla
                           </Button>
+                        </div>
 
                         {/* Cancelar Comanda con trazabilidad */}
                         <Button
@@ -2227,16 +2255,22 @@ function SalesManagementContent() {
                               editable: order.editable,
                             })
                           }
-                          title="Cancelar comanda"
-                          className="text-xs font-semibold h-8 rounded-lg border border-rose-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                          className="w-full text-[11px] font-semibold h-7 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
                         >
                           <XCircle className="w-3.5 h-3.5 mr-1 text-rose-500" />
-                          Cancelar
+                          Cancelar Comanda
                         </Button>
-                        </div>
                       </>
+                    ) : (
+                      <Button
+                        onClick={() => openTakeTableOrder(table)}
+                        className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Tomar Pedido</span>
+                      </Button>
+                    )}
                   </div>
-                  )}
                 </Card>
               );
             })}
@@ -2261,7 +2295,7 @@ function SalesManagementContent() {
           {/* Tarjetas resumen de estado de entrega */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <StatCard
-              tone="purple"
+              tone="emerald"
               icon={<BellRing className={onlyReadyCount > 0 ? "animate-bounce" : ""} />}
               label="Listos para Servir"
               value={onlyReadyCount}
@@ -2278,7 +2312,7 @@ function SalesManagementContent() {
               tone="neutral"
               icon={<PackageCheck />}
               label="Entregados a Mesas"
-              value={readyOrdersForDelivery.filter((o) => o.isDelivered).length}
+              value={deliveredOrderIds.size}
               unit="Entregas"
             />
           </div>
@@ -2292,11 +2326,11 @@ function SalesManagementContent() {
                   type="button"
                   onClick={() => setReadyStatusMode("solo-listos")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${readyStatusMode === "solo-listos"
-                      ? "bg-white text-purple-700 shadow-xs"
+                      ? "bg-white text-emerald-700 shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
                     }`}
                 >
-                  <Flame className="w-3.5 h-3.5 text-purple-600" />
+                  <Flame className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Solo Listos ({onlyReadyCount})</span>
                 </button>
                 <button
@@ -2663,8 +2697,8 @@ function SalesManagementContent() {
                             : charge.kitchenStatus === "Ready"
                               ? "bg-purple-100 text-purple-800"
                             : charge.kitchenStatus === "Preparing"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-blue-100 text-blue-800"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-blue-100 text-blue-800"
                             }`}
                         >
                           {charge.kitchenStatus === "Served"
@@ -2672,10 +2706,10 @@ function SalesManagementContent() {
                             : charge.kitchenStatus === "Ready"
                               ? "Listo para servir"
                             : charge.kitchenStatus === "Preparing"
-                              ? "Preparando"
-                              : charge.kitchenStatus === "Received"
-                                ? "Recibido"
-                                : charge.kitchenStatus}
+                                ? "Preparando"
+                                : charge.kitchenStatus === "Received"
+                                  ? "Recibido"
+                                  : charge.kitchenStatus}
                         </Badge>
                       </div>
 
@@ -3324,36 +3358,179 @@ function SalesManagementContent() {
                       </div>
                     )}
 
-                    {/* Modo Yape QR con Monto Dinámico en Ventanilla / Caja */}
-                    {paymentMethod === "yape" && counterYapeQr && (
-                      <div className="bg-purple-50/80 p-4 rounded-2xl border-2 border-purple-200 flex flex-col md:flex-row items-center gap-4">
-                        <div className="p-2.5 bg-white border-2 border-purple-300 rounded-2xl shadow-xs shrink-0 flex flex-col items-center">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={counterYapeQr.qrImageUrl}
-                            alt="QR Dinámico Yape"
-                            className="w-36 h-36 rounded-xl bg-white"
-                          />
-                          <span className="text-[11px] text-purple-900 font-black mt-1">
-                            {counterYapeQr.amountFormatted}
-                          </span>
+                    {/* Modo Yape Directo en Ventanilla / Caja */}
+                    {paymentMethod === "yape" && counterYapeQr && orderToCharge && (
+                      <div className="bg-purple-50/80 p-4 rounded-2xl border-2 border-purple-200 flex flex-col gap-3">
+                        <div className="flex flex-col md:flex-row items-center gap-4">
+                          <div className="p-2.5 bg-white border-2 border-purple-300 rounded-2xl shadow-xs shrink-0 flex flex-col items-center gap-1.5">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={counterYapeQr.qrImageUrl}
+                              alt="QR de Cobro Yape"
+                              className="w-36 h-36 rounded-xl bg-white p-1 object-contain border border-purple-100"
+                            />
+                            <span className="text-[11px] text-purple-900 font-black">
+                              {counterYapeQr.amountFormatted}
+                            </span>
+                            <span className="text-[9.5px] text-slate-500 font-medium">
+                              📷 Escanear con app Yape
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col gap-2 text-xs text-purple-950 text-left flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-600 text-white shadow-2xs">
+                                YAPE COBRO DIRECTO
+                              </span>
+                              <span className="font-extrabold text-purple-900">
+                                {formatCurrency(counterPaymentTotal)}
+                              </span>
+                              {counterYapeQr.isCustomImage && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                                  ✓ QR Oficial
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="bg-white p-2.5 rounded-xl border border-purple-200 flex flex-col gap-1.5 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-slate-500 font-medium">Celular Yape:</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-bold text-purple-900">
+                                    {counterYapeQr.phoneDisplay || counterYapeQr.phoneClean}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(counterYapeQr.phoneClean);
+                                      toast.success("Número de celular copiado.");
+                                    }}
+                                    className="p-1 hover:bg-purple-100 rounded text-purple-700"
+                                    title="Copiar celular"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between border-t border-purple-100 pt-1">
+                                <span className="text-[11px] text-slate-500 font-medium">Titular:</span>
+                                <span className="font-bold text-slate-800">{counterYapeQr.merchantName}</span>
+                              </div>
+                            </div>
+
+                            {counterYapeQr.phoneClean === "987654321" && (
+                              <p className="text-[10.5px] text-amber-800 bg-amber-50 border border-amber-200 p-1.5 rounded-lg">
+                                ⚠️ Configura tu número o imagen de QR oficial en <strong>Restaurante → Configuración → Datos de Empresa</strong>.
+                              </p>
+                            )}
+
+                            <div>
+                              <label className="text-[10.5px] font-bold text-slate-600 block mb-0.5">
+                                Código de Operación (Opcional):
+                              </label>
+                              <Input
+                                type="text"
+                                maxLength={8}
+                                placeholder="Ej: 123456 (4 u 8 dígitos del comprobante)"
+                                value={yapeOperationCode}
+                                onChange={(e) => setYapeOperationCode(e.target.value.replace(/\D/g, ""))}
+                                className="bg-white text-xs h-8 rounded-lg font-mono font-bold"
+                              />
+                            </div>
+
+                            {/* Toma de foto / comprobante Yape en Caja */}
+                            <div className="bg-white p-2.5 rounded-xl border border-purple-200 flex flex-col gap-1.5 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10.5px] font-bold text-slate-700 flex items-center gap-1">
+                                  <Camera className="w-3.5 h-3.5 text-purple-700" />
+                                  <span>Foto Comprobante (Evidencia S3):</span>
+                                </span>
+                                {counterYapeProofImage && (
+                                  <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2">
+                                    ✓ Capturada
+                                  </Badge>
+                                )}
+                              </div>
+                              {!counterYapeProofImage ? (
+                                <label
+                                  htmlFor="counter-camera-input"
+                                  className="py-1.5 px-2.5 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  <span>📸 Tomar Foto / Subir Captura</span>
+                                  <input
+                                    id="counter-camera-input"
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast.error("La imagen no debe superar los 5MB.");
+                                        return;
+                                      }
+                                      const reader = new FileReader();
+                                      reader.onload = (ev) => {
+                                        const b64 = ev.target?.result as string;
+                                        if (b64) {
+                                          setCounterYapeProofImage(b64);
+                                          toast.success("Foto del comprobante capturada.");
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }}
+                                  />
+                                </label>
+                              ) : (
+                                <div className="flex items-center gap-2 p-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={counterYapeProofImage}
+                                    alt="Foto comprobante"
+                                    className="w-10 h-10 object-cover rounded-md border border-purple-300 shrink-0"
+                                  />
+                                  <div className="flex-1 min-w-0 flex items-center justify-between text-[10px]">
+                                    <span className="text-slate-600 font-medium truncate">Foto lista para S3</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCounterYapeProofImage("")}
+                                      className="text-rose-600 font-bold hover:underline ml-2"
+                                    >
+                                      Quitar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-1.5 text-xs text-purple-950 text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-600 text-white shadow-2xs">
-                              YAPE QR DINÁMICO
+                      </div>
+                    )}
+
+                    {/* Modo Tarjeta POS Físico en Ventanilla / Caja */}
+                    {paymentMethod === "pos" && (
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50/70 border border-blue-200 p-4 rounded-2xl flex flex-col items-center text-center gap-3 shadow-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                          <div className="text-left">
+                            <span className="text-xs font-bold text-blue-950 block">
+                              Terminal Tarjeta POS Físico
                             </span>
-                            <span className="font-extrabold text-purple-900">
-                              Monto Precargado Automáticamente
+                            <span className="text-[10px] text-blue-700">
+                              Total a cobrar: <strong>{formatCurrency(counterPaymentTotal)}</strong>
                             </span>
                           </div>
-                          <p className="text-[11px] text-purple-800">
-                            Muestra este código al cliente en caja. Al escanearlo con la app Yape, el monto exacto de <strong>{formatCurrency(counterPaymentTotal)}</strong> aparecerá en su pantalla. El cliente solo presiona <strong>&quot;YAPEAR&quot;</strong>.
+                        </div>
+
+                        <div className="w-full bg-white border border-blue-200 rounded-xl p-3 text-left text-xs text-blue-950 flex flex-col gap-1.5 shadow-2xs max-w-md">
+                          <p className="text-[11px] text-slate-600">
+                            Pasa la tarjeta de débito o crédito por tu terminal POS físico (Izipay, Niubiz, etc.). Una vez verificado el voucher impreso del POS, presiona <strong>&quot;Cobrar y Emitir Comprobante&quot;</strong>.
                           </p>
-                          <div className="text-[11px] text-purple-900 bg-white/70 p-2 rounded-xl border border-purple-200 flex items-center justify-between">
-                            <span>Titular: <strong>{counterYapeQr.merchantName}</strong></span>
-                            <span>Celular: <strong>{counterYapeQr.phoneClean}</strong></span>
-                          </div>
                         </div>
                       </div>
                     )}
@@ -3377,7 +3554,7 @@ function SalesManagementContent() {
                         </div>
 
                         {/* Listado dinámico de partes de pago */}
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2.5 max-h-[58vh] sm:max-h-[500px] overflow-y-auto pr-1">
                           {paymentParts.map((part, index) => {
                             const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
                             const isCash = selectedPaymentType?.name.toLowerCase().includes("efectivo");
@@ -3387,10 +3564,11 @@ function SalesManagementContent() {
                             const partYapeQr =
                               isYape && partAmountNum > 0 && orderToCharge
                                 ? generateDynamicYapeQR({
-                                    phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321",
+                                    phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272",
                                     amount: partAmountNum,
                                     merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
                                     orderCode: `${orderToCharge.code}-P${index + 1}`,
+                                    customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
                                   })
                                 : null;
 
@@ -3495,35 +3673,59 @@ function SalesManagementContent() {
                                   </div>
                                 )}
 
-                                {/* Helper para Yape: QR Dinámico con monto específico para esta parte */}
+                                {/* Helper para Yape: QR Oficial / Adaptado para esta parte */}
                                 {isYape && partAmountNum > 0 && partYapeQr && (
-                                  <div className="p-3 bg-purple-50/90 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center gap-3 pt-2">
-                                    <div className="p-2 bg-white border border-purple-300 rounded-xl shadow-2xs shrink-0 flex flex-col items-center">
+                                  <div className="p-3 bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center sm:items-start gap-3.5 pt-2.5 text-center sm:text-left shadow-2xs">
+                                    <div className="p-1.5 bg-white border border-purple-300 rounded-xl shadow-xs shrink-0 flex flex-col items-center">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img
                                         src={partYapeQr.qrImageUrl}
-                                        alt={`QR Dinámico Yape Parte #${index + 1}`}
-                                        className="w-28 h-28 rounded-lg bg-white"
+                                        alt={`QR Yape Parte #${index + 1}`}
+                                        className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-lg bg-white p-0.5"
                                       />
                                       <span className="text-[10px] text-purple-900 font-black mt-1">
                                         {partYapeQr.amountFormatted}
                                       </span>
                                     </div>
-                                    <div className="flex flex-col gap-1 text-left text-xs text-purple-950">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-600 text-white">
+                                    <div className="flex flex-col gap-1.5 text-left text-xs text-purple-950 flex-1 min-w-0">
+                                      <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-600 text-white shadow-2xs">
                                           YAPE PARTE #{index + 1}
                                         </span>
                                         <span className="font-extrabold text-purple-900 text-xs">
-                                          Monto Exacto: S/ {partAmountNum.toFixed(2)}
+                                          Monto: S/ {partAmountNum.toFixed(2)}
                                         </span>
+                                        {partYapeQr.isCustomImage && (
+                                          <span className="text-[9.5px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                                            ✓ QR Oficial
+                                          </span>
+                                        )}
                                       </div>
-                                      <p className="text-[11px] text-purple-800">
-                                        Muestra este QR al comensal #{index + 1}. Al escanear con la app Yape, se precarga <strong>S/ {partAmountNum.toFixed(2)}</strong> automáticamente. Solo debe pulsar <strong>&quot;YAPEAR&quot;</strong>.
+                                      <p className="text-[11px] text-purple-800 leading-snug">
+                                        El comensal #{index + 1} debe escanear el QR desde su app Yape e ingresar el monto exacto de <strong>S/ {partAmountNum.toFixed(2)}</strong>.
                                       </p>
-                                      <div className="text-[10px] text-purple-900 bg-white/80 px-2 py-1 rounded-lg border border-purple-200 flex items-center justify-between">
-                                        <span>Titular: <strong>{partYapeQr.merchantName}</strong></span>
-                                        <span>Celular: <strong>{partYapeQr.phoneClean}</strong></span>
+                                      <div className="p-2 bg-white rounded-lg border border-purple-100 text-[10.5px] flex flex-col gap-1 shadow-2xs">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-slate-500 font-medium">Celular Yape:</span>
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-mono font-bold text-purple-950">{partYapeQr.phoneDisplay || partYapeQr.phoneClean}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(partYapeQr.phoneClean);
+                                                toast.success("Celular copiado.");
+                                              }}
+                                              className="p-0.5 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
+                                              title="Copiar celular"
+                                            >
+                                              <Copy className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-purple-50 pt-1">
+                                          <span className="text-slate-500 font-medium">Titular:</span>
+                                          <span className="font-bold text-slate-800 truncate">{partYapeQr.merchantName}</span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -3532,6 +3734,78 @@ function SalesManagementContent() {
                             );
                           })}
                         </div>
+
+                        {/* Evidencia fotográfica Yape en Pago en Partes (Caja) */}
+                        {paymentParts.some((p) => {
+                          const tp = paymentTypes.find((t) => t.id === p.paymentTypeId);
+                          return tp?.name.toLowerCase().includes("yape");
+                        }) && (
+                          <div className="bg-white border-2 border-purple-200 rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
+                                <Camera className="w-3.5 h-3.5 text-purple-700" />
+                                <span>Foto Comprobante Yape (Evidencia S3):</span>
+                              </span>
+                              {counterYapeProofImage && (
+                                <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2">
+                                  ✓ Capturada
+                                </Badge>
+                              )}
+                            </div>
+                            {!counterYapeProofImage ? (
+                              <label
+                                htmlFor="counter-parts-camera-input"
+                                className="py-1.5 px-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>📸 Tomar Foto al Comprobante Yape</span>
+                                <input
+                                  id="counter-parts-camera-input"
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      toast.error("La imagen no debe superar los 5MB.");
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const b64 = ev.target?.result as string;
+                                      if (b64) {
+                                        setCounterYapeProofImage(b64);
+                                        toast.success("Foto del comprobante capturada.");
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            ) : (
+                              <div className="flex items-center gap-2 p-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={counterYapeProofImage}
+                                  alt="Foto comprobante"
+                                  className="w-10 h-10 object-cover rounded-md border border-purple-300 shrink-0"
+                                />
+                                <div className="flex-1 min-w-0 flex items-center justify-between text-[10px]">
+                                  <span className="text-slate-600 font-medium truncate">Foto lista para anexar en S3</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCounterYapeProofImage("")}
+                                    className="text-rose-600 font-bold hover:underline ml-2 cursor-pointer"
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Botón para agregar una nueva parte */}
                         <div className="flex items-center justify-between pt-1">
@@ -3763,11 +4037,41 @@ function SalesManagementContent() {
               enableHover={false}
               tone="blue"
               icon={<CreditCard />}
-              label="POS / Tap to Pay"
+              label="POS / Tarjetas"
               value={formatCurrency(dailySummary.methodsBreakdown.card)}
               colorValue
-              footerLeft="Mercado Pago & Tarjetas"
+              footerLeft="Tarjetas & Terminal POS"
             />
+          </div>
+
+          {/* Filtro de fecha */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-card p-3 shadow-xs sm:px-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <Receipt className="h-4 w-4 text-red-700" />
+              <span>Comprobantes de Venta Emitidos</span>
+              <Badge variant="outline" className="text-[10px]">
+                {saleVouchers.length} Emitidos
+              </Badge>
+            </h3>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-500">Filtrar:</span>
+              <Button
+                size="sm"
+                variant={salesDateFilter === "hoy" ? "default" : "outline"}
+                onClick={() => setSalesDateFilter("hoy")}
+                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""}`}
+              >
+                Hoy
+              </Button>
+              <Button
+                size="sm"
+                variant={salesDateFilter === "todas" ? "default" : "outline"}
+                onClick={() => setSalesDateFilter("todas")}
+                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "todas" ? "bg-red-700 text-white" : ""}`}
+              >
+                Todas las Fechas
+              </Button>
+            </div>
           </div>
 
           {/* Tabla de Facturas y Boletas */}
@@ -4250,15 +4554,18 @@ function SalesManagementContent() {
       {/* MODAL 2: COBRO MÓVIL DEL MOZO (CON CELULAR / TAP TO PAY / YAPE) */}
       {/* =================================================================== */}
       <Dialog open={waiterPaymentModalOpen} onOpenChange={setWaiterPaymentModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-md lg:max-w-4xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6 bg-white">
+        <DialogContent className="w-[96vw] sm:max-w-xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl max-h-[92vh] overflow-y-auto rounded-3xl p-4 sm:p-6 bg-white shadow-2xl">
           <DialogHeader className="pb-3 border-b border-slate-200">
-            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-8">
+            <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 flex items-center justify-between pr-8">
               <span className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-emerald-600" />
                 <span>Cobro Móvil / Mozo</span>
+                <span className="hidden sm:inline-block text-xs font-normal text-slate-400">
+                  • Facturación y Cierre de Mesa
+                </span>
               </span>
               {waiterPaymentOrder?.table && (
-                <Badge className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-xs">
+                <Badge className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs sm:text-sm px-3 py-1 rounded-xl shadow-xs">
                   Mesa {waiterPaymentOrder.table.number}
                 </Badge>
               )}
@@ -4266,611 +4573,919 @@ function SalesManagementContent() {
           </DialogHeader>
 
           {waiterPaymentOrder && (
-            <div className="grid gap-4 mt-2 lg:grid-cols-2 lg:items-start">
-              <div className="flex flex-col gap-4">
-              {/* Importe Total en Grande */}
-              <div className="bg-slate-900 text-white p-4 rounded-2xl text-center">
-                <span className="text-xs text-slate-400 font-bold uppercase block">
-                  Total a Cobrar en Mesa
-                </span>
-                <span className="text-3xl font-extrabold text-emerald-400">
-                  {formatCurrency(waiterPaymentOrder.total)}
-                </span>
-                <span className="text-[11px] text-slate-400 block mt-1">
-                  Comanda {waiterPaymentOrder.code} • {waiterPaymentOrder.items.length} platos
-                </span>
-              </div>
-
-              {/* Selector de Comprobante: Boleta vs Factura */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Tipo de Comprobante en Mesa:
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWaiterVoucherType("Boleta");
-                      setWaiterCustomerDoc("");
-                      setWaiterCustomerName("");
-                    }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all text-center ${
-                      waiterVoucherType === "Boleta"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    Boleta de Venta
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWaiterVoucherType("Factura");
-                      setWaiterCustomerDoc("");
-                      setWaiterCustomerName("");
-                    }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all text-center ${
-                      waiterVoucherType === "Factura"
-                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    Factura Electrónica
-                  </button>
-                </div>
-              </div>
-
-              {/* Datos del Cliente para Comprobante en Mesa (Boleta / Factura) */}
-              <div
-                className={`p-3 rounded-xl border flex flex-col gap-2.5 transition-all ${
-                  waiterVoucherType === "Factura"
-                    ? "bg-amber-50/80 border-amber-200"
-                    : "bg-emerald-50/60 border-emerald-200"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label
-                      className={`text-[11px] font-bold block ${
-                        waiterVoucherType === "Factura" ? "text-amber-900" : "text-emerald-900"
-                      }`}
-                    >
-                      {waiterVoucherType === "Factura"
-                        ? "RUC de la Empresa (11 dígitos):"
-                        : "DNI del Cliente (8 dígitos):"}
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-medium">
-                      {waiterVoucherType === "Factura"
-                        ? "Obligatorio"
-                        : "Opcional (Vacío = Clientes Varios)"}
+            <div className="flex flex-col gap-4 mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+                {/* ========================================================= */}
+                {/* COLUMNA IZQUIERDA: RESUMEN DE CUENTA & COMPROBANTE FISCAL */}
+                {/* ========================================================= */}
+                <div className="md:col-span-5 flex flex-col gap-3.5">
+                  {/* Tarjeta de Importe Total */}
+                  <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4 rounded-2xl text-center shadow-md border border-slate-700/60 relative overflow-hidden">
+                    <div className="absolute right-2 top-2 opacity-10">
+                      <Receipt className="w-20 h-20 text-emerald-400" />
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+                      Total a Cobrar en Mesa
                     </span>
+                    <span className="text-3xl sm:text-4xl font-extrabold text-emerald-400 tracking-tight">
+                      {formatCurrency(waiterPaymentOrder.total)}
+                    </span>
+                    <div className="flex items-center justify-center gap-2 mt-1 text-[11px] text-slate-300">
+                      <span className="font-mono bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/50">
+                        {waiterPaymentOrder.code}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {waiterPaymentOrder.items.length}{" "}
+                        {waiterPaymentOrder.items.length === 1 ? "producto" : "productos"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex gap-1.5">
-                    <Input
-                      type="text"
-                      maxLength={waiterVoucherType === "Factura" ? 11 : 8}
-                      placeholder={
-                        waiterVoucherType === "Factura"
-                          ? "Ej: 20601234567"
-                          : "Ej: 47829103 (o dejar en blanco)"
-                      }
-                      value={waiterCustomerDoc}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "");
-                        setWaiterCustomerDoc(val);
-                        if (waiterVoucherType === "Factura" && val.length === 11) {
-                          lookupIdentityDocument("ruc", val, "mozo");
-                        } else if (waiterVoucherType === "Boleta" && val.length === 8) {
-                          lookupIdentityDocument("dni", val, "mozo");
-                        }
-                      }}
-                      className="bg-white text-xs h-9 rounded-lg font-mono font-bold"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={lookingUpDoc || !waiterCustomerDoc.trim()}
-                      onClick={() =>
-                        lookupIdentityDocument(
-                          waiterVoucherType === "Factura" ? "ruc" : "dni",
-                          waiterCustomerDoc,
-                          "mozo"
-                        )
-                      }
-                      className="bg-slate-800 hover:bg-slate-900 text-white text-[11px] h-9 px-2.5 rounded-lg shrink-0 cursor-pointer shadow-xs"
-                      title="Consultar en RENIEC / SUNAT con json.pe"
-                    >
-                      {lookingUpDoc ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+
+                  {/* Detalle de Platos Consumidos */}
+                  <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2 pb-1 border-b border-slate-200">
+                      <span className="flex items-center gap-1.5">
+                        <Receipt className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Detalle de Consumo:</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">Subtotal</span>
+                    </div>
+
+                    <div className="max-h-36 sm:max-h-44 overflow-y-auto pr-1 flex flex-col gap-1.5 divide-y divide-slate-100">
+                      {waiterPaymentOrder.items.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-2 text-center">Sin productos registrados</p>
                       ) : (
-                        <Search className="w-3.5 h-3.5" />
-                      )}
-                      <span className="ml-1 hidden sm:inline">
-                        {waiterVoucherType === "Factura" ? "SUNAT" : "RENIEC"}
-                      </span>
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    className={`text-[11px] font-bold block mb-1 ${
-                      waiterVoucherType === "Factura" ? "text-amber-900" : "text-emerald-900"
-                    }`}
-                  >
-                    {waiterVoucherType === "Factura" ? "Razón Social:" : "Nombre del Cliente:"}
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder={
-                      waiterVoucherType === "Factura"
-                        ? "Ej: RESTAURANTES DEL PERÚ S.A.C."
-                        : "CLIENTES VARIOS (por defecto)"
-                    }
-                    value={waiterCustomerName}
-                    onChange={(e) => setWaiterCustomerName(e.target.value)}
-                    className="bg-white text-xs h-9 rounded-lg font-medium"
-                  />
-                  {waiterVoucherType === "Boleta" && !waiterCustomerDoc.trim() && (
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      💡 Si no se ingresa DNI ni nombre, se emitirá automáticamente como{" "}
-                      <strong>CLIENTES VARIOS</strong> (DNI: 00000000).
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              </div>
-
-              <div className="flex flex-col gap-4">
-              {/* Selector de Método de Cobro Móvil */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Selecciona Medio de Pago en Mesa:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWaiterPaymentMethod("pos")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "pos"
-                      ? "bg-blue-50 border-blue-500 text-blue-900 ring-2 ring-blue-500/20 shadow-xs"
-                      : "bg-slate-50 border-slate-200 text-slate-600"
-                      }`}
-                  >
-                    <CreditCard className="w-5 h-5 text-blue-600" />
-                    <span>Tarjeta POS</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setWaiterPaymentMethod("yape")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "yape"
-                      ? "bg-purple-50 border-purple-500 text-purple-900 ring-2 ring-purple-500/20 shadow-xs"
-                      : "bg-slate-50 border-slate-200 text-slate-600"
-                      }`}
-                  >
-                    <QrCode className="w-5 h-5 text-purple-600" />
-                    <span>Yape QR</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setWaiterPaymentMethod("efectivo")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "efectivo"
-                      ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
-                      : "bg-slate-50 border-slate-200 text-slate-600"
-                      }`}
-                  >
-                    <Banknote className="w-5 h-5 text-emerald-600" />
-                    <span>Efectivo</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setWaiterPaymentMethod("mixto")}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 text-xs font-bold cursor-pointer transition-all ${waiterPaymentMethod === "mixto"
-                      ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
-                      : "bg-slate-50 border-slate-200 text-slate-600"
-                      }`}
-                  >
-                    <CircleDollarSign className="w-5 h-5 text-amber-600" />
-                    <span>En Partes</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Modo Terminal POS Virtual (Simulador de Tarjeta y Cobro Digital) */}
-              {waiterPaymentMethod === "pos" && (
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50/70 border border-blue-200 p-4 rounded-2xl flex flex-col items-center text-center gap-3 shadow-xs">
-                  {/* Tarjeta Visual de Lectura Simulada */}
-                  <div className="w-full max-w-xs bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-4 shadow-md border border-slate-700/60 relative overflow-hidden text-left">
-                    <div className="absolute right-3 top-3 opacity-20">
-                      <CreditCard className="w-16 h-16" />
-                    </div>
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center gap-1.5">
-                        <Cpu className="w-7 h-7 text-amber-400" />
-                        <span className="text-[10px] tracking-widest text-slate-300 font-semibold uppercase">Chip EMV</span>
-                      </div>
-                      <span className="text-[11px] font-black tracking-widest text-blue-300">VISA / MC</span>
-                    </div>
-                    <div className="text-sm font-mono tracking-widest text-slate-200 mb-3">
-                      •••• •••• •••• 4242
-                    </div>
-                    <div className="flex justify-between items-end text-[10px] text-slate-300">
-                      <div>
-                        <span className="text-[8px] text-slate-400 uppercase block">Titular</span>
-                        <span className="font-semibold text-white">CLIENTE RESTAURANTE</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[8px] text-slate-400 uppercase block">Total a Cobrar</span>
-                        <span className="text-xs font-black text-emerald-400">{formatCurrency(waiterPaymentOrder.total)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-center">
-                    <span className="text-xs font-bold text-blue-950 block">
-                      Terminal POS Virtual (Sin Tarjeta Física)
-                    </span>
-                    <p className="text-[11px] text-blue-800">
-                      Simula la lectura de tarjeta y aprueba el cobro de inmediato. Al presionar el botón se genera el comprobante, se asienta la cuenta y se libera la mesa.
-                    </p>
-                  </div>
-
-                  <div className="w-full flex flex-col gap-2 pt-1">
-                    {/* Botón Principal: Simular Lectura de Tarjeta */}
-                    <button
-                      type="button"
-                      onClick={handleSimulateCardPayment}
-                      disabled={simulatingCard || processingWaiterPayment}
-                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer ${
-                        cardSimStep === "reading"
-                          ? "bg-amber-500 text-white animate-pulse"
-                          : cardSimStep === "approved"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                      }`}
-                    >
-                      {cardSimStep === "reading" ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin text-white" />
-                          <span>Leyendo Chip... Conectando con Pasarela...</span>
-                        </>
-                      ) : cardSimStep === "approved" ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                          <span>¡Cobro Aprobado! Finalizando venta...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="w-4 h-4 text-white" />
-                          <span>💳 Simular Lectura de Tarjeta y Cobrar ({formatCurrency(waiterPaymentOrder.total)})</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Botón para generar QR de cobro en pantalla si se desea cobrar digitalmente */}
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateMercadoPagoQR(waiterPaymentOrder.id)}
-                      disabled={mpLoading || simulatingCard}
-                      className="w-full py-2 px-3 bg-white hover:bg-slate-50 text-blue-700 border border-blue-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                      <QrCode className="w-4 h-4" />
-                      <span>{mpLoading ? "Generando QR..." : "Mostrar QR Mercado Pago en Pantalla"}</span>
-                    </button>
-
-                    {/* Mostrar imagen del QR dinámico si se generó */}
-                    {mpQrData && (
-                      <div className="p-3 bg-white border border-blue-200 rounded-xl flex flex-col items-center gap-2 mt-1">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-                            mpQrData
-                          )}`}
-                          alt="QR Mercado Pago"
-                          className="w-36 h-36 border p-1 rounded-lg bg-white shadow-2xs"
-                        />
-                        <span className="text-[10px] text-slate-500 font-medium">
-                          Escanea desde Mercado Pago o cualquier app bancaria
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Botón para verificar estado de cobro en la API de Mercado Pago */}
-                    <button
-                      type="button"
-                      onClick={() => handleVerifyMercadoPagoStatus(waiterPaymentOrder.id)}
-                      disabled={mpLoading || simulatingCard}
-                      className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>{mpLoading ? "Verificando..." : "Comprobar Pago en Mercado Pago"}</span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                    Simulador POS y Sincronización API Mercado Pago
-                  </div>
-                </div>
-              )}
-
-              {/* Modo Yape QR con Monto Automático Precargado */}
-              {waiterPaymentMethod === "yape" && (
-                <div className="bg-purple-50/70 border border-purple-200 p-4 rounded-2xl flex flex-col items-center text-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
-                      <QrCode className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                      <span className="text-xs font-bold text-purple-950 block">
-                        Yape QR con Monto Automático
-                      </span>
-                      <span className="text-[10px] text-purple-700">
-                        Total exacto precargado: <strong>{formatCurrency(waiterPaymentOrder.total)}</strong>
-                      </span>
-                    </div>
-                  </div>
-
-                  {waiterYapeQr && (
-                    <div className="p-3 bg-white border-2 border-purple-300 rounded-2xl shadow-xs flex flex-col items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={waiterYapeQr.qrImageUrl}
-                        alt="QR Dinámico Yape"
-                        className="w-44 h-44 rounded-xl border border-purple-100 bg-white"
-                      />
-                      <div className="text-center">
-                        <span className="text-xs font-extrabold text-purple-900 block">
-                          Monto a Cobrar: {waiterYapeQr.amountFormatted}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-medium">
-                          Yape Restaurante: {waiterYapeQr.phoneClean} ({waiterYapeQr.merchantName})
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="p-2.5 bg-purple-100/70 border border-purple-200 rounded-xl text-left text-[11px] text-purple-950 flex flex-col gap-1 w-full">
-                    <p className="font-semibold flex items-center gap-1.5 text-purple-900">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-700 shrink-0" />
-                      <span>El cliente NO escribe el monto:</span>
-                    </p>
-                    <p className="text-purple-800 text-[10.5px]">
-                      Al escanear este QR con su app Yape, la pantalla se abrirá con el monto de <strong>{formatCurrency(waiterPaymentOrder.total)}</strong> ya listo. El cliente solo debe presionar el botón <strong>&quot;YAPEAR&quot;</strong>.
-                    </p>
-                  </div>
-
-                  {waiterYapeQr && (
-                    <a
-                      href={waiterYapeQr.deepLink}
-                      className="text-[11px] font-bold text-purple-700 hover:text-purple-900 underline flex items-center gap-1"
-                    >
-                      <Smartphone className="w-3.5 h-3.5" />
-                      <span>Abrir app Yape en este celular</span>
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Modo Efectivo con Vuelto Rápido */}
-              {waiterPaymentMethod === "efectivo" && (
-                <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-2xl flex flex-col gap-2">
-                  <label className="text-xs font-bold text-emerald-950 block">
-                    Monto que entrega el comensal:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder={`Ej: ${waiterPaymentOrder.total}`}
-                      value={waiterAmountGiven}
-                      onChange={(e) => setWaiterAmountGiven(e.target.value)}
-                      className="bg-white text-xs h-9 rounded-lg font-bold"
-                    />
-                    <div className="flex gap-1">
-                      {[50, 100].map((b) => (
-                        <button
-                          key={b}
-                          type="button"
-                          onClick={() => setWaiterAmountGiven(String(b))}
-                          className="px-2 py-1 bg-white border border-emerald-300 rounded text-xs font-bold text-emerald-900 cursor-pointer"
-                        >
-                          S/{b}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center pt-1 border-t border-emerald-200/60 text-xs">
-                    <span className="font-bold text-emerald-900">Vuelto a devolver:</span>
-                    <span className="font-extrabold text-emerald-700 text-base">
-                      S/ {waiterChangeDue.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Modo Pagar en Partes en Mesa */}
-              {waiterPaymentMethod === "mixto" && (
-                <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between pb-1 border-b border-amber-200/70">
-                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                      <CircleDollarSign className="w-4 h-4 text-amber-600" />
-                      <span>Pagar en Partes en Mesa</span>
-                    </span>
-                    <span className="text-[11px] font-bold text-amber-900">
-                      Total: {formatCurrency(waiterPaymentOrder.total)}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    {waiterPaymentParts.map((part, index) => {
-                      const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
-                      const isYape = selectedPaymentType?.name.toLowerCase().includes("yape");
-                      const partAmountNum = Number(part.amount) || 0;
-
-                      const waiterPartYapeQr =
-                        isYape && partAmountNum > 0 && waiterPaymentOrder
-                          ? generateDynamicYapeQR({
-                              phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321",
-                              amount: partAmountNum,
-                              merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
-                              orderCode: `${waiterPaymentOrder.code}-P${index + 1}`,
-                            })
-                          : null;
-
-                      const otherSum = waiterPaymentParts
-                        .filter((p) => p.id !== part.id)
-                        .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-                      const remainingForThis = Math.max(0, Math.round((waiterPaymentOrder.total - otherSum) * 100) / 100);
-
-                      return (
-                        <div
-                          key={part.id}
-                          className="bg-white p-2.5 rounded-xl border border-amber-200 flex flex-col gap-2"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
-                              #{index + 1}
-                            </span>
-                            <select
-                              value={part.paymentTypeId}
-                              onChange={(e) =>
-                                updatePaymentPart(part.id, "paymentTypeId", Number(e.target.value), "mozo")
-                              }
-                              className="flex-1 h-7 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-1.5"
-                            >
-                              {paymentTypes.map((tp) => (
-                                <option key={tp.id} value={tp.id}>
-                                  {tp.name}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="w-24 relative shrink-0">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
-                                S/
+                        waiterPaymentOrder.items.map((it, idx) => (
+                          <div key={idx} className="pt-1.5 first:pt-0 flex items-start justify-between text-xs">
+                            <div className="flex items-start gap-1.5 min-w-0 pr-2">
+                              <span className="font-bold text-red-700 font-mono shrink-0">
+                                {it.quantity}x
                               </span>
-                              <Input
-                                type="number"
-                                step="any"
-                                placeholder="0.00"
-                                value={part.amount}
-                                onChange={(e) =>
-                                  updatePaymentPart(part.id, "monto", e.target.value, "mozo")
-                                }
-                                className="h-7 pl-6 text-xs font-bold rounded-lg bg-slate-50"
-                              />
+                              <div className="min-w-0">
+                                <span className="text-slate-800 font-medium truncate block">
+                                  {it.name || (it as any).dishName}
+                                </span>
+                                {it.notes && (
+                                  <span className="text-[10px] text-amber-700 italic block">
+                                    Nota: &quot;{it.notes}&quot;
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {remainingForThis > 0 && Number(part.amount) !== remainingForThis && (
-                              <button
-                                type="button"
-                                onClick={() => autofillRemaining(part.id, waiterPaymentOrder.total, "mozo")}
-                                className="text-[10px] font-bold px-1.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded transition-colors cursor-pointer shrink-0"
-                                title="Asignar restante"
-                              >
-                                = S/{remainingForThis.toFixed(2)}
-                              </button>
-                            )}
-                            {waiterPaymentParts.length > 2 && (
-                              <button
-                                type="button"
-                                onClick={() => removePaymentPart(part.id, "mozo")}
-                                className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <span className="font-bold text-slate-900 font-mono shrink-0">
+                              S/ {it.subtotal.toFixed(2)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Selector de Comprobante: Boleta vs Factura */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Tipo de Comprobante en Mesa:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWaiterVoucherType("Boleta");
+                          setWaiterCustomerDoc("");
+                          setWaiterCustomerName("");
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all text-center ${
+                          waiterVoucherType === "Boleta"
+                            ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Boleta de Venta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWaiterVoucherType("Factura");
+                          setWaiterCustomerDoc("");
+                          setWaiterCustomerName("");
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all text-center ${
+                          waiterVoucherType === "Factura"
+                            ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Factura Electrónica
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Datos del Cliente para Comprobante en Mesa (Boleta / Factura) */}
+                  <div
+                    className={`p-3 rounded-xl border flex flex-col gap-2.5 transition-all ${
+                      waiterVoucherType === "Factura"
+                        ? "bg-amber-50/80 border-amber-200"
+                        : "bg-emerald-50/60 border-emerald-200"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          className={`text-[11px] font-bold block ${
+                            waiterVoucherType === "Factura" ? "text-amber-900" : "text-emerald-900"
+                          }`}
+                        >
+                          {waiterVoucherType === "Factura"
+                            ? "RUC de la Empresa (11 dígitos):"
+                            : "DNI del Cliente (8 dígitos):"}
+                        </label>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {waiterVoucherType === "Factura"
+                            ? "Obligatorio"
+                            : "Opcional (Vacío = Clientes Varios)"}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Input
+                          type="text"
+                          maxLength={waiterVoucherType === "Factura" ? 11 : 8}
+                          placeholder={
+                            waiterVoucherType === "Factura"
+                              ? "Ej: 20601234567"
+                              : "Ej: 47829103 (o en blanco)"
+                          }
+                          value={waiterCustomerDoc}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            setWaiterCustomerDoc(val);
+                            if (waiterVoucherType === "Factura" && val.length === 11) {
+                              lookupIdentityDocument("ruc", val, "mozo");
+                            } else if (waiterVoucherType === "Boleta" && val.length === 8) {
+                              lookupIdentityDocument("dni", val, "mozo");
+                            }
+                          }}
+                          className="bg-white text-xs h-9 rounded-lg font-mono font-bold"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={lookingUpDoc || !waiterCustomerDoc.trim()}
+                          onClick={() =>
+                            lookupIdentityDocument(
+                              waiterVoucherType === "Factura" ? "ruc" : "dni",
+                              waiterCustomerDoc,
+                              "mozo"
+                            )
+                          }
+                          className="bg-slate-800 hover:bg-slate-900 text-white text-[11px] h-9 px-2.5 rounded-lg shrink-0 cursor-pointer shadow-xs"
+                          title="Consultar en RENIEC / SUNAT con json.pe"
+                        >
+                          {lookingUpDoc ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Search className="w-3.5 h-3.5" />
+                          )}
+                          <span className="ml-1 hidden sm:inline">
+                            {waiterVoucherType === "Factura" ? "SUNAT" : "RENIEC"}
+                          </span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        className={`text-[11px] font-bold block mb-1 ${
+                          waiterVoucherType === "Factura" ? "text-amber-900" : "text-emerald-900"
+                        }`}
+                      >
+                        {waiterVoucherType === "Factura" ? "Razón Social:" : "Nombre del Cliente:"}
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder={
+                          waiterVoucherType === "Factura"
+                            ? "Ej: RESTAURANTES DEL PERÚ S.A.C."
+                            : "CLIENTES VARIOS (por defecto)"
+                        }
+                        value={waiterCustomerName}
+                        onChange={(e) => setWaiterCustomerName(e.target.value)}
+                        className="bg-white text-xs h-9 rounded-lg font-medium"
+                      />
+                      {waiterVoucherType === "Boleta" && !waiterCustomerDoc.trim() && (
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          💡 Si no se ingresa DNI ni nombre, se emitirá automáticamente como{" "}
+                          <strong>CLIENTES VARIOS</strong> (DNI: 00000000).
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ========================================================= */}
+                {/* COLUMNA DERECHA: MEDIOS DE PAGO & TERMINAL INTERACTIVO */}
+                {/* ========================================================= */}
+                <div className="md:col-span-7 flex flex-col gap-3.5">
+                  {/* Selector de Método de Cobro Móvil */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Selecciona Medio de Pago en Mesa:
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWaiterPaymentMethod("pos")}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 text-xs font-bold cursor-pointer transition-all ${
+                          waiterPaymentMethod === "pos"
+                            ? "bg-blue-50 border-blue-500 text-blue-900 ring-2 ring-blue-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <CreditCard className="w-5 h-5 text-blue-600" />
+                        <span>Tarjeta POS</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWaiterPaymentMethod("yape")}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 text-xs font-bold cursor-pointer transition-all ${
+                          waiterPaymentMethod === "yape"
+                            ? "bg-purple-50 border-purple-500 text-purple-900 ring-2 ring-purple-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <QrCode className="w-5 h-5 text-purple-600" />
+                        <span>Yape QR</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWaiterPaymentMethod("efectivo")}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 text-xs font-bold cursor-pointer transition-all ${
+                          waiterPaymentMethod === "efectivo"
+                            ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Banknote className="w-5 h-5 text-emerald-600" />
+                        <span>Efectivo</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWaiterPaymentMethod("mixto")}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 text-xs font-bold cursor-pointer transition-all ${
+                          waiterPaymentMethod === "mixto"
+                            ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <CircleDollarSign className="w-5 h-5 text-amber-600" />
+                        <span>En Partes</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* MODO 1: TERMINAL POS VIRTUAL */}
+                  {waiterPaymentMethod === "pos" && (
+                    <div className="bg-gradient-to-br from-blue-50/80 to-indigo-50/60 border border-blue-200 p-4 rounded-2xl flex flex-col items-center text-center gap-3.5 shadow-xs">
+                      {/* Tarjeta Visual de Lectura */}
+                      <div className="w-full max-w-sm bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-4 shadow-lg border border-slate-700/60 relative overflow-hidden text-left">
+                        <div className="absolute right-3 top-3 opacity-20">
+                          <CreditCard className="w-20 h-20" />
+                        </div>
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-1.5">
+                            <Cpu className="w-7 h-7 text-amber-400" />
+                            <span className="text-[10px] tracking-widest text-slate-300 font-semibold uppercase">Chip EMV</span>
+                          </div>
+                          <span className="text-xs font-black tracking-widest text-blue-300">VISA / MASTERCARD</span>
+                        </div>
+                        <div className="text-base font-mono tracking-widest text-slate-200 mb-3">
+                          •••• •••• •••• 4242
+                        </div>
+                        <div className="flex justify-between items-end text-[10px] text-slate-300">
+                          <div>
+                            <span className="text-[8px] text-slate-400 uppercase block">Titular</span>
+                            <span className="font-semibold text-white">
+                              {waiterCustomerName || "CLIENTE RESTAURANTE"}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[8px] text-slate-400 uppercase block">Total a Cobrar</span>
+                            <span className="text-sm font-black text-emerald-400">{formatCurrency(waiterPaymentOrder.total)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-center max-w-md">
+                        <span className="text-xs font-bold text-blue-950 block">
+                          Terminal POS Físico o Virtual
+                        </span>
+                        <p className="text-[11px] text-blue-800 mt-0.5">
+                          Pasa la tarjeta física por tu POS (Niubiz, Izipay, etc.) o pulsa para simular la lectura de chip y confirmar el cobro.
+                        </p>
+                      </div>
+
+                      <div className="w-full max-w-md flex flex-col gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSimulateCardPayment}
+                          disabled={simulatingCard || processingWaiterPayment}
+                          className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer ${
+                            cardSimStep === "reading"
+                              ? "bg-amber-500 text-white animate-pulse"
+                              : cardSimStep === "approved"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                        >
+                          {cardSimStep === "reading" ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              <span>Leyendo Chip... Conectando con Pasarela...</span>
+                            </>
+                          ) : cardSimStep === "approved" ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                              <span>¡Cobro Aprobado! Finalizando venta...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4 text-white" />
+                              <span>💳 Simular Lectura de Tarjeta y Cobrar ({formatCurrency(waiterPaymentOrder.total)})</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-white px-2.5 py-1 rounded-full border border-blue-200">
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Terminal POS Físico Autorizado</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MODO 2: YAPE DIRECTO (QR Y NÚMERO) */}
+                  {waiterPaymentMethod === "yape" && (
+                    <div className="bg-purple-50/70 border border-purple-200 p-4 rounded-2xl flex flex-col gap-3.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
+                        {/* Subcolumna 1: Datos de Cobro */}
+                        <div className="flex flex-col gap-3">
+                          <div className="bg-white border border-purple-200 rounded-xl p-3 flex flex-col gap-2.5 text-left shadow-2xs">
+                            <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                              <span className="text-[11px] font-bold text-slate-500">Monto Exacto:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-base font-black text-purple-900">
+                                  {formatCurrency(waiterPaymentOrder.total)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(String(waiterPaymentOrder.total));
+                                    toast.success("Monto copiado al portapapeles.");
+                                  }}
+                                  className="p-1 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
+                                  title="Copiar monto"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                              <span className="text-[11px] font-bold text-slate-500">Número Yape:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-mono font-black text-purple-900">
+                                  {waiterYapeQr?.phoneDisplay || waiterYapeQr?.phoneClean || "954 316 272"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(waiterYapeQr?.phoneClean || "954316272");
+                                    toast.success("Número de celular copiado.");
+                                  }}
+                                  className="p-1 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
+                                  title="Copiar celular"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-500">Titular de la Cuenta:</span>
+                              <span className="text-xs font-bold text-slate-800">
+                                {waiterYapeQr?.merchantName || "El Buen Sabor a la Brasa"}
+                              </span>
+                            </div>
                           </div>
 
-                          {/* Helper para Yape: QR Dinámico con monto específico para esta parte */}
-                          {isYape && partAmountNum > 0 && waiterPartYapeQr && (
-                            <div className="p-2.5 bg-purple-50/90 border border-purple-200 rounded-xl flex flex-col items-center gap-1.5 text-center mt-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white">
-                                  QR YAPE PARTE #{index + 1}
-                                </span>
-                                <span className="text-[11px] font-bold text-purple-950">
-                                  Monto: {waiterPartYapeQr.amountFormatted}
-                                </span>
+                          {/* Campo Opcional Código de Operación */}
+                          <div className="bg-white border border-purple-200 rounded-xl p-3 flex flex-col gap-1.5 text-left shadow-2xs">
+                            <label className="text-[11px] font-bold text-purple-950 block">
+                              Código de Operación / Aprobación (Opcional):
+                            </label>
+                            <Input
+                              type="text"
+                              maxLength={8}
+                              placeholder="Ej: 123456 (del comprobante Yape)"
+                              value={yapeOperationCode}
+                              onChange={(e) => setYapeOperationCode(e.target.value.replace(/\D/g, ""))}
+                              className="bg-purple-50/40 text-xs h-9 rounded-lg font-mono font-bold border-purple-200"
+                            />
+                            <span className="text-[10px] text-slate-400">
+                              Útil para cuadre de caja y auditoría contable.
+                            </span>
+                          </div>
+
+                          {/* Tarjeta de Toma de Foto del Comprobante Yape (Evidencia S3) */}
+                          <div className="bg-white border-2 border-purple-300 rounded-xl p-3 flex flex-col gap-2 text-left shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1.5">
+                                <Camera className="w-3.5 h-3.5 text-purple-700" />
+                                <span>Foto Comprobante (Evidencia S3)</span>
+                              </span>
+                              {waiterYapeProofImage && (
+                                <Badge className="bg-emerald-600 text-white text-[9.5px] font-bold px-1.5 py-0.2">
+                                  ✓ Capturada
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 leading-tight">
+                              Toma una foto de la pantalla de Yape del cliente. Se archivará en AWS S3 vinculada a su boleta.
+                            </p>
+
+                            {!waiterYapeProofImage ? (
+                              <label
+                                htmlFor="waiter-camera-input"
+                                className="w-full py-2.5 px-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
+                              >
+                                <Camera className="w-4 h-4" />
+                                <span>📸 Tomar Foto con Cámara / Subir Captura</span>
+                                <input
+                                  id="waiter-camera-input"
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      toast.error("La imagen no debe superar los 5MB.");
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const b64 = ev.target?.result as string;
+                                      if (b64) {
+                                        setWaiterYapeProofImage(b64);
+                                        toast.success("Foto del comprobante Yape capturada con éxito.");
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            ) : (
+                              <div className="flex items-center gap-2.5 p-2 bg-purple-50 rounded-xl border border-purple-200">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={waiterYapeProofImage}
+                                  alt="Foto comprobante Yape"
+                                  className="w-14 h-14 object-cover rounded-lg border border-purple-300 shadow-2xs shrink-0"
+                                />
+                                <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                                  <span className="text-[11px] font-bold text-purple-950 truncate">
+                                    Foto de comprobante lista
+                                  </span>
+                                  <span className="text-[9.5px] text-slate-500">
+                                    Se anexará a la boleta en S3 al validar cobro
+                                  </span>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <label
+                                      htmlFor="waiter-camera-input-replace"
+                                      className="text-[10px] text-purple-700 font-bold hover:underline cursor-pointer"
+                                    >
+                                      Cambiar foto
+                                      <input
+                                        id="waiter-camera-input-replace"
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+                                          const reader = new FileReader();
+                                          reader.onload = (ev) => {
+                                            const b64 = ev.target?.result as string;
+                                            if (b64) {
+                                              setWaiterYapeProofImage(b64);
+                                              toast.success("Foto reemplazada correctamente.");
+                                            }
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => setWaiterYapeProofImage("")}
+                                      className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
+                                    >
+                                      Quitar
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Subcolumna 2: QR Oficial y Botón de Confirmación */}
+                        {waiterYapeQr && (
+                          <div className="bg-white border-2 border-purple-300 rounded-2xl p-3.5 shadow-xs flex flex-col items-center gap-2.5 text-center">
+                            <div className="flex items-center justify-between w-full border-b border-purple-100 pb-1.5">
+                              <span className="text-[11px] font-black text-purple-950 flex items-center gap-1.5">
+                                <QrCode className="w-4 h-4 text-purple-700" />
+                                {waiterYapeQr.isCustomImage ? "QR OFICIAL EMPRESA" : "CÓDIGO YAPE DIRECTO"}
+                              </span>
+                              <span className="text-xs font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded-lg">
+                                {waiterYapeQr.amountFormatted}
+                              </span>
+                            </div>
+
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={waiterYapeQr.qrImageUrl}
+                              alt="QR Oficial Yape"
+                              className="w-44 h-44 rounded-xl border border-purple-100 bg-white p-1 object-contain shadow-xs"
+                            />
+
+                            <span className="text-[10.5px] text-purple-950 font-black block px-1">
+                              📷 Escanea desde tu app Yape o transfiere al {waiterYapeQr.phoneDisplay || waiterYapeQr.phoneClean}
+                            </span>
+
+                            <button
+                              type="button"
+                              disabled={processingWaiterPayment}
+                              onClick={executeWaiterPayment}
+                              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all mt-1 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white"
+                            >
+                              {processingWaiterPayment ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                              )}
+                              <span>Confirmar Cobro Yape y Liberar Mesa</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MODO 3: EFECTIVO CON VUELTO RÁPIDO */}
+                  {waiterPaymentMethod === "efectivo" && (
+                    <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-2xl flex flex-col gap-3">
+                      <label className="text-xs font-bold text-emerald-950 block">
+                        Monto entregado por el comensal:
+                      </label>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <Input
+                          type="number"
+                          step="any"
+                          placeholder={`Ej: ${waiterPaymentOrder.total}`}
+                          value={waiterAmountGiven}
+                          onChange={(e) => setWaiterAmountGiven(e.target.value)}
+                          className="bg-white text-sm h-10 rounded-xl font-bold flex-1"
+                        />
+                        <div className="flex flex-wrap gap-1.5 shrink-0">
+                          {[20, 50, 100, 200].map((b) => (
+                            <button
+                              key={b}
+                              type="button"
+                              onClick={() => setWaiterAmountGiven(String(b))}
+                              className="px-2.5 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-100/70 rounded-lg text-xs font-bold text-emerald-900 cursor-pointer shadow-2xs transition-colors"
+                            >
+                              S/ {b}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setWaiterAmountGiven(String(waiterPaymentOrder.total))}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer shadow-2xs transition-colors"
+                          >
+                            Exacto
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center p-3 bg-white border border-emerald-200 rounded-xl text-xs mt-1">
+                        <div>
+                          <span className="font-bold text-emerald-950 block">Vuelto a devolver:</span>
+                          <span className="text-[10.5px] text-slate-500">
+                            Entregado: S/ {Number(waiterAmountGiven || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <span className="font-extrabold text-emerald-700 text-xl font-mono">
+                          S/ {waiterChangeDue.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MODO 4: PAGAR EN PARTES EN MESA */}
+                  {waiterPaymentMethod === "mixto" && (
+                    <div className="bg-amber-50/80 p-3.5 sm:p-4 rounded-2xl border border-amber-200 flex flex-col gap-3">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/70">
+                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                          <CircleDollarSign className="w-4 h-4 text-amber-600" />
+                          <span>Pagar en Partes en Mesa</span>
+                        </span>
+                        <span className="text-xs font-bold text-amber-900">
+                          Total: {formatCurrency(waiterPaymentOrder.total)}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-2.5 max-h-[58vh] sm:max-h-[500px] overflow-y-auto pr-1">
+                        {waiterPaymentParts.map((part, index) => {
+                          const selectedPaymentType = paymentTypes.find((t) => t.id === part.paymentTypeId);
+                          const isYape = selectedPaymentType?.name.toLowerCase().includes("yape");
+                          const partAmountNum = Number(part.amount) || 0;
+
+                          const waiterPartYapeQr =
+                            isYape && partAmountNum > 0 && waiterPaymentOrder
+                              ? generateDynamicYapeQR({
+                                  phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272",
+                                  amount: partAmountNum,
+                                  merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
+                                  orderCode: `${waiterPaymentOrder.code}-P${index + 1}`,
+                                  customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
+                                })
+                              : null;
+
+                          const otherSum = waiterPaymentParts
+                            .filter((p) => p.id !== part.id)
+                            .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+                          const remainingForThis = Math.max(0, Math.round((waiterPaymentOrder.total - otherSum) * 100) / 100);
+
+                          return (
+                            <div
+                              key={part.id}
+                              className="bg-white p-2.5 rounded-xl border border-amber-200 flex flex-col gap-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  #{index + 1}
+                                </span>
+                                <select
+                                  value={part.paymentTypeId}
+                                  onChange={(e) =>
+                                    updatePaymentPart(part.id, "paymentTypeId", Number(e.target.value), "mozo")
+                                  }
+                                  className="flex-1 h-8 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2"
+                                >
+                                  {paymentTypes.map((tp) => (
+                                    <option key={tp.id} value={tp.id}>
+                                      {tp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="w-24 relative shrink-0">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                                    S/
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    step="any"
+                                    placeholder="0.00"
+                                    value={part.amount}
+                                    onChange={(e) =>
+                                      updatePaymentPart(part.id, "monto", e.target.value, "mozo")
+                                    }
+                                    className="h-8 pl-6 text-xs font-bold rounded-lg bg-slate-50"
+                                  />
+                                </div>
+                                {remainingForThis > 0 && Number(part.amount) !== remainingForThis && (
+                                  <button
+                                    type="button"
+                                    onClick={() => autofillRemaining(part.id, waiterPaymentOrder.total, "mozo")}
+                                    className="text-[10px] font-bold px-1.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded transition-colors cursor-pointer shrink-0"
+                                    title="Asignar restante"
+                                  >
+                                    = S/{remainingForThis.toFixed(2)}
+                                  </button>
+                                )}
+                                {waiterPaymentParts.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removePaymentPart(part.id, "mozo")}
+                                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* QR Yape Oficial adaptado para esta parte */}
+                              {isYape && partAmountNum > 0 && waiterPartYapeQr && (
+                                <div className="p-3 bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200 rounded-xl flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left mt-1.5 shadow-2xs">
+                                  <div className="p-1.5 bg-white border border-purple-200 rounded-xl shadow-xs shrink-0 flex flex-col items-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={waiterPartYapeQr.qrImageUrl}
+                                      alt={`QR Yape Parte #${index + 1}`}
+                                      className="w-32 h-32 sm:w-36 sm:h-36 object-contain rounded-lg bg-white p-0.5"
+                                    />
+                                    <span className="text-[10px] text-purple-900 font-black mt-1">
+                                      {waiterPartYapeQr.amountFormatted}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                                    <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white shadow-2xs">
+                                        QR YAPE PARTE #{index + 1}
+                                      </span>
+                                      <span className="text-xs font-black text-purple-950">
+                                        Monto: {formatCurrency(partAmountNum)}
+                                      </span>
+                                      {waiterPartYapeQr.isCustomImage && (
+                                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                                          ✓ QR Oficial
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-purple-900 leading-snug">
+                                      El cliente debe escanear con su app Yape y transferir <strong>{formatCurrency(partAmountNum)}</strong>.
+                                    </p>
+                                    <div className="p-2 bg-white rounded-lg border border-purple-100 text-[10.5px] flex flex-col gap-1 shadow-2xs text-left">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium">Celular:</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="font-mono font-bold text-purple-950">{waiterPartYapeQr.phoneDisplay || waiterPartYapeQr.phoneClean}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(waiterPartYapeQr.phoneClean);
+                                              toast.success("Celular copiado.");
+                                            }}
+                                            className="p-0.5 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
+                                            title="Copiar celular"
+                                          >
+                                            <Copy className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between border-t border-purple-50 pt-1">
+                                        <span className="text-slate-500 font-medium">Titular:</span>
+                                        <span className="font-bold text-slate-800 truncate">{waiterPartYapeQr.merchantName}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Evidencia fotográfica Yape en Pago en Partes en Mesa */}
+                      {waiterPaymentParts.some((p) => {
+                        const tp = paymentTypes.find((t) => t.id === p.paymentTypeId);
+                        return tp?.name.toLowerCase().includes("yape");
+                      }) && (
+                        <div className="bg-white border-2 border-purple-200 rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
+                              <Camera className="w-3.5 h-3.5 text-purple-700" />
+                              <span>Foto Comprobante Yape (Evidencia S3):</span>
+                            </span>
+                            {waiterYapeProofImage && (
+                              <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2">
+                                ✓ Capturada
+                              </Badge>
+                            )}
+                          </div>
+                          {!waiterYapeProofImage ? (
+                            <label
+                              htmlFor="waiter-parts-camera-input"
+                              className="py-1.5 px-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>📸 Tomar Foto al Comprobante Yape</span>
+                              <input
+                                id="waiter-parts-camera-input"
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    toast.error("La imagen no debe superar los 5MB.");
+                                    return;
+                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => {
+                                    const b64 = ev.target?.result as string;
+                                    if (b64) {
+                                      setWaiterYapeProofImage(b64);
+                                      toast.success("Foto del comprobante capturada.");
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }}
+                              />
+                            </label>
+                          ) : (
+                            <div className="flex items-center gap-2 p-1.5 bg-purple-50 rounded-lg border border-purple-200">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={waiterPartYapeQr.qrImageUrl}
-                                alt={`QR Dinámico Yape Parte #${index + 1}`}
-                                className="w-32 h-32 rounded-xl border border-purple-200 bg-white shadow-2xs"
+                                src={waiterYapeProofImage}
+                                alt="Foto comprobante"
+                                className="w-10 h-10 object-cover rounded-md border border-purple-300 shrink-0"
                               />
-                              <span className="text-[10px] text-purple-800">
-                                Precarga automática en Yape: <strong>S/ {partAmountNum.toFixed(2)}</strong>. Solo pulsar <strong>&quot;YAPEAR&quot;</strong>.
-                              </span>
-                              <a
-                                href={waiterPartYapeQr.deepLink}
-                                className="text-[10px] font-bold text-purple-700 hover:text-purple-900 underline flex items-center gap-1"
-                              >
-                                <Smartphone className="w-3 h-3" />
-                                <span>Abrir app Yape</span>
-                              </a>
+                              <div className="flex-1 min-w-0 flex items-center justify-between text-[10px]">
+                                <span className="text-slate-600 font-medium truncate">Foto lista para anexar en S3</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setWaiterYapeProofImage("")}
+                                  className="text-rose-600 font-bold hover:underline ml-2 cursor-pointer"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
+                      )}
 
-                  <div className="flex items-center justify-between pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addPaymentPart("mozo")}
-                      className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-7 rounded-lg cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      <span>Agregar parte</span>
-                    </Button>
-                  </div>
-
-                  {/* Balance en mesa */}
-                  {(() => {
-                    const covered = Math.round(
-                      waiterPaymentParts.reduce((s, p) => s + (Number(p.amount) || 0), 0) * 100
-                    ) / 100;
-                    const difference = Math.round((waiterPaymentOrder.total - covered) * 100) / 100;
-                    const isExact = Math.abs(difference) <= 0.05 && covered > 0;
-
-                    return (
-                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 text-xs flex items-center justify-between">
-                        <span>
-                          Suma: <strong>S/ {covered.toFixed(2)}</strong>
-                        </span>
-                        {isExact ? (
-                          <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
-                            ✓ 100% Cubierto
-                          </Badge>
-                        ) : difference > 0 ? (
-                          <Badge className="bg-amber-600 text-white font-bold text-[10px]">
-                            Falta: S/ {difference.toFixed(2)}
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-rose-600 text-white font-bold text-[10px]">
-                            Excede: S/ {Math.abs(difference).toFixed(2)}
-                          </Badge>
-                        )}
+                      <div className="flex items-center justify-between pt-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addPaymentPart("mozo")}
+                          className="text-xs font-bold text-amber-900 border-amber-300 hover:bg-amber-100/70 h-7 rounded-lg cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          <span>Agregar parte</span>
+                        </Button>
                       </div>
-                    );
-                  })()}
-                </div>
-              )}
 
+                      {/* Balance en mesa */}
+                      {(() => {
+                        const covered = Math.round(
+                          waiterPaymentParts.reduce((s, p) => s + (Number(p.amount) || 0), 0) * 100
+                        ) / 100;
+                        const difference = Math.round((waiterPaymentOrder.total - covered) * 100) / 100;
+                        const isExact = Math.abs(difference) <= 0.05 && covered > 0;
+
+                        return (
+                          <div className="bg-white p-2.5 rounded-xl border border-amber-200 text-xs flex items-center justify-between">
+                            <span>
+                              Suma: <strong>S/ {covered.toFixed(2)}</strong>
+                            </span>
+                            {isExact ? (
+                              <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                                ✓ 100% Cubierto
+                              </Badge>
+                            ) : difference > 0 ? (
+                              <Badge className="bg-amber-600 text-white font-bold text-[10px]">
+                                Falta: S/ {difference.toFixed(2)}
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-rose-600 text-white font-bold text-[10px]">
+                                Excede: S/ {Math.abs(difference).toFixed(2)}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <DialogFooter className="flex gap-2 pt-2 border-t border-slate-200 lg:col-span-2">
+              {/* Botones de Acción Globales del Modal */}
+              <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 mt-1 border-t border-slate-200">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWaiterPaymentModalOpen(false)}
+                  className="text-xs font-semibold rounded-xl h-10 px-4 cursor-pointer"
+                >
+                  Cancelar
+                </Button>
                 <Button
                   size="sm"
                   onClick={executeWaiterPayment}
                   disabled={processingWaiterPayment}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 rounded-xl flex-1 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 rounded-xl px-5 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   {processingWaiterPayment ? (
                     <>

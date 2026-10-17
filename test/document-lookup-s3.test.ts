@@ -3,6 +3,7 @@ import { lookupIdentityDocument } from "../lib/services/document-lookup.service"
 import {
   buildVoucherS3Key,
   uploadVoucherToS3,
+  uploadPaymentProofToS3,
   uploadVouchersBatch,
   getBucketName,
 } from "../lib/services/s3-storage.service";
@@ -140,6 +141,24 @@ describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", 
         process.env.AWS_ENDPOINT_URL_S3 = backupEndpoint;
         process.env.AWS_ACCESS_KEY_ID = backupKey;
       }
+    });
+
+    it("debe subir y archivar la foto de comprobante de Yape en S3 con ruta organizada", async () => {
+      // Simulación de imagen JPEG en base64 tomada por el mozo
+      const sampleBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
+
+      const result = await uploadPaymentProofToS3({
+        orderId: 55,
+        serie: "B001",
+        number: 432,
+        imageBase64: sampleBase64,
+      });
+
+      expect(result).toBeDefined();
+      expect(result.status).toBe("guardado");
+      expect(result.s3Key).toMatch(/^yape-vouchers\/\d{4}\/\d{2}\/\d{2}\/B001-000432-proof-\d+\.jpg$/);
+      expect(result.publicUrl).toBeDefined();
+      expect(result.publicUrl.length).toBeGreaterThan(0);
     });
   });
 });

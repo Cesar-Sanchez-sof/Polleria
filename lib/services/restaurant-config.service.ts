@@ -14,6 +14,7 @@ export interface RestaurantInfo {
   logoUrl?: string;
   yapePhone?: string;
   yapeName?: string;
+  yapeQrImageUrl?: string;
 }
 
 export interface DiningArea {
@@ -66,8 +67,9 @@ const DEFAULT_CONFIG: RestaurantGlobalConfig = {
     ticketFooter: "¡Gracias por su visita! Pollería & Brasas les desea un excelente día. Para comprobante electrónico visite www.elbuensabor.pe",
     currency: "S/ PEN",
     logoUrl: "",
-    yapePhone: "987654321",
+    yapePhone: "954316272",
     yapeName: "El Buen Sabor a la Brasa",
+    yapeQrImageUrl: "",
   },
   areas: [
     {
