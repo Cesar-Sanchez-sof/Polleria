@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { accountingAccount: accountMock, $transaction: $transactionMock },
 }));
 
-import { GET, PATCH } from "./route";
+import { GET, PATCH } from "@/app/api/accounts/[id]/route";
 
 const ACCOUNT_ID = 1;
 

@@ -15,7 +15,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { GET } from "./route";
+import { GET } from "@/app/api/journal-entries/route";
 
 function createRequest(queryString = ""): NextRequest {
   return {

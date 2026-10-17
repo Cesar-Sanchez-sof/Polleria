@@ -389,6 +389,7 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'igv', type: 'Decimal', kind: 'field' },
 			{ name: 'totalAmount', type: 'Decimal', kind: 'field' },
 			{ name: 'status', type: 'String', kind: 'field' },
+			{ name: 's3Url', type: 'String', kind: 'field', optional: true },
 		],
 	},
 	{
