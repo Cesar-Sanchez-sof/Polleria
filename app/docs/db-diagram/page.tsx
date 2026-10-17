@@ -7,12 +7,12 @@ import { Database } from 'lucide-react';
 export default function DBDiagramPage() {
   return (
     <main style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
-      <div className="flex items-center gap-3 border-b border-border px-6 py-3">
-        <h1 className="text-lg font-bold">Diagrama de Base de Datos</h1>
-        <span className="rounded-full bg-surface-raised px-2 py-0.5 text-xs text-text-disabled border border-border">
-          Polleria PostgreSQL
-        </span>
-      </div>
+      <ModuleHeader
+        title="Diagrama de Base de Datos"
+        subtitle="Entidades y relaciones del esquema PostgreSQL de la Pollería."
+        icon={Database}
+        iconClassName="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+      />
       <div className="flex-1 overflow-hidden">
         <DbDiagram />
       </div>
