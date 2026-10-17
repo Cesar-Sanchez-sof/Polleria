@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type StatCardTone = "blue" | "emerald" | "indigo" | "purple" | "amber" | "rose" | "brand" | "neutral";
+export type StatCardTone = "blue" | "emerald" | "indigo" | "cyan" | "purple" | "amber" | "rose" | "brand" | "neutral";
 export type StatCardValueSize = "md" | "lg" | "xl";
 export type StatCardLayout = "icon-first" | "label-first" | "tinted";
 export type StatCardOrientation = "horizontal" | "vertical";
@@ -95,6 +95,21 @@ const TONES: Record<StatCardTone, ToneClasses> = {
       label: "text-emerald-800 dark:text-emerald-300",
       value: "text-emerald-950 dark:text-emerald-100",
       note: "text-emerald-700 dark:text-emerald-400",
+    },
+  },
+  cyan: {
+    gradient: "to-cyan-50/20 dark:to-cyan-950/10",
+    icon: "bg-cyan-50 text-cyan-600 border-cyan-100 dark:bg-cyan-950/60 dark:text-cyan-400 dark:border-cyan-900/60",
+    pill: "text-cyan-700 bg-cyan-50 border-cyan-200 dark:text-cyan-400 dark:bg-cyan-950/50 dark:border-cyan-900/60",
+    value: "text-cyan-700 dark:text-cyan-300",
+    label: "text-cyan-700 dark:text-cyan-400",
+    bar: "bg-cyan-500",
+    tinted: {
+      card: "bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-900/60",
+      solid: "bg-cyan-600",
+      label: "text-cyan-800 dark:text-cyan-300",
+      value: "text-cyan-950 dark:text-cyan-100",
+      note: "text-cyan-700 dark:text-cyan-400",
     },
   },
   indigo: {

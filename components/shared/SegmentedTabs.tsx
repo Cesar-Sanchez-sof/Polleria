@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type SegmentedTabTone = "neutral" | "success" | "danger" | "warning" | "info" | "brand";
+export type SegmentedTabTone = "neutral" | "success" | "danger" | "warning" | "info" | "cyan" | "purple" | "brand";
 export type SegmentedTabsSize = "sm" | "md" | "lg";
 export type SegmentedTabsVariant = "segmented" | "underline";
 export type SegmentedTabsRounded = "md" | "lg" | "xl" | "full";
@@ -61,6 +61,8 @@ const ACTIVE_LABEL: Record<SegmentedTabTone, string> = {
   danger: "text-rose-700 dark:text-rose-400",
   warning: "text-amber-700 dark:text-amber-400",
   info: "text-blue-700 dark:text-blue-400",
+  cyan: "text-cyan-700 dark:text-cyan-400",
+  purple: "text-purple-700 dark:text-purple-400",
   brand: "text-red-700 dark:text-red-400",
 };
 
@@ -70,6 +72,8 @@ const BADGE: Record<SegmentedTabTone, string> = {
   danger: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
   warning: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   info: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+  cyan: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300",
+  purple: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
   brand: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
@@ -79,6 +83,8 @@ const UNDERLINE_ACTIVE: Record<SegmentedTabTone, string> = {
   danger: "border-rose-600",
   warning: "border-amber-600",
   info: "border-blue-600",
+  cyan: "border-cyan-600",
+  purple: "border-purple-600",
   brand: "border-red-700",
 };
 

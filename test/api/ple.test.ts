@@ -6,7 +6,7 @@ const { loadMock } = vi.hoisted(() => ({ loadMock: vi.fn() }));
 
 vi.mock("@/lib/services/ple.service", () => ({ loadPleSnapshot: loadMock }));
 
-import { GET } from "./route";
+import { GET } from "@/app/api/ple/[book]/route";
 
 function snapshot(ruc = "20608976543"): PleSnapshot {
   return {

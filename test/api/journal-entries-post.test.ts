@@ -27,7 +27,7 @@ vi.mock("@/lib/journal-entry-code", () => ({
   generateJournalEntryCode: generateCodeMock,
 }));
 
-import { POST } from "./route";
+import { POST } from "@/app/api/journal-entries/route";
 
 const CASH_ACCOUNT_ID = 7;
 const SALES_ACCOUNT_ID = 21;

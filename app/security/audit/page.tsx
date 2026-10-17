@@ -5,7 +5,6 @@ import { Eye, ShieldCheck } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -111,10 +110,7 @@ export default function AuditPage() {
       cell: (r) =>
         r.details != null ? (
           <RowActions
-            mode="label"
-            variant="outline"
-            size="sm"
-            actions={[{ key: "changes", label: "Ver cambios", icon: <Eye />, onClick: () => setDetail(r) }]}
+            actions={[{ key: "changes", label: "Ver cambios", icon: <Eye />, tone: "blue", onClick: () => setDetail(r) }]}
           />
         ) : null,
     },
@@ -126,41 +122,37 @@ export default function AuditPage() {
         title="Auditoría"
         subtitle="Registro de cambios: fecha, hora, usuario, acción, módulo y detalle"
         icon={ShieldCheck}
-      />
+      >
+        <form onSubmit={search} className="flex flex-wrap items-center justify-end gap-2">
+          <Input type="date" className="w-36" aria-label="Desde" value={filters.from} onChange={change("from")} />
+          <Input type="date" className="w-36" aria-label="Hasta" value={filters.to} onChange={change("to")} />
+          <Input className="w-32" placeholder="Usuario" aria-label="Usuario" value={filters.user} onChange={change("user")} />
+          <NativeSelect className="w-44" aria-label="Acción" value={filters.action} onChange={change("action")}>
+            <option value="">Todas las acciones</option>
+            {(data?.actions ?? Object.keys(ACTION_LABEL)).map((a) => (
+              <option key={a} value={a}>
+                {ACTION_LABEL[a] ?? a}
+              </option>
+            ))}
+          </NativeSelect>
+          <NativeSelect className="w-44" aria-label="Módulo" value={filters.module} onChange={change("module")}>
+            <option value="">Todos los módulos</option>
+            {(data?.modules ?? []).map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </NativeSelect>
+          <Input className="w-48" placeholder="Buscar en descripción" aria-label="Buscar" value={filters.q} onChange={change("q")} />
+          <div className="flex gap-2">
+            <Button type="submit">Filtrar</Button>
+            <Button type="button" variant="outline" onClick={clear}>
+              Limpiar
+            </Button>
+          </div>
+        </form>
+      </ModuleHeader>
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 flex flex-col gap-4">
-        <Card>
-          <CardContent>
-            <form onSubmit={search} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))_auto]">
-              <Input type="date" aria-label="Desde" value={filters.from} onChange={change("from")} />
-              <Input type="date" aria-label="Hasta" value={filters.to} onChange={change("to")} />
-              <Input placeholder="Usuario" aria-label="Usuario" value={filters.user} onChange={change("user")} />
-              <NativeSelect className="w-full" aria-label="Acción" value={filters.action} onChange={change("action")}>
-                <option value="">Todas las acciones</option>
-                {(data?.actions ?? Object.keys(ACTION_LABEL)).map((a) => (
-                  <option key={a} value={a}>
-                    {ACTION_LABEL[a] ?? a}
-                  </option>
-                ))}
-              </NativeSelect>
-              <NativeSelect className="w-full" aria-label="Módulo" value={filters.module} onChange={change("module")}>
-                <option value="">Todos los módulos</option>
-                {(data?.modules ?? []).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </NativeSelect>
-              <Input placeholder="Buscar en descripción" aria-label="Buscar" value={filters.q} onChange={change("q")} />
-              <div className="flex gap-2 sm:col-span-2 xl:col-span-1">
-                <Button type="submit">Filtrar</Button>
-                <Button type="button" variant="outline" onClick={clear}>
-                  Limpiar
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
         <DataTable
           columns={columns}
           rows={data?.data ?? []}

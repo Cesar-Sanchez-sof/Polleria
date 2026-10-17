@@ -54,6 +54,7 @@ describe("Generador de Códigos QR Dinámicos Yape (EMVCo Interoperable BCRP)", 
 
     expect(res.amountFormatted).toBe("S/ 120.00");
     expect(res.phoneClean).toBe("912345678");
+    expect(res.phoneDisplay).toBe("912 345 678");
     expect(res.qrImageUrl).toContain("https://api.qrserver.com/v1/create-qr-code");
     expect(res.qrImageUrl).toContain(encodeURIComponent("5406120.00"));
     expect(res.deepLink).toContain("yape://pay?phone=912345678&amount=120.00");
@@ -67,5 +68,17 @@ describe("Generador de Códigos QR Dinámicos Yape (EMVCo Interoperable BCRP)", 
 
     expect(res.amountFormatted).toBe("S/ 45.68");
     expect(res.emvcoPayload).toContain("540545.68");
+  });
+
+  it("debe priorizar customQrImageUrl cuando el restaurante ha subido su QR oficial", () => {
+    const customUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const res = generateDynamicYapeQR({
+      phone: "987654321",
+      amount: 50.0,
+      customQrImageUrl: customUrl,
+    });
+
+    expect(res.isCustomImage).toBe(true);
+    expect(res.qrImageUrl).toBe(customUrl);
   });
 });

@@ -13,7 +13,6 @@ import {
 	Position,
 	ReactFlow,
 	ReactFlowProvider,
-	useEdgesState,
 	useNodesState,
 } from '@xyflow/react';
 import { Database, Key, Link } from 'lucide-react';
@@ -38,11 +37,13 @@ interface EntityDef {
 
 interface RelationDef {
 	id: string;
-	source: string;
-	target: string;
+	/** Entity that owns the foreign key. */
+	child: string;
+	/** Foreign-key field on `child` (the blue link row). */
+	fk: string;
+	/** Referenced entity (its `id` row receives the arrow). */
+	parent: string;
 	label?: string;
-	sourceHandle?: string;
-	targetHandle?: string;
 }
 
 type EntityNodeData = EntityDef & Record<string, unknown>;
@@ -54,8 +55,8 @@ const ENTITIES: EntityDef[] = [
 		id: 'RolePermission', label: 'RolePermission', module: 'Seguridad', color: '#6366f1',
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
-			{ name: 'roleId', type: 'Int', kind: 'fk' },
 			{ name: 'permissionId', type: 'Int', kind: 'fk' },
+			{ name: 'roleId', type: 'Int', kind: 'fk' },
 		],
 	},
 	{
@@ -65,12 +66,16 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'name', type: 'String', kind: 'field' },
 			{ name: 'description', type: 'String', kind: 'field', optional: true },
 			{ name: 'active', type: 'Boolean', kind: 'field' },
+			{ name: 'isSystem', type: 'Boolean', kind: 'field' },
 		],
 	},
 	{
 		id: 'Permission', label: 'Permission', module: 'Seguridad', color: '#6366f1',
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'code', type: 'String', kind: 'field' },
+			{ name: 'module', type: 'String', kind: 'field' },
+			{ name: 'action', type: 'String', kind: 'field' },
 			{ name: 'name', type: 'String', kind: 'field' },
 		],
 	},
@@ -92,6 +97,9 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'dni', type: 'String', kind: 'field' },
 			{ name: 'firstName', type: 'String', kind: 'field' },
 			{ name: 'paternalLastName', type: 'String', kind: 'field' },
+			{ name: 'position', type: 'String', kind: 'field', optional: true },
+			{ name: 'area', type: 'String', kind: 'field', optional: true },
+			{ name: 'contractType', type: 'String', kind: 'field', optional: true },
 			{ name: 'baseSalary', type: 'Decimal', kind: 'field' },
 			{ name: 'active', type: 'Boolean', kind: 'field' },
 		],
@@ -103,10 +111,27 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'employeeId', type: 'Int', kind: 'fk' },
 			{ name: 'roleId', type: 'Int', kind: 'fk' },
 			{ name: 'username', type: 'String', kind: 'field' },
-			{ name: 'correo', type: 'String', kind: 'field', optional: true },
+			{ name: 'email', type: 'String', kind: 'field', optional: true },
 			{ name: 'password', type: 'String', kind: 'field' },
-			{ name: 'estado', type: 'Boolean', kind: 'field' },
+			{ name: 'active', type: 'Boolean', kind: 'field' },
+			{ name: 'failedAttempts', type: 'Int', kind: 'field' },
 			{ name: 'locked', type: 'Boolean', kind: 'field' },
+			{ name: 'lastAccessAt', type: 'Timestamp', kind: 'field', optional: true },
+		],
+	},
+	{
+		id: 'AuditLog', label: 'AuditLog', module: 'Seguridad', color: '#6366f1',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'userId', type: 'Int', kind: 'fk', optional: true },
+			{ name: 'username', type: 'String', kind: 'field' },
+			{ name: 'action', type: 'AuditAction', kind: 'field' },
+			{ name: 'module', type: 'String', kind: 'field' },
+			{ name: 'entity', type: 'String', kind: 'field' },
+			{ name: 'entityId', type: 'String', kind: 'field', optional: true },
+			{ name: 'description', type: 'String', kind: 'field' },
+			{ name: 'details', type: 'Json', kind: 'field', optional: true },
+			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
 		],
 	},
 	{
@@ -117,6 +142,9 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'month', type: 'Int', kind: 'field' },
 			{ name: 'year', type: 'Int', kind: 'field' },
 			{ name: 'baseSalary', type: 'Decimal', kind: 'field' },
+			{ name: 'overtimePay', type: 'Decimal', kind: 'field' },
+			{ name: 'bonus', type: 'Decimal', kind: 'field' },
+			{ name: 'deductions', type: 'Decimal', kind: 'field' },
 			{ name: 'netPay', type: 'Decimal', kind: 'field' },
 			{ name: 'paymentDate', type: 'Date', kind: 'field', optional: true },
 		],
@@ -139,9 +167,14 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'id', type: 'Int', kind: 'pk' },
 			{ name: 'supplierId', type: 'Int', kind: 'fk' },
 			{ name: 'employeeId', type: 'Int', kind: 'fk' },
+			{ name: 'receivedById', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'orderNumber', type: 'String', kind: 'field' },
 			{ name: 'issuedAt', type: 'Date', kind: 'field' },
+			{ name: 'expectedAt', type: 'Date', kind: 'field', optional: true },
+			{ name: 'receivedAt', type: 'Timestamp', kind: 'field' },
 			{ name: 'status', type: 'Enum', kind: 'field' },
+			{ name: 'subtotal', type: 'Decimal', kind: 'field' },
+			{ name: 'igv', type: 'Decimal', kind: 'field' },
 			{ name: 'total', type: 'Decimal', kind: 'field' },
 		],
 	},
@@ -152,9 +185,11 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'name', type: 'String', kind: 'field' },
 			{ name: 'description', type: 'String', kind: 'field', optional: true },
 			{ name: 'type', type: 'ProductType', kind: 'field' },
+			{ name: 'affectationIgv', type: 'AffectationIgv', kind: 'field', optional: true },
 			{ name: 'unitOfMeasure', type: 'String', kind: 'field' },
 			{ name: 'currentStock', type: 'Decimal', kind: 'field' },
 			{ name: 'minimumStock', type: 'Decimal', kind: 'field' },
+			{ name: 'lastCost', type: 'Decimal', kind: 'field' },
 			{ name: 'averageCost', type: 'Decimal', kind: 'field' },
 			{ name: 'price', type: 'Decimal', kind: 'field', optional: true },
 			{ name: 'sellable', type: 'Boolean', kind: 'field' },
@@ -170,6 +205,10 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'quantityOrdered', type: 'Decimal', kind: 'field' },
 			{ name: 'quantityReceived', type: 'Decimal', kind: 'field', optional: true },
 			{ name: 'unitPrice', type: 'Decimal', kind: 'field' },
+			{ name: 'affectationIgvApplied', type: 'AffectationIgv', kind: 'field' },
+			{ name: 'subtotalLine', type: 'Decimal', kind: 'field', optional: true },
+			{ name: 'igvLine', type: 'Decimal', kind: 'field', optional: true },
+			{ name: 'finalAmountLine', type: 'Decimal', kind: 'field', optional: true },
 		],
 	},
 	{
@@ -178,9 +217,13 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'id', type: 'Int', kind: 'pk' },
 			{ name: 'productId', type: 'Int', kind: 'fk' },
 			{ name: 'purchaseOrderItemId', type: 'Int', kind: 'fk', optional: true },
+			{ name: 'transformationItemId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'orderItemId', type: 'Int', kind: 'fk', optional: true },
+			{ name: 'informalPurchaseId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'movementType', type: 'Enum', kind: 'field' },
 			{ name: 'quantity', type: 'Decimal', kind: 'field' },
+			{ name: 'unitCost', type: 'Decimal', kind: 'field', optional: true },
+			{ name: 'reason', type: 'String', kind: 'field', optional: true },
 			{ name: 'movedAt', type: 'Timestamp', kind: 'field' },
 		],
 	},
@@ -193,7 +236,21 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'voucherType', type: 'String', kind: 'field' },
 			{ name: 'series', type: 'String', kind: 'field' },
 			{ name: 'number', type: 'Int', kind: 'field' },
+			{ name: 'issuedAt', type: 'Date', kind: 'field' },
+			{ name: 'subtotal', type: 'Decimal', kind: 'field' },
+			{ name: 'igv', type: 'Decimal', kind: 'field' },
 			{ name: 'totalAmount', type: 'Decimal', kind: 'field' },
+			{ name: 'active', type: 'Boolean', kind: 'field' },
+		],
+	},
+	{
+		id: 'PurchasePayment', label: 'PurchasePayment', module: 'Compras', color: '#f59e0b',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'purchaseInvoiceId', type: 'Int', kind: 'fk' },
+			{ name: 'paymentTypeId', type: 'Int', kind: 'fk' },
+			{ name: 'amount', type: 'Decimal', kind: 'field' },
+			{ name: 'paidAt', type: 'Timestamp', kind: 'field' },
 		],
 	},
 	{
@@ -211,17 +268,48 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'employeeId', type: 'Int', kind: 'fk' },
 			{ name: 'date', type: 'Timestamp', kind: 'field' },
 			{ name: 'notes', type: 'String', kind: 'field', optional: true },
+			{ name: 'annulled', type: 'Boolean', kind: 'field' },
+			{ name: 'annulledAt', type: 'Timestamp', kind: 'field', optional: true },
+			{ name: 'annulledById', type: 'Int', kind: 'fk', optional: true },
+			{ name: 'annulmentReason', type: 'String', kind: 'field', optional: true },
+		],
+	},
+	{
+		id: 'TransformationItem', label: 'TransformationItem', module: 'Compras', color: '#f59e0b',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'transformationId', type: 'Int', kind: 'fk' },
+			{ name: 'productId', type: 'Int', kind: 'fk' },
+			{ name: 'itemType', type: 'String', kind: 'field' },
+			{ name: 'quantity', type: 'Decimal', kind: 'field' },
+			{ name: 'unitCost', type: 'Decimal', kind: 'field', optional: true },
+		],
+	},
+	{
+		id: 'TransformationRecipe', label: 'TransformationRecipe', module: 'Compras', color: '#f59e0b',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'producedProductId', type: 'Int', kind: 'fk' },
+			{ name: 'consumedProductId', type: 'Int', kind: 'fk' },
+			{ name: 'producedQuantity', type: 'Decimal', kind: 'field' },
+			{ name: 'requiredQuantity', type: 'Decimal', kind: 'field' },
+			{ name: 'active', type: 'Boolean', kind: 'field' },
 		],
 	},
 	{
 		id: 'InformalPurchase', label: 'InformalPurchase', module: 'Compras', color: '#f59e0b',
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
-			{ name: 'productId', type: 'Int', kind: 'fk' },
+			{ name: 'productId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'employeeId', type: 'Int', kind: 'fk' },
+			{ name: 'purchaseType', type: 'InformalPurchaseType', kind: 'field' },
+			{ name: 'expenseCategory', type: 'ExpenseCategory', kind: 'field', optional: true },
+			{ name: 'itemDescription', type: 'String', kind: 'field', optional: true },
 			{ name: 'quantity', type: 'Decimal', kind: 'field' },
 			{ name: 'amountPaid', type: 'Decimal', kind: 'field' },
 			{ name: 'date', type: 'Date', kind: 'field' },
+			{ name: 'annulled', type: 'Boolean', kind: 'field' },
+			{ name: 'annulledById', type: 'Int', kind: 'fk', optional: true },
 		],
 	},
 	{
@@ -265,6 +353,15 @@ const ENTITIES: EntityDef[] = [
 		],
 	},
 	{
+		id: 'OrderTable', label: 'OrderTable', module: 'Ventas', color: '#ec4899',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'tableId', type: 'Int', kind: 'fk' },
+			{ name: 'orderId', type: 'Int', kind: 'fk' },
+			{ name: 'notes', type: 'String', kind: 'field', optional: true },
+		],
+	},
+	{
 		id: 'OrderItem', label: 'OrderItem', module: 'Ventas', color: '#ec4899',
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
@@ -274,6 +371,7 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'unitPrice', type: 'Decimal', kind: 'field' },
 			{ name: 'subtotal', type: 'Decimal', kind: 'field' },
 			{ name: 'itemStatus', type: 'String', kind: 'field' },
+			{ name: 'notes', type: 'String', kind: 'field', optional: true },
 		],
 	},
 	{
@@ -285,8 +383,23 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'cashSessionId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'voucherType', type: 'String', kind: 'field' },
 			{ name: 'series', type: 'String', kind: 'field' },
+			{ name: 'number', type: 'Int', kind: 'field' },
+			{ name: 'issuedAt', type: 'Date', kind: 'field' },
+			{ name: 'subtotal', type: 'Decimal', kind: 'field' },
+			{ name: 'igv', type: 'Decimal', kind: 'field' },
 			{ name: 'totalAmount', type: 'Decimal', kind: 'field' },
 			{ name: 'status', type: 'String', kind: 'field' },
+			{ name: 's3Url', type: 'String', kind: 'field', optional: true },
+		],
+	},
+	{
+		id: 'SalesPayment', label: 'SalesPayment', module: 'Ventas', color: '#ec4899',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'salesInvoiceId', type: 'Int', kind: 'fk' },
+			{ name: 'paymentTypeId', type: 'Int', kind: 'fk' },
+			{ name: 'amount', type: 'Decimal', kind: 'field' },
+			{ name: 'paidAt', type: 'Timestamp', kind: 'field' },
 		],
 	},
 	{
@@ -307,7 +420,9 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'startDate', type: 'DateTime', kind: 'field' },
 			{ name: 'endDate', type: 'DateTime', kind: 'field' },
 			{ name: 'status', type: 'PeriodStatus', kind: 'field' },
+			{ name: 'closedAt', type: 'DateTime', kind: 'field', optional: true },
 			{ name: 'closedById', type: 'Int', kind: 'fk', optional: true },
+			{ name: 'userId', type: 'Int', kind: 'fk', optional: true },
 		],
 	},
 	{
@@ -320,6 +435,9 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'payrollId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'entryDate', type: 'Date', kind: 'field' },
 			{ name: 'description', type: 'String', kind: 'field' },
+			{ name: 'book', type: 'String', kind: 'field' },
+			{ name: 'responsible', type: 'String', kind: 'field', optional: true },
+			{ name: 'status', type: 'Boolean', kind: 'field' },
 			{ name: 'code', type: 'String', kind: 'field' },
 		],
 	},
@@ -352,8 +470,14 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'openedById', type: 'Int', kind: 'fk' },
 			{ name: 'closedById', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'openedAt', type: 'Timestamp', kind: 'field' },
+			{ name: 'closedAt', type: 'Timestamp', kind: 'field', optional: true },
 			{ name: 'initialAmount', type: 'Decimal', kind: 'field' },
+			{ name: 'salesCash', type: 'Decimal', kind: 'field' },
+			{ name: 'salesOther', type: 'Decimal', kind: 'field' },
 			{ name: 'totalSales', type: 'Decimal', kind: 'field' },
+			{ name: 'expectedAmount', type: 'Decimal', kind: 'field', optional: true },
+			{ name: 'countedAmount', type: 'Decimal', kind: 'field', optional: true },
+			{ name: 'difference', type: 'Decimal', kind: 'field', optional: true },
 			{ name: 'status', type: 'CashSessionStatus', kind: 'field' },
 		],
 	},
@@ -371,43 +495,63 @@ const ENTITIES: EntityDef[] = [
 ];
 
 const RELATIONS: RelationDef[] = [
-	{ id: 're-rp-role', source: 'RolePermission', target: 'Role', label: 'has' }, //sourceHandle: 'AccountingPeriod-right', targetHandle: 'JournalEntry-left', },
-	{ id: 're-rp-perm', source: 'RolePermission', target: 'Permission', label: 'has' },
-	{ id: 're-user-role', source: 'Role', target: 'User', label: 'has' },
-	{ id: 're-user-emp', source: 'Employee', target: 'User', label: 'has' },
-	{ id: 're-emp-shift', source: 'Shift', target: 'Employee', label: 'works_in' },
-	{ id: 're-payroll-emp', source: 'Employee', target: 'Payroll', label: 'earns' },
-	{ id: 're-po-supplier', source: 'PurchaseOrder', target: 'Supplier', label: 'products' },
-	{ id: 're-po-emp', source: 'Employee', target: 'PurchaseOrder', label: 'creates' },
-	{ id: 're-poi-po', source: 'PurchaseOrderItem', target: 'PurchaseOrder', label: 'contains' },
-	{ id: 're-poi-product', source: 'Product', target: 'PurchaseOrderItem', label: 'used_in' },
-	{ id: 're-inv-product', source: 'Product', target: 'InventoryMovement', label: 'moved_by' },
-	{ id: 're-inv-poi', source: 'InventoryMovement', target: 'PurchaseOrderItem', label: 'tracks' },
-	{ id: 're-pinv-supplier', source: 'Supplier', target: 'PurchaseInvoice', label: 'invoices' },
-	{ id: 're-pinv-po', source: 'PurchaseOrder', target: 'PurchaseInvoice', label: 'billed_by' },
-	{ id: 're-emp-transf', source: 'Transformation', target: 'Employee', label: 'performs' },
-	{ id: 're-inf-product', source: 'Product', target: 'InformalPurchase', label: 'purchased_as' },
-	{ id: 're-inf-emp', source: 'Employee', target: 'InformalPurchase', label: 'registers' },
-	{ id: 're-recipe-product', source: 'ProductRecipe', target: 'Product', label: 'recipe_of' },
-	{ id: 're-recipe-ingredient', source: 'ProductRecipe', target: 'Product', label: 'ingredient' },
-	{ id: 're-oi-order', source: 'OrderItem', target: 'SalesOrder', label: 'includes' },
-	{ id: 're-oi-product', source: 'Product', target: 'OrderItem', label: 'ordered_in' },
-	{ id: 're-inv-oi', source: 'InventoryMovement', target: 'OrderItem', label: 'consumes' },
-	{ id: 're-sinv-order', source: 'SalesOrder', target: 'SalesInvoice', label: 'from' },
-	{ id: 're-sinv-customer', source: 'SalesInvoice', target: 'Customer', label: 'receives' },
-	{ id: 're-sinv-session', source: 'CashSession', target: 'SalesInvoice', label: 'in_session' },
-	{ id: 're-je-period', source: 'JournalEntry', target: 'AccountingPeriod', label: 'contains' },
-	{ id: 're-je-sinv', source: 'SalesInvoice', target: 'JournalEntry', label: 'generates' },
-	{ id: 're-je-pinv', source: 'PurchaseInvoice', target: 'JournalEntry', label: 'generates' },
-	{ id: 're-je-payroll', source: 'Payroll', target: 'JournalEntry', label: 'generates' },
-	{ id: 're-jed-je', source: 'JournalEntry', target: 'JournalEntryDetail', label: 'has' },
-	{ id: 're-jed-acc', source: 'JournalEntryDetail', target: 'AccountingAccount', label: 'records' },
-	{ id: 're-session-reg', source: 'CashRegister', target: 'CashSession', label: 'has' },
-	{ id: 're-session-open', source: 'User', target: 'CashSession', label: 'opens' },
-	{ id: 're-movement-session', source: 'CashSession', target: 'CashMovement', label: 'has' },
+	{ id: 're-rp-role', child: 'RolePermission', fk: 'roleId', parent: 'Role', label: 'has' },
+	{ id: 're-rp-perm', child: 'RolePermission', fk: 'permissionId', parent: 'Permission', label: 'has' },
+	{ id: 're-user-role', child: 'User', fk: 'roleId', parent: 'Role', label: 'has' },
+	{ id: 're-user-emp', child: 'User', fk: 'employeeId', parent: 'Employee', label: 'has' },
+	{ id: 're-audit-user', child: 'AuditLog', fk: 'userId', parent: 'User', label: 'logs' },
+	{ id: 're-emp-shift', child: 'Employee', fk: 'shiftId', parent: 'Shift', label: 'works_in' },
+	{ id: 're-payroll-emp', child: 'Payroll', fk: 'employeeId', parent: 'Employee', label: 'earns' },
+	{ id: 're-po-supplier', child: 'PurchaseOrder', fk: 'supplierId', parent: 'Supplier', label: 'products' },
+	{ id: 're-po-emp', child: 'PurchaseOrder', fk: 'employeeId', parent: 'Employee', label: 'creates' },
+	{ id: 're-po-received', child: 'PurchaseOrder', fk: 'receivedById', parent: 'Employee', label: 'receives' },
+	{ id: 're-poi-po', child: 'PurchaseOrderItem', fk: 'purchaseOrderId', parent: 'PurchaseOrder', label: 'contains' },
+	{ id: 're-poi-product', child: 'PurchaseOrderItem', fk: 'productId', parent: 'Product', label: 'used_in' },
+	{ id: 're-inv-product', child: 'InventoryMovement', fk: 'productId', parent: 'Product', label: 'moved_by' },
+	{ id: 're-inv-poi', child: 'InventoryMovement', fk: 'purchaseOrderItemId', parent: 'PurchaseOrderItem', label: 'tracks' },
+	{ id: 're-inv-ti', child: 'InventoryMovement', fk: 'transformationItemId', parent: 'TransformationItem', label: 'tracks' },
+	{ id: 're-inv-inf', child: 'InventoryMovement', fk: 'informalPurchaseId', parent: 'InformalPurchase', label: 'tracks' },
+	{ id: 're-inv-oi', child: 'InventoryMovement', fk: 'orderItemId', parent: 'OrderItem', label: 'consumes' },
+	{ id: 're-pinv-supplier', child: 'PurchaseInvoice', fk: 'supplierId', parent: 'Supplier', label: 'invoices' },
+	{ id: 're-pinv-po', child: 'PurchaseInvoice', fk: 'purchaseOrderId', parent: 'PurchaseOrder', label: 'billed_by' },
+	{ id: 're-ppay-pinv', child: 'PurchasePayment', fk: 'purchaseInvoiceId', parent: 'PurchaseInvoice', label: 'paid_by' },
+	{ id: 're-ppay-type', child: 'PurchasePayment', fk: 'paymentTypeId', parent: 'PaymentType', label: 'method' },
+	{ id: 're-emp-transf', child: 'Transformation', fk: 'employeeId', parent: 'Employee', label: 'performs' },
+	{ id: 're-transf-annulled', child: 'Transformation', fk: 'annulledById', parent: 'Employee', label: 'annulled_by' },
+	{ id: 're-ti-transf', child: 'TransformationItem', fk: 'transformationId', parent: 'Transformation', label: 'contains' },
+	{ id: 're-ti-product', child: 'TransformationItem', fk: 'productId', parent: 'Product', label: 'transformed_in' },
+	{ id: 're-trecipe-produced', child: 'TransformationRecipe', fk: 'producedProductId', parent: 'Product', label: 'produces' },
+	{ id: 're-trecipe-consumed', child: 'TransformationRecipe', fk: 'consumedProductId', parent: 'Product', label: 'consumes' },
+	{ id: 're-inf-product', child: 'InformalPurchase', fk: 'productId', parent: 'Product', label: 'purchased_as' },
+	{ id: 're-inf-emp', child: 'InformalPurchase', fk: 'employeeId', parent: 'Employee', label: 'registers' },
+	{ id: 're-inf-annulled', child: 'InformalPurchase', fk: 'annulledById', parent: 'Employee', label: 'annulled_by' },
+	{ id: 're-recipe-product', child: 'ProductRecipe', fk: 'productId', parent: 'Product', label: 'recipe_of' },
+	{ id: 're-recipe-ingredient', child: 'ProductRecipe', fk: 'ingredientId', parent: 'Product', label: 'ingredient' },
+	{ id: 're-ot-order', child: 'OrderTable', fk: 'orderId', parent: 'SalesOrder', label: 'serves' },
+	{ id: 're-ot-table', child: 'OrderTable', fk: 'tableId', parent: 'DiningTable', label: 'seats' },
+	{ id: 're-oi-order', child: 'OrderItem', fk: 'orderId', parent: 'SalesOrder', label: 'includes' },
+	{ id: 're-oi-product', child: 'OrderItem', fk: 'productId', parent: 'Product', label: 'ordered_in' },
+	{ id: 're-sinv-order', child: 'SalesInvoice', fk: 'orderId', parent: 'SalesOrder', label: 'from' },
+	{ id: 're-sinv-customer', child: 'SalesInvoice', fk: 'customerId', parent: 'Customer', label: 'receives' },
+	{ id: 're-sinv-session', child: 'SalesInvoice', fk: 'cashSessionId', parent: 'CashSession', label: 'in_session' },
+	{ id: 're-spay-sinv', child: 'SalesPayment', fk: 'salesInvoiceId', parent: 'SalesInvoice', label: 'paid_by' },
+	{ id: 're-spay-type', child: 'SalesPayment', fk: 'paymentTypeId', parent: 'PaymentType', label: 'method' },
+	{ id: 're-je-period', child: 'JournalEntry', fk: 'periodId', parent: 'AccountingPeriod', label: 'contains' },
+	{ id: 're-period-closed', child: 'AccountingPeriod', fk: 'closedById', parent: 'User', label: 'closes' },
+	{ id: 're-period-user', child: 'AccountingPeriod', fk: 'userId', parent: 'User', label: 'owned_by' },
+	{ id: 're-je-sinv', child: 'JournalEntry', fk: 'salesInvoiceId', parent: 'SalesInvoice', label: 'generates' },
+	{ id: 're-je-pinv', child: 'JournalEntry', fk: 'purchaseInvoiceId', parent: 'PurchaseInvoice', label: 'generates' },
+	{ id: 're-je-payroll', child: 'JournalEntry', fk: 'payrollId', parent: 'Payroll', label: 'generates' },
+	{ id: 're-jed-je', child: 'JournalEntryDetail', fk: 'entryId', parent: 'JournalEntry', label: 'has' },
+	{ id: 're-jed-acc', child: 'JournalEntryDetail', fk: 'accountId', parent: 'AccountingAccount', label: 'records' },
+	{ id: 're-session-reg', child: 'CashSession', fk: 'cashRegisterId', parent: 'CashRegister', label: 'has' },
+	{ id: 're-session-open', child: 'CashSession', fk: 'openedById', parent: 'User', label: 'opened_by' },
+	{ id: 're-session-close', child: 'CashSession', fk: 'closedById', parent: 'User', label: 'closed_by' },
+	{ id: 're-movement-session', child: 'CashMovement', fk: 'sessionId', parent: 'CashSession', label: 'has' },
 ];
 
 const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
+	S0: { col: -4, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'TransformationRecipe', 'TransformationItem'] },
 	S1: { col: -3, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'ProductRecipe'] },
 	S2: { col: -2, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'Shift', 'Transformation', 'Product',] },
 	S: { col: -1, rows: ['RolePermission', '__SPACER__', '__SPACER__', 'Employee', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'InventoryMovement', '__SPACER__', '__SPACER__', '__SPACER__'] },
@@ -417,7 +561,7 @@ const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
 	Ventas: { col: 3, rows: ['CashMovement', '__SPACER__', '__SPACER__', '__SPACER__', 'SalesInvoice', 'PurchaseInvoice'] },
 	Contabilidad: { col: 4, rows: ['DiningTable', 'Customer', 'JournalEntry', '__SPACER__', 'JournalEntryDetail',] },
 	Caja: { col: 5, rows: ['PaymentType', '__SPACER__', 'AccountingPeriod', '__SPACER__', '__SPACER__', 'AccountingAccount'] },
-	C3: { col: 6, rows: [''] }
+	C3: { col: 6, rows: ['AuditLog', '__SPACER__', 'PurchasePayment', 'SalesPayment', '__SPACER__', 'OrderTable'] },
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -435,6 +579,47 @@ const ROW_START = 80;
 const ROW_GAP = 20;
 const FIELD_HEIGHT = 24;
 const HEADER_HEIGHT = 48;
+
+function handleId(entity: string, field: string, side: 'left' | 'right', kind: 's' | 't') {
+	return `${entity}.${field}-${side}-${kind}`;
+}
+
+/** Arrows go from the FK row of the child to the `id` row of the parent, on the sides that face each other. */
+function buildEdges(nodes: Node[]): Edge[] {
+	const x = new Map(nodes.map((n) => [n.id, n.position.x]));
+	const width = COL_WIDTH - 16;
+	return RELATIONS.map((rel) => {
+		const cx = x.get(rel.child) ?? 0;
+		const px = x.get(rel.parent) ?? 0;
+		let childSide: 'left' | 'right' = 'right';
+		let parentSide: 'left' | 'right' = 'right';
+		if (cx + width < px) {
+			childSide = 'right';
+			parentSide = 'left';
+		} else if (px + width < cx) {
+			childSide = 'left';
+			parentSide = 'right';
+		}
+		return {
+			id: rel.id,
+			source: rel.child,
+			sourceHandle: handleId(rel.child, rel.fk, childSide, 's'),
+			target: rel.parent,
+			targetHandle: handleId(rel.parent, 'id', parentSide, 't'),
+			type: 'smoothstep',
+			label: rel.label,
+			labelStyle: { fontSize: 9, fill: 'var(--color-text-disabled)' },
+			labelBgStyle: { fill: 'var(--color-surface)', opacity: 0.85 },
+			style: { stroke: 'var(--color-border)', strokeWidth: 1.25 },
+			markerEnd: {
+				type: MarkerType.ArrowClosed,
+				color: 'var(--color-border)',
+				width: 8,
+				height: 8,
+			},
+		};
+	});
+}
 
 function nodeHeight(entity: EntityDef) {
 	return HEADER_HEIGHT + entity.fields.length * FIELD_HEIGHT + 8;
@@ -472,10 +657,6 @@ function EntityCardNode({ data }: NodeProps) {
 			className="select-none rounded-xl border border-border bg-surface-raised shadow-sm overflow-hidden"
 			style={{ minWidth: COL_WIDTH - 16 }}
 		>
-			<Handle type="target" position={Position.Left} id={`${entity.id}-left`} className="!pointer-events-none !size-0 !border-0 !opacity-0" />
-			<Handle type="source" position={Position.Right} id={`${entity.id}-right`} className="!pointer-events-none !size-0 !border-0 !opacity-0" />
-			<Handle type="target" position={Position.Top} id={`${entity.id}-top`} className="!pointer-events-none !size-0 !border-0 !opacity-0" />
-			<Handle type="source" position={Position.Bottom} id={`${entity.id}-bottom`} className="!pointer-events-none !size-0 !border-0 !opacity-0" />
 
 			{/* Header */}
 			<div
@@ -507,6 +688,12 @@ function EntityCardNode({ data }: NodeProps) {
 						className="nodrag relative flex items-center gap-1.5 px-3"
 						style={{ height: FIELD_HEIGHT }}
 					>
+						{(field.kind === 'fk' || field.kind === 'pk') && (['left', 'right'] as const).map((side) => (
+							<span key={side}>
+								<Handle type="source" position={side === 'left' ? Position.Left : Position.Right} id={handleId(entity.id, field.name, side, 's')} className="!pointer-events-none !size-0 !border-0 !opacity-0" />
+								<Handle type="target" position={side === 'left' ? Position.Left : Position.Right} id={handleId(entity.id, field.name, side, 't')} className="!pointer-events-none !size-0 !border-0 !opacity-0" />
+							</span>
+						))}
 						{field.kind === 'pk' ? (
 							<Key style={{ width: 10, height: 10, color: '#fbbf24', flexShrink: 0 }} />
 						) : field.kind === 'fk' ? (
@@ -544,26 +731,8 @@ const nodeTypes = { entityCard: EntityCardNode };
 export function DbDiagram() {
 	const initialNodes = useMemo(() => buildInitialNodes(), []);
 
-	const initialEdges: Edge[] = useMemo(() =>
-		RELATIONS.map((rel) => ({
-			id: rel.id,
-			source: rel.source,
-			target: rel.target,
-			type: 'smoothstep',
-			label: rel.label,
-			labelStyle: { fontSize: 9, fill: 'var(--color-text-disabled)' },
-			labelBgStyle: { fill: 'var(--color-surface)', opacity: 0.85 },
-			style: { stroke: 'var(--color-border)', strokeWidth: 1.25 },
-			markerEnd: {
-				type: MarkerType.ArrowClosed,
-				color: 'var(--color-border)',
-				width: 8,
-				height: 8,
-			},
-		})), []);
-
-	const [nodes, , onNodesChange] = useNodesState<Node>(initialNodes);
-	const [edges] = useEdgesState<Edge>(initialEdges);
+const [nodes, , onNodesChange] = useNodesState<Node>(initialNodes);
+	const edges = useMemo(() => buildEdges(nodes), [nodes]);
 
 	return (
 		<div className="flex h-full flex-col gap-3 p-4">

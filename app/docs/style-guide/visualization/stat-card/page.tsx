@@ -27,7 +27,7 @@ const PROPS: readonly PropDoc[] = [
   { name: "layout", type: "\"icon-first\" | \"label-first\"", default: "\"icon-first\"", description: "icon-first: icono a la izquierda con etiqueta y valor a su derecha, píldora arriba a la derecha (compras). label-first: etiqueta en mayúsculas con el color del tono e icono a su derecha (resumen de ventas). tinted: tarjeta rellena con el tono, icono sólido, etiqueta, valor y nota (resumen de cocina)." },
   { name: "orientation", type: "\"horizontal\" | \"vertical\"", default: "\"horizontal\"", description: "Solo en tinted: icono al lado del texto o centrado encima." },
   { name: "enableDivider", type: "boolean", default: "true en icon-first", description: "Línea sobre el pie; en label-first está apagada por defecto." },
-  { name: "tone", type: "blue | emerald | indigo | purple | amber | rose | brand | neutral", default: "\"blue\"", description: "Color de icono, píldora, degradado y barra." },
+  { name: "tone", type: "blue | emerald | indigo | cyan | purple | amber | rose | brand | neutral", default: "\"blue\"", description: "Color de icono, píldora, degradado y barra." },
   { name: "colorValue", type: "boolean", default: "false", description: "Pinta el valor con el color del tono." },
   { name: "valueSize", type: "\"md\" | \"lg\" | \"xl\"", default: "\"md\" en icon-first, \"lg\" en los demás", description: "Tamaño del valor." },
   { name: "enableIcon", type: "boolean", default: "true", description: "Muestra el cuadro del icono." },
@@ -39,7 +39,7 @@ const PROPS: readonly PropDoc[] = [
   { name: "className", type: "string", description: "Clases extra del contenedor." },
 ];
 
-const TONES = ["blue", "emerald", "indigo", "purple", "amber", "rose", "brand", "neutral"] as const;
+const TONES = ["blue", "emerald", "indigo", "cyan", "purple", "amber", "rose", "brand", "neutral"] as const;
 const LAYOUTS = ["icon-first", "label-first", "tinted"] as const;
 const ORIENTATIONS = ["horizontal", "vertical"] as const;
 const SIZES = ["md", "lg", "xl"] as const;

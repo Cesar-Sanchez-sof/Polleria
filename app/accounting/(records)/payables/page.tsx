@@ -6,6 +6,13 @@ import { HandCoins, AlertCircle, Loader2 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { PayablesKpis } from "./components/PayablesKpis";
 import { PayablesTable } from "./components/PayablesTable";
+import { PayablesToolbar } from "./components/PayablesToolbar";
+import {
+  DEFAULT_PAYABLES_FILTERS,
+  exportPayablesCsv,
+  filterPayables,
+  type PayablesFilters,
+} from "./components/payables-filters";
 import {
   getAccountingPayables,
   type PayableInvoice,
@@ -25,6 +32,7 @@ export default function PayablesPage() {
   const [paymentTypes, setPaymentTypes] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<PayablesFilters>(DEFAULT_PAYABLES_FILTERS);
 
   // Sólo la última petición puede escribir estado.
   const requestRef = useRef(0);
@@ -69,16 +77,13 @@ export default function PayablesPage() {
         iconClassName="bg-amber-100 text-amber-700"
       >
         {summary && (
-          <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
-            Deuda pendiente:{" "}
-            <span className="font-semibold text-slate-900 font-mono">
-              S/{" "}
-              {summary.totalPendingDebt.toLocaleString("es-PE", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </span>
+          <PayablesToolbar
+            search={filters.search}
+            onSearch={(search) => setFilters((f) => ({ ...f, search }))}
+            sortOrder={filters.sortOrder}
+            onToggleSort={() => setFilters((f) => ({ ...f, sortOrder: f.sortOrder === "desc" ? "asc" : "desc" }))}
+            onExport={() => exportPayablesCsv(filterPayables(invoices, filters))}
+          />
         )}
       </ModuleHeader>
 
@@ -112,6 +117,8 @@ export default function PayablesPage() {
                 invoices={invoices}
                 paymentTypes={paymentTypes}
                 onRefresh={() => void load()}
+                filters={filters}
+                onFiltersChange={setFilters}
               />
             </>
           )}

@@ -12,6 +12,7 @@ export type StyleGuideComponent =
   | "tag-cell"
   | "row-actions"
   | "button"
+  | "typeahead"
   | "nav-tree";
 
 /** Modules in the order the list shows them (same order as the sidebar). */
@@ -74,5 +75,6 @@ export const COMPONENT_USAGE: Record<StyleGuideComponent, readonly UsedByView[]>
   "tag-cell": [CUSTOMERS, CATALOG, PURCHASES, SUPPLIERS, PAYABLES, JOURNAL, LEDGER, USERS, ROLES],
   "row-actions": [CUSTOMERS, CATALOG, PURCHASES, INVENTORY, TRANSFORMATION, SUPPLIERS, PAYABLES, PERIODS, USERS, ROLES, AUDIT],
   button: [],
+  typeahead: [ENTRIES, LEDGER],
   "nav-tree": [{ label: "Guía de estilos (menú lateral)", href: "/docs/style-guide", module: "Documentación" }],
 };
