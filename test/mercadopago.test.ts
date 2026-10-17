@@ -4,6 +4,7 @@ import {
   generateTapToPayDeepLink,
   startMercadoPagoCharge,
   createMercadoPagoPreference,
+  createMercadoPagoYapePayment,
   getMercadoPagoPayment,
   searchMercadoPagoPaymentsByOrder,
   verifyMercadoPagoWebhookSignature,
@@ -13,6 +14,7 @@ import { prisma } from "../lib/prisma";
 import { realtimeHub } from "../lib/realtime/event-emitter";
 import { GET as statusGET } from "../app/api/payments/mercadopago/status/route";
 import { POST as preferencePOST } from "../app/api/payments/mercadopago/preference/route";
+import { POST as yapePOST } from "../app/api/payments/mercadopago/yape/route";
 import { POST as webhookPOST } from "../app/api/webhooks/mercadopago/route";
 import { NextRequest } from "next/server";
 
@@ -138,6 +140,108 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
           }),
         })
       );
+    });
+  });
+
+  describe("Cobros con Yape Dinámico y Mercado Pago (createMercadoPagoYapePayment)", () => {
+    it("debe generar un QR EMVCo dinámico con el monto exacto de la comanda en modo simulado", async () => {
+      delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+      const res = await createMercadoPagoYapePayment({
+        orderId: 10,
+        kitchenOrderCode: "PED-010",
+        amount: 85.5,
+        phone: "987654321",
+        merchantName: "Polleria Test",
+      });
+
+      expect(res.isSimulated).toBe(true);
+      expect(res.amountFormatted).toBe("S/ 85.50");
+      expect(res.amount).toBe(85.5);
+      expect(res.qrCode).toContain("pe.yape");
+      expect(res.qrCode).toContain("540585.50"); // Tag 54 con el costo exacto
+      expect(res.qrImageUrl).toContain("https://api.qrserver.com");
+      expect(res.deepLink).toContain("yape://pay?phone=987654321&amount=85.50");
+    });
+
+    it("debe invocar la API /v1/payments de Mercado Pago con payment_method_id 'yape' cuando hay token", async () => {
+      process.env.MERCADO_PAGO_ACCESS_TOKEN = "TEST-TOKEN-YAPE";
+
+      const mockMpResponse = {
+        id: 99887766,
+        status: "pending",
+        point_of_interaction: {
+          type: "YAPE",
+          transaction_data: {
+            qr_code: "00020101021226500007pe.yape0109987654321520458125303604540560.005802PE5913POLLERIA TEST6004LIMA62110107PED-0886304ABCD",
+            qr_code_base64: "base64imagefake",
+            ticket_url: "https://www.mercadopago.com.pe/ticket/99887766",
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockMpResponse,
+      } as any);
+
+      const res = await createMercadoPagoYapePayment({
+        orderId: 88,
+        kitchenOrderCode: "PED-088",
+        amount: 60.0,
+      });
+
+      expect(res.isSimulated).toBe(false);
+      expect(res.paymentId).toBe(99887766);
+      expect(res.qrCode).toContain("540560.00");
+      expect(res.qrImageUrl).toContain("data:image/png;base64,base64imagefake");
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://api.mercadopago.com/v1/payments",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer TEST-TOKEN-YAPE",
+          }),
+          body: expect.stringContaining('"payment_method_id":"yape"'),
+        })
+      );
+    });
+
+    it("debe usar fallback seguro con monto exacto si la API de Mercado Pago falla o responde 401", async () => {
+      process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-INVALID-OR-UNAUTHORIZED";
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: "Unauthorized use of live credentials" }),
+      } as any);
+
+      const res = await createMercadoPagoYapePayment({
+        orderId: 77,
+        kitchenOrderCode: "PED-077",
+        amount: 110.0,
+      });
+
+      expect(res.isSimulated).toBe(true);
+      expect(res.amountFormatted).toBe("S/ 110.00");
+      expect(res.qrCode).toContain("5406110.00");
+      expect(res.qrImageUrl).toBeDefined();
+    });
+
+    it("debe procesar cobro Yape con código de aprobación (OTP) en modo simulación/fallback", async () => {
+      delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+      const res = await createMercadoPagoYapePayment({
+        orderId: 1,
+        kitchenOrderCode: "PED-001",
+        amount: 85.0,
+        otp: "123456",
+        customerPhone: "987654321",
+      });
+
+      expect(res.status).toBe("approved");
+      expect(res.amount).toBe(85.0);
+      expect(res.message).toContain("aprobación Yape validado");
     });
   });
 
@@ -455,6 +559,48 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
         expect(json.orderId).toBe(42);
         expect(json.total).toBe(65.0);
         expect(json.initPoint).toBeDefined();
+      });
+    });
+
+    describe("POST /api/payments/mercadopago/yape", () => {
+      it("debe rechazar la solicitud si no se envía un orderId válido", async () => {
+        const req = new NextRequest("http://localhost:3000/api/payments/mercadopago/yape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+
+        const res = await yapePOST(req);
+        expect(res.status).toBe(400);
+      });
+
+      it("debe generar el QR de Yape con el monto total exacto de la comanda", async () => {
+        vi.spyOn(prisma.salesOrder, "findUnique").mockResolvedValue({
+          id: 42,
+          code: "PED-042",
+          status: "Pending",
+          items: [
+            { dish: { name: "1/4 Pollo" }, quantity: 1, unitPrice: 25.0, subtotal: 25.0 },
+            { dish: { name: "Chicha Morada" }, quantity: 2, unitPrice: 10.0, subtotal: 20.0 },
+          ],
+        } as any);
+
+        const req = new NextRequest("http://localhost:3000/api/payments/mercadopago/yape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: 42 }),
+        });
+
+        const res = await yapePOST(req);
+        const json = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(json.success).toBe(true);
+        expect(json.orderId).toBe(42);
+        expect(json.total).toBe(45.0);
+        expect(json.amountFormatted).toBe("S/ 45.00");
+        expect(json.qrCode).toContain("540545.00"); // Tag 54 con el costo exacto
+        expect(json.qrImageUrl).toBeDefined();
       });
     });
 

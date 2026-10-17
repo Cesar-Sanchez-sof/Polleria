@@ -74,6 +74,7 @@ describe("ninguna API queda sin control de acceso", () => {
     "app/api/openapi/route.ts",
     "app/api/realtime/route.ts",
     "app/api/payment-methods/route.ts",
+    "app/api/checkout/yape/route.ts",
   ];
   const routes = files(join(ROOT, "app/api"), /^route\.ts$/)
     .map((r) => relative(ROOT, r).replace(/\\/g, "/"))

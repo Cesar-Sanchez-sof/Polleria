@@ -415,6 +415,31 @@ function SalesManagementContent() {
   const [waiterVoucherType, setWaiterVoucherType] = useState<"Boleta" | "Factura">("Boleta");
   const [waiterCustomerDoc, setWaiterCustomerDoc] = useState<string>("");
   const [waiterCustomerName, setWaiterCustomerName] = useState<string>("");
+  const [waiterClientYapeDetected, setWaiterClientYapeDetected] = useState<boolean>(false);
+  const [waiterYapeQrTab, setWaiterYapeQrTab] = useState<"checkout_mobile" | "yape_app">("checkout_mobile");
+
+  // Detección en tiempo real de si el cliente completó el Yapeo desde su celular
+  useEffect(() => {
+    if (!waiterPaymentModalOpen || !waiterPaymentOrder) {
+      setWaiterClientYapeDetected(false);
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/checkout/yape?orderId=${waiterPaymentOrder.id}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.status === "Closed" || json.existingInvoice) {
+          setWaiterClientYapeDetected(true);
+        }
+      } catch {
+        // Polling silencioso
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [waiterPaymentModalOpen, waiterPaymentOrder]);
 
   // ---------------------------------------------------------------------------
   // ESTADO MODAL REGISTRO DE CLIENTE
@@ -533,27 +558,33 @@ function SalesManagementContent() {
   // Códigos QR Dinámicos Yape con monto específico automático
   const counterYapeQr = useMemo(() => {
     if (!orderToCharge || counterPaymentTotal <= 0) return null;
-    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321";
+    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272";
     const name = restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const checkoutUrl = origin ? `${origin}/checkout/yape?orderId=${orderToCharge.id}` : "";
     return generateDynamicYapeQR({
       phone,
       amount: counterPaymentTotal,
       merchantName: name,
       orderCode: orderToCharge.code,
       customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
+      checkoutUrl,
     });
   }, [orderToCharge, counterPaymentTotal, restaurantConfig]);
 
   const waiterYapeQr = useMemo(() => {
     if (!waiterPaymentOrder || waiterPaymentTotal <= 0) return null;
-    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321";
+    const phone = restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272";
     const name = restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const checkoutUrl = origin ? `${origin}/checkout/yape?orderId=${waiterPaymentOrder.id}` : "";
     return generateDynamicYapeQR({
       phone,
       amount: waiterPaymentTotal,
       merchantName: name,
       orderCode: waiterPaymentOrder.code,
       customQrImageUrl: restaurantConfig?.yapeQrImageUrl,
+      checkoutUrl,
     });
   }, [waiterPaymentOrder, waiterPaymentTotal, restaurantConfig]);
 
@@ -1373,6 +1404,37 @@ function SalesManagementContent() {
 
     try {
       setProcessingWaiterPayment(true);
+
+      // Verificación si el cliente ya completó el cobro desde su celular (página de checkout Yape)
+      if (waiterPaymentMethod === "yape" || waiterClientYapeDetected) {
+        const checkRes = await fetch(`/api/checkout/yape?orderId=${waiterPaymentOrder.id}`);
+        if (checkRes.ok) {
+          const checkJson = await checkRes.json();
+          if (checkJson.status === "Closed" && checkJson.existingInvoice) {
+            toast.success("¡Cobro Yape validado por el Mozo! Mesa liberada con éxito.");
+            setIssuedVoucher({
+              id: checkJson.existingInvoice.id || Date.now(),
+              orderId: waiterPaymentOrder.id,
+              voucherType: waiterVoucherType,
+              series: checkJson.existingInvoice.fullCode.split("-")[0] || "B001",
+              number: parseInt(checkJson.existingInvoice.fullCode.split("-")[1] || "1", 10),
+              fullCode: checkJson.existingInvoice.fullCode,
+              issuedAt: checkJson.existingInvoice.issuedAt || new Date().toISOString(),
+              subtotal: Math.round((waiterPaymentOrder.total / 1.18) * 100) / 100,
+              igv: Math.round((waiterPaymentOrder.total - waiterPaymentOrder.total / 1.18) * 100) / 100,
+              totalAmount: waiterPaymentOrder.total,
+              status: "Issued",
+              customer: waiterCustomerData,
+              order: waiterPaymentOrder,
+            } as any);
+            setWaiterPaymentModalOpen(false);
+            setTicketModalOpen(true);
+            await loadData();
+            return;
+          }
+        }
+      }
+
       const res = await registerSale(waiterSalePayload);
 
       toast.success(`¡Cobro realizado por el Mozo! Mesa liberada con éxito.`);
@@ -4704,6 +4766,28 @@ function SalesManagementContent() {
                   {/* MODO 2: YAPE DIRECTO (QR Y NÚMERO) */}
                   {waiterPaymentMethod === "yape" && (
                     <div className="bg-purple-50/70 border border-purple-200 p-4 rounded-2xl flex flex-col gap-3.5">
+                      {/* Banner de Pago Detectado en Tiempo Real */}
+                      {waiterClientYapeDetected && (
+                        <div className="w-full p-3 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-left text-xs text-emerald-950 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-emerald-900 block">
+                                ¡Yapeo realizado por el cliente desde su celular!
+                              </span>
+                              <span className="text-[11px] text-emerald-700">
+                                Monto recibido: <strong>{formatCurrency(waiterPaymentOrder.total)}</strong>. Presiona &quot;Validar Cobro&quot; para liberar la mesa.
+                              </span>
+                            </div>
+                          </div>
+                          <Badge className="bg-emerald-600 text-white font-bold text-[10px] px-2 py-0.5 shrink-0">
+                            Detectado ✔
+                          </Badge>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
                         {/* Subcolumna 1: Datos de Cobro */}
                         <div className="flex flex-col gap-3">
@@ -4732,12 +4816,12 @@ function SalesManagementContent() {
                               <span className="text-[11px] font-bold text-slate-500">Número Yape:</span>
                               <div className="flex items-center gap-1.5">
                                 <span className="text-sm font-mono font-black text-purple-900">
-                                  {waiterYapeQr?.phoneDisplay || waiterYapeQr?.phoneClean || "987 654 321"}
+                                  {waiterYapeQr?.phoneDisplay || waiterYapeQr?.phoneClean || "954 316 272"}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(waiterYapeQr?.phoneClean || "987654321");
+                                    navigator.clipboard.writeText(waiterYapeQr?.phoneClean || "954316272");
                                     toast.success("Número de celular copiado.");
                                   }}
                                   className="p-1 hover:bg-purple-100 rounded text-purple-700 cursor-pointer"
@@ -4749,9 +4833,9 @@ function SalesManagementContent() {
                             </div>
 
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-500">Titular:</span>
+                              <span className="text-[11px] font-bold text-slate-500">Titular de la Cuenta:</span>
                               <span className="text-xs font-bold text-slate-800">
-                                {waiterYapeQr?.merchantName || "POLLERIA"}
+                                {waiterYapeQr?.merchantName || "El Buen Sabor a la Brasa"}
                               </span>
                             </div>
                           </div>
@@ -4759,7 +4843,7 @@ function SalesManagementContent() {
                           {/* Campo Opcional Código de Operación */}
                           <div className="bg-white border border-purple-200 rounded-xl p-3 flex flex-col gap-1.5 text-left shadow-2xs">
                             <label className="text-[11px] font-bold text-purple-950 block">
-                              Código de Operación (Opcional):
+                              Código de Operación / Aprobación (Opcional):
                             </label>
                             <Input
                               type="text"
@@ -4782,17 +4866,47 @@ function SalesManagementContent() {
                             className="w-full py-2.5 px-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
                           >
                             <Smartphone className="w-3.5 h-3.5 text-purple-700" />
-                            <span>📱 Probar Vista Web en Celular</span>
+                            <span>📱 Abrir Vista Web de Cobro</span>
                           </a>
                         </div>
 
-                        {/* Subcolumna 2: QR Oficial / Generado */}
+                        {/* Subcolumna 2: Selector de QR y Renderizado */}
                         {waiterYapeQr && (
                           <div className="bg-white border-2 border-purple-300 rounded-2xl p-3.5 shadow-xs flex flex-col items-center gap-2.5 text-center">
-                            <div className="flex items-center justify-between w-full border-b border-purple-100 pb-2">
+                            {/* Pestañas de Modo de QR */}
+                            <div className="grid grid-cols-2 gap-1 w-full bg-slate-100 p-1 rounded-xl">
+                              <button
+                                type="button"
+                                onClick={() => setWaiterYapeQrTab("checkout_mobile")}
+                                className={`py-1.5 px-2 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                                  waiterYapeQrTab === "checkout_mobile"
+                                    ? "bg-purple-700 text-white shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                📱 QR Móvil (Monto Fijo)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setWaiterYapeQrTab("yape_app")}
+                                className={`py-1.5 px-2 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                                  waiterYapeQrTab === "yape_app"
+                                    ? "bg-purple-700 text-white shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                🟣 App Yape
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between w-full border-b border-purple-100 pb-1.5">
                               <span className="text-[11px] font-black text-purple-950 flex items-center gap-1.5">
                                 <QrCode className="w-4 h-4 text-purple-700" />
-                                {waiterYapeQr.isCustomImage ? "QR OFICIAL YAPE" : "CÓDIGO QR"}
+                                {waiterYapeQrTab === "checkout_mobile"
+                                  ? "PAGO FIJO NO EDITABLE"
+                                  : waiterYapeQr.isCustomImage
+                                  ? "QR OFICIAL EMPRESA"
+                                  : "CÓDIGO YAPE DIRECTO"}
                               </span>
                               <span className="text-xs font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded-lg">
                                 {waiterYapeQr.amountFormatted}
@@ -4801,27 +4915,41 @@ function SalesManagementContent() {
 
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={waiterYapeQr.qrImageUrl}
+                              src={
+                                waiterYapeQrTab === "checkout_mobile" && waiterYapeQr.checkoutQrImageUrl
+                                  ? waiterYapeQr.checkoutQrImageUrl
+                                  : waiterYapeQr.qrImageUrl
+                              }
                               alt="QR de Cobro Yape"
                               className="w-44 h-44 rounded-xl border border-purple-100 bg-white p-1 object-contain shadow-xs"
                             />
 
-                            <span className="text-[11px] text-purple-950 font-black block">
-                              📷 Escanea desde la app Yape
+                            <span className="text-[10.5px] text-purple-950 font-black block px-1">
+                              {waiterYapeQrTab === "checkout_mobile"
+                                ? "📷 Escanea con la cámara de tu celular para cargar el pago no editable"
+                                : "📷 Escanea desde tu app Yape o transfiere al 954 316 272"}
                             </span>
 
                             <button
                               type="button"
                               disabled={yapeProcessing || processingWaiterPayment}
                               onClick={executeWaiterPayment}
-                              className="w-full py-2.5 px-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all mt-1"
+                              className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all mt-1 ${
+                                waiterClientYapeDetected
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse"
+                                  : "bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white"
+                              }`}
                             >
                               {processingWaiterPayment ? (
                                 <RefreshCw className="w-4 h-4 animate-spin" />
                               ) : (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                               )}
-                              <span>Confirmar Cobro Yape y Liberar</span>
+                              <span>
+                                {waiterClientYapeDetected
+                                  ? "✅ Validar Pago Recibido y Liberar Mesa"
+                                  : "Confirmar Cobro Yape y Liberar Mesa"}
+                              </span>
                             </button>
                           </div>
                         )}
@@ -4901,7 +5029,7 @@ function SalesManagementContent() {
                           const waiterPartYapeQr =
                             isYape && partAmountNum > 0 && waiterPaymentOrder
                               ? generateDynamicYapeQR({
-                                  phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "987654321",
+                                  phone: restaurantConfig?.yapePhone || restaurantConfig?.phone || "954316272",
                                   amount: partAmountNum,
                                   merchantName: restaurantConfig?.yapeName || restaurantConfig?.commercialName || "Polleria",
                                   orderCode: `${waiterPaymentOrder.code}-P${index + 1}`,
