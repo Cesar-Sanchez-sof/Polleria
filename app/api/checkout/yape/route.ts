@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       where: { id: orderId },
       include: {
         tables: { include: { table: true } },
-        items: { include: { dish: true } },
+        items: { include: { product: true } },
       },
     });
 
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       existingInvoice,
       items: order.items.map((it) => ({
         id: it.id,
-        name: it.dish.name,
+        name: it.product.name,
         quantity: it.quantity,
         unitPrice: Number(it.unitPrice),
         subtotal: Number(it.subtotal),
