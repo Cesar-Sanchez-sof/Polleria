@@ -3,12 +3,14 @@ import {
   ArrowRight,
   BarChart3,
   Layers,
+  Palette,
   ListTree,
   LayoutGrid,
   MousePointerClick,
   MousePointer2,
   Navigation,
   Rows3,
+  TextCursorInput,
   Table2,
   Tag,
   Tags,
@@ -18,13 +20,16 @@ import {
 import { entryHref, STYLE_GUIDE_CATEGORIES } from "@/components/style-guide/registry";
 
 const CATEGORY_META: Record<string, { icon: LucideIcon; description: string }> = {
+  foundations: { icon: Palette, description: "Reglas base del diseño: el significado de los colores del ERP." },
   inputs: { icon: MousePointerClick, description: "Controles con los que el usuario captura datos y dispara acciones." },
   visualization: { icon: LayoutGrid, description: "Componentes para mostrar datos: tablas, celdas, indicadores y estados." },
   navigation: { icon: Navigation, description: "Componentes para moverse entre secciones y filtrar contenido." },
 };
 
 const ENTRY_ICONS: Record<string, LucideIcon> = {
+  colors: Palette,
   button: MousePointer2,
+  typeahead: TextCursorInput,
   table: Table2,
   "tag-cell": Tags,
   "row-actions": Rows3,

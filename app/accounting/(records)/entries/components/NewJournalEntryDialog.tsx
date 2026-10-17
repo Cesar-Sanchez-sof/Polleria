@@ -1,5 +1,6 @@
 "use client";
 
+import { Typeahead } from "@/components/shared/Typeahead";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AlertCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -122,7 +123,9 @@ export function NewJournalEntryDialog({
     () =>
       accounts.map((acc) => ({
         value: String(acc.id),
-        label: `${acc.code} · ${acc.name}`,
+        label: acc.name,
+        prefix: <span className="font-bold tabular-nums text-red-700">{acc.code}</span>,
+        keywords: acc.code,
       })),
     [accounts]
   );
@@ -402,28 +405,16 @@ export function NewJournalEntryDialog({
                   key={line.key}
                   className="grid grid-cols-[14rem_minmax(0,1fr)_8rem_8rem_2rem] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0"
                 >
-                  <Select
-                    value={line.accountId}
+                  <Typeahead
                     items={accountOptions}
-                    onValueChange={(val) =>
-                      updateLine(line.key, { accountId: val ?? "" })
-                    }
+                    value={line.accountId}
+                    onValueChange={(val) => updateLine(line.key, { accountId: val })}
                     disabled={isSaving}
-                  >
-                    <SelectTrigger
-                      className="h-8 w-full rounded-lg bg-white text-xs"
-                      aria-label={`Cuenta de la línea ${index + 1}`}
-                    >
-                      <SelectValue placeholder="Seleccionar cuenta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountOptions.map((opt) => (
-                        <SelectItem className="text-xs" key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    clearable={false}
+                    placeholder="Seleccionar cuenta"
+                    ariaLabel={`Cuenta de la línea ${index + 1}`}
+                    className="w-full"
+                  />
 
                   <Input
                     type="text"

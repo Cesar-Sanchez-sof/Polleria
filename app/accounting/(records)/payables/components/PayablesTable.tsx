@@ -1,21 +1,14 @@
 "use client";
 
+import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "cn";
 import {
-  Search,
-  Download,
   CreditCard,
   Eye,
   AlertCircle,
   BookOpen,
-  ArrowUpDown,
   Building2,
-  X,
 } from "lucide-react";
 import type { PayableInvoice } from "@/lib/services/accounting-payables.service";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
@@ -24,49 +17,27 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import { PayablePaymentDialog } from "./PayablePaymentDialog";
 import { PayableDetailDialog } from "./PayableDetailDialog";
+import { filterPayables, type PayableStatusFilter, type PayablesFilters } from "./payables-filters";
 
 interface PayablesTableProps {
   invoices: PayableInvoice[];
   paymentTypes: { id: number; name: string }[];
   onRefresh: () => void;
+  filters: PayablesFilters;
+  onFiltersChange: (filters: PayablesFilters) => void;
 }
 
-export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTableProps) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"todos" | "Pendiente" | "Parcial" | "Pagado">("todos");
-  const [onlyOverdue, setOnlyOverdue] = useState(false);
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+export function PayablesTable({ invoices, paymentTypes, onRefresh, filters, onFiltersChange }: PayablesTableProps) {
+  const { search, status: statusFilter, onlyOverdue, sortOrder } = filters;
+  const setStatusFilter = (status: PayableStatusFilter) => onFiltersChange({ ...filters, status });
+  const setOnlyOverdue = (value: boolean) => onFiltersChange({ ...filters, onlyOverdue: value });
+  const setSortOrder = (value: "desc" | "asc") => onFiltersChange({ ...filters, sortOrder: value });
+  const filtered = useMemo(() => filterPayables(invoices, filters), [invoices, filters]);
 
   // Modals state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<PayableInvoice | null>(null);
-
-  // Filtered & sorted
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
-    return invoices
-      .filter((inv) => {
-        if (statusFilter !== "todos" && inv.status !== statusFilter) return false;
-        if (onlyOverdue && !inv.isOverdue) return false;
-
-        if (q) {
-          const matchVoucher = inv.voucherLabel.toLowerCase().includes(q);
-          const matchSupplier = inv.supplier.businessName.toLowerCase().includes(q);
-          const matchRuc = inv.supplier.ruc.toLowerCase().includes(q);
-          return matchVoucher || matchSupplier || matchRuc;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        const timeA = new Date(a.issuedAt).getTime();
-        const timeB = new Date(b.issuedAt).getTime();
-        return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
-      });
-  }, [invoices, search, statusFilter, onlyOverdue, sortOrder]);
-
 
   const handleOpenPayment = (inv: PayableInvoice) => {
     setSelectedInvoice(inv);
@@ -76,54 +47,6 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
   const handleOpenDetail = (inv: PayableInvoice) => {
     setSelectedInvoice(inv);
     setDetailDialogOpen(true);
-  };
-
-  const exportToCsv = () => {
-    const headers = [
-      "Fecha Emisión",
-      "Tipo Comprobante",
-      "Serie",
-      "Número",
-      "RUC Proveedor",
-      "Razón Social Proveedor",
-      "Cuenta Contable",
-      "Total Comprobante",
-      "Monto Amortizado",
-      "Saldo Pendiente",
-      "Estado de Pago",
-      "Días Antigüedad",
-      "Vencido (>30d)",
-      "Asientos Contables",
-    ];
-
-    const rows = filtered.map((inv) => [
-      inv.issuedAt.split("T")[0],
-      inv.voucherType,
-      inv.series,
-      inv.number,
-      `"${inv.supplier.ruc}"`,
-      `"${inv.supplier.businessName.replace(/"/g, '""')}"`,
-      "4212 Cuentas por Pagar Comerciales",
-      inv.totalAmount.toFixed(2),
-      inv.totalPaid.toFixed(2),
-      inv.pendingBalance.toFixed(2),
-      inv.status,
-      inv.daysOpen,
-      inv.isOverdue ? "SÍ" : "NO",
-      `"${inv.journalEntries.map((je) => je.code).join(", ")}"`,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8,\uFEFF" +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `cuentas_por_pagar_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const formatDate = (isoString: string) => {
@@ -270,128 +193,20 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh }: PayablesTab
   return (
     <>
       <Card className="p-5 bg-white dark:bg-card border-border/80 shadow-xs rounded-xl space-y-4">
-        {/* Controls Toolbar */}
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar por proveedor, RUC o N° comprobante..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-              }}
-              className="pl-9 pr-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Right Action buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-              className="text-xs h-9"
-              title="Cambiar orden por fecha de emisión"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-              <span>{sortOrder === "desc" ? "Más recientes" : "Más antiguos"}</span>
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={exportToCsv}
-              className="text-xs h-9 border-border/80"
-            >
-              <Download className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-              <span>Exportar CSV</span>
-            </Button>
-
-            <Link
-              href="/accounting/entries"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "text-xs h-9 border-border/80"
-              )}
-            >
-              <BookOpen className="w-3.5 h-3.5 mr-1 text-primary" />
-              <span>Libro Diario</span>
-            </Link>
-          </div>
-        </div>
-
         {/* Status Filter Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
-          <span className="text-xs font-semibold text-muted-foreground mr-1">Filtro Estado:</span>
-
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("todos");
-            }}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              statusFilter === "todos"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-surface-container-low text-muted-foreground hover:bg-surface-container"
-            }`}
-          >
-            Todos ({invoices.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("Pendiente");
-            }}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              statusFilter === "Pendiente"
-                ? "bg-rose-600 text-white shadow-xs"
-                : "bg-surface-container-low text-muted-foreground hover:bg-surface-container"
-            }`}
-          >
-            Pendientes ({invoices.filter((i) => i.status === "Pendiente").length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("Parcial");
-            }}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              statusFilter === "Parcial"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "bg-surface-container-low text-muted-foreground hover:bg-surface-container"
-            }`}
-          >
-            Amortización Parcial ({invoices.filter((i) => i.status === "Parcial").length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("Pagado");
-            }}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              statusFilter === "Pagado"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-surface-container-low text-muted-foreground hover:bg-surface-container"
-            }`}
-          >
-            Cancelados ({invoices.filter((i) => i.status === "Pagado").length})
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedTabs
+            ariaLabel="Filtrar por estado"
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value)}
+            className="max-w-full overflow-x-auto"
+            items={[
+              { value: "todos", label: "Todos", count: invoices.length, tone: "brand" },
+              { value: "Pendiente", label: "Pendientes", count: invoices.filter((i) => i.status === "Pendiente").length, tone: "danger" },
+              { value: "Parcial", label: "Amortización Parcial", count: invoices.filter((i) => i.status === "Parcial").length, tone: "info" },
+              { value: "Pagado", label: "Cancelados", count: invoices.filter((i) => i.status === "Pagado").length, tone: "success" },
+            ]}
+          />
 
           <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
 

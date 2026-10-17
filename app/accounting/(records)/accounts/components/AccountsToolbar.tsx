@@ -21,8 +21,6 @@ interface AccountsToolbarProps {
   status: string;
   onStatus: (value: string) => void;
   onNew: () => void;
-  visible: number;
-  total: number;
   loading: boolean;
 }
 
@@ -46,18 +44,10 @@ export function AccountsToolbar({
   status,
   onStatus,
   onNew,
-  visible,
-  total,
   loading,
 }: Readonly<AccountsToolbarProps>) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-slate-500">
-        {loading
-          ? "Cargando cuentas…"
-          : `${visible} de ${total} cuenta${total === 1 ? "" : "s"} en pantalla`}
-      </p>
-
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex items-center bg-slate-100 rounded-full px-3 py-1.5 min-w-55 md:min-w-70">
           <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />

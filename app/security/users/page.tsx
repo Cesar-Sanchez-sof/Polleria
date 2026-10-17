@@ -9,7 +9,7 @@ import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
-import { Users } from "lucide-react";
+import { Pencil, Users } from "lucide-react";
 import { UserForm, type Role, type UserRow } from "./UserForm";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
 
@@ -52,11 +52,6 @@ export default function UsersPage() {
     if (!res.ok) setError((await res.json().catch(() => ({}))).error ?? "No se pudo cambiar el estado");
     else setError(null);
     await load();
-  }
-
-  async function closeSession() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
   }
 
   function abrir(u: UserRow | null) {
@@ -124,10 +119,7 @@ export default function UsersPage() {
       align: "right",
       cell: (u) => (
         <RowActions
-          mode="label"
-          variant="outline"
-          size="sm"
-          actions={[{ key: "edit", label: "Editar", hidden: !can("usuarios.editar"), onClick: () => abrir(u) }]}
+          actions={[{ key: "edit", label: "Editar", icon: <Pencil />, tone: "amber", hidden: !can("usuarios.editar"), onClick: () => abrir(u) }]}
         />
       ),
     },
@@ -141,11 +133,9 @@ export default function UsersPage() {
   icon={Users}
 >
     <div className="flex gap-2">
-    <Button variant="outline" nativeButton={false} render={<Link href="/" />}>Volver al inicio</Button>
     {can("roles.ver") && (
       <Button variant="outline" nativeButton={false} render={<Link href="/security/roles" />}>Roles y permisos</Button>
     )}
-    <Button variant="outline" onClick={closeSession}>Cerrar sesión</Button>
     {can("usuarios.crear") && <Button onClick={() => abrir(null)}>Nuevo usuario</Button>}
   </div>
 </ModuleHeader>

@@ -59,12 +59,11 @@ function formatDrinkTime(iso: string): string {
 
 export function DrinksDispatchBoard() {
   const [drinks, setDrinks] = useState<DrinkOrderItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [filter, setFilter] = useState<"pendientes" | "entregados" | "todos">("pendientes");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentTime, setCurrentTime] = useState("");
 
   const loadDrinks = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -87,18 +86,6 @@ export function DrinksDispatchBoard() {
     const interval = setInterval(() => void loadDrinks(true), 5000);
     return () => clearInterval(interval);
   }, [loadDrinks]);
-
-  // Reloj
-  useEffect(() => {
-    const tick = () => {
-      setCurrentTime(
-        new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
-      );
-    };
-    tick();
-    const timer = setInterval(tick, 10_000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Marcar estado de una bebida individual
   const updateDrinkStatus = async (item: DrinkOrderItem, newStatus: "Delivered" | "Pending") => {
@@ -224,51 +211,6 @@ export function DrinksDispatchBoard() {
 
   return (
     <div className="flex flex-col gap-5 w-full min-w-0">
-      {/* Barra de estado con reloj y auto-refresco */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <GlassWater className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-              Despacho de Bebidas por Mozo
-            </h2>
-            <p className="text-xs text-slate-500">
-              Entrega directa de gaseosas, refrescos, aguas y licores sin saturar a cocina
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-1">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
-            </span>
-            <span className="text-[11px] font-semibold text-blue-800 dark:text-blue-300">
-              Sincronización en vivo
-            </span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 text-xs font-mono font-semibold text-slate-600 dark:text-slate-400">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{currentTime || "12:00"}</span>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void loadDrinks()}
-            disabled={loading}
-            className="h-8 px-3 rounded-xl border-slate-200 text-xs font-semibold cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Refrescar</span>
-          </Button>
-        </div>
-      </div>
-
       {/* Tarjetas KPI de Estado */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <StatCard enableGradient={false} enableHover={false} tone="amber" icon={<GlassWater className={stats.pendingCount > 0 ? "animate-bounce" : ""} />} label="Bebidas por Entregar" value={stats.pendingCount} unit="unidades" />

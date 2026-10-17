@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { Eye, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
 import { Button } from "@/components/ui/button";
@@ -102,12 +102,10 @@ export default function RolesPage() {
       align: "right",
       cell: (r) => (
         <RowActions
-          mode="label"
-          variant="outline"
-          size="sm"
           actions={[
-            { key: "edit", label: r.is_system ? "Ver" : "Editar", hidden: !can("roles.editar"), onClick: () => abrir(r) },
-            { key: "delete", label: "Eliminar", tone: "rose", hidden: !can("roles.eliminar") || r.is_system, onClick: () => removeRole(r) },
+            { key: "view", label: "Ver", icon: <Eye />, tone: "blue", hidden: !can("roles.editar") || !r.is_system, onClick: () => abrir(r) },
+            { key: "edit", label: "Editar", icon: <Pencil />, tone: "amber", hidden: !can("roles.editar") || r.is_system, onClick: () => abrir(r) },
+            { key: "delete", label: "Eliminar", icon: <Trash2 />, tone: "rose", hidden: !can("roles.eliminar") || r.is_system, onClick: () => removeRole(r) },
           ]}
         />
       ),

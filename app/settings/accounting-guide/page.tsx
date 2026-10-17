@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import {
   Calculator,
   Search,
   BookOpen,
   Copy,
   Check,
-  PlusCircle,
   Lightbulb,
   ArrowRight,
   TrendingUp,
@@ -19,8 +17,8 @@ import {
 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Card } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "cn";
+import { Button } from "@/components/ui/button";
+import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 
 type CategoryFilter = "all" | "basics" | "sales" | "purchases" | "credit_notes" | "advances";
 
@@ -299,13 +297,20 @@ export default function AccountingGuidePage() {
         icon={Calculator}
         iconClassName="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
       >
-        <Link
-          href="/accounting/entries"
-          className={cn(buttonVariants({ size: "sm" }), "gap-1.5 shadow-2xs")}
-        >
-          <PlusCircle className="h-3.5 w-3.5" />
-          <span>Registrar Asiento</span>
-        </Link>
+        <SegmentedTabs
+          ariaLabel="Filtrar por tema"
+          value={selectedCategory}
+          onValueChange={(v) => setSelectedCategory(v as CategoryFilter)}
+          className="max-w-full overflow-x-auto"
+          items={[
+            { value: "all", label: "Todos los temas", tone: "brand" },
+            { value: "basics", label: "Conceptos Básicos", icon: <Scale />, tone: "info" },
+            { value: "sales", label: "Ventas", icon: <TrendingUp />, tone: "success" },
+            { value: "purchases", label: "Compras", icon: <ShoppingBag />, tone: "danger" },
+            { value: "credit_notes", label: "Notas de Crédito", icon: <RotateCcw />, tone: "warning" },
+            { value: "advances", label: "Anticipos de Clientes", icon: <Receipt />, tone: "cyan" },
+          ]}
+        />
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-5 md:p-6">
@@ -335,69 +340,6 @@ export default function AccountingGuidePage() {
                   Limpiar búsqueda
                 </Button>
               )}
-            </div>
-
-            {/* Chips de Categorías */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/50">
-              <Button
-                type="button"
-                variant={selectedCategory === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("all")}
-                className="h-7 text-xs rounded-full px-3"
-              >
-                Todos los temas
-              </Button>
-              <Button
-                type="button"
-                variant={selectedCategory === "basics" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("basics")}
-                className="h-7 text-xs rounded-full px-3 gap-1"
-              >
-                <Scale className="h-3 w-3" />
-                Conceptos Básicos
-              </Button>
-              <Button
-                type="button"
-                variant={selectedCategory === "sales" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("sales")}
-                className="h-7 text-xs rounded-full px-3 gap-1"
-              >
-                <TrendingUp className="h-3 w-3 text-emerald-500" />
-                Ventas
-              </Button>
-              <Button
-                type="button"
-                variant={selectedCategory === "purchases" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("purchases")}
-                className="h-7 text-xs rounded-full px-3 gap-1"
-              >
-                <ShoppingBag className="h-3 w-3 text-rose-500" />
-                Compras
-              </Button>
-              <Button
-                type="button"
-                variant={selectedCategory === "credit_notes" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("credit_notes")}
-                className="h-7 text-xs rounded-full px-3 gap-1"
-              >
-                <RotateCcw className="h-3 w-3 text-amber-500" />
-                Notas de Crédito
-              </Button>
-              <Button
-                type="button"
-                variant={selectedCategory === "advances" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("advances")}
-                className="h-7 text-xs rounded-full px-3 gap-1"
-              >
-                <Receipt className="h-3 w-3 text-blue-500" />
-                Anticipos de Clientes
-              </Button>
             </div>
           </Card>
 

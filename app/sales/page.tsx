@@ -688,10 +688,10 @@ function SalesManagementContent() {
       }
     }
 
-    // Ordenar: Los que están "Served" (Listos para entregar) y no entregados van primero
+    // Ordenar: los "Ready" (listos para servir) y no entregados van primero
     return list.sort((a, b) => {
-      const aReady = a.kitchenStatus === "Served" && !a.isDelivered;
-      const bReady = b.kitchenStatus === "Served" && !b.isDelivered;
+      const aReady = a.kitchenStatus === "Ready" && !a.isDelivered;
+      const bReady = b.kitchenStatus === "Ready" && !b.isDelivered;
       if (aReady && !bReady) return -1;
       if (!aReady && bReady) return 1;
       return new Date(a.orderedAt).getTime() - new Date(b.orderedAt).getTime();
@@ -700,7 +700,7 @@ function SalesManagementContent() {
 
   const onlyReadyCount = useMemo(() => {
     return readyOrdersForDelivery.filter(
-      (o) => o.kitchenStatus === "Served" && !o.isDelivered
+      (o) => o.kitchenStatus === "Ready" && !o.isDelivered
     ).length;
   }, [readyOrdersForDelivery]);
 
@@ -708,7 +708,7 @@ function SalesManagementContent() {
     return readyOrdersForDelivery.filter((order) => {
       // Filtro de estado de entrega
       if (readyStatusMode === "solo-listos") {
-        if (order.kitchenStatus !== "Served" || order.isDelivered) {
+        if (order.kitchenStatus !== "Ready" || order.isDelivered) {
           return false;
         }
       }
@@ -733,18 +733,16 @@ function SalesManagementContent() {
     });
   }, [readyOrdersForDelivery, readyStatusMode, readyFilter, readySearch]);
 
-  const toggleDelivered = (orderId: number, identifier: string) => {
-    setDeliveredOrderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(orderId)) {
-        next.delete(orderId);
-        toast.info(`Comanda ${identifier} marcada como pendiente de entrega.`);
-      } else {
-        next.add(orderId);
-        toast.success(`¡Comanda ${identifier} entregada con éxito!`);
-      }
-      return next;
-    });
+  // El mozo marca "Servido" al entregar en mesa (o lo devuelve a "Listo para servir").
+  const toggleDelivered = async (orderId: number, identifier: string, delivered: boolean) => {
+    try {
+      await updateOrderStatus(orderId, delivered ? "Ready" : "Served");
+      if (delivered) toast.info(`Comanda ${identifier} marcada como pendiente de entrega.`);
+      else toast.success(`¡Comanda ${identifier} entregada con éxito!`);
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado.");
+    }
   };
 
   const totalReceivable = useMemo(() => {
@@ -2438,14 +2436,14 @@ function SalesManagementContent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayedDeliveryOrders.map((order) => {
-                const isReady = order.kitchenStatus === "Served";
+                const isReady = order.kitchenStatus === "Ready";
                 const isDelivered = order.isDelivered;
 
                 return (
                   <Card
                     key={`delivery-${order.type}-${order.orderId}`}
                     className={`rounded-2xl border transition-all overflow-hidden flex flex-col ${isReady && !isDelivered
-                        ? "border-emerald-400 bg-white shadow-md ring-2 ring-emerald-500/20"
+                        ? "border-purple-400 bg-white shadow-md ring-2 ring-purple-500/20"
                         : isDelivered
                           ? "border-slate-200 bg-slate-50/70 opacity-80"
                           : "border-slate-200 bg-white shadow-xs"
@@ -2454,7 +2452,7 @@ function SalesManagementContent() {
                     {/* Header de la Tarjeta */}
                     <div
                       className={`p-3.5 border-b flex items-center justify-between ${isReady && !isDelivered
-                          ? "bg-emerald-50/70 border-emerald-100"
+                          ? "bg-purple-50/70 border-purple-100"
                           : isDelivered
                             ? "bg-slate-100/70 border-slate-200"
                             : "bg-slate-50 border-slate-200"
@@ -2487,7 +2485,7 @@ function SalesManagementContent() {
                           Entregado
                         </Badge>
                       ) : isReady ? (
-                        <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[10px] animate-pulse flex items-center gap-1">
+                        <Badge className="bg-purple-600 text-white hover:bg-purple-700 font-bold text-[10px] animate-pulse flex items-center gap-1">
                           <Flame className="w-3 h-3" />
                           LISTO PARA SERVIR
                         </Badge>
@@ -2579,12 +2577,12 @@ function SalesManagementContent() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         {/* Botón 1: Marcar Entregado */}
                         <Button
-                          onClick={() => toggleDelivered(order.orderId, order.identifier)}
+                          onClick={() => void toggleDelivered(order.orderId, order.identifier, order.isDelivered)}
                           size="sm"
                           className={`w-full font-bold text-xs h-9 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer col-span-2 ${isDelivered
                               ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
                               : isReady
-                                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                ? "bg-purple-600 hover:bg-purple-700 text-white shadow-xs"
                                 : "bg-slate-800 hover:bg-slate-900 text-white"
                             }`}
                         >
@@ -2695,19 +2693,23 @@ function SalesManagementContent() {
                         </span>
                         <Badge
                           className={`text-[10px] font-bold border-none ${charge.kitchenStatus === "Served"
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "bg-cyan-100 text-cyan-800"
+                            : charge.kitchenStatus === "Ready"
+                              ? "bg-purple-100 text-purple-800"
                             : charge.kitchenStatus === "Preparing"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-blue-100 text-blue-800"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-blue-100 text-blue-800"
                             }`}
                         >
                           {charge.kitchenStatus === "Served"
                             ? "Servido"
+                            : charge.kitchenStatus === "Ready"
+                              ? "Listo para servir"
                             : charge.kitchenStatus === "Preparing"
-                              ? "Preparando"
-                              : charge.kitchenStatus === "Received"
-                                ? "Recibido"
-                                : charge.kitchenStatus}
+                                ? "Preparando"
+                                : charge.kitchenStatus === "Received"
+                                  ? "Recibido"
+                                  : charge.kitchenStatus}
                         </Badge>
                       </div>
 
@@ -4413,7 +4415,9 @@ function SalesManagementContent() {
                 <Badge
                   className={
                     viewOrderModal.order.status === "Served"
-                      ? "bg-emerald-600 text-white"
+                      ? "bg-cyan-600 text-white"
+                      : viewOrderModal.order.status === "Ready"
+                        ? "bg-purple-600 text-white"
                       : viewOrderModal.order.status === "Preparing"
                         ? "bg-amber-500 text-white"
                         : "bg-blue-600 text-white"
@@ -4421,6 +4425,8 @@ function SalesManagementContent() {
                 >
                   {viewOrderModal.order.status === "Served"
                     ? "Servido"
+                    : viewOrderModal.order.status === "Ready"
+                      ? "Listo para servir"
                     : viewOrderModal.order.status === "Preparing"
                       ? "En Preparación"
                       : "Recibido"}
