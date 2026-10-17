@@ -109,7 +109,8 @@ export function RecipeDialog({
   const router = useRouter();
   const [productsList, setProductsList] = useState<RecipeProductItem[]>(initialProducts);
   const [loading, setLoading] = useState(false);
-  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  // Qué se está creando desde el diálogo de producto: el producto terminado o un ingrediente.
+  const [createTarget, setCreateTarget] = useState<"product" | "ingredient" | null>(null);
 
   const [productId, setProductId] = useState<number | "">("");
   const [rows, setRows] = useState<IngredientRow[]>([newRow()]);
@@ -128,9 +129,8 @@ export function RecipeDialog({
     }
   }, [recipeToEdit, open]);
 
-  const finishedProducts = productsList.filter(
-    (p) => p.type === ProductType.FinishedProduct && (recipeToEdit || !usedProductIds.includes(p.id))
-  );
+  // Siempre se listan todos los productos registrados; los que ya tienen receta se muestran deshabilitados.
+  const producibleProducts = productsList;
   const selectedProduct = productsList.find((p) => p.id === Number(productId));
   const ingredientOptions = productsList.filter((p) => p.id !== Number(productId));
 
@@ -184,11 +184,17 @@ export function RecipeDialog({
   };
 
   const handleCreatedProduct = (created: any) => {
-    if (created) {
-      setProductsList((prev) => [...prev, created]);
-      if (created.type === ProductType.FinishedProduct) {
-        setProductId(created.id);
-      }
+    if (!created) return;
+    setProductsList((prev) => [...prev, created]);
+    if (createTarget === "ingredient") {
+      // El nuevo ingrediente ocupa la primera línea vacía; si no hay, se agrega una.
+      setRows((prev) =>
+        prev.some((r) => !r.ingredientId)
+          ? prev.map((r, i, all) => (i === all.findIndex((x) => !x.ingredientId) ? { ...r, ingredientId: created.id } : r))
+          : [...prev, newRow(created.id)]
+      );
+    } else {
+      setProductId(created.id);
     }
   };
 
@@ -224,7 +230,7 @@ export function RecipeDialog({
                 {!recipeToEdit && (
                   <button
                     type="button"
-                    onClick={() => setProductDialogOpen(true)}
+                    onClick={() => setCreateTarget("product")}
                     className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                   >
                     <Plus className="h-3 w-3" /> Crear Producto
@@ -236,17 +242,20 @@ export function RecipeDialog({
                 onValueChange={(val) => setProductId(Number(val))}
                 disabled={!!recipeToEdit}
               >
-                <SelectTrigger id="producedProduct" className="text-xs">
+                <SelectTrigger id="producedProduct" className="w-full text-xs">
                   <SelectValue placeholder="Seleccionar producto terminado">
-                    {selectedProduct ? selectedProduct.name : undefined}
+                    {selectedProduct ? `${selectedProduct.name} (${selectedProduct.unitOfMeasure})` : undefined}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {finishedProducts.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
+                  {producibleProducts.map((p) => {
+                    const hasRecipe = !recipeToEdit && usedProductIds.includes(p.id);
+                    return (
+                      <SelectItem key={p.id} value={p.id.toString()} disabled={hasRecipe}>
+                        {p.name} ({p.unitOfMeasure}){hasRecipe ? " — ya tiene receta" : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -259,10 +268,10 @@ export function RecipeDialog({
                 </Label>
                 <button
                   type="button"
-                  onClick={() => setRows((prev) => [...prev, newRow()])}
+                  onClick={() => setCreateTarget("ingredient")}
                   className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                 >
-                  <Plus className="h-3 w-3" /> Agregar ingrediente
+                  <Plus className="h-3 w-3" /> Crear Ingrediente
                 </button>
               </div>
 
@@ -270,20 +279,20 @@ export function RecipeDialog({
                 {rows.map((row) => {
                   const selected = productsList.find((p) => p.id === Number(row.ingredientId));
                   return (
-                    <div key={row.key} className="grid grid-cols-[1fr_6.5rem_auto] gap-2 items-center">
+                    <div key={row.key} className="grid grid-cols-[1fr_7.5rem_auto] gap-2 items-center">
                       <Select
                         value={row.ingredientId ? row.ingredientId.toString() : ""}
                         onValueChange={(val) => updateRow(row.key, { ingredientId: Number(val) })}
                       >
-                        <SelectTrigger className="text-xs">
+                        <SelectTrigger className="w-full text-xs">
                           <SelectValue placeholder="Seleccionar ingrediente">
-                            {selected ? selected.name : undefined}
+                            {selected ? `${selected.name} (${selected.unitOfMeasure})` : undefined}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {ingredientOptions.map((p) => (
                             <SelectItem key={p.id} value={p.id.toString()}>
-                              {p.name}
+                              {p.name} ({p.unitOfMeasure})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -296,14 +305,12 @@ export function RecipeDialog({
                           placeholder="Cantidad"
                           value={row.quantity}
                           onChange={(e) => updateRow(row.key, { quantity: parseFloat(e.target.value) || "" })}
-                          className="text-xs pr-9"
+                          className="text-xs pr-10"
                           required
                         />
-                        {selected && (
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">
-                            {selected.unitOfMeasure}
-                          </span>
-                        )}
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground pointer-events-none">
+                          {selected ? selected.unitOfMeasure : "und"}
+                        </span>
                       </div>
                       <Button
                         type="button"
@@ -319,6 +326,19 @@ export function RecipeDialog({
                     </div>
                   );
                 })}
+
+                {/* Fila fantasma: agrega otra línea de ingrediente */}
+                <button
+                  type="button"
+                  onClick={() => setRows((prev) => [...prev, newRow()])}
+                  className="grid w-full grid-cols-[1fr_7.5rem_auto] items-center gap-2 text-left cursor-pointer group"
+                >
+                  <span className="flex h-9 items-center gap-1.5 rounded-xl border border-dashed border-muted-foreground/40 px-3 text-xs text-muted-foreground transition-colors group-hover:border-primary group-hover:text-primary">
+                    <Plus className="h-3.5 w-3.5" /> Agregar ingrediente
+                  </span>
+                  <span className="h-9 rounded-xl border border-dashed border-muted-foreground/20" />
+                  <span className="h-8 w-8" />
+                </button>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Cantidad por 1 unidad producida. Si 1 pollo rinde 8 presas, cada presa lleva 0.125 de pollo.
@@ -351,9 +371,9 @@ export function RecipeDialog({
       </Dialog>
 
       <ProductDialog
-        open={productDialogOpen}
-        onOpenChange={setProductDialogOpen}
-        prefilledType={ProductType.FinishedProduct}
+        open={createTarget !== null}
+        onOpenChange={(open) => !open && setCreateTarget(null)}
+        prefilledType={createTarget === "ingredient" ? ProductType.RawMaterial : ProductType.FinishedProduct}
         onSuccess={handleCreatedProduct}
       />
     </>
