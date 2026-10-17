@@ -5,7 +5,7 @@
     "usuario": { "id": 7, "rol": "contador_demo" },
     "mensaje": "¿Cuál fue el saldo de Caja en septiembre?",
     "contexto": {
-      "ruta": "/accounting/ledger",
+      "ruta": "/accounting/reports/ledger",
       "filtros": { "codigo": "101", "desde": "2026-09-01", "hasta": "2026-09-30" }
     },
     "historial": [

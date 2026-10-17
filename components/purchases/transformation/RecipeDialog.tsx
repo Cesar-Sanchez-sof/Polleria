@@ -20,37 +20,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SupplyDialog } from "@/components/purchases/inventory/SupplyDialog";
+import { ProductDialog } from "@/components/purchases/inventory/ProductDialog";
 import {
   createTransformationRecipe,
   updateTransformationRecipe,
 } from "@/lib/services/purchases/transformation";
-import { SupplyType } from "@prisma/client";
+import { ProductType } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { Sparkles, Plus } from "lucide-react";
 
-export interface RecipeSupplyItem {
+export interface RecipeProductItem {
   id: number;
   name: string;
-  type: SupplyType;
+  type: ProductType;
   unitOfMeasure: string;
 }
 
 export interface TransformationRecipeItem {
   id: number;
-  producedSupplyId: number;
-  consumedSupplyId: number;
+  producedProductId: number;
+  consumedProductId: number;
   producedQuantity: number;
   requiredQuantity: number;
   active: boolean;
   timesUsed?: number;
-  producedSupply: {
+  producedProduct: {
     id: number;
     name: string;
     unitOfMeasure: string;
   };
-  consumedSupply: {
+  consumedProduct: {
     id: number;
     name: string;
     unitOfMeasure: string;
@@ -60,7 +60,7 @@ export interface TransformationRecipeItem {
 interface RecipeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  supplies: RecipeSupplyItem[];
+  products: RecipeProductItem[];
   recipeToEdit?: TransformationRecipeItem | null;
   onSuccess?: () => void;
 }
@@ -68,56 +68,56 @@ interface RecipeDialogProps {
 export function RecipeDialog({
   open,
   onOpenChange,
-  supplies: initialSupplies,
+  products: initialProducts,
   recipeToEdit,
   onSuccess,
 }: RecipeDialogProps) {
   const router = useRouter();
-  const [suppliesList, setSuppliesList] = useState<RecipeSupplyItem[]>(initialSupplies);
+  const [productsList, setProductsList] = useState<RecipeProductItem[]>(initialProducts);
   const [loading, setLoading] = useState(false);
-  const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
 
-  const [consumedSupplyId, setConsumedSupplyId] = useState<number | "">("");
+  const [consumedProductId, setConsumedProductId] = useState<number | "">("");
   const [requiredQuantity, setRequiredQuantity] = useState<number | "">(1);
-  const [producedSupplyId, setProducedSupplyId] = useState<number | "">("");
+  const [producedProductId, setProducedProductId] = useState<number | "">("");
   const [producedQuantity, setProducedQuantity] = useState<number | "">(8);
 
-  const rawMaterials = suppliesList.filter((s) => s.type === SupplyType.RawMaterial);
-  const finishedProducts = suppliesList.filter((s) => s.type === SupplyType.FinishedProduct);
+  const rawMaterials = productsList.filter((s) => s.type === ProductType.RawMaterial);
+  const finishedProducts = productsList.filter((s) => s.type === ProductType.FinishedProduct);
 
   useEffect(() => {
-    setSuppliesList(initialSupplies);
-  }, [initialSupplies]);
+    setProductsList(initialProducts);
+  }, [initialProducts]);
 
   useEffect(() => {
     if (recipeToEdit) {
-      setConsumedSupplyId(recipeToEdit.consumedSupplyId);
+      setConsumedProductId(recipeToEdit.consumedProductId);
       setRequiredQuantity(Number(recipeToEdit.requiredQuantity));
-      setProducedSupplyId(recipeToEdit.producedSupplyId);
+      setProducedProductId(recipeToEdit.producedProductId);
       setProducedQuantity(Number(recipeToEdit.producedQuantity));
     } else {
-      setConsumedSupplyId("");
+      setConsumedProductId("");
       setRequiredQuantity(1);
-      setProducedSupplyId("");
+      setProducedProductId("");
       setProducedQuantity(8);
     }
   }, [recipeToEdit, open]);
 
-  const selectedConsumed = suppliesList.find((s) => s.id === Number(consumedSupplyId));
-  const selectedProduced = suppliesList.find((s) => s.id === Number(producedSupplyId));
+  const selectedConsumed = productsList.find((s) => s.id === Number(consumedProductId));
+  const selectedProduced = productsList.find((s) => s.id === Number(producedProductId));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!consumedSupplyId) {
+    if (!consumedProductId) {
       toast.error("Debe seleccionar un insumo consumido (Materia Prima)");
       return;
     }
-    if (!producedSupplyId) {
+    if (!producedProductId) {
       toast.error("Debe seleccionar un producto producido (Producto Terminado)");
       return;
     }
-    if (Number(consumedSupplyId) === Number(producedSupplyId)) {
+    if (Number(consumedProductId) === Number(producedProductId)) {
       toast.error("El insumo producido no puede ser el mismo que el consumido");
       return;
     }
@@ -140,8 +140,8 @@ export function RecipeDialog({
         toast.success("Receta actualizada exitosamente");
       } else {
         await createTransformationRecipe({
-          consumedSupplyId: Number(consumedSupplyId),
-          producedSupplyId: Number(producedSupplyId),
+          consumedProductId: Number(consumedProductId),
+          producedProductId: Number(producedProductId),
           requiredQuantity: Number(requiredQuantity),
           producedQuantity: Number(producedQuantity),
         });
@@ -158,13 +158,13 @@ export function RecipeDialog({
     }
   };
 
-  const handleCreatedSupply = (created: any) => {
+  const handleCreatedProduct = (created: any) => {
     if (created) {
-      setSuppliesList((prev) => [...prev, created]);
-      if (created.type === SupplyType.FinishedProduct) {
-        setProducedSupplyId(created.id);
-      } else if (created.type === SupplyType.RawMaterial) {
-        setConsumedSupplyId(created.id);
+      setProductsList((prev) => [...prev, created]);
+      if (created.type === ProductType.FinishedProduct) {
+        setProducedProductId(created.id);
+      } else if (created.type === ProductType.RawMaterial) {
+        setConsumedProductId(created.id);
       }
     }
   };
@@ -186,17 +186,17 @@ export function RecipeDialog({
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             {/* Insumo Consumido */}
             <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
-              <Label htmlFor="consumedSupply" className="text-xs font-semibold text-rose-700">
+              <Label htmlFor="consumedProduct" className="text-xs font-semibold text-rose-700">
                 1. Materia Prima *
               </Label>
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <Select
-                    value={consumedSupplyId ? consumedSupplyId.toString() : ""}
-                    onValueChange={(val) => setConsumedSupplyId(Number(val))}
+                    value={consumedProductId ? consumedProductId.toString() : ""}
+                    onValueChange={(val) => setConsumedProductId(Number(val))}
                     disabled={!!recipeToEdit}
                   >
-                    <SelectTrigger id="consumedSupply" className="text-xs">
+                    <SelectTrigger id="consumedProduct" className="text-xs">
                       <SelectValue placeholder="Seleccionar materia prima">
                         {selectedConsumed ? selectedConsumed.name : undefined}
                       </SelectValue>
@@ -228,13 +228,13 @@ export function RecipeDialog({
             {/* Insumo Producido */}
             <div className="space-y-2 p-3 bg-muted/40 rounded-lg border">
               <div className="flex items-center justify-between">
-                <Label htmlFor="producedSupply" className="text-xs font-semibold text-emerald-700">
+                <Label htmlFor="producedProduct" className="text-xs font-semibold text-emerald-700">
                   2. Producto Terminado *
                 </Label>
                 {!recipeToEdit && (
                   <button
                     type="button"
-                    onClick={() => setSupplyDialogOpen(true)}
+                    onClick={() => setProductDialogOpen(true)}
                     className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                   >
                     <Plus className="h-3 w-3" /> Crear Insumo
@@ -244,11 +244,11 @@ export function RecipeDialog({
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <Select
-                    value={producedSupplyId ? producedSupplyId.toString() : ""}
-                    onValueChange={(val) => setProducedSupplyId(Number(val))}
+                    value={producedProductId ? producedProductId.toString() : ""}
+                    onValueChange={(val) => setProducedProductId(Number(val))}
                     disabled={!!recipeToEdit}
                   >
-                    <SelectTrigger id="producedSupply" className="text-xs">
+                    <SelectTrigger id="producedProduct" className="text-xs">
                       <SelectValue placeholder="Seleccionar producto terminado">
                         {selectedProduced ? selectedProduced.name : undefined}
                       </SelectValue>
@@ -303,11 +303,11 @@ export function RecipeDialog({
         </DialogContent>
       </Dialog>
 
-      <SupplyDialog
-        open={supplyDialogOpen}
-        onOpenChange={setSupplyDialogOpen}
-        prefilledType={SupplyType.FinishedProduct}
-        onSuccess={handleCreatedSupply}
+      <ProductDialog
+        open={productDialogOpen}
+        onOpenChange={setProductDialogOpen}
+        prefilledType={ProductType.FinishedProduct}
+        onSuccess={handleCreatedProduct}
       />
     </>
   );

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
             order: {
               include: {
                 items: {
-                  include: { dish: true },
+                  include: { product: true },
                   orderBy: { id: "asc" },
                 },
               },
@@ -65,12 +65,12 @@ export async function GET(request: NextRequest) {
       if (order) {
         const items = order.items.map((d) => ({
           id: d.id,
-          dishId: d.dishId,
-          name: d.dish.name,
+          productId: d.productId,
+          name: d.product.name,
           quantity: d.quantity,
           unitPrice: Number(d.unitPrice),
           subtotal: Number(d.subtotal),
-          dishStatus: d.dishStatus,
+          itemStatus: d.itemStatus,
           notes: d.notes ?? "",
         }));
 

@@ -25,7 +25,7 @@ export interface TransformationDetailItem {
   itemType: string;
   quantity: number | string;
   unitCost?: number | string | null;
-  supply: {
+  product: {
     id: number;
     name: string;
     unitOfMeasure: string;
@@ -177,9 +177,9 @@ export function TransformationDetailDialog({
 
                     return (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.supply.name}</TableCell>
+                        <TableCell className="font-medium">{item.product.name}</TableCell>
                         <TableCell className="text-right">
-                          {qty.toFixed(2)} {item.supply.unitOfMeasure}
+                          {qty.toFixed(2)} {item.product.unitOfMeasure}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
                           S/ {unitCost.toFixed(2)}
@@ -223,9 +223,9 @@ export function TransformationDetailDialog({
 
                     return (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.supply.name}</TableCell>
+                        <TableCell className="font-medium">{item.product.name}</TableCell>
                         <TableCell className="text-right">
-                          {qty.toFixed(2)} {item.supply.unitOfMeasure}
+                          {qty.toFixed(2)} {item.product.unitOfMeasure}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
                           S/ {unitCost.toFixed(2)}

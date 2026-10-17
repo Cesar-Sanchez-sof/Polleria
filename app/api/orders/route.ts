@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.service";
+import { deductProductStock, InsufficientStockError } from "@/lib/services/product-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
 
@@ -19,8 +19,8 @@ export const dynamic = "force-dynamic";
  */
 
 interface OrderItemInput {
-  dishId?: number;
-  dish_id?: number;
+  productId?: number;
+  product_id?: number;
   quantity?: number;
   notes?: string;
   observations?: string;
@@ -28,8 +28,8 @@ interface OrderItemInput {
 
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
-function resolveDishId(item: OrderItemInput): number {
-  return Number(item.dishId ?? item.dish_id);
+function resolveProductId(item: OrderItemInput): number {
+  return Number(item.productId ?? item.product_id);
 }
 
 function resolveQuantity(item: OrderItemInput): number {
@@ -48,24 +48,24 @@ function mapOrderResponse(p: {
   }>;
   items: Array<{
     id: number;
-    dishId: number;
+    productId: number;
     quantity: number;
     unitPrice: { toString(): string } | number;
     subtotal: { toString(): string } | number;
-    dishStatus: string;
+    itemStatus: string;
     notes: string | null;
-    dish: { name: string };
+    product: { name: string };
   }>;
 }) {
   const pm = p.tables.find((t) => !t.notes?.includes("[Anexa a Mesa")) ?? p.tables[0] ?? null;
   const items = p.items.map((d) => ({
     id: d.id,
-    dishId: d.dishId,
-    name: d.dish.name,
+    productId: d.productId,
+    name: d.product.name,
     quantity: d.quantity,
     unitPrice: Number(d.unitPrice),
     subtotal: Number(d.subtotal),
-    dishStatus: d.dishStatus,
+    itemStatus: d.itemStatus,
     notes: d.notes ?? ""
   }));
   const total = items.reduce((acc, it) => acc + it.subtotal, 0);
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
           include: { table: true }
         },
         items: {
-          include: { dish: true },
+          include: { product: true },
           orderBy: { id: "asc" }
         }
       }
@@ -222,19 +222,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar productos y obtener precios oficiales de la base de datos
-    const dishIds = items.map((it) => resolveDishId(it));
-    const dishesDb = await prisma.dish.findMany({
-      where: { id: { in: dishIds }, active: true }
+    const productIds = items.map((it) => resolveProductId(it));
+    const productsDb = await prisma.product.findMany({
+      where: { id: { in: productIds }, active: true, sellable: true }
     });
 
-    const dishesMap = new Map(dishesDb.map((pl) => [pl.id, pl]));
+    const productsMap = new Map(productsDb.map((pl) => [pl.id, pl]));
 
     for (const item of items) {
-      const dishId = resolveDishId(item);
+      const productId = resolveProductId(item);
       const quantity = resolveQuantity(item);
-      if (!dishesMap.has(dishId)) {
+      if (!productsMap.has(productId)) {
         return Response.json(
-          { error: `El producto con ID ${dishId} no existe o no está activo.` },
+          { error: `El producto con ID ${productId} no existe, no está activo o no se vende.` },
           { status: 400 }
         );
       }
@@ -244,24 +244,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    }
-
-    // Verificación y reserva atómica de stock en Redis Cloud
-    const reservationItems = items.map((it) => {
-      const dishId = resolveDishId(it);
-      return {
-        dishId: dishId,
-        quantity: Math.floor(resolveQuantity(it)),
-        name: dishesMap.get(dishId)?.name,
-      };
-    });
-
-    const reservationResult = await reserveOrderStock(reservationItems);
-    if (!reservationResult.success) {
-      return Response.json(
-        { error: reservationResult.error || "Stock insuficiente para atender el pedido." },
-        { status: 400 }
-      );
     }
 
     // Generar código único para el pedido (PED-XXXXXX)
@@ -319,23 +301,30 @@ export async function POST(request: NextRequest) {
         }
 
         for (const item of items) {
-          const dish = dishesMap.get(resolveDishId(item))!;
+          const product = productsMap.get(resolveProductId(item))!;
           const quantity = Math.floor(resolveQuantity(item));
-          const unitPrice = Number(dish.price);
+          const unitPrice = Number(product.price);
           const subtotal = Math.round(unitPrice * quantity * 100) / 100;
           const itemNotes = item.notes ?? item.observations;
 
-          await tx.orderItem.create({
+          const createdItem = await tx.orderItem.create({
             data: {
               orderId: newOrder.id,
-              dishId: dish.id,
+              productId: product.id,
               quantity,
               unitPrice,
               subtotal,
-              dishStatus: "Pending",
+              itemStatus: "Pending",
               notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
             }
           });
+
+          // El stock baja con el pedido: si no alcanza, toda la transacción se revierte.
+          await deductProductStock(
+            tx,
+            { productId: product.id, quantity, orderItemId: createdItem.id },
+            `Venta pedido ${code}`
+          );
         }
 
         return newOrder;
@@ -348,7 +337,7 @@ export async function POST(request: NextRequest) {
         where: { id: result.id },
         include: {
           tables: { include: { table: true } },
-          items: { include: { dish: true } }
+          items: { include: { product: true } }
         }
       });
 
@@ -382,8 +371,8 @@ export async function POST(request: NextRequest) {
         { status: 201 }
       );
     } catch (dbError) {
-      for (const item of reservationItems) {
-        await releaseDishStock(item.dishId, item.quantity).catch(() => {});
+      if (dbError instanceof InsufficientStockError) {
+        return Response.json({ error: dbError.message }, { status: 400 });
       }
       throw dbError;
     }

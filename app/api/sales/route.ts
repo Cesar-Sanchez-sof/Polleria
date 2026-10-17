@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       where: { id: orderId },
       include: {
         tables: { include: { table: true } },
-        items: { include: { dish: true } }
+        items: { include: { product: true } }
       }
     });
 
@@ -469,7 +469,7 @@ export async function POST(request: NextRequest) {
           },
           origin: associatedTable ? `Mesa ${associatedTable.number}` : "Pedido Para Llevar",
           items: (order.items || []).map((d) => ({
-            name: d.dish?.name || "Plato",
+            name: d.product?.name || "Plato",
             quantity: d.quantity,
             unitPrice: Number(d.unitPrice),
             subtotal: Number(d.subtotal),
@@ -542,7 +542,7 @@ export async function GET(request: NextRequest) {
             },
             items: {
               include: {
-                dish: true,
+                product: true,
               },
             },
           },
@@ -593,7 +593,7 @@ export async function GET(request: NextRequest) {
         origin: associatedTable ? `Mesa ${associatedTable.number}` : "Pedido Para Llevar",
         items:
           c.order?.items.map((d) => ({
-            name: d.dish.name,
+            name: d.product.name,
             quantity: d.quantity,
             unitPrice: Number(d.unitPrice),
             subtotal: Number(d.subtotal),

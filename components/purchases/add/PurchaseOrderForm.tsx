@@ -20,8 +20,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { SupplierDialog } from "@/components/purchases/suppliers/SupplierDialog";
-import { SupplyDialog } from "@/components/purchases/inventory/SupplyDialog";
-import { SupplySearchSelect, SupplyItem } from "./SupplySearchSelect";
+import { ProductDialog } from "@/components/purchases/inventory/ProductDialog";
+import { ProductSearchSelect, ProductItem } from "./ProductSearchSelect";
 import { SupplierSearchSelect } from "./SupplierSearchSelect";
 import { registerUnifiedPurchase } from "@/lib/services/purchases/purchase-order";
 import { toast } from "sonner";
@@ -69,12 +69,12 @@ interface PaymentType {
 
 interface PurchaseOrderFormProps {
   initialSuppliers: Supplier[];
-  initialSupplies: SupplyItem[];
+  initialProducts: ProductItem[];
   paymentTypes: PaymentType[];
 }
 
 interface LineForm {
-  supplyId: number | "";
+  productId: number | "";
   quantity: number | "";
   unitPrice: number | "";
   affectationIgv: AffectationIgv;
@@ -82,12 +82,12 @@ interface LineForm {
 
 export function PurchaseOrderForm({
   initialSuppliers,
-  initialSupplies,
+  initialProducts,
   paymentTypes,
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
-  const [supplies, setSupplies] = useState<SupplyItem[]>(initialSupplies);
+  const [products, setProducts] = useState<ProductItem[]>(initialProducts);
 
   // Bloque A: Proveedor
   const [supplierId, setSupplierId] = useState<number | "">("");
@@ -120,14 +120,14 @@ export function PurchaseOrderForm({
 
   // Bloque C: Insumos
   const [lines, setLines] = useState<LineForm[]>([
-    { supplyId: "", quantity: 1, unitPrice: 0, affectationIgv: AffectationIgv.Excluded },
+    { productId: "", quantity: 1, unitPrice: 0, affectationIgv: AffectationIgv.Excluded },
   ]);
 
   const [loading, setLoading] = useState(false);
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
-  const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [prefilledSupplierQuery, setPrefilledSupplierQuery] = useState("");
-  const [prefilledSupplyName, setPrefilledSupplyName] = useState("");
+  const [prefilledProductName, setPrefilledProductName] = useState("");
   const [targetLineIndex, setTargetLineIndex] = useState<number | null>(null);
 
   // Filtrar activos
@@ -136,9 +136,9 @@ export function PurchaseOrderForm({
     [suppliers]
   );
 
-  const activeSupplies = useMemo(
-    () => supplies.filter((s) => s.active !== false),
-    [supplies]
+  const activeProducts = useMemo(
+    () => products.filter((s) => s.active !== false),
+    [products]
   );
 
   const selectedSupplier = useMemo(
@@ -159,27 +159,27 @@ export function PurchaseOrderForm({
     }
   };
 
-  // Supply Creation Handler
-  const handleSupplyCreated = (created: any) => {
+  // Product Creation Handler
+  const handleProductCreated = (created: any) => {
     if (created) {
-      setSupplies((prev) => [created, ...prev]);
+      setProducts((prev) => [created, ...prev]);
       if (targetLineIndex !== null) {
-        handleSupplySelectForLine(targetLineIndex, created);
+        handleProductSelectForLine(targetLineIndex, created);
       }
     }
   };
 
-  const handleOpenSupplyDialog = (index: number, suggestedName: string = "") => {
+  const handleOpenProductDialog = (index: number, suggestedName: string = "") => {
     setTargetLineIndex(index);
-    setPrefilledSupplyName(suggestedName);
-    setSupplyDialogOpen(true);
+    setPrefilledProductName(suggestedName);
+    setProductDialogOpen(true);
   };
 
   // Line Handlers
   const handleAddLine = () => {
     setLines((prev) => [
       ...prev,
-      { supplyId: "", quantity: 1, unitPrice: 0, affectationIgv: AffectationIgv.Excluded },
+      { productId: "", quantity: 1, unitPrice: 0, affectationIgv: AffectationIgv.Excluded },
     ]);
   };
 
@@ -188,15 +188,15 @@ export function PurchaseOrderForm({
     setLines((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSupplySelectForLine = (index: number, supply: SupplyItem) => {
+  const handleProductSelectForLine = (index: number, product: ProductItem) => {
     setLines((prev) => {
       const copy = [...prev];
-      const affectation = supply.affectationIgv || AffectationIgv.Excluded;
-      const suggestedPrice = supply.lastCost ? Number(supply.lastCost) : 0;
+      const affectation = product.affectationIgv || AffectationIgv.Excluded;
+      const suggestedPrice = product.lastCost ? Number(product.lastCost) : 0;
 
       copy[index] = {
         ...copy[index],
-        supplyId: supply.id,
+        productId: product.id,
         affectationIgv: affectation,
         unitPrice: suggestedPrice > 0 ? suggestedPrice : copy[index].unitPrice || 0,
       };
@@ -269,7 +269,7 @@ export function PurchaseOrderForm({
     if (!voucherType || !series.trim() || !number.trim()) return false;
     if (!paymentTypeId) return false;
     const validLines = lines.filter(
-      (l) => l.supplyId !== "" && Number(l.quantity) > 0
+      (l) => l.productId !== "" && Number(l.quantity) > 0
     );
     if (validLines.length === 0) return false;
     return true;
@@ -281,9 +281,9 @@ export function PurchaseOrderForm({
     if (!isValid) return;
 
     const validItems = lines
-      .filter((l) => l.supplyId !== "" && Number(l.quantity) > 0)
+      .filter((l) => l.productId !== "" && Number(l.quantity) > 0)
       .map((l) => ({
-        supplyId: Number(l.supplyId),
+        productId: Number(l.productId),
         quantity: Number(l.quantity),
         unitPrice: Number(l.unitPrice) || 0,
         affectationIgv: l.affectationIgv === AffectationIgv.Included ? ("Included" as const) : ("Excluded" as const),
@@ -689,13 +689,13 @@ export function PurchaseOrderForm({
                     <TableCell className="overflow-visible relative py-2">
                       <div className="flex items-center gap-1.5">
                         <div className="flex-1 min-w-0 relative">
-                          <SupplySearchSelect
-                            selectedSupplyId={line.supplyId}
-                            onSelectSupply={(supply) => handleSupplySelectForLine(index, supply)}
-                            onRequestCreateSupply={(suggestedName) =>
-                              handleOpenSupplyDialog(index, suggestedName)
+                          <ProductSearchSelect
+                            selectedProductId={line.productId}
+                            onSelectProduct={(product) => handleProductSelectForLine(index, product)}
+                            onRequestCreateProduct={(suggestedName) =>
+                              handleOpenProductDialog(index, suggestedName)
                             }
-                            initialSuppliesList={activeSupplies}
+                            initialProductsList={activeProducts}
                           />
                         </div>
                         <Button
@@ -704,7 +704,7 @@ export function PurchaseOrderForm({
                           size="icon"
                           className="h-9 w-9 shrink-0 text-muted-foreground hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition-colors"
                           title="Crear nuevo insumo en catálogo"
-                          onClick={() => handleOpenSupplyDialog(index, "")}
+                          onClick={() => handleOpenProductDialog(index, "")}
                         >
                           <PackagePlus className="h-4 w-4" />
                         </Button>
@@ -877,11 +877,11 @@ export function PurchaseOrderForm({
         prefilledRucOrName={prefilledSupplierQuery}
       />
 
-      <SupplyDialog
-        open={supplyDialogOpen}
-        onOpenChange={setSupplyDialogOpen}
-        onSuccess={handleSupplyCreated}
-        prefilledName={prefilledSupplyName}
+      <ProductDialog
+        open={productDialogOpen}
+        onOpenChange={setProductDialogOpen}
+        onSuccess={handleProductCreated}
+        prefilledName={prefilledProductName}
         showAffectationIgv={true}
       />
     </form>

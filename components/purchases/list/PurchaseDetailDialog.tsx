@@ -217,10 +217,10 @@ export function PurchaseDetailDialog({
                         <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                           <td className="py-2.5 px-3">
                             <span className="font-semibold text-foreground block truncate">
-                              {item.supply.name}
+                              {item.product.name}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
-                              {item.supply.unitOfMeasure}
+                              {item.product.unitOfMeasure}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-medium">

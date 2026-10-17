@@ -112,7 +112,7 @@ export function AnnulTransformationDialog({
               <ul className="space-y-0.5 pl-1">
                 {consumptions.map((c) => (
                   <li key={c.id} className="text-foreground">
-                    + {Number(c.quantity).toFixed(2)} {c.supply.unitOfMeasure} {c.supply.name}
+                    + {Number(c.quantity).toFixed(2)} {c.product.unitOfMeasure} {c.product.name}
                   </li>
                 ))}
               </ul>
@@ -125,7 +125,7 @@ export function AnnulTransformationDialog({
               <ul className="space-y-0.5 pl-1">
                 {productions.map((p) => (
                   <li key={p.id} className="text-foreground">
-                    - {Number(p.quantity).toFixed(2)} {p.supply.unitOfMeasure} {p.supply.name}
+                    - {Number(p.quantity).toFixed(2)} {p.product.unitOfMeasure} {p.product.name}
                   </li>
                 ))}
               </ul>

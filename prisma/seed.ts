@@ -111,8 +111,8 @@ async function main() {
   }
   console.log("✔ 12 Mesas del salón registradas y marcadas como disponibles.");
 
-  // 4. CARTA DE PLATOS DE LA POLLERÍA
-  const dishesData = [
+  // 4. CARTA DE PRODUCTOS DE LA POLLERÍA (productos terminados que se venden)
+  const productsData = [
     {
       name: "1/4 Pollo a la Brasa",
       description: "1/4 de pollo a la brasa tradicional con papas fritas crocantes, ensalada clásica y cremas caseras.",
@@ -185,20 +185,24 @@ async function main() {
     },
   ];
 
-  for (const dish of dishesData) {
-    const exists = await prisma.dish.findFirst({ where: { name: dish.name } });
+  // El stock de cada producto empieza en 0: se llena con compras, transformación o un ajuste en el Kardex.
+  for (const product of productsData) {
+    const exists = await prisma.product.findFirst({ where: { name: product.name, sellable: true } });
     if (!exists) {
-      await prisma.dish.create({
+      await prisma.product.create({
         data: {
-          name: dish.name,
-          description: dish.description,
-          price: dish.price,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          type: "FinishedProduct",
+          unitOfMeasure: "UND",
+          sellable: true,
           active: true,
         },
       });
     }
   }
-  console.log(`✔ ${dishesData.length} platos registrados en la carta.`);
+  console.log(`✔ ${productsData.length} productos registrados en la carta.`);
 
   // 5. CATÁLOGO DE CUENTAS CONTABLES (PCGE 2019 simplificado para la pollería)
   await seedAccounts(prisma);

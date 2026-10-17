@@ -44,6 +44,8 @@ export interface NavTreeProps {
   /** Allows collapsing the groups. When false every group is always open. Default: true. */
   collapsible?: boolean;
   size?: NavTreeSize;
+  /** Color of the active item. Default: "red" (app brand). */
+  activeTone?: "red" | "blue";
   className?: string;
   ariaLabel?: string;
 }
@@ -80,6 +82,7 @@ export function NavTree({
   enableBadges = true,
   collapsible = true,
   size = "md",
+  activeTone = "red",
   className,
   ariaLabel,
 }: Readonly<NavTreeProps>) {
@@ -127,7 +130,9 @@ export function NavTree({
       "flex w-full items-center gap-3 rounded-lg text-left transition-colors",
       nested ? sizes.child : sizes.row,
       active
-        ? "bg-red-50 font-semibold text-red-800 dark:bg-red-950/40 dark:text-red-300"
+        ? activeTone === "blue"
+          ? "bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+          : "bg-red-50 font-semibold text-red-800 dark:bg-red-950/40 dark:text-red-300"
         : "text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800",
       node.disabled && "pointer-events-none opacity-50"
     );

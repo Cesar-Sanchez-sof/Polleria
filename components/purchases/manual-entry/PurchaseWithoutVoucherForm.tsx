@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SupplyDialog } from "@/components/purchases/inventory/SupplyDialog";
+import { ProductDialog } from "@/components/purchases/inventory/ProductDialog";
 import { registerPurchaseWithoutVoucher } from "@/lib/services/purchases/purchase-without-voucher";
 import { InformalPurchaseType, ExpenseCategory } from "@prisma/client";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/services/purchases/purchase-without-voucher.constants";
@@ -21,21 +21,21 @@ import { toast } from "sonner";
 import { Plus, Receipt, Package, Briefcase } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
-interface Supply {
+interface Product {
   id: number;
   name: string;
   unitOfMeasure: string;
 }
 
 interface PurchaseWithoutVoucherFormProps {
-  supplies: Supply[];
+  products: Product[];
 }
 
 export function PurchaseWithoutVoucherForm({
-  supplies: initialSupplies,
+  products: initialProducts,
 }: PurchaseWithoutVoucherFormProps) {
   const router = useRouter();
-  const [suppliesList, setSuppliesList] = useState<Supply[]>(initialSupplies);
+  const [productsList, setProductsList] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState(false);
 
   // Tipo de compra
@@ -44,7 +44,7 @@ export function PurchaseWithoutVoucherForm({
   );
 
   // Insumo de cocina
-  const [supplyId, setSupplyId] = useState<number | "">("");
+  const [productId, setProductId] = useState<number | "">("");
   const [quantity, setQuantity] = useState<number | "">(1);
 
   // Gasto operativo
@@ -63,9 +63,9 @@ export function PurchaseWithoutVoucherForm({
   const [informalPlaceOrVendor, setInformalPlaceOrVendor] = useState("");
   const [reason, setReason] = useState("");
 
-  const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
 
-  const selectedSupply = suppliesList.find((i) => i.id === Number(supplyId));
+  const selectedProduct = productsList.find((i) => i.id === Number(productId));
   const calculatedUnitCost =
     purchaseType === InformalPurchaseType.InventoryItem &&
     Number(quantity) > 0 &&
@@ -77,7 +77,7 @@ export function PurchaseWithoutVoucherForm({
     e.preventDefault();
 
     if (purchaseType === InformalPurchaseType.InventoryItem) {
-      if (!supplyId) {
+      if (!productId) {
         toast.error("Debe seleccionar un insumo");
         return;
       }
@@ -109,9 +109,9 @@ export function PurchaseWithoutVoucherForm({
     try {
       await registerPurchaseWithoutVoucher({
         purchaseType,
-        supplyId:
+        productId:
           purchaseType === InformalPurchaseType.InventoryItem
-            ? Number(supplyId)
+            ? Number(productId)
             : undefined,
         quantity:
           purchaseType === InformalPurchaseType.InventoryItem
@@ -135,7 +135,7 @@ export function PurchaseWithoutVoucherForm({
       router.refresh();
 
       // Reset
-      setSupplyId("");
+      setProductId("");
       setQuantity(1);
       setItemDescription("");
       setExpenseCategory("");
@@ -149,10 +149,10 @@ export function PurchaseWithoutVoucherForm({
     }
   };
 
-  const handleSupplyCreated = (created: Supply) => {
+  const handleProductCreated = (created: Product) => {
     if (created) {
-      setSuppliesList((prev) => [...prev, created]);
-      setSupplyId(created.id);
+      setProductsList((prev) => [...prev, created]);
+      setProductId(created.id);
     }
   };
 
@@ -171,7 +171,7 @@ export function PurchaseWithoutVoucherForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setSupplyDialogOpen(true)}
+                onClick={() => setProductDialogOpen(true)}
                 className="h-7 text-xs flex items-center gap-1"
               >
                 <Plus className="h-3.5 w-3.5" /> + Crear Insumo
@@ -212,20 +212,20 @@ export function PurchaseWithoutVoucherForm({
         {purchaseType === InformalPurchaseType.InventoryItem ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5 md:col-span-1">
-              <Label htmlFor="supply">
+              <Label htmlFor="product">
                 Insumo Comprado <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={supplyId ? supplyId.toString() : ""}
-                onValueChange={(val) => setSupplyId(Number(val))}
+                value={productId ? productId.toString() : ""}
+                onValueChange={(val) => setProductId(Number(val))}
               >
-                <SelectTrigger id="supply">
+                <SelectTrigger id="product">
                   <SelectValue placeholder="Seleccionar insumo">
-                    {selectedSupply ? selectedSupply.name : undefined}
+                    {selectedProduct ? selectedProduct.name : undefined}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliesList.map((i) => (
+                  {productsList.map((i) => (
                     <SelectItem key={i.id} value={i.id.toString()}>
                       {i.name} ({i.unitOfMeasure})
                     </SelectItem>
@@ -365,7 +365,7 @@ export function PurchaseWithoutVoucherForm({
           <div className="text-xs text-muted-foreground flex justify-between bg-muted/30 p-2 rounded border">
             <span>Costo unitario implícito:</span>
             <span className="font-semibold text-foreground">
-              S/ {calculatedUnitCost.toFixed(2)} / {selectedSupply?.unitOfMeasure || "unidad"}
+              S/ {calculatedUnitCost.toFixed(2)} / {selectedProduct?.unitOfMeasure || "unidad"}
             </span>
           </div>
         )}
@@ -378,10 +378,10 @@ export function PurchaseWithoutVoucherForm({
         </div>
       </form>
 
-      <SupplyDialog
-        open={supplyDialogOpen}
-        onOpenChange={setSupplyDialogOpen}
-        onSuccess={handleSupplyCreated}
+      <ProductDialog
+        open={productDialogOpen}
+        onOpenChange={setProductDialogOpen}
+        onSuccess={handleProductCreated}
       />
     </>
   );

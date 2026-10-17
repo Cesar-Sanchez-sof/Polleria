@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { releaseDishStock } from "@/lib/services/redis-stock.service";
+import {
+  deductProductStock,
+  InsufficientStockError,
+  restoreProductStock,
+  totalsByProduct,
+} from "@/lib/services/product-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
 
@@ -25,15 +30,15 @@ export const dynamic = "force-dynamic";
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
 interface OrderItemInput {
-  dishId?: number;
-  dish_id?: number;
+  productId?: number;
+  product_id?: number;
   quantity?: number;
   notes?: string;
   observations?: string;
 }
 
-function resolveDishId(item: OrderItemInput): number {
-  return Number(item.dishId ?? item.dish_id);
+function resolveProductId(item: OrderItemInput): number {
+  return Number(item.productId ?? item.product_id);
 }
 
 function resolveQuantity(item: OrderItemInput): number {
@@ -58,7 +63,7 @@ export async function GET(
       include: {
         tables: { include: { table: true } },
         items: {
-          include: { dish: true },
+          include: { product: true },
           orderBy: { id: "asc" }
         }
       }
@@ -71,12 +76,12 @@ export async function GET(
     const pm = order.tables[0] ?? null;
     const items = order.items.map((d) => ({
       id: d.id,
-      dishId: d.dishId,
-      name: d.dish.name,
+      productId: d.productId,
+      name: d.product.name,
       quantity: d.quantity,
       unitPrice: Number(d.unitPrice),
       subtotal: Number(d.subtotal),
-      dishStatus: d.dishStatus,
+      itemStatus: d.itemStatus,
       notes: d.notes ?? ""
     }));
     const total = items.reduce((acc, it) => acc + it.subtotal, 0);
@@ -139,17 +144,17 @@ export async function PUT(
       );
     }
 
-    const dishIds = items.map((it) => resolveDishId(it));
-    const dishesDb = await prisma.dish.findMany({
-      where: { id: { in: dishIds }, active: true }
+    const productIds = items.map((it) => resolveProductId(it));
+    const productsDb = await prisma.product.findMany({
+      where: { id: { in: productIds }, active: true, sellable: true }
     });
-    const dishesMap = new Map(dishesDb.map((pl) => [pl.id, pl]));
+    const productsMap = new Map(productsDb.map((pl) => [pl.id, pl]));
 
     for (const item of items) {
-      const dishId = resolveDishId(item);
+      const productId = resolveProductId(item);
       const quantity = resolveQuantity(item);
-      if (!dishesMap.has(dishId)) {
-        return Response.json({ error: `El producto con ID ${dishId} no es válido.` }, { status: 400 });
+      if (!productsMap.has(productId)) {
+        return Response.json({ error: `El producto con ID ${productId} no es válido.` }, { status: 400 });
       }
       if (!quantity || quantity < 1) {
         return Response.json({ error: "La cantidad de cada producto debe ser mayor a 0." }, { status: 400 });
@@ -168,29 +173,59 @@ export async function PUT(
         });
       }
 
+      // Stock: solo se mueve la diferencia entre lo que tenía el pedido y lo que queda.
+      const previousItems = await tx.orderItem.findMany({
+        where: { orderId: id },
+        select: { productId: true, quantity: true }
+      });
+      const previousTotals = totalsByProduct(previousItems);
+      const nextTotals = totalsByProduct(
+        items.map((it) => ({ productId: resolveProductId(it), quantity: resolveQuantity(it) }))
+      );
+
       await tx.orderItem.deleteMany({
         where: { orderId: id }
       });
 
+      const createdItemByProduct = new Map<number, number>();
       for (const item of items) {
-        const dish = dishesMap.get(resolveDishId(item))!;
+        const product = productsMap.get(resolveProductId(item))!;
         const quantity = Math.floor(resolveQuantity(item));
-        const unitPrice = Number(dish.price);
+        const unitPrice = Number(product.price);
         const subtotal = Math.round(unitPrice * quantity * 100) / 100;
         const itemNotes = item.notes ?? item.observations;
-        const itemDishStatus = (item as any).dishStatus;
+        const itemStatus = (item as any).itemStatus;
 
-        await tx.orderItem.create({
+        const createdItem = await tx.orderItem.create({
           data: {
             orderId: id,
-            dishId: dish.id,
+            productId: product.id,
             quantity,
             unitPrice,
             subtotal,
-            dishStatus: itemDishStatus || (existingOrder.status === "Served" ? "Pending" : existingOrder.status),
+            itemStatus: itemStatus || (existingOrder.status === "Served" ? "Pending" : existingOrder.status),
             notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
           }
         });
+        createdItemByProduct.set(product.id, createdItem.id);
+      }
+
+      for (const [productId, nextQty] of nextTotals) {
+        const delta = nextQty - (previousTotals.get(productId) ?? 0);
+        if (delta > 0) {
+          await deductProductStock(
+            tx,
+            { productId, quantity: delta, orderItemId: createdItemByProduct.get(productId) },
+            `Venta pedido ${existingOrder.code} (edición)`
+          );
+        } else if (delta < 0) {
+          await restoreProductStock(tx, { productId, quantity: -delta }, `Devolución pedido ${existingOrder.code} (edición)`);
+        }
+      }
+      for (const [productId, previousQty] of previousTotals) {
+        if (!nextTotals.has(productId)) {
+          await restoreProductStock(tx, { productId, quantity: previousQty }, `Devolución pedido ${existingOrder.code} (edición)`);
+        }
       }
 
       const notes = body.notes ?? body.observation;
@@ -204,6 +239,9 @@ export async function PUT(
 
     return Response.json({ message: "Pedido actualizado exitosamente." });
   } catch (error) {
+    if (error instanceof InsufficientStockError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
     console.error("[api/orders/[id]] Error al editar pedido:", error);
     return Response.json({ error: "No se pudo actualizar el pedido." }, { status: 500 });
   }
@@ -280,7 +318,7 @@ export async function PATCH(
       if (newStatus === "Served") {
         await tx.orderItem.updateMany({
           where: { orderId: id },
-          data: { dishStatus: "Served" }
+          data: { itemStatus: "Served" }
         });
       }
 
@@ -328,7 +366,11 @@ export async function PATCH(
           where: { orderId: id }
         });
         for (const d of details) {
-          await releaseDishStock(d.dishId, d.quantity).catch(() => {});
+          await restoreProductStock(
+            tx,
+            { productId: d.productId, quantity: d.quantity },
+            `Devolución por cancelación del pedido ${order.code}`
+          );
         }
       }
     });

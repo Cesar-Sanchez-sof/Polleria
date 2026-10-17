@@ -120,7 +120,7 @@ describe("solicitud hacia ai-service", () => {
           { rol: "usuario", texto: "Hola" },
           { rol: "asistente", texto: "El saldo neto fue S/ 1,149.60." },
         ],
-        ruta: "/reports/ledger",
+        ruta: "/accounting/reports/ledger",
       },
       d,
     );
@@ -133,7 +133,7 @@ describe("solicitud hacia ai-service", () => {
       id_traza: TRACE,
       usuario: { id: 7, rol: "contador_demo" },
       mensaje: "¿Cuál fue el saldo de caja en septiembre?",
-      contexto: { ruta: "/reports/ledger", filtros: {} },
+      contexto: { ruta: "/accounting/reports/ledger", filtros: {} },
       historial: [{ rol: "usuario", texto: "Hola" }],
       fecha_referencia_lima: "2026-10-12",
     });
@@ -142,7 +142,7 @@ describe("solicitud hacia ai-service", () => {
 
   it("rutas no autorizadas no envían contexto", async () => {
     const d = deps();
-    await ask({ mensaje: "Saldo de caja", ruta: "/users" }, d);
+    await ask({ mensaje: "Saldo de caja", ruta: "/security/users" }, d);
     expect(JSON.parse(String(d.calls[0].init.body)).contexto).toBeNull();
   });
 

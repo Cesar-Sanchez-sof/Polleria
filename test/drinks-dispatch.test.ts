@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isBeverage, determineCategory } from "@/lib/utils/dish-category";
+import { isBeverage, determineCategory } from "@/lib/utils/product-category";
 import { NextRequest } from "next/server";
 
 // Mock de Prisma para probar las rutas de despacho de bebidas
@@ -114,19 +114,19 @@ describe("Módulo de Despacho de Bebidas por Mozo y Exclusión de Cocina", () =>
           items: [
             {
               id: 101,
-              dishId: 1,
+              productId: 1,
               quantity: 1,
               notes: "bien cocido",
-              dishStatus: "Preparing",
-              dish: { name: "1/4 Pollo a la Brasa", description: null },
+              itemStatus: "Preparing",
+              product: { name: "1/4 Pollo a la Brasa", description: null },
             },
             {
               id: 102,
-              dishId: 10,
+              productId: 10,
               quantity: 2,
               notes: "bien helada con vasos",
-              dishStatus: "Pending",
-              dish: { name: "Inca Kola 1.5L", description: "Gaseosa personal" },
+              itemStatus: "Pending",
+              product: { name: "Inca Kola 1.5L", description: "Gaseosa personal" },
             },
           ],
         },
@@ -151,7 +151,7 @@ describe("Módulo de Despacho de Bebidas por Mozo y Exclusión de Cocina", () =>
     it("PATCH debe cambiar el estado de la bebida a 'Delivered' (Entregado)", async () => {
       (prisma.orderItem.update as any).mockResolvedValue({
         id: 102,
-        dishStatus: "Delivered",
+        itemStatus: "Delivered",
       });
 
       const req = new NextRequest("http://localhost:3000/api/orders/drinks", {
@@ -167,15 +167,15 @@ describe("Módulo de Despacho de Bebidas por Mozo y Exclusión de Cocina", () =>
       expect(json.status).toBe("Delivered");
       expect(prisma.orderItem.update).toHaveBeenCalledWith({
         where: { id: 102 },
-        data: { dishStatus: "Delivered" },
+        data: { itemStatus: "Delivered" },
       });
     });
 
     it("PATCH debe permitir marcar todas las bebidas de una comanda a la vez", async () => {
       (prisma.orderItem.findMany as any).mockResolvedValue([
-        { id: 201, dish: { name: "1/4 Pollo a la Brasa" } },
-        { id: 202, dish: { name: "Inca Kola 1.5L" } },
-        { id: 203, dish: { name: "Jarra de Chicha 1L" } },
+        { id: 201, product: { name: "1/4 Pollo a la Brasa" } },
+        { id: 202, product: { name: "Inca Kola 1.5L" } },
+        { id: 203, product: { name: "Jarra de Chicha 1L" } },
       ]);
       (prisma.orderItem.updateMany as any).mockResolvedValue({ count: 2 });
 
@@ -192,7 +192,7 @@ describe("Módulo de Despacho de Bebidas por Mozo y Exclusión de Cocina", () =>
       expect(json.updatedCount).toBe(2);
       expect(prisma.orderItem.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [202, 203] } },
-        data: { dishStatus: "Delivered" },
+        data: { itemStatus: "Delivered" },
       });
     });
   });
@@ -200,7 +200,7 @@ describe("Módulo de Despacho de Bebidas por Mozo y Exclusión de Cocina", () =>
   describe("4. Manejo de Temperatura de Bebidas (Helada vs Sin Helar)", () => {
     it("debe registrar y discriminar ítems de la misma bebida con diferente temperatura", () => {
       interface KitchenOrderItem {
-        dishId: number;
+        productId: number;
         name: string;
         quantity: number;
         notes: string;
@@ -209,20 +209,20 @@ describe("Módulo de Despacho de Bebidas por Mozo y Exclusión de Cocina", () =>
       const orderItems: KitchenOrderItem[] = [];
 
       const addItemWithTemp = (
-        dish: { id: number; name: string },
+        product: { id: number; name: string },
         temp: "Helada" | "Sin helar",
         extra = "",
       ) => {
         const finalNote = extra.trim() ? `${temp} - ${extra.trim()}` : temp;
         const idx = orderItems.findIndex(
-          (it) => it.dishId === dish.id && it.notes === finalNote,
+          (it) => it.productId === product.id && it.notes === finalNote,
         );
         if (idx >= 0) {
           orderItems[idx].quantity += 1;
         } else {
           orderItems.push({
-            dishId: dish.id,
-            name: dish.name,
+            productId: product.id,
+            name: product.name,
             quantity: 1,
             notes: finalNote,
           });

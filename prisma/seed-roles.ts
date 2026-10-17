@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { PERMISSIONS_CATALOG, VALID_CODES } from "../lib/auth/permissions-catalog";
+import { PERMISSIONS_CATALOG, PERMISSION_MODULES, VALID_CODES } from "../lib/auth/permissions-catalog";
 
 /** Arma códigos `modulo.accion` y falla si alguno no existe en el catálogo. */
 function p(module: string, ...actions: string[]): string[] {
@@ -21,10 +21,10 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
     description: "Cobra ventas, gestiona la caja y los clientes",
     permissions: [
       ...p("ventas", "ver", "crear"),
+      ...p("facturas", "ver"),
       ...p("caja", "ver", "crear", "editar"),
       ...p("clientes", "ver", "crear", "editar"),
       ...p("pedidos", "ver"),
-      ...p("mesas", "ver"),
     ],
   },
   {
@@ -32,6 +32,8 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
     description: "Atiende mesas y registra pedidos",
     permissions: [
       ...p("pedidos", "ver", "crear", "editar"),
+      ...p("bebidas", "ver"),
+      ...p("listos", "ver"),
       ...p("mesas", "ver", "editar"),
       ...p("platos", "ver"),
       ...p("clientes", "ver"),
@@ -43,6 +45,7 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
     permissions: [
       ...p("cocina", "ver", "editar"),
       ...p("pedidos", "ver"),
+      ...p("listos", "ver"),
       ...p("platos", "ver"),
       ...p("inventario", "ver"),
       ...p("transformacion", "ver", "crear"),
@@ -53,13 +56,24 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
     description: "Contabilidad completa; consulta compras, ventas y auditoría",
     permissions: [
       ...p("asientos", "ver", "crear", "editar"),
+      ...p("pagar", "ver"),
       ...p("cuentas", "ver", "crear", "editar"),
       ...p("periodos", "ver", "crear", "editar"),
-      ...p("reportes", "ver"),
+      ...p("comprobacion", "ver"),
+      ...p("balance", "ver"),
+      ...p("dashboard", "ver"),
+      ...p("resultados", "ver"),
+      ...p("flujo", "ver"),
+      ...p("mayor", "ver"),
+      ...p("ple", "ver"),
+      ...p("resumen", "ver"),
+      ...p("guia", "ver"),
+      ...p("dashcompras", "ver"),
       ...p("compras", "ver"),
       ...p("proveedores", "ver"),
       ...p("inventario", "ver"),
       ...p("ventas", "ver"),
+      ...p("facturas", "ver"),
       ...p("auditoria", "ver"),
     ],
   },
@@ -67,6 +81,7 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
 
 export async function seedRolesPermissions(prisma: PrismaClient) {
   // 1. Sincroniza el catálogo (alta/actualización y baja de códigos obsoletos).
+  const known = new Set((await prisma.permission.findMany({ select: { code: true } })).map((x) => x.code));
   for (const permission of PERMISSIONS_CATALOG) {
     await prisma.permission.upsert({
       where: { code: permission.code },
@@ -74,6 +89,26 @@ export async function seedRolesPermissions(prisma: PrismaClient) {
       create: { ...permission },
     });
   }
+
+  // Pantallas nuevas: los roles que ya podían ver el módulo padre (p. ej. `reportes.ver`)
+  // reciben el "ver" de cada pantalla hija recién creada, para no perder acceso.
+  const parents = [...new Set(PERMISSION_MODULES.flatMap((m) => (m.parent ? [m.parent] : [])))];
+  for (const parent of parents) {
+    const created = PERMISSION_MODULES.filter((m) => m.parent === parent)
+      .map((m) => `${m.code}.ver`)
+      .filter((code) => !known.has(code));
+    if (created.length === 0) continue;
+    const holders = await prisma.rolePermission.findMany({
+      where: { permission: { code: `${parent}.ver` } },
+      select: { roleId: true },
+    });
+    const children = await prisma.permission.findMany({ where: { code: { in: created } }, select: { id: true } });
+    await prisma.rolePermission.createMany({
+      data: holders.flatMap((h) => children.map((c) => ({ roleId: h.roleId, permissionId: c.id }))),
+      skipDuplicates: true,
+    });
+  }
+
   await prisma.permission.deleteMany({ where: { code: { notIn: PERMISSIONS_CATALOG.map((c) => c.code) } } });
 
   const all = await prisma.permission.findMany({ select: { id: true, code: true } });

@@ -462,7 +462,7 @@ export interface PostPurchaseJournalInput {
   paymentMethodName?: string;
   responsible?: string;
   items?: Array<{
-    supplyType: "RawMaterial" | "FinishedProduct";
+    productType: "RawMaterial" | "FinishedProduct";
     subtotalLine: number; // valor neto sin IGV de esa línea
   }>;
 }
@@ -544,7 +544,7 @@ export async function postPurchaseJournalEntries(
 
   // -----------------------------------------------------------------------
   // 2) Destino / Ingreso al almacén
-  //    Diferenciado por supplyType:
+  //    Diferenciado por productType:
   //    - RawMaterial: DEBE 241 (Materias Primas) / HABER 611 (Variación de inventarios)
   //    - FinishedProduct: DEBE 201 (Mercaderías) / HABER 611 (Variación de inventarios)
   // -----------------------------------------------------------------------
@@ -554,7 +554,7 @@ export async function postPurchaseJournalEntries(
 
     for (const item of input.items) {
       const lineVal = round2(item.subtotalLine);
-      if (item.supplyType === "RawMaterial") {
+      if (item.productType === "RawMaterial") {
         rawMaterialsTotal += lineVal;
       } else {
         finishedProductsTotal += lineVal;

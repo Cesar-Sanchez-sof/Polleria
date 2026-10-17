@@ -1,35 +1,25 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SupplierDialog } from "./SupplierDialog";
 import { setSupplierStatus } from "@/lib/services/purchases/supplier";
 import { toast } from "sonner";
-import { TablePagination } from "@/components/purchases/shared/TablePagination";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Tag } from "@/components/shared/TagCell";
 import {
   Plus,
   Search,
   Edit2,
   Power,
   Building2,
-  Trophy,
-  CreditCard,
-  AlertCircle,
   Phone,
   Mail,
-  MapPin,
   X,
   User,
-  TrendingUp,
 } from "lucide-react";
 
 export interface Supplier {
@@ -58,10 +48,9 @@ export interface SupplierVoucherSummary {
 
 interface SuppliersTableProps {
   initialSuppliers: Supplier[];
-  vouchers?: SupplierVoucherSummary[];
 }
 
-export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTableProps) {
+export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "ruc">("all");
@@ -75,72 +64,7 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
   const activeSuppliers = suppliers.filter((p) => p.active).length;
   const inactiveSuppliers = suppliers.filter((p) => !p.active).length;
   const withRuc = suppliers.filter((p) => p.ruc.length === 11).length;
-  const withDni = suppliers.filter((p) => p.ruc.length === 8).length;
 
-  // 2. Proveedor Principal (Top Compras)
-  const topSupplier = useMemo<{ name: string; ruc: string; total: number; count: number } | null>(() => {
-    if (vouchers.length === 0) return null;
-
-    const map = new Map<number, { name: string; ruc: string; total: number; count: number }>();
-    vouchers.forEach((v) => {
-      const sup = suppliers.find((s) => s.id === v.supplierId) || v.supplier;
-      const name = sup?.businessName || `Proveedor #${v.supplierId}`;
-      const ruc = sup?.ruc || "";
-      const current = map.get(v.supplierId) || { name, ruc, total: 0, count: 0 };
-      current.total += Number(v.totalAmount);
-      current.count += 1;
-      map.set(v.supplierId, current);
-    });
-
-    let top: { name: string; ruc: string; total: number; count: number } | null = null;
-    map.forEach((data) => {
-      if (!top || data.total > top.total) {
-        top = data;
-      }
-    });
-
-    return top;
-  }, [vouchers, suppliers]);
-
-  // 3. Compras al Crédito vs Contado
-  const { countedCount, creditCount, countedRatio } = useMemo(() => {
-    let counted = 0;
-    let credit = 0;
-    vouchers.forEach((v) => {
-      if (v.paymentStatus === "Pagado" && Number(v.pendingBalance) === 0) {
-        counted += 1;
-      } else {
-        credit += 1;
-      }
-    });
-    const total = counted + credit;
-    const ratio = total > 0 ? Math.round((counted / total) * 100) : 100;
-    return { countedCount: counted, creditCount: credit, countedRatio: ratio };
-  }, [vouchers]);
-
-  // 4. Cuentas por Pagar Vivas (Saldos Pendientes a Proveedores)
-  const { totalPendingDebt, suppliersWithDebtCount, pendingInvoicesCount } = useMemo(() => {
-    let debt = 0;
-    const debtSuppliersSet = new Set<number>();
-    let pendingCount = 0;
-
-    vouchers.forEach((v) => {
-      const balance = Number(v.pendingBalance);
-      if (balance > 0.005) {
-        debt += balance;
-        debtSuppliersSet.add(v.supplierId);
-        pendingCount += 1;
-      }
-    });
-
-    return {
-      totalPendingDebt: debt,
-      suppliersWithDebtCount: debtSuppliersSet.size,
-      pendingInvoicesCount: pendingCount,
-    };
-  }, [vouchers]);
-
-  // ─── Filtrado ───
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -162,15 +86,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
       return matchesSearch && matchesStatus;
     });
   }, [suppliers, search, statusFilter]);
-
-  // Paginación
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
-
-  const paginatedSuppliers = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
 
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
@@ -214,127 +129,111 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
     });
   };
 
+  const columns: DataTableColumn<Supplier>[] = [
+    {
+      key: "document",
+      header: "Documento Fiscal",
+      width: "w-48",
+      sortable: true,
+      sortValue: (p) => p.ruc,
+      cell: (p) => (
+        <div className="flex items-center gap-2">
+          <Tag tone={p.ruc.length === 11 ? "amber" : "indigo"} size="sm">
+            {p.ruc.length === 11 ? "RUC" : "DNI"}
+          </Tag>
+          <span className="font-mono text-xs font-bold text-foreground">{p.ruc}</span>
+        </div>
+      ),
+    },
+    {
+      key: "businessName",
+      header: "Razón Social / Proveedor",
+      width: "min-w-[260px]",
+      sortable: true,
+      sortValue: (p) => p.businessName,
+      primary: {
+        title: (p) => p.businessName,
+        subtitle: (p) => p.address || "Sin dirección fiscal registrada",
+        icon: <Building2 />,
+        iconTone: "amber",
+      },
+    },
+    {
+      key: "contactPerson",
+      header: "Persona de Contacto",
+      width: "min-w-[170px]",
+      sortable: true,
+      sortValue: (p) => p.contactPerson,
+      cell: (p) =>
+        p.contactPerson ? (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+            <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{p.contactPerson}</span>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">-</span>
+        ),
+    },
+    {
+      key: "channels",
+      header: "Teléfono y Correo",
+      width: "min-w-[200px]",
+      cell: (p) => (
+        <div className="space-y-1 text-xs">
+          {p.phone ? (
+            <div className="flex items-center gap-1.5 font-mono font-medium text-foreground">
+              <Phone className="h-3 w-3 shrink-0 text-emerald-600" />
+              <span>{p.phone}</span>
+            </div>
+          ) : null}
+          {p.email ? (
+            <div className="flex items-center gap-1.5 truncate text-muted-foreground" title={p.email}>
+              <Mail className="h-3 w-3 shrink-0 text-amber-600" />
+              <span className="truncate">{p.email}</span>
+            </div>
+          ) : null}
+          {!p.phone && !p.email && <span className="text-muted-foreground/60">Sin canales registrados</span>}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Estado",
+      align: "center",
+      width: "w-32",
+      sortable: true,
+      sortValue: (p) => (p.active ? 1 : 0),
+      cell: (p) => (
+        <StatusBadge tone={p.active ? "success" : "danger"} pulse={p.active}>
+          {p.active ? "Activo" : "Inactivo"}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      align: "right",
+      width: "w-28",
+      cell: (p) => (
+        <RowActions
+          size="sm"
+          actions={[
+            { key: "edit", label: "Editar proveedor", icon: <Edit2 />, tone: "amber", onClick: () => handleEdit(p) },
+            {
+              key: "toggle",
+              label: p.active ? "Desactivar proveedor" : "Activar proveedor",
+              icon: <Power />,
+              tone: p.active ? "rose" : "emerald",
+              onClick: () => handleToggleStatus(p),
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-
-      {/* ── Dashboard Executive Cards (Opción B: Abastecimiento y Finanzas de Proveedores) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Card 1: Padrón de Proveedores */}
-        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/30 dark:to-amber-950/20 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-200/80 dark:border-amber-900/60 shadow-2xs">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 px-2 py-0.5 rounded-full">
-              Padrón Comercial
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Directorio de Proveedores</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-mono">
-                {totalSuppliers}
-              </span>
-              <span className="text-xs text-muted-foreground">registrados</span>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{activeSuppliers} activos</span>
-            <span>{withRuc} con RUC • {withDni} con DNI</span>
-          </div>
-        </div>
-
-        {/* Card 2: Proveedor Principal (Top Compras) */}
-        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-orange-50/25 dark:to-orange-950/15 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400 flex items-center justify-center shrink-0 border border-orange-100 dark:border-orange-900/60 shadow-2xs">
-              <Trophy className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> Top Proveedor
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Mayor Volumen de Compra</p>
-            {topSupplier ? (
-              <div className="mt-1">
-                <p className="text-base sm:text-lg font-bold text-foreground truncate" title={topSupplier.name}>
-                  {topSupplier.name}
-                </p>
-                <p className="text-xs font-mono font-bold text-amber-800 dark:text-amber-300 mt-0.5">
-                  S/ {topSupplier.total.toFixed(2)}
-                  <span className="text-[11px] font-normal text-muted-foreground ml-1.5">
-                    ({topSupplier.count} compras)
-                  </span>
-                </p>
-              </div>
-            ) : (
-              <div className="mt-1">
-                <p className="text-sm font-semibold text-muted-foreground">Sin compras aún</p>
-                <p className="text-xs font-mono text-muted-foreground mt-0.5">S/ 0.00</p>
-              </div>
-            )}
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Proveedor líder</span>
-            <span className="font-semibold text-foreground">
-              {topSupplier?.ruc ? `RUC: ${topSupplier.ruc}` : "Esperando compras"}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Modalidad de Pago (Crédito vs Contado) */}
-        <div className="rounded-2xl border border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-br from-card via-card to-amber-50/20 dark:to-amber-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300 flex items-center justify-center shrink-0 border border-stone-200 dark:border-stone-700 shadow-2xs">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 rounded-full font-mono">
-              {countedRatio}% Contado
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Modalidad de Operaciones</p>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
-              <div
-                className="bg-amber-600 dark:bg-amber-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${countedRatio}%` }}
-              />
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-stone-700 dark:text-stone-300 font-medium">Contado: {countedCount} op.</span>
-            <span className="text-amber-700 dark:text-amber-400 font-medium">Crédito: {creditCount} op.</span>
-          </div>
-        </div>
-
-        {/* Card 4: Cuentas por Pagar Vivas (Deuda a Proveedores) */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-gradient-to-br from-card via-card to-rose-50/20 dark:to-rose-950/10 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-100 dark:border-rose-900/60 shadow-2xs">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 px-2 py-0.5 rounded-full">
-              Cuentas x Pagar
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Deuda Viva con Proveedores</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-rose-800 dark:text-rose-300 font-mono">
-                S/ {totalPendingDebt.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{suppliersWithDebtCount} proveedores con saldo</span>
-            <span className="font-semibold text-rose-600 dark:text-rose-400">
-              {pendingInvoicesCount} facturas pendientes
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* ── Toolbar Inteligente (Buscador + Filtros Segmentados + Botón Nuevo Proveedor) ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-card border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 rounded-2xl shadow-xs">
@@ -347,7 +246,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setCurrentPage(1);
             }}
             className="pl-9 pr-8 h-10 text-xs bg-background rounded-xl border-slate-200 dark:border-slate-800"
           />
@@ -355,7 +253,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
             <button
               onClick={() => {
                 setSearch("");
-                setCurrentPage(1);
               }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
@@ -372,7 +269,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
               type="button"
               onClick={() => {
                 setStatusFilter("all");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "all"
@@ -389,7 +285,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
               type="button"
               onClick={() => {
                 setStatusFilter("active");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "active"
@@ -406,7 +301,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
               type="button"
               onClick={() => {
                 setStatusFilter("inactive");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "inactive"
@@ -425,7 +319,6 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
               type="button"
               onClick={() => {
                 setStatusFilter("ruc");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "ruc"
@@ -452,208 +345,41 @@ export function SuppliersTable({ initialSuppliers, vouchers = [] }: SuppliersTab
         </div>
       </div>
 
-      {/* ── Tabla Moderna de Proveedores ── */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <Table className="w-full">
-            <TableHeader>
-              <TableRow className="bg-slate-50/70 dark:bg-slate-900/50 border-b border-slate-200/80 dark:border-slate-800">
-                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Documento Fiscal</TableHead>
-                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Razón Social / Proveedor</TableHead>
-                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Persona de Contacto</TableHead>
-                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Teléfono y Correo</TableHead>
-                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center whitespace-nowrap">Estado</TableHead>
-                <TableHead className="py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-16">
-                    <div className="flex flex-col items-center justify-center gap-3 text-center max-w-sm mx-auto">
-                      <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-muted-foreground">
-                        <Building2 className="h-7 w-7" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm text-foreground">
-                          {hasActiveFilter
-                            ? "No se encontraron proveedores con esos filtros"
-                            : "Aún no tienes proveedores registrados"}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {hasActiveFilter
-                            ? "Prueba cambiando los términos de búsqueda o selecciona otro filtro."
-                            : "Comienza registrando a tus distribuidores e intermediarios para compras."}
-                        </p>
-                      </div>
-                      {hasActiveFilter ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSearch("");
-                            setStatusFilter("all");
-                            setCurrentPage(1);
-                          }}
-                          className="mt-2 text-xs rounded-xl"
-                        >
-                          Limpiar filtros
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={handleNew}
-                          className="mt-2 text-xs rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Plus className="h-3.5 w-3.5" /> Registrar Primer Proveedor
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedSuppliers.map((p) => {
-                  const isRuc = p.ruc.length === 11;
-
-                  return (
-                    <TableRow key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
-                      
-                      {/* Documento */}
-                      <TableCell className="py-3 px-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                              isRuc
-                                ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
-                                : "bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300"
-                            }`}
-                          >
-                            {isRuc ? "RUC" : "DNI"}
-                          </span>
-                          <span className="font-mono text-xs font-bold text-foreground">
-                            {p.ruc}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Razón Social y Dirección */}
-                      <TableCell className="py-3 px-3 max-w-[280px]">
-                        <div className="flex items-start gap-2.5 min-w-0">
-                          <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/70">
-                            <Building2 className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <span className="font-semibold text-xs text-foreground block truncate" title={p.businessName}>
-                              {p.businessName}
-                            </span>
-                            {p.address ? (
-                              <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate" title={p.address}>
-                                <MapPin className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{p.address}</span>
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground/60">
-                                Sin dirección fiscal registrada
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Contacto */}
-                      <TableCell className="py-3 px-3 max-w-[180px]">
-                        {p.contactPerson ? (
-                          <div className="flex items-center gap-1.5 text-xs text-foreground font-medium truncate" title={p.contactPerson}>
-                            <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{p.contactPerson}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/60">-</span>
-                        )}
-                      </TableCell>
-
-                      {/* Teléfono y Correo */}
-                      <TableCell className="py-3 px-3 max-w-[200px]">
-                        <div className="space-y-1 text-xs">
-                          {p.phone ? (
-                            <div className="flex items-center gap-1.5 font-mono text-foreground font-medium">
-                              <Phone className="h-3 w-3 text-emerald-600 shrink-0" />
-                              <span>{p.phone}</span>
-                            </div>
-                          ) : null}
-                          {p.email ? (
-                            <div className="flex items-center gap-1.5 text-muted-foreground truncate" title={p.email}>
-                              <Mail className="h-3 w-3 text-amber-600 shrink-0" />
-                              <span className="truncate">{p.email}</span>
-                            </div>
-                          ) : null}
-                          {!p.phone && !p.email && (
-                            <span className="text-muted-foreground/60">Sin canales registrados</span>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      {/* Estado */}
-                      <TableCell className="py-3 px-3 text-center whitespace-nowrap">
-                        {p.active ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-900 border border-emerald-300/80 dark:bg-emerald-950/60 dark:text-emerald-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                            Activo
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100/80 text-rose-900 border border-rose-300/80 dark:bg-rose-950/60 dark:text-rose-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-                            Inactivo
-                          </span>
-                        )}
-                      </TableCell>
-
-                      {/* Acciones */}
-                      <TableCell className="py-3 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(p)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-all cursor-pointer"
-                            title="Editar proveedor"
-                          >
-                            <Edit2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
-                          </Button>
-                          
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleStatus(p)}
-                            className={`h-8 w-8 p-0 rounded-lg transition-all cursor-pointer ${
-                              p.active
-                                ? "text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50"
-                                : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-                            }`}
-                            title={p.active ? "Desactivar proveedor" : "Activar proveedor"}
-                          >
-                            <Power className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <TablePagination
-          currentPage={currentPage}
-          pageSize={pageSize}
-          totalItems={filtered.length}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
-          itemLabel="proveedores"
-        />
-      </div>
+      {/* ── Tabla de Proveedores ── */}
+      <DataTable
+        columns={columns}
+        rows={filtered}
+        rowKey={(p) => p.id}
+        defaultSort={{ key: "businessName", direction: "asc" }}
+        pageResetKey={`${search}|${statusFilter}`}
+        pagination={{ defaultPageSize: 15, itemLabel: "proveedores" }}
+        emptyState={{
+          icon: <Building2 className="h-7 w-7" />,
+          title: hasActiveFilter
+            ? "No se encontraron proveedores con esos filtros"
+            : "Aún no tienes proveedores registrados",
+          description: hasActiveFilter
+            ? "Prueba cambiando los términos de búsqueda o selecciona otro filtro."
+            : "Comienza registrando a tus distribuidores e intermediarios para compras.",
+          action: hasActiveFilter ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("all");
+              }}
+              className="text-xs rounded-xl"
+            >
+              Limpiar filtros
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleNew} className="flex cursor-pointer items-center gap-1.5 rounded-xl text-xs">
+              <Plus className="h-3.5 w-3.5" /> Registrar Primer Proveedor
+            </Button>
+          ),
+        }}
+      />
 
       {/* ── Dialog ── */}
       <SupplierDialog
