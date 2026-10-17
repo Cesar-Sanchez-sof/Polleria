@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createMercadoPagoPreference } from "@/lib/services/mercadopago.service";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +31,11 @@ export const dynamic = "force-dynamic";
  *         description: Preferencia creada exitosamente con URLs de pago y QR.
  */
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("ventas.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("ventas.crear");
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => ({}));
-    const orderId = Number(body?.orderId || body?.id_pedido);
+    const orderId = Number(body?.orderId || body?.order_id);
 
     if (!orderId || Number.isNaN(orderId)) {
       return Response.json({ error: "Debe proporcionar un ID de pedido válido." }, { status: 400 });
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const order = await prisma.salesOrder.findUnique({
       where: { id: orderId },
       include: {
-        items: { include: { dish: true } },
+        items: { include: { product: true } },
       },
     });
 
@@ -63,15 +63,15 @@ export async function POST(request: NextRequest) {
     const roundedTotal = Math.round(total * 100) / 100;
 
     const items = order.items.map((it) => ({
-      title: it.dish.name,
+      title: it.product.name,
       quantity: it.quantity,
       unitPrice: Number(it.unitPrice),
     }));
 
     const result = await createMercadoPagoPreference({
-      idPedido: order.id,
-      codigoComanda: order.code,
-      monto: roundedTotal,
+      orderId: order.id,
+      kitchenOrderCode: order.code,
+      amount: roundedTotal,
       items,
       payerEmail: body?.payerEmail,
     });

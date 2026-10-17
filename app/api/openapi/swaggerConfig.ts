@@ -28,6 +28,14 @@ export const swaggerDefinition: OpenAPIV3.Document = {
     { name: 'PaymentMethods', description: 'Métodos de pago disponibles.' },
     { name: 'Stock', description: 'Consulta y ajuste de inventario.' },
     { name: 'DocumentLookup', description: 'Consulta de datos de documento (DNI/RUC).' },
+    { name: 'Roles', description: 'Control de acceso y gestión de roles y permisos del sistema.' },
+    { name: 'Payments', description: 'Pasarelas de pagos digitales (Mercado Pago, cobro Yape).' },
+    { name: 'Settings', description: 'Configuraciones del restaurante, áreas e impresoras.' },
+    { name: 'Cash', description: 'Sesiones de caja chica, movimientos, aperturas y cierres.' },
+    { name: 'Audit', description: 'Auditoría de seguridad y trazabilidad de eventos del sistema.' },
+    { name: 'Assistant', description: 'Asistente financiero con inteligencia artificial.' },
+    { name: 'PLE', description: 'Libros electrónicos SUNAT (PLE) y simulación SIRE.' },
+    { name: 'Realtime', description: 'Flujo de eventos en tiempo real vía Server-Sent Events.' },
     { name: 'Webhooks', description: 'Callbacks externos (pasarela de pagos).' },
   ],
   components: {
@@ -40,7 +48,7 @@ export const swaggerDefinition: OpenAPIV3.Document = {
             description: 'Mensaje legible para el cliente.',
             example: 'No se pudo obtener el recurso.',
           },
-          errores: {
+          errors: {
             type: 'array',
             description: 'Lista completa de validaciones fallidas (opcional).',
             items: { type: 'string' },
@@ -77,37 +85,37 @@ export const swaggerDefinition: OpenAPIV3.Document = {
         type: 'object',
         properties: {
           id: { type: 'integer', description: 'Identificador numérico de la cuenta.', example: 7 },
-          codigo: {
+          code: {
             type: 'string',
             maxLength: 10,
             pattern: '^[A-Za-z0-9.-]{1,10}$',
             description: 'Código único de la cuenta en el plan contable.',
             example: '104',
           },
-          nombre: {
+          name: {
             type: 'string',
             maxLength: 100,
             description: 'Nombre de la cuenta.',
             example: 'Bancos',
           },
-          tipo: {
+          type: {
             type: 'string',
             enum: ['Activo', 'Pasivo', 'Patrimonio', 'Ingreso', 'Gasto', 'Costo'],
             description: 'Tipo de cuenta (catálogo PCGE).',
             example: 'Activo',
           },
-          idPadre: {
+          parentId: {
             type: 'integer',
             nullable: true,
             description: 'Cuenta padre; null en cuentas raíz.',
             example: null,
           },
-          activo: {
+          active: {
             type: 'boolean',
             description: 'Estado de la cuenta (true = activa). Las inactivas también se consultan.',
             example: true,
           },
-          usos: {
+          uses: {
             type: 'integer',
             minimum: 0,
             description: 'Líneas de asiento que usan la cuenta (derivado; 0 si nunca se usa).',

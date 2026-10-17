@@ -1,14 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -20,10 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SupplyDialog } from "./SupplyDialog";
+import { ProductDialog } from "./ProductDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
 import { KardexDialog } from "./KardexDialog";
-import { TablePagination } from "@/components/purchases/shared/TablePagination";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { RowActions } from "@/components/shared/RowActions";
+import { Tag } from "@/components/shared/TagCell";
 import {
   Plus,
   Search,
@@ -32,40 +26,30 @@ import {
   CheckCircle2,
   Power,
   Package,
-  Wheat,
-  UtensilsCrossed,
-  TrendingDown,
-  ShieldAlert,
-  Boxes,
   Pencil,
-  Info,
   ListOrdered,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { SupplyType, AffectationIgv } from "@prisma/client";
-import { updateSupplyMinimum, updateSupplyUnit, setSupplyStatus } from "@/lib/services/purchases/supply";
+import { ProductType, AffectationIgv } from "@prisma/client";
+import { updateProductMinimum, updateProductUnit, setProductStatus } from "@/lib/services/purchases/product";
 import { toast } from "sonner";
 
-interface Supply {
+interface Product {
   id: number;
   name: string;
-  type: SupplyType;
+  type: ProductType;
   affectationIgv?: AffectationIgv;
   unitOfMeasure: string;
   currentStock: number | string;
   minimumStock: number | string;
   lastCost?: number | string | null;
   averageCost?: number | string | null;
+  sellable?: boolean;
+  price?: number | string | null;
   active: boolean;
 }
 
 interface InventoryTableProps {
-  initialSupplies: Supply[];
+  initialProducts: Product[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -74,13 +58,13 @@ const STATUS_LABELS: Record<string, string> = {
   inactive: "Solo inactivos",
 };
 
-export function InventoryTable({ initialSupplies }: InventoryTableProps) {
-  const [supplies, setSupplies] = useState<Supply[]>(initialSupplies);
+export function InventoryTable({ initialProducts }: InventoryTableProps) {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
-  const [supplyToAdjust, setSupplyToAdjust] = useState<Supply | null>(null);
+  const [productToAdjust, setProductToAdjust] = useState<Product | null>(null);
   const [kardexOpen, setKardexOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -91,45 +75,14 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
   const [editUnitValue, setEditUnitValue] = useState<string>("");
   const [savingUnitId, setSavingUnitId] = useState<number | null>(null);
-  // Pending unit change (awaiting confirm when supply has movements)
-  const [pendingUnitChange, setPendingUnitChange] = useState<{ supplyId: number; unit: string } | null>(null);
+  // Pending unit change (awaiting confirm when product has movements)
+  const [pendingUnitChange, setPendingUnitChange] = useState<{ productId: number; unit: string } | null>(null);
 
-  // KPIs — calculados sobre la lista completa (no sobre filtered)
-  const totalSupplies = supplies.length;
-  const rawMaterials = supplies.filter((s) => s.type === SupplyType.RawMaterial).length;
-  const finishedProducts = supplies.filter((s) => s.type === SupplyType.FinishedProduct).length;
 
-  const lowStockItems = useMemo(
-    () => supplies.filter((s) => Number(s.currentStock) <= Number(s.minimumStock)),
-    [supplies]
-  );
-  const lowStockCount = lowStockItems.length;
-
-  // Valor estimado del inventario (stock actual × costo promedio)
-  const inventoryValue = useMemo(
-    () =>
-      supplies.reduce((sum, s) => {
-        const stock = Number(s.currentStock);
-        const cost = Number(s.averageCost || s.lastCost || 0);
-        return sum + stock * cost;
-      }, 0),
-    [supplies]
-  );
-
-  // Salud general: % de insumos cuyo stock supera su mínimo
-  const healthPct = totalSupplies === 0
-    ? 100
-    : Math.round(((totalSupplies - lowStockCount) / totalSupplies) * 100);
-
-  const rawPct = totalSupplies === 0 ? 0 : Math.round((rawMaterials / totalSupplies) * 100);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
-
-  const filtered = supplies.filter((i) => {
+  const filtered = products.filter((i) => {
     const q = search.toLowerCase();
     const code = `INS-${i.id.toString().padStart(3, "0")}`.toLowerCase();
-    const typeLabel = i.type === SupplyType.RawMaterial ? "materia prima" : "producto terminado";
+    const typeLabel = i.type === ProductType.RawMaterial ? "materia prima" : "producto terminado";
     const affectationLabel =
       i.affectationIgv === AffectationIgv.Included ? "incluido" : "excluido";
     const matchesSearch =
@@ -147,33 +100,29 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     return matchesSearch && matchesStatus;
   });
 
-  const paginatedSupplies = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
 
   const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
 
-  const handleNewSupplySuccess = (created: Supply) => {
-    setSupplies((prev) => [created, ...prev]);
+  const handleNewProductSuccess = (created: Product) => {
+    setProducts((prev) => [created, ...prev]);
   };
 
-  const handleAdjustmentSuccess = (updated: Supply) => {
-    setSupplies((prev) =>
+  const handleAdjustmentSuccess = (updated: Product) => {
+    setProducts((prev) =>
       prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i))
     );
   };
 
-  const handleOpenAdjustment = (supply: Supply) => {
-    setSupplyToAdjust(supply);
+  const handleOpenAdjustment = (product: Product) => {
+    setProductToAdjust(product);
     setAdjustmentDialogOpen(true);
   };
 
-  const handleToggleStatus = async (item: Supply) => {
+  const handleToggleStatus = async (item: Product) => {
     const newStatus = !item.active;
     try {
-      await setSupplyStatus(item.id, newStatus);
-      setSupplies((prev) =>
+      await setProductStatus(item.id, newStatus);
+      setProducts((prev) =>
         prev.map((s) => (s.id === item.id ? { ...s, active: newStatus } : s))
       );
       toast.success(`Insumo ${newStatus ? "activado" : "desactivado"} exitosamente`);
@@ -182,13 +131,13 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     }
   };
 
-  const handleStartEdit = (item: Supply) => {
+  const handleStartEdit = (item: Product) => {
     setEditingId(item.id);
     setEditValue(String(Number(item.minimumStock)));
   };
 
-  const handleSaveMinimum = async (supplyId: number) => {
-    if (editingId !== supplyId) return;
+  const handleSaveMinimum = async (productId: number) => {
+    if (editingId !== productId) return;
     const num = parseFloat(editValue);
     if (isNaN(num) || num < 0) {
       toast.error("El stock mínimo no puede ser negativo");
@@ -196,18 +145,18 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
       return;
     }
 
-    const currentItem = supplies.find((s) => s.id === supplyId);
+    const currentItem = products.find((s) => s.id === productId);
     if (currentItem && Number(currentItem.minimumStock) === num) {
       setEditingId(null);
       return;
     }
 
-    setSavingId(supplyId);
+    setSavingId(productId);
     try {
-      const updated = await updateSupplyMinimum(supplyId, num);
-      setSupplies((prev) =>
+      const updated = await updateProductMinimum(productId, num);
+      setProducts((prev) =>
         prev.map((s) =>
-          s.id === supplyId ? { ...s, minimumStock: Number(updated.minimumStock) } : s
+          s.id === productId ? { ...s, minimumStock: Number(updated.minimumStock) } : s
         )
       );
       toast.success("Stock mínimo actualizado");
@@ -221,29 +170,29 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
 
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    supplyId: number
+    productId: number
   ) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleSaveMinimum(supplyId);
+      handleSaveMinimum(productId);
     } else if (e.key === "Escape") {
       e.preventDefault();
       setEditingId(null);
     }
   };
 
-  const handleStartEditUnit = (item: Supply) => {
+  const handleStartEditUnit = (item: Product) => {
     setEditingUnitId(item.id);
     setEditUnitValue(item.unitOfMeasure);
   };
 
-  const doSaveUnit = async (supplyId: number, unit: string) => {
-    setSavingUnitId(supplyId);
+  const doSaveUnit = async (productId: number, unit: string) => {
+    setSavingUnitId(productId);
     try {
-      const updated = await updateSupplyUnit(supplyId, unit);
-      setSupplies((prev) =>
+      const updated = await updateProductUnit(productId, unit);
+      setProducts((prev) =>
         prev.map((s) =>
-          s.id === supplyId ? { ...s, unitOfMeasure: updated.unitOfMeasure } : s
+          s.id === productId ? { ...s, unitOfMeasure: updated.unitOfMeasure } : s
         )
       );
       toast.success("Unidad actualizada exitosamente");
@@ -255,10 +204,10 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     }
   };
 
-  const handleSaveUnit = async (supplyId: number) => {
-    if (editingUnitId !== supplyId) return;
+  const handleSaveUnit = async (productId: number) => {
+    if (editingUnitId !== productId) return;
     const newUnit = editUnitValue.trim().toUpperCase();
-    const currentItem = supplies.find((s) => s.id === supplyId);
+    const currentItem = products.find((s) => s.id === productId);
     if (!newUnit) {
       setEditingUnitId(null);
       return;
@@ -272,19 +221,19 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     // Si el insumo tiene stock o movimientos, pedir confirmación
     const hasHistory = Number(currentItem?.currentStock || 0) !== 0;
     if (hasHistory) {
-      setPendingUnitChange({ supplyId, unit: newUnit });
+      setPendingUnitChange({ productId, unit: newUnit });
       return;
     }
-    await doSaveUnit(supplyId, newUnit);
+    await doSaveUnit(productId, newUnit);
   };
 
   const handleKeyDownUnit = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    supplyId: number
+    productId: number
   ) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleSaveUnit(supplyId);
+      handleSaveUnit(productId);
     } else if (e.key === "Escape") {
       e.preventDefault();
       setEditingUnitId(null);
@@ -297,189 +246,235 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
     return `S/ ${num.toFixed(2)}`;
   };
 
+  const columns: DataTableColumn<Product>[] = [
+    {
+      key: "code",
+      header: "Código",
+      sortable: true,
+      sortValue: (item) => item.id,
+      cellClassName: "font-mono text-xs font-semibold",
+      cell: (item) => `INS-${item.id.toString().padStart(3, "0")}`,
+    },
+    {
+      key: "name",
+      header: "Producto",
+      sortable: true,
+      sortValue: (item) => item.name,
+      cellClassName: "font-medium",
+      cell: (item) => (
+        <span className="flex flex-wrap items-center gap-2">
+          {item.name}
+          {item.sellable ? (
+            <Tag tone="blue" size="sm">
+              En carta · S/ {Number(item.price ?? 0).toFixed(2)}
+            </Tag>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      key: "type",
+      header: "Tipo",
+      cell: (item) => {
+        const isRawMaterial = item.type === ProductType.RawMaterial;
+        return (
+          <Badge
+            className={
+              isRawMaterial
+                ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 font-medium"
+                : "bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 font-medium"
+            }
+          >
+            {isRawMaterial ? "Materia Prima" : "Producto Terminado"}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "affectationIgv",
+      header: "Afectación IGV",
+      cell: (item) =>
+        item.affectationIgv === null || item.affectationIgv === undefined ? (
+          <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 font-medium dark:bg-slate-800 dark:text-slate-400">
+            —
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className={
+              item.affectationIgv === AffectationIgv.Included
+                ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                : "bg-slate-50 text-slate-700 border-slate-200 font-medium"
+            }
+          >
+            {item.affectationIgv === AffectationIgv.Included ? "Incluido" : "Excluido"}
+          </Badge>
+        ),
+    },
+    {
+      key: "unit",
+      header: "Unidad",
+      width: "w-[115px]",
+      headerIcon: <Pencil />,
+      info: (
+        <div className="space-y-1">
+          <p className="font-semibold text-white">Unidades permitidas:</p>
+          <div className="space-y-0.5 text-[11px] text-slate-200">
+            <div>• <strong className="font-semibold text-white">UNID</strong> — piezas discretas (pollo, gaseosas)</div>
+            <div>• <strong className="font-semibold text-white">KG</strong> — peso (papa, arroz, carne)</div>
+            <div>• <strong className="font-semibold text-white">LT</strong> — volumen (aceite, leche)</div>
+          </div>
+        </div>
+      ),
+      cell: (item) =>
+        editingUnitId === item.id ? (
+          <Input
+            type="text"
+            value={editUnitValue}
+            onChange={(e) => setEditUnitValue(e.target.value.toUpperCase())}
+            onKeyDown={(e) => handleKeyDownUnit(e, item.id)}
+            onBlur={() => handleSaveUnit(item.id)}
+            autoFocus
+            className="h-7 w-20 px-1.5 py-0 text-xs uppercase font-mono"
+            disabled={savingUnitId === item.id}
+            maxLength={10}
+          />
+        ) : (
+          <span
+            onClick={() => handleStartEditUnit(item)}
+            className="inline-block cursor-pointer font-mono text-xs font-semibold hover:text-foreground hover:underline"
+            title="Haz clic para editar la unidad de medida"
+          >
+            {item.unitOfMeasure}
+          </span>
+        ),
+    },
+    {
+      key: "currentStock",
+      header: "Stock Actual",
+      align: "right",
+      width: "w-[130px] whitespace-nowrap",
+      sortable: true,
+      sortValue: (item) => Number(item.currentStock),
+      cell: (item) => (
+        <div className="inline-flex items-baseline justify-end">
+          <span className="font-mono text-sm font-medium text-foreground">{Number(item.currentStock).toFixed(2)}</span>
+          <span className="ml-1.5 w-10 truncate text-left text-xs font-normal text-muted-foreground">{item.unitOfMeasure}</span>
+        </div>
+      ),
+    },
+    {
+      key: "minimumStock",
+      header: "Stock Mínimo",
+      align: "right",
+      width: "w-[130px] whitespace-nowrap",
+      sortable: true,
+      sortValue: (item) => Number(item.minimumStock),
+      cell: (item) =>
+        editingId === item.id ? (
+          <div className="inline-flex items-center justify-end">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, item.id)}
+              onBlur={() => handleSaveMinimum(item.id)}
+              autoFocus
+              className="h-7 w-18 px-1.5 py-0 text-right text-xs font-mono"
+              disabled={savingId === item.id}
+            />
+            <span className="ml-1.5 w-10 shrink-0 truncate text-left text-xs font-normal text-muted-foreground">{item.unitOfMeasure}</span>
+          </div>
+        ) : (
+          <div
+            onClick={() => handleStartEdit(item)}
+            className="group inline-flex cursor-pointer items-baseline justify-end"
+            title="Haz clic para editar stock mínimo"
+          >
+            <span className="font-mono text-sm text-muted-foreground group-hover:text-foreground group-hover:underline">
+              {Number(item.minimumStock).toFixed(2)}
+            </span>
+            <span className="ml-1.5 w-10 truncate text-left text-xs font-normal text-muted-foreground">{item.unitOfMeasure}</span>
+          </div>
+        ),
+    },
+    {
+      key: "lastCost",
+      header: "Último Costo",
+      align: "right",
+      width: "w-[120px] whitespace-nowrap",
+      cellClassName: "font-mono text-sm text-foreground/90",
+      cell: (item) => formatCost(item.lastCost),
+    },
+    {
+      key: "averageCost",
+      header: "Costo Promedio",
+      align: "right",
+      width: "w-[120px] whitespace-nowrap",
+      cellClassName: "font-mono text-sm text-foreground/90",
+      cell: (item) => formatCost(item.averageCost),
+    },
+    {
+      key: "active",
+      header: "Estado",
+      width: "w-[90px]",
+      cell: (item) => (
+        <Badge
+          className={
+            item.active
+              ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+              : "bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200"
+          }
+        >
+          {item.active ? "Activo" : "Inactivo"}
+        </Badge>
+      ),
+    },
+    {
+      key: "stockStatus",
+      header: "Estado Stock",
+      width: "w-[110px]",
+      cell: (item) =>
+        Number(item.currentStock) <= Number(item.minimumStock) ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600">
+            <AlertTriangle className="h-3 w-3" /> Bajo Stock
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
+            <CheckCircle2 className="h-3 w-3" /> Óptimo
+          </span>
+        ),
+    },
+    {
+      key: "actions",
+      header: "Acciones",
+      align: "right",
+      width: "w-[110px]",
+      cell: (item) => (
+        <RowActions
+          mode="both"
+          variant="outline"
+          size="sm"
+          actions={[
+            { key: "adjust", label: "Ajustar", icon: <SlidersHorizontal />, tone: "neutral", onClick: () => handleOpenAdjustment(item) },
+            {
+              key: "toggle",
+              label: item.active ? "Desactivar" : "Activar",
+              icon: <Power />,
+              tone: item.active ? "rose" : "emerald",
+              mode: "icon",
+              onClick: () => handleToggleStatus(item),
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
-
-      {/* ── Panel de Control Operativo ── */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-card shadow-xs overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200/80 dark:divide-slate-800">
-
-          {/* Sección 1 — Salud del Almacén */}
-          <div className="p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                <Boxes className="h-4 w-4" />
-              </div>
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Salud del Almacén
-              </span>
-            </div>
-
-            {/* Indicador principal */}
-            <div className="flex items-center gap-5">
-              {/* Anillo circular SVG */}
-              <div className="relative shrink-0 h-16 w-16">
-                <svg viewBox="0 0 56 56" className="h-full w-full -rotate-90">
-                  <circle cx="28" cy="28" r="22" fill="none" stroke="currentColor"
-                    className="text-slate-100 dark:text-slate-800" strokeWidth="6" />
-                  <circle cx="28" cy="28" r="22" fill="none"
-                    stroke={healthPct >= 80 ? "#10b981" : healthPct >= 50 ? "#f59e0b" : "#f43f5e"}
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(healthPct / 100) * 138.2} 138.2`} />
-                </svg>
-                <span className={`absolute inset-0 flex items-center justify-center text-sm font-black font-mono rotate-0 ${
-                  healthPct >= 80 ? "text-emerald-700 dark:text-emerald-400"
-                  : healthPct >= 50 ? "text-amber-700 dark:text-amber-400"
-                  : "text-rose-700 dark:text-rose-400"
-                }`}>
-                  {healthPct}%
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground leading-tight">
-                  {healthPct >= 80 ? "Stock saludable" : healthPct >= 50 ? "Atención requerida" : "Estado crítico"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {totalSupplies - lowStockCount} de {totalSupplies} insumos sobre mínimo
-                </p>
-                <p className="text-xs text-muted-foreground mt-2 font-semibold font-mono">
-                  Valor est. almacén:{" "}
-                  <span className="text-foreground">S/ {inventoryValue.toFixed(2)}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Sección 2 — Distribución por Categoría */}
-          <div className="p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <Wheat className="h-4 w-4" />
-              </div>
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Distribución por Categoría
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {/* Materia Prima */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
-                    <Wheat className="h-3 w-3" /> Materias Primas
-                  </span>
-                  <span className="font-bold font-mono text-amber-800 dark:text-amber-300">
-                    {rawMaterials} <span className="font-normal text-muted-foreground">/ {totalSupplies}</span>
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-amber-100 dark:bg-amber-950/40 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-amber-400 dark:bg-amber-500 transition-all duration-700"
-                    style={{ width: `${rawPct}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Productos Terminados */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 font-medium text-orange-800 dark:text-orange-300">
-                    <UtensilsCrossed className="h-3 w-3" /> Prod. Terminados
-                  </span>
-                  <span className="font-bold font-mono text-orange-800 dark:text-orange-300">
-                    {finishedProducts} <span className="font-normal text-muted-foreground">/ {totalSupplies}</span>
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-orange-100 dark:bg-orange-950/40 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-orange-400 dark:bg-orange-500 transition-all duration-700"
-                    style={{ width: `${100 - rawPct}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Mini resumen */}
-              <p className="text-[11px] text-muted-foreground pt-1 border-t border-slate-100 dark:border-slate-800">
-                {rawPct}% materias primas · {100 - rawPct}% terminados
-              </p>
-            </div>
-          </div>
-
-          {/* Sección 3 — Alertas de Stock */}
-          <div className="p-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${
-                  lowStockCount > 0
-                    ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
-                    : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400"
-                }`}>
-                  {lowStockCount > 0
-                    ? <ShieldAlert className="h-4 w-4" />
-                    : <CheckCircle2 className="h-4 w-4" />
-                  }
-                </div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Alertas de Reabastecimiento
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {lowStockCount > 0 && (
-                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full">
-                    {lowStockCount} crítico{lowStockCount > 1 ? "s" : ""}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setKardexOpen(true)}
-                  className="h-6 px-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-1 cursor-pointer"
-                  title="Consultar movimientos en el Kardex"
-                >
-                  <ListOrdered className="h-3 w-3" />
-                  <span>Kardex</span>
-                </Button>
-              </div>
-            </div>
-
-            {lowStockCount === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4 text-center">
-                <CheckCircle2 className="h-8 w-8 text-emerald-400 dark:text-emerald-500" />
-                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                  Todo bajo control
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Ningún insumo está por debajo de su nivel mínimo.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200">
-                {lowStockItems.map((s) => {
-                  const deficit = Number(s.minimumStock) - Number(s.currentStock);
-                  return (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40 px-2.5 py-1.5"
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <TrendingDown className="h-3 w-3 text-rose-500 shrink-0" />
-                        <span className="text-xs font-semibold text-rose-900 dark:text-rose-200 truncate">
-                          {s.name}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono text-rose-700 dark:text-rose-300 shrink-0 bg-rose-100 dark:bg-rose-900/50 px-1.5 rounded">
-                        -{deficit.toFixed(1)} {s.unitOfMeasure}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-        </div>
-      </div>
 
       {/* ── Toolbar ── */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 bg-card border p-3 rounded-xl shadow-xs">
@@ -490,7 +485,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setCurrentPage(1);
             }}
             className="pl-9 h-9 text-xs"
           />
@@ -503,7 +497,6 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
               type="button"
               onClick={() => {
                 setStatusFilter("all");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "all"
@@ -513,14 +506,13 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             >
               <span>Todos</span>
               <span className="text-[10px] bg-muted px-1.5 py-0.2 rounded-full font-mono">
-                {supplies.length}
+                {products.length}
               </span>
             </button>
             <button
               type="button"
               onClick={() => {
                 setStatusFilter("active");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "active"
@@ -530,14 +522,13 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             >
               <span>Activos</span>
               <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {supplies.filter((s) => s.active).length}
+                {products.filter((s) => s.active).length}
               </span>
             </button>
             <button
               type="button"
               onClick={() => {
                 setStatusFilter("inactive");
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "inactive"
@@ -547,7 +538,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             >
               <span>Inactivos</span>
               <span className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {supplies.filter((s) => !s.active).length}
+                {products.filter((s) => !s.active).length}
               </span>
             </button>
           </div>
@@ -562,7 +553,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
           </Button>
 
           <Button
-            onClick={() => setSupplyDialogOpen(true)}
+            onClick={() => setProductDialogOpen(true)}
             size="sm"
             className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
@@ -571,276 +562,37 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
         </div>
       </div>
 
-      {/* ── Table ── */}
-      <div className="rounded-md border bg-card overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre Insumo</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Afectación IGV</TableHead>
-              <TableHead className="w-[115px]">
-                <div className="inline-flex items-center gap-1.5 select-none">
-                  <div
-                    className="inline-flex items-center gap-1 cursor-help text-foreground/80 hover:text-foreground transition-colors"
-                    title="Clic en el valor para editar la unidad de medida"
-                  >
-                    <span>Unidad</span>
-                    <Pencil className="h-3 w-3 text-muted-foreground/70" />
-                  </div>
+      {/* ── Table (DataTable compartido) ── */}
+      <DataTable
+        columns={columns}
+        rows={filtered}
+        rowKey={(item) => item.id}
+        pageResetKey={`${search}|${statusFilter}`}
+        pagination={{ defaultPageSize: 15, itemLabel: "insumos" }}
+        emptyState={{
+          icon: hasActiveFilter ? <Search className="h-7 w-7" /> : <Package className="h-7 w-7" />,
+          title: hasActiveFilter ? "No se encontraron coincidencias" : "No hay insumos registrados",
+          description: hasActiveFilter
+            ? "Prueba con otros términos o cambia el filtro de estado."
+            : "Registra tu primer insumo para comenzar a gestionar el inventario.",
+          action: hasActiveFilter ? undefined : (
+            <Button size="sm" onClick={() => setProductDialogOpen(true)} className="mt-1 flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Nuevo Insumo
+            </Button>
+          ),
+        }}
+      />
 
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="inline-flex items-center text-muted-foreground/70 hover:text-foreground cursor-help transition-colors p-0.5 rounded">
-                        <Info className="h-3 w-3" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" align="center" className="max-w-xs text-xs p-2.5 block space-y-1">
-                        <p className="font-semibold text-background">Unidades permitidas:</p>
-                        <div className="space-y-0.5 text-[11px] text-background/90">
-                          <div>• <strong className="font-semibold text-background">UNID</strong> — piezas discretas (pollo, gaseosas)</div>
-                          <div>• <strong className="font-semibold text-background">KG</strong> — peso (papa, arroz, carne)</div>
-                          <div>• <strong className="font-semibold text-background">LT</strong> — volumen (aceite, leche)</div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </TableHead>
-              <TableHead className="text-right w-[130px] whitespace-nowrap">Stock Actual</TableHead>
-              <TableHead className="text-right w-[130px] whitespace-nowrap">Stock Mínimo</TableHead>
-              <TableHead className="text-right w-[120px] whitespace-nowrap">Último Costo</TableHead>
-              <TableHead className="text-right w-[120px] whitespace-nowrap">Costo Promedio</TableHead>
-              <TableHead className="w-[90px]">Estado</TableHead>
-              <TableHead className="w-[110px]">Estado Stock</TableHead>
-              <TableHead className="text-right w-[110px]">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={12} className="py-12">
-                  <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="rounded-full bg-muted p-4">
-                      {hasActiveFilter ? (
-                        <Search className="h-7 w-7 text-muted-foreground" />
-                      ) : (
-                        <Package className="h-7 w-7 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">
-                        {hasActiveFilter
-                          ? "No se encontraron coincidencias"
-                          : "No hay insumos registrados"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {hasActiveFilter
-                          ? "Prueba con otros términos o cambia el filtro de estado."
-                          : "Registra tu primer insumo para comenzar a gestionar el inventario."}
-                      </p>
-                    </div>
-                    {!hasActiveFilter && (
-                      <Button
-                        size="sm"
-                        onClick={() => setSupplyDialogOpen(true)}
-                        className="mt-1 flex items-center gap-1.5"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Nuevo Insumo
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedSupplies.map((item) => {
-                const code = `INS-${item.id.toString().padStart(3, "0")}`;
-                const currentStock = Number(item.currentStock);
-                const minStock = Number(item.minimumStock);
-                const lowStock = currentStock <= minStock;
-                const isRawMaterial = item.type === SupplyType.RawMaterial;
-                const isIncludedIgv = item.affectationIgv === AffectationIgv.Included;
-
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono text-xs font-semibold">{code}</TableCell>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          isRawMaterial
-                            ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 font-medium"
-                            : "bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 font-medium"
-                        }
-                      >
-                        {isRawMaterial ? "Materia Prima" : "Producto Terminado"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.affectationIgv === null || item.affectationIgv === undefined ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-slate-100 text-slate-500 border-slate-200 font-medium dark:bg-slate-800 dark:text-slate-400"
-                        >
-                          —
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className={
-                            isIncludedIgv
-                              ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
-                              : "bg-slate-50 text-slate-700 border-slate-200 font-medium"
-                          }
-                        >
-                          {isIncludedIgv ? "Incluido" : "Excluido"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {/* Unidad de medida — editable inline */}
-                      {editingUnitId === item.id ? (
-                        <Input
-                          type="text"
-                          value={editUnitValue}
-                          onChange={(e) => setEditUnitValue(e.target.value.toUpperCase())}
-                          onKeyDown={(e) => handleKeyDownUnit(e, item.id)}
-                          onBlur={() => handleSaveUnit(item.id)}
-                          autoFocus
-                          className="h-7 w-20 px-1.5 py-0 text-xs uppercase font-mono"
-                          disabled={savingUnitId === item.id}
-                          maxLength={10}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => handleStartEditUnit(item)}
-                          className="cursor-pointer hover:underline hover:text-foreground font-mono text-xs font-semibold inline-block"
-                          title="Haz clic para editar la unidad de medida"
-                        >
-                          {item.unitOfMeasure}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex items-baseline justify-end">
-                        <span className="font-mono font-medium text-foreground text-sm">
-                          {currentStock.toFixed(2)}
-                        </span>
-                        <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal truncate">
-                          {item.unitOfMeasure}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editingId === item.id ? (
-                        <div className="inline-flex items-center justify-end">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, item.id)}
-                            onBlur={() => handleSaveMinimum(item.id)}
-                            autoFocus
-                            className="h-7 w-18 text-right px-1.5 py-0 text-xs font-mono"
-                            disabled={savingId === item.id}
-                          />
-                          <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal shrink-0 truncate">
-                            {item.unitOfMeasure}
-                          </span>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => handleStartEdit(item)}
-                          className="inline-flex items-baseline justify-end cursor-pointer group"
-                          title="Haz clic para editar stock mínimo"
-                        >
-                          <span className="font-mono text-sm text-muted-foreground group-hover:text-foreground group-hover:underline">
-                            {minStock.toFixed(2)}
-                          </span>
-                          <span className="ml-1.5 w-10 text-left text-xs text-muted-foreground font-normal truncate">
-                            {item.unitOfMeasure}
-                          </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-foreground/90">
-                      {formatCost(item.lastCost)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-foreground/90">
-                      {formatCost(item.averageCost)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          item.active
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
-                            : "bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200"
-                        }
-                      >
-                        {item.active ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {lowStock ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-                          <AlertTriangle className="h-3 w-3" /> Bajo Stock
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="h-3 w-3" /> Óptimo
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenAdjustment(item)}
-                        className="items-center gap-1.5 text-xs inline-flex"
-                      >
-                        <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustar
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleStatus(item)}
-                        className={item.active ? "text-destructive" : "text-emerald-600"}
-                        title={item.active ? "Desactivar" : "Activar"}
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-
-        {filtered.length > 0 && (
-          <TablePagination
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalItems={filtered.length}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-            itemLabel="insumos"
-          />
-        )}
-      </div>
-
-      <SupplyDialog
-        open={supplyDialogOpen}
-        onOpenChange={setSupplyDialogOpen}
-        onSuccess={handleNewSupplySuccess}
+      <ProductDialog
+        open={productDialogOpen}
+        onOpenChange={setProductDialogOpen}
+        onSuccess={handleNewProductSuccess}
       />
 
       <AdjustmentDialog
         open={adjustmentDialogOpen}
         onOpenChange={setAdjustmentDialogOpen}
-        supply={supplyToAdjust}
+        product={productToAdjust}
         onSuccess={handleAdjustmentSuccess}
       />
 
@@ -869,7 +621,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
             <Button
               onClick={() => {
                 if (pendingUnitChange) {
-                  doSaveUnit(pendingUnitChange.supplyId, pendingUnitChange.unit);
+                  doSaveUnit(pendingUnitChange.productId, pendingUnitChange.unit);
                 }
               }}
             >
@@ -883,7 +635,7 @@ export function InventoryTable({ initialSupplies }: InventoryTableProps) {
       <KardexDialog
         open={kardexOpen}
         onOpenChange={setKardexOpen}
-        supplies={supplies.map((s) => ({
+        products={products.map((s) => ({
           id: s.id,
           name: s.name,
           unitOfMeasure: s.unitOfMeasure,

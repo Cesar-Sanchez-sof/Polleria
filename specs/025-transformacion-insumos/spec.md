@@ -209,6 +209,32 @@ revirtiendo el stock y dejando constancia del motivo.
 
 ---
 
+## Actualización 2026-10-17 — Receta única con varios ingredientes y asiento contable
+
+Este documento describe el diseño original (receta 1 insumo → 1 producto con `TransformationRecipe`). Esa
+entidad fue **eliminada** y reemplazada así (migración `20261017120000_merge_recipes_and_transformation_journal`):
+
+- **Una sola receta**: `ProductRecipe` (`productId`, `ingredientId`, `quantityRequired`, `active`). `quantityRequired`
+  es la cantidad del ingrediente **por 1 unidad producida** (`Decimal(10,4)`; 1 pollo → 8 presas = 0.125 de pollo
+  por presa). Un producto puede tener varios ingredientes (1/4 de pollo = 0.25 pollo + 0.2 kg papas).
+- **Ejecutar**: `executeTransformation(productId, quantity, notes?, employeeId?)` consume todos los ingredientes
+  (`quantityRequired × quantity`, redondeado a 2 decimales), valida el stock de todos antes de mover algo y produce
+  `quantity` unidades. El costo unitario del producido es el valor consumido (costo promedio) entre `quantity`.
+- **Acciones de receta** (la clave es el `productId`): `createTransformationRecipe({ productId, ingredients })`,
+  `updateTransformationRecipe(productId, { ingredients })`, `toggleTransformationRecipe(productId, active)`,
+  `deleteTransformationRecipe(productId)`. Se rechazan recetas vacías, con ingredientes repetidos, con el propio
+  producto o circulares.
+- **Contabilidad**: cada lote genera un asiento en el diario general ("Operaciones varias") ligado a
+  `journal_entry.transformation_id`: **Debe 211 Productos terminados / Haber 241 Materias primas** (o 201 si el
+  ingrediente es mercadería) por el valor consumido. Anular el lote genera el asiento inverso. La cuenta de inventario
+  de un producto es 241 (materia prima), 211 (terminado con receta) o 201 (terminado sin receta, mercadería de reventa).
+  El costo de ventas estimado da de baja 201 y 211.
+- **Tipo de producto**: no se puede cambiar el tipo (`PUT /api/products/{id}`) si el producto ya tiene movimientos.
+
+Las secciones siguientes se conservan como referencia histórica del diseño original.
+
+---
+
 ## Functionalidades / Functionalities
 
 - **Página `/purchases/transformation`** (Server Component, 

@@ -10,28 +10,28 @@ const PAGE_DATA: DailyBookPage = {
   data: [
     {
       id: 7,
-      numero: "MISC/2025/06/0007",
-      fecha: "2025-06-18",
-      diario: "Operaciones varias",
-      concepto: "Asiento 7",
-      responsable: "Leandro Mauricci",
-      estado: "Registrado",
-      totales: { debe: 118, haber: 118 },
-      cuadrado: true,
-      lineas: [
+      number: "MISC/2025/06/0007",
+      date: "2025-06-18",
+      daily: "Operaciones varias",
+      concept: "Asiento 7",
+      responsible: "Leandro Mauricci",
+      status: "Registrado",
+      totals: { debit: 118, credit: 118 },
+      balanced: true,
+      lines: [
         {
           id: 71,
-          cuentaCodigo: "101",
-          cuentaNombre: "Caja",
-          cuentaTipo: "Activo",
-          descripcion: "Cobro en efectivo",
-          debe: 118,
-          haber: 0,
+          accountCode: "101",
+          accountName: "Caja",
+          accountType: "Activo",
+          description: "Cobro en efectivo",
+          debit: 118,
+          credit: 0,
         },
       ],
     },
   ],
-  meta: { total: 36, page: 1, pageSize: 10, totalPaginas: 4, desde: "", hasta: "" },
+  meta: { total: 36, page: 1, pageSize: 10, totalPages: 4, from: "", to: "" },
 };
 
 function createJsonResponse(body: unknown, status = 200): Response {
@@ -60,8 +60,8 @@ describe("buildDailyBookQuery (libro diario)", () => {
   it("serializa el periodo y la paginación", () => {
     const params = new URLSearchParams(
       buildDailyBookQuery({
-        desde: "2025-05-01",
-        hasta: "2025-06-30",
+        from: "2025-05-01",
+        to: "2025-06-30",
         page: 2,
         pageSize: 25,
       })
@@ -74,7 +74,7 @@ describe("buildDailyBookQuery (libro diario)", () => {
   });
 
   it("acepta un solo extremo del periodo", () => {
-    const params = new URLSearchParams(buildDailyBookQuery({ hasta: "2025-06-30" }));
+    const params = new URLSearchParams(buildDailyBookQuery({ to: "2025-06-30" }));
 
     expect(params.get("desde")).toBeNull();
     expect(params.get("hasta")).toBe("2025-06-30");
@@ -94,7 +94,7 @@ describe("listDailyBookEntries", () => {
   it("consulta /api/daily-book con el periodo y sin caché", async () => {
     fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    const result = await listDailyBookEntries({ desde: "2025-05-01", page: 2 });
+    const result = await listDailyBookEntries({ from: "2025-05-01", page: 2 });
 
     expect(result).toEqual(PAGE_DATA);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -116,7 +116,7 @@ describe("listDailyBookEntries", () => {
       createJsonResponse({ error: "La fecha inicial no puede ser posterior a la fecha final." }, 400)
     );
 
-    const error = await catchApiError(listDailyBookEntries({ desde: "2025-06-30", hasta: "2025-05-01" }));
+    const error = await catchApiError(listDailyBookEntries({ from: "2025-06-30", to: "2025-05-01" }));
 
     expect(error).toBeInstanceOf(ApiError);
     expect(error.message).toBe("La fecha inicial no puede ser posterior a la fecha final.");

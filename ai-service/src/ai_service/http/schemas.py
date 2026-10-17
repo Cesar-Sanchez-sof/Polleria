@@ -40,8 +40,8 @@ AuthorizedRoute = Literal[
     "/accounting/entries",
     "/accounting/journal",
     "/accounting/accounts",
-    "/accounting/ledger",
-    "/accounting/balance",
+    "/accounting/reports/ledger",
+    "/accounting/reports/balance",
     "/accounting/periods",
 ]
 """Lista explícita de pantallas habilitadas (P-2, CONFIRMADA)."""

@@ -33,20 +33,20 @@ INSERT INTO dining_table (number, capacity, active) VALUES
 (12, 10, true)
 ON CONFLICT (number) DO UPDATE SET active = true, capacity = EXCLUDED.capacity;
 
--- 4. CARTA COMPLETA DE PLATOS Y BEBIDAS
-INSERT INTO dish (name, description, price, active) VALUES
-('1/4 Pollo a la Brasa', '1/4 de pollo a la brasa tradicional con papas fritas crocantes, ensalada clásica y cremas caseras.', 21.90, true),
-('1/2 Pollo a la Brasa', '1/2 pollo a la brasa jugoso con papas fritas familiares, ensalada y cremas.', 39.90, true),
-('1 Pollo a la Brasa Entero', '1 pollo entero a la brasa con porción familiar de papas fritas, ensalada grande y cremas surtidas.', 72.90, true),
-('Mostrito Brasa Clásico', '1/4 de pollo a la brasa acompañado de arroz chaufa al wok, papas fritas y cremas.', 24.90, true),
-('Mostrito Especial', '1/4 de pollo a la brasa + chaufa especial + papas + huevo frito montado y plátano frito.', 27.50, true),
-('Porción de Papas Fritas', 'Papas amarillas crocantes seleccionadas con sal marina.', 12.00, true),
-('Tequeños Brasa (8 unidades)', 'Tequeños rellenos de pollo a la brasa y queso, con crema de palta artesanal.', 16.00, true),
-('Porción de Arroz Chaufa de Pollo', 'Arroz chaufa salteado al wok con trozos de pollo, cebolla china y sillao.', 14.00, true),
-('Ensalada Clásica Familiar', 'Lechuga orgánica fresca, rodajas de tomate, pepino, palta y vinagreta clásica.', 10.00, true),
-('Inca Kola 1.5L', 'Gaseosa Inca Kola en botella no retornable.', 10.00, true),
-('Coca Cola 1.5L', 'Gaseosa Coca Cola en botella no retornable.', 10.00, true),
-('Jarra de Chicha Morada 1L', 'Chicha morada casera preparada con maíz morado, piña, manzana y canela.', 12.00, true),
-('Jarra de Maracuyá 1L', 'Refresco natural de maracuyá helada.', 12.00, true),
-('Agua Mineral 600ml', 'Agua mineral sin gas personal.', 4.00, true)
+-- 4. CARTA COMPLETA DE PRODUCTOS (platos y bebidas). Stock inicial 0: se llena por compra, transformación o ajuste.
+INSERT INTO product (name, description, price, type, unit_of_measure, sellable, active) VALUES
+('1/4 Pollo a la Brasa', '1/4 de pollo a la brasa tradicional con papas fritas crocantes, ensalada clásica y cremas caseras.', 21.90, 'FinishedProduct', 'UND', true, true),
+('1/2 Pollo a la Brasa', '1/2 pollo a la brasa jugoso con papas fritas familiares, ensalada y cremas.', 39.90, 'FinishedProduct', 'UND', true, true),
+('1 Pollo a la Brasa Entero', '1 pollo entero a la brasa con porción familiar de papas fritas, ensalada grande y cremas surtidas.', 72.90, 'FinishedProduct', 'UND', true, true),
+('Mostrito Brasa Clásico', '1/4 de pollo a la brasa acompañado de arroz chaufa al wok, papas fritas y cremas.', 24.90, 'FinishedProduct', 'UND', true, true),
+('Mostrito Especial', '1/4 de pollo a la brasa + chaufa especial + papas + huevo frito montado y plátano frito.', 27.50, 'FinishedProduct', 'UND', true, true),
+('Porción de Papas Fritas', 'Papas amarillas crocantes seleccionadas con sal marina.', 12.00, 'FinishedProduct', 'UND', true, true),
+('Tequeños Brasa (8 unidades)', 'Tequeños rellenos de pollo a la brasa y queso, con crema de palta artesanal.', 16.00, 'FinishedProduct', 'UND', true, true),
+('Porción de Arroz Chaufa de Pollo', 'Arroz chaufa salteado al wok con trozos de pollo, cebolla china y sillao.', 14.00, 'FinishedProduct', 'UND', true, true),
+('Ensalada Clásica Familiar', 'Lechuga orgánica fresca, rodajas de tomate, pepino, palta y vinagreta clásica.', 10.00, 'FinishedProduct', 'UND', true, true),
+('Inca Kola 1.5L', 'Gaseosa Inca Kola en botella no retornable.', 10.00, 'FinishedProduct', 'UND', true, true),
+('Coca Cola 1.5L', 'Gaseosa Coca Cola en botella no retornable.', 10.00, 'FinishedProduct', 'UND', true, true),
+('Jarra de Chicha Morada 1L', 'Chicha morada casera preparada con maíz morado, piña, manzana y canela.', 12.00, 'FinishedProduct', 'UND', true, true),
+('Jarra de Maracuyá 1L', 'Refresco natural de maracuyá helada.', 12.00, 'FinishedProduct', 'UND', true, true),
+('Agua Mineral 600ml', 'Agua mineral sin gas personal.', 4.00, 'FinishedProduct', 'UND', true, true)
 ON CONFLICT DO NOTHING;

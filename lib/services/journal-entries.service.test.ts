@@ -16,23 +16,23 @@ const PAGE_DATA: JournalEntriesPage = {
   data: [
     {
       id: 7,
-      numero: "MISC/2025/06/0007",
-      fecha: "2025-06-18",
-      diario: "Operaciones varias",
-      concepto: "Asiento 7",
-      responsable: "Leandro Mauricci",
-      estado: "Registrado",
+      number: "MISC/2025/06/0007",
+      date: "2025-06-18",
+      daily: "Operaciones varias",
+      concept: "Asiento 7",
+      responsible: "Leandro Mauricci",
+      status: "Registrado",
       total: 300.25,
     },
   ],
   meta: {
     total: 36,
-    registrados: 30,
-    anulados: 6,
+    registered: 30,
+    annulled: 6,
     page: 1,
     pageSize: 10,
-    totalPaginas: 4,
-    orden: "fecha",
+    totalPages: 4,
+    order: "fecha",
     dir: "desc",
   },
 };
@@ -63,14 +63,14 @@ describe("buildQuery (listar asientos)", () => {
   it("serializa todos los filtros activos", () => {
     const params = new URLSearchParams(
       buildQuery({
-        desde: "2025-05-01",
-        hasta: "2025-06-30",
-        diario: "Banco / Caja",
-        estado: "registrado",
+        from: "2025-05-01",
+        to: "2025-06-30",
+        daily: "Banco / Caja",
+        status: "registrado",
         q: "  caja  ",
         page: 2,
         pageSize: 25,
-        orden: "total",
+        order: "total",
         dir: "asc",
       })
     );
@@ -88,7 +88,7 @@ describe("buildQuery (listar asientos)", () => {
 
   it("descarta orden y dirección que no sean válidos", () => {
     const filters = {
-      orden: "loquesea",
+      order: "loquesea",
       dir: "ASC",
     } as unknown as JournalEntriesFilter;
 
@@ -100,7 +100,7 @@ describe("buildQuery (listar asientos)", () => {
 
   it("conserva un orden válido aunque la dirección sea distinta", () => {
     const params = new URLSearchParams(
-      buildQuery({ orden: "concepto" as JournalEntrySort, dir: "asc" as SortDirection })
+      buildQuery({ order: "concepto" as JournalEntrySort, dir: "asc" as SortDirection })
     );
 
     expect(params.get("orden")).toBe("concepto");
@@ -121,7 +121,7 @@ describe("listJournalEntries", () => {
   it("consulta /api/journal-entries con los filtros y sin caché", async () => {
     fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    const result = await listJournalEntries({ page: 2, orden: "concepto", dir: "asc" });
+    const result = await listJournalEntries({ page: 2, order: "concepto", dir: "asc" });
 
     expect(result).toEqual(PAGE_DATA);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -143,7 +143,7 @@ describe("listJournalEntries", () => {
   it("propaga el error del servidor como ErrorApi con sus validaciones", async () => {
     fetchMock.mockResolvedValue(
       createJsonResponse(
-        { error: "No se pudo obtener el listado de asientos contables.", errores: ["detalle 1"] },
+        { error: "No se pudo obtener el listado de asientos contables.", errors: ["detalle 1"] },
         500
       )
     );
@@ -181,26 +181,26 @@ describe("listJournalEntries", () => {
 
 describe("registerJournalEntry", () => {
   const INPUT: NewJournalEntryInput = {
-    fecha: "2026-09-27",
-    diario: "Operaciones varias",
-    glosa: "Caja chica: compra de insumos",
-    responsable: "Leandro Mauricci",
-    observacion: "Factura S001-000123",
-    lineas: [
-      { idCuenta: 7, descripcion: "Efectivo", debe: 118, haber: 0 },
-      { idCuenta: 21, descripcion: "Compra de mercadería", debe: 0, haber: 100 },
-      { idCuenta: 173, descripcion: "IGV por acreditar", debe: 0, haber: 18 },
+    date: "2026-09-27",
+    daily: "Operaciones varias",
+    description: "Caja chica: compra de insumos",
+    responsible: "Leandro Mauricci",
+    observation: "Factura S001-000123",
+    lines: [
+      { accountId: 7, description: "Efectivo", debit: 118, credit: 0 },
+      { accountId: 21, description: "Compra de mercadería", debit: 0, credit: 100 },
+      { accountId: 173, description: "IGV por acreditar", debit: 0, credit: 18 },
     ],
   };
 
   const SUMMARY: JournalEntrySummary = {
     id: 501,
-    numero: "MISC/2026/09/0001",
-    fecha: "2026-09-27",
-    diario: "Operaciones varias",
-    concepto: "Caja chica: compra de insumos",
-    responsable: "Leandro Mauricci",
-    estado: "Registrado",
+    number: "MISC/2026/09/0001",
+    date: "2026-09-27",
+    daily: "Operaciones varias",
+    concept: "Caja chica: compra de insumos",
+    responsible: "Leandro Mauricci",
+    status: "Registrado",
     total: 118,
   };
 
@@ -231,7 +231,7 @@ describe("registerJournalEntry", () => {
       createJsonResponse(
         {
           error: "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
-          errores: [
+          errors: [
             "El asiento no cuadra: el debe (100.00) no coincide con el haber (90.00).",
             "Línea 2: los importes no pueden ser negativos.",
           ],

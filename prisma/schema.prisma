@@ -46,11 +46,11 @@ enum ExpenseCategory {
   @@map("expense_category")
 }
 
-enum SupplyType {
+enum ProductType {
   RawMaterial
   FinishedProduct
 
-  @@map("supply_type")
+  @@map("product_type")
 }
 
 enum InventoryMovementType {
@@ -99,6 +99,7 @@ model Role {
 
   @@map("role")
 }
+
 model Permission {
   id     Int              @id @default(autoincrement())
   code   String           @unique @db.VarChar(60)
@@ -170,9 +171,9 @@ model User {
   employeeId         Int                @map("employee_id")
   roleId             Int                @map("role_id")
   username           String             @unique @db.VarChar(20)
-  correo             String?            @unique @db.VarChar(80)
+  email              String?            @unique @db.VarChar(80)
   password           String             @db.VarChar(255)
-  estado             Boolean            @default(true)
+  active             Boolean            @default(true)
   failedAttempts     Int                @default(0) @map("failed_attempts")
   locked             Boolean            @default(false)
   lockedAt           DateTime?          @map("locked_at") @db.Timestamp(6)
@@ -269,32 +270,41 @@ model PurchaseOrder {
   @@map("purchase_order")
 }
 
-model Supply {
+/// Unified catalog: raw materials and finished products. A product may be sold (`sellable` + `price`),
+/// always has its own stock and may carry a reference recipe (`recipe`) for the cook.
+model Product {
   id                  Int                    @id @default(autoincrement())
-  name                String                 @db.VarChar(50)
-  type                SupplyType             @default(RawMaterial)
+  name                String                 @db.VarChar(100)
+  description         String?                @db.Text
+  type                ProductType            @default(RawMaterial)
   affectationIgv      AffectationIgv?        @map("affectation_igv")
   unitOfMeasure       String                 @map("unit_of_measure") @db.VarChar(10)
   currentStock        Decimal                @default(0) @map("current_stock") @db.Decimal(10, 2)
   minimumStock        Decimal                @default(0) @map("minimum_stock") @db.Decimal(10, 2)
   lastCost            Decimal                @default(0) @map("last_cost") @db.Decimal(10, 2)
   averageCost         Decimal                @default(0) @map("average_cost") @db.Decimal(10, 2)
+  /// Sale price (only meaningful when `sellable`).
+  price               Decimal?               @db.Decimal(10, 2)
+  /// Shown in the sales menu (waiter / kitchen) when true.
+  sellable            Boolean                @default(false)
   active              Boolean                @default(true)
   purchaseOrderItems  PurchaseOrderItem[]
   inventoryMovements  InventoryMovement[]
   transformationItems TransformationItem[]
   informalPurchases   InformalPurchase[]
-  dishRecipes         DishRecipe[]
-  recipesProduced     TransformationRecipe[] @relation("RecipeProduced")
-  recipesConsumed     TransformationRecipe[] @relation("RecipeConsumed")
+  orderItems          OrderItem[]
+  /// Recipe of this product: ingredients per 1 unit produced. Transformations consume them and add stock to the product.
+  recipe              ProductRecipe[]        @relation("RecipeOf")
+  /// Recipes of other products where this product appears as an ingredient.
+  usedInRecipes       ProductRecipe[]        @relation("RecipeIngredient")
 
-  @@map("supply")
+  @@map("product")
 }
 
 model PurchaseOrderItem {
   id                    Int                 @id @default(autoincrement())
   purchaseOrderId       Int                 @map("purchase_order_id")
-  supplyId              Int                 @map("supply_id")
+  productId              Int                 @map("product_id")
   quantityOrdered       Decimal             @map("quantity_ordered") @db.Decimal(10, 2)
   quantityReceived      Decimal?            @map("quantity_received") @db.Decimal(10, 2)
   unitPrice             Decimal             @map("unit_price") @db.Decimal(10, 2)
@@ -304,17 +314,17 @@ model PurchaseOrderItem {
   finalAmountLine       Decimal?            @map("final_amount_line") @db.Decimal(10, 2)
   observation           String?             @db.VarChar(100)
   purchaseOrder         PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  supply                Supply              @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  product                Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements    InventoryMovement[]
 
   @@index([purchaseOrderId], map: "idx_purchase_order_item_order")
-  @@index([supplyId], map: "idx_purchase_order_item_supply")
+  @@index([productId], map: "idx_purchase_order_item_product")
   @@map("purchase_order_item")
 }
 
 model InventoryMovement {
   id                   Int                   @id @default(autoincrement())
-  supplyId             Int                   @map("supply_id")
+  productId             Int                   @map("product_id")
   purchaseOrderItemId  Int?                  @map("purchase_order_item_id")
   transformationItemId Int?                  @map("transformation_item_id")
   orderItemId          Int?                  @map("order_item_id")
@@ -324,13 +334,13 @@ model InventoryMovement {
   unitCost             Decimal?              @map("unit_cost") @db.Decimal(10, 2)
   reason               String?               @db.VarChar(100)
   movedAt              DateTime              @default(now()) @map("moved_at") @db.Timestamp(6)
-  supply               Supply                @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
   purchaseOrderItem    PurchaseOrderItem?    @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
   transformationItem   TransformationItem?   @relation(fields: [transformationItemId], references: [id], onDelete: SetNull)
   orderItem            OrderItem?            @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   informalPurchase     InformalPurchase?     @relation(fields: [informalPurchaseId], references: [id], onDelete: SetNull)
 
-  @@index([supplyId], map: "idx_inventory_movement_supply")
+  @@index([productId], map: "idx_inventory_movement_product")
   @@index([purchaseOrderItemId], map: "idx_inventory_movement_purchase_order_item")
   @@index([transformationItemId], map: "idx_inventory_movement_transformation_item")
   @@index([orderItemId], map: "idx_inventory_movement_order_item")
@@ -381,54 +391,39 @@ model Transformation {
   employeeId      Int                  @map("employee_id")
   date            DateTime             @default(now()) @db.Timestamp(6)
   notes           String?              @db.VarChar(200)
-  anulado         Boolean              @default(false)
-  anuladoAt       DateTime?            @map("anulado_at") @db.Timestamp(6)
-  anuladoPor      Int?                 @map("anulado_por")
-  motivoAnulacion String?              @map("motivo_anulacion") @db.VarChar(200)
+  annulled        Boolean              @default(false)
+  annulledAt      DateTime?            @map("annulled_at") @db.Timestamp(6)
+  annulledById    Int?                 @map("annulled_by_id")
+  annulmentReason String?              @map("annulment_reason") @db.VarChar(200)
   employee        Employee             @relation("EmployeeTransformations", fields: [employeeId], references: [id], onDelete: Restrict)
-  annulledBy      Employee?            @relation("AnnulledTransformations", fields: [anuladoPor], references: [id], onDelete: Restrict)
+  annulledBy      Employee?            @relation("AnnulledTransformations", fields: [annulledById], references: [id], onDelete: Restrict)
   items           TransformationItem[]
+  journalEntries  JournalEntry[]
 
   @@index([employeeId], map: "idx_transformation_employee")
-  @@index([anuladoPor], map: "idx_transformation_annulled_by")
+  @@index([annulledById], map: "idx_transformation_annulled_by")
   @@map("transformation")
 }
 
 model TransformationItem {
   id                 Int                 @id @default(autoincrement())
   transformationId   Int                 @map("transformation_id")
-  supplyId           Int                 @map("supply_id")
+  productId           Int                 @map("product_id")
   itemType           String              @map("item_type") @db.VarChar(10)
   quantity           Decimal             @db.Decimal(10, 2)
   unitCost           Decimal?            @map("unit_cost") @db.Decimal(10, 2)
   transformation     Transformation      @relation(fields: [transformationId], references: [id], onDelete: Cascade)
-  supply             Supply              @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements InventoryMovement[]
 
   @@index([transformationId], map: "idx_transformation_item_transformation")
-  @@index([supplyId], map: "idx_transformation_item_supply")
+  @@index([productId], map: "idx_transformation_item_product")
   @@map("transformation_item")
-}
-
-model TransformationRecipe {
-  id               Int     @id @default(autoincrement())
-  producedSupplyId Int     @map("produced_supply_id")
-  consumedSupplyId Int     @map("consumed_supply_id")
-  producedQuantity Decimal @default(1) @map("produced_quantity") @db.Decimal(10, 2)
-  requiredQuantity Decimal @map("required_quantity") @db.Decimal(10, 2)
-  active           Boolean @default(true)
-  producedSupply   Supply  @relation("RecipeProduced", fields: [producedSupplyId], references: [id], onDelete: Restrict)
-  consumedSupply   Supply  @relation("RecipeConsumed", fields: [consumedSupplyId], references: [id], onDelete: Restrict)
-
-  @@unique([producedSupplyId, consumedSupplyId], map: "uq_transformation_recipe")
-  @@index([producedSupplyId], map: "idx_transformation_recipe_produced")
-  @@index([consumedSupplyId], map: "idx_transformation_recipe_consumed")
-  @@map("transformation_recipe")
 }
 
 model InformalPurchase {
   id                    Int                  @id @default(autoincrement())
-  supplyId              Int?                 @map("supply_id")
+  productId              Int?                 @map("product_id")
   employeeId            Int                  @map("employee_id")
   purchaseType          InformalPurchaseType @default(InventoryItem) @map("purchase_type")
   expenseCategory       ExpenseCategory?     @map("expense_category")
@@ -438,18 +433,18 @@ model InformalPurchase {
   date                  DateTime             @default(now()) @db.Date
   informalPlaceOrVendor String?              @map("informal_place_or_vendor") @db.VarChar(150)
   reason                String?              @db.VarChar(150)
-  anulado               Boolean              @default(false)
-  anuladoAt             DateTime?            @map("anulado_at") @db.Timestamp(6)
-  anuladoPor            Int?                 @map("anulado_por")
-  motivoAnulacion       String?              @map("motivo_anulacion") @db.VarChar(200)
-  supply                Supply?              @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  annulled              Boolean              @default(false)
+  annulledAt            DateTime?            @map("annulled_at") @db.Timestamp(6)
+  annulledById          Int?                 @map("annulled_by_id")
+  annulmentReason       String?              @map("annulment_reason") @db.VarChar(200)
+  product                Product?              @relation(fields: [productId], references: [id], onDelete: Restrict)
   employee              Employee             @relation("EmployeeInformalPurchases", fields: [employeeId], references: [id], onDelete: Restrict)
-  annulledBy            Employee?            @relation("AnnulledPurchases", fields: [anuladoPor], references: [id], onDelete: Restrict)
+  annulledBy            Employee?            @relation("AnnulledPurchases", fields: [annulledById], references: [id], onDelete: Restrict)
   inventoryMovements    InventoryMovement[]
 
-  @@index([supplyId], map: "idx_informal_purchase_supply")
+  @@index([productId], map: "idx_informal_purchase_product")
   @@index([employeeId], map: "idx_informal_purchase_employee")
-  @@index([anuladoPor], map: "idx_informal_purchase_annulled_by")
+  @@index([annulledById], map: "idx_informal_purchase_annulled_by")
   @@map("informal_purchase")
 }
 
@@ -481,30 +476,21 @@ model DiningTable {
   @@map("dining_table")
 }
 
-model Dish {
-  id          Int          @id @default(autoincrement())
-  name        String       @db.VarChar(100)
-  description String?      @db.Text
-  price       Decimal      @db.Decimal(7, 2)
-  active      Boolean      @default(true)
-  orderItems  OrderItem[]
-  recipes     DishRecipe[]
-
-  @@map("dish")
-}
-
-model DishRecipe {
+/// Reference recipe: `product` is what is sold, `ingredient` what the cook uses. Never moves stock.
+model ProductRecipe {
   id               Int     @id @default(autoincrement())
-  dishId           Int     @map("dish_id")
-  supplyId         Int     @map("supply_id")
-  quantityRequired Decimal @map("quantity_required") @db.Decimal(10, 2)
-  dish             Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
-  supply           Supply  @relation(fields: [supplyId], references: [id], onDelete: Restrict)
+  productId        Int     @map("product_id")
+  ingredientId     Int     @map("ingredient_id")
+  /// Ingredient quantity needed per 1 unit of `product`.
+  quantityRequired Decimal @map("quantity_required") @db.Decimal(10, 4)
+  active           Boolean @default(true)
+  product          Product @relation("RecipeOf", fields: [productId], references: [id], onDelete: Cascade)
+  ingredient       Product @relation("RecipeIngredient", fields: [ingredientId], references: [id], onDelete: Restrict)
 
-  @@unique([dishId, supplyId], map: "uq_dish_recipe_supply")
-  @@index([dishId], map: "idx_dish_recipe_dish")
-  @@index([supplyId], map: "idx_dish_recipe_supply")
-  @@map("dish_recipe")
+  @@unique([productId, ingredientId], map: "uq_product_recipe_ingredient")
+  @@index([productId], map: "idx_product_recipe_product")
+  @@index([ingredientId], map: "idx_product_recipe_ingredient")
+  @@map("product_recipe")
 }
 
 model SalesOrder {
@@ -536,18 +522,18 @@ model OrderTable {
 model OrderItem {
   id                 Int                 @id @default(autoincrement())
   orderId            Int                 @map("order_id")
-  dishId             Int                 @map("dish_id")
+  productId             Int                 @map("product_id")
   quantity           Int                 @db.SmallInt
   unitPrice          Decimal             @map("unit_price") @db.Decimal(10, 2)
   subtotal           Decimal             @db.Decimal(10, 2)
-  dishStatus         String              @default("Pending") @map("dish_status") @db.VarChar(30)
+  itemStatus         String              @default("Pending") @map("dish_status") @db.VarChar(30)
   notes              String?             @db.VarChar(100)
   order              SalesOrder          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  dish               Dish                @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements InventoryMovement[]
 
   @@index([orderId], map: "idx_order_item_order")
-  @@index([dishId], map: "idx_order_item_dish")
+  @@index([productId], map: "idx_order_item_product")
   @@map("order_item")
 }
 
@@ -641,6 +627,7 @@ model JournalEntry {
   salesInvoiceId    Int?                 @map("sales_invoice_id")
   purchaseInvoiceId Int?                 @map("purchase_invoice_id")
   payrollId         Int?                 @map("payroll_id")
+  transformationId  Int?                 @map("transformation_id")
   entryDate         DateTime             @default(now()) @map("entry_date") @db.Date
   periodId          Int                  @map("period_id")
   period            AccountingPeriod     @relation(fields: [periodId], references: [id])
@@ -655,12 +642,14 @@ model JournalEntry {
   salesInvoice      SalesInvoice?        @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
   purchaseInvoice   PurchaseInvoice?     @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Restrict)
   payroll           Payroll?             @relation(fields: [payrollId], references: [id], onDelete: Restrict)
+  transformation    Transformation?      @relation(fields: [transformationId], references: [id], onDelete: Restrict)
   entryDetails      JournalEntryDetail[]
 
   @@index([salesInvoiceId], map: "idx_journal_entry_sales_invoice")
   @@index([purchaseInvoiceId], map: "idx_journal_entry_purchase_invoice")
   @@index([periodId], map: "idx_journal_entry_period")
   @@index([payrollId], map: "idx_journal_entry_payroll")
+  @@index([transformationId], map: "idx_journal_entry_transformation")
   @@index([entryDate], map: "idx_journal_entry_date")
   @@index([book], map: "idx_journal_entry_book")
   @@index([status], map: "idx_journal_entry_status")

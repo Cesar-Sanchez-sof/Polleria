@@ -1,26 +1,28 @@
 /**
  * Servicio frontend para el módulo Gestión de Mesas y Caja.
- * Centraliza las llamadas HTTP hacia /api/tables, /api/orders, /api/dishes, /api/sales y /api/payment-methods.
+ * Centraliza las llamadas HTTP hacia /api/tables, /api/orders, /api/products, /api/sales y /api/payment-methods.
  */
 
-export interface MenuDish {
+export interface MenuProduct {
   id: number;
   name: string;
   description: string;
   price: number;
   category: string; // "pollos" | "adicionales" | "bebidas" | "otros"
   image: string;
+  /** Unidades en stock del producto (el mismo stock del Kardex). */
+  stock?: number;
 }
 
 export interface OrderLineItem {
   id?: number;
-  dishId: number;
+  productId: number;
   name: string;
-  dishName?: string;
+  productName?: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
-  dishStatus?: string;
+  itemStatus?: string;
   notes?: string;
 }
 
@@ -30,7 +32,7 @@ export interface OrderSummary {
   code: string;
   orderType: "Mesa" | "Llevar";
   orderedAt: string;
-  status: string; // "Received" | "Preparing" | "Served" | "Closed" | "Cancelled"
+  status: string; // "Received" | "Preparing" | "Ready" | "Served" | "Closed" | "Cancelled"
   table: { id: number; number: number } | null;
   notes: string;
   items: OrderLineItem[];
@@ -122,17 +124,17 @@ export interface CustomerItem {
 }
 
 export interface DailySalesSummary {
-  totalRecaudado: number;
-  cantidadVentas: number;
-  desgloseMetodos: {
-    efectivo: number;
+  totalCollected: number;
+  salesCount: number;
+  methodsBreakdown: {
+    cash: number;
     yape: number;
-    tarjeta: number;
-    otros: number;
+    card: number;
+    others: number;
   };
-  desgloseComprobantes: {
-    boletas: number;
-    facturas: number;
+  vouchersBreakdown: {
+    receipts: number;
+    invoices: number;
     tickets: number;
   };
 }
@@ -152,7 +154,7 @@ const DISH_IMAGES: Record<string, string> = {
   "gaseosa": "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&auto=format&fit=crop&q=80",
 };
 
-export function getDishImage(name: string): string {
+export function getProductImage(name: string): string {
   const n = name.toLowerCase();
   for (const [key, url] of Object.entries(DISH_IMAGES)) {
     if (n.includes(key)) return url;
@@ -182,17 +184,20 @@ export async function listTables(): Promise<{ tables: TableItem[]; summary: Tabl
   return { tables: json.data, summary: json.summary };
 }
 
-export async function listDishes(category?: string): Promise<MenuDish[]> {
-  const url = category && category !== "todos" ? `/api/dishes?category=${category}` : "/api/dishes";
+export async function listProducts(category?: string): Promise<MenuProduct[]> {
+  const url =
+    category && category !== "todos"
+      ? `/api/products?sellable=true&category=${category}`
+      : "/api/products?sellable=true";
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "No se pudo obtener la carta de productos.");
   }
   const json = await res.json();
-  return (json.data || []).map((p: MenuDish & { name: string }) => ({
+  return (json.data || []).map((p: MenuProduct & { name: string }) => ({
     ...p,
-    image: getDishImage(p.name),
+    image: getProductImage(p.name),
   }));
 }
 
@@ -224,7 +229,7 @@ export async function createOrder(data: {
   tableId?: number;
   additionalTables?: number[];
   notes?: string;
-  items: Array<{ dishId: number; quantity: number; notes?: string }>;
+  items: Array<{ productId: number; quantity: number; notes?: string }>;
 }): Promise<{ message: string; order: OrderSummary | null }> {
   const res = await fetch("/api/orders", {
     method: "POST",
@@ -242,7 +247,7 @@ export async function editOrder(
   id: number,
   data: {
     notes?: string;
-    items: Array<{ dishId: number; quantity: number; notes?: string }>;
+    items: Array<{ productId: number; quantity: number; notes?: string }>;
   }
 ): Promise<{ message: string }> {
   const res = await fetch(`/api/orders/${id}`, {
@@ -259,7 +264,7 @@ export async function editOrder(
 
 export async function updateOrderStatus(
   id: number,
-  status: "Received" | "Preparing" | "Served"
+  status: "Received" | "Preparing" | "Ready" | "Served"
 ): Promise<{ message: string }> {
   const res = await fetch(`/api/orders/${id}`, {
     method: "PATCH",

@@ -5,7 +5,7 @@ import {
   postPurchaseJournalEntries,
   postPurchasePaymentJournalEntry,
 } from "@/lib/services/accounting-posting.service";
-import { exigirPermiso } from "@/lib/auth/permisos";
+import { requirePermission } from "@/lib/auth/permissions";
 
 export interface PurchaseVoucherInput {
   supplierId: number;
@@ -20,7 +20,7 @@ export interface PurchaseVoucherInput {
 }
 
 export async function getReceiptsWithoutVoucher() {
-  await exigirPermiso("compras.ver");
+  await requirePermission("compras.ver");
   try {
     return await prisma.purchaseOrder.findMany({
       where: {
@@ -32,7 +32,7 @@ export async function getReceiptsWithoutVoucher() {
         supplier: true,
         items: {
           include: {
-            supply: true,
+            product: true,
           },
         },
       },
@@ -45,7 +45,7 @@ export async function getReceiptsWithoutVoucher() {
 }
 
 export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
-  await exigirPermiso("compras.crear");
+  await requirePermission("compras.crear");
   const purchaseOrderId = data.purchaseOrderId || data.receiptId;
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
@@ -150,7 +150,7 @@ export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
 }
 
 export async function getPurchaseVouchers() {
-  await exigirPermiso("compras.ver");
+  await requirePermission("compras.ver");
   try {
     const invoices = await prisma.purchaseInvoice.findMany({
       include: {
@@ -161,7 +161,7 @@ export async function getPurchaseVouchers() {
             receivedBy: true,
             items: {
               include: {
-                supply: true,
+                product: true,
               },
             },
           },
@@ -176,20 +176,20 @@ export async function getPurchaseVouchers() {
     });
 
     return invoices.map((c) => {
-      const totalPagado = c.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const montoTotal = Number(c.totalAmount);
-      let estadoPago: "Pendiente" | "Parcial" | "Pagado" = "Pendiente";
-      if (totalPagado >= montoTotal && montoTotal > 0) {
-        estadoPago = "Pagado";
-      } else if (totalPagado > 0) {
-        estadoPago = "Parcial";
+      const totalPaid = c.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalAmount = Number(c.totalAmount);
+      let paymentStatus: "Pendiente" | "Parcial" | "Pagado" = "Pendiente";
+      if (totalPaid >= totalAmount && totalAmount > 0) {
+        paymentStatus = "Pagado";
+      } else if (totalPaid > 0) {
+        paymentStatus = "Parcial";
       }
 
       return {
         ...c,
-        totalPagado,
-        saldoPendiente: Math.max(0, montoTotal - totalPagado),
-        estadoPago,
+        totalPaid,
+        pendingBalance: Math.max(0, totalAmount - totalPaid),
+        paymentStatus,
       };
     });
   } catch (error) {
@@ -203,7 +203,7 @@ export async function registerPurchasePayment(
   paymentTypeId: number,
   amount: number
 ) {
-  await exigirPermiso("compras.editar");
+  await requirePermission("compras.editar");
   if (amount <= 0) {
     throw new Error("El monto del pago debe ser mayor a 0");
   }
@@ -260,7 +260,7 @@ export async function registerPurchasePayment(
 }
 
 export async function getPaymentTypes() {
-  await exigirPermiso(["compras.ver", "compras.crear"]);
+  await requirePermission(["compras.ver", "compras.crear"]);
   try {
     return await prisma.paymentType.findMany({
       where: { active: true },

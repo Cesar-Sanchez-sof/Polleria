@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { jwtVerify } from "jose";
-import type { PayloadSesion } from "@/lib/auth/session";
+import type { SessionPayload } from "@/lib/auth/session";
 import type { AssistantConfig } from "@/lib/ai-assistant/config";
 import { IDENTITY_HEADER } from "@/lib/ai-assistant/identity";
 import { handleQuery, handleStatus, limaDate, MAX_BODY_BYTES, type ProxyDeps } from "@/lib/ai-assistant/proxy";
@@ -13,7 +13,7 @@ const ENABLED: AssistantConfig = {
   mode: "demo", timeoutMs: 120_000, allowedUserIds: null,
 };
 const WITH_IDENTITY: AssistantConfig = { ...ENABLED, identityKey: IDENTITY_KEY, realData: true };
-const ADMIN: PayloadSesion = { idUsuario: 7, username: "admin", rol: "ADMIN" };
+const ADMIN: SessionPayload = { userId: 7, username: "admin", role: "ADMIN" };
 const TRACE = "erp-00000000000000000000000000000001";
 
 /** Respuesta CT-B real de ai-service (datos ficticios). */
@@ -86,11 +86,11 @@ describe("controles de acceso (GET y POST)", () => {
   });
 
   it("sin sesión: 401; rol no permitido: 403; nunca llega al servicio", async () => {
-    for (const [session, status] of [[null, 401], [{ ...ADMIN, rol: "CAJERO" }, 403], [{ ...ADMIN, rol: "contador_demo" }, 403]] as const) {
+    for (const [session, status] of [[null, 401], [{ ...ADMIN, role: "CAJERO" }, 403], [{ ...ADMIN, role: "contador_demo" }, 403]] as const) {
       const d = deps({ session: async () => session });
       const statusResult = await handleStatus(d);
       expect(statusResult.status).toBe(status);
-      expect(statusResult.body.habilitado).toBe(false);
+      expect(statusResult.body.enabled).toBe(false);
       expect((await ask({ mensaje: "Saldo de caja" }, d)).status).toBe(status);
       expect(d.calls).toHaveLength(0);
     }
@@ -104,8 +104,8 @@ describe("controles de acceso (GET y POST)", () => {
   it("GET habilitado: datos ficticios y sugerencias, sin el token", async () => {
     const result = await handleStatus(deps());
     expect(result.status).toBe(200);
-    expect(result.body).toMatchObject({ habilitado: true, datosFicticios: true, usuario: 7 });
-    expect((result.body.sugerencias as string[]).length).toBeGreaterThan(0);
+    expect(result.body).toMatchObject({ enabled: true, fakeData: true, usuario: 7 });
+    expect((result.body.suggestions as string[]).length).toBeGreaterThan(0);
     expect(JSON.stringify(result.body)).not.toContain(TOKEN);
   });
 });
@@ -120,7 +120,7 @@ describe("solicitud hacia ai-service", () => {
           { rol: "usuario", texto: "Hola" },
           { rol: "asistente", texto: "El saldo neto fue S/ 1,149.60." },
         ],
-        ruta: "/accounting/ledger",
+        ruta: "/accounting/reports/ledger",
       },
       d,
     );
@@ -133,7 +133,7 @@ describe("solicitud hacia ai-service", () => {
       id_traza: TRACE,
       usuario: { id: 7, rol: "contador_demo" },
       mensaje: "¿Cuál fue el saldo de caja en septiembre?",
-      contexto: { ruta: "/accounting/ledger", filtros: {} },
+      contexto: { ruta: "/accounting/reports/ledger", filtros: {} },
       historial: [{ rol: "usuario", texto: "Hola" }],
       fecha_referencia_lima: "2026-10-12",
     });
@@ -142,7 +142,7 @@ describe("solicitud hacia ai-service", () => {
 
   it("rutas no autorizadas no envían contexto", async () => {
     const d = deps();
-    await ask({ mensaje: "Saldo de caja", ruta: "/usuarios" }, d);
+    await ask({ mensaje: "Saldo de caja", ruta: "/security/users" }, d);
     expect(JSON.parse(String(d.calls[0].init.body)).contexto).toBeNull();
   });
 
@@ -203,9 +203,9 @@ describe("respuestas", () => {
 
   it("errores del servicio con mensajes sencillos y sin detalles internos", async () => {
     const cases: [() => Response | Promise<Response>, number, string][] = [
-      [() => Response.json({ error: "El asistente no está disponible", errores: [] }, { status: 503 }), 503, MESSAGES.unavailable],
+      [() => Response.json({ error: "El asistente no está disponible", errors: [] }, { status: 503 }), 503, MESSAGES.unavailable],
       [() => Response.json({ error: "No tienes permisos" }, { status: 403 }), 403, MESSAGES.forbidden],
-      [() => Response.json({ error: "Solicitud inválida", errores: ["mensaje"] }, { status: 400 }), 400, MESSAGES.invalid],
+      [() => Response.json({ error: "Solicitud inválida", errors: ["mensaje"] }, { status: 400 }), 400, MESSAGES.invalid],
       [() => Response.json({ error: "Error interno con /ruta/privada" }, { status: 500 }), 503, MESSAGES.unavailable],
       [() => new Response("<html>", { status: 200 }), 502, MESSAGES.unavailable],
       [() => Response.json(answered({ extra: "campo inventado" })), 502, MESSAGES.unavailable],
@@ -251,12 +251,12 @@ describe("P-9: identidad firmada desde la sesión del servidor", () => {
     const d = deps();
     await ask({ mensaje: "Saldo" }, d);
     expect((d.calls[0].init.headers as Record<string, string>)[IDENTITY_HEADER]).toBeUndefined();
-    expect((await handleStatus(deps())).body.datosFicticios).toBe(true);
-    expect((await handleStatus(deps({ config: WITH_IDENTITY }))).body.datosFicticios).toBe(false);
+    expect((await handleStatus(deps())).body.fakeData).toBe(true);
+    expect((await handleStatus(deps({ config: WITH_IDENTITY }))).body.fakeData).toBe(false);
   });
 
   it("los usuarios sin rol permitido no obtienen aserción ni acceso", async () => {
-    const d = deps({ config: WITH_IDENTITY, session: async () => ({ ...ADMIN, rol: "CAJERO" }) });
+    const d = deps({ config: WITH_IDENTITY, session: async () => ({ ...ADMIN, role: "CAJERO" }) });
     expect((await ask({ mensaje: "Saldo" }, d)).status).toBe(403);
     expect(d.calls).toHaveLength(0);
   });

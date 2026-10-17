@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatDateToIso } from "@/lib/dates";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 /**
  * @openapi
@@ -37,8 +37,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("asientos.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("asientos.ver");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const entryId = Number.parseInt(idParam, 10);
@@ -63,32 +63,32 @@ export async function GET(
 
     const lines = entry.entryDetails.map((line) => ({
       id: line.id,
-      cuentaCodigo: line.account.code,
-      cuentaNombre: line.account.name,
-      cuentaTipo: line.account.type,
-      descripcion: line.description ?? "",
-      debe: Number(line.debit),
-      haber: Number(line.credit),
+      accountCode: line.account.code,
+      accountName: line.account.name,
+      accountType: line.account.type,
+      description: line.description ?? "",
+      debit: Number(line.debit),
+      credit: Number(line.credit),
     }));
 
-    const totalDebit = lines.reduce((sum, l) => sum + l.debe, 0);
-    const totalCredit = lines.reduce((sum, l) => sum + l.haber, 0);
+    const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
+    const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);
 
     return Response.json({
       id: entry.id,
-      numero: entry.code,
-      fecha: formatDateToIso(entry.entryDate),
-      diario: entry.book,
-      concepto: entry.description,
-      estado: entry.status ? "Registrado" : "Anulado",
-      responsable: entry.responsible ?? "",
-      observacion: entry.observation ?? "",
-      fechaCreacion: entry.createdAt.toISOString(),
-      fechaActualizacion: entry.updatedAt.toISOString(),
+      number: entry.code,
+      date: formatDateToIso(entry.entryDate),
+      daily: entry.book,
+      concept: entry.description,
+      status: entry.status ? "Registrado" : "Anulado",
+      responsible: entry.responsible ?? "",
+      observation: entry.observation ?? "",
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString(),
       total: totalDebit,
-      cuadrado: Math.abs(totalDebit - totalCredit) < 0.005,
-      totales: { debe: totalDebit, haber: totalCredit },
-      lineas: lines,
+      balanced: Math.abs(totalDebit - totalCredit) < 0.005,
+      totals: { debit: totalDebit, credit: totalCredit },
+      lines: lines,
     });
   } catch (error) {
     console.error("[api/journal-entries/[id]] error al obtener el asiento:", error);

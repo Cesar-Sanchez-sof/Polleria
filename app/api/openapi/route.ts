@@ -19,7 +19,7 @@ async function addDiscoveredPaths(spec: any) {
       if (entry.isDirectory()) {
         if (entry.name === 'openapi') continue;
         await walk(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+      } else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.includes('.test.') && !entry.name.includes('.spec.')) {
         let urlPath = '/' + path.relative(apiRoot, fullPath).replace(/\\/g, '/');
         urlPath = urlPath.replace(/\/route\.ts$/i, '').replace(/\/index\.ts$/i, '');
         if (!urlPath.startsWith('/api')) urlPath = '/api' + urlPath;

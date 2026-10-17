@@ -3,13 +3,16 @@
  *
  * Sale → 3 journal entries:
  *  1. Provisión de la venta: 12 (DEBE) / 40 IGV + 70 Ventas (HABER)
- *  2. Costo de ventas: 69 (DEBE) / 20 Inventario (HABER)
+ *  2. Costo de ventas: 69 (DEBE) / 20 Mercaderías y 21 Productos terminados (HABER)
  *  3. Cobro: 10 Caja/Bancos (DEBE) / 12 (HABER)
  *
  * Purchase voucher → 3 journal entries:
  *  1. Provisión de la compra: 60 Compras + 40 IGV crédito (DEBE) / 42 Cuentas por pagar (HABER)
  *  2. Destino / ingreso al almacén: 20 Inventario (DEBE) / 61 Variación de inventarios (HABER)
  *  3. Pago (solo Contado o al registrar el pago en crédito): 42 (DEBE) / 10 Caja/Bancos (HABER)
+ *
+ * Transformation → 1 journal entry in the general journal ("Operaciones varias"):
+ *  21 Productos terminados (DEBE) / 24 Materias primas (y 20/21 si el insumo no es materia prima) (HABER)
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +27,7 @@ const ACCOUNT_CODES = {
   igvPayable: "401",
   merchandise: "201",
   rawMaterials: "241",
+  finishedProducts: "211", // Productos terminados (lo que sale de una transformación)
   purchases: "601",       // Compras (Elemento 6)
   inventoryVariation: "611", // Variación de inventarios (Elemento 6 — cuenta correctora)
   payables: "421",
@@ -36,7 +40,7 @@ const ACCOUNT_CODES = {
 
 /** Estimated COGS as % of net sales when there is no recipe/BOM costing. */
 const SALE_COST_RATIO = 0.4;
-/** Share of COGS charged to merchandise (201) vs raw materials (241). */
+/** Share of COGS charged to merchandise (201) vs transformed finished products (211). */
 const SALE_COST_MERCHANDISE_SHARE = 0.7;
 
 const BOOK_SALES = "Ventas";
@@ -114,6 +118,7 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
         code === "101" ? "Caja" :
         code === "102" ? "Billeteras Digitales (Yape)" :
         code === "104" ? "Bancos - Cuentas Corrientes" :
+        code === "211" ? "Productos Terminados" :
         code === "701" ? "Ventas de Mercaderías" :
         `Cuenta ${code}`;
       const defaultType = code.startsWith("1") ? "Activo" : code.startsWith("6") ? "Gasto" : "Ingreso";
@@ -312,13 +317,13 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
     ACCOUNT_CODES.sales,
     ACCOUNT_CODES.costOfSales,
     ACCOUNT_CODES.merchandise,
-    ACCOUNT_CODES.rawMaterials,
+    ACCOUNT_CODES.finishedProducts,
   ]);
 
   const date = toUtcDateOnly(input.entryDate ?? new Date());
   const ref = input.voucherCode;
-  const isFactura = ref.startsWith("F");
-  const docTypeLabel = isFactura ? "Factura" : "Boleta";
+  const isInvoice = ref.startsWith("F");
+  const docTypeLabel = isInvoice ? "Factura" : "Boleta";
   const ids: number[] = [];
   const periodId = await ensureOpenPeriod(tx, date);
 
@@ -405,7 +410,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
   // 3) Costo de ventas — mercaderías y materias primas (asientos 4 y 5)
   const totalCost = round2(subtotal * SALE_COST_RATIO);
   const merchandiseCost = round2(totalCost * SALE_COST_MERCHANDISE_SHARE);
-  const rawMaterialsCost = round2(totalCost - merchandiseCost);
+  const finishedProductsCost = round2(totalCost - merchandiseCost);
 
   // 4) Costo de ventas — mercaderías
   if (merchandiseCost > 0) {
@@ -427,22 +432,22 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
     );
   }
 
-  // 5) Costo de ventas — materias primas / insumos
-  if (rawMaterialsCost > 0) {
+  // 5) Costo de ventas — productos terminados (platos y cortes que salen de una transformación)
+  if (finishedProductsCost > 0) {
     ids.push(
       await createBalancedEntry(tx, {
         date,
         periodId,
-        description: `Costo de ventas (insumos) ${ref}`,
+        description: `Costo de ventas (productos terminados) ${ref}`,
         book: BOOK_SALES,
         responsible: input.responsible,
         salesInvoiceId: input.salesInvoiceId,
-        observation: "Asiento 5/5 — Costo de ventas y consumo de materias primas",
+        observation: "Asiento 5/5 — Costo de ventas y baja de productos terminados",
         debitAccountId: accounts.get(ACCOUNT_CODES.costOfSales)!,
-        creditAccountId: accounts.get(ACCOUNT_CODES.rawMaterials)!,
-        amount: rawMaterialsCost,
-        debitLineDescription: "Costo de ventas — consumo de insumos",
-        creditLineDescription: "Salida de inventario de materias primas",
+        creditAccountId: accounts.get(ACCOUNT_CODES.finishedProducts)!,
+        amount: finishedProductsCost,
+        debitLineDescription: "Costo de ventas — productos terminados",
+        creditLineDescription: "Salida de inventario de productos terminados",
       })
     );
   }
@@ -461,6 +466,10 @@ export interface PostPurchaseJournalInput {
   paymentCondition: "Contado" | "Credito";
   paymentMethodName?: string;
   responsible?: string;
+  items?: Array<{
+    productType: "RawMaterial" | "FinishedProduct";
+    subtotalLine: number; // valor neto sin IGV de esa línea
+  }>;
 }
 
 /**
@@ -485,6 +494,7 @@ export async function postPurchaseJournalEntries(
     ACCOUNT_CODES.purchases,
     ACCOUNT_CODES.igvCredit,
     ACCOUNT_CODES.merchandise,
+    ACCOUNT_CODES.rawMaterials,
     ACCOUNT_CODES.inventoryVariation,
     ACCOUNT_CODES.payables,
   ]);
@@ -539,24 +549,104 @@ export async function postPurchaseJournalEntries(
 
   // -----------------------------------------------------------------------
   // 2) Destino / Ingreso al almacén
-  //    DEBE: 20 Mercaderías (inventario)
-  //    HABER: 61 Variación de inventarios (cuenta correctora del Elemento 6)
+  //    Diferenciado por productType:
+  //    - RawMaterial: DEBE 241 (Materias Primas) / HABER 611 (Variación de inventarios)
+  //    - FinishedProduct: DEBE 201 (Mercaderías) / HABER 611 (Variación de inventarios)
   // -----------------------------------------------------------------------
-  ids.push(
-    await createBalancedEntry(tx, {
-      date,
-      description: `Ingreso al almacén ${ref}`,
-      book: BOOK_PURCHASES,
-      responsible: input.responsible,
-      purchaseInvoiceId: input.purchaseInvoiceId,
-      observation: "Asiento 2/3 — Destino: ingreso físico de bienes al inventario",
-      debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
-      creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
-      amount: subtotal,
-      debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
-      creditLineDescription: "Variación de inventarios (cuenta correctora)",
-    }),
-  );
+  if (input.items && input.items.length > 0) {
+    let rawMaterialsTotal = 0;
+    let finishedProductsTotal = 0;
+
+    for (const item of input.items) {
+      const lineVal = round2(item.subtotalLine);
+      if (item.productType === "RawMaterial") {
+        rawMaterialsTotal += lineVal;
+      } else {
+        finishedProductsTotal += lineVal;
+      }
+    }
+
+    rawMaterialsTotal = round2(rawMaterialsTotal);
+    finishedProductsTotal = round2(finishedProductsTotal);
+
+    const hasBoth = rawMaterialsTotal > 0 && finishedProductsTotal > 0;
+
+    if (rawMaterialsTotal > 0) {
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          description: `Ingreso al almacén (materias primas) ${ref}`,
+          book: BOOK_PURCHASES,
+          responsible: input.responsible,
+          purchaseInvoiceId: input.purchaseInvoiceId,
+          observation: hasBoth
+            ? "Asiento 2/N — Destino mixto: materias primas y mercaderías"
+            : "Asiento 2/3 — Destino: ingreso de materias primas al inventario",
+          debitAccountId: accounts.get(ACCOUNT_CODES.rawMaterials)!,
+          creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+          amount: rawMaterialsTotal,
+          debitLineDescription: "Ingreso de materias primas / insumos al inventario",
+          creditLineDescription: "Variación de inventarios (cuenta correctora)",
+        }),
+      );
+    }
+
+    if (finishedProductsTotal > 0) {
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          description: `Ingreso al almacén (mercaderías) ${ref}`,
+          book: BOOK_PURCHASES,
+          responsible: input.responsible,
+          purchaseInvoiceId: input.purchaseInvoiceId,
+          observation: hasBoth
+            ? "Asiento 2/N — Destino mixto: materias primas y mercaderías"
+            : "Asiento 2/3 — Destino: ingreso de mercaderías al inventario",
+          debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+          creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+          amount: finishedProductsTotal,
+          debitLineDescription: "Ingreso de mercaderías al inventario",
+          creditLineDescription: "Variación de inventarios (cuenta correctora)",
+        }),
+      );
+    }
+
+    // Si ambos son 0 (por ejemplo todos con subtotalLine <= 0), usamos el fallback
+    if (rawMaterialsTotal === 0 && finishedProductsTotal === 0) {
+      ids.push(
+        await createBalancedEntry(tx, {
+          date,
+          description: `Ingreso al almacén ${ref}`,
+          book: BOOK_PURCHASES,
+          responsible: input.responsible,
+          purchaseInvoiceId: input.purchaseInvoiceId,
+          observation: "Asiento 2/3 — Destino: ingreso físico de bienes al inventario",
+          debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+          creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+          amount: subtotal,
+          debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
+          creditLineDescription: "Variación de inventarios (cuenta correctora)",
+        }),
+      );
+    }
+  } else {
+    // Fallback para compatibilidad
+    ids.push(
+      await createBalancedEntry(tx, {
+        date,
+        description: `Ingreso al almacén ${ref}`,
+        book: BOOK_PURCHASES,
+        responsible: input.responsible,
+        purchaseInvoiceId: input.purchaseInvoiceId,
+        observation: "Asiento 2/3 — Destino: ingreso de mercaderías al inventario",
+        debitAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
+        creditAccountId: accounts.get(ACCOUNT_CODES.inventoryVariation)!,
+        amount: subtotal,
+        debitLineDescription: "Ingreso de mercaderías / insumos al inventario",
+        creditLineDescription: "Variación de inventarios (cuenta correctora)",
+      }),
+    );
+  }
 
   // -----------------------------------------------------------------------
   // 3) Pago al contado (cancela la obligación con el proveedor)
@@ -625,6 +715,108 @@ export async function postPurchasePaymentJournalEntry(
     amount,
     debitLineDescription: "Cancelación parcial/total de cuentas por pagar",
     creditLineDescription: "Salida de caja / bancos",
+  });
+}
+
+export interface PostInformalPurchaseJournalInput {
+  informalPurchaseId: number;
+  entryDate: Date;
+  purchaseType: "InventoryItem" | "OperatingExpense";
+  amount: number;
+  description: string;
+  responsible?: string;
+}
+
+/**
+ * Posts a single direct journal entry for informal purchases (without voucher).
+ * - InventoryItem: DEBE 241 (Materias Primas) / HABER 101 (Caja)
+ * - OperatingExpense: DEBE 659 (Otros Gastos de Gestión) / HABER 101 (Caja)
+ * Book: "Caja y bancos"
+ */
+export async function postInformalPurchaseJournalEntry(
+  tx: Tx,
+  input: PostInformalPurchaseJournalInput,
+): Promise<number> {
+  const amount = round2(input.amount);
+  if (amount <= 0) {
+    throw new Error("Monto de compra menor inválido para asiento contable.");
+  }
+
+  const debitCode =
+    input.purchaseType === "InventoryItem"
+      ? ACCOUNT_CODES.rawMaterials
+      : ACCOUNT_CODES.otherExpenses;
+
+  const accounts = await resolveAccountIds(tx, [ACCOUNT_CODES.cash, debitCode]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  const debitLineDesc =
+    input.purchaseType === "InventoryItem"
+      ? `Ingreso de materias primas / insumos (${input.description})`
+      : `Gasto operativo (${input.description})`;
+
+  return createBalancedEntry(tx, {
+    date,
+    description: `Compra menor #${input.informalPurchaseId} - ${input.description}`,
+    book: BOOK_CASH,
+    responsible: input.responsible ?? "Compras",
+    observation: `Compra menor sin comprobante #${input.informalPurchaseId}`,
+    debitAccountId: accounts.get(debitCode)!,
+    creditAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+    amount,
+    debitLineDescription: debitLineDesc,
+    creditLineDescription: "Salida de caja (efectivo)",
+  });
+}
+
+export interface AnnulInformalPurchaseJournalInput {
+  informalPurchaseId: number;
+  entryDate: Date;
+  purchaseType: "InventoryItem" | "OperatingExpense";
+  amount: number;
+  reason: string;
+  responsible?: string;
+}
+
+/**
+ * Posts an inverse journal entry when an informal purchase is annulled.
+ * - InventoryItem: DEBE 101 (Caja) / HABER 241 (Materias Primas)
+ * - OperatingExpense: DEBE 101 (Caja) / HABER 659 (Otros Gastos de Gestión)
+ * Book: "Caja y bancos"
+ */
+export async function annulInformalPurchaseJournalEntry(
+  tx: Tx,
+  input: AnnulInformalPurchaseJournalInput,
+): Promise<number> {
+  const amount = round2(input.amount);
+  if (amount <= 0) {
+    throw new Error("Monto de anulación inválido para asiento contable.");
+  }
+
+  const creditCode =
+    input.purchaseType === "InventoryItem"
+      ? ACCOUNT_CODES.rawMaterials
+      : ACCOUNT_CODES.otherExpenses;
+
+  const accounts = await resolveAccountIds(tx, [ACCOUNT_CODES.cash, creditCode]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+
+  const creditLineDesc =
+    input.purchaseType === "InventoryItem"
+      ? `Reversión materias primas / insumos (Anulación #${input.informalPurchaseId})`
+      : `Reversión gasto operativo (Anulación #${input.informalPurchaseId})`;
+
+  return createBalancedEntry(tx, {
+    date,
+    description: `Anulación compra menor #${input.informalPurchaseId} - Motivo: ${input.reason}`,
+    book: BOOK_CASH,
+    responsible: input.responsible ?? "Compras",
+    observation: `Anulación de compra menor sin comprobante #${input.informalPurchaseId}`,
+    debitAccountId: accounts.get(ACCOUNT_CODES.cash)!,
+    creditAccountId: accounts.get(creditCode)!,
+    amount,
+    debitLineDescription: "Reintegro / ingreso a caja (efectivo)",
+    creditLineDescription: creditLineDesc,
   });
 }
 
@@ -778,7 +970,7 @@ export async function postCashSessionClosingJournalEntries(
   // 2. Registro de Faltante
   if (diff < -0.01) {
     const absDiff = Math.abs(diff);
-    const faltanteId = await createBalancedEntry(tx, {
+    const missingId = await createBalancedEntry(tx, {
       date,
       description: `Ajuste por Faltante de caja en arqueo S/ ${absDiff.toFixed(2)} (Turno #${input.sessionId})`,
       book: BOOK_CASH,
@@ -790,10 +982,10 @@ export async function postCashSessionClosingJournalEntries(
       debitLineDescription: "Faltante de caja registrado en arqueo",
       creditLineDescription: "Ajuste de faltante en caja",
     });
-    entryIds.push(faltanteId);
+    entryIds.push(missingId);
   } else if (diff > 0.01) {
     // 3. Registro de Sobrante
-    const sobranteId = await createBalancedEntry(tx, {
+    const surplusId = await createBalancedEntry(tx, {
       date,
       description: `Ajuste por Sobrante de caja en arqueo S/ ${diff.toFixed(2)} (Turno #${input.sessionId})`,
       book: BOOK_CASH,
@@ -805,8 +997,131 @@ export async function postCashSessionClosingJournalEntries(
       debitLineDescription: "Ajuste de sobrante en caja",
       creditLineDescription: "Sobrante de caja registrado en arqueo",
     });
-    entryIds.push(sobranteId);
+    entryIds.push(surplusId);
   }
 
   return entryIds;
+}
+
+const BOOK_GENERAL_JOURNAL = "Operaciones varias";
+
+/** Cuenta de inventario de un producto: materia prima (241), producto transformado (211) o mercadería (201). */
+export function inventoryAccountCode(product: { type: "RawMaterial" | "FinishedProduct"; hasRecipe: boolean }): string {
+  if (product.type === "RawMaterial") return ACCOUNT_CODES.rawMaterials;
+  return product.hasRecipe ? ACCOUNT_CODES.finishedProducts : ACCOUNT_CODES.merchandise;
+}
+
+export interface PostTransformationJournalInput {
+  transformationId: number;
+  /** Lote visible en el asiento, por ejemplo `TR-12`. */
+  label: string;
+  entryDate?: Date;
+  /** Valor consumido (cantidad × costo promedio), agrupado por la cuenta de inventario de origen. */
+  consumed: Array<{ accountCode: string; amount: number }>;
+  responsible?: string;
+}
+
+const TRANSFORMATION_ENTRY_PREFIX = "Transformación de insumos";
+
+/**
+ * Asiento de una transformación en el diario general: el valor de los insumos consumidos pasa de sus cuentas
+ * de inventario (241/201) a productos terminados (211). Devuelve `[]` cuando no hay costo que trasladar.
+ */
+export async function postTransformationJournalEntries(
+  tx: Tx,
+  input: PostTransformationJournalInput,
+): Promise<number[]> {
+  const byAccount = new Map<string, number>();
+  for (const line of input.consumed) {
+    const amount = round2(line.amount);
+    if (amount <= 0) continue;
+    byAccount.set(line.accountCode, round2((byAccount.get(line.accountCode) ?? 0) + amount));
+  }
+  const total = round2([...byAccount.values()].reduce((sum, v) => sum + v, 0));
+  if (total <= 0) return [];
+
+  const accounts = await resolveAccountIds(tx, [ACCOUNT_CODES.finishedProducts, ...byAccount.keys()]);
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+  const periodId = await ensureOpenPeriod(tx, date);
+
+  const entry = await tx.journalEntry.create({
+    data: {
+      code: await nextJournalCode(tx, date),
+      entryDate: date,
+      periodId,
+      description: `${TRANSFORMATION_ENTRY_PREFIX} ${input.label}`,
+      book: BOOK_GENERAL_JOURNAL,
+      responsible: input.responsible ?? "Sistema ERP",
+      transformationId: input.transformationId,
+      observation: `Traslado de insumos a productos terminados — lote ${input.label}`,
+      status: true,
+      entryDetails: {
+        create: [
+          {
+            accountId: accounts.get(ACCOUNT_CODES.finishedProducts)!,
+            description: "Ingreso de productos terminados",
+            debit: total,
+            credit: 0,
+          },
+          ...[...byAccount.entries()].map(([code, amount]) => ({
+            accountId: accounts.get(code)!,
+            description: `Consumo de insumos de la cuenta ${code}`,
+            debit: 0,
+            credit: amount,
+          })),
+        ],
+      },
+    },
+    select: { id: true },
+  });
+  return [entry.id];
+}
+
+/**
+ * Anulación de una transformación: genera el asiento inverso de los que se registraron para ese lote
+ * (los lotes anteriores a este asiento no tienen ninguno y devuelven `[]`).
+ */
+export async function reverseTransformationJournalEntries(
+  tx: Tx,
+  input: { transformationId: number; label: string; reason: string; entryDate?: Date; responsible?: string },
+): Promise<number[]> {
+  const originals = await tx.journalEntry.findMany({
+    where: {
+      transformationId: input.transformationId,
+      status: true,
+      description: { startsWith: TRANSFORMATION_ENTRY_PREFIX },
+    },
+    include: { entryDetails: true },
+  });
+  if (originals.length === 0) return [];
+
+  const date = toUtcDateOnly(input.entryDate ?? new Date());
+  const periodId = await ensureOpenPeriod(tx, date);
+  const ids: number[] = [];
+  for (const original of originals) {
+    const entry = await tx.journalEntry.create({
+      data: {
+        code: await nextJournalCode(tx, date),
+        entryDate: date,
+        periodId,
+        description: `Anulación de transformación ${input.label}`,
+        book: BOOK_GENERAL_JOURNAL,
+        responsible: input.responsible ?? "Sistema ERP",
+        transformationId: input.transformationId,
+        observation: `Reversión del asiento ${original.code}: ${input.reason}`.slice(0, 200),
+        status: true,
+        entryDetails: {
+          create: original.entryDetails.map((d) => ({
+            accountId: d.accountId,
+            description: `Reversión: ${d.description ?? ""}`.slice(0, 200),
+            debit: Number(d.credit),
+            credit: Number(d.debit),
+          })),
+        },
+      },
+      select: { id: true },
+    });
+    ids.push(entry.id);
+  }
+  return ids;
 }

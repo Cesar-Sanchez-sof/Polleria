@@ -43,7 +43,7 @@ class QueryRequestTests(GuardedTestCase):
     def test_valid_example(self) -> None:
         request = QueryRequest.model_validate_json(_json(_example("query_request")))
         self.assertEqual(request.usuario.id, 7)
-        self.assertEqual(request.contexto.ruta, "/accounting/ledger")
+        self.assertEqual(request.contexto.ruta, "/accounting/reports/ledger")
 
     def test_rejects_unexpected_fields(self) -> None:
         for path in ([], ["usuario"], ["contexto"], ["contexto", "filtros"]):
@@ -61,7 +61,7 @@ class QueryRequestTests(GuardedTestCase):
             "id como texto": lambda d: d["usuario"].update({"id": "7"}),
             "id cero": lambda d: d["usuario"].update({"id": 0}),
             "ruta no habilitada": lambda d: d["contexto"].update({"ruta": "/accounting/guide"}),
-            "ruta ajena": lambda d: d["contexto"].update({"ruta": "/restaurant/kitchen"}),
+            "ruta ajena": lambda d: d["contexto"].update({"ruta": "/sales/kitchen/kds"}),
             "codigo no numerico": lambda d: d["contexto"]["filtros"].update({"codigo": "101 OR 1=1"}),
             "rango invertido": lambda d: d["contexto"]["filtros"].update({"desde": "2026-10-01", "hasta": "2026-09-01"}),
             "fecha invalida": lambda d: d.update({"fecha_referencia_lima": "12/10/2026"}),

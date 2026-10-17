@@ -38,7 +38,7 @@ export interface PayableJournalEntry {
 
 export interface PayableOrderItem {
   id: number;
-  supplyName: string;
+  productName: string;
   unitOfMeasure: string;
   quantity: number;
   unitPrice: number;
@@ -103,7 +103,7 @@ export async function getAccountingPayables(): Promise<PayablesDataResponse> {
             include: {
               items: {
                 include: {
-                  supply: true,
+                  product: true,
                 },
               },
             },
@@ -186,8 +186,8 @@ export async function getAccountingPayables(): Promise<PayablesDataResponse> {
         const price = Number(item.unitPrice);
         return {
           id: item.id,
-          supplyName: item.supply?.name ?? "Insumo",
-          unitOfMeasure: item.supply?.unitOfMeasure ?? "UND",
+          productName: item.product?.name ?? "Insumo",
+          unitOfMeasure: item.product?.unitOfMeasure ?? "UND",
           quantity: qty,
           unitPrice: price,
           total: Math.round(qty * price * 100) / 100,
@@ -305,7 +305,7 @@ export async function payPayableInvoiceAction(
 
   revalidatePath("/accounting/payables");
   revalidatePath("/accounting/entries");
-  revalidatePath("/accounting/dashboard");
+  revalidatePath("/accounting/reports/dashboard");
   revalidatePath("/purchases/list");
   revalidatePath("/purchases/suppliers");
 

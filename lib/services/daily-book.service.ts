@@ -13,43 +13,43 @@ export { ApiError };
 
 export interface DailyBookFilter {
   /** Start date (YYYY-MM-DD, inclusive). */
-  desde?: string;
+  from?: string;
   /** End date (YYYY-MM-DD, inclusive). */
-  hasta?: string;
+  to?: string;
   page?: number;
   pageSize?: number;
 }
 
 export interface DailyBookLine {
   id: number;
-  cuentaCodigo: string;
-  cuentaNombre: string;
-  cuentaTipo: string;
-  descripcion: string;
-  debe: number;
-  haber: number;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  description: string;
+  debit: number;
+  credit: number;
 }
 
 export interface DailyBookEntry {
   id: number;
-  numero: string;
-  fecha: string;
-  diario: string;
-  concepto: string;
-  responsable: string | null;
-  estado: "Registrado" | "Anulado";
-  totales: { debe: number; haber: number };
-  cuadrado: boolean;
-  lineas: DailyBookLine[];
+  number: string;
+  date: string;
+  daily: string;
+  concept: string;
+  responsible: string | null;
+  status: "Registrado" | "Anulado";
+  totals: { debit: number; credit: number };
+  balanced: boolean;
+  lines: DailyBookLine[];
 }
 
 export interface DailyBookMeta {
   total: number;
   page: number;
   pageSize: number;
-  totalPaginas: number;
-  desde: string;
-  hasta: string;
+  totalPages: number;
+  from: string;
+  to: string;
 }
 
 export interface DailyBookPage {
@@ -61,8 +61,8 @@ export interface DailyBookPage {
 export function buildDailyBookQuery(filters: DailyBookFilter): string {
   const params = new URLSearchParams();
 
-  if (filters.desde) params.set("desde", filters.desde);
-  if (filters.hasta) params.set("hasta", filters.hasta);
+  if (filters.from) params.set("desde", filters.from);
+  if (filters.to) params.set("hasta", filters.to);
   if (filters.page) params.set("page", String(filters.page));
   if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
 

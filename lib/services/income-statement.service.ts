@@ -32,22 +32,22 @@ export class ErrorIncomeStatement extends Error {
   }
 }
 
-const MSG_FECHA_INICIAL =
+const MSG_INITIAL_DATE =
   "La fecha inicial es obligatoria y debe tener el formato AAAA-MM-DD.";
-const MSG_FECHA_FINAL = "La fecha final es obligatoria y debe tener el formato AAAA-MM-DD.";
-const MSG_RANGO = "El periodo es inválido: la fecha inicial no puede ser posterior a la final.";
-const MSG_INESPERADO = "No se pudo generar el Estado de Resultados.";
+const MSG_FINAL_DATE = "La fecha final es obligatoria y debe tener el formato AAAA-MM-DD.";
+const MSG_RANGE = "El periodo es inválido: la fecha inicial no puede ser posterior a la final.";
+const MSG_UNEXPECTED = "No se pudo generar el Estado de Resultados.";
 
 /** Valida el periodo (FR-003 a FR-005) lanzando `ErrorIncomeStatement` con 400. */
-export function validarPeriodo(startDate: string, endDate: string): void {
+export function validatePeriod(startDate: string, endDate: string): void {
   if (!startDate || !isValidIsoDate(startDate)) {
-    throw new ErrorIncomeStatement(MSG_FECHA_INICIAL, 400);
+    throw new ErrorIncomeStatement(MSG_INITIAL_DATE, 400);
   }
   if (!endDate || !isValidIsoDate(endDate)) {
-    throw new ErrorIncomeStatement(MSG_FECHA_FINAL, 400);
+    throw new ErrorIncomeStatement(MSG_FINAL_DATE, 400);
   }
   if (startDate > endDate) {
-    throw new ErrorIncomeStatement(MSG_RANGO, 400);
+    throw new ErrorIncomeStatement(MSG_RANGE, 400);
   }
 }
 
@@ -66,7 +66,7 @@ export async function getIncomeStatement(
   input: IncomeStatementInput
 ): Promise<IncomeStatementResult> {
   const { startDate, endDate } = input;
-  validarPeriodo(startDate, endDate);
+  validatePeriod(startDate, endDate);
 
   if (input.movements) {
     return computeIncomeStatement({ startDate, endDate, movements: input.movements });
@@ -109,6 +109,6 @@ export async function getIncomeStatement(
     return computeIncomeStatement({ startDate, endDate, balances });
   } catch (error) {
     if (error instanceof ErrorIncomeStatement) throw error;
-    throw new ErrorIncomeStatement(MSG_INESPERADO, 500);
+    throw new ErrorIncomeStatement(MSG_UNEXPECTED, 500);
   }
 }

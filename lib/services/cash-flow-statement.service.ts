@@ -17,14 +17,14 @@ export type {
 const BASE_URL = "/api/cash-flow-statement";
 
 export interface CashFlowStatementFilter {
-  desde: string;
-  hasta: string;
+  from: string;
+  to: string;
 }
 
 export function buildCashFlowQuery(filter: CashFlowStatementFilter): string {
   const params = new URLSearchParams();
-  params.set("desde", filter.desde);
-  params.set("hasta", filter.hasta);
+  params.set("desde", filter.from);
+  params.set("hasta", filter.to);
   return params.toString();
 }
 

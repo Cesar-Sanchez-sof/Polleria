@@ -67,15 +67,15 @@ export function PurchaseDetailDialog({
   const subtotal = Number(invoice.subtotal);
   const igv = Number(invoice.igv);
   const totalAmount = Number(invoice.totalAmount);
-  const totalPagado = Number(invoice.totalPagado);
-  const saldoPendiente = Number(invoice.saldoPendiente);
+  const totalPaid = Number(invoice.totalPaid);
+  const pendingBalance = Number(invoice.pendingBalance);
 
   const items = invoice.purchaseOrder?.items ?? [];
   const payments = invoice.payments ?? [];
 
   // Estado de pago badge styling
   const statusBadge = () => {
-    switch (invoice.estadoPago) {
+    switch (invoice.paymentStatus) {
       case "Pagado":
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-900 border border-emerald-300/80 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-800">
@@ -211,16 +211,16 @@ export function PurchaseDetailDialog({
                       const lineIgv = isIgvIncluded
                         ? Math.round(lineSubtotal * (18 / 118) * 100) / 100
                         : Math.round(lineSubtotal * 0.18 * 100) / 100;
-                      const lineMonto = isIgvIncluded ? lineSubtotal : lineSubtotal + lineIgv;
+                      const lineAmount = isIgvIncluded ? lineSubtotal : lineSubtotal + lineIgv;
 
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                           <td className="py-2.5 px-3">
                             <span className="font-semibold text-foreground block truncate">
-                              {item.supply.name}
+                              {item.product.name}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
-                              {item.supply.unitOfMeasure}
+                              {item.product.unitOfMeasure}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-medium">
@@ -247,7 +247,7 @@ export function PurchaseDetailDialog({
                             S/ {lineIgv.toFixed(2)}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground">
-                            S/ {lineMonto.toFixed(2)}
+                            S/ {lineAmount.toFixed(2)}
                           </td>
                         </tr>
                       );
@@ -337,19 +337,19 @@ export function PurchaseDetailDialog({
                 <div className="flex justify-between items-center text-emerald-700 dark:text-emerald-400">
                   <span className="font-medium">Total Pagado:</span>
                   <span className="font-mono font-semibold">
-                    S/ {totalPagado.toFixed(2)}
+                    S/ {totalPaid.toFixed(2)}
                   </span>
                 </div>
                 <div
                   className={`flex justify-between items-center border-t border-slate-200/60 dark:border-slate-800 pt-2 ${
-                    saldoPendiente > 0.005
+                    pendingBalance > 0.005
                       ? "text-rose-700 dark:text-rose-400"
                       : "text-emerald-700 dark:text-emerald-400"
                   }`}
                 >
                   <span className="font-bold text-xs uppercase tracking-wider">Saldo Pendiente:</span>
                   <span className="font-mono text-lg font-black">
-                    S/ {saldoPendiente.toFixed(2)}
+                    S/ {pendingBalance.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -370,7 +370,7 @@ export function PurchaseDetailDialog({
             Cerrar
           </Button>
 
-          {saldoPendiente > 0.005 && (
+          {pendingBalance > 0.005 && (
             <Button
               type="button"
               size="sm"

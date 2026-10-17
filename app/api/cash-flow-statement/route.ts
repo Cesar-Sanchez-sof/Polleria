@@ -7,7 +7,7 @@ import {
   buildCashFlowStatement,
   type PeriodMovement,
 } from "@/lib/accounting/cash-flow-statement";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -51,28 +51,28 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  *         description: Error interno al generar el estado.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("reportes.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("reportes.ver");
+  if (!auth.ok) return auth.response;
   try {
     const params = request.nextUrl.searchParams;
-    const desde = (params.get("desde") ?? "").trim();
-    const hasta = (params.get("hasta") ?? "").trim();
+    const from = (params.get("desde") ?? "").trim();
+    const to = (params.get("hasta") ?? "").trim();
 
-    if (!DATE_REGEX.test(desde)) {
+    if (!DATE_REGEX.test(from)) {
       return Response.json(
         { error: "El parámetro 'desde' debe tener el formato YYYY-MM-DD." },
         { status: 400 }
       );
     }
-    if (!DATE_REGEX.test(hasta)) {
+    if (!DATE_REGEX.test(to)) {
       return Response.json(
         { error: "El parámetro 'hasta' debe tener el formato YYYY-MM-DD." },
         { status: 400 }
       );
     }
 
-    const startDate = parseUtcDate(desde);
-    const endDate = parseUtcDate(hasta);
+    const startDate = parseUtcDate(from);
+    const endDate = parseUtcDate(to);
 
     if (startDate.getTime() > endDate.getTime()) {
       return Response.json(
@@ -156,8 +156,8 @@ export async function GET(request: NextRequest) {
     }
 
     const statement = buildCashFlowStatement({
-      startDate: desde,
-      endDate: hasta,
+      startDate: from,
+      endDate: to,
       initialBalances: balancesOf(initialAggregates),
       finalBalances: balancesOf(finalAggregates),
       periodMovements,

@@ -19,12 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { registerInventoryAdjustment } from "@/lib/services/purchases/supply";
+import { registerInventoryAdjustment } from "@/lib/services/purchases/product";
 import { InventoryMovementType } from "@prisma/client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
-interface Supply {
+interface Product {
   id: number;
   name: string;
   unitOfMeasure: string;
@@ -34,14 +34,14 @@ interface Supply {
 interface AdjustmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  supply: Supply | null;
-  onSuccess: (updatedSupply: any) => void;
+  product: Product | null;
+  onSuccess: (updatedProduct: any) => void;
 }
 
 export function AdjustmentDialog({
   open,
   onOpenChange,
-  supply,
+  product,
   onSuccess,
 }: AdjustmentDialogProps) {
   const [loading, setLoading] = useState(false);
@@ -52,16 +52,16 @@ export function AdjustmentDialog({
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    if (supply) {
-      setActualQty(Number(supply.currentStock));
+    if (product) {
+      setActualQty(Number(product.currentStock));
       setMovementType(InventoryMovementType.Adjustment);
       setReason("");
     }
-  }, [supply, open]);
+  }, [product, open]);
 
-  if (!supply) return null;
+  if (!product) return null;
 
-  const currentStockNum = Number(supply.currentStock);
+  const currentStockNum = Number(product.currentStock);
   const difference = actualQty - currentStockNum;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,8 +72,8 @@ export function AdjustmentDialog({
     }
     setLoading(true);
     try {
-      const { supply: updatedSupply } = await registerInventoryAdjustment(
-        supply.id,
+      const { product: updatedProduct } = await registerInventoryAdjustment(
+        product.id,
         actualQty,
         reason,
         movementType
@@ -81,7 +81,7 @@ export function AdjustmentDialog({
       toast.success(
         `${movementType === InventoryMovementType.Shrinkage ? "Merma" : "Ajuste"} de inventario registrado correctamente`
       );
-      onSuccess(updatedSupply);
+      onSuccess(updatedProduct);
       onOpenChange(false);
     } catch (err: any) {
       toast.error(err.message || "Error al registrar ajuste");
@@ -96,7 +96,7 @@ export function AdjustmentDialog({
         <DialogHeader>
           <DialogTitle>Registrar Ajuste / Merma de Inventario</DialogTitle>
           <DialogDescription>
-            Ajusta el stock real para el insumo <strong>{supply.name}</strong>. Se
+            Ajusta el stock real para el insumo <strong>{product.name}</strong>. Se
             generará un movimiento en el Kardex por la diferencia.
           </DialogDescription>
         </DialogHeader>
@@ -105,7 +105,7 @@ export function AdjustmentDialog({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Stock Sistema Actual:</span>
               <span className="font-semibold">
-                {currentStockNum.toFixed(2)} {supply.unitOfMeasure}
+                {currentStockNum.toFixed(2)} {product.unitOfMeasure}
               </span>
             </div>
             <div className="flex justify-between">
@@ -120,7 +120,7 @@ export function AdjustmentDialog({
                 }`}
               >
                 {difference > 0 ? `+${difference.toFixed(2)}` : difference.toFixed(2)}{" "}
-                {supply.unitOfMeasure}
+                {product.unitOfMeasure}
               </span>
             </div>
           </div>

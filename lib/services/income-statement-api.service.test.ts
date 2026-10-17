@@ -49,7 +49,7 @@ const fetchMock = vi.fn();
 describe("buildIncomeStatementQuery", () => {
   it("serializa el periodo completo", () => {
     const params = new URLSearchParams(
-      buildIncomeStatementQuery({ desde: "2026-01-01", hasta: "2026-01-31" })
+      buildIncomeStatementQuery({ from: "2026-01-01", to: "2026-01-31" })
     );
     expect(params.get("desde")).toBe("2026-01-01");
     expect(params.get("hasta")).toBe("2026-01-31");
@@ -57,7 +57,7 @@ describe("buildIncomeStatementQuery", () => {
 
   it("omite las fechas vacías", () => {
     expect(buildIncomeStatementQuery({})).toBe("");
-    expect(buildIncomeStatementQuery({ hasta: "2026-01-31" })).toBe("hasta=2026-01-31");
+    expect(buildIncomeStatementQuery({ to: "2026-01-31" })).toBe("hasta=2026-01-31");
   });
 });
 
@@ -74,7 +74,7 @@ describe("getIncomeStatement", () => {
   it("consulta /api/income-statement con el periodo, sin caché", async () => {
     fetchMock.mockResolvedValue(createJsonResponse(RESULT));
 
-    const result = await getIncomeStatement({ desde: "2026-01-01", hasta: "2026-01-31" });
+    const result = await getIncomeStatement({ from: "2026-01-01", to: "2026-01-31" });
 
     expect(result).toEqual(RESULT);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -92,7 +92,7 @@ describe("getIncomeStatement", () => {
     );
 
     const error = await catchApiError(
-      getIncomeStatement({ desde: "", hasta: "2026-01-31" })
+      getIncomeStatement({ from: "", to: "2026-01-31" })
     );
 
     expect(error).toBeInstanceOf(ApiError);

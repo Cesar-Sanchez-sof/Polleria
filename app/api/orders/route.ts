@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { reserveOrderStock, releaseDishStock } from "@/lib/services/redis-stock.service";
+import { deductProductStock, InsufficientStockError } from "@/lib/services/product-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -19,22 +19,21 @@ export const dynamic = "force-dynamic";
  */
 
 interface OrderItemInput {
-  dishId?: number;
-  id_plato?: number;
+  productId?: number;
+  product_id?: number;
   quantity?: number;
-  cantidad?: number;
   notes?: string;
-  observaciones?: string;
+  observations?: string;
 }
 
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
-function resolveDishId(item: OrderItemInput): number {
-  return Number(item.dishId ?? item.id_plato);
+function resolveProductId(item: OrderItemInput): number {
+  return Number(item.productId ?? item.product_id);
 }
 
 function resolveQuantity(item: OrderItemInput): number {
-  return Number(item.quantity ?? item.cantidad);
+  return Number(item.quantity);
 }
 
 function mapOrderResponse(p: {
@@ -49,24 +48,24 @@ function mapOrderResponse(p: {
   }>;
   items: Array<{
     id: number;
-    dishId: number;
+    productId: number;
     quantity: number;
     unitPrice: { toString(): string } | number;
     subtotal: { toString(): string } | number;
-    dishStatus: string;
+    itemStatus: string;
     notes: string | null;
-    dish: { name: string };
+    product: { name: string };
   }>;
 }) {
   const pm = p.tables.find((t) => !t.notes?.includes("[Anexa a Mesa")) ?? p.tables[0] ?? null;
   const items = p.items.map((d) => ({
     id: d.id,
-    dishId: d.dishId,
-    name: d.dish.name,
+    productId: d.productId,
+    name: d.product.name,
     quantity: d.quantity,
     unitPrice: Number(d.unitPrice),
     subtotal: Number(d.subtotal),
-    dishStatus: d.dishStatus,
+    itemStatus: d.itemStatus,
     notes: d.notes ?? ""
   }));
   const total = items.reduce((acc, it) => acc + it.subtotal, 0);
@@ -86,8 +85,8 @@ function mapOrderResponse(p: {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["pedidos.ver", "cocina.ver", "ventas.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.ver", "cocina.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
     const orderType = searchParams.get("orderType") ?? searchParams.get("tipo");
@@ -111,7 +110,7 @@ export async function GET(request: NextRequest) {
           include: { table: true }
         },
         items: {
-          include: { dish: true },
+          include: { product: true },
           orderBy: { id: "asc" }
         }
       }
@@ -130,8 +129,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await autorizar(["pedidos.crear", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
@@ -150,15 +149,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawOrderType = body.orderType ?? body.tipo_pedido;
+    const rawOrderType = body.orderType ?? body.order_type;
     const orderType = rawOrderType === "Llevar" ? "Llevar" : "Mesa";
-    const tableId = Number(body.tableId ?? body.id_mesa) || null;
-    const additionalTablesRaw = body.additionalTables ?? body.mesas_adicionales;
+    const tableId = Number(body.tableId ?? body.table_id) || null;
+    const additionalTablesRaw = body.additionalTables ?? body.additional_tables;
     const additionalTables = Array.isArray(additionalTablesRaw)
       ? (additionalTablesRaw.map(Number).filter((n: number) => !Number.isNaN(n) && n !== tableId) as number[])
       : [];
-    const tableNote = typeof (body.notes ?? body.observacion) === "string"
-      ? String(body.notes ?? body.observacion).trim()
+    const tableNote = typeof (body.notes ?? body.observation) === "string"
+      ? String(body.notes ?? body.observation).trim()
       : null;
     const items = Array.isArray(body.items) ? (body.items as OrderItemInput[]) : [];
 
@@ -223,19 +222,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar productos y obtener precios oficiales de la base de datos
-    const dishIds = items.map((it) => resolveDishId(it));
-    const dishesDb = await prisma.dish.findMany({
-      where: { id: { in: dishIds }, active: true }
+    const productIds = items.map((it) => resolveProductId(it));
+    const productsDb = await prisma.product.findMany({
+      where: { id: { in: productIds }, active: true, sellable: true }
     });
 
-    const dishesMap = new Map(dishesDb.map((pl) => [pl.id, pl]));
+    const productsMap = new Map(productsDb.map((pl) => [pl.id, pl]));
 
     for (const item of items) {
-      const dishId = resolveDishId(item);
+      const productId = resolveProductId(item);
       const quantity = resolveQuantity(item);
-      if (!dishesMap.has(dishId)) {
+      if (!productsMap.has(productId)) {
         return Response.json(
-          { error: `El producto con ID ${dishId} no existe o no está activo.` },
+          { error: `El producto con ID ${productId} no existe, no está activo o no se vende.` },
           { status: 400 }
         );
       }
@@ -245,24 +244,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    }
-
-    // Verificación y reserva atómica de stock en Redis Cloud
-    const reservationItems = items.map((it) => {
-      const dishId = resolveDishId(it);
-      return {
-        idPlato: dishId,
-        cantidad: Math.floor(resolveQuantity(it)),
-        nombre: dishesMap.get(dishId)?.name,
-      };
-    });
-
-    const reservationResult = await reserveOrderStock(reservationItems);
-    if (!reservationResult.success) {
-      return Response.json(
-        { error: reservationResult.error || "Stock insuficiente para atender el pedido." },
-        { status: 400 }
-      );
     }
 
     // Generar código único para el pedido (PED-XXXXXX)
@@ -320,23 +301,30 @@ export async function POST(request: NextRequest) {
         }
 
         for (const item of items) {
-          const dish = dishesMap.get(resolveDishId(item))!;
+          const product = productsMap.get(resolveProductId(item))!;
           const quantity = Math.floor(resolveQuantity(item));
-          const unitPrice = Number(dish.price);
+          const unitPrice = Number(product.price);
           const subtotal = Math.round(unitPrice * quantity * 100) / 100;
-          const itemNotes = item.notes ?? item.observaciones;
+          const itemNotes = item.notes ?? item.observations;
 
-          await tx.orderItem.create({
+          const createdItem = await tx.orderItem.create({
             data: {
               orderId: newOrder.id,
-              dishId: dish.id,
+              productId: product.id,
               quantity,
               unitPrice,
               subtotal,
-              dishStatus: "Pending",
+              itemStatus: "Pending",
               notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
             }
           });
+
+          // El stock baja con el pedido: si no alcanza, toda la transacción se revierte.
+          await deductProductStock(
+            tx,
+            { productId: product.id, quantity, orderItemId: createdItem.id },
+            `Venta pedido ${code}`
+          );
         }
 
         return newOrder;
@@ -349,7 +337,7 @@ export async function POST(request: NextRequest) {
         where: { id: result.id },
         include: {
           tables: { include: { table: true } },
-          items: { include: { dish: true } }
+          items: { include: { product: true } }
         }
       });
 
@@ -383,8 +371,8 @@ export async function POST(request: NextRequest) {
         { status: 201 }
       );
     } catch (dbError) {
-      for (const item of reservationItems) {
-        await releaseDishStock(item.idPlato, item.cantidad).catch(() => {});
+      if (dbError instanceof InsufficientStockError) {
+        return Response.json({ error: dbError.message }, { status: 400 });
       }
       throw dbError;
     }

@@ -61,8 +61,8 @@ describe("buildTrialBalance", () => {
 
     // La cuenta 101 se lista bajo el sub-elemento 10.
     const idxSub10 = statement.lines.findIndex((l) => l.key === "subgroup-10");
-    const idxCaja = statement.lines.findIndex((l) => l.key === "account-101");
-    expect(idxCaja).toBeGreaterThan(idxSub10);
+    const idxCash = statement.lines.findIndex((l) => l.key === "account-101");
+    expect(idxCash).toBeGreaterThan(idxSub10);
   });
 
   it("cuando el periodo cuadra, Debe final = Haber final", () => {
@@ -117,10 +117,10 @@ describe("buildTrialBalance", () => {
       ],
     });
 
-    const sinGrupo = statement.lines.find((l) => l.label === "(Sin grupo)");
-    expect(sinGrupo?.kind).toBe("group");
-    expect(sinGrupo?.code).toBeNull();
-    expect(sinGrupo?.amounts.finalDebit).toBe(5);
+    const withoutGroup = statement.lines.find((l) => l.label === "(Sin grupo)");
+    expect(withoutGroup?.kind).toBe("group");
+    expect(withoutGroup?.code).toBeNull();
+    expect(withoutGroup?.amounts.finalDebit).toBe(5);
     // "(Sin grupo)" se lista después de los elementos numéricos.
     expect(statement.lines.at(-1)?.code).toBe("AJUSTE-01");
   });

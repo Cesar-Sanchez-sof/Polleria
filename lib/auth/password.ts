@@ -1,12 +1,12 @@
 import bcrypt from "bcryptjs";
 
-const RONDAS = 12;
+const ROUNDS = 12;
 
 /** Las contraseñas se guardan solo como hash bcrypt (con sal incluida). */
-export function hashPassword(plana: string): Promise<string> {
-  return bcrypt.hash(plana, RONDAS);
+export function hashPassword(flat: string): Promise<string> {
+  return bcrypt.hash(flat, ROUNDS);
 }
 
-export function verificarPassword(plana: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(plana, hash);
+export function verifyPassword(flat: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(flat, hash);
 }

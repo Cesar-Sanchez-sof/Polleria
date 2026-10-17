@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("mesas.editar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("mesas.editar");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const tableId = Number.parseInt(idParam, 10);
@@ -89,8 +89,8 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar("mesas.eliminar");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("mesas.eliminar");
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const tableId = Number.parseInt(idParam, 10);

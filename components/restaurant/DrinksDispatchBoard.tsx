@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/shared/StatCard";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -29,11 +31,11 @@ export interface DrinkOrderItem {
   tableNumber: number | null;
   tableName: string;
   orderedAt: string;
-  dishId: number;
+  productId: number;
   name: string;
   quantity: number;
   notes: string;
-  dishStatus: string;
+  itemStatus: string;
   isDelivered: boolean;
   orderStatus: string;
 }
@@ -57,12 +59,11 @@ function formatDrinkTime(iso: string): string {
 
 export function DrinksDispatchBoard() {
   const [drinks, setDrinks] = useState<DrinkOrderItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [filter, setFilter] = useState<"pendientes" | "entregados" | "todos">("pendientes");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentTime, setCurrentTime] = useState("");
 
   const loadDrinks = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -85,18 +86,6 @@ export function DrinksDispatchBoard() {
     const interval = setInterval(() => void loadDrinks(true), 5000);
     return () => clearInterval(interval);
   }, [loadDrinks]);
-
-  // Reloj
-  useEffect(() => {
-    const tick = () => {
-      setCurrentTime(
-        new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
-      );
-    };
-    tick();
-    const timer = setInterval(tick, 10_000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Marcar estado de una bebida individual
   const updateDrinkStatus = async (item: DrinkOrderItem, newStatus: "Delivered" | "Pending") => {
@@ -222,124 +211,12 @@ export function DrinksDispatchBoard() {
 
   return (
     <div className="flex flex-col gap-5 w-full min-w-0">
-      {/* Barra de estado con reloj y auto-refresco */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <GlassWater className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-              Despacho de Bebidas por Mozo
-            </h2>
-            <p className="text-xs text-slate-500">
-              Entrega directa de gaseosas, refrescos, aguas y licores sin saturar a cocina
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-1">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
-            </span>
-            <span className="text-[11px] font-semibold text-blue-800 dark:text-blue-300">
-              Sincronización en vivo
-            </span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 text-xs font-mono font-semibold text-slate-600 dark:text-slate-400">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{currentTime || "12:00"}</span>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void loadDrinks()}
-            disabled={loading}
-            className="h-8 px-3 rounded-xl border-slate-200 text-xs font-semibold cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Refrescar</span>
-          </Button>
-        </div>
-      </div>
-
       {/* Tarjetas KPI de Estado */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {/* KPI 1: Pendientes de entrega */}
-        <Card className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-400">
-              Bebidas por Entregar
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">
-                {stats.pendingCount}
-              </span>
-              <span className="text-[11px] text-amber-600 dark:text-amber-400">unidades</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-            <GlassWater className={`w-5 h-5 ${stats.pendingCount > 0 ? "animate-bounce" : ""}`} />
-          </div>
-        </Card>
-
-        {/* KPI 2: Mesas Esperando */}
-        <Card className="p-3.5 rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-900 dark:text-blue-400">
-              Mesas Esperando
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-blue-700 dark:text-blue-300 tabular-nums">
-                {stats.tablesWaiting}
-              </span>
-              <span className="text-[11px] text-blue-600 dark:text-blue-400">mesas</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
-            <Utensils className="w-5 h-5" />
-          </div>
-        </Card>
-
-        {/* KPI 3: Entregadas */}
-        <Card className="p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-400">
-              Bebidas Entregadas
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                {stats.deliveredCount}
-              </span>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400">unidades</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </Card>
-
-        {/* KPI 4: Total solicitadas */}
-        <Card className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Total Solicitadas
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-extrabold text-slate-800 dark:text-slate-200 tabular-nums">
-                {stats.total}
-              </span>
-              <span className="text-[11px] text-slate-400">ítems</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-        </Card>
+        <StatCard enableGradient={false} enableHover={false} tone="amber" icon={<GlassWater className={stats.pendingCount > 0 ? "animate-bounce" : ""} />} label="Bebidas por Entregar" value={stats.pendingCount} unit="unidades" />
+        <StatCard enableGradient={false} enableHover={false} tone="blue" icon={<Utensils />} label="Mesas Esperando" value={stats.tablesWaiting} unit="mesas" />
+        <StatCard enableGradient={false} enableHover={false} tone="emerald" icon={<CheckCircle2 />} label="Bebidas Entregadas" value={stats.deliveredCount} unit="unidades" />
+        <StatCard enableGradient={false} enableHover={false} tone="neutral" icon={<Sparkles />} label="Total Solicitadas" value={stats.total} unit="ítems" />
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
@@ -355,52 +232,19 @@ export function DrinksDispatchBoard() {
           />
         </div>
 
-        {/* Filtros de Estado */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <Button
-            size="sm"
-            variant={filter === "pendientes" ? "default" : "outline"}
-            onClick={() => setFilter("pendientes")}
-            className={`h-8 px-3 rounded-xl text-xs font-bold cursor-pointer ${
-              filter === "pendientes"
-                ? "bg-amber-600 hover:bg-amber-700 text-white"
-                : "border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span>Por Entregar</span>
-            {stats.pendingCount > 0 && (
-              <Badge className="ml-1.5 bg-white text-amber-700 text-[10px] font-black px-1.5 py-0 h-4 rounded-full">
-                {stats.pendingCount}
-              </Badge>
-            )}
-          </Button>
-
-          <Button
-            size="sm"
-            variant={filter === "entregados" ? "default" : "outline"}
-            onClick={() => setFilter("entregados")}
-            className={`h-8 px-3 rounded-xl text-xs font-bold cursor-pointer ${
-              filter === "entregados"
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                : "border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span>Entregadas</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant={filter === "todos" ? "default" : "outline"}
-            onClick={() => setFilter("todos")}
-            className={`h-8 px-3 rounded-xl text-xs font-bold cursor-pointer ${
-              filter === "todos"
-                ? "bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900"
-                : "border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span>Todas</span>
-          </Button>
-        </div>
+        {/* Filtros de estado (SegmentedTabs de la guía de estilos) */}
+        <SegmentedTabs
+          items={[
+            { value: "pendientes", label: "Por Entregar", count: stats.pendingCount, tone: "warning" },
+            { value: "entregados", label: "Entregadas", tone: "success" },
+            { value: "todos", label: "Todas" },
+          ]}
+          value={filter}
+          onValueChange={setFilter}
+          hideZeroCount
+          className="max-w-full overflow-x-auto"
+          ariaLabel="Estado de las bebidas"
+        />
       </div>
 
       {/* Grid de Despacho por Mesas */}

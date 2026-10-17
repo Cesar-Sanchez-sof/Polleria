@@ -21,13 +21,13 @@ import { formatDateToIso, parseUtcDate } from "@/lib/dates";
  * ------------------------------------------------------------------ */
 
 export type KpiKey =
-  | "ingresos"
-  | "gastos"
-  | "utilidad"
+  | "income"
+  | "expenses"
+  | "profit"
   | "caja_bancos"
   | "por_cobrar"
   | "por_pagar"
-  | "asientos";
+  | "entries";
 
 /** Variación vs el período anterior, redondeada a 1 decimal (research R4). */
 export interface Variation {
@@ -49,9 +49,9 @@ export interface Kpi {
 export interface MonthlyPoint {
   month: string;
   label: string;
-  ingresos: number;
-  gastos: number;
-  utilidad: number;
+  income: number;
+  expenses: number;
+  profit: number;
 }
 
 /** Gastos de una categoría PCGE agrupados por prefijo de cuenta. */
@@ -71,8 +71,8 @@ export interface TopAccount {
 }
 
 export interface DashboardPayload {
-  period: { desde: string; hasta: string; label: string };
-  previousPeriod: { desde: string; hasta: string } | null;
+  period: { from: string; to: string; label: string };
+  previousPeriod: { from: string; to: string } | null;
   kpis: Kpi[];
   monthlySeries: MonthlyPoint[];
   expenseBreakdown: ExpenseCategory[];
@@ -100,8 +100,8 @@ export interface MonthlyRow {
 
 /** Agregados del período anterior (mismo rango de duración) o `null` si no aplica. */
 export interface PreviousAggregates {
-  desde: string;
-  hasta: string;
+  from: string;
+  to: string;
   periodAccounts: AccountMovement[];
   balanceAccounts: AccountMovement[];
   entryCount: number;
@@ -109,8 +109,8 @@ export interface PreviousAggregates {
 
 /** Entrada pura de `buildDashboard`: todos los agregados ya leídos por la ruta. */
 export interface DashboardInput {
-  desde: string;
-  hasta: string;
+  from: string;
+  to: string;
   /** ISO timestamp de generación; por defecto `new Date().toISOString()`. */
   generatedAt?: string;
   /** Cuentas P&L (`Ingreso|Gasto|Costo`) con sumas del rango `desde`–`hasta`. */
@@ -135,9 +135,9 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  * Valida el rango de consulta. Devuelve el mensaje de error (`400`) o `null` si es
  * válido: "`desde`/`hasta` obligatorios con formato `YYYY-MM-DD`; `desde <= hasta`".
  */
-export function validateRange(desde?: string | null, hasta?: string | null): string | null {
-  const d = (desde ?? "").trim();
-  const h = (hasta ?? "").trim();
+export function validateRange(from?: string | null, to?: string | null): string | null {
+  const d = (from ?? "").trim();
+  const h = (to ?? "").trim();
   if (!d || !h || !DATE_REGEX.test(d) || !DATE_REGEX.test(h)) {
     return "Las fechas deben tener el formato YYYY-MM-DD.";
   }
@@ -148,8 +148,8 @@ export function validateRange(desde?: string | null, hasta?: string | null): str
 }
 
 export interface DateRange {
-  desde: string;
-  hasta: string;
+  from: string;
+  to: string;
 }
 
 /**
@@ -157,16 +157,16 @@ export interface DateRange {
  * `desde_prev = desde − duración`, `hasta_prev = desde − 1 día`.
  * Devuelve `null` si `desde`/`hasta` no son válidos.
  */
-export function resolvePreviousRange(desde: string, hasta: string): DateRange | null {
-  if (validateRange(desde, hasta)) return null;
-  const start = parseUtcDate(desde);
-  const end = parseUtcDate(hasta);
+export function resolvePreviousRange(from: string, to: string): DateRange | null {
+  if (validateRange(from, to)) return null;
+  const start = parseUtcDate(from);
+  const end = parseUtcDate(to);
   const durationMs = end.getTime() - start.getTime();
   const prevEndMs = start.getTime() - 86_400_000; // 1 día antes del inicio
   const prevStartMs = prevEndMs - durationMs;
   return {
-    desde: formatDateToIso(new Date(prevStartMs)),
-    hasta: formatDateToIso(new Date(prevEndMs)),
+    from: formatDateToIso(new Date(prevStartMs)),
+    to: formatDateToIso(new Date(prevEndMs)),
   };
 }
 
@@ -189,7 +189,7 @@ export function computeVariation(
 }
 
 /** Etiqueta del rango visible en es-PE (FR-008): "01 de marzo — 31 de marzo de 2026". */
-export function formatRangeLabel(desde: string, hasta: string): string {
+export function formatRangeLabel(from: string, to: string): string {
   const parts = (iso: string): { day: number; month: string; year: number } | null => {
     if (!DATE_REGEX.test(iso)) return null;
     const [y, m, d] = iso.split("-").map(Number);
@@ -202,9 +202,9 @@ export function formatRangeLabel(desde: string, hasta: string): string {
         .toLowerCase(),
     };
   };
-  const start = parts(desde);
-  const end = parts(hasta);
-  if (!start || !end) return `${desde} — ${hasta}`;
+  const start = parts(from);
+  const end = parts(to);
+  if (!start || !end) return `${from} — ${to}`;
 
   const day = (n: number): string => String(n).padStart(2, "0");
   const left =
@@ -235,14 +235,14 @@ export function formatMonthLabel(month: string): string {
 export function resolveDefaultRange(
   openPeriod: { startDate: string; endDate: string } | null | undefined,
   todayIso: string
-): { desde: string; hasta: string } {
+): { from: string; to: string } {
   if (
     openPeriod &&
     DATE_REGEX.test(openPeriod.startDate) &&
     DATE_REGEX.test(openPeriod.endDate) &&
     openPeriod.startDate <= openPeriod.endDate
   ) {
-    return { desde: openPeriod.startDate, hasta: openPeriod.endDate };
+    return { from: openPeriod.startDate, to: openPeriod.endDate };
   }
   if (!DATE_REGEX.test(todayIso)) {
     throw new Error("resolveDefaultRange: todayIso debe ser YYYY-MM-DD.");
@@ -260,7 +260,7 @@ export function resolveDefaultRange(
       Math.min(d, lastDayOfMonth)
     )
   );
-  return { desde: formatDateToIso(start), hasta: todayIso };
+  return { from: formatDateToIso(start), to: todayIso };
 }
 
 /* ------------------------------------------------------------------ *
@@ -292,26 +292,26 @@ function monthKey(date: Date): string {
  * negativa (pérdida).
  */
 export function buildMonthlySeries(
-  desde: string,
-  hasta: string,
+  from: string,
+  to: string,
   rows: MonthlyRow[]
 ): MonthlyPoint[] {
-  if (!DATE_REGEX.test(desde) || !DATE_REGEX.test(hasta) || desde > hasta) return [];
+  if (!DATE_REGEX.test(from) || !DATE_REGEX.test(to) || from > to) return [];
 
-  const end = parseUtcDate(hasta);
-  const start = parseUtcDate(desde);
+  const end = parseUtcDate(to);
+  const start = parseUtcDate(from);
   // Límite inferior: inicio del rango o el mes de `hasta` − 11 meses.
-  const [hy, hm] = hasta.split("-").map(Number);
+  const [hy, hm] = to.split("-").map(Number);
   const twelveMonthsStart = new Date(Date.UTC(hy, hm - 12, 1));
   const firstMonth = start > twelveMonthsStart ? start : twelveMonthsStart;
 
-  const byMonth = new Map<string, { ingresos: number; gastos: number }>();
+  const byMonth = new Map<string, { income: number; expenses: number }>();
   for (const row of rows) {
-    const acc = byMonth.get(row.month) ?? { ingresos: 0, gastos: 0 };
+    const acc = byMonth.get(row.month) ?? { income: 0, expenses: 0 };
     if (row.type === "Ingreso") {
-      acc.ingresos += signedBalance(row.type, row.debit, row.credit);
+      acc.income += signedBalance(row.type, row.debit, row.credit);
     } else if (row.type === "Gasto" || row.type === "Costo") {
-      acc.gastos += signedBalance(row.type, row.debit, row.credit);
+      acc.expenses += signedBalance(row.type, row.debit, row.credit);
     }
     byMonth.set(row.month, acc);
   }
@@ -323,13 +323,13 @@ export function buildMonthlySeries(
     cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1))
   ) {
     const month = monthKey(cursor);
-    const acc = byMonth.get(month) ?? { ingresos: 0, gastos: 0 };
+    const acc = byMonth.get(month) ?? { income: 0, expenses: 0 };
     series.push({
       month,
       label: formatMonthLabel(month),
-      ingresos: round2(acc.ingresos),
-      gastos: round2(acc.gastos),
-      utilidad: round2(acc.ingresos - acc.gastos),
+      income: round2(acc.income),
+      expenses: round2(acc.expenses),
+      profit: round2(acc.income - acc.expenses),
     });
   }
   return series;
@@ -420,24 +420,24 @@ function sumByType(accounts: AccountMovement[], types: string[]): number {
 }
 
 const KPI_LABELS: Record<KpiKey, string> = {
-  ingresos: "Ingresos",
-  gastos: "Gastos",
-  utilidad: "Utilidad neta",
+  income: "Ingresos",
+  expenses: "Gastos",
+  profit: "Utilidad neta",
   caja_bancos: "Caja y bancos",
   por_cobrar: "Cuentas por cobrar",
   por_pagar: "Cuentas por pagar",
-  asientos: "Asientos registrados",
+  entries: "Asientos registrados",
 };
 
 /** Valores brutos de los 7 KPI para un período dado. */
 interface KpiValues {
-  ingresos: number;
-  gastos: number;
-  utilidad: number;
+  income: number;
+  expenses: number;
+  profit: number;
   caja_bancos: number;
   por_cobrar: number;
   por_pagar: number;
-  asientos: number;
+  entries: number;
 }
 
 /**
@@ -453,23 +453,23 @@ export function computeKpiValues(
   balanceAccounts: AccountMovement[],
   entryCount: number
 ): KpiValues {
-  const ingresos = sumByType(periodAccounts, ["Ingreso"]);
-  const gastos = sumByType(periodAccounts, ["Gasto", "Costo"]);
+  const income = sumByType(periodAccounts, ["Ingreso"]);
+  const expenses = sumByType(periodAccounts, ["Gasto", "Costo"]);
   return {
-    ingresos,
-    gastos,
-    utilidad: round2(ingresos - gastos),
+    income,
+    expenses,
+    profit: round2(income - expenses),
     caja_bancos: sumByPrefix(balanceAccounts, "10"),
     por_cobrar: sumByPrefix(balanceAccounts, "12"),
     por_pagar: sumByPrefix(balanceAccounts, "42"),
-    asientos: entryCount,
+    entries: entryCount,
   };
 }
 
 /** Construye las 7 tarjetas KPI con su variación vs el período anterior. */
 export function buildDashboardKpis(input: DashboardInput): {
   kpis: Kpi[];
-  previousPeriod: { desde: string; hasta: string } | null;
+  previousPeriod: { from: string; to: string } | null;
 } {
   const current = computeKpiValues(
     input.periodAccounts,
@@ -485,17 +485,17 @@ export function buildDashboardKpis(input: DashboardInput): {
   // Sin datos previos en absoluto → no hay comparación (previousPeriod = null).
   const hasPrevious =
     previousValues !== null &&
-    (previousValues.asientos > 0 ||
+    (previousValues.entries > 0 ||
       (Object.keys(previousValues) as (keyof KpiValues)[]).some(
-        (key) => key !== "asientos" && Math.abs(previousValues[key]) >= 0.005
+        (key) => key !== "entries" && Math.abs(previousValues[key]) >= 0.005
       ));
 
   const kpis = (Object.keys(KPI_LABELS) as KpiKey[]).map((key): Kpi => {
-    const kind: Kpi["kind"] = key === "asientos" ? "count" : "currency";
+    const kind: Kpi["kind"] = key === "entries" ? "count" : "currency";
     return {
       key,
       label: KPI_LABELS[key],
-      value: key === "asientos" ? current[key] : round2(current[key]),
+      value: key === "entries" ? current[key] : round2(current[key]),
       kind,
       variation: hasPrevious ? computeVariation(current[key], previousValues![key]) : null,
     };
@@ -504,7 +504,7 @@ export function buildDashboardKpis(input: DashboardInput): {
   return {
     kpis,
     previousPeriod:
-      hasPrevious && previous ? { desde: previous.desde, hasta: previous.hasta } : null,
+      hasPrevious && previous ? { from: previous.from, to: previous.to } : null,
   };
 }
 
@@ -522,13 +522,13 @@ export function buildDashboard(input: DashboardInput): DashboardPayload {
 
   return {
     period: {
-      desde: input.desde,
-      hasta: input.hasta,
-      label: formatRangeLabel(input.desde, input.hasta),
+      from: input.from,
+      to: input.to,
+      label: formatRangeLabel(input.from, input.to),
     },
     previousPeriod,
     kpis,
-    monthlySeries: buildMonthlySeries(input.desde, input.hasta, input.monthlyRows),
+    monthlySeries: buildMonthlySeries(input.from, input.to, input.monthlyRows),
     expenseBreakdown: buildExpenseBreakdown(input.periodAccounts),
     topAccounts: buildTopAccounts(input.accountMovement),
     meta: {

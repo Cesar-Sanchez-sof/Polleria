@@ -21,27 +21,27 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  */
 
 export interface VoucherFileMetadata {
-  idComprobante: number;
-  tipoComprobante: "Boleta" | "Factura" | "Ticket";
+  voucherId: number;
+  voucherType: "Boleta" | "Factura" | "Ticket";
   serie: string;
-  numero: number;
-  formato?: "pdf" | "xml" | "json";
-  fecha?: Date | string;
+  number: number;
+  format?: "pdf" | "xml" | "json";
+  date?: Date | string;
 }
 
 export interface S3UploadResult {
-  idComprobante: number;
+  voucherId: number;
   s3Key: string;
   publicUrl: string;
   bucket: string;
-  estado: "guardado" | "simulado" | "error";
+  status: "guardado" | "simulado" | "error";
   message: string;
   timeMs?: number;
 }
 
 export interface S3BatchItem {
   meta: VoucherFileMetadata;
-  contenido?: Buffer | Uint8Array | string;
+  content?: Buffer | Uint8Array | string;
   contentType?: string;
 }
 
@@ -98,18 +98,18 @@ export function getBucketName(): string {
  * Estructura: {tipo_comprobante}/{anio}/{mes}/{dia}/{serie}-{numeroPad}.{formato}
  */
 export function buildVoucherS3Key(meta: VoucherFileMetadata): string {
-  const f = meta.fecha ? new Date(meta.fecha) : new Date();
+  const f = meta.date ? new Date(meta.date) : new Date();
   const year = f.getFullYear();
   const month = String(f.getMonth() + 1).padStart(2, "0");
   const day = String(f.getDate()).padStart(2, "0");
 
   let folderType = "boletas";
-  const voucherType = (meta.tipoComprobante || "").toLowerCase();
+  const voucherType = (meta.voucherType || "").toLowerCase();
   if (voucherType === "factura") folderType = "facturas";
   else if (voucherType === "ticket") folderType = "tickets";
 
-  const numPad = String(meta.numero).padStart(6, "0");
-  const extension = meta.formato || "pdf";
+  const numPad = String(meta.number).padStart(6, "0");
+  const extension = meta.format || "pdf";
 
   return `${folderType}/${year}/${month}/${day}/${meta.serie}-${numPad}.${extension}`;
 }
@@ -134,12 +134,12 @@ export async function uploadVoucherToS3(
     Buffer.from(
       JSON.stringify(
         {
-          idComprobante: meta.idComprobante,
-          tipoComprobante: meta.tipoComprobante,
+          voucherId: meta.voucherId,
+          voucherType: meta.voucherType,
           serie: meta.serie,
-          numero: meta.numero,
-          fecha: meta.fecha || new Date(),
-          emisor: "POLLERIA EL SABORCITO",
+          number: meta.number,
+          date: meta.date || new Date(),
+          issuer: "POLLERIA EL SABORCITO",
           ruc: "20601234567",
         },
         null,
@@ -168,11 +168,11 @@ export async function uploadVoucherToS3(
 
   if (!hasValidRemoteCreds) {
     return {
-      idComprobante: meta.idComprobante,
+      voucherId: meta.voucherId,
       s3Key,
       publicUrl: localUrl,
       bucket,
-      estado: "guardado",
+      status: "guardado",
       message: `Comprobante archivado digitalmente en almacenamiento ('${localUrl}').`,
       timeMs: Date.now() - startedAt,
     };
@@ -181,9 +181,9 @@ export async function uploadVoucherToS3(
   // MODO 2: Con credenciales oficiales de S3 remoto (Neon Object Storage / AWS S3 / Cloudflare R2)
   try {
     const contentType =
-      meta.formato === "xml"
+      meta.format === "xml"
         ? "application/xml"
-        : meta.formato === "json"
+        : meta.format === "json"
         ? "application/json"
         : "application/pdf";
 
@@ -207,22 +207,22 @@ export async function uploadVoucherToS3(
     );
 
     return {
-      idComprobante: meta.idComprobante,
+      voucherId: meta.voucherId,
       s3Key,
       publicUrl,
       bucket,
-      estado: "guardado",
+      status: "guardado",
       message: `Comprobante archivado en bucket S3 '${bucket}/${s3Key}'.`,
       timeMs: Date.now() - startedAt,
     };
   } catch (error: any) {
     console.warn("[uploadVoucherToS3] Error al subir a S3 remoto:", error);
     return {
-      idComprobante: meta.idComprobante,
+      voucherId: meta.voucherId,
       s3Key,
       publicUrl: localUrl,
       bucket,
-      estado: "guardado",
+      status: "guardado",
       message: `Comprobante archivado localmente (${error.message || "S3 remoto no disponible"}).`,
       timeMs: Date.now() - startedAt,
     };
@@ -257,17 +257,17 @@ export async function uploadVouchersBatch(
 
       while (attempt <= maxRetries) {
         try {
-          result = await uploadVoucherToS3(item.meta, item.contenido);
-          if (result.estado !== "error") break;
+          result = await uploadVoucherToS3(item.meta, item.content);
+          if (result.status !== "error") break;
         } catch (err: any) {
           attempt++;
           if (attempt > maxRetries) {
             result = {
-              idComprobante: item.meta.idComprobante,
+              voucherId: item.meta.voucherId,
               s3Key: buildVoucherS3Key(item.meta),
               publicUrl: "",
               bucket: getBucketName(),
-              estado: "error",
+              status: "error",
               message: `Fallo tras ${maxRetries} reintentos: ${err.message}`,
             };
           } else {
@@ -287,7 +287,7 @@ export async function uploadVouchersBatch(
 
   await Promise.all(workers);
 
-  const successful = results.filter((r) => r.estado !== "error").length;
+  const successful = results.filter((r) => r.status !== "error").length;
   const failed = results.length - successful;
 
   return {
@@ -355,4 +355,122 @@ export async function getVoucherPresignedUrl(
     return null;
   }
 }
+
+export interface PaymentProofUploadResult {
+  s3Key: string;
+  publicUrl: string;
+  bucket: string;
+  status: "guardado" | "error";
+  message: string;
+}
+
+/**
+ * Sube la foto o captura del comprobante de Yape tomada por el mozo/caja a AWS S3.
+ * Guarda también copia física local para fallback y tolerancia a fallos.
+ */
+export async function uploadPaymentProofToS3({
+  orderId,
+  serie,
+  number,
+  imageBase64,
+}: {
+  orderId: number;
+  serie: string;
+  number: number;
+  imageBase64: string;
+}): Promise<PaymentProofUploadResult> {
+  const { bucket, endpoint, accessKey, secretKey, region } = getS3Config();
+
+  let cleanBase64 = imageBase64;
+  let ext = "jpg";
+  if (imageBase64.includes("data:image/png")) {
+    ext = "png";
+    cleanBase64 = imageBase64.replace(/^data:image\/png;base64,/, "");
+  } else if (imageBase64.includes("data:image/jpeg") || imageBase64.includes("data:image/jpg")) {
+    ext = "jpg";
+    cleanBase64 = imageBase64.replace(/^data:image\/jpe?g;base64,/, "");
+  } else if (imageBase64.includes("data:image/webp")) {
+    ext = "webp";
+    cleanBase64 = imageBase64.replace(/^data:image\/webp;base64,/, "");
+  } else if (imageBase64.includes(";base64,")) {
+    cleanBase64 = imageBase64.split(";base64,")[1];
+  }
+
+  const buffer = Buffer.from(cleanBase64, "base64");
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const s3Key = `yape-vouchers/${year}/${month}/${day}/${serie}-${String(number).padStart(6, "0")}-proof-${Date.now()}.${ext}`;
+  const localUrl = `/storage/comprobantes/${s3Key}`;
+
+  // 1. Guardar copia local en disco
+  try {
+    const localDir = path.join(process.cwd(), "public", "storage", "comprobantes", path.dirname(s3Key));
+    fs.mkdirSync(localDir, { recursive: true });
+    const localFilePath = path.join(process.cwd(), "public", "storage", "comprobantes", s3Key);
+    fs.writeFileSync(localFilePath, buffer);
+  } catch (fsErr) {
+    console.warn("[uploadPaymentProofToS3] Aviso al guardar localmente:", fsErr);
+  }
+
+  // 2. Si hay credenciales de S3 remoto (AWS S3)
+  const hasValidRemoteCreds = Boolean(
+    accessKey &&
+    secretKey &&
+    !accessKey.includes("TU_KEY") &&
+    endpoint &&
+    endpoint.startsWith("http")
+  );
+
+  if (!hasValidRemoteCreds) {
+    return {
+      s3Key,
+      publicUrl: localUrl,
+      bucket,
+      status: "guardado",
+      message: `Comprobante de Yape archivado localmente en '${localUrl}'.`,
+    };
+  }
+
+  try {
+    const s3 = new S3Client({
+      endpoint,
+      region: region || "us-east-1",
+      credentials: {
+        accessKeyId: accessKey!,
+        secretAccessKey: secretKey!,
+      },
+      forcePathStyle: true,
+    });
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: s3Key,
+        Body: buffer,
+        ContentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
+      })
+    );
+
+    const remoteUrl = `${endpoint}/${bucket}/${s3Key}`;
+    return {
+      s3Key,
+      publicUrl: remoteUrl,
+      bucket,
+      status: "guardado",
+      message: `Comprobante de Yape archivado en S3 '${bucket}/${s3Key}'.`,
+    };
+  } catch (error: any) {
+    console.warn("[uploadPaymentProofToS3] Error al subir a S3 remoto, usando fallback local:", error);
+    return {
+      s3Key,
+      publicUrl: localUrl,
+      bucket,
+      status: "guardado",
+      message: `Comprobante de Yape archivado localmente (${error.message || "S3 no disponible"}).`,
+    };
+  }
+}
+
 

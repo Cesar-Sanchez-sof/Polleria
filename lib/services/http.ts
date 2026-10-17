@@ -31,9 +31,9 @@ export async function fetchJson<T>(url: string, options: RequestInit): Promise<T
     let message = "Error inesperado al consultar el servicio.";
     let details: string[] = [];
     try {
-      const body = (await response.json()) as { error?: string; errores?: string[] };
+      const body = (await response.json()) as { error?: string; errors?: string[] };
       if (body?.error) message = body.error;
-      if (Array.isArray(body?.errores)) details = body.errores;
+      if (Array.isArray(body?.errors)) details = body.errors;
     } catch {
       /* response did not contain JSON */
     }

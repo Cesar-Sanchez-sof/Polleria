@@ -23,34 +23,34 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number];
 /** Chart of accounts item as returned by the API. */
 export interface AccountingAccount {
   id: number;
-  codigo: string;
-  nombre: string;
-  tipo: string;
+  code: string;
+  name: string;
+  type: string;
   /** Parent account; `null` for root accounts. */
-  idPadre: number | null;
-  activo: boolean;
+  parentId: number | null;
+  active: boolean;
   /** Journal entry lines currently using this account. */
-  usos: number;
+  uses: number;
 }
 
 /** Input data to register an account. */
 export interface AccountInput {
-  codigo: string;
-  nombre: string;
-  tipo: string;
+  code: string;
+  name: string;
+  type: string;
   /** `null` or undefined = root account. */
-  idPadre?: number | null;
+  parentId?: number | null;
   /** Defaults to `true`. */
-  activo?: boolean;
+  active?: boolean;
 }
 
 /** Modifiable account fields. */
 export interface AccountChanges {
-  codigo?: string;
-  nombre?: string;
-  tipo?: string;
-  idPadre?: number | null;
-  activo?: boolean;
+  code?: string;
+  name?: string;
+  type?: string;
+  parentId?: number | null;
+  active?: boolean;
 }
 
 /** Returns all accounts in the chart, sorted by code. */

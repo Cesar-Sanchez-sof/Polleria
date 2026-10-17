@@ -51,8 +51,8 @@
  */
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
-import { actorActual } from "@/lib/auth/actor-auditoria";
+import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { currentActor } from "@/lib/auth/audit-actor";
 import {
   ACCOUNT_SELECT,
   duplicateCodeResponse,
@@ -61,7 +61,7 @@ import {
   validateAccount,
   validationResponse,
 } from "@/lib/chart-of-accounts";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +72,8 @@ export const dynamic = "force-dynamic";
  * ensuring a subaccount is never separated from its parent.
  */
 export async function GET() {
-  const auth = await autorizar(["cuentas.ver", "asientos.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["cuentas.ver", "asientos.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const accounts = await prisma.accountingAccount.findMany({
       orderBy: { code: "asc" },
@@ -122,8 +122,8 @@ export async function GET() {
  *         description: Error interno al crear la cuenta.
  */
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("cuentas.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("cuentas.crear");
+  if (!auth.ok) return auth.response;
   try {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -177,15 +177,15 @@ export async function POST(request: NextRequest) {
         },
         select: ACCOUNT_SELECT,
       });
-            await registrarAuditoria({
-        actor: await actorActual(),
+            await logAudit({
+        actor: await currentActor(),
         action: "CREATE",
         module: "Contabilidad",
         entity: "Cuenta contable",
         entityId: createdAccount.id,
         description: `Creó la cuenta contable ${code} - ${values.name}`,
-        details: { despues: { code, name: values.name, type, parentId, active: values.active ?? true } },
-        ipAddress: ipDeSolicitud(request),
+        details: { after: { code, name: values.name, type, parentId, active: values.active ?? true } },
+        ipAddress: requestIp(request),
       });
       return Response.json(toAccountApi(createdAccount), { status: 201 });
     } catch (error) {

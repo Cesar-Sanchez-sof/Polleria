@@ -1,8 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { releaseDishStock } from "@/lib/services/redis-stock.service";
+import {
+  deductProductStock,
+  InsufficientStockError,
+  restoreProductStock,
+  totalsByProduct,
+} from "@/lib/services/product-stock.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 /**
@@ -25,28 +30,27 @@ export const dynamic = "force-dynamic";
 const CLOSED_STATUSES = ["Closed", "Cancelled"];
 
 interface OrderItemInput {
-  dishId?: number;
-  id_plato?: number;
+  productId?: number;
+  product_id?: number;
   quantity?: number;
-  cantidad?: number;
   notes?: string;
-  observaciones?: string;
+  observations?: string;
 }
 
-function resolveDishId(item: OrderItemInput): number {
-  return Number(item.dishId ?? item.id_plato);
+function resolveProductId(item: OrderItemInput): number {
+  return Number(item.productId ?? item.product_id);
 }
 
 function resolveQuantity(item: OrderItemInput): number {
-  return Number(item.quantity ?? item.cantidad);
+  return Number(item.quantity);
 }
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["pedidos.ver", "cocina.ver", "ventas.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.ver", "cocina.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -59,7 +63,7 @@ export async function GET(
       include: {
         tables: { include: { table: true } },
         items: {
-          include: { dish: true },
+          include: { product: true },
           orderBy: { id: "asc" }
         }
       }
@@ -72,12 +76,12 @@ export async function GET(
     const pm = order.tables[0] ?? null;
     const items = order.items.map((d) => ({
       id: d.id,
-      dishId: d.dishId,
-      name: d.dish.name,
+      productId: d.productId,
+      name: d.product.name,
       quantity: d.quantity,
       unitPrice: Number(d.unitPrice),
       subtotal: Number(d.subtotal),
-      dishStatus: d.dishStatus,
+      itemStatus: d.itemStatus,
       notes: d.notes ?? ""
     }));
     const total = items.reduce((acc, it) => acc + it.subtotal, 0);
@@ -105,8 +109,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["pedidos.editar", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.editar", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -140,17 +144,17 @@ export async function PUT(
       );
     }
 
-    const dishIds = items.map((it) => resolveDishId(it));
-    const dishesDb = await prisma.dish.findMany({
-      where: { id: { in: dishIds }, active: true }
+    const productIds = items.map((it) => resolveProductId(it));
+    const productsDb = await prisma.product.findMany({
+      where: { id: { in: productIds }, active: true, sellable: true }
     });
-    const dishesMap = new Map(dishesDb.map((pl) => [pl.id, pl]));
+    const productsMap = new Map(productsDb.map((pl) => [pl.id, pl]));
 
     for (const item of items) {
-      const dishId = resolveDishId(item);
+      const productId = resolveProductId(item);
       const quantity = resolveQuantity(item);
-      if (!dishesMap.has(dishId)) {
-        return Response.json({ error: `El producto con ID ${dishId} no es válido.` }, { status: 400 });
+      if (!productsMap.has(productId)) {
+        return Response.json({ error: `El producto con ID ${productId} no es válido.` }, { status: 400 });
       }
       if (!quantity || quantity < 1) {
         return Response.json({ error: "La cantidad de cada producto debe ser mayor a 0." }, { status: 400 });
@@ -161,7 +165,7 @@ export async function PUT(
       // Si el pedido ya estaba Servido y se adicionan o modifican platos,
       // actualizamos el estado del pedido a Preparing para avisar a Cocina/Despacho
       let newOrderStatus = existingOrder.status;
-      if (existingOrder.status === "Served") {
+      if (existingOrder.status === "Served" || existingOrder.status === "Ready") {
         newOrderStatus = "Preparing";
         await tx.salesOrder.update({
           where: { id },
@@ -169,32 +173,62 @@ export async function PUT(
         });
       }
 
+      // Stock: solo se mueve la diferencia entre lo que tenía el pedido y lo que queda.
+      const previousItems = await tx.orderItem.findMany({
+        where: { orderId: id },
+        select: { productId: true, quantity: true }
+      });
+      const previousTotals = totalsByProduct(previousItems);
+      const nextTotals = totalsByProduct(
+        items.map((it) => ({ productId: resolveProductId(it), quantity: resolveQuantity(it) }))
+      );
+
       await tx.orderItem.deleteMany({
         where: { orderId: id }
       });
 
+      const createdItemByProduct = new Map<number, number>();
       for (const item of items) {
-        const dish = dishesMap.get(resolveDishId(item))!;
+        const product = productsMap.get(resolveProductId(item))!;
         const quantity = Math.floor(resolveQuantity(item));
-        const unitPrice = Number(dish.price);
+        const unitPrice = Number(product.price);
         const subtotal = Math.round(unitPrice * quantity * 100) / 100;
-        const itemNotes = item.notes ?? item.observaciones;
-        const itemDishStatus = (item as any).dishStatus;
+        const itemNotes = item.notes ?? item.observations;
+        const itemStatus = (item as any).itemStatus;
 
-        await tx.orderItem.create({
+        const createdItem = await tx.orderItem.create({
           data: {
             orderId: id,
-            dishId: dish.id,
+            productId: product.id,
             quantity,
             unitPrice,
             subtotal,
-            dishStatus: itemDishStatus || (existingOrder.status === "Served" ? "Pending" : existingOrder.status),
+            itemStatus: itemStatus || (existingOrder.status === "Served" || existingOrder.status === "Ready" ? "Pending" : existingOrder.status),
             notes: itemNotes ? itemNotes.trim().slice(0, 100) : null
           }
         });
+        createdItemByProduct.set(product.id, createdItem.id);
       }
 
-      const notes = body.notes ?? body.observacion;
+      for (const [productId, nextQty] of nextTotals) {
+        const delta = nextQty - (previousTotals.get(productId) ?? 0);
+        if (delta > 0) {
+          await deductProductStock(
+            tx,
+            { productId, quantity: delta, orderItemId: createdItemByProduct.get(productId) },
+            `Venta pedido ${existingOrder.code} (edición)`
+          );
+        } else if (delta < 0) {
+          await restoreProductStock(tx, { productId, quantity: -delta }, `Devolución pedido ${existingOrder.code} (edición)`);
+        }
+      }
+      for (const [productId, previousQty] of previousTotals) {
+        if (!nextTotals.has(productId)) {
+          await restoreProductStock(tx, { productId, quantity: previousQty }, `Devolución pedido ${existingOrder.code} (edición)`);
+        }
+      }
+
+      const notes = body.notes ?? body.observation;
       if (typeof notes === "string" && existingOrder.tables.length > 0) {
         await tx.orderTable.updateMany({
           where: { orderId: id },
@@ -205,18 +239,21 @@ export async function PUT(
 
     return Response.json({ message: "Pedido actualizado exitosamente." });
   } catch (error) {
+    if (error instanceof InsufficientStockError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
     console.error("[api/orders/[id]] Error al editar pedido:", error);
     return Response.json({ error: "No se pudo actualizar el pedido." }, { status: 500 });
   }
 }
 
-// Transición de estado del pedido (Received -> Preparing -> Served)
+// Transición de estado del pedido (Received -> Preparing -> Ready -> Served)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await autorizar(["pedidos.editar", "cocina.editar", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["pedidos.editar", "cocina.editar", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const { id: idParam } = await params;
     const id = Number.parseInt(idParam, 10);
@@ -225,22 +262,25 @@ export async function PATCH(
     }
 
     const body = await request.json().catch(() => null);
-    const rawStatus = body?.status ?? body?.estado;
+    const rawStatus = body?.status;
 
     // Map Spanish aliases → English status values
     const statusAliases: Record<string, string> = {
       Recibido: "Received",
       Preparando: "Preparing",
+      "Listo para servir": "Ready",
+      Listo: "Ready",
       Servido: "Served",
       Cancelado: "Cancelled",
       Received: "Received",
       Preparing: "Preparing",
+      Ready: "Ready",
       Served: "Served",
       Cancelled: "Cancelled",
     };
     const newStatus = statusAliases[rawStatus] ?? rawStatus;
 
-    const validStatuses = ["Received", "Preparing", "Served", "Cancelled"];
+    const validStatuses = ["Received", "Preparing", "Ready", "Served", "Cancelled"];
     if (!validStatuses.includes(newStatus)) {
       return Response.json(
         { error: `Estado inválido. Los estados permitidos son: ${validStatuses.join(", ")}.` },
@@ -264,8 +304,8 @@ export async function PATCH(
       if (order.status === "Cancelled") {
         return Response.json({ error: "El pedido ya se encuentra cancelado." }, { status: 400 });
       }
-      const reason = typeof (body?.reason ?? body?.motivo) === "string"
-        ? String(body?.reason ?? body?.motivo).trim()
+      const reason = typeof (body?.reason) === "string"
+        ? String(body?.reason).trim()
         : "";
       if (!reason) {
         return Response.json({ error: "Debe indicar el motivo de la cancelación." }, { status: 400 });
@@ -281,17 +321,17 @@ export async function PATCH(
       if (newStatus === "Served") {
         await tx.orderItem.updateMany({
           where: { orderId: id },
-          data: { dishStatus: "Served" }
+          data: { itemStatus: "Served" }
         });
       }
 
       if (newStatus === "Cancelled" && order.status !== "Cancelled") {
         const user =
-          typeof (body?.user ?? body?.usuario) === "string" && String(body?.user ?? body?.usuario).trim()
-            ? String(body?.user ?? body?.usuario).trim()
+          typeof (body?.user) === "string" && String(body?.user).trim()
+            ? String(body?.user).trim()
             : "Personal";
-        const reason = typeof (body?.reason ?? body?.motivo) === "string"
-          ? String(body?.reason ?? body?.motivo).trim()
+        const reason = typeof (body?.reason) === "string"
+          ? String(body?.reason).trim()
           : "Cancelled";
         const cancelTag = `[CANCELADO por ${user}: ${reason}]`;
 
@@ -329,7 +369,11 @@ export async function PATCH(
           where: { orderId: id }
         });
         for (const d of details) {
-          await releaseDishStock(d.dishId, d.quantity).catch(() => {});
+          await restoreProductStock(
+            tx,
+            { productId: d.productId, quantity: d.quantity },
+            `Devolución por cancelación del pedido ${order.code}`
+          );
         }
       }
     });
@@ -341,7 +385,7 @@ export async function PATCH(
         previousStatus: order.status,
       });
 
-      if (newStatus === "Cancelled" || newStatus === "Served") {
+      if (newStatus === "Cancelled" || newStatus === "Ready" || newStatus === "Served") {
         broadcastRealtimeEvent("TABLE_UPDATED", {
           orderId: id,
           reason: newStatus,

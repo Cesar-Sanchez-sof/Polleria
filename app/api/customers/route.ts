@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +42,8 @@ function normalizePersonType(value: unknown): PersonTypeValue {
  *         description: Error interno del servidor.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar(["clientes.ver", "ventas.ver"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["clientes.ver", "ventas.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get("q") || "").trim();
@@ -116,19 +116,19 @@ export async function GET(request: NextRequest) {
  *         description: Error interno al crear cliente.
  */
 export async function POST(request: NextRequest) {
-  const auth = await autorizar(["clientes.crear", "ventas.crear"]);
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize(["clientes.crear", "ventas.crear"]);
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return Response.json({ error: "Datos del cliente no válidos." }, { status: 400 });
     }
 
-    const documentNumber = (body.documentNumber ?? body.nro_doc ?? "").trim();
-    const firstName = (body.firstName ?? body.nombre ?? "").trim();
-    const lastName = body.lastName ?? body.apellido;
-    const phone = body.phone ?? body.telefono;
-    const personType = normalizePersonType(body.personType ?? body.tipo_persona);
+    const documentNumber = (body.documentNumber ?? body.document_number ?? "").trim();
+    const firstName = (body.firstName ?? body.name ?? "").trim();
+    const lastName = body.lastName;
+    const phone = body.phone;
+    const personType = normalizePersonType(body.personType ?? body.person_type);
 
     if (!firstName) {
       return Response.json({ error: "El nombre o razón social es obligatorio." }, { status: 400 });

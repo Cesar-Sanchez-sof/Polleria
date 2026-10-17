@@ -1,12 +1,12 @@
 import type { NextRequest } from "next/server";
 import { Prisma, type JournalEntry } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { registrarAuditoria, ipDeSolicitud } from "@/lib/services/audit.service";
-import { actorActual } from "@/lib/auth/actor-auditoria";
+import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { currentActor } from "@/lib/auth/audit-actor";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import { generateJournalEntryCode } from "@/lib/journal-entry-code";
 import { vi } from "vitest";
-import { autorizar } from "@/lib/auth/permisos";
+import { authorize } from "@/lib/auth/permissions";
 
 
 export const dynamic = "force-dynamic";
@@ -177,8 +177,8 @@ async function getTotalsByEntryId(entryIds: number[]): Promise<Map<number, numbe
  *         description: Error interno del servidor.
  */
 export async function GET(request: NextRequest) {
-  const auth = await autorizar("asientos.ver");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("asientos.ver");
+  if (!auth.ok) return auth.response;
   try {
     const searchParams = request.nextUrl.searchParams;
 
@@ -236,12 +236,12 @@ export async function GET(request: NextRequest) {
 
     const data = records.map((entry) => ({
       id: entry.id,
-      numero: entry.code,
-      fecha: formatDateToIso(entry.entryDate),
-      diario: entry.book,
-      concepto: entry.description,
-      responsable: entry.responsible,
-      estado: entry.status ? ("Registrado" as const) : ("Anulado" as const),
+      number: entry.code,
+      date: formatDateToIso(entry.entryDate),
+      daily: entry.book,
+      concept: entry.description,
+      responsible: entry.responsible,
+      status: entry.status ? ("Registrado" as const) : ("Anulado" as const),
       total: entry.entryDetails.reduce((sum, line) => sum + Number(line.debit), 0),
     }));
 
@@ -254,12 +254,12 @@ export async function GET(request: NextRequest) {
       data,
       meta: {
         total,
-        registrados: registered,
-        anulados: annulled,
+        registered: registered,
+        annulled: annulled,
         page: effectivePage,
         pageSize,
-        totalPaginas: totalPages,
-        orden: sort,
+        totalPages: totalPages,
+        order: sort,
         dir,
       },
     });
@@ -328,8 +328,8 @@ function isDuplicateCode(error: unknown): boolean {
  *         description: Error interno al registrar el asiento.
  */
 export async function POST(request: NextRequest) {
-  const auth = await autorizar("asientos.crear");
-  if (!auth.ok) return auth.respuesta;
+  const auth = await authorize("asientos.crear");
+  if (!auth.ok) return auth.response;
   try {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -341,31 +341,31 @@ export async function POST(request: NextRequest) {
 
     const errors: string[] = [];
 
-    const dateStr = trimString(body.fecha);
+    const dateStr = trimString(body.date);
     if (!DATE_REGEX.test(dateStr)) {
       errors.push("La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.");
     }
 
-    const description = trimString(body.glosa);
+    const description = trimString(body.description);
     if (!description) errors.push("El concepto (glosa) del asiento es obligatorio.");
     else if (description.length > 200) errors.push("El concepto no puede superar los 200 caracteres.");
 
-    const book = trimString(body.diario) || "Operaciones varias";
+    const book = trimString(body.daily) || "Operaciones varias";
     if (book.length > 60) errors.push("El diario no puede superar los 60 caracteres.");
 
-    const responsible = trimString(body.responsable);
+    const responsible = trimString(body.responsible);
     if (responsible.length > 100) {
       errors.push("El responsable no puede superar los 100 caracteres.");
     }
 
-    const observation = trimString(body.observacion);
+    const observation = trimString(body.observation);
     if (observation.length > 200) {
       errors.push("La observación no puede superar los 200 caracteres.");
     }
 
-    const status = typeof body.estado === "boolean" ? body.estado : true;
+    const status = typeof body.status === "boolean" ? body.status : true;
 
-    const rawLines = Array.isArray(body.lineas) ? body.lineas : [];
+    const rawLines = Array.isArray(body.lines) ? body.lines : [];
     if (rawLines.length < 2) {
       errors.push("El asiento debe registrar al menos dos líneas (debe y haber).");
     } else if (rawLines.length > 100) {
@@ -383,19 +383,19 @@ export async function POST(request: NextRequest) {
 
       const lineObj = rawLine as Record<string, unknown>;
 
-      const accountId = Number(lineObj.idCuenta);
+      const accountId = Number(lineObj.accountId);
       if (!Number.isInteger(accountId) || accountId <= 0) {
         errors.push(`${lineLabel} falta la cuenta contable.`);
         return;
       }
 
-      const lineDescription = trimString(lineObj.descripcion);
+      const lineDescription = trimString(lineObj.description);
       if (lineDescription.length > 200) {
         errors.push(`${lineLabel} la descripción no puede superar los 200 caracteres.`);
       }
 
-      const debit = parseAmount(lineObj.debe);
-      const credit = parseAmount(lineObj.haber);
+      const debit = parseAmount(lineObj.debit);
+      const credit = parseAmount(lineObj.credit);
       if (debit === null || credit === null) {
         errors.push(`${lineLabel} los importes deben ser números válidos.`);
         return;
@@ -430,7 +430,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (errors.length > 0) {
-      return Response.json({ error: errors[0], errores: errors }, { status: 400 });
+      return Response.json({ error: errors[0], errors: errors }, { status: 400 });
     }
 
     const uniqueAccountIds = [...new Set(validatedLines.map((line) => line.accountId))];
@@ -504,27 +504,27 @@ export async function POST(request: NextRequest) {
     }
 
     // ▼▼▼ NUEVO: registro de auditoría ▼▼▼
-    await registrarAuditoria({
-      actor: await actorActual(),
+    await logAudit({
+      actor: await currentActor(),
       action: "CREATE",
       module: "Contabilidad",
       entity: "Asiento contable",
       entityId: createdEntry.id,
       description: `Registró el asiento ${createdEntry.code}`,
-      details: { despues: { codigo: createdEntry.code, diario: createdEntry.book, concepto: createdEntry.description } },
-      ipAddress: ipDeSolicitud(request),
+      details: { after: { code: createdEntry.code, daily: createdEntry.book, concept: createdEntry.description } },
+      ipAddress: requestIp(request),
     });
     // ▲▲▲ FIN NUEVO ▲▲▲
 
     return Response.json(
       {
         id: createdEntry.id,
-        numero: createdEntry.code,
-        fecha: dateStr,
-        diario: createdEntry.book,
-        concepto: createdEntry.description,
-        responsable: createdEntry.responsible,
-        estado: createdEntry.status ? "Registrado" : "Anulado",
+        number: createdEntry.code,
+        date: dateStr,
+        daily: createdEntry.book,
+        concept: createdEntry.description,
+        responsible: createdEntry.responsible,
+        status: createdEntry.status ? "Registrado" : "Anulado",
         total: totalDebit,
       },
       { status: 201 }
