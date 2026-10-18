@@ -5,6 +5,7 @@ import { postSaleJournalEntries } from "@/lib/services/accounting-posting.servic
 import { uploadVoucherToS3, uploadPaymentProofToS3, buildVoucherS3Key, getS3Config } from "@/lib/services/s3-storage.service";
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
+import { formatDateToIso } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 /**
@@ -373,7 +374,7 @@ export async function POST(request: NextRequest) {
         journalEntryIds = await postSaleJournalEntries(tx, {
           salesInvoiceId: invoice.id,
           voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
-          entryDate: invoice.issuedAt,
+          entryDate: now,
           subtotal: taxableSubtotal,
           igv: calculatedIgv,
           total: roundedTotal,
@@ -559,6 +560,17 @@ export async function GET(request: NextRequest) {
             paymentType: true,
           },
         },
+        journalEntries: {
+          select: {
+            id: true,
+            code: true,
+            book: true,
+            entryDate: true,
+            createdAt: true,
+            description: true,
+            status: true,
+          },
+        },
         order: {
           include: {
             tables: {
@@ -617,6 +629,15 @@ export async function GET(request: NextRequest) {
           personType: c.customer?.personType || "Natural",
         },
         origin: associatedTable ? `Mesa ${associatedTable.number}` : "Pedido Para Llevar",
+        journalEntries: (c.journalEntries || []).map((je) => ({
+          id: je.id,
+          code: je.code,
+          book: je.book,
+          entryDate: formatDateToIso(je.entryDate),
+          createdAt: je.createdAt.toISOString(),
+          description: je.description,
+          status: je.status ? "Registrado" : "Anulado",
+        })),
         items:
           c.order?.items.map((d) => ({
             name: d.product.name,

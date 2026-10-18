@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   formatDate,
   formatCurrency,
+  formatDateTimePeru,
+  formatTimePeru,
   type JournalEntrySummary,
   type JournalEntrySort,
   type SortDirection,
@@ -50,10 +52,22 @@ export function JournalEntryTable({
   const columns: DataTableColumn<JournalEntrySummary>[] = [
     {
       key: "fecha",
-      header: "Fecha",
+      header: "Fecha contable",
       sortable: true,
       cellClassName: "tabular-nums font-medium text-slate-800",
-      cell: (row) => formatDate(row.date),
+      cell: (row) => (
+        <div>
+          <span>{formatDate(row.date)}</span>
+          {row.createdAt && (
+            <span
+              className="block text-[11px] font-normal text-slate-400"
+              title={`Creado: ${formatDateTimePeru(row.createdAt)}`}
+            >
+              {formatTimePeru(row.createdAt)}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: "numero",

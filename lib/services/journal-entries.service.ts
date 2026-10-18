@@ -40,6 +40,7 @@ export interface JournalEntrySummary {
   responsible: string | null;
   status: JournalEntryStatus;
   total: number;
+  createdAt?: string;
 }
 
 export interface JournalEntriesMeta {
@@ -208,5 +209,36 @@ export function formatCurrency(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/** Formats an ISO timestamp or date to "DD/MM/YYYY HH:mm:ss" in Peru timezone (America/Lima). */
+export function formatDateTimePeru(iso: string | Date | null | undefined): string {
+  if (!iso) return "—";
+  const date = typeof iso === "string" ? new Date(iso) : iso;
+  if (Number.isNaN(date.getTime())) return String(iso);
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+/** Formats an ISO timestamp to "HH:mm:ss" in Peru timezone (America/Lima). */
+export function formatTimePeru(iso: string | Date | null | undefined): string {
+  if (!iso) return "";
+  const date = typeof iso === "string" ? new Date(iso) : iso;
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 

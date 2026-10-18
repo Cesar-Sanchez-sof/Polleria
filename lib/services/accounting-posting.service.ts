@@ -52,6 +52,17 @@ function round2(n: number): number {
 }
 
 export function toPeruDateOnly(date: Date): Date {
+  // Si la fecha ya está en medianoche UTC (como un campo @db.Date leído de Prisma o creado con Date.UTC),
+  // ya representa el día calendario YYYY-MM-DD y NO debe restársele el offset de huso horario (-5h),
+  // de lo contrario caería erróneamente a las 19:00 del día anterior.
+  if (
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+  ) {
+    return date;
+  }
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Lima",
     year: "numeric",
@@ -67,12 +78,9 @@ function toUtcDateOnly(date: Date): Date {
 }
 
 function getCodePrefix(date: Date): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Lima",
-    year: "numeric",
-    month: "2-digit",
-  });
-  const [year, month] = formatter.format(date).split("-");
+  const d = toPeruDateOnly(date);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
   return `MISC/${year}/${month}/`;
 }
 

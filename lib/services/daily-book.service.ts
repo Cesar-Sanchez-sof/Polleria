@@ -41,6 +41,7 @@ export interface DailyBookEntry {
   totals: { debit: number; credit: number };
   balanced: boolean;
   lines: DailyBookLine[];
+  createdAt?: string;
 }
 
 export interface DailyBookMeta {
@@ -81,6 +82,8 @@ export async function listDailyBookEntries(
 export {
   formatDate,
   formatCurrency,
+  formatDateTimePeru,
+  formatTimePeru,
   getJournalEntry,
   type JournalEntryDetail
 } from "./journal-entries.service";

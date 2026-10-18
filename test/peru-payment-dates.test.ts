@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { toPeruDateOnly } from "../lib/services/accounting-posting.service";
+import { formatDateTimePeru, formatTimePeru } from "../lib/services/journal-entries.service";
 
 describe("Verificación de Fechas de Cobro y Asientos Contables (Huso Horario Perú America/Lima)", () => {
   it("debe calcular la fecha exacta de Perú para ventas en horario de tarde/noche (ej: 21:00 Perú)", () => {
@@ -43,4 +44,28 @@ describe("Verificación de Fechas de Cobro y Asientos Contables (Huso Horario Pe
 
     expect(accountingDate.toISOString().startsWith("2026-10-13")).toBe(true);
   });
+
+  it("no debe retroceder un día cuando la fecha ya está en medianoche UTC (@db.Date de Prisma)", () => {
+    // Fecha emitida hoy en Perú y almacenada en BD como Date.UTC(2026, 9, 17) -> 2026-10-17T00:00:00.000Z
+    const alreadyDateOnly = new Date("2026-10-17T00:00:00.000Z");
+    const accountingDate = toPeruDateOnly(alreadyDateOnly);
+
+    // Debe seguir siendo el 17 de Octubre, NUNCA el 16 de Octubre
+    expect(accountingDate.getUTCFullYear()).toBe(2026);
+    expect(accountingDate.getUTCMonth()).toBe(9);
+    expect(accountingDate.getUTCDate()).toBe(17);
+    expect(accountingDate.toISOString().startsWith("2026-10-17")).toBe(true);
+  });
+
+  it("debe formatear con precisión la fecha y hora de creación de asientos en huso horario de Perú (America/Lima)", () => {
+    // 22:30:15 UTC corresponde a 17:30:15 en Perú
+    const createdAtUtc = new Date("2026-10-17T22:30:15.000Z");
+    const formattedDateTime = formatDateTimePeru(createdAtUtc);
+    const formattedTime = formatTimePeru(createdAtUtc);
+
+    expect(formattedDateTime).toContain("17/10/2026");
+    expect(formattedDateTime).toContain("17:30:15");
+    expect(formattedTime).toBe("17:30:15");
+  });
 });
+

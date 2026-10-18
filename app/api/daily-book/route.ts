@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
         description: true,
         responsible: true,
         status: true,
+        createdAt: true,
         entryDetails: {
           orderBy: { id: "asc" },
           select: {
@@ -163,6 +164,7 @@ export async function GET(request: NextRequest) {
         totals: { debit: totalDebit, credit: totalCredit },
         balanced: Math.abs(totalDebit - totalCredit) < 0.005,
         lines: lines,
+        ...(entry.createdAt ? { createdAt: entry.createdAt.toISOString() } : {}),
       };
     });
 
