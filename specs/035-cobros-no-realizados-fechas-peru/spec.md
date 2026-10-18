@@ -51,5 +51,15 @@ Como contador o administrador:
    - Modificación de etiquetas de pestaña y textos a *"Cobros No Realizados"*.
 2. [`app/api/sales/route.ts`](file:///d:/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/app/api/sales/route.ts):
    - Normalización de fechas de cobro en `issuedAt`, `paidAt` y `entryDate` utilizando la zona horaria `America/Lima`.
-3. [`lib/services/accounting-posting.service.ts`](file:///d:/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/lib/services/accounting-posting.service.ts):
-   - Implementación de `toPeruDateOnly` y ajuste de `getCodePrefix` y `ensureOpenPeriod` para calcular año, mes y día en `America/Lima`.
+3. [`lib/services/accounting-posting.service.ts`](file:///c:/Users/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/lib/services/accounting-posting.service.ts):
+   - Corrección en `toPeruDateOnly`: Si la fecha de entrada ya está a medianoche UTC (`00:00:00.000Z`, típica de columnas `@db.Date`), se preserva dicho día calendario UTC en lugar de aplicar el offset local (-5h), evitando que retroceda a las 19:00 del día anterior.
+   - Ajuste de `getCodePrefix` para derivar el año y mes directamente a partir de la fecha calculada en `toPeruDateOnly`.
+4. [`app/api/sales/route.ts`](file:///c:/Users/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/app/api/sales/route.ts):
+   - Envío de `now` como `entryDate` al invocar `postSaleJournalEntries` para registrar la fecha y hora de la transacción.
+   - Inclusión de los asientos contables relacionados (`journalEntries`) con sus timestamps de creación (`createdAt`) en el listado de ventas (`GET /api/sales`).
+5. **Visualización de Fecha y Hora de Creación en UI y API**:
+   - `JournalEntrySummary`, `JournalEntryDetail` y `DailyBookEntry`: Exposición de `createdAt` en formato ISO.
+   - [`JournalEntryTable.tsx`](file:///c:/Users/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/app/accounting/(records)/entries/components/JournalEntryTable.tsx): Columna de fecha con fecha contable y hora de creación (`formatTimePeru`), con tooltip de fecha y hora completa (`formatDateTimePeru`).
+   - [`JournalEntryDetail.tsx`](file:///c:/Users/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/app/accounting/(records)/entries/components/JournalEntryDetail.tsx): Tarjeta dedicada "Creado (Fecha y hora)" mostrando `DD/MM/YYYY HH:mm:ss` en huso horario `America/Lima`.
+   - [`DailyJournalTable.tsx`](file:///c:/Users/Cesar%20Sanchez/Documents/GitHub/Polleria/Polleria/app/accounting/(records)/journal/components/DailyJournalTable.tsx): Encabezado de asiento en el Libro Diario mostrando la hora de creación.
+

@@ -230,6 +230,7 @@ export async function GET(request: NextRequest) {
         description: true,
         responsible: true,
         status: true,
+        createdAt: true,
         entryDetails: { select: { debit: true } },
       },
     });
@@ -243,6 +244,7 @@ export async function GET(request: NextRequest) {
       responsible: entry.responsible,
       status: entry.status ? ("Registrado" as const) : ("Anulado" as const),
       total: entry.entryDetails.reduce((sum, line) => sum + Number(line.debit), 0),
+      ...(entry.createdAt ? { createdAt: entry.createdAt.toISOString() } : {}),
     }));
 
     if (pageEntryIds) {

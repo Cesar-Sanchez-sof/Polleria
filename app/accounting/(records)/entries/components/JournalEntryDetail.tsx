@@ -22,6 +22,7 @@ import {
 import {
   formatDate,
   formatCurrency,
+  formatDateTimePeru,
   type JournalEntryDetail,
 } from "@/lib/services/journal-entries.service";
 
@@ -57,7 +58,7 @@ export function JournalEntryDetail({
               </SheetTitle>
               <SheetDescription className="text-xs text-slate-500 mt-1">
                 {detail
-                  ? `${formatDate(detail.date)} · ${detail.daily}`
+                  ? `${formatDate(detail.date)} · ${detail.daily} · Creado: ${formatDateTimePeru(detail.createdAt)}`
                   : "Cargando la información del asiento..."}
               </SheetDescription>
             </div>
@@ -99,7 +100,7 @@ export function JournalEntryDetail({
 
           {!loading && !error && detail && (
             <>
-              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <dl className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
                 <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
                   <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Número / Referencia
@@ -112,6 +113,14 @@ export function JournalEntryDetail({
                   </dt>
                   <dd className="text-sm font-bold text-slate-900 mt-1 tabular-nums">
                     {formatDate(detail.date)}
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Creado (Fecha y hora)
+                  </dt>
+                  <dd className="text-xs font-bold text-slate-900 mt-1 tabular-nums">
+                    {formatDateTimePeru(detail.createdAt)}
                   </dd>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">

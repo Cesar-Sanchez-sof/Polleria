@@ -35,6 +35,7 @@ export const swaggerDefinition: OpenAPIV3.Document = {
     { name: 'Audit', description: 'Auditoría de seguridad y trazabilidad de eventos del sistema.' },
     { name: 'Assistant', description: 'Asistente financiero con inteligencia artificial.' },
     { name: 'PLE', description: 'Libros electrónicos SUNAT (PLE) y simulación SIRE.' },
+    { name: 'FacturacionElectronica', description: 'Emisión serverless de comprobantes UBL 2.1 hacia SUNAT Beta y almacenamiento S3.' },
     { name: 'Realtime', description: 'Flujo de eventos en tiempo real vía Server-Sent Events.' },
     { name: 'Webhooks', description: 'Callbacks externos (pasarela de pagos).' },
   ],

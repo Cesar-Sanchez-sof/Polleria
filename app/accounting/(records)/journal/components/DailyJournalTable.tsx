@@ -9,6 +9,8 @@ import { Tag } from "@/components/shared/TagCell";
 import {
   formatDate,
   formatCurrency,
+  formatDateTimePeru,
+  formatTimePeru,
   type DailyBookEntry,
   type DailyBookLine,
 } from "@/lib/services/daily-book.service";
@@ -111,7 +113,17 @@ export function DailyJournalTable({
             title="Ver detalle del asiento"
             className="group/entry flex w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1.5 text-left"
           >
-            <span className="tabular-nums text-sm font-medium text-slate-800">{formatDate(entry.date)}</span>
+            <div className="flex flex-col">
+              <span className="tabular-nums text-sm font-medium text-slate-800">{formatDate(entry.date)}</span>
+              {entry.createdAt && (
+                <span
+                  className="text-[10px] text-slate-400 tabular-nums font-normal"
+                  title={`Creado: ${formatDateTimePeru(entry.createdAt)}`}
+                >
+                  {formatTimePeru(entry.createdAt)}
+                </span>
+              )}
+            </div>
             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-700">
               {entry.number}
               <ExternalLink className="h-3.5 w-3.5 text-slate-400 opacity-0 transition-opacity group-hover/entry:opacity-100" />
