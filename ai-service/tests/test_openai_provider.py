@@ -88,6 +88,10 @@ class FakeOpenAI:
             return self.override
         schema = body["text"]["format"]["name"]
         output = self.interpretation if schema == "interpretacion" else {"texto": self.explanation}
+        properties = body["text"]["format"]["schema"]["properties"]
+        if schema == "interpretacion":  # modo estricto: toda clave del esquema está presente
+            defaults = {key: (False if spec.get("type") == "boolean" else None) for key, spec in properties.items()}
+            output = {**defaults, **output}
         return httpx.Response(200, json=self.response(json.dumps(output, ensure_ascii=False)))
 
     @staticmethod
@@ -210,7 +214,8 @@ class ProviderTests(GuardedTestCase):
         response = self.provider.complete(explain_request())
         self.assertIn("{{c1}}", response.salida.texto)
         sent = json.loads(self.api.requests[0]["input"])
-        self.assertEqual(set(sent), {"intencion", "periodo", "marcadores", "cuenta_nombre"})
+        # P1 añade el título de la consulta y los significados genéricos de los marcadores (sin cifras).
+        self.assertEqual(set(sent), {"intencion", "periodo", "marcadores", "cuenta_nombre", "consulta", "significados"})
         self.assertEqual(sent["marcadores"], ["c1", "c2", "c3"])
         for figure in FIGURES:
             self.assertNotIn(figure, json.dumps(self.api.requests[0]))

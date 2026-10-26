@@ -138,7 +138,7 @@ class Figure(StrictModel):
 
     marcador: MarkerId
     valor: Money
-    unidad: Literal["PEN", "%"]
+    unidad: Literal["PEN", "%", "N"]  # N: cantidad (comprobantes, unidades vendidas)
     origen: Literal["executor", "motor"]
 
 
@@ -165,12 +165,82 @@ class Detail(StrictModel):
     cifras de ``QueryResponse.cifras`` (mismos marcadores). ``nota`` aclara el alcance del cálculo.
     """
 
-    tipo: Literal["saldo_cuenta"]
-    cuenta: AccountCode
+    tipo: Literal["saldo_cuenta", "consulta"]
+    cuenta: AccountCode | None = None
     cuenta_nombre: Annotated[str, Field(min_length=1, max_length=60)] | None = None
-    periodo: Period
+    # P1 (``tipo="consulta"``): título de la familia de consulta entrenada (lo fija el backend).
+    titulo: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+    periodo: Period | None = None  # ``None``: consulta sin período (p. ej. stock actual), solo ``tipo="consulta"``
     etiquetas: Annotated[list[FigureLabel], Field(min_length=1, max_length=20)]
     nota: Annotated[str, Field(max_length=200)] | None = None
+
+    @model_validator(mode="after")
+    def _kind_fields(self) -> "Detail":
+        if (self.tipo == "saldo_cuenta") != (self.cuenta is not None) or (self.tipo == "consulta") != (self.titulo is not None):
+            raise ValueError("El detalle no coincide con su tipo.")
+        if self.tipo == "saldo_cuenta" and self.periodo is None:
+            raise ValueError("El saldo de una cuenta siempre tiene período.")
+        return self
+
+
+StageName = Literal[
+    "prefiltro",
+    "interpretacion",
+    "plan",
+    "recuperacion",
+    "generacion_sql",
+    "validacion_sql",
+    "ejecucion_sql",
+    "calculo",
+    "explicacion",
+]
+AuditCode = Annotated[str, Field(pattern=r"^[A-Z_]{3,40}$")]
+
+
+class DiagnosticStage(StrictModel):
+    etapa: StageName
+    estado: Literal["ok", "fallo"]
+    codigo: AuditCode | None = None
+    ms: Annotated[int, Field(ge=0)]
+
+
+class DiagnosticSqlModel(StrictModel):
+    """Lo que informa el servicio de inferencia al responder (no lo que dice la configuración)."""
+
+    base: Annotated[str, Field(max_length=80)]
+    adaptador: Annotated[str, Field(max_length=80)]
+    latencia_ms: Annotated[int, Field(ge=0)]
+    tokens_prompt: Annotated[int, Field(ge=0)]
+    tokens_salida: Annotated[int, Field(ge=0)]
+    fin: Literal["stop", "length"]
+
+
+class Diagnostic(StrictModel):
+    """Traza técnica opcional (solo modo diagnóstico autorizado). Sin prompts, filas ni cifras."""
+
+    etapas: Annotated[list[DiagnosticStage], Field(max_length=20)] = Field(default_factory=list)
+    intencion: Annotated[str, Field(max_length=40)] | None = None
+    consulta: Annotated[str, Field(pattern=r"^[a-z][a-z_]{2,59}$")] | None = None  # familia entrenada (P1)
+    concepto: Annotated[str, Field(pattern=r"^[a-z][a-z_]{2,59}$")] | None = None  # magnitud contable del intérprete
+    ajuste: AuditCode | None = None  # FAMILY_ADJUSTED_TO_CONCEPT / FAMILY_FROM_CONCEPT si el backend corrigió la familia
+    ruta: Literal["entrenada", "saldo", "ampliada"] | None = None
+    tablas_rag: Annotated[list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,62}$")]], Field(max_length=10)] = Field(default_factory=list)
+    tablas_prompt: Annotated[list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,62}$")]], Field(max_length=10)] = Field(default_factory=list)
+    reintento: AuditCode | None = None  # motivo del único reintento de la ruta ampliada
+    sql_previo: Annotated[str, Field(max_length=4000)] | None = None  # SQL del primer intento (si hubo reintento)
+    cuenta: AccountCode | None = None
+    periodo: Period | None = None
+    fragmentos_rag: Annotated[int, Field(ge=0)] | None = None
+    # Qué recuperador respondió: ``semantico`` (híbrido con Milvus/E5) o ``lexico`` (fallback o modo léxico).
+    fuente_rag: Literal["semantico", "lexico", "ninguno"] | None = None
+    # Índice consultado: ``milvus`` (corpus aprobado, rutas entrenadas) o ``local`` (catálogo de módulos en memoria).
+    indice_rag: Literal["milvus", "local"] | None = None
+    modelo_sql: DiagnosticSqlModel | None = None
+    sql_generado: Annotated[str, Field(max_length=4000)] | None = None
+    sql_validado: Annotated[str, Field(max_length=4000)] | None = None
+    motivos_rechazo: Annotated[list[AuditCode], Field(max_length=20)] = Field(default_factory=list)
+    filas: Annotated[int, Field(ge=0)] | None = None
+    duracion_total_ms: Annotated[int, Field(ge=0)] = 0
 
 
 class PublicResponse(StrictModel):
@@ -193,6 +263,8 @@ class QueryResponse(StrictModel):
         default_factory=dict
     )
     detalle: Detail | None = None
+    # Solo en modo diagnóstico autorizado; si es ``None`` la API lo omite del JSON (compatibilidad).
+    diagnostico: Diagnostic | None = None
 
     @model_validator(mode="after")
     def _unique_markers(self) -> "QueryResponse":

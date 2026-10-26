@@ -71,9 +71,12 @@ def _check_select(select: exp.Select, *, fix: bool) -> bool:
     if not entries:
         raise RegisteredFilterError("Detalle de asientos sin journal_entry: no se puede filtrar por estado.")
 
+    # Solo cuenta ``journal_entry.status``: el ``status`` de otra tabla calificada (p. ej. el de
+    # ``accounting_period``) no es el estado del asiento. Sin calificar sigue tratándose como del asiento.
     status_columns = [
         column for column in select.find_all(exp.Column)
         if column.name == STATUS_COLUMN and column.find_ancestor(exp.Select) is select
+        and (not column.table or column.table in entries)
     ]
     conjuncts = _conjuncts(select)
     for alias in entries:

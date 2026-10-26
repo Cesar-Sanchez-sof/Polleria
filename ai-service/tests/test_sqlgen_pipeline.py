@@ -253,15 +253,20 @@ class ErrorClassificationTests(XiYanPipelineCase):
 
         self.server.respond = lambda b: (_ for _ in ()).throw(httpx.ConnectError("rechazada"))
         unavailable = post("traza-http-caida")
-        self.assertEqual((unavailable.status_code, unavailable.json()), (503, {"error": UNAVAILABLE, "errores": []}))
+        # Solo códigos fijos del componente que falló (P0): identificable, sin detalles internos.
+        self.assertEqual(
+            (unavailable.status_code, unavailable.json()),
+            (503, {"error": UNAVAILABLE, "errores": ["SQLGEN_UNAVAILABLE", "CONNECTION_FAILED"]}),
+        )
 
         secret_sql = "DELETE FROM journal_entry WHERE id = 424242;"
         self.server.respond = self.server.ok
         self.server.text_for = lambda _b: secret_sql
         invalid = post("traza-http-invalida")
         self.assertEqual((invalid.status_code, invalid.json()["estado"]), (200, "no_resoluble"))
+        self.assertNotIn("diagnostico", invalid.json())  # sin modo diagnóstico, la traza no viaja
         for response in (unavailable, invalid):
-            for leak in ("127.0.0.1:8011", "CONNECTION", "SQLGEN", "424242", "DELETE", "〖", self.settings.sqlgen.token):
+            for leak in ("127.0.0.1:8011", "424242", "DELETE", "〖", self.settings.sqlgen.token):
                 self.assertNotIn(leak, response.text)
 
     def test_audit_has_no_model_input_or_secrets(self) -> None:

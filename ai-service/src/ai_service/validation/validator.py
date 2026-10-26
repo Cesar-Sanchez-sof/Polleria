@@ -72,6 +72,8 @@ WRITE_NODES = _classes(
 ALLOWED_FUNCTIONS = _classes(
     "Count", "Sum", "Avg", "Min", "Max", "Coalesce", "Round", "Abs",
     "Extract", "TimestampTrunc", "DateTrunc",
+    # DATE(x): función pura, equivalente a CAST(x AS DATE) (ya permitido); la usa XiYanSQL para agrupar por día.
+    "Date",
 )
 ALLOWED_NODES = _classes(
     "Select", "From", "Join", "Where", "Group", "Having", "Order", "Ordered", "Limit", "Offset",
