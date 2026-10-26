@@ -86,6 +86,30 @@ describe("contrato y presentación", () => {
     for (const value of invalid) expect(parseQueryResponse(value)).toBeNull();
   });
 
+  it("P1: detalle de una familia de consulta con cantidades (unidad N)", () => {
+    const family = {
+      ...base,
+      cifras: [
+        { marcador: "c1", valor: "9200.00", unidad: "PEN", origen: "executor" },
+        { marcador: "c2", valor: "1234", unidad: "N", origen: "executor" },
+      ],
+      detalle: {
+        tipo: "consulta", cuenta: null, cuenta_nombre: null, titulo: "Platos con mayores ingresos",
+        periodo: { desde: "2026-10-01", hasta: "2026-10-12" },
+        etiquetas: [{ marcador: "c1", etiqueta: "Primer lugar · Pollo a la brasa" }, { marcador: "c2", etiqueta: "Unidades" }],
+        nota: null,
+      },
+    };
+    const reply = toAssistantReply(parseQueryResponse(family)!);
+    expect(reply.detalle).toEqual({
+      cuenta: "Platos con mayores ingresos", periodo: "del 01/10/2026 al 12/10/2026", nota: null, tipo: "consulta",
+      filas: [{ etiqueta: "Primer lugar · Pollo a la brasa", valor: "S/ 9,200.00" }, { etiqueta: "Unidades", valor: "1,234" }],
+    });
+    // Un detalle de consulta con cuenta, o de saldo sin cuenta, no cumple el contrato.
+    expect(parseQueryResponse({ ...family, detalle: { ...family.detalle, cuenta: "101" } })).toBeNull();
+    expect(parseQueryResponse({ ...family, detalle: { ...family.detalle, tipo: "saldo_cuenta" } })).toBeNull();
+  });
+
   it("acepta respuestas sin detalle (compatibilidad)", () => {
     const withoutDetail: Record<string, unknown> = { ...base, estado: "sin_datos", cifras: [] };
     delete withoutDetail.detalle;
@@ -155,6 +179,17 @@ describe("configuración del modo evaluación (Vercel Preview)", () => {
       expect(readAssistantConfig({ ...env, VERCEL_ENV: vercelEnv })).toEqual({ enabled: false, reason: "production" });
     }
     expect(readAssistantConfig({ ...env, AI_ASSISTANT_EVAL_ENABLED: "true" })).toEqual({ enabled: false, reason: "production" });
+  });
+
+  it("modo diagnóstico: cerrado por defecto y solo con cuentas evaluadoras explícitas", () => {
+    expect(readAssistantConfig(env)).toMatchObject({ enabled: true, diagnostics: false });
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_DIAGNOSTICS: "1" })).toMatchObject({ enabled: true, diagnostics: false });
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_DIAGNOSTICS: "true", AI_ASSISTANT_EVAL_USER_IDS: "7" })).toMatchObject({
+      diagnostics: false,
+    });
+    expect(readAssistantConfig({ ...env, AI_ASSISTANT_DIAGNOSTICS: "1", AI_ASSISTANT_EVAL_USER_IDS: "7" })).toMatchObject({
+      enabled: true, diagnostics: true, allowedUserIds: [7],
+    });
   });
 
   it("Production solo con las dos banderas exactas; la segunda no sirve en otros entornos", () => {

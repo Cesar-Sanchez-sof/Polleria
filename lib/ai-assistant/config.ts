@@ -30,6 +30,10 @@
  * - Datos ficticios por defecto. `AI_ASSISTANT_REAL_DATA=1` (consulta real en solo lectura, decidida y
  *   aplicada por `ai-service` con `AI_SERVICE_EVAL_REAL_DATA=1`) solo es válido junto con
  *   `AI_ASSISTANT_EVAL_USER_IDS`; si falta, la configuración se invalida (falla cerrado).
+ *
+ * - `AI_ASSISTANT_DIAGNOSTICS`: `1` para pedir la traza técnica de cada consulta (etapas, modelo y
+ *   adaptador que respondieron, SQL generado y validado, filas y tiempos). Exige la clave de identidad
+ *   y, en evaluación, `AI_ASSISTANT_EVAL_USER_IDS`. Cerrado por defecto.
  */
 
 export type AssistantMode = "demo" | "eval";
@@ -46,6 +50,8 @@ export type AssistantConfig =
       timeoutMs: number;
       /** Evaluación: únicas cuentas del ERP autorizadas; `null` = cualquier usuario del rol permitido. */
       allowedUserIds: readonly number[] | null;
+      /** Pide la traza técnica a `ai-service` (`AI_ASSISTANT_DIAGNOSTICS=1`; ver `diagnosticsEnabled`). */
+      diagnostics?: boolean;
     }
   | { enabled: false; reason: "production" | "disabled" | "misconfigured" };
 
@@ -86,7 +92,20 @@ function readEvalConfig(env: Record<string, string | undefined>): AssistantConfi
   }
   return {
     enabled: true, serviceUrl: url, token, identityKey, realData, demo: false, mode: "eval", timeoutMs: EVAL_TIMEOUT_MS, allowedUserIds,
+    diagnostics: diagnosticsEnabled(env, identityKey, allowedUserIds),
   };
+}
+
+/**
+ * Modo diagnóstico (traza técnica en cada respuesta): `AI_ASSISTANT_DIAGNOSTICS=1`, identidad firmada
+ * (P-9) y, en evaluación, cuentas evaluadoras explícitas. `ai-service` exige además su propia bandera
+ * (`AI_SERVICE_DIAGNOSTICS=1`) y verifica la identidad: los tres candados deben coincidir.
+ */
+function diagnosticsEnabled(
+  env: Record<string, string | undefined>, identityKey: string | null, allowedUserIds: readonly number[] | null,
+): boolean {
+  if (env.AI_ASSISTANT_DIAGNOSTICS !== "1" || !identityKey) return false;
+  return env.AI_ASSISTANT_EVAL_ENABLED !== "1" || allowedUserIds !== null;
 }
 
 export function readAssistantConfig(env: Record<string, string | undefined> = process.env): AssistantConfig {
@@ -107,6 +126,7 @@ export function readAssistantConfig(env: Record<string, string | undefined> = pr
   if (realData && identityKey === null) return { enabled: false, reason: "misconfigured" }; // P-9 obligatorio
   return {
     enabled: true, serviceUrl: url, token, identityKey, realData, demo: true, mode: "demo", timeoutMs: DEMO_TIMEOUT_MS, allowedUserIds: null,
+    diagnostics: diagnosticsEnabled(env, identityKey, null),
   };
 }
 
@@ -126,4 +146,15 @@ export const DEMO_SUGGESTIONS: readonly string[] = [
   "¿Cuál fue el saldo de bancos en septiembre?",
   "¿Cuál fue el saldo de proveedores en septiembre?",
   "¿Y el saldo de caja en agosto?",
+];
+
+/**
+ * Ejemplos con datos reales (P1). Son solo atajos para escribir: siguen el mismo camino que cualquier
+ * pregunta libre (intérprete → XiYanSQL → validador → base de datos) y no tienen respuesta asociada.
+ */
+export const REAL_DATA_SUGGESTIONS: readonly string[] = [
+  "¿Cuánto vendimos este mes?",
+  "¿Qué productos generan mayores ingresos este mes?",
+  "¿Qué día tuvimos mayores ingresos este mes?",
+  "¿Cuáles son los gastos más elevados este mes?",
 ];

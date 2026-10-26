@@ -5,7 +5,7 @@
  * textos sencillos para errores. Los importes llegan como texto decimal y se formatean sin pasar
  * por números de coma flotante.
  */
-import type { QueryResponse, ResponseState } from "@/lib/ai-assistant/contract";
+import type { Diagnostic, QueryResponse, ResponseState } from "@/lib/ai-assistant/contract";
 
 export interface ReplyDetailRow {
   etiqueta: string;
@@ -13,18 +13,21 @@ export interface ReplyDetailRow {
 }
 
 export interface ReplyDetail {
+  /** Cuenta consultada o, con `tipo: "consulta"`, el título de la consulta (P1). */
   cuenta: string;
   periodo: string;
   filas: ReplyDetailRow[];
   nota: string | null;
+  tipo?: "consulta";
 }
 
-/** Lo único que el proxy entrega al navegador. */
+/** Lo único que el proxy entrega al navegador. `diagnostico` solo en modo diagnóstico autorizado. */
 export interface AssistantReply {
   id_traza: string;
   estado: ResponseState;
   texto: string;
   detalle: ReplyDetail | null;
+  diagnostico?: Diagnostic;
 }
 
 const MONTHS = [
@@ -40,7 +43,33 @@ export const MESSAGES = {
   invalid: "No pude procesar tu mensaje. Escribe tu pregunta de nuevo, en pocas palabras.",
   unavailable: "El asistente no está disponible en este momento. Intenta de nuevo en unos minutos.",
   timeout: "La consulta tardó demasiado. Intenta de nuevo en unos minutos.",
+  serviceAuth:
+    "El servicio de IA rechazó la credencial interna del ERP. Es un error de configuración del despliegue, no de tu pregunta.",
 } as const;
+
+/** Código público cuando `ai-service` rechaza el token interno o la identidad firmada (401). */
+export const SERVICE_AUTH_CODE = "SERVICE_AUTH";
+
+/**
+ * Mensaje por componente para los `503` de `ai-service` (`errores` lleva códigos fijos). Solo se
+ * reconocen estos códigos: cualquier otro valor se ignora y se usa `MESSAGES.unavailable`.
+ */
+export const COMPONENT_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
+  MODEL_UNAVAILABLE: "El modelo de interpretación (OpenAI) no respondió. Intenta de nuevo en unos minutos.",
+  SQLGEN_UNAVAILABLE: "El modelo de SQL (XiYanSQL) no está disponible en este momento.",
+  SQLGEN_TIMEOUT: "El modelo de SQL (XiYanSQL) tardó demasiado en responder.",
+  SQLEXEC_UNAVAILABLE: "La base de datos no está disponible en este momento.",
+  SQLEXEC_TIMEOUT: "La consulta a la base de datos tardó demasiado.",
+  USAGE_LIMIT: "Se alcanzó el límite de uso del asistente.",
+  COMPONENT_FAILURE: "Falló un componente interno del asistente.",
+});
+
+/** Primer código reconocido de `errores` (o `null`). */
+export function componentCode(errores: unknown): string | null {
+  if (!Array.isArray(errores)) return null;
+  const known = errores.find((code) => typeof code === "string" && Object.prototype.hasOwnProperty.call(COMPONENT_MESSAGES, code));
+  return typeof known === "string" ? known : null;
+}
 
 /** "1149.60" → "S/ 1,149.60" (mismo formato que el backend; negativos: "-S/ 1,149.60"). */
 export function formatPen(value: string): string {
@@ -58,6 +87,21 @@ export function formatPen(value: string): string {
 
 function formatPercent(value: string): string {
   return `${value} %`;
+}
+
+/** "1234" → "1,234"; con decimales distintos de cero, dos decimales ("12.50"). */
+export function formatCount(value: string): string {
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!match) throw new Error("Cantidad con formato inválido");
+  const [, sign, integer, decimals = ""] = match;
+  const grouped = integer.replace(/^0+(?=\d)/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const fraction = /[1-9]/.test(decimals) ? `.${(decimals + "00").slice(0, 2)}` : "";
+  return `${sign}${grouped}${fraction}`;
+}
+
+function formatFigure(valor: string, unidad: string): string {
+  if (unidad === "PEN") return formatPen(valor);
+  return unidad === "N" ? formatCount(valor) : formatPercent(valor);
 }
 
 function parseIsoDate(value: string): { year: number; month: number; day: number } {
@@ -87,14 +131,19 @@ export function toAssistantReply(response: QueryResponse): AssistantReply {
     const filas = detail.etiquetas.map(({ marcador, etiqueta }) => {
       const figure = byMarker.get(marcador);
       if (!figure) throw new Error("Etiqueta sin cifra verificada");
-      return { etiqueta, valor: figure.unidad === "PEN" ? formatPen(figure.valor) : formatPercent(figure.valor) };
+      return { etiqueta, valor: formatFigure(figure.valor, figure.unidad) };
     });
-    detalle = {
-      cuenta: detail.cuenta_nombre ? `${detail.cuenta_nombre} (cuenta ${detail.cuenta})` : `Cuenta ${detail.cuenta}`,
-      periodo: periodText(detail.periodo.desde, detail.periodo.hasta),
-      filas,
-      nota: detail.nota,
-    };
+    const periodo = detail.periodo ? periodText(detail.periodo.desde, detail.periodo.hasta) : "Sin período (estado actual)";
+    detalle = detail.tipo === "consulta"
+      ? { cuenta: detail.titulo ?? "Consulta", periodo, filas, nota: detail.nota, tipo: "consulta" }
+      : {
+          cuenta: detail.cuenta_nombre ? `${detail.cuenta_nombre} (cuenta ${detail.cuenta})` : `Cuenta ${detail.cuenta}`,
+          periodo,
+          filas,
+          nota: detail.nota,
+        };
   }
-  return { id_traza: response.id_traza, estado: response.estado, texto: response.texto, detalle };
+  const reply: AssistantReply = { id_traza: response.id_traza, estado: response.estado, texto: response.texto, detalle };
+  if (response.diagnostico) reply.diagnostico = response.diagnostico;
+  return reply;
 }
