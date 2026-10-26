@@ -28,6 +28,9 @@ import {
 } from "@/lib/ai-assistant/contract";
 import { IDENTITY_HEADER, signIdentity } from "@/lib/ai-assistant/identity";
 import { MESSAGES, toAssistantReply } from "@/lib/ai-assistant/presentation";
+import { askGemini, type GeminiConfig } from "@/lib/ai-assistant/gemini";
+import { askOpenAi, type OpenAiConfig } from "@/lib/ai-assistant/openai";
+import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId } from "@/lib/ai-assistant/models";
 
 export const MAX_BODY_BYTES = 16 * 1024;
 const TOKEN_HEADER = "X-Internal-Token";
@@ -38,6 +41,10 @@ export interface ProxyDeps {
   fetchFn: typeof fetch;
   now: () => Date;
   newTraceId: () => string;
+  /** Conexión opcional con Gemini (solo `GEMINI_API_KEY`). */
+  gemini?: GeminiConfig;
+  /** Conexión opcional con GPT Luna (solo `OPENAI_API_KEY`). */
+  openai?: OpenAiConfig;
 }
 
 export interface ProxyResult {
@@ -47,31 +54,54 @@ export interface ProxyResult {
 
 const error = (status: number, message: string): ProxyResult => ({ status, body: { error: message } });
 
-type Gate = { ok: true; session: SessionPayload; role: string; config: Extract<AssistantConfig, { enabled: true }> } | { ok: false; result: ProxyResult };
+type Gate = { ok: true; session: SessionPayload; role: string } | { ok: false; result: ProxyResult };
 
-async function gate(deps: ProxyDeps): Promise<Gate> {
-  if (!deps.config.enabled) return { ok: false, result: error(404, MESSAGES.disabled) };
+/** Modelos habilitados por la configuración del servidor (en el orden del selector). */
+function availableModels(deps: ProxyDeps): AssistantModelId[] {
+  return ASSISTANT_MODELS.filter((id) =>
+    id === "modelo-r" ? deps.config.enabled : id === "gpt-luna" ? deps.openai?.enabled === true : deps.gemini?.enabled === true,
+  );
+}
+
+/**
+ * `modelo`: el que se va a usar; `"cualquiera"` exige que haya uno disponible; `"estado"` solo valida
+ * sesión y rol (el globo se muestra aunque no haya modelos, con el aviso de que no hay disponibles).
+ */
+async function gate(deps: ProxyDeps, modelo: AssistantModelId | "cualquiera" | "estado"): Promise<Gate> {
+  const available =
+    modelo === "estado"
+      ? true
+      : modelo === "cualquiera"
+        ? availableModels(deps).length > 0
+        : availableModels(deps).includes(modelo);
+  if (!available) return { ok: false, result: error(404, MESSAGES.disabled) };
   const session = await deps.session().catch(() => null);
   if (!session) return { ok: false, result: error(401, MESSAGES.unauthorized) };
   const role = assistantRoleFor(session.role);
   if (!role) return { ok: false, result: error(403, MESSAGES.forbidden) };
   // Evaluación: solo las cuentas evaluadoras configuradas, aunque otros usuarios tengan el mismo rol.
-  const allowed = deps.config.allowedUserIds;
+  const allowed = deps.config.enabled ? deps.config.allowedUserIds : null;
   if (allowed !== null && !allowed.includes(session.userId)) return { ok: false, result: error(403, MESSAGES.forbidden) };
-  return { ok: true, session, role, config: deps.config };
+  return { ok: true, session, role };
 }
 
 /** GET: estado del asistente para el usuario actual (aplica los mismos controles que POST). */
 export async function handleStatus(deps: ProxyDeps): Promise<ProxyResult> {
-  const checked = await gate(deps);
+  const checked = await gate(deps, "estado");
   if (!checked.ok) return { status: checked.result.status, body: { enabled: false, ...checked.result.body } };
+  const rOn = deps.config.enabled;
+  const disponibles = availableModels(deps);
+  const modelos = disponibles.map((id) => MODEL_INFO[id]);
   return {
     status: 200,
     body: {
       enabled: true,
-      fakeData: !checked.config.realData,
+      fakeData: deps.config.enabled ? !deps.config.realData : false,
       usuario: checked.session.userId,
-      suggestions: DEMO_SUGGESTIONS,
+      suggestions: rOn ? DEMO_SUGGESTIONS : [],
+      modelos,
+      catalogo: ASSISTANT_MODELS.map((id) => ({ ...MODEL_INFO[id], disponible: disponibles.includes(id) })),
+      modeloPredeterminado: rOn ? DEFAULT_MODEL : (disponibles[0] ?? DEFAULT_MODEL),
     },
   };
 }
@@ -90,12 +120,13 @@ interface BrowserInput {
   mensaje: string;
   historial: string[];
   ruta: AuthorizedRoute | null;
+  modelo: AssistantModelId;
 }
 
 function parseBrowserInput(value: unknown): BrowserInput | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
-  if (!Object.keys(input).every((key) => ["mensaje", "historial", "ruta"].includes(key))) return null;
+  if (!Object.keys(input).every((key) => ["mensaje", "historial", "ruta", "modelo"].includes(key))) return null;
   const mensaje = typeof input.mensaje === "string" ? input.mensaje.trim() : "";
   if (!mensaje || mensaje.length > MAX_MESSAGE_CHARS) return null;
 
@@ -114,23 +145,45 @@ function parseBrowserInput(value: unknown): BrowserInput | null {
     if (typeof input.ruta !== "string" || input.ruta.length > 200) return null;
     ruta = (AUTHORIZED_ROUTES as readonly string[]).includes(input.ruta) ? (input.ruta as AuthorizedRoute) : null;
   }
-  return { mensaje, historial: historial.slice(-MAX_HISTORY_TURNS), ruta };
+  if (input.modelo !== undefined && !isModelId(input.modelo)) return null;
+  const modelo = input.modelo ?? DEFAULT_MODEL;
+  return { mensaje, historial: historial.slice(-MAX_HISTORY_TURNS), ruta, modelo };
 }
 
 /** POST: pregunta del usuario → `ai-service` → respuesta sencilla y validada. */
 export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<ProxyResult> {
-  const checked = await gate(deps);
-  if (!checked.ok) return checked.result;
-  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) return error(413, MESSAGES.invalid);
-
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawBody);
   } catch {
-    return error(400, MESSAGES.invalid);
+    parsed = undefined;
   }
+  // El modelo se lee antes de la puerta de acceso para saber cuál debe estar habilitado.
+  const requested = (parsed as { modelo?: unknown } | null | undefined)?.modelo;
+  const checked = await gate(deps, isModelId(requested) ? requested : DEFAULT_MODEL);
+  if (!checked.ok) return checked.result;
+  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) return error(413, MESSAGES.invalid);
+
   const input = parseBrowserInput(parsed);
   if (!input) return error(400, MESSAGES.invalid);
+
+  if (input.modelo === "gemini" || input.modelo === "gpt-luna") {
+    const result =
+      input.modelo === "gemini"
+        ? deps.gemini?.enabled === true
+          ? await askGemini(deps.gemini, input.historial, input.mensaje, deps.fetchFn)
+          : null
+        : deps.openai?.enabled === true
+          ? await askOpenAi(deps.openai, input.historial, input.mensaje, deps.fetchFn)
+          : null;
+    if (!result) return error(404, MESSAGES.disabled);
+    if (result.ok) {
+      return { status: 200, body: { id_traza: deps.newTraceId(), estado: "respondida", texto: result.texto, detalle: null } };
+    }
+    return result.reason === "timeout" ? error(504, MESSAGES.timeout) : error(503, MESSAGES.unavailable);
+  }
+  if (!deps.config.enabled) return error(404, MESSAGES.disabled);
+  const config = deps.config;
 
   const payload: QueryRequest = {
     id_traza: deps.newTraceId(),
@@ -141,11 +194,11 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
     fecha_referencia_lima: limaDate(deps.now()),
   };
 
-  const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: checked.config.token };
-  if (checked.config.identityKey) {
+  const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: config.token };
+  if (config.identityKey) {
     // P-9: identidad firmada a partir de la sesión del servidor; el navegador no interviene.
     headers[IDENTITY_HEADER] = await signIdentity(
-      checked.config.identityKey,
+      config.identityKey,
       { userId: checked.session.userId, rol: checked.role, traceId: payload.id_traza },
       deps.now(),
     );
@@ -153,13 +206,13 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   let response: Response;
   try {
-    response = await deps.fetchFn(`${checked.config.serviceUrl}/v1/queries`, {
+    response = await deps.fetchFn(`${config.serviceUrl}/v1/queries`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(checked.config.timeoutMs),
+      signal: AbortSignal.timeout(config.timeoutMs),
     });
   } catch (exc) {
     const name = exc instanceof Error ? exc.name : "";

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
+import { readGeminiConfig } from "@/lib/ai-assistant/gemini";
+import { readOpenAiConfig } from "@/lib/ai-assistant/openai";
 import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,8 @@ export const maxDuration = 60;
 function deps(): ProxyDeps {
   return {
     config: readAssistantConfig(),
+    gemini: readGeminiConfig(),
+    openai: readOpenAiConfig(),
     session: () => currentSession(),
     fetchFn: fetch,
     now: () => new Date(),
