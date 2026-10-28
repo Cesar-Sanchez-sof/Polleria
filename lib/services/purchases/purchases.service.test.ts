@@ -21,7 +21,7 @@ import {
   registerPurchaseWithoutVoucher,
   annulInformalPurchase,
 } from "./purchase-without-voucher";
-import { InformalPurchaseType, ExpenseCategory, AffectationIgv } from "@prisma/client";
+import { ProductType, InventoryMovementType, InformalPurchaseType, ExpenseCategory, AffectationIgv } from "@prisma/client";
 
 vi.mock("@/lib/services/accounting-posting.service", () => ({
   postPurchaseJournalEntries: vi.fn().mockResolvedValue([1, 2, 3, 4]),
