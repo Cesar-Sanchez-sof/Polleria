@@ -130,6 +130,8 @@ class GroqHttpClient:
             "max_tokens": MAX_OUTPUT_TOKENS,
             "response_format": {"type": "json_object"},
         }
+        if self._settings.model.startswith("openai/gpt-oss"):
+            body["reasoning_effort"] = "low"  # modelo con razonamiento: menos tokens y respuesta más rápida
         response = _post_with_retry(
             self._client,
             GROQ_URL,

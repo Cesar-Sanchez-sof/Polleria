@@ -9,7 +9,7 @@ Variables (del entorno o, si faltan, de ``ai-service/.env``; nunca ``DATABASE_UR
 - ``AI_GEMINI_SQL_TIMEOUT_S`` (1–40, por defecto 20): espera máxima a Gemini.
 
 Groq usa el mismo agente con sus propias variables: ``AI_GROQ_SQL=1``, ``GROQ_API_KEY``, ``GROQ_MODEL``
-(opcional, por defecto ``llama-3.3-70b-versatile``) y ``AI_GROQ_SQL_TIMEOUT_S``; comparte ``DATABASE_URL_READONLY``
+(opcional, por defecto ``openai/gpt-oss-120b``) y ``AI_GROQ_SQL_TIMEOUT_S``; comparte ``DATABASE_URL_READONLY``
 y ``AI_ASSISTANT_IDENTITY_KEY``.
 
 Ningún mensaje de error ni ``repr`` incluye valores de estas variables.
@@ -32,7 +32,7 @@ GROQ_KEY_VAR = "GROQ_API_KEY"
 GROQ_MODEL_VAR = "GROQ_MODEL"
 GROQ_TIMEOUT_VAR = "AI_GROQ_SQL_TIMEOUT_S"
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 DEFAULT_TIMEOUT_S = 20
 MAX_TIMEOUT_S = 40
 _KEY_RE = re.compile(r"^[A-Za-z0-9_-]{20,200}$")

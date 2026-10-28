@@ -1,4 +1,5 @@
-# Prepara y arranca ai-service con el agente "Gemini + ERP" (solo lectura) en desarrollo local.
+# Prepara y arranca ai-service con los agentes "Gemini + ERP" y "Groq + ERP" (solo lectura) en desarrollo local.
+# Cada agente se activa solo si su clave esta en ai-service/.env (GEMINI_API_KEY y/o GROQ_API_KEY).
 #
 # Uso (PowerShell, desde ai-service/):   .\scripts\start-gemini-agent.ps1
 #
@@ -7,7 +8,7 @@
 #    los .env (ignorados por git). No muestra ningun secreto.
 #  - Completa en el .env de la raiz las variables de Next.js que faltan. No pisa valores existentes.
 #  - Desactiva AI_ASSISTANT_EVAL_ENABLED en ese .env (el modo evaluacion solo funciona en Vercel).
-#  - Exige que ai-service/.env tenga GEMINI_API_KEY y DATABASE_URL_READONLY (los pones tu).
+#  - Exige que ai-service/.env tenga DATABASE_URL_READONLY y al menos una clave (GEMINI_API_KEY o GROQ_API_KEY).
 #  - Arranca ai-service en 127.0.0.1:8001.
 # Texto solo ASCII: Windows PowerShell 5.1 lee los .ps1 sin BOM como ANSI.
 
@@ -65,7 +66,6 @@ if ($audit -notmatch "^[0-9a-fA-F]{64,}$") { $audit = New-Secret }
 # 2) .env de la raiz (Next.js)
 if (-not (Test-Path $rootEnv)) { [System.IO.File]::WriteAllLines($rootEnv, @(), $utf8) }
 Set-EnvValue $rootEnv "AI_ASSISTANT_DEMO" "1"
-Set-EnvValue $rootEnv "AI_GEMINI_SQL" "1"
 Set-EnvValue $rootEnv "AI_SERVICE_URL" "http://127.0.0.1:8001"
 Set-EnvValue $rootEnv "AI_SERVICE_INTERNAL_TOKEN" $token
 Set-EnvValue $rootEnv "AI_ASSISTANT_IDENTITY_KEY" $identity
@@ -79,10 +79,18 @@ if (-not (Test-Path $serviceEnv)) { [System.IO.File]::WriteAllLines($serviceEnv,
 Set-EnvValue $serviceEnv "AI_ASSISTANT_IDENTITY_KEY" $identity
 Set-EnvValue $serviceEnv "AI_ASSISTANT_AUDIT_HMAC_KEY" $audit
 Set-EnvValue $serviceEnv "GEMINI_API_KEY" "" -OnlyIfEmpty
+Set-EnvValue $serviceEnv "GROQ_API_KEY" "" -OnlyIfEmpty
 Set-EnvValue $serviceEnv "DATABASE_URL_READONLY" "" -OnlyIfEmpty
 
+$geminiOn = (Get-EnvValue $serviceEnv "GEMINI_API_KEY") -ne ""
+$groqOn = (Get-EnvValue $serviceEnv "GROQ_API_KEY") -ne ""
+$geminiFlag = if ($geminiOn) { "1" } else { "" }
+$groqFlag = if ($groqOn) { "1" } else { "" }
+Set-EnvValue $rootEnv "AI_GEMINI_SQL" $geminiFlag
+Set-EnvValue $rootEnv "AI_GROQ_SQL" $groqFlag
+
 $missing = @()
-if ((Get-EnvValue $serviceEnv "GEMINI_API_KEY") -eq "") { $missing += "GEMINI_API_KEY" }
+if (-not $geminiOn -and -not $groqOn) { $missing += "GEMINI_API_KEY o GROQ_API_KEY (al menos una)" }
 if ((Get-EnvValue $serviceEnv "DATABASE_URL_READONLY") -eq "") { $missing += "DATABASE_URL_READONLY" }
 if ($missing.Count -gt 0) {
     Write-Host ""
@@ -96,8 +104,10 @@ if ($missing.Count -gt 0) {
 $env:AI_SERVICE_ENV = "development"
 $env:AI_SERVICE_INTERNAL_TOKEN = $token
 $env:AI_ASSISTANT_AUDIT_HMAC_KEY = $audit
-$env:AI_GEMINI_SQL = "1"
+$env:AI_GEMINI_SQL = $geminiFlag
+$env:AI_GROQ_SQL = $groqFlag
 $env:PYTHONPATH = "src"
+Write-Host ("Agentes activos: " + $(if ($geminiOn) { "Gemini " } else { "" }) + $(if ($groqOn) { "Groq" } else { "" }))
 Write-Host "Arrancando ai-service en http://127.0.0.1:8001 (Ctrl+C para detener)..."
 Write-Host "Reinicia tambien 'npm run dev' para que Next.js lea el .env actualizado."
 Set-Location $serviceDir

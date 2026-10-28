@@ -327,7 +327,7 @@ class ClientTests(GuardedTestCase):
 class GroqTests(GuardedTestCase):
     KEY = "gsk_" + "x" * 48
     DSN = "postgresql://ai_readonly:clave_ficticia@db-ficticia.invalid:5432/ficticia"
-    SETTINGS = GroqSqlSettings(api_key=KEY, readonly_dsn="postgresql://x", model="llama-3.3-70b-versatile", timeout_s=5)
+    SETTINGS = GroqSqlSettings(api_key=KEY, readonly_dsn="postgresql://x", model="openai/gpt-oss-120b", timeout_s=5)
 
     def client(self, handler) -> GroqHttpClient:
         return GroqHttpClient(self.SETTINGS, transport=httpx.MockTransport(handler))
@@ -348,8 +348,9 @@ class GroqTests(GuardedTestCase):
         body = seen["body"]
         self.assertNotIn(self.KEY, json.dumps(body))
         self.assertEqual(
-            (body["model"], body["temperature"], body["response_format"]), ("llama-3.3-70b-versatile", 0, {"type": "json_object"})
+            (body["model"], body["temperature"], body["response_format"]), ("openai/gpt-oss-120b", 0, {"type": "json_object"})
         )
+        self.assertEqual(body["reasoning_effort"], "low")
         self.assertEqual([m["role"] for m in body["messages"]], ["system", "user"])
 
     def test_errors_are_classified_without_messages(self) -> None:
@@ -387,8 +388,9 @@ class GroqTests(GuardedTestCase):
     def test_disabled_by_default_and_valid_configuration_hides_secrets(self) -> None:
         self.assertIsNone(load_groq_sql_settings({}, {}, identity_key_configured=True))
         self.assertIsNone(load_groq_sql_settings({"GROQ_API_KEY": self.KEY}, {}, identity_key_configured=True))
-        settings = load_groq_sql_settings(self.env(GROQ_MODEL="openai/gpt-oss-120b"), {}, identity_key_configured=True)
-        self.assertEqual(settings.model, "openai/gpt-oss-120b")
+        self.assertEqual(load_groq_sql_settings(self.env(), {}, identity_key_configured=True).model, "openai/gpt-oss-120b")
+        settings = load_groq_sql_settings(self.env(GROQ_MODEL="qwen/qwen3.8-27b"), {}, identity_key_configured=True)
+        self.assertEqual(settings.model, "qwen/qwen3.8-27b")
         for secret in (self.KEY, "clave_ficticia", "db-ficticia"):
             self.assertNotIn(secret, repr(settings))
 
