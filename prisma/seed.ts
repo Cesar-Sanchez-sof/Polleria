@@ -211,6 +211,29 @@ async function main() {
   });
   console.log("✔ Configuración de impresoras térmicas registrada.");
 
+  // 3.3 CONFIGURACIÓN DE IDENTIDAD DEL RESTAURANTE Y YAPE
+  await prisma.restaurantConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      name: "POLLERÍA & BRASAS EL BUEN SABOR S.A.C.",
+      commercialName: "El Buen Sabor a la Brasa",
+      ruc: "20608976543",
+      address: "Av. Los Héroes 456, San Juan de Miraflores",
+      city: "Lima, Perú",
+      phone: "+51 987 654 321",
+      email: "contacto@elbuensabor.pe",
+      ticketFooter: "¡Gracias por su visita! Pollería & Brasas les desea un excelente día. Para comprobante electrónico visite www.elbuensabor.pe",
+      currency: "S/ PEN",
+      logoUrl: "",
+      yapePhone: "954316272",
+      yapeName: "El Buen Sabor a la Brasa",
+      yapeQrImageUrl: "/storage/comprobantes/restaurant/yape-qr.png",
+    },
+  });
+  console.log("✔ Identidad del restaurante y configuración de Yape registradas en PostgreSQL.");
+
   // 4. CARTA DE PRODUCTOS DE LA POLLERÍA (productos terminados que se venden)
   const productsData = [
     {

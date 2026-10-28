@@ -5,6 +5,7 @@ import {
   type RestaurantInfo,
 } from "@/lib/services/restaurant-config.service";
 import { authorize } from "@/lib/auth/permissions";
+import { requestIp } from "@/lib/services/audit.service";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET() {
   const auth = await authorize(["configuracion.ver", "ventas.ver", "pedidos.ver"]);
   if (!auth.ok) return auth.response;
   try {
-    const restaurant = getRestaurantInfo();
+    const restaurant = await getRestaurantInfo();
     return NextResponse.json({ data: restaurant });
   } catch (error: any) {
     return NextResponse.json(
@@ -38,7 +39,10 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updated = updateRestaurantInfo(body);
+    const actor = auth.session ? { userId: auth.session.userId, username: auth.session.username } : null;
+    const ip = requestIp(request);
+    const updated = await updateRestaurantInfo(body, { actor, ipAddress: ip });
+
     return NextResponse.json({
       message: "Datos del restaurante actualizados correctamente.",
       data: updated,
