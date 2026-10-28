@@ -2,7 +2,7 @@ import { Prisma, type AuditAction } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /** Módulos del sistema que generan registros de auditoría. */
-export const AUDIT_MODULES = ["Seguridad", "Usuarios", "Contabilidad", "Compras", "Ventas", "Caja"] as const;
+export const AUDIT_MODULES = ["Seguridad", "Usuarios", "Empleados", "Horarios", "Contabilidad", "Compras", "Ventas", "Caja"] as const;
 
 export const AUDIT_ACTIONS: AuditAction[] = [
   "CREATE",
