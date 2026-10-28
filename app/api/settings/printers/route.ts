@@ -5,6 +5,7 @@ import {
   type PrinterConfig,
 } from "@/lib/services/restaurant-config.service";
 import { authorize } from "@/lib/auth/permissions";
+import { isValidVoucherSeries } from "@/lib/utils/series-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -31,15 +32,31 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Datos de entrada inválidos." }, { status: 400 });
     }
 
+    if (body.series) {
+      if (body.series.boleta !== undefined && !isValidVoucherSeries(body.series.boleta, "Boleta")) {
+        return NextResponse.json(
+          { error: `Serie de boleta inválida "${body.series.boleta}". Debe cumplir con el formato B### (ej. B001, B002).` },
+          { status: 400 }
+        );
+      }
+      if (body.series.factura !== undefined && !isValidVoucherSeries(body.series.factura, "Factura")) {
+        return NextResponse.json(
+          { error: `Serie de factura inválida "${body.series.factura}". Debe cumplir con el formato F### (ej. F001, F002).` },
+          { status: 400 }
+        );
+      }
+    }
+
     const updated = await updatePrinterConfig(body);
     return NextResponse.json({
       message: "Configuración de impresión y comprobantes actualizada.",
       data: updated,
     });
   } catch (error: any) {
+    const isValidationError = error?.message?.includes("Serie de");
     return NextResponse.json(
       { error: error?.message || "Error al actualizar la configuración de impresión." },
-      { status: 500 }
+      { status: isValidationError ? 400 : 500 }
     );
   }
 }

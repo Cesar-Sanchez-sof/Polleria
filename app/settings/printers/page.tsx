@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { PrinterConfig } from "@/lib/services/restaurant-config.service";
+import { isValidVoucherSeries } from "@/lib/utils/series-validation";
 
 export default function RestaurantPrintersSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,9 @@ export default function RestaurantPrintersSettingsPage() {
     },
   });
 
+  const isBoletaInvalid = Boolean(config.series.boleta) && !isValidVoucherSeries(config.series.boleta, "Boleta");
+  const isFacturaInvalid = Boolean(config.series.factura) && !isValidVoucherSeries(config.series.factura, "Factura");
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -86,6 +90,14 @@ export default function RestaurantPrintersSettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidVoucherSeries(config.series.boleta, "Boleta")) {
+      toast.error(`Serie de boleta inválida "${config.series.boleta}". Debe cumplir con el formato B### (ej. B001, B002).`);
+      return;
+    }
+    if (!isValidVoucherSeries(config.series.factura, "Factura")) {
+      toast.error(`Serie de factura inválida "${config.series.factura}". Debe cumplir con el formato F### (ej. F001, F002).`);
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/settings/printers", {
@@ -94,7 +106,10 @@ export default function RestaurantPrintersSettingsPage() {
         body: JSON.stringify(config),
       });
 
-      if (!res.ok) throw new Error("Error al guardar la configuración de impresoras.");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Error al guardar la configuración de impresoras.");
+      }
       toast.success("¡Configuración de comprobantes e impresoras actualizada!");
     } catch (err: any) {
       toast.error(err.message || "No se pudo guardar la configuración.");
@@ -162,9 +177,17 @@ export default function RestaurantPrintersSettingsPage() {
                     series: { ...prev.series, boleta: e.target.value.toUpperCase() },
                   }))
                 }
-                className="text-xs h-9 rounded-xl font-mono font-bold"
+                className={`text-xs h-9 rounded-xl font-mono font-bold ${
+                  isBoletaInvalid ? "border-red-500 focus-visible:ring-red-500 text-red-600 bg-red-50/50 dark:bg-red-950/20" : ""
+                }`}
               />
-              <span className="text-[10px] text-muted-foreground block mt-1">Estándar SUNAT: B001 - B999</span>
+              {isBoletaInvalid ? (
+                <span className="text-[10px] text-red-500 font-semibold block mt-1">
+                  Formato inválido. Debe ser B### (ej. B001, B002).
+                </span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground block mt-1">Estándar SUNAT: B001 - B999</span>
+              )}
             </div>
 
             <div>
@@ -182,9 +205,17 @@ export default function RestaurantPrintersSettingsPage() {
                     series: { ...prev.series, factura: e.target.value.toUpperCase() },
                   }))
                 }
-                className="text-xs h-9 rounded-xl font-mono font-bold"
+                className={`text-xs h-9 rounded-xl font-mono font-bold ${
+                  isFacturaInvalid ? "border-red-500 focus-visible:ring-red-500 text-red-600 bg-red-50/50 dark:bg-red-950/20" : ""
+                }`}
               />
-              <span className="text-[10px] text-muted-foreground block mt-1">Estándar SUNAT: F001 - F999</span>
+              {isFacturaInvalid ? (
+                <span className="text-[10px] text-red-500 font-semibold block mt-1">
+                  Formato inválido. Debe ser F### (ej. F001, F002).
+                </span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground block mt-1">Estándar SUNAT: F001 - F999</span>
+              )}
             </div>
 
             <div>

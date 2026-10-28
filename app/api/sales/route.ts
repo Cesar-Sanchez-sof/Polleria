@@ -6,6 +6,8 @@ import { uploadVoucherToS3, uploadPaymentProofToS3, buildVoucherS3Key, getS3Conf
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
 import { formatDateToIso } from "@/lib/dates";
+import { getPrinterConfig } from "@/lib/services/restaurant-config.service";
+import { isValidVoucherSeries, formatVoucherCode } from "@/lib/utils/series-validation";
 
 export const dynamic = "force-dynamic";
 /**
@@ -39,6 +41,8 @@ interface RegisterSaleInput {
   payments?: SplitPaymentInput[];
   voucherType?: "Boleta" | "Factura";
   voucher_type?: "Boleta" | "Factura";
+  series?: string;
+  serie?: string;
   customer?: {
     documentNumber?: string;
     document_number?: string;
@@ -207,14 +211,33 @@ export async function POST(request: NextRequest) {
       customerId = newCustomer.id;
     }
 
-    const docType = voucherType === "Factura" ? "Factura" : voucherType === "Boleta" ? "Boleta" : "Boleta";
-    const series = docType === "Factura" ? "F001" : "B001";
+    const docType = voucherType === "Factura" ? "Factura" : "Boleta";
+
+    // Obtener serie configurada dinámicamente desde la configuración de comprobantes / impresoras
+    const printerConfig = await getPrinterConfig();
+    const configuredSeries = docType === "Factura"
+      ? (printerConfig?.series?.factura || "")
+      : (printerConfig?.series?.boleta || "");
+
+    const requestedSeries = (body.series ?? body.serie)?.trim().toUpperCase();
+    const series = requestedSeries || configuredSeries;
+
+    // Validar que la serie cumpla el estándar SUNAT (B### para boleta, F### para factura)
+    if (!isValidVoucherSeries(series, docType)) {
+      return Response.json(
+        {
+          error: `Serie inválida "${series}" para ${docType}. Debe cumplir con el formato ${docType === "Factura" ? "F###" : "B###"} autorizado por SUNAT.`
+        },
+        { status: 400 }
+      );
+    }
 
     const lastVoucher = await prisma.salesInvoice.findFirst({
       where: { voucherType: docType, series },
       orderBy: { number: "desc" }
     });
     const sequentialNumber = (lastVoucher?.number ?? 0) + 1;
+    const fullCode = formatVoucherCode(series, sequentialNumber);
 
     // Detectar si hay sesión de caja activa
     let currentSessionId = body.cashSessionId ?? body.cash_session_id;
@@ -373,7 +396,7 @@ export async function POST(request: NextRequest) {
       try {
         journalEntryIds = await postSaleJournalEntries(tx, {
           salesInvoiceId: invoice.id,
-          voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
+          voucherCode: fullCode,
           entryDate: now,
           subtotal: taxableSubtotal,
           igv: calculatedIgv,
@@ -455,7 +478,7 @@ export async function POST(request: NextRequest) {
       broadcastRealtimeEvent("PAYMENT_RECEIVED", {
         orderId: order.id,
         orderCode: order.code,
-        voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
+        voucherCode: fullCode,
         total: roundedTotal,
         paymentMethod: paymentMethodName,
         origin: associatedTable ? `Mesa ${associatedTable.number}` : "Llevar",
@@ -479,7 +502,7 @@ export async function POST(request: NextRequest) {
           voucherType: docType,
           series,
           number: sequentialNumber,
-          fullCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
+          fullCode,
           s3Url: finalS3Url,
           yapeProofUrl: yapeProofUrl || (finalS3Url.includes("yape-vouchers") ? finalS3Url : null),
           issuedAt: safeIssuedAt,
@@ -604,7 +627,7 @@ export async function GET(request: NextRequest) {
         voucherType: c.voucherType as "Boleta" | "Factura" | "Ticket",
         series: c.series,
         number: c.number,
-        fullCode: `${c.series}-${String(c.number).padStart(6, "0")}`,
+        fullCode: formatVoucherCode(c.series, c.number),
         s3Url:
           c.s3Url ||
           `/storage/comprobantes/${buildVoucherS3Key({
