@@ -126,7 +126,7 @@ function parseDetail(value: unknown): Detail | null | undefined {
   };
 }
 
-/** Tabla de resultados del agente Gemini: solo texto, tamaño acotado y filas rectangulares. */
+/** Tabla de resultados de los agentes (Gemini/Groq): solo texto, tamaño acotado y filas rectangulares. */
 export interface AgentTable {
   columnas: string[];
   filas: (string | null)[][];

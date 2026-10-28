@@ -18,7 +18,7 @@ export type ChatMessage =
       texto: string;
       estado: ResponseState | "error";
       detalle: ReplyDetail | null;
-      /** Solo el agente Gemini + ERP: resultado en tabla y consulta de solo lectura ejecutada. */
+      /** Solo los agentes (Gemini/Groq + ERP): resultado en tabla y consulta de solo lectura ejecutada. */
       tabla?: AgentTable | null;
       sql?: string | null;
     };

@@ -275,6 +275,8 @@ export default function AssistantWidget() {
   const models = status.modelos ?? [];
   const noModels = models.length === 0;
   const current = MODEL_INFO[model];
+  const isAgent = model === "gemini-erp" || model === "groq-erp"; // agentes de solo lectura sobre el ERP
+  const agentName = current.nombre.replace(" + ERP", "");
 
   return (
     <div className={cn("pointer-events-none fixed inset-0 z-50 flex items-end justify-end", expanded ? "p-0" : "p-3 sm:p-5")}>
@@ -297,8 +299,8 @@ export default function AssistantWidget() {
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-sm font-semibold leading-tight">Asistente financiero</h2>
               <p className="truncate text-[11px] text-muted-foreground">Consultas de saldos de cuentas</p>
-              {noModels ? null : model === "gemini-erp" ? (
-                <Badge variant="outline" className="mt-1 border-sky-500/50 text-sky-700 dark:text-sky-400" title="Gemini solo ve la estructura de las tablas; la base se consulta con un rol de solo lectura">
+              {noModels ? null : isAgent ? (
+                <Badge variant="outline" className="mt-1 border-sky-500/50 text-sky-700 dark:text-sky-400" title={`${agentName} solo ve la estructura de las tablas; la base se consulta con un rol de solo lectura`}>
                   Datos del ERP · solo lectura
                 </Badge>
               ) : model !== "modelo-r" ? (
@@ -358,8 +360,8 @@ export default function AssistantWidget() {
                 <div className="rounded-lg bg-muted/60 p-3 text-sm leading-relaxed">
                   {noModels
                     ? NO_MODELS_MESSAGE
-                    : model === "gemini-erp"
-                    ? "Hola. Soy Gemini. Puedo consultar los datos contables del ERP en modo solo lectura (nunca modifico nada) y te muestro el resultado en una tabla. Escribe tu pregunta, por ejemplo: «ventas por cuenta de septiembre»."
+                    : isAgent
+                    ? `Hola. Soy ${agentName}. Puedo consultar los datos contables del ERP en modo solo lectura (nunca modifico nada) y te muestro el resultado en una tabla. Escribe tu pregunta, por ejemplo: «ventas por cuenta de septiembre».`
                     : model !== "modelo-r"
                     ? `Hola. Soy ${current.nombre}. Puedo ayudarte con dudas generales de contabilidad y gestión; no veo los datos del ERP. Escribe tu pregunta.`
                     : "Hola. Puedo decirte cómo se movieron tus cuentas en un mes. Escribe tu pregunta o elige una de estas:"}

@@ -8,10 +8,10 @@
  *   lo valida y ejecuta `ai-service` con el rol `ai_readonly`. Las filas no vuelven a Gemini.
  * - `gpt-luna`: GPT Luna de OpenAI, conectado solo con `OPENAI_API_KEY`. Conversación general;
  *   no consulta datos del ERP.
- * - `gemini`: Gemini Flash 3.5 de Google, conectado solo con `GEMINI_API_KEY`. Conversación general;
- *   no consulta datos del ERP.
+ * - `groq-erp`: mismo agente de solo lectura que `gemini-erp`, pero con Groq como proponente del SELECT
+ *   (`POST /v1/agent/groq/queries`). Igual que Gemini, solo ve el esquema permitido, nunca los datos.
  */
-export const ASSISTANT_MODELS = ["modelo-r", "gemini-erp", "gpt-luna", "gemini"] as const;
+export const ASSISTANT_MODELS = ["modelo-r", "gemini-erp", "gpt-luna", "groq-erp"] as const;
 export type AssistantModelId = (typeof ASSISTANT_MODELS)[number];
 
 export const DEFAULT_MODEL: AssistantModelId = "modelo-r";
@@ -42,11 +42,11 @@ export const MODEL_INFO: Readonly<Record<AssistantModelId, ModelInfo>> = {
     version: "gpt-6-luna",
     descripcion: "Conversación general (sin datos del ERP)",
   },
-  gemini: {
-    id: "gemini",
-    nombre: "Gemini",
-    version: "Flash 3.5",
-    descripcion: "Conversación general (sin datos del ERP)",
+  "groq-erp": {
+    id: "groq-erp",
+    nombre: "Groq + ERP",
+    version: "solo lectura",
+    descripcion: "Consulta datos del ERP con SELECT de solo lectura",
   },
 };
 

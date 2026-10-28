@@ -29,14 +29,16 @@ import {
 } from "@/lib/ai-assistant/contract";
 import { IDENTITY_HEADER, signIdentity } from "@/lib/ai-assistant/identity";
 import { MESSAGES, toAssistantReply } from "@/lib/ai-assistant/presentation";
-import { askGemini, type GeminiConfig } from "@/lib/ai-assistant/gemini";
 import { askOpenAi, type OpenAiConfig } from "@/lib/ai-assistant/openai";
 import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId } from "@/lib/ai-assistant/models";
 
 export const MAX_BODY_BYTES = 16 * 1024;
 const TOKEN_HEADER = "X-Internal-Token";
 const QUERY_PATH = "/v1/queries";
-const AGENT_PATH = "/v1/agent/queries";
+/** Agentes de solo lectura: cada uno propone el SELECT con su proveedor (Gemini o Groq). */
+const AGENT_PATHS = { "gemini-erp": "/v1/agent/queries", "groq-erp": "/v1/agent/groq/queries" } as const;
+type AgentModelId = keyof typeof AGENT_PATHS;
+const isAgentModel = (id: AssistantModelId): id is AgentModelId => id in AGENT_PATHS;
 
 export interface ProxyDeps {
   config: AssistantConfig;
@@ -44,12 +46,12 @@ export interface ProxyDeps {
   fetchFn: typeof fetch;
   now: () => Date;
   newTraceId: () => string;
-  /** Conexión opcional con Gemini (solo `GEMINI_API_KEY`). */
-  gemini?: GeminiConfig;
   /** Conexión opcional con GPT Luna (solo `OPENAI_API_KEY`). */
   openai?: OpenAiConfig;
   /** Agente Gemini + ERP (`AI_GEMINI_SQL=1`): exige `ai-service` con identidad firmada (P-9). */
   geminiErp?: boolean;
+  /** Agente Groq + ERP (`AI_GROQ_SQL=1`): mismos requisitos que Gemini + ERP. */
+  groqErp?: boolean;
   /** Modelo R disponible; por defecto sí. Con `AI_GEMINI_SQL=1` solo si se pide con `AI_MODEL_R=1`. */
   modelR?: boolean;
 }
@@ -68,7 +70,8 @@ function availableModels(deps: ProxyDeps): AssistantModelId[] {
   return ASSISTANT_MODELS.filter((id) => {
     if (id === "modelo-r") return deps.config.enabled && deps.modelR !== false;
     if (id === "gemini-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.geminiErp === true;
-    return id === "gpt-luna" ? deps.openai?.enabled === true : deps.gemini?.enabled === true;
+    if (id === "groq-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.groqErp === true;
+    return deps.openai?.enabled === true;
   });
 }
 
@@ -176,15 +179,9 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   const input = parseBrowserInput(parsed);
   if (!input) return error(400, MESSAGES.invalid);
 
-  if (input.modelo === "gemini" || input.modelo === "gpt-luna") {
+  if (input.modelo === "gpt-luna") {
     const result =
-      input.modelo === "gemini"
-        ? deps.gemini?.enabled === true
-          ? await askGemini(deps.gemini, input.historial, input.mensaje, deps.fetchFn)
-          : null
-        : deps.openai?.enabled === true
-          ? await askOpenAi(deps.openai, input.historial, input.mensaje, deps.fetchFn)
-          : null;
+      deps.openai?.enabled === true ? await askOpenAi(deps.openai, input.historial, input.mensaje, deps.fetchFn) : null;
     if (!result) return error(404, MESSAGES.disabled);
     if (result.ok) {
       return { status: 200, body: { id_traza: deps.newTraceId(), estado: "respondida", texto: result.texto, detalle: null } };
@@ -193,8 +190,9 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   }
   if (!deps.config.enabled) return error(404, MESSAGES.disabled);
   const config = deps.config;
-  const useAgent = input.modelo === "gemini-erp";
-  if (useAgent && !availableModels(deps).includes("gemini-erp")) return error(404, MESSAGES.disabled);
+  const agentModel = isAgentModel(input.modelo) ? input.modelo : null;
+  const useAgent = agentModel !== null;
+  if (agentModel && !availableModels(deps).includes(agentModel)) return error(404, MESSAGES.disabled);
 
   const payload: QueryRequest = {
     id_traza: deps.newTraceId(),
@@ -217,7 +215,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   let response: Response;
   try {
-    response = await deps.fetchFn(`${config.serviceUrl}${useAgent ? AGENT_PATH : QUERY_PATH}`, {
+    response = await deps.fetchFn(`${config.serviceUrl}${agentModel ? AGENT_PATHS[agentModel] : QUERY_PATH}`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
