@@ -35,7 +35,18 @@ from ai_service.http.schemas import (
 
 Intent = Literal["consulta_financiera", "seguimiento", "escritura", "fuera_de_dominio"]
 MARKER_IN_TEXT = re.compile(r"\{\{([^{}]*)\}\}")
-MARKER_ID = re.compile(r"^c[0-9]{1,3}$")
+MARKER_ID = re.compile(r"^[ce][0-9]{1,3}$")  # cN: cifra verificada; eN: texto de fila insertado por el backend
+TextMarkerId = Annotated[str, Field(pattern=r"^[ce][0-9]{1,3}$")]
+FamilyId = Annotated[str, Field(pattern=r"^[a-z][a-z_]{2,59}$")]
+# Textos del backend para el Modelo 1: sin dígitos, llaves ni datos de filas.
+PlainLabel = Annotated[str, Field(min_length=1, max_length=90, pattern=r"^[^\d{}]+$")]
+
+
+class Meaning(StrictModel):
+    """Significado genérico de un marcador (p. ej. "importe del plato con más ingresos"), nunca su valor."""
+
+    marcador: TextMarkerId
+    significado: PlainLabel
 
 
 # --------------------------------------------------------------------------- entradas
@@ -57,6 +68,9 @@ class ExplainInput(StrictModel):
     marcadores: Annotated[list[MarkerId], Field(max_length=20)] = Field(default_factory=list)
     # Nombre visible de la cuenta tomado de un catálogo del servidor (metadato, nunca una cifra).
     cuenta_nombre: Annotated[str, Field(min_length=1, max_length=60, pattern=r"^[^\d{}]+$")] | None = None
+    # P1 (familias): título de la consulta y significado de cada marcador, escritos por el backend.
+    consulta: PlainLabel | None = None
+    significados: Annotated[list[Meaning], Field(max_length=20)] = Field(default_factory=list)
 
 
 class LlmRequest(StrictModel):
@@ -72,10 +86,74 @@ class LlmRequest(StrictModel):
 # --------------------------------------------------------------------------- salidas
 
 
+Ident = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,59}$")]
+FREE_INTENTS = ("aggregate", "list", "ranking", "comparison", "timeseries", "detail")
+FREE_OPERATORS = ("eq", "neq", "gt", "gte", "lt", "lte", "contains")
+
+
+class FreeFilter(StrictModel):
+    field: Ident
+    operator: Literal["eq", "neq", "gt", "gte", "lt", "lte", "contains"]
+    value: Annotated[str, Field(min_length=1, max_length=80)]
+
+    @field_validator("value")
+    @classmethod
+    def _no_sensitive(cls, value: str) -> str:
+        from ai_service.audit.masking import contains_sensitive
+
+        if contains_sensitive(value) or "{" in value or "}" in value:
+            raise ValueError("Valor de filtro no admitido.")
+        return value
+
+
+class FreeOrder(StrictModel):
+    field: Ident
+    direction: Literal["asc", "desc"]
+
+
+class FreeQuery(StrictModel):
+    """Ruta ampliada: lo que el Modelo 1 entendió de una pregunta sin familia entrenada, con la forma
+    del contrato 1.0 (``intent``, ``metrics``, ``filters``…). El backend la revalida, elige las tablas
+    con el RAG local y fija el período; nunca es SQL."""
+
+    modulo: Ident
+    tablas: Annotated[list[Ident], Field(max_length=6)] = Field(default_factory=list)
+    intent: Literal["aggregate", "list", "ranking", "comparison", "timeseries", "detail"]
+    subject: Ident
+    metrics: Annotated[list[Ident], Field(max_length=6)] = Field(default_factory=list)
+    dimensions: Annotated[list[Ident], Field(max_length=6)] = Field(default_factory=list)
+    group_by: Annotated[list[Ident], Field(max_length=6)] = Field(default_factory=list)
+    filters: Annotated[list[FreeFilter], Field(max_length=6)] = Field(default_factory=list)
+    conditions: Annotated[list[Ident], Field(max_length=6)] = Field(default_factory=list)
+    order_by: Annotated[list[FreeOrder], Field(max_length=4)] = Field(default_factory=list)
+    limit: Annotated[int, Field(ge=1, le=50)] | None = None
+    usa_periodo: bool = False
+    concepto_tiempo: Ident | None = None
+    busqueda: Annotated[str, Field(max_length=200)] = ""
+    # Qué calcular, en inglés y sin ambigüedad (tabla principal, filtros con valores exactos, lo que NO
+    # se filtra). Se entrega a XiYanSQL como evidencia: sus ejemplos de entrenamiento traían evidencia
+    # en inglés y la ruta ampliada no tiene una solicitud entrenada que la sustituya.
+    pregunta_en: Annotated[str, Field(max_length=300)] = ""
+
+    @field_validator("pregunta_en", "busqueda")
+    @classmethod
+    def _plain_text(cls, value: str) -> str:
+        from ai_service.audit.masking import contains_sensitive
+
+        if contains_sensitive(value) or any(m in value for m in ("{", "}", "〖", "<|")):
+            return ""  # nunca datos sensibles ni marcadores especiales hacia el Modelo 2
+        return value
+
+
 class Entities(StrictModel):
     cuenta: AccountCode | None = None
     periodo: Period | None = None
     indicador: Annotated[str, Field(min_length=1, max_length=50)] | None = None
+    consulta: FamilyId | None = None  # familia de consulta entrenada (lista cerrada; P1)
+    concepto: FamilyId | None = None  # magnitud contable (ventas facturadas, cobros, compras…; lista cerrada)
+    consulta_libre: FreeQuery | None = None  # ruta ampliada (sin familia entrenada)
+    restringido: bool = False  # pide datos restringidos (usuarios, contraseñas, datos personales, sueldos…)
+    historico: bool = False  # sin fechas en la pregunta y abarca todo el historial ("en total", rankings generales)
 
 
 class InterpretOutput(StrictModel):

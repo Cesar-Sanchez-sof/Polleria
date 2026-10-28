@@ -14,23 +14,30 @@
  * - P-9: con `AI_ASSISTANT_IDENTITY_KEY`, cada solicitud lleva una aserción HS256 firmada con la
  *   identidad de `sesionActual()` y el rol derivado en el servidor (`X-ERP-Identity`).
  * - Respuestas validadas contra el contrato; al navegador solo llega `AssistantReply`.
- * - Errores con mensajes sencillos, sin detalles internos.
+ * - Errores con mensajes sencillos, sin detalles internos, pero identificables: un `503` de
+ *   `ai-service` dice qué componente falló (`codigo` de una lista cerrada) y un `401` de `ai-service`
+ *   (credencial interna o identidad rechazadas) se informa como error de configuración.
+ * - Modo diagnóstico (`config.diagnostics`): pide la traza técnica (`X-ERP-Diagnostics: 1`) y la
+ *   reenvía validada; sin ese modo, una traza recibida se descarta.
  */
 import type { SessionPayload } from "@/lib/auth/session";
-import { assistantRoleFor, DEMO_SUGGESTIONS, type AssistantConfig } from "@/lib/ai-assistant/config";
+import { assistantRoleFor, DEMO_SUGGESTIONS, REAL_DATA_SUGGESTIONS, type AssistantConfig } from "@/lib/ai-assistant/config";
 import {
   AUTHORIZED_ROUTES,
   MAX_HISTORY_TURNS,
   MAX_MESSAGE_CHARS,
+  parseDiagnostic,
   parseQueryResponse,
   type AuthorizedRoute,
   type QueryRequest,
 } from "@/lib/ai-assistant/contract";
 import { IDENTITY_HEADER, signIdentity } from "@/lib/ai-assistant/identity";
-import { MESSAGES, toAssistantReply } from "@/lib/ai-assistant/presentation";
+import { allowedModules, type ModuleAccess } from "@/lib/ai-assistant/modules";
+import { COMPONENT_MESSAGES, componentCode, MESSAGES, SERVICE_AUTH_CODE, toAssistantReply } from "@/lib/ai-assistant/presentation";
 
 export const MAX_BODY_BYTES = 16 * 1024;
 const TOKEN_HEADER = "X-Internal-Token";
+export const DIAGNOSTICS_HEADER = "X-ERP-Diagnostics";
 
 export interface ProxyDeps {
   config: AssistantConfig;
@@ -38,6 +45,8 @@ export interface ProxyDeps {
   fetchFn: typeof fetch;
   now: () => Date;
   newTraceId: () => string;
+  /** Permisos vigentes del usuario (BD); con ellos se firman los módulos consultables (`mod`). */
+  permissions?: (userId: number) => Promise<ModuleAccess>;
 }
 
 export interface ProxyResult {
@@ -71,7 +80,7 @@ export async function handleStatus(deps: ProxyDeps): Promise<ProxyResult> {
       enabled: true,
       fakeData: !checked.config.realData,
       usuario: checked.session.userId,
-      suggestions: DEMO_SUGGESTIONS,
+      suggestions: checked.config.realData ? REAL_DATA_SUGGESTIONS : DEMO_SUGGESTIONS,
     },
   };
 }
@@ -142,11 +151,18 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   };
 
   const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: checked.config.token };
+  if (checked.config.diagnostics) headers[DIAGNOSTICS_HEADER] = "1";
   if (checked.config.identityKey) {
     // P-9: identidad firmada a partir de la sesión del servidor; el navegador no interviene.
+    // Módulos del ERP según los permisos reales del usuario: ai-service no lee tablas de otros módulos.
+    const access = deps.permissions ? await deps.permissions(checked.session.userId).catch(() => null) : undefined;
+    if (access === null) return error(503, MESSAGES.unavailable); // sin permisos verificables no se consulta
     headers[IDENTITY_HEADER] = await signIdentity(
       checked.config.identityKey,
-      { userId: checked.session.userId, rol: checked.role, traceId: payload.id_traza },
+      {
+        userId: checked.session.userId, rol: checked.role, traceId: payload.id_traza,
+        ...(access ? { modulos: allowedModules(access) } : {}),
+      },
       deps.now(),
     );
   }
@@ -168,6 +184,10 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   if (response.status === 403) return error(403, MESSAGES.forbidden);
   if (response.status === 400 || response.status === 413) return error(400, MESSAGES.invalid);
+  // 401 de ai-service = token interno o identidad firmada rechazados: error de configuración, no
+  // sesión vencida del usuario (por eso 502 y no 401, que el widget interpreta como cierre de sesión).
+  if (response.status === 401) return { status: 502, body: { error: MESSAGES.serviceAuth, codigo: SERVICE_AUTH_CODE } };
+  if (response.status === 503) return await serviceError(response, checked.config.diagnostics === true);
   if (response.status !== 200) return error(503, MESSAGES.unavailable);
 
   let data: unknown;
@@ -178,9 +198,24 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   }
   const validated = parseQueryResponse(data);
   if (!validated || validated.id_traza !== payload.id_traza) return error(502, MESSAGES.unavailable);
+  if (!checked.config.diagnostics) delete validated.diagnostico; // solo si este despliegue la pidió
   try {
     return { status: 200, body: { ...toAssistantReply(validated) } };
   } catch {
     return error(502, MESSAGES.unavailable);
   }
+}
+
+/** `503` de ai-service: mensaje del componente que falló (código de una lista cerrada) y, en modo diagnóstico, la traza. */
+async function serviceError(response: Response, diagnostics: boolean): Promise<ProxyResult> {
+  const data: unknown = await response.json().catch(() => null);
+  const body = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
+  const code = componentCode(body.errores);
+  const result: Record<string, unknown> = { error: code ? COMPONENT_MESSAGES[code] : MESSAGES.unavailable };
+  if (code) result.codigo = code;
+  if (diagnostics && body.diagnostico !== undefined) {
+    const trace = parseDiagnostic(body.diagnostico);
+    if (trace) result.diagnostico = trace;
+  }
+  return { status: 503, body: result };
 }

@@ -87,6 +87,26 @@ class PrefilterTests(GuardedTestCase):
                 decision = _decide(message)
                 self.assertEqual((decision.allowed, decision.reason), (False, OUT_OF_DOMAIN))
 
+    def test_business_questions_reach_the_models(self) -> None:
+        # Batería de la evaluación: ninguna puede cerrarse en el prefiltro como fuera de dominio.
+        for message in (
+            "¿Cuánto vendimos durante el último mes?",
+            "¿Cuáles fueron los gastos totales de septiembre?",
+            "¿Estamos generando ganancias o pérdidas?",
+            "¿Qué productos generan mayores ingresos?",
+            "¿Cuáles son los gastos más elevados?",
+            "Compara los ingresos de agosto y septiembre.",
+            "¿Cuál es la situación financiera actual del restaurante?",
+            "¿Cuántas ventas se registraron ayer?",
+            "¿Qué día tuvimos mayores ingresos?",
+            "¿Cuáles son las compras más recientes?",
+            "¿Cuánto gastamos en insumos?",
+            "¿Cuántos pedidos fueron para llevar y cuántos en salón este mes?",  # bloqueada antes (prueba real)
+            "¿Cuántas cajas registradoras hay?",  # bloqueada antes: solo se reconocía "caja" en singular
+        ):
+            with self.subTest(message=message):
+                self.assertTrue(_decide(message).allowed)
+
     def test_follow_up_with_history_passes(self) -> None:
         history = [{"rol": "usuario", "texto": "saldo de caja en septiembre"}]
         self.assertTrue(_decide("¿y en agosto?", history).allowed)

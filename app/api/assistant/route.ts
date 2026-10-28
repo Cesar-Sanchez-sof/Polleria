@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
-import { authorize } from "@/lib/auth/permissions";
+import { authorize, permissionsForUser } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 // Vercel: límite de la función (60 s cabe en todos los planes). El proxy corta antes (55 s en evaluación)
@@ -16,6 +16,7 @@ function deps(): ProxyDeps {
     fetchFn: fetch,
     now: () => new Date(),
     newTraceId: () => `erp-${crypto.randomUUID().replaceAll("-", "")}`,
+    permissions: (userId) => permissionsForUser(userId),
   };
 }
 

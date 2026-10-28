@@ -103,6 +103,7 @@ RAG_MODEL_EVIDENCE_VAR = "AI_RAG_MODEL_EVIDENCE"
 EVAL_MODE_VAR = "AI_SERVICE_EVAL_MODE"
 EVAL_REAL_DATA_VAR = "AI_SERVICE_EVAL_REAL_DATA"
 EVAL_USERS_VAR = "AI_SERVICE_EVAL_ALLOWED_USER_IDS"
+DIAGNOSTICS_VAR = "AI_SERVICE_DIAGNOSTICS"
 EVAL_MAX_WAIT_S = 50
 EVAL_DB_TIMEOUT_S = 5  # statement_timeout del PostgresReadOnlyExecutor
 _EVAL_USERS_RE = re.compile(r"^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,9}$")
@@ -159,8 +160,10 @@ MAX_MONTHLY_LIMIT_USD = Decimal("5.00")
 # Límites de tokens del Modelo 1 real por tarea (entrada estimada y salida máxima), y margen para las
 # instrucciones y el esquema, que la estimación de entrada del gateway no incluye.
 LLM_MAX_INPUT_TOKENS = {"interpretar": 1500, "explicar": 600}
-LLM_MAX_OUTPUT_TOKENS = {"interpretar": 300, "explicar": 400}
-LLM_INSTRUCTION_ALLOWANCE_TOKENS = 600
+LLM_MAX_OUTPUT_TOKENS = {"interpretar": 1200, "explicar": 600}  # incluye consulta_libre y el razonamiento del modelo
+# Incluye el menú de familias de consulta (P1, ~19 líneas) y, con la ruta ampliada, el menú de módulos y las
+# reglas del negocio del catálogo (~600 tokens) que se añaden a las instrucciones de interpretar.
+LLM_INSTRUCTION_ALLOWANCE_TOKENS = {"interpretar": 3800, "explicar": 600}
 _OPENAI_MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,63}$")
 _OPENAI_KEY_RE = re.compile(r"^sk-[A-Za-z0-9_-]{20,}$")
 DEFAULT_SQLGEN_TIMEOUT_S = 60
@@ -211,7 +214,7 @@ class LlmSettings:
         """Coste máximo de una consulta (interpretar + explicar) con los límites de tokens."""
         total = Decimal("0")
         for task in LLM_MAX_INPUT_TOKENS:
-            input_tokens = LLM_MAX_INPUT_TOKENS[task] + LLM_INSTRUCTION_ALLOWANCE_TOKENS
+            input_tokens = LLM_MAX_INPUT_TOKENS[task] + LLM_INSTRUCTION_ALLOWANCE_TOKENS[task]
             total += (
                 Decimal(input_tokens) * self.price_input_per_1k
                 + Decimal(LLM_MAX_OUTPUT_TOKENS[task]) * self.price_output_per_1k
@@ -239,6 +242,9 @@ class ServiceSettings:
     eval_real_data: bool = False
     # Ids del ERP autorizados en evaluación (identidad firmada P-9); ``None`` = sin restricción adicional.
     eval_allowed_user_ids: frozenset[int] | None = None
+    # Modo diagnóstico: traza técnica en la respuesta, solo para identidades P-9 verificadas que la
+    # pidan con la cabecera del proxy (y, en evaluación, solo cuentas evaluadoras).
+    diagnostics: bool = False
 
     def __repr__(self) -> str:
         return (
@@ -248,7 +254,8 @@ class ServiceSettings:
             f"sql_executor={self.sql_executor!r}, readonly_dsn={'***' if self.readonly_dsn else None}, "
             f"llm_provider={self.llm_provider!r}, llm={self.llm!r}, "
             f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r}, eval_mode={self.eval_mode}, "
-            f"eval_real_data={self.eval_real_data}, eval_allowed_user_ids={sorted(self.eval_allowed_user_ids or ())})"
+            f"eval_real_data={self.eval_real_data}, eval_allowed_user_ids={sorted(self.eval_allowed_user_ids or ())}, "
+            f"diagnostics={self.diagnostics})"
         )
 
     def token_matches(self, provided: str | None) -> bool:
@@ -379,6 +386,15 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
             real_data=eval_real_data, allowed_users=eval_users, readonly_dsn=readonly_dsn,
         )
 
+    diagnostics_text = _read(env, DIAGNOSTICS_VAR)
+    if diagnostics_text not in ("", "0", "1"):
+        raise ServiceConfigError(f"{DIAGNOSTICS_VAR} debe ser '1' o no definirse.")
+    diagnostics = diagnostics_text == "1"
+    if diagnostics and identity_key is None:
+        raise ServiceConfigError(f"{DIAGNOSTICS_VAR}=1 exige {IDENTITY_KEY_VAR} (P-9): solo identidades verificadas.")
+    if diagnostics and eval_mode and eval_users is None:
+        raise ServiceConfigError(f"{DIAGNOSTICS_VAR}=1 en evaluación exige {EVAL_USERS_VAR} (cuentas evaluadoras).")
+
     return ServiceSettings(
         environment=environment,
         host=host,
@@ -396,6 +412,7 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
         eval_mode=eval_mode,
         eval_real_data=eval_real_data,
         eval_allowed_user_ids=eval_users,
+        diagnostics=diagnostics,
     )
 
 

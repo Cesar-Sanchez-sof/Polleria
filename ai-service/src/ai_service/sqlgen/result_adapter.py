@@ -81,6 +81,8 @@ class XiYanSaldoFinanceAdapter:
         if str(_pick(row, CODE_ALIASES)) != plan.cuenta:
             raise FinanceEngineError("El resultado no corresponde a la cuenta solicitada.")
         account_type = _pick(row, TYPE_ALIASES)
+        if isinstance(account_type, str):  # el catálogo real puede guardar "ACTIVO" o "activo "
+            account_type = account_type.strip().capitalize()
         if account_type not in ACCOUNT_TYPES:
             raise FinanceEngineError("Tipo de cuenta no reconocido.")  # signed_balance lo trataría como acreedora
 

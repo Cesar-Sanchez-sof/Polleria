@@ -3,8 +3,8 @@ import { jwtVerify } from "jose";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { AssistantConfig } from "@/lib/ai-assistant/config";
 import { IDENTITY_HEADER } from "@/lib/ai-assistant/identity";
-import { handleQuery, handleStatus, limaDate, MAX_BODY_BYTES, type ProxyDeps } from "@/lib/ai-assistant/proxy";
-import { MESSAGES } from "@/lib/ai-assistant/presentation";
+import { DIAGNOSTICS_HEADER, handleQuery, handleStatus, limaDate, MAX_BODY_BYTES, type ProxyDeps } from "@/lib/ai-assistant/proxy";
+import { COMPONENT_MESSAGES, MESSAGES } from "@/lib/ai-assistant/presentation";
 
 const TOKEN = "ab".repeat(32);
 const IDENTITY_KEY = "cd".repeat(32);
@@ -218,6 +218,114 @@ describe("respuestas", () => {
       const result = await ask({ mensaje: "Saldo de caja" }, deps({}, respond));
       expect(result).toEqual({ status, body: { error: message } });
     }
+  });
+});
+
+describe("P0: fallos identificables y traza técnica", () => {
+  const TRACE_BODY = {
+    etapas: [
+      { etapa: "prefiltro", estado: "ok", codigo: null, ms: 0 },
+      { etapa: "generacion_sql", estado: "ok", codigo: null, ms: 1210 },
+    ],
+    intencion: "consulta_financiera",
+    consulta: null,
+    concepto: "saldo_cuenta",
+    ajuste: null,
+    ruta: "saldo",
+    tablas_rag: [],
+    tablas_prompt: [],
+    reintento: null,
+    sql_previo: null,
+    cuenta: "101",
+    periodo: { desde: "2026-09-01", hasta: "2026-09-30" },
+    fragmentos_rag: 5,
+    fuente_rag: "semantico",
+    indice_rag: "milvus",
+    modelo_sql: {
+      base: "XGenerationLab/XiYanSQL-QwenCoder-7B-2504", adaptador: "xiyansql_v17_json_v10_balanced_full",
+      latencia_ms: 1200, tokens_prompt: 640, tokens_salida: 90, fin: "stop",
+    },
+    sql_generado: "SELECT aa.code FROM journal_entry_detail jed",
+    sql_validado: "SELECT aa.code FROM journal_entry_detail AS jed LIMIT 50",
+    motivos_rechazo: [],
+    filas: 1,
+    duracion_total_ms: 2100,
+  };
+  const DIAG: AssistantConfig = { ...WITH_IDENTITY, diagnostics: true };
+
+  it("401 de ai-service: error de configuración (502), no sesión vencida ni 'no disponible'", async () => {
+    const result = await ask({ mensaje: "Saldo de caja" }, deps({}, () => Response.json({ error: "No autorizado." }, { status: 401 })));
+    expect(result).toEqual({ status: 502, body: { error: MESSAGES.serviceAuth, codigo: "SERVICE_AUTH" } });
+  });
+
+  it("503 con códigos: dice qué componente falló; códigos desconocidos no se reenvían", async () => {
+    const cases: [unknown, string, string | undefined][] = [
+      [["SQLGEN_UNAVAILABLE", "CONNECTION_FAILED"], COMPONENT_MESSAGES.SQLGEN_UNAVAILABLE, "SQLGEN_UNAVAILABLE"],
+      [["MODEL_UNAVAILABLE"], COMPONENT_MESSAGES.MODEL_UNAVAILABLE, "MODEL_UNAVAILABLE"],
+      [["SQLEXEC_TIMEOUT", "QUERY_CANCELED"], COMPONENT_MESSAGES.SQLEXEC_TIMEOUT, "SQLEXEC_TIMEOUT"],
+      [["<script>", "/ruta/privada"], MESSAGES.unavailable, undefined],
+      ["no-es-lista", MESSAGES.unavailable, undefined],
+    ];
+    for (const [errores, message, codigo] of cases) {
+      const result = await ask({ mensaje: "Saldo de caja" }, deps({}, () => Response.json({ error: "x", errores }, { status: 503 })));
+      expect(result).toEqual({ status: 503, body: codigo ? { error: message, codigo } : { error: message } });
+    }
+  });
+
+  it("solo pide y reenvía la traza con el modo diagnóstico", async () => {
+    const respond = () => Response.json({ ...answered(), diagnostico: TRACE_BODY });
+    const plain = deps({ config: WITH_IDENTITY }, respond);
+    const withoutDiag = await ask({ mensaje: "Saldo de caja en septiembre" }, plain);
+    expect((plain.calls[0].init.headers as Record<string, string>)[DIAGNOSTICS_HEADER]).toBeUndefined();
+    expect(withoutDiag.status).toBe(200);
+    expect(withoutDiag.body).not.toHaveProperty("diagnostico");
+
+    const diag = deps({ config: DIAG }, respond);
+    const withDiag = await ask({ mensaje: "Saldo de caja en septiembre" }, diag);
+    expect((diag.calls[0].init.headers as Record<string, string>)[DIAGNOSTICS_HEADER]).toBe("1");
+    expect(withDiag.body.diagnostico).toEqual(TRACE_BODY);
+  });
+
+  it("traza inválida: la respuesta se descarta completa", async () => {
+    const bad = { ...TRACE_BODY, etapas: [{ etapa: "otra", estado: "ok", codigo: null, ms: 0 }] };
+    const result = await ask({ mensaje: "Saldo de caja" }, deps({ config: DIAG }, () => Response.json({ ...answered(), diagnostico: bad })));
+    expect(result).toEqual({ status: 502, body: { error: MESSAGES.unavailable } });
+  });
+
+  it("índice RAG: opcional (ai-service anterior) y solo milvus o local", async () => {
+    const previous: Record<string, unknown> = { ...TRACE_BODY };
+    delete previous.indice_rag;
+    const old = await ask({ mensaje: "Saldo de caja" }, deps({ config: DIAG }, () => Response.json({ ...answered(), diagnostico: previous })));
+    expect(old.status).toBe(200);
+    expect((old.body as { diagnostico?: { indice_rag: unknown } }).diagnostico?.indice_rag).toBeNull();
+    const bad = { ...TRACE_BODY, indice_rag: "pinecone" };
+    const rejected = await ask({ mensaje: "Saldo de caja" }, deps({ config: DIAG }, () => Response.json({ ...answered(), diagnostico: bad })));
+    expect(rejected).toEqual({ status: 502, body: { error: MESSAGES.unavailable } });
+  });
+
+  it("503 en modo diagnóstico: incluye la traza validada", async () => {
+    const respond = () => Response.json({ error: "x", errores: ["SQLGEN_TIMEOUT"], diagnostico: TRACE_BODY }, { status: 503 });
+    const result = await ask({ mensaje: "Saldo de caja" }, deps({ config: DIAG }, respond));
+    expect(result.body).toEqual({ error: COMPONENT_MESSAGES.SQLGEN_TIMEOUT, codigo: "SQLGEN_TIMEOUT", diagnostico: TRACE_BODY });
+  });
+});
+
+describe("permisos por módulo firmados en la identidad", () => {
+  const key = Uint8Array.from(Buffer.from(IDENTITY_KEY, "hex"));
+
+  it("firma los módulos que permiten los permisos del usuario (claim `mod`)", async () => {
+    const d = deps({ config: WITH_IDENTITY, permissions: async () => ({ superuser: false, codes: ["compras.ver"] }) });
+    await ask({ mensaje: "¿Cuál fue la última compra registrada?" }, d);
+    const token = (d.calls[0].init.headers as Record<string, string>)[IDENTITY_HEADER];
+    const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"], currentDate: new Date("2026-10-13T03:30:10Z") });
+    expect(payload.mod).toEqual(["compras", "proveedores"]);
+  });
+
+  it("si los permisos no pueden leerse, no consulta (falla cerrado)", async () => {
+    const d = deps({ config: WITH_IDENTITY, permissions: async () => Promise.reject(new Error("bd")) });
+    const result = await ask({ mensaje: "¿Cuántos productos tenemos?" }, d);
+    expect(result).toEqual({ status: 503, body: { error: MESSAGES.unavailable } });
+    expect(d.calls).toHaveLength(0);
   });
 });
 

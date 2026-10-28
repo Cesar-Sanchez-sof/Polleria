@@ -4,7 +4,7 @@
  * No usa localStorage ni sessionStorage: el historial se pierde al recargar y se limpia al cerrar
  * la conversación, al cerrar sesión o al cambiar de usuario.
  */
-import type { ResponseState } from "@/lib/ai-assistant/contract";
+import type { Diagnostic, ResponseState } from "@/lib/ai-assistant/contract";
 import type { ReplyDetail } from "@/lib/ai-assistant/presentation";
 
 export const MAX_MESSAGES = 60;
@@ -12,7 +12,17 @@ export const MAX_HISTORY_SENT = 10;
 
 export type ChatMessage =
   | { id: string; rol: "usuario"; texto: string }
-  | { id: string; rol: "asistente"; texto: string; estado: ResponseState | "error"; detalle: ReplyDetail | null };
+  | {
+      id: string;
+      rol: "asistente";
+      texto: string;
+      estado: ResponseState | "error";
+      detalle: ReplyDetail | null;
+      /** Código del componente que falló (solo errores). */
+      codigo?: string;
+      /** Traza técnica (solo modo diagnóstico autorizado). */
+      diagnostico?: Diagnostic;
+    };
 
 export interface ConversationState {
   userKey: string | null;
@@ -22,8 +32,8 @@ export interface ConversationState {
 
 export type ConversationAction =
   | { type: "send"; id: string; texto: string }
-  | { type: "reply"; id: string; estado: ResponseState; texto: string; detalle: ReplyDetail | null }
-  | { type: "error"; id: string; texto: string }
+  | { type: "reply"; id: string; estado: ResponseState; texto: string; detalle: ReplyDetail | null; diagnostico?: Diagnostic }
+  | { type: "error"; id: string; texto: string; codigo?: string; diagnostico?: Diagnostic }
   | { type: "reset"; userKey: string | null };
 
 export const initialConversation: ConversationState = { userKey: null, messages: [], pending: false };
@@ -48,6 +58,7 @@ export function conversationReducer(state: ConversationState, action: Conversati
           texto: action.texto,
           estado: action.estado,
           detalle: action.estado === "respondida" ? action.detalle : null,
+          ...(action.diagnostico ? { diagnostico: action.diagnostico } : {}),
         }),
       };
     case "error":
@@ -55,7 +66,15 @@ export function conversationReducer(state: ConversationState, action: Conversati
       return {
         ...state,
         pending: false,
-        messages: append(state.messages, { id: action.id, rol: "asistente", texto: action.texto, estado: "error", detalle: null }),
+        messages: append(state.messages, {
+          id: action.id,
+          rol: "asistente",
+          texto: action.texto,
+          estado: "error",
+          detalle: null,
+          ...(action.codigo ? { codigo: action.codigo } : {}),
+          ...(action.diagnostico ? { diagnostico: action.diagnostico } : {}),
+        }),
       };
     case "reset":
       return { userKey: action.userKey, messages: [], pending: false };
