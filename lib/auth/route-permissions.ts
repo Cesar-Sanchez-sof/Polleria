@@ -21,6 +21,7 @@ export const SECTIONS: Record<string, string[]> = {
   records: RECORD_VIEWS,
   reports: REPORT_VIEWS,
   accounting: [...RECORD_VIEWS, ...REPORT_VIEWS],
+  hr: ["empleados.ver", "horarios.ver"],
   security: ["usuarios.ver", "roles.ver", "auditoria.ver"],
   settings: ["mesas.ver", "configuracion.ver", "datos.ver", "areas.ver", "guia.ver"],
   documentation: DOC_VIEWS,
@@ -28,6 +29,8 @@ export const SECTIONS: Record<string, string[]> = {
 
 /** Permiso "ver" de cada enlace del menú, tal cual se escribe en el href. */
 const LINK_PERMISSION: Record<string, string> = {
+  "/hr/employees": "empleados.ver",
+  "/hr/schedules": "horarios.ver",
   "/sales?tab=tables": "pedidos.ver",
   "/sales?tab=drinks": "bebidas.ver",
   "/sales?tab=kitchen": "listos.ver",
@@ -105,6 +108,8 @@ const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
   { prefix: "/accounting/reports/ple", permissions: ["ple.ver"] },
   { prefix: "/accounting", permissions: [...RECORD_VIEWS, ...REPORT_VIEWS] },
   { prefix: "/settings", permissions: SECTIONS.settings },
+  { prefix: "/hr/employees", permissions: ["empleados.ver"] },
+  { prefix: "/hr/schedules", permissions: ["horarios.ver"] },
   { prefix: "/security/users", permissions: ["usuarios.ver"] },
   { prefix: "/security/roles", permissions: ["roles.ver"] },
   { prefix: "/security/audit", permissions: ["auditoria.ver"] },

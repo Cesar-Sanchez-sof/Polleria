@@ -100,7 +100,6 @@ const ENTITIES: EntityDef[] = [
 		id: 'Employee', label: 'Employee', module: 'Seguridad', color: '#6366f1',
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
-			{ name: 'shiftId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'dni', type: 'String', kind: 'field' },
 			{ name: 'firstName', type: 'String', kind: 'field' },
 			{ name: 'paternalLastName', type: 'String', kind: 'field' },
@@ -109,6 +108,14 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'contractType', type: 'String', kind: 'field', optional: true },
 			{ name: 'baseSalary', type: 'Decimal', kind: 'field' },
 			{ name: 'active', type: 'Boolean', kind: 'field' },
+		],
+	},
+		{
+		id: 'EmployeeShift', label: 'EmployeeShift', module: 'Seguridad', color: '#6366f1',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'employeeId', type: 'Int', kind: 'fk' },
+			{ name: 'shiftId', type: 'Int', kind: 'fk' },
 		],
 	},
 	{
@@ -528,7 +535,8 @@ const RELATIONS: RelationDef[] = [
 	{ id: 're-user-role', child: 'User', fk: 'roleId', parent: 'Role', label: 'has' },
 	{ id: 're-user-emp', child: 'User', fk: 'employeeId', parent: 'Employee', label: 'has' },
 	{ id: 're-audit-user', child: 'AuditLog', fk: 'userId', parent: 'User', label: 'logs' },
-	{ id: 're-emp-shift', child: 'Employee', fk: 'shiftId', parent: 'Shift', label: 'works_in' },
+	{ id: 're-es-emp', child: 'EmployeeShift', fk: 'employeeId', parent: 'Employee', label: 'works' },
+	{ id: 're-es-shift', child: 'EmployeeShift', fk: 'shiftId', parent: 'Shift', label: 'covers' },
 	{ id: 're-payroll-emp', child: 'Payroll', fk: 'employeeId', parent: 'Employee', label: 'earns' },
 	{ id: 're-po-supplier', child: 'PurchaseOrder', fk: 'supplierId', parent: 'Supplier', label: 'products' },
 	{ id: 're-po-emp', child: 'PurchaseOrder', fk: 'employeeId', parent: 'Employee', label: 'creates' },

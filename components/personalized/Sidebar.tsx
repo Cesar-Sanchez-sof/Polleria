@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   Component, User, LogOut, X, Menu, ChevronDown, Ticket, ChefHat, ShoppingCart,
-  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, type LucideIcon,
+  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, Briefcase, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -85,6 +85,13 @@ const NAV_SECTIONS: NavSection[] = [
       { group: "Reportes", label: "Libro Mayor", href: "/accounting/reports/ledger", path: "libro-mayor" },
       { group: "Reportes", label: "Libros SUNAT (PLE)", href: "/accounting/reports/ple", path: "libros-sunat-ple" },
       { group: "Reportes", label: "Resumen Ejecutivo", href: "/accounting/reports/executive-summary", path: "resumen-ejecutivo" },
+    ],
+  },
+    {
+    key: "rrhh", label: "RECURSOS HUMANOS", icon: Briefcase, permissions: "hr",
+    items: [
+      { label: "Empleados", href: "/hr/employees", path: "empleados" },
+      { label: "Horarios Laborales", href: "/hr/schedules", path: "horarios" },
     ],
   },
   {

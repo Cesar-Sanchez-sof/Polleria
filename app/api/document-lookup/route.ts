@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(request: NextRequest) {
-  const auth = await authorize(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear"]);
+  const auth = await authorize(["clientes.crear", "ventas.crear", "proveedores.crear", "compras.crear", "empleados.crear", "empleados.editar"]);
   if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);

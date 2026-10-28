@@ -130,14 +130,25 @@ model Shift {
   date      DateTime   @db.Date
   startTime DateTime   @map("start_time") @db.Time
   endTime   DateTime   @map("end_time") @db.Time
-  employees Employee[]
+  employees EmployeeShift[]
 
   @@map("shift")
 }
 
+/// Asignación de un empleado a un horario: un empleado puede trabajar en varios horarios.
+model EmployeeShift {
+  id         Int      @id @default(autoincrement())
+  employeeId Int      @map("employee_id")
+  shiftId    Int      @map("shift_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift      Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, shiftId], map: "uq_employee_shift")
+  @@index([shiftId], map: "idx_employee_shift_shift")
+  @@map("employee_shift")
+}
 model Employee {
   id                      Int                @id @default(autoincrement())
-  shiftId                 Int?               @map("shift_id")
   dni                     String             @unique @db.VarChar(8)
   firstName               String             @map("first_name") @db.VarChar(50)
   middleName              String?            @map("middle_name") @db.VarChar(50)
@@ -152,7 +163,7 @@ model Employee {
   contractType            String?            @map("contract_type") @db.VarChar(30)
   baseSalary              Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
   active                  Boolean            @default(true)
-  shift                   Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+    shifts                  EmployeeShift[]
   users                   User[]
   payrolls                Payroll[]
   purchaseOrders          PurchaseOrder[]
@@ -162,7 +173,6 @@ model Employee {
   informalPurchases       InformalPurchase[] @relation("EmployeeInformalPurchases")
   annulledPurchases       InformalPurchase[] @relation("AnnulledPurchases")
 
-  @@index([shiftId], map: "idx_employee_shift")
   @@map("employee")
 }
 
