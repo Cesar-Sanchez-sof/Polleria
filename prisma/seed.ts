@@ -111,6 +111,106 @@ async function main() {
   }
   console.log("✔ 12 Mesas del salón registradas y marcadas como disponibles.");
 
+  // 3.1 SALONES Y ÁREAS DEL RESTAURANTE
+  const defaultAreas = [
+    {
+      id: "area-1",
+      name: "Salón Principal",
+      level: "Piso 1",
+      description: "Salón central climatizado, cerca a caja y recepción.",
+      tableNumbers: [1, 2, 3, 4, 5, 6],
+      active: true,
+      color: "emerald",
+    },
+    {
+      id: "area-2",
+      name: "Terraza",
+      level: "Piso 1 (Exterior)",
+      description: "Área abierta al aire libre con vista a la avenida.",
+      tableNumbers: [7, 8, 9],
+      active: true,
+      color: "amber",
+    },
+    {
+      id: "area-3",
+      name: "Segundo Piso (Familiar)",
+      level: "Piso 2",
+      description: "Ambiente espacioso para grupos grandes y familias.",
+      tableNumbers: [10, 11, 12],
+      active: true,
+      color: "blue",
+    },
+    {
+      id: "area-4",
+      name: "Barra & Lounge",
+      level: "Piso 1",
+      description: "Mesas altas y atención rápida de bebidas y piqueos.",
+      tableNumbers: [],
+      active: false,
+      color: "purple",
+    },
+  ];
+
+  for (const area of defaultAreas) {
+    await prisma.diningArea.upsert({
+      where: { id: area.id },
+      update: {
+        name: area.name,
+        level: area.level,
+        description: area.description,
+        tableNumbers: area.tableNumbers,
+        active: area.active,
+        color: area.color,
+      },
+      create: {
+        id: area.id,
+        name: area.name,
+        level: area.level,
+        description: area.description,
+        tableNumbers: area.tableNumbers,
+        active: area.active,
+        color: area.color,
+      },
+    });
+  }
+  console.log("✔ Salones y áreas registradas.");
+
+  // 3.2 CONFIGURACIÓN DE IMPRESORAS Y COMPROBANTES
+  await prisma.printerConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      paperWidth: "80mm",
+      autoCut: true,
+      autoPrintVoucher: true,
+      printWaiterCopy: false,
+      series: {
+        boleta: "B001",
+        factura: "F001",
+        ticket: "T001",
+      },
+      kitchenPrinter: {
+        name: "Comandera Cocina (Epson TM-T20III)",
+        ipOrPort: "192.168.1.200:9100",
+        active: true,
+        autoPrintOnOrder: true,
+      },
+      barPrinter: {
+        name: "Comandera Bar / Bebidas",
+        ipOrPort: "192.168.1.201:9100",
+        active: false,
+        autoPrintOnOrder: false,
+      },
+      cashierPrinter: {
+        name: "Impresora Térmica Caja 80mm",
+        ipOrPort: "USB001 / Local",
+        active: true,
+      },
+    },
+  });
+  console.log("✔ Configuración de impresoras térmicas registrada.");
+
   // 4. CARTA DE PRODUCTOS DE LA POLLERÍA (productos terminados que se venden)
   const productsData = [
     {

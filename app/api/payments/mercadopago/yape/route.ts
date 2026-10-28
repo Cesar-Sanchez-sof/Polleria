@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const total = order.items.reduce((acc, it) => acc + Number(it.subtotal), 0);
     const roundedTotal = Math.round(total * 100) / 100;
 
-    const globalConfig = getRestaurantGlobalConfig();
+    const globalConfig = await getRestaurantGlobalConfig();
     const phone =
       globalConfig.restaurant.yapePhone || globalConfig.restaurant.phone || "987654321";
     const merchantName =
