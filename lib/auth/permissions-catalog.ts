@@ -63,6 +63,9 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
   { code: "endpoints", name: "Endpoints", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "diagrama", name: "Diagrama DB", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "estilos", name: "Guía de estilos", group: "Documentación", parent: "documentacion", actions: ["ver"] },
+    // Recursos humanos
+  { code: "empleados", name: "Empleados", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "horarios", name: "Horarios laborales", group: "Recursos humanos", actions: CRUD },
 ];
 
 /**
