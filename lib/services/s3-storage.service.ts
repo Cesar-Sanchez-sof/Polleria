@@ -474,3 +474,93 @@ export async function uploadPaymentProofToS3({
 }
 
 
+
+/**
+ * Sube la imagen del QR de Yape del restaurante a S3 (o almacenamiento local)
+ * evitando almacenar cadenas base64 pesadas en la base de datos.
+ */
+export async function uploadYapeQrToS3({
+  imageBase64,
+}: {
+  imageBase64: string;
+}): Promise<{ s3Key: string; publicUrl: string }> {
+  const { bucket, endpoint, accessKey, secretKey, region } = getS3Config();
+
+  let cleanBase64 = imageBase64;
+  let ext = "png";
+  if (imageBase64.includes("data:image/png")) {
+    ext = "png";
+    cleanBase64 = imageBase64.replace(/^data:image\/png;base64,/, "");
+  } else if (imageBase64.includes("data:image/jpeg") || imageBase64.includes("data:image/jpg")) {
+    ext = "jpg";
+    cleanBase64 = imageBase64.replace(/^data:image\/jpe?g;base64,/, "");
+  } else if (imageBase64.includes("data:image/webp")) {
+    ext = "webp";
+    cleanBase64 = imageBase64.replace(/^data:image\/webp;base64,/, "");
+  } else if (imageBase64.includes(";base64,")) {
+    cleanBase64 = imageBase64.split(";base64,")[1];
+  }
+
+  const buffer = Buffer.from(cleanBase64, "base64");
+  const s3Key = `restaurant/yape-qr-${Date.now()}.${ext}`;
+  const localUrl = `/storage/comprobantes/${s3Key}`;
+
+  // 1. Guardar copia local en disco
+  try {
+    const localDir = path.join(process.cwd(), "public", "storage", "comprobantes", path.dirname(s3Key));
+    fs.mkdirSync(localDir, { recursive: true });
+    const localFilePath = path.join(process.cwd(), "public", "storage", "comprobantes", s3Key);
+    fs.writeFileSync(localFilePath, buffer);
+  } catch (fsErr) {
+    console.warn("[uploadYapeQrToS3] Aviso al guardar localmente:", fsErr);
+  }
+
+  // 2. Si hay credenciales de S3 remoto
+  const hasValidRemoteCreds = Boolean(
+    accessKey &&
+    secretKey &&
+    !accessKey.includes("TU_KEY") &&
+    endpoint &&
+    endpoint.startsWith("http")
+  );
+
+  if (!hasValidRemoteCreds) {
+    return {
+      s3Key,
+      publicUrl: localUrl,
+    };
+  }
+
+  try {
+    const s3 = new S3Client({
+      endpoint,
+      region: region || "us-east-1",
+      credentials: {
+        accessKeyId: accessKey!,
+        secretAccessKey: secretKey!,
+      },
+      forcePathStyle: true,
+    });
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: s3Key,
+        Body: buffer,
+        ContentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
+      })
+    );
+
+    const remoteUrl = `${endpoint}/${bucket}/${s3Key}`;
+    return {
+      s3Key,
+      publicUrl: remoteUrl,
+    };
+  } catch (error: any) {
+    console.warn("[uploadYapeQrToS3] Error al subir a S3 remoto, usando fallback local:", error);
+    return {
+      s3Key,
+      publicUrl: localUrl,
+    };
+  }
+}
