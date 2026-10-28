@@ -2,30 +2,9 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { currentActor } from "@/lib/auth/audit-actor";
 import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
-
-// Define role IDs matching your database role entries
-const ADMIN_ROLE_ID = 1; // adjust if ADMIN has a different ID
-
-// Simple role check helper – expects headers "x-user-id" and "x-user-role" set by your auth middleware.
-async function requireRole(request: NextRequest, allowedRoles: number[]): Promise<number> {
-  const token = request.cookies.get('auth-token')?.value;
-  if (!token) {
-    throw new Error('Unauthorized: missing authentication token');
-  }
-  // For this demo, token is a dummy placeholder; map to admin user (id 1)
-  const user = await prisma.user.findUnique({ where: { id: 3 } });
-  if (!user) {
-    throw new Error('Unauthorized: user not found');
-  }
-  if (!allowedRoles.includes(user.roleId)) {
-    throw new Error('Forbidden: insufficient role');
-  }
-  return user.id;
-}
 
 /**
  * GET /api/accounting-periods
@@ -129,8 +108,7 @@ export async function POST(request: NextRequest) {
   const auth = await authorize("periodos.crear");
   if (!auth.ok) return auth.response;
   try {
-    // Authorization – only ADMIN can create periods
-    const userId = await requireRole(request, [ADMIN_ROLE_ID]);
+    const userId = auth.session.userId;
 
     const body = await request.json();
     const { month, year } = body as { month?: number; year?: number };
@@ -166,8 +144,8 @@ export async function POST(request: NextRequest) {
         userId: userId,
       },
     });
-        await logAudit({
-      actor: (await currentActor()) ?? { userId, username: `usuario#${userId}` },
+    await logAudit({
+      actor: { userId: auth.session.userId, username: auth.session.username },
       action: "CREATE",
       module: "Contabilidad",
       entity: "Período contable",
@@ -217,7 +195,7 @@ export async function PATCH(request: NextRequest) {
   const auth = await authorize("periodos.editar");
   if (!auth.ok) return auth.response;
   try {
-    const userId = await requireRole(request, [ADMIN_ROLE_ID]);
+    const userId = auth.session.userId;
     const body = await request.json();
     const { periodId, reopen } = body as { periodId?: number; reopen?: boolean };
     if (!periodId) {
@@ -238,8 +216,8 @@ export async function PATCH(request: NextRequest) {
         closedById: reopen ? null : userId,
       },
     });
-        await logAudit({
-      actor: (await currentActor()) ?? { userId, username: `usuario#${userId}` },
+    await logAudit({
+      actor: { userId: auth.session.userId, username: auth.session.username },
       action: "STATUS_CHANGE",
       module: "Contabilidad",
       entity: "Período contable",
