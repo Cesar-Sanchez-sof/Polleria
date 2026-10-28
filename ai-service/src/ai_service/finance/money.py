@@ -75,6 +75,14 @@ def format_pen(value: AmountInput) -> str:
     return f"{sign}S/ {abs(amount):,.2f}"
 
 
+def format_count(value: AmountInput) -> str:
+    """Formatea una cantidad (comprobantes, unidades): ``1,234``; con decimales si los tiene (``12.50``)."""
+    amount = to_decimal(value)
+    if amount == amount.to_integral_value():
+        return f"{int(amount):,}"
+    return f"{round2(amount):,.2f}"
+
+
 def format_percent(value: AmountInput) -> str:
     """Formatea un porcentaje ya expresado sobre 100, con 2 decimales: ``12.35 %``."""
     percent = round2(value)

@@ -1,0 +1,1046 @@
+{
+ "version": "query-families-v1",
+ "dataset": "v1.7_json_v1.0_balanced",
+ "dataset_sha256": "081394f7ff24b07e7ddc445ebf900f6daaba265bd94d237467ef3bf9a3cb19c9",
+ "equivalencias_esquema": {
+  "tablas": {
+   "dish": "product"
+  },
+  "columnas": {
+   "order_item.dish_id": "product_id"
+  },
+  "origen": "commit 2f10622 (develop): fix: unify supply and dish into product"
+ },
+ "conceptos": {
+  "ventas_facturadas": {
+   "canonica": "ventas_facturadas_por_comprobante",
+   "definicion": "ingresos por ventas segun comprobantes emitidos (cuanto vendimos, cuanto facturamos)"
+  },
+  "cobros": {
+   "canonica": "ventas_cobradas_total",
+   "definicion": "dinero efectivamente cobrado a clientes (cuanto cobramos, cuanto dinero entro, medios de pago, ingresos por dia)"
+  },
+  "compras_facturadas": {
+   "canonica": "compras_por_comprobante",
+   "definicion": "compras segun facturas o comprobantes de proveedores (cuanto compramos, cuanto gastamos en compras, a quien le compramos)"
+  },
+  "pagos_proveedores": {
+   "canonica": "pagos_proveedores_total",
+   "definicion": "dinero efectivamente pagado a proveedores (cuanto les pagamos)"
+  },
+  "gastos_operativos": {
+   "canonica": null,
+   "definicion": "gastos de operacion que no son compras a proveedores: alquiler, luz, agua, sueldos, servicios"
+  },
+  "productos": {
+   "canonica": "platos_mayores_ingresos",
+   "definicion": "ventas por plato o producto"
+  },
+  "pedidos": {
+   "canonica": "pedidos_por_tipo",
+   "definicion": "cantidad de pedidos"
+  },
+  "resultado_facturado": {
+   "canonica": "ventas_vs_compras_facturadas",
+   "definicion": "ventas facturadas frente a compras facturadas (ganancia o perdida, situacion financiera)"
+  },
+  "flujo_caja": {
+   "canonica": "cobros_vs_pagos",
+   "definicion": "cobros frente a pagos a proveedores (si entro mas dinero del que salio)"
+  },
+  "contabilidad": {
+   "canonica": "debe_haber_total",
+   "definicion": "totales del debe y del haber de los asientos contables"
+  },
+  "saldo_cuenta": {
+   "canonica": null,
+   "definicion": "saldo o movimiento de una cuenta contable concreta (caja, bancos, una cuenta por su codigo)"
+  }
+ },
+ "nota": "Tipos de consulta vistos por el adaptador en el entrenamiento (no preguntas ni respuestas). Generado por ai-service/scripts/extract_query_families.py.",
+ "familias": [
+  {
+   "id": "ventas_cobradas_total",
+   "shape": "escalar",
+   "concepto": "cobros",
+   "titulo": "Ventas cobradas",
+   "descripcion": "dinero efectivamente cobrado a clientes en un periodo (cobros, dinero que entro)",
+   "metrics": {
+    "sales_payments_total": [
+     "PEN",
+     "Total cobrado por ventas"
+    ]
+   },
+   "labels": [],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0007",
+    "ejemplos": 4
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "sales_payments_total"
+    ],
+    "order_by": [],
+    "subject": "sales_payment",
+    "time": {
+     "concept": "sales_payment_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_payment\n[\n(id:INTEGER, Primary Key),\n(sales_invoice_id:INTEGER),\n(payment_type_id:INTEGER),\n(amount:DECIMAL(7,2)),\n(paid_at:TIMESTAMP)\n]",
+   "evidencia": "Sales money received is stored in sales_payment.amount. The payment date is sales_payment.paid_at. For scalar business totals, return 0 when no rows match the requested period.",
+   "contable": false
+  },
+  {
+   "id": "ventas_cobradas_por_dia",
+   "shape": "serie",
+   "concepto": "cobros",
+   "titulo": "Ventas cobradas por día",
+   "descripcion": "cobros dia por dia; que dia entro mas dinero o tuvo mayores ingresos",
+   "metrics": {
+    "sales_payments_total": [
+     "PEN",
+     "Cobrado"
+    ]
+   },
+   "labels": [
+    "payment_day"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0063",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "payment_day"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "payment_day"
+    ],
+    "intent": "timeseries",
+    "limit": null,
+    "metrics": [
+     "sales_payments_total"
+    ],
+    "order_by": [
+     {
+      "direction": "asc",
+      "field": "payment_day"
+     }
+    ],
+    "subject": "sales_payment",
+    "time": {
+     "concept": "sales_payment_date",
+     "end_exclusive": null,
+     "grain": "day",
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_payment\n[\n(id:INTEGER, Primary Key),\n(sales_invoice_id:INTEGER),\n(payment_type_id:INTEGER),\n(amount:DECIMAL(7,2)),\n(paid_at:TIMESTAMP)\n]",
+   "evidencia": "Sales money received is sales_payment.amount. Group payment timestamps by calendar day.",
+   "contable": false
+  },
+  {
+   "id": "ventas_cobradas_por_medio_pago",
+   "shape": "agrupada",
+   "concepto": "cobros",
+   "titulo": "Ventas cobradas por medio de pago",
+   "descripcion": "cobros por medio o tipo de pago (efectivo, tarjeta, yape)",
+   "metrics": {
+    "sales_payments_total": [
+     "PEN",
+     "Cobrado"
+    ],
+    "sales_payment_count": [
+     "N",
+     "Cobros"
+    ]
+   },
+   "labels": [
+    "payment_type",
+    "payment_type_name",
+    "name"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0058",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "payment_type"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "payment_type"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "sales_payment_count",
+     "sales_payments_total"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "sales_payments_total"
+     }
+    ],
+    "subject": "sales_payment",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_payment\n[\n(id:INTEGER, Primary Key),\n(sales_invoice_id:INTEGER),\n(payment_type_id:INTEGER),\n(amount:DECIMAL(7,2)),\n(paid_at:TIMESTAMP)\n]\n# Table: payment_type\n[\n(id:INTEGER, Primary Key),\n(name:VARCHAR(30)),\n(active:BOOLEAN)\n]\n〖Foreign keys〗\nsales_payment.payment_type_id=payment_type.id",
+   "evidencia": "Sales money received is sales_payment.amount; sales_payment.payment_type_id links payment_type.",
+   "contable": false
+  },
+  {
+   "id": "ventas_facturadas_por_comprobante",
+   "shape": "agrupada",
+   "concepto": "ventas_facturadas",
+   "titulo": "Ventas facturadas",
+   "descripcion": "ingresos por ventas segun comprobantes emitidos: cuanto vendimos o facturamos, total y por tipo de comprobante",
+   "metrics": {
+    "invoiced_sales_total": [
+     "PEN",
+     "Facturado"
+    ]
+   },
+   "labels": [
+    "voucher_type"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0013",
+    "ejemplos": 6
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "voucher_type"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "voucher_type"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "invoiced_sales_total"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "invoiced_sales_total"
+     }
+    ],
+    "subject": "sales_invoice",
+    "time": {
+     "concept": "sales_invoice_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_invoice\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(customer_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(10,2)),\n(igv:DECIMAL(10,2)),\n(total_amount:DECIMAL(10,2)),\n(status:VARCHAR(15))\n]",
+   "evidencia": "The invoiced sales amount is stored in sales_invoice.total_amount. voucher_type classifies the sales invoice.",
+   "contable": false
+  },
+  {
+   "id": "comprobantes_venta_cantidad",
+   "shape": "escalar",
+   "concepto": "ventas_facturadas",
+   "titulo": "Comprobantes de venta emitidos",
+   "descripcion": "cantidad de ventas o comprobantes de venta emitidos en un periodo (cuantas ventas hubo)",
+   "metrics": {
+    "sales_invoice_count": [
+     "N",
+     "Comprobantes de venta emitidos"
+    ]
+   },
+   "labels": [],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0006",
+    "ejemplos": 4
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "sales_invoice_count"
+    ],
+    "order_by": [],
+    "subject": "sales_invoice",
+    "time": {
+     "concept": "sales_invoice_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_invoice\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(customer_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(10,2)),\n(igv:DECIMAL(10,2)),\n(total_amount:DECIMAL(10,2)),\n(status:VARCHAR(15))\n]",
+   "evidencia": "A sales invoice is counted from sales_invoice.id. The sales invoice date is sales_invoice.issued_at.",
+   "contable": false
+  },
+  {
+   "id": "comprobantes_venta_lista",
+   "shape": "lista",
+   "concepto": "ventas_facturadas",
+   "titulo": "Comprobantes de venta",
+   "descripcion": "listado de comprobantes de venta emitidos en un periodo corto, por ejemplo ayer o hoy",
+   "metrics": {
+    "invoiced_sales_total": [
+     "PEN",
+     "Total",
+     [
+      "total_amount"
+     ]
+    ]
+   },
+   "labels": [
+    "voucher_type",
+    "series",
+    "number",
+    "issued_at"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0050",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "sales_invoice"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [],
+    "intent": "list",
+    "limit": null,
+    "metrics": [
+     "invoiced_sales_total"
+    ],
+    "order_by": [
+     {
+      "direction": "asc",
+      "field": "sales_invoice_date"
+     }
+    ],
+    "subject": "sales_invoice",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_invoice\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(customer_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(10,2)),\n(igv:DECIMAL(10,2)),\n(total_amount:DECIMAL(10,2)),\n(status:VARCHAR(15))\n]",
+   "evidencia": "Sales invoice details come from sales_invoice. Do not infer invoice validity from status.",
+   "contable": false
+  },
+  {
+   "id": "platos_mayores_ingresos",
+   "shape": "ranking",
+   "concepto": "productos",
+   "titulo": "Platos con mayores ingresos",
+   "descripcion": "productos o platos que generan mas ingresos o dinero (ranking por importe vendido)",
+   "metrics": {
+    "dish_sales_amount": [
+     "PEN",
+     "Vendido"
+    ]
+   },
+   "labels": [
+    "dish_name",
+    "product_name",
+    "name"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0057",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "dish"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "dish"
+    ],
+    "intent": "ranking",
+    "limit": 3,
+    "metrics": [
+     "dish_sales_amount"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "dish_revenue"
+     }
+    ],
+    "subject": "dish_sales",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_order\n[\n(id:INTEGER, Primary Key),\n(code:VARCHAR(20)),\n(order_type:VARCHAR(10)),\n(ordered_at:TIMESTAMP),\n(status:VARCHAR(15))\n]\n# Table: order_item\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(dish_id:INTEGER),\n(quantity:SMALLINT),\n(unit_price:DECIMAL(10,2)),\n(subtotal:DECIMAL(10,2)),\n(dish_status:VARCHAR(30))\n]\n# Table: dish\n[\n(id:INTEGER, Primary Key),\n(name:VARCHAR(100)),\n(price:DECIMAL(7,2)),\n(active:BOOLEAN)\n]\n〖Foreign keys〗\norder_item.order_id=sales_order.id\norder_item.dish_id=dish.id",
+   "evidencia": "Historical revenue uses order_item.subtotal. Rank dishes by aggregated revenue.",
+   "contable": false
+  },
+  {
+   "id": "plato_mas_vendido",
+   "shape": "ranking",
+   "concepto": "productos",
+   "titulo": "Plato más vendido",
+   "descripcion": "plato o producto mas vendido o con mas ventas, por unidades vendidas",
+   "metrics": {
+    "dish_units_sold": [
+     "N",
+     "Unidades vendidas"
+    ]
+   },
+   "labels": [
+    "dish_name",
+    "product_name",
+    "name"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0016",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "dish"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "dish"
+    ],
+    "intent": "ranking",
+    "limit": 1,
+    "metrics": [
+     "dish_units_sold"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "dish_units_sold"
+     }
+    ],
+    "subject": "dish",
+    "time": {
+     "concept": "sales_order_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_order\n[\n(id:INTEGER, Primary Key),\n(ordered_at:TIMESTAMP),\n(status:VARCHAR(15))\n]\n# Table: order_item\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(dish_id:INTEGER),\n(quantity:SMALLINT),\n(subtotal:DECIMAL(10,2))\n]\n# Table: dish\n[\n(id:INTEGER, Primary Key),\n(name:VARCHAR(100))\n]\n〖Foreign keys〗\norder_item.order_id=sales_order.id\norder_item.dish_id=dish.id",
+   "evidencia": "Dish units recorded in orders are calculated with SUM(order_item.quantity). Use sales_order.ordered_at for an order-date period.",
+   "contable": false
+  },
+  {
+   "id": "ventas_por_plato",
+   "shape": "agrupada",
+   "concepto": "productos",
+   "titulo": "Ventas por plato",
+   "descripcion": "unidades e importe vendido de cada plato o producto",
+   "metrics": {
+    "dish_sales_amount": [
+     "PEN",
+     "Vendido"
+    ],
+    "dish_units_sold": [
+     "N",
+     "Unidades"
+    ]
+   },
+   "labels": [
+    "dish_name",
+    "product_name",
+    "name"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0055",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "dish"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "dish"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "dish_units_sold",
+     "dish_sales_amount"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "dish_units_sold"
+     }
+    ],
+    "subject": "dish_sales",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_order\n[\n(id:INTEGER, Primary Key),\n(code:VARCHAR(20)),\n(order_type:VARCHAR(10)),\n(ordered_at:TIMESTAMP),\n(status:VARCHAR(15))\n]\n# Table: order_item\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(dish_id:INTEGER),\n(quantity:SMALLINT),\n(unit_price:DECIMAL(10,2)),\n(subtotal:DECIMAL(10,2)),\n(dish_status:VARCHAR(30))\n]\n# Table: dish\n[\n(id:INTEGER, Primary Key),\n(name:VARCHAR(100)),\n(price:DECIMAL(7,2)),\n(active:BOOLEAN)\n]\n〖Foreign keys〗\norder_item.order_id=sales_order.id\norder_item.dish_id=dish.id",
+   "evidencia": "Historical dish units and revenue use order_item.quantity and order_item.subtotal, not current dish.price.",
+   "contable": false
+  },
+  {
+   "id": "pedidos_por_tipo",
+   "shape": "agrupada",
+   "concepto": "pedidos",
+   "titulo": "Pedidos por tipo",
+   "descripcion": "cantidad de pedidos por tipo de pedido (salon, delivery, para llevar)",
+   "metrics": {
+    "sales_order_count": [
+     "N",
+     "Pedidos"
+    ]
+   },
+   "labels": [
+    "order_type"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0059",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "order_type"
+    ],
+    "domain": "sales",
+    "filters": [],
+    "group_by": [
+     "order_type"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "sales_order_count"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "sales_order_count"
+     }
+    ],
+    "subject": "sales_order",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_order\n[\n(id:INTEGER, Primary Key),\n(code:VARCHAR(20)),\n(order_type:VARCHAR(10)),\n(ordered_at:TIMESTAMP),\n(status:VARCHAR(15))\n]",
+   "evidencia": "sales_order.order_type is grouped exactly as stored; do not infer business meaning from free-text values.",
+   "contable": false
+  },
+  {
+   "id": "pagos_proveedores_total",
+   "shape": "escalar",
+   "concepto": "pagos_proveedores",
+   "titulo": "Pagos a proveedores",
+   "descripcion": "dinero efectivamente pagado a proveedores en un periodo (cuanto les pagamos)",
+   "metrics": {
+    "purchase_payments_total": [
+     "PEN",
+     "Total pagado a proveedores"
+    ]
+   },
+   "labels": [],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0022",
+    "ejemplos": 4
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "purchases",
+    "filters": [],
+    "group_by": [],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "purchase_payments_total"
+    ],
+    "order_by": [],
+    "subject": "purchase_payment",
+    "time": {
+     "concept": "purchase_payment_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: purchase_payment\n[\n(id:INTEGER, Primary Key),\n(purchase_invoice_id:INTEGER),\n(payment_type_id:INTEGER),\n(amount:DECIMAL(10,2)),\n(paid_at:TIMESTAMP)\n]",
+   "evidencia": "Purchase payments are stored in purchase_payment.amount. The payment timestamp is purchase_payment.paid_at. For scalar business totals, return 0 when no rows match the requested period.",
+   "contable": false
+  },
+  {
+   "id": "compras_por_proveedor",
+   "shape": "agrupada",
+   "concepto": "compras_facturadas",
+   "titulo": "Compras facturadas por proveedor",
+   "descripcion": "compras facturadas por proveedor, de mayor a menor (a quien le compramos mas, compras mas elevadas o recientes)",
+   "metrics": {
+    "purchase_invoiced_total": [
+     "PEN",
+     "Comprado"
+    ]
+   },
+   "labels": [
+    "business_name",
+    "supplier_name",
+    "supplier_business_name"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0002",
+    "ejemplos": 4
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "supplier"
+    ],
+    "domain": "purchases",
+    "filters": [],
+    "group_by": [
+     "supplier"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "purchase_invoiced_total"
+    ],
+    "order_by": [
+     {
+      "direction": "desc",
+      "field": "purchase_invoiced_total"
+     }
+    ],
+    "subject": "purchase_invoice",
+    "time": {
+     "concept": "purchase_invoice_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: supplier\n[\n(id:INTEGER, Primary Key),\n(ruc:VARCHAR(11)),\n(business_name:VARCHAR(150)),\n(active:BOOLEAN)\n]\n# Table: purchase_invoice\n[\n(id:INTEGER, Primary Key),\n(supplier_id:INTEGER),\n(issued_at:DATE),\n(total_amount:DECIMAL(7,2)),\n(active:BOOLEAN)\n]\n〖Foreign keys〗\npurchase_invoice.supplier_id=supplier.id",
+   "evidencia": "The invoiced purchase amount is stored in purchase_invoice.total_amount. A purchase invoice is related to its supplier through purchase_invoice.supplier_id.",
+   "contable": false
+  },
+  {
+   "id": "compras_por_comprobante",
+   "shape": "agrupada",
+   "concepto": "compras_facturadas",
+   "titulo": "Compras facturadas",
+   "descripcion": "compras segun facturas o comprobantes de proveedores: cuanto compramos o gastamos en compras, total y por tipo de comprobante",
+   "metrics": {
+    "purchase_invoiced_total": [
+     "PEN",
+     "Comprado"
+    ],
+    "purchase_invoice_count": [
+     "N",
+     "Comprobantes"
+    ]
+   },
+   "labels": [
+    "voucher_type"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0075",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "voucher_type"
+    ],
+    "domain": "purchases",
+    "filters": [],
+    "group_by": [
+     "voucher_type"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "purchase_invoice_count",
+     "purchase_invoiced_total"
+    ],
+    "order_by": [],
+    "subject": "purchase_invoice",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: purchase_invoice\n[\n(id:INTEGER, Primary Key),\n(purchase_order_id:INTEGER),\n(supplier_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(7,2)),\n(igv:DECIMAL(7,2)),\n(total_amount:DECIMAL(7,2)),\n(active:BOOLEAN)\n]",
+   "evidencia": "Group purchase invoices by voucher_type; invoice value is total_amount.",
+   "contable": false
+  },
+  {
+   "id": "comprobantes_compra_cantidad",
+   "shape": "escalar",
+   "concepto": "compras_facturadas",
+   "titulo": "Comprobantes de compra",
+   "descripcion": "cantidad de comprobantes o facturas de compra recibidos en un periodo",
+   "metrics": {
+    "purchase_invoice_count": [
+     "N",
+     "Comprobantes de compra"
+    ]
+   },
+   "labels": [],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0021",
+    "ejemplos": 4
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "purchases",
+    "filters": [],
+    "group_by": [],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "purchase_invoice_count"
+    ],
+    "order_by": [],
+    "subject": "purchase_invoice",
+    "time": {
+     "concept": "purchase_invoice_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: purchase_invoice\n[\n(id:INTEGER, Primary Key),\n(supplier_id:INTEGER),\n(purchase_order_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(7,2)),\n(igv:DECIMAL(7,2)),\n(total_amount:DECIMAL(7,2)),\n(created_at:TIMESTAMP),\n(active:BOOLEAN)\n]",
+   "evidencia": "Purchase invoices are counted from purchase_invoice.id. The purchase invoice date is purchase_invoice.issued_at.",
+   "contable": false
+  },
+  {
+   "id": "ventas_vs_compras_facturadas",
+   "shape": "comparacion",
+   "concepto": "resultado_facturado",
+   "titulo": "Ventas frente a compras facturadas",
+   "descripcion": "comparar ventas facturadas con compras facturadas; si hay ganancia o perdida, situacion financiera",
+   "metrics": {
+    "invoiced_sales_total": [
+     "PEN",
+     "Ventas facturadas"
+    ],
+    "purchase_invoiced_total": [
+     "PEN",
+     "Compras facturadas"
+    ]
+   },
+   "labels": [],
+   "diferencia": [
+    "invoiced_sales_total",
+    "purchase_invoiced_total",
+    "Diferencia (ventas menos compras)"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0106",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "cross_domain",
+    "filters": [],
+    "group_by": [],
+    "intent": "comparison",
+    "limit": null,
+    "metrics": [
+     "invoiced_sales_total",
+     "purchase_invoiced_total"
+    ],
+    "order_by": [],
+    "subject": "sales_vs_purchase_invoicing",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_invoice\n[\n(id:INTEGER, Primary Key),\n(order_id:INTEGER),\n(customer_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(10,2)),\n(igv:DECIMAL(10,2)),\n(total_amount:DECIMAL(10,2)),\n(status:VARCHAR(15))\n]\n# Table: purchase_invoice\n[\n(id:INTEGER, Primary Key),\n(purchase_order_id:INTEGER),\n(supplier_id:INTEGER),\n(voucher_type:VARCHAR(10)),\n(series:VARCHAR(4)),\n(number:INTEGER),\n(issued_at:DATE),\n(subtotal:DECIMAL(7,2)),\n(igv:DECIMAL(7,2)),\n(total_amount:DECIMAL(7,2)),\n(active:BOOLEAN)\n]",
+   "evidencia": "Invoice totals are aggregated independently to avoid any Cartesian multiplication; scalar totals return 0.",
+   "contable": false
+  },
+  {
+   "id": "cobros_vs_pagos",
+   "shape": "comparacion",
+   "concepto": "flujo_caja",
+   "titulo": "Cobros frente a pagos",
+   "descripcion": "comparar dinero cobrado a clientes con dinero pagado a proveedores (flujo de caja)",
+   "metrics": {
+    "sales_payments_total": [
+     "PEN",
+     "Cobrado por ventas"
+    ],
+    "purchase_payments_total": [
+     "PEN",
+     "Pagado a proveedores"
+    ]
+   },
+   "labels": [],
+   "diferencia": [
+    "sales_payments_total",
+    "purchase_payments_total",
+    "Diferencia (cobros menos pagos)"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0105",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "cross_domain",
+    "filters": [],
+    "group_by": [],
+    "intent": "comparison",
+    "limit": null,
+    "metrics": [
+     "sales_payments_total",
+     "purchase_payments_total"
+    ],
+    "order_by": [],
+    "subject": "payments_sales_vs_purchases",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: sales_payment\n[\n(id:INTEGER, Primary Key),\n(sales_invoice_id:INTEGER),\n(payment_type_id:INTEGER),\n(amount:DECIMAL(7,2)),\n(paid_at:TIMESTAMP)\n]\n# Table: purchase_payment\n[\n(id:INTEGER, Primary Key),\n(purchase_invoice_id:INTEGER),\n(payment_type_id:INTEGER),\n(amount:DECIMAL(10,2)),\n(paid_at:TIMESTAMP)\n]",
+   "evidencia": "Sales and purchase payments are aggregated independently; scalar totals return 0 when no rows match.",
+   "contable": false
+  },
+  {
+   "id": "debe_haber_total",
+   "shape": "escalar",
+   "concepto": "contabilidad",
+   "titulo": "Total del debe y del haber",
+   "descripcion": "total del debe y del haber de los asientos contables de un periodo",
+   "metrics": {
+    "total_debit": [
+     "PEN",
+     "Total del debe"
+    ],
+    "total_credit": [
+     "PEN",
+     "Total del haber"
+    ]
+   },
+   "labels": [],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0004",
+    "ejemplos": 3
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [],
+    "domain": "accounting",
+    "filters": [],
+    "group_by": [],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "total_debit",
+     "total_credit"
+    ],
+    "order_by": [],
+    "subject": "journal_entry",
+    "time": {
+     "concept": "journal_entry_date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: journal_entry\n[\n(id:INTEGER, Primary Key),\n(entry_date:DATE),\n(description:VARCHAR(200)),\n(book:VARCHAR(60)),\n(status:BOOLEAN),\n(code:VARCHAR(20))\n]\n# Table: journal_entry_detail\n[\n(id:INTEGER, Primary Key),\n(entry_id:INTEGER),\n(account_id:INTEGER),\n(debit:DECIMAL(12,2)),\n(credit:DECIMAL(12,2))\n]\n〖Foreign keys〗\njournal_entry_detail.entry_id=journal_entry.id",
+   "evidencia": "Debit and credit amounts are stored in journal_entry_detail.debit and journal_entry_detail.credit. The accounting date is journal_entry.entry_date. For scalar business totals, return 0 when no rows match the requested period.",
+   "contable": true
+  },
+  {
+   "id": "debe_haber_por_cuenta",
+   "shape": "agrupada",
+   "concepto": "contabilidad",
+   "titulo": "Debe y haber por cuenta",
+   "descripcion": "movimientos del debe y del haber de todas las cuentas contables en un periodo",
+   "metrics": {
+    "total_debit": [
+     "PEN",
+     "Debe"
+    ],
+    "total_credit": [
+     "PEN",
+     "Haber"
+    ]
+   },
+   "labels": [
+    "code",
+    "account_code",
+    "name",
+    "account_name"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0090",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "accounting_account",
+     "account_type"
+    ],
+    "domain": "accounting",
+    "filters": [],
+    "group_by": [
+     "accounting_account"
+    ],
+    "intent": "aggregate",
+    "limit": null,
+    "metrics": [
+     "total_debit",
+     "total_credit"
+    ],
+    "order_by": [],
+    "subject": "accounting_account",
+    "time": {
+     "concept": "date",
+     "end_exclusive": null,
+     "grain": null,
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: journal_entry\n[\n(id:INTEGER, Primary Key),\n(sales_invoice_id:INTEGER, Nullable),\n(purchase_invoice_id:INTEGER, Nullable),\n(entry_date:DATE),\n(description:VARCHAR(200)),\n(book:VARCHAR(60)),\n(responsible:VARCHAR(100), Nullable),\n(status:BOOLEAN),\n(code:VARCHAR(20)),\n(observation:VARCHAR(200), Nullable)\n]\n# Table: journal_entry_detail\n[\n(id:INTEGER, Primary Key),\n(entry_id:INTEGER),\n(account_id:INTEGER),\n(description:VARCHAR(200), Nullable),\n(debit:DECIMAL(12,2)),\n(credit:DECIMAL(12,2))\n]\n# Table: accounting_account\n[\n(id:INTEGER, Primary Key),\n(parent_id:INTEGER, Nullable),\n(code:VARCHAR(10)),\n(name:VARCHAR(100)),\n(type:VARCHAR(20)),\n(active:BOOLEAN)\n]\n〖Foreign keys〗\njournal_entry_detail.entry_id=journal_entry.id\njournal_entry_detail.account_id=accounting_account.id\naccounting_account.parent_id=accounting_account.id",
+   "evidencia": "Group debit and credit by account and account type; do not derive account balance.",
+   "contable": true
+  },
+  {
+   "id": "debe_haber_por_dia",
+   "shape": "serie",
+   "concepto": "contabilidad",
+   "titulo": "Debe y haber por día",
+   "descripcion": "movimientos contables del debe y del haber dia por dia",
+   "metrics": {
+    "total_debit": [
+     "PEN",
+     "Debe"
+    ],
+    "total_credit": [
+     "PEN",
+     "Haber"
+    ]
+   },
+   "labels": [
+    "entry_date"
+   ],
+   "entrenamiento": {
+    "ancla": "LB-GOLD-0092",
+    "ejemplos": 7
+   },
+   "solicitud": {
+    "comparison": null,
+    "conditions": [],
+    "dimensions": [
+     "journal_entry_date"
+    ],
+    "domain": "accounting",
+    "filters": [],
+    "group_by": [
+     "journal_entry_date"
+    ],
+    "intent": "timeseries",
+    "limit": null,
+    "metrics": [
+     "total_debit",
+     "total_credit"
+    ],
+    "order_by": [],
+    "subject": "journal_entry",
+    "time": {
+     "concept": "journal_entry_date",
+     "end_exclusive": null,
+     "grain": "day",
+     "start": null
+    }
+   },
+   "mschema": "〖DB_ID〗 los_betos\n〖Schema〗\n# Table: journal_entry\n[\n(id:INTEGER, Primary Key),\n(sales_invoice_id:INTEGER, Nullable),\n(purchase_invoice_id:INTEGER, Nullable),\n(entry_date:DATE),\n(description:VARCHAR(200)),\n(book:VARCHAR(60)),\n(responsible:VARCHAR(100), Nullable),\n(status:BOOLEAN),\n(code:VARCHAR(20)),\n(observation:VARCHAR(200), Nullable)\n]\n# Table: journal_entry_detail\n[\n(id:INTEGER, Primary Key),\n(entry_id:INTEGER),\n(account_id:INTEGER),\n(description:VARCHAR(200), Nullable),\n(debit:DECIMAL(12,2)),\n(credit:DECIMAL(12,2))\n]\n〖Foreign keys〗\njournal_entry_detail.entry_id=journal_entry.id",
+   "evidencia": "Accounting date is journal_entry.entry_date; debit and credit are journal_entry_detail values.",
+   "contable": true
+  }
+ ]
+}

@@ -23,8 +23,26 @@ from ai_service.llm.provider import (
     LlmResponse,
 )
 
-_WRITE_RE = re.compile(r"\b(?:registr|anul|elimin|modific|borr)\w*", re.IGNORECASE)
+# Pretéritos y participios ("se registraron", "anulados") son preguntas, no órdenes de escritura.
+_WRITE_RE = re.compile(r"\b(?:registr|anul|elimin|modific|borr)(?!aron\b|[oó]\b|ad[oa]s?\b)\w*", re.IGNORECASE)
 _CODE_RE = re.compile(r"\bcuenta\s+(\d{2,6})\b", re.IGNORECASE)
+# Reglas SIMULADAS para elegir una familia (P1) en pruebas; el proveedor real decide con OpenAI. El
+# orden importa: la primera regla que coincide gana.
+SIMULATED_FAMILY_RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern, re.IGNORECASE), family)
+    for pattern, family in (
+        (r"\bganancia|p[eé]rdida|situaci[oó]n financiera", "ventas_vs_compras_facturadas"),
+        (r"\bqu[eé] d[ií]a\b", "ventas_cobradas_por_dia"),
+        (r"\bplatos?\b.*\bm[aá]s vendido|\bm[aá]s vendido", "plato_mas_vendido"),
+        (r"\b(?:productos?|platos?)\b", "platos_mayores_ingresos"),
+        (r"\bcu[aá]ntas ventas|\bcomprobantes de venta", "comprobantes_venta_cantidad"),
+        (r"\bpag\w*\b.*\bproveedor", "pagos_proveedores_total"),
+        (r"\bgastos? m[aá]s|\bcompras? m[aá]s|\bproveedor", "compras_por_proveedor"),
+        (r"\bgast|\bcompr", "compras_por_comprobante"),
+        (r"\bcobr|\bdinero\b.*\bentr", "ventas_cobradas_total"),
+        (r"\bvend|\bventas?\b|\bingres|\bfactur", "ventas_facturadas_por_comprobante"),
+    )
+)
 
 
 class SensitiveDataLeak(SecurityIncident):
@@ -51,8 +69,10 @@ class MockLlmProvider:
         explain_override: Callable[[LlmRequest], str] | None = None,
         fail_with: Exception | None = None,
         wrong_trace: bool = False,
+        families: frozenset[str] = frozenset(),
     ) -> None:
         self._keywords = {k.lower(): v for k, v in account_keywords.items()}
+        self._families = frozenset(families)  # sin familias: comportamiento previo (solo saldos)
         self._interpret_override = interpret_override
         self._explain_override = explain_override
         self._fail_with = fail_with
@@ -106,6 +126,13 @@ class MockLlmProvider:
         if _WRITE_RE.search(message):
             return InterpretOutput(tarea="interpretar", intencion="escritura", necesita_aclaracion=False)
 
+        if self._families and not _CODE_RE.search(message) and not re.search(r"\bsaldo\b", message, re.IGNORECASE):
+            family = next((f for pattern, f in SIMULATED_FAMILY_RULES if pattern.search(message) and f in self._families), None)
+            if family is not None:
+                return InterpretOutput(
+                    tarea="interpretar", intencion="consulta_financiera", entidades=Entities(consulta=family),
+                    necesita_aclaracion=False,
+                )
         account = self._find_account(message)
         intent = "consulta_financiera"
         if account is None:
@@ -129,6 +156,12 @@ class MockLlmProvider:
         rango = period_phrase(periodo.desde, periodo.hasta) if periodo else "el período consultado"
         cuenta = entrada.cuenta_nombre or "la cuenta"  # type: ignore[union-attr]
         markers = entrada.marcadores  # type: ignore[union-attr]
+        meanings = entrada.significados  # type: ignore[union-attr]
+        if meanings:  # P1: cada cifra con su significado; los textos eN se usan si existen
+            parts = [f"{m.significado} {{{{{m.marcador}}}}}" for m in meanings if m.marcador.startswith("c")]
+            texts = [f"{{{{{m.marcador}}}}}" for m in meanings if m.marcador.startswith("e")]
+            subject = f" ({', '.join(texts)})" if texts else ""
+            return f"{entrada.consulta or 'Resultado'}{subject}, {rango}: " + "; ".join(parts) + "."  # type: ignore[union-attr]
         if markers == ["c1"]:
             return f"Durante {rango}, los movimientos de {cuenta} tuvieron un saldo neto de {{{{c1}}}}."
         if markers == ["c1", "c2", "c3"]:
