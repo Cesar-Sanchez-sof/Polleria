@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import { isValidVoucherSeries } from "@/lib/utils/series-validation";
 
 export interface RestaurantInfo {
   name: string;
@@ -371,6 +372,14 @@ export async function getPrinterConfig(): Promise<PrinterConfig> {
  * Actualiza los parámetros de impresoras y comprobantes en la base de datos con Prisma.
  */
 export async function updatePrinterConfig(printers: Partial<PrinterConfig>): Promise<PrinterConfig> {
+  if (printers.series) {
+    if (printers.series.boleta !== undefined && !isValidVoucherSeries(printers.series.boleta, "Boleta")) {
+      throw new Error(`Serie de boleta inválida (${printers.series.boleta}). Debe tener formato B### (ej. B001, B002).`);
+    }
+    if (printers.series.factura !== undefined && !isValidVoucherSeries(printers.series.factura, "Factura")) {
+      throw new Error(`Serie de factura inválida (${printers.series.factura}). Debe tener formato F### (ej. F001, F002).`);
+    }
+  }
   const current = await getPrinterConfig();
   const updated: PrinterConfig = {
     ...current,

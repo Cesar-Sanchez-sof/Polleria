@@ -2,6 +2,14 @@
  * Utilidades y reglas de negocio para el módulo de Ventas, Gestión de Mesas y Facturación.
  */
 
+export {
+  isValidVoucherSeries,
+  formatVoucherCode,
+  BOLETA_SERIES_REGEX,
+  FACTURA_SERIES_REGEX,
+  TICKET_SERIES_REGEX,
+} from "./series-validation";
+
 export interface CalculationItem {
   quantity: number;
   unitPrice: number;
