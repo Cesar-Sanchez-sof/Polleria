@@ -21,6 +21,11 @@ Con ``AI_SQL_GENERATOR=xiyansql`` (Fase 1 del Modelo 2) cambian solo tres piezas
 - cifras de saldo desde los totales devueltos con las primitivas de B1, sin datos inventados.
 
 El SQL Validator, el prefiltro, el presupuesto y la auditoría no cambian.
+
+Con ``AI_SQL_EXECUTOR=postgres_readonly`` se activa además el catálogo de **familias de consulta
+entrenadas** (P1, ``knowledge/query_families_v1.json``): ventas, cobros, platos, compras, pagos y
+totales contables, además del saldo de una cuenta. El Modelo 1 elige la familia de una lista
+cerrada; XiYanSQL genera el SQL; el validador, el Executor de solo lectura y el motor no cambian.
 """
 
 from __future__ import annotations
@@ -51,6 +56,10 @@ from ai_service.orchestrator.ports import FinanceEngine, SqlExecutor, SqlGenerat
 from ai_service.retrieval.embedder import Embedder
 from ai_service.retrieval.factory import TOP_K, build_retriever
 from ai_service.simulation.components import InMemoryAuditSink, TemplateSqlGenerator, build_fixture_executor
+from ai_service.sqlgen.families import FamilyCatalog, load_family_catalog
+from ai_service.sqlgen.free_result import FreeResultAdapter
+from ai_service.sqlgen.modules import ErpModules, load_erp_modules
+from ai_service.retrieval.factory import build_local_retriever
 from ai_service.simulation.llm import MockLlmProvider
 from ai_service.validation.allowlist import load_allowlist
 from ai_service.validation.validator import SqlValidator
@@ -69,6 +78,8 @@ DEV_MONTHLY_LIMIT = Decimal("1.00")
 # verificada con la aserción firmada por el proxy a partir de sesionActual() (P-9).
 REAL_DB_ACCEPTED_ORIGINS: frozenset[str] = frozenset({"erp-session"})  # P-9: solo identidad verificada
 FICTITIOUS_ACCEPTED_ORIGINS: frozenset[str] = frozenset({"ct-b-provisional", "erp-session"})
+FAMILY_CATALOG_FILE = "query_families_v1.json"
+ERP_MODULES_FILE = "erp_modules_v1.json"
 
 
 def _utc_now() -> datetime:
@@ -123,10 +134,14 @@ def build_dev_orchestrator(
         "rag": rag_version,
     }
 
+    families: FamilyCatalog | None = None
+    modules: ErpModules | None = None
+    module_retriever = None
     if xiyan:
         from ai_service.sqlgen.client import XiYanHttpClient
         from ai_service.sqlgen.dev_fixtures import SaldoFixtureExecutor
         from ai_service.sqlgen.evidence import EVIDENCE_POLICY_SETS, EVIDENCE_VERSION, EvidenceBuilder
+        from ai_service.sqlgen.family_result import FamilyResultAdapter, PlanFinanceRouter
         from ai_service.sqlgen.generator import XiYanSqlGenerator
         from ai_service.sqlgen.mschema import MSchemaBuilder
         from ai_service.sqlgen.profile import PROFILE_ID
@@ -134,6 +149,17 @@ def build_dev_orchestrator(
 
         if settings.sqlgen is None:
             raise ValueError("Falta la configuración del generador XiYanSQL.")
+        if real_db:
+            # P1: familias de consulta entrenadas. Solo con datos reales: el Executor ficticio solo
+            # reconoce el patrón de saldo y respondería "no disponible" a cualquier otra consulta.
+            families = load_family_catalog(root / "knowledge" / FAMILY_CATALOG_FILE)
+            # Ruta ampliada: módulos del ERP (verificados contra Neon) y su RAG local.
+            modules = load_erp_modules(root / "knowledge" / ERP_MODULES_FILE)
+            module_retriever, module_rag_version = build_local_retriever(
+                modules.fragments(), settings.rag.mode, embedder=rag_embedder
+            )
+            versions["modules"] = modules.version
+            versions["modules_rag"] = module_rag_version
         generator: SqlGenerator = XiYanSqlGenerator(
             XiYanHttpClient(settings.sqlgen, transport=sqlgen_transport),
             allowlist,
@@ -146,6 +172,8 @@ def build_dev_orchestrator(
             # Datos reales: solo identidad verificada (P-9). Ficticios: también el rol provisional.
             accepted_origins=REAL_DB_ACCEPTED_ORIGINS if real_db else FICTITIOUS_ACCEPTED_ORIGINS,
             data_source="real" if real_db else "ficticio",
+            families=families,
+            modules=modules,
         )
         executor: SqlExecutor
         if real_db:
@@ -161,7 +189,12 @@ def build_dev_orchestrator(
             versions["executor"] = "postgres-readonly"
         else:
             executor = SaldoFixtureExecutor(dev["dataset"], dev["accounts"])
-        finance: FinanceEngine = XiYanSaldoFinanceAdapter()
+        finance: FinanceEngine = PlanFinanceRouter(
+            XiYanSaldoFinanceAdapter(), FamilyResultAdapter(families) if families else None,
+            FreeResultAdapter() if modules else None,
+        )
+        if families:
+            versions["families"] = families.version
         versions.update(
             {
                 "sqlgen": f"xiyansql:{settings.sqlgen.adapter}",
@@ -190,6 +223,8 @@ def build_dev_orchestrator(
             account_catalog=dev["account_keywords"],  # metadatos del catálogo, nunca cifras
             reasoning_effort=llm.reasoning_effort,
             transport=llm_transport,
+            families=families,
+            modules=modules,
         )
         model_name, pricing = llm.model, {llm.model: price}
         max_in, max_out, timeout_ms = LLM_MAX_INPUT_TOKENS, LLM_MAX_OUTPUT_TOKENS, llm.timeout_s * 1000
@@ -200,7 +235,7 @@ def build_dev_orchestrator(
         )
         versions["llm"] = f"openai:{llm.model}"
     else:
-        provider = MockLlmProvider(dev["account_keywords"])
+        provider = MockLlmProvider(dev["account_keywords"], families=frozenset(families.ids) if families else frozenset())
         model_name, pricing = MockLlmProvider.model, SIM_PRICING
         max_in, max_out, timeout_ms = DEV_MAX_INPUT, DEV_MAX_OUTPUT, 8000
         default_policy = BudgetPolicy(
@@ -227,5 +262,8 @@ def build_dev_orchestrator(
         clock=clock,
         versions=versions,
         account_names=dev.get("account_names", {}),
+        families=families,
+        modules=modules,
+        module_retriever=module_retriever,
     )
     return orchestrator, audit_sink

@@ -21,7 +21,7 @@ En B3 el proveedor es siempre simulado: no hay llamadas a APIs comerciales. El c
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from pydantic import ValidationError
 
@@ -37,6 +37,7 @@ from ai_service.llm.provider import (
     LlmProvider,
     LlmRequest,
     LlmResponse,
+    Meaning,
     TaskMismatchError,
     ensure_matches,
 )
@@ -50,7 +51,14 @@ OUTPUT_SCHEMA = {"interpretar": "interpretar-salida-v0", "explicar": "explicar-s
 
 
 class ModelUnavailable(Exception):
-    """El proveedor falló, no respondió o devolvió una respuesta inválida."""
+    """El proveedor falló, no respondió o devolvió una respuesta inválida.
+
+    ``code``: código fijo del proveedor (p. ej. ``INCOMPLETE_RESPONSE``, ``TIMEOUT``) para la traza y la
+    auditoría; nunca el prompt, la respuesta ni la clave."""
+
+    def __init__(self, message: str, code: str = "PROVIDER_ERROR") -> None:
+        super().__init__(message)
+        self.code = code if isinstance(code, str) and code.replace("_", "").isalpha() and code.isupper() else "PROVIDER_ERROR"
 
 
 def estimate_tokens(text: str) -> int:
@@ -103,10 +111,10 @@ class ModelGateway:
             raise
         except (TaskMismatchError, ValidationError) as exc:
             self._guard.cancel(authorization)
-            raise ModelUnavailable("Respuesta del modelo inválida.") from exc
+            raise ModelUnavailable("Respuesta del modelo inválida.", "INVALID_MODEL_OUTPUT") from exc
         except Exception as exc:  # fallo del proveedor: error controlado, sin detalles
             self._guard.cancel(authorization)
-            raise ModelUnavailable("El proveedor del modelo no está disponible.") from exc
+            raise ModelUnavailable("El proveedor del modelo no está disponible.", getattr(exc, "code", "PROVIDER_ERROR")) from exc
         self._guard.record(
             authorization,
             model_version=response.version,
@@ -141,6 +149,11 @@ class LlmBackedInterpreter:
             cuenta=output.entidades.cuenta,
             indicador=output.entidades.indicador,
             necesita_aclaracion=output.necesita_aclaracion,
+            consulta=output.entidades.consulta,
+            concepto=output.entidades.concepto,
+            consulta_libre=output.entidades.consulta_libre,
+            restringido=output.entidades.restringido,
+            historico=output.entidades.historico,
         )
 
 
@@ -158,15 +171,22 @@ class LlmBackedExplainer:
         periodo: Period | None,
         figures: Sequence[Figure],
         cuenta_nombre: str | None = None,
+        consulta: str | None = None,
+        meanings: Mapping[str, str] | None = None,
+        text_labels: Mapping[str, str] | None = None,
     ) -> str:
+        """``meanings`` (P1): significado genérico de cada marcador; ``text_labels``: textos ``eN`` de
+        filas que se insertan tras validar y que **no** se envían al proveedor."""
         entrada = ExplainInput(
             tarea="explicar",
             intencion=intencion,
             periodo=periodo,
             marcadores=[figure.marcador for figure in figures],
             cuenta_nombre=cuenta_nombre,
+            consulta=consulta,
+            significados=[Meaning(marcador=m, significado=s) for m, s in (meanings or {}).items()],
         )
         output = self._gateway.call(trace_id, entrada).salida
         if not isinstance(output, ExplainOutput):
             raise ModelUnavailable("Salida de explicación inesperada.")
-        return render_verified(output.texto, figures)  # MarkerValidationError si no es segura
+        return render_verified(output.texto, figures, text_labels)  # MarkerValidationError si no es segura

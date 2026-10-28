@@ -13,7 +13,9 @@ Este módulo la verifica antes de que exista cualquier ``AuthorizationContext``:
   cabeceras adicionales como ``kid`` o ``crit``);
 - firma HMAC-SHA256 comparada en tiempo constante;
 - ``iss``, ``aud``, vida máxima, ``iat`` no futuro y ``exp`` no vencido (tolerancia de reloj 5 s);
-- ``sub``, ``rol`` y ``jti`` idénticos al usuario, rol y traza de la solicitud CT-B.
+- ``sub``, ``rol`` y ``jti`` idénticos al usuario, rol y traza de la solicitud CT-B;
+- ``mod`` (opcional): lista de módulos del ERP que el usuario puede consultar, calculada por el proxy a
+  partir de sus permisos reales; si viene, el asistente solo lee tablas de esos módulos.
 
 Los errores solo llevan un código fijo: nunca el token, la clave ni los claims.
 """
@@ -24,6 +26,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -45,11 +48,18 @@ class IdentityError(Exception):
         self.code = code
 
 
+MODULE_RE = re.compile(r"^[a-z][a-z_]{2,29}$")
+MAX_MODULES = 20
+
+
 @dataclass(frozen=True)
 class VerifiedIdentity:
     user_id: int
     rol: str
     trace_id: str
+    # Claim opcional ``mod``: módulos del ERP que el usuario puede consultar según SUS permisos (los
+    # calcula el proxy desde la base). ``None`` si el proxy no la envía (compatibilidad).
+    modulos: frozenset[str] | None = None
 
 
 def _b64decode(segment: str) -> bytes:
@@ -116,4 +126,11 @@ def verify_identity_assertion(
         raise IdentityError("EXPIRED")
     if claims["sub"] != str(user_id) or claims["rol"] != rol or claims["jti"] != trace_id:
         raise IdentityError("IDENTITY_MISMATCH")
-    return VerifiedIdentity(user_id=user_id, rol=rol, trace_id=trace_id)
+    modules = None
+    if "mod" in claims:
+        raw = claims["mod"]
+        if (not isinstance(raw, list) or len(raw) > MAX_MODULES
+                or not all(isinstance(m, str) and MODULE_RE.match(m) for m in raw)):
+            raise IdentityError("MALFORMED")
+        modules = frozenset(raw)
+    return VerifiedIdentity(user_id=user_id, rol=rol, trace_id=trace_id, modulos=modules)

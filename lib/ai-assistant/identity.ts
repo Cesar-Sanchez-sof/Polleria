@@ -21,11 +21,13 @@ function hexToBytes(hex: string): Uint8Array {
 
 export async function signIdentity(
   keyHex: string,
-  identity: { userId: number; rol: string; traceId: string },
+  identity: { userId: number; rol: string; traceId: string; modulos?: readonly string[] },
   now: Date,
 ): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1000);
-  return new SignJWT({ rol: identity.rol })
+  // `mod`: módulos del ERP permitidos por los permisos del usuario (solo si se calcularon).
+  const claims = identity.modulos ? { rol: identity.rol, mod: [...identity.modulos] } : { rol: identity.rol };
+  return new SignJWT(claims)
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuer(IDENTITY_ISSUER)
     .setAudience(IDENTITY_AUDIENCE)

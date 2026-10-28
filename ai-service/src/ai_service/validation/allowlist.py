@@ -55,8 +55,16 @@ def _check_identifier(kind: str, name: str) -> None:
         raise AllowlistError(f"{kind} inválido o con comodines: {name!r}.")
 
 
+# Excepciones por nombre EXACTO a las palabras prohibidas, revisadas una a una: ``cash_session`` es un
+# turno de caja (apertura y cierre de ventanilla), no una sesión de autenticación. Cualquier otra tabla
+# con "session" sigue excluida.
+BUSINESS_TABLE_EXCEPTIONS: frozenset[str] = frozenset({"cash_session"})
+
+
 def _check_table(name: str) -> None:
     _check_identifier("Nombre de tabla", name)
+    if name in BUSINESS_TABLE_EXCEPTIONS:
+        return
     if name.startswith("pg_") or _words(name) & FORBIDDEN_TABLE_WORDS:
         raise AllowlistError(f"La tabla {name!r} está siempre excluida del asistente (BR-8).")
 

@@ -15,6 +15,7 @@ recibe siempre el host de esa configuración validada. Sin registro de accesos n
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -39,6 +40,11 @@ def main() -> int:
     from ai_service.http.app import create_app
 
     orchestrator, _audit = build_dev_orchestrator(settings)
+    # Una línea JSON por consulta (``http.routes.log_outcome``): evidencia del pipeline en la terminal.
+    trace_logger = logging.getLogger("ai_service.trace")
+    trace_logger.setLevel(logging.INFO)
+    trace_logger.addHandler(logging.StreamHandler(sys.stderr))
+    trace_logger.propagate = False
     uvicorn.run(
         create_app(settings, orchestrator),
         host=settings.host,  # validado: solo 127.0.0.1
