@@ -490,6 +490,36 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
 		],
 	},
+	{
+		id: 'DiningArea', label: 'DiningArea', module: 'Configuración', color: '#06b6d4',
+		fields: [
+			{ name: 'id', type: 'String', kind: 'pk' },
+			{ name: 'name', type: 'String', kind: 'field' },
+			{ name: 'level', type: 'String', kind: 'field' },
+			{ name: 'description', type: 'String', kind: 'field', optional: true },
+			{ name: 'tableNumbers', type: 'Int[]', kind: 'field' },
+			{ name: 'active', type: 'Boolean', kind: 'field' },
+			{ name: 'color', type: 'String', kind: 'field', optional: true },
+			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
+			{ name: 'updatedAt', type: 'Timestamp', kind: 'field' },
+		],
+	},
+	{
+		id: 'PrinterConfig', label: 'PrinterConfig', module: 'Configuración', color: '#06b6d4',
+		fields: [
+			{ name: 'id', type: 'String', kind: 'pk' },
+			{ name: 'paperWidth', type: 'String', kind: 'field' },
+			{ name: 'autoCut', type: 'Boolean', kind: 'field' },
+			{ name: 'autoPrintVoucher', type: 'Boolean', kind: 'field' },
+			{ name: 'printWaiterCopy', type: 'Boolean', kind: 'field' },
+			{ name: 'series', type: 'Json', kind: 'field' },
+			{ name: 'kitchenPrinter', type: 'Json', kind: 'field' },
+			{ name: 'barPrinter', type: 'Json', kind: 'field' },
+			{ name: 'cashierPrinter', type: 'Json', kind: 'field' },
+			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
+			{ name: 'updatedAt', type: 'Timestamp', kind: 'field' },
+		],
+	},
 ];
 
 const RELATIONS: RelationDef[] = [
@@ -559,7 +589,7 @@ const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
     Ventas: { col: 7, rows: ['CashMovement', '____________', '____________', '____________', 'AccountingPeriod', '____________', '____________', '____________', 'PurchaseInvoice', 'SalesInvoice'] },
 	Contab: { col: 8, rows: ['____________', '____________', '____________', '____________', '____________', '____________', 'JournalEntry', '____________', 'PurchasePayment', '____________', '____________', 'Customer'] },
 	__Caja: { col: 9, rows: ['____________', '____________', '____________', '____________', 'JournalEntryDetail', 'AccountingAccount', '____________', '____________', '____________', 'PaymentType', 'SalesPayment'] },
-	___C3: { col: 10, rows: ['____________', '____________', '____________', '____________', '____________', ] },
+	___C3: { col: 10, rows: ['DiningArea', '____________', 'PrinterConfig'] },
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -569,6 +599,7 @@ const MODULE_COLORS: Record<string, string> = {
 	Ventas: '#ec4899',
 	Contabilidad: '#10b981',
 	Caja: '#ef4444',
+	Configuración: '#06b6d4',
 };
 
 const COL_WIDTH = 290;
