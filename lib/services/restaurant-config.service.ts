@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { isValidVoucherSeries } from "@/lib/utils/series-validation";
+import { uploadYapeQrToS3 } from "@/lib/services/s3-storage.service";
+import { logAudit } from "@/lib/services/audit.service";
 
 export interface RestaurantInfo {
   name: string;
@@ -143,10 +145,30 @@ export const DEFAULT_CONFIG: RestaurantGlobalConfig = {
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), "data", "restaurant-config.json");
 
+function mapDbToRestaurantInfo(record: any): RestaurantInfo {
+  return {
+    name: record.name,
+    commercialName: record.commercialName,
+    ruc: record.ruc,
+    address: record.address,
+    city: record.city,
+    phone: record.phone,
+    email: record.email,
+    ticketFooter: record.ticketFooter,
+    currency: record.currency || "S/ PEN",
+    logoUrl: record.logoUrl ?? "",
+    yapePhone: record.yapePhone ?? "",
+    yapeName: record.yapeName ?? "",
+    yapeQrImageUrl: record.yapeQrImageUrl ?? "",
+  };
+}
+
+let inMemoryRestaurantCache: RestaurantInfo = { ...DEFAULT_CONFIG.restaurant };
+
 /**
- * Lee la identidad comercial y fiscal del restaurante (desde archivo o defaults).
+ * Lee la identidad comercial y fiscal del restaurante directamente desde JSON o defaults (fallback estático).
  */
-export function getRestaurantInfo(): RestaurantInfo {
+export function getJsonConfigRestaurantInfo(): RestaurantInfo {
   try {
     if (fs.existsSync(CONFIG_FILE_PATH)) {
       const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf-8");
@@ -156,37 +178,260 @@ export function getRestaurantInfo(): RestaurantInfo {
       }
     }
   } catch (error) {
-    console.warn("[restaurant-config] Error al leer información del restaurante:", error);
+    console.warn("[restaurant-config] Error al leer información del restaurante desde JSON:", error);
   }
   return DEFAULT_CONFIG.restaurant;
 }
 
 /**
- * Actualiza los datos del restaurante.
+ * Helper para hacer que una promesa también exponga propiedades síncronas de lectura inmediata,
+ * manteniendo compatibilidad tanto con código que use `await getRestaurantInfo()` como llamadas directas `getRestaurantInfo().ruc`.
  */
-export function updateRestaurantInfo(info: Partial<RestaurantInfo>): RestaurantInfo {
-  try {
-    const dir = path.dirname(CONFIG_FILE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const current = getRestaurantInfo();
-    const updated = { ...current, ...info };
+function makeThenable<T extends object>(syncFallback: T, promise: Promise<T>): Promise<T> & T {
+  return Object.assign(promise, syncFallback) as Promise<T> & T;
+}
 
-    let existingData: any = {};
-    if (fs.existsSync(CONFIG_FILE_PATH)) {
+/**
+ * Lee la identidad comercial y fiscal del restaurante desde PostgreSQL con Prisma ORM.
+ * Si la tabla aún no tiene datos, ejecuta la migración/inicialización idempotente desde el archivo JSON actual.
+ */
+export function getRestaurantInfo(): Promise<RestaurantInfo> & RestaurantInfo {
+  const asyncPromise = (async (): Promise<RestaurantInfo> => {
+    try {
+      const record = await prisma.restaurantConfig.findUnique({
+        where: { id: "default" },
+      });
+
+      if (!record) {
+        // Inicialización idempotente desde el JSON existente
+        const fromJson = getJsonConfigRestaurantInfo();
+        let qrUrl = fromJson.yapeQrImageUrl || "";
+        if (qrUrl.startsWith("data:")) {
+          try {
+            const uploadRes = await uploadYapeQrToS3({ imageBase64: qrUrl });
+            qrUrl = uploadRes.publicUrl;
+          } catch {
+            qrUrl = "";
+          }
+        }
+
+        try {
+          const created = await prisma.restaurantConfig.create({
+            data: {
+              id: "default",
+              name: fromJson.name,
+              commercialName: fromJson.commercialName,
+              ruc: fromJson.ruc,
+              address: fromJson.address,
+              city: fromJson.city,
+              phone: fromJson.phone,
+              email: fromJson.email,
+              ticketFooter: fromJson.ticketFooter,
+              currency: fromJson.currency || "S/ PEN",
+              logoUrl: fromJson.logoUrl || null,
+              yapePhone: fromJson.yapePhone || null,
+              yapeName: fromJson.yapeName || null,
+              yapeQrImageUrl: qrUrl || null,
+            },
+          });
+          const mapped = mapDbToRestaurantInfo(created);
+          inMemoryRestaurantCache = { ...mapped };
+          return mapped;
+        } catch {
+          // Fallback por concurrencia si otro proceso lo creó simultáneamente
+          const existing = await prisma.restaurantConfig.findUnique({
+            where: { id: "default" },
+          }).catch(() => null);
+          if (existing) {
+            const mapped = mapDbToRestaurantInfo(existing);
+            inMemoryRestaurantCache = { ...mapped };
+            return mapped;
+          }
+        }
+      } else {
+        const mapped = mapDbToRestaurantInfo(record);
+        inMemoryRestaurantCache = { ...mapped };
+        return mapped;
+      }
+    } catch (error) {
+      console.warn("[restaurant-config] Error al consultar restaurantConfig en Prisma, usando caché:", error);
+    }
+    return inMemoryRestaurantCache;
+  })();
+
+  return makeThenable(inMemoryRestaurantCache, asyncPromise);
+}
+
+/**
+ * Actualiza los datos del restaurante e identidad fiscal en PostgreSQL mediante Prisma ORM.
+ * Sube el QR de Yape a S3 si se envía en base64 y registra la auditoría del cambio.
+ */
+export function updateRestaurantInfo(
+  info: Partial<RestaurantInfo>,
+  options?: {
+    actor?: { userId: number | null; username: string } | null;
+    ipAddress?: string | null;
+  }
+): Promise<RestaurantInfo> & RestaurantInfo {
+  // Pre-actualizar caché local para retorno síncrono inmediato si no se usa await
+  inMemoryRestaurantCache = { ...inMemoryRestaurantCache, ...info };
+
+  const asyncPromise = (async (): Promise<RestaurantInfo> => {
+    let finalQrUrl = info.yapeQrImageUrl;
+    if (finalQrUrl && finalQrUrl.startsWith("data:")) {
       try {
-        existingData = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
-      } catch {
-        existingData = {};
+        const uploadRes = await uploadYapeQrToS3({ imageBase64: finalQrUrl });
+        finalQrUrl = uploadRes.publicUrl;
+      } catch (err) {
+        console.warn("[restaurant-config] Error al subir QR a S3:", err);
       }
     }
-    existingData.restaurant = updated;
-    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(existingData, null, 2), "utf-8");
-    return updated;
+
+    const current = await getRestaurantInfo();
+    const updatedData: RestaurantInfo = {
+      ...current,
+      ...info,
+      ...(finalQrUrl !== undefined && { yapeQrImageUrl: finalQrUrl }),
+    };
+
+    try {
+      const record = await prisma.restaurantConfig.upsert({
+        where: { id: "default" },
+        create: {
+          id: "default",
+          name: updatedData.name,
+          commercialName: updatedData.commercialName,
+          ruc: updatedData.ruc,
+          address: updatedData.address,
+          city: updatedData.city,
+          phone: updatedData.phone,
+          email: updatedData.email,
+          ticketFooter: updatedData.ticketFooter,
+          currency: updatedData.currency || "S/ PEN",
+          logoUrl: updatedData.logoUrl || null,
+          yapePhone: updatedData.yapePhone || null,
+          yapeName: updatedData.yapeName || null,
+          yapeQrImageUrl: updatedData.yapeQrImageUrl || null,
+        },
+        update: {
+          ...(info.name !== undefined && { name: info.name }),
+          ...(info.commercialName !== undefined && { commercialName: info.commercialName }),
+          ...(info.ruc !== undefined && { ruc: info.ruc }),
+          ...(info.address !== undefined && { address: info.address }),
+          ...(info.city !== undefined && { city: info.city }),
+          ...(info.phone !== undefined && { phone: info.phone }),
+          ...(info.email !== undefined && { email: info.email }),
+          ...(info.ticketFooter !== undefined && { ticketFooter: info.ticketFooter }),
+          ...(info.currency !== undefined && { currency: info.currency }),
+          ...(info.logoUrl !== undefined && { logoUrl: info.logoUrl || null }),
+          ...(info.yapePhone !== undefined && { yapePhone: info.yapePhone || null }),
+          ...(info.yapeName !== undefined && { yapeName: info.yapeName || null }),
+          ...(finalQrUrl !== undefined && { yapeQrImageUrl: finalQrUrl || null }),
+        },
+      });
+
+      const mapped = mapDbToRestaurantInfo(record);
+      inMemoryRestaurantCache = { ...mapped };
+
+      // Criterio 5: Cada cambio de configuración genera un registro de auditoría
+      try {
+        await logAudit({
+          actor: options?.actor ?? null,
+          action: "UPDATE",
+          module: "Configuracion",
+          entity: "RestaurantConfig",
+          entityId: "default",
+          description: `Actualización de identidad y datos del restaurante (${mapped.commercialName})`,
+          details: {
+            changedFields: Object.keys(info),
+            ruc: mapped.ruc,
+            commercialName: mapped.commercialName,
+          },
+          ipAddress: options?.ipAddress ?? null,
+        });
+      } catch (auditErr) {
+        console.warn("[restaurant-config] Aviso al registrar auditoría:", auditErr);
+      }
+
+      // Mantener respaldo local en data/restaurant-config.json (sin base64 gigante)
+      try {
+        const dir = path.dirname(CONFIG_FILE_PATH);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        let existingData: any = {};
+        if (fs.existsSync(CONFIG_FILE_PATH)) {
+          existingData = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
+        }
+        existingData.restaurant = mapped;
+        fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(existingData, null, 2), "utf-8");
+      } catch {
+        // En entornos de solo lectura (como Vercel Serverless), esto no afectará la operación
+      }
+
+      return mapped;
+    } catch (error) {
+      console.error("[restaurant-config] Error al actualizar restaurantConfig en Prisma:", error);
+      throw error;
+    }
+  })();
+
+  return makeThenable(inMemoryRestaurantCache, asyncPromise);
+}
+
+/**
+ * Criterio 4: Migración de datos idempotente desde el JSON actual hacia PostgreSQL.
+ */
+export async function migrateRestaurantConfigFromJson(): Promise<{
+  success: boolean;
+  migrated: boolean;
+  restaurant: RestaurantInfo;
+}> {
+  try {
+    const existing = await prisma.restaurantConfig.findUnique({
+      where: { id: "default" },
+    });
+
+    if (existing) {
+      const mapped = mapDbToRestaurantInfo(existing);
+      inMemoryRestaurantCache = { ...mapped };
+      return { success: true, migrated: false, restaurant: mapped };
+    }
+
+    const fromJson = getJsonConfigRestaurantInfo();
+    let qrUrl = fromJson.yapeQrImageUrl || "";
+    if (qrUrl.startsWith("data:")) {
+      try {
+        const uploadRes = await uploadYapeQrToS3({ imageBase64: qrUrl });
+        qrUrl = uploadRes.publicUrl;
+      } catch {
+        qrUrl = "";
+      }
+    }
+
+    const created = await prisma.restaurantConfig.create({
+      data: {
+        id: "default",
+        name: fromJson.name,
+        commercialName: fromJson.commercialName,
+        ruc: fromJson.ruc,
+        address: fromJson.address,
+        city: fromJson.city,
+        phone: fromJson.phone,
+        email: fromJson.email,
+        ticketFooter: fromJson.ticketFooter,
+        currency: fromJson.currency || "S/ PEN",
+        logoUrl: fromJson.logoUrl || null,
+        yapePhone: fromJson.yapePhone || null,
+        yapeName: fromJson.yapeName || null,
+        yapeQrImageUrl: qrUrl || null,
+      },
+    });
+
+    const mapped = mapDbToRestaurantInfo(created);
+    inMemoryRestaurantCache = { ...mapped };
+    return { success: true, migrated: true, restaurant: mapped };
   } catch (error) {
-    console.error("[restaurant-config] Error al actualizar restaurantInfo:", error);
-    return { ...DEFAULT_CONFIG.restaurant, ...info };
+    console.error("[restaurant-config] Error en migración idempotente desde JSON:", error);
+    throw error;
   }
 }
 
@@ -431,13 +676,14 @@ export async function updatePrinterConfig(printers: Partial<PrinterConfig>): Pro
  * Obtiene la configuración consolidada (restaurante, salones e impresoras).
  */
 export async function getRestaurantGlobalConfig(): Promise<RestaurantGlobalConfig> {
-  const [areas, printers] = await Promise.all([
+  const [areas, printers, restaurant] = await Promise.all([
     listDiningAreas(),
     getPrinterConfig(),
+    getRestaurantInfo(),
   ]);
 
   return {
-    restaurant: getRestaurantInfo(),
+    restaurant,
     areas,
     printers,
   };

@@ -803,3 +803,25 @@ model PrinterConfig {
 
   @@map("printer_config")
 }
+
+
+model RestaurantConfig {
+  id             String   @id @default("default") @db.VarChar(50)
+  name           String   @db.VarChar(150)
+  commercialName String   @map("commercial_name") @db.VarChar(150)
+  ruc            String   @db.VarChar(11)
+  address        String   @db.VarChar(255)
+  city           String   @db.VarChar(100)
+  phone          String   @db.VarChar(50)
+  email          String   @db.VarChar(100)
+  ticketFooter   String   @map("ticket_footer") @db.VarChar(500)
+  currency       String   @default("S/ PEN") @db.VarChar(20)
+  logoUrl        String?  @map("logo_url") @db.VarChar(500)
+  yapePhone      String?  @map("yape_phone") @db.VarChar(50)
+  yapeName       String?  @map("yape_name") @db.VarChar(150)
+  yapeQrImageUrl String?  @map("yape_qr_image_url") @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("restaurant_config")
+}

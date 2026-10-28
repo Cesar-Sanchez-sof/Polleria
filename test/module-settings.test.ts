@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const {
   diningAreaMock,
   printerConfigMock,
+  restaurantConfigMock,
+  auditLogMock,
   setInMemoryAreas,
   setInMemoryPrinterConfig,
 } = vi.hoisted(() => {
@@ -52,9 +54,32 @@ const {
     }),
   };
 
+  let inMemoryRestaurantConfig: any = null;
+  const restaurantConfigMock = {
+    findUnique: vi.fn(async () => (inMemoryRestaurantConfig ? { ...inMemoryRestaurantConfig } : null)),
+    create: vi.fn(async ({ data }: any) => {
+      inMemoryRestaurantConfig = { ...data };
+      return inMemoryRestaurantConfig;
+    }),
+    upsert: vi.fn(async ({ update, create }: any) => {
+      if (inMemoryRestaurantConfig) {
+        inMemoryRestaurantConfig = { ...inMemoryRestaurantConfig, ...update };
+      } else {
+        inMemoryRestaurantConfig = { ...create };
+      }
+      return inMemoryRestaurantConfig;
+    }),
+  };
+
+  const auditLogMock = {
+    create: vi.fn(async ({ data }: any) => ({ id: 1, ...data })),
+  };
+
   return {
     diningAreaMock,
     printerConfigMock,
+    restaurantConfigMock,
+    auditLogMock,
     setInMemoryAreas: (val: any[]) => {
       inMemoryAreas = val;
     },
@@ -68,6 +93,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     diningArea: diningAreaMock,
     printerConfig: printerConfigMock,
+    restaurantConfig: restaurantConfigMock,
+    auditLog: auditLogMock,
   },
 }));
 
