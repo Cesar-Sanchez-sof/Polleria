@@ -198,6 +198,12 @@ describe("Criterios de Aceptación: Datos del restaurante y Yape persistentes en
       // Formato: LE{RUC}{YYYY}{MM}00140100001111.txt
       expect(pleResult.fileName).toContain(nuevoRuc);
       expect(pleResult.fileName).toMatch(new RegExp(`^LE${nuevoRuc}20261000140100`));
+      
+      // Restaurar el estado original para no afectar a los demás tests
+      await updateRestaurantInfo({
+        ruc: "20608976543",
+        name: "POLLERÍA & BRASAS EL BUEN SABOR S.A.C.",
+      });
     });
   });
 
