@@ -1,4 +1,4 @@
-"""Agente Gemini de consultas de solo lectura: sin red, sin Gemini real y sin base de datos.
+"""Agentes Gemini y Groq de consultas de solo lectura (agents-service): sin red, sin Gemini real y sin base de datos.
 
 Gemini se simula con un cliente que devuelve JSON controlado; la base, con la conexión falsa del
 Executor (que registra cada sentencia). Se comprueba que ninguna salida peligrosa llega a la base y
@@ -21,10 +21,10 @@ from starlette.testclient import TestClient
 from test_identity import claims, sign
 from test_postgres_executor import FakeConnection, Factory
 
-from ai_service.auth.identity import IDENTITY_HEADER
-from ai_service.config.settings import ENV_VAR, HMAC_KEY_ENV_VAR, IDENTITY_KEY_VAR, TOKEN_VAR, load_service_settings
-from ai_service.execution.postgres_readonly import SESSION_STATEMENTS, PostgresReadOnlyExecutor
-from ai_service.gemini_sql.agent import (
+from agents_service.auth.identity import IDENTITY_HEADER
+from agents_service.config.settings import IDENTITY_KEY_VAR, TOKEN_VAR, load_service_settings
+from agents_service.execution.postgres_readonly import SESSION_STATEMENTS, PostgresReadOnlyExecutor
+from agents_service.gemini_sql.agent import (
     MAX_ROWS,
     AgentRefusal,
     AgentUnavailable,
@@ -32,21 +32,21 @@ from ai_service.gemini_sql.agent import (
     RateLimited,
     SlidingWindowLimiter,
 )
-from ai_service.gemini_sql.client import GeminiError, GeminiHttpClient, GroqError, GroqHttpClient
-from ai_service.gemini_sql.config import (
+from agents_service.gemini_sql.client import GeminiError, GeminiHttpClient, GroqError, GroqHttpClient
+from agents_service.gemini_sql.config import (
     GeminiSqlConfigError,
     GeminiSqlSettings,
     GroqSqlSettings,
     load_gemini_sql_settings,
     load_groq_sql_settings,
 )
-from ai_service.http.app import create_app
-from ai_service.http.routes import TOKEN_HEADER
-from ai_service.http.schemas import QueryRequest
-from ai_service.orchestrator.ports import AuthorizationContext, ExecutionUnavailable
-from ai_service.sqlgen.modules import load_erp_modules
-from ai_service.validation.allowlist import load_allowlist
-from ai_service.validation.validator import SqlValidator
+from agents_service.http.app import create_app
+from agents_service.http.routes import TOKEN_HEADER
+from agents_service.http.schemas import QueryRequest
+from agents_service.orchestrator.ports import AuthorizationContext, ExecutionUnavailable
+from agents_service.sqlgen.modules import load_erp_modules
+from agents_service.validation.allowlist import load_allowlist
+from agents_service.validation.validator import SqlValidator
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWLIST = load_allowlist(ROOT / "knowledge" / "allowlist.readonly_erp.json")
@@ -424,7 +424,7 @@ class GroqTests(GuardedTestCase):
                 return httpx.Response(429, json={})
             return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}, "finish_reason": "stop"}]})
 
-        with mock.patch("ai_service.gemini_sql.client.time.sleep"):  # sin esperar la pausa real
+        with mock.patch("agents_service.gemini_sql.client.time.sleep"):  # sin esperar la pausa real
             self.assertEqual(self.client(handler).generate("s", "u"), "{}")
         self.assertEqual(len(calls), 2)
 
@@ -459,11 +459,11 @@ class RouteTests(AgentCase):
     def setUp(self) -> None:
         super().setUp()
         self.key_hex = secrets.token_hex(32)
-        env = {ENV_VAR: "development", TOKEN_VAR: secrets.token_hex(32), HMAC_KEY_ENV_VAR: secrets.token_hex(32),
-               IDENTITY_KEY_VAR: self.key_hex}
+        env = {TOKEN_VAR: secrets.token_hex(32), IDENTITY_KEY_VAR: self.key_hex, "AI_GEMINI_SQL": "1",
+               "GEMINI_API_KEY": "AIza" + "x" * 35, "DATABASE_URL_READONLY": ConfigTests.DSN}
         self.settings = load_service_settings(env)
         self.agent = self.build(as_json(GOOD_SQL))
-        self.client = TestClient(create_app(self.settings, None, self.agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
+        self.client = TestClient(create_app(self.settings, self.agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
         self.addCleanup(self.client.close)
 
     def post(self, message: str = QUESTION, *, identity: bool = True, token: bool = True, path: str = "/v1/agent/queries", client=None):
@@ -500,7 +500,7 @@ class RouteTests(AgentCase):
                        IDENTITY_HEADER: sign(claims(iat=now, exp=now + 60, jti="erp-0123456789abcdef", mod=modulos),
                                              key=bytes.fromhex(self.key_hex))}
             agent = self.build(as_json(GOOD_SQL), modules=MODULES)
-            client = TestClient(create_app(self.settings, None, agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
+            client = TestClient(create_app(self.settings, agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
             self.addCleanup(client.close)
             response = client.post("/v1/agent/queries", content=json.dumps(body), headers=headers)
             with self.subTest(modulos=modulos):
@@ -514,7 +514,7 @@ class RouteTests(AgentCase):
 
     def test_groq_agent_has_its_own_route_with_the_same_controls(self) -> None:
         groq_agent = self.build(as_json(GOOD_SQL), provider="groq")
-        groq_client = TestClient(create_app(self.settings, None, None, groq_agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
+        groq_client = TestClient(create_app(self.settings, None, groq_agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
         self.addCleanup(groq_client.close)
         path = "/v1/agent/groq/queries"
         response = self.post(path=path, client=groq_client)
@@ -523,12 +523,12 @@ class RouteTests(AgentCase):
         self.assertEqual(self.post(path=path, client=groq_client, token=False).status_code, 401)
         # Sin el agente de Gemini, su ruta no existe; el registro nombra al proveedor.
         self.assertEqual(self.post(client=groq_client).status_code, 404)
-        with self.assertLogs("ai_service.gemini_sql", level="WARNING") as logs:
+        with self.assertLogs("agents_service.gemini_sql", level="WARNING") as logs:
             self.post("Anula el asiento 15 de caja", path=path, client=groq_client)
         self.assertIn("agente groq:", logs.output[0])
 
     def test_route_does_not_exist_when_the_agent_is_disabled(self) -> None:
-        client = TestClient(create_app(self.settings, None), base_url="http://127.0.0.1", raise_server_exceptions=False)
+        client = TestClient(create_app(self.settings), base_url="http://127.0.0.1", raise_server_exceptions=False)
         self.addCleanup(client.close)
         response = client.post("/v1/agent/queries", content="{}", headers={"Content-Type": "application/json"})
         self.assertEqual(response.status_code, 404)

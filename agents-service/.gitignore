@@ -1,0 +1,12 @@
+# Entornos y caché de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secretos y configuración local: nunca se versionan
+.env

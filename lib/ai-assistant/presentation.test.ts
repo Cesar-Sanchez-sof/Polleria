@@ -272,3 +272,79 @@ describe("configuración del modo evaluación (Vercel Preview)", () => {
     expect(readAssistantConfig({ ...ngrok, AI_SERVICE_INTERNAL_TOKEN: "corto" })).toEqual({ enabled: false, reason: "misconfigured" });
   });
 });
+
+describe("configuración de agents-service (agentes de solo lectura en Render)", () => {
+  const identity = "ab".repeat(32);
+  const agentsToken = "ef".repeat(32);
+  const URL = "https://polleria-agents.onrender.com";
+  const demo = { AI_ASSISTANT_DEMO: "1", AI_ASSISTANT_IDENTITY_KEY: identity, AGENTS_SERVICE_URL: URL, AGENTS_SERVICE_INTERNAL_TOKEN: agentsToken };
+  const evalEnv = { ...demo, AI_ASSISTANT_DEMO: undefined, NODE_ENV: "production", VERCEL_ENV: "preview", AI_ASSISTANT_EVAL_ENABLED: "1" };
+
+  it("los agentes bastan sin ai-service (Modelo R sin configurar)", () => {
+    for (const env of [demo, evalEnv]) {
+      expect(readAssistantConfig(env)).toMatchObject({
+        enabled: true, serviceUrl: null, token: null, agents: { serviceUrl: URL, token: agentsToken }, identityKey: identity,
+      });
+    }
+  });
+
+  it("ai-service y agents-service se configuran por separado y a la vez", () => {
+    const both = { ...evalEnv, AI_SERVICE_URL: "https://tres-palabras-ficticias.trycloudflare.com", AI_SERVICE_INTERNAL_TOKEN: TOKEN };
+    expect(readAssistantConfig(both)).toMatchObject({
+      enabled: true, serviceUrl: "https://tres-palabras-ficticias.trycloudflare.com", token: TOKEN, agents: { serviceUrl: URL, token: agentsToken },
+    });
+    expect(readAssistantConfig({ ...demo, AI_SERVICE_URL: "http://127.0.0.1:8001", AI_SERVICE_INTERNAL_TOKEN: TOKEN })).toMatchObject({
+      serviceUrl: "http://127.0.0.1:8001", token: TOKEN, agents: { serviceUrl: URL },
+    });
+  });
+
+  it("sin ningún servicio de IA la configuración es inválida (falla cerrado)", () => {
+    for (const env of [demo, evalEnv]) {
+      expect(readAssistantConfig({ ...env, AGENTS_SERVICE_URL: undefined, AGENTS_SERVICE_INTERNAL_TOKEN: undefined })).toEqual({
+        enabled: false, reason: "misconfigured",
+      });
+    }
+  });
+
+  it("solo acepta Render (https, sin puerto ni ruta); el puerto local solo en la demostración", () => {
+    for (const url of [
+      "http://polleria-agents.onrender.com",
+      `${URL}/v1`,
+      `${URL}/`,
+      `${URL}:443`,
+      "https://onrender.com",
+      "https://polleria-agents.onrender.com.example.com",
+      "https://otro.example.com",
+      "https://x.trycloudflare.com",
+    ]) {
+      expect(readAssistantConfig({ ...demo, AGENTS_SERVICE_URL: url }), url).toEqual({ enabled: false, reason: "misconfigured" });
+      expect(readAssistantConfig({ ...evalEnv, AGENTS_SERVICE_URL: url }), url).toEqual({ enabled: false, reason: "misconfigured" });
+    }
+    expect(readAssistantConfig({ ...demo, AGENTS_SERVICE_URL: "http://127.0.0.1:8002" })).toMatchObject({ agents: { serviceUrl: "http://127.0.0.1:8002" } });
+    expect(readAssistantConfig({ ...evalEnv, AGENTS_SERVICE_URL: "http://127.0.0.1:8002" })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...demo, AGENTS_SERVICE_URL: "http://127.0.0.1:80" })).toEqual({ enabled: false, reason: "misconfigured" });
+  });
+
+  it("exige token válido, clave de identidad y que ambos sean independientes", () => {
+    for (const bad of ["", "corto", "zz".repeat(32)]) {
+      expect(readAssistantConfig({ ...demo, AGENTS_SERVICE_INTERNAL_TOKEN: bad })).toEqual({ enabled: false, reason: "misconfigured" });
+      expect(readAssistantConfig({ ...evalEnv, AGENTS_SERVICE_INTERNAL_TOKEN: bad })).toEqual({ enabled: false, reason: "misconfigured" });
+    }
+    expect(readAssistantConfig({ ...demo, AI_ASSISTANT_IDENTITY_KEY: undefined })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...evalEnv, AI_ASSISTANT_IDENTITY_KEY: undefined })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...demo, AI_ASSISTANT_IDENTITY_KEY: agentsToken })).toEqual({ enabled: false, reason: "misconfigured" });
+    expect(readAssistantConfig({ ...evalEnv, AI_ASSISTANT_IDENTITY_KEY: agentsToken })).toEqual({ enabled: false, reason: "misconfigured" });
+  });
+
+  it("un ai-service mal configurado invalida el conjunto aunque agents-service esté bien", () => {
+    expect(readAssistantConfig({ ...demo, AI_SERVICE_URL: "http://localhost:8001", AI_SERVICE_INTERNAL_TOKEN: TOKEN })).toEqual({
+      enabled: false, reason: "misconfigured",
+    });
+  });
+
+  it("los errores de configuración no exponen los tokens", () => {
+    const text = JSON.stringify(readAssistantConfig({ ...demo, AGENTS_SERVICE_URL: "x" }));
+    expect(text).not.toContain(agentsToken);
+    expect(text).not.toContain(identity);
+  });
+});

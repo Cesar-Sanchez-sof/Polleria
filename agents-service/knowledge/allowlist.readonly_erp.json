@@ -1,0 +1,469 @@
+{
+  "version": "readonly-erp-provisional-2026-10-24b",
+  "schema": "public",
+  "note": "Allowlist PROVISIONAL para PostgresReadOnlyExecutor (esquema real public). 2026-10-13: tablas contables verificadas por el equipo. 2026-10-24 (P1): se añaden SOLO las columnas que el adaptador XiYanSQL v1.7 vio en el M-Schema de las familias de query_families_v1.json (ventas, cobros, platos, compras y pagos a proveedores). La base desplegada unificó dish en product (commit 2f10622 de develop, verificado en el catálogo de Neon): la allowlist usa product y order_item.product_id, y el SQL del modelo se traduce desde dish/dish_id (query_families_v1.json, equivalencias_esquema). Excluidas siempre: customer, employee, payroll, app_user y demas tablas de personas; supplier.ruc, journal_entry.responsible y los textos libres (description, observation). journal_entry.status se permite SOLO para el filtro determinista de asientos registrados (P-4); no se muestra al modelo. Requiere GRANT SELECT sobre estas columnas al rol de solo lectura (lo ejecuta el responsable de la base). 2026-10-24b (ruta ampliada): se añaden las columnas de knowledge/erp_modules_v1.json (7 módulos, verificadas contra el catálogo de Neon); siguen excluidas las tablas de personas y seguridad y las columnas personales. Cada módulo exige además un permiso del ERP (aserción firmada).",
+  "tables": {
+    "accounting_account": {
+      "id": "INT",
+      "parent_id": "INT",
+      "code": "VARCHAR",
+      "name": "VARCHAR",
+      "type": "VARCHAR",
+      "active": "BOOLEAN"
+    },
+    "journal_entry": {
+      "id": "INT",
+      "sales_invoice_id": "INT",
+      "purchase_invoice_id": "INT",
+      "entry_date": "DATE",
+      "description": "VARCHAR",
+      "book": "VARCHAR",
+      "code": "VARCHAR",
+      "status": "BOOLEAN",
+      "period_id": "INT",
+      "transformation_id": "INT"
+    },
+    "journal_entry_detail": {
+      "id": "INT",
+      "entry_id": "INT",
+      "account_id": "INT",
+      "description": "VARCHAR",
+      "debit": "DECIMAL(12,2)",
+      "credit": "DECIMAL(12,2)"
+    },
+    "sales_invoice": {
+      "id": "INT",
+      "order_id": "INT",
+      "customer_id": "INT",
+      "voucher_type": "VARCHAR",
+      "series": "VARCHAR",
+      "number": "INT",
+      "issued_at": "DATE",
+      "subtotal": "NUMERIC",
+      "igv": "NUMERIC",
+      "total_amount": "NUMERIC",
+      "status": "VARCHAR",
+      "created_at": "TIMESTAMP",
+      "cash_session_id": "INT"
+    },
+    "sales_payment": {
+      "id": "INT",
+      "sales_invoice_id": "INT",
+      "payment_type_id": "INT",
+      "amount": "NUMERIC",
+      "paid_at": "TIMESTAMP"
+    },
+    "payment_type": {
+      "id": "INT",
+      "name": "VARCHAR",
+      "active": "BOOLEAN"
+    },
+    "sales_order": {
+      "id": "INT",
+      "code": "VARCHAR",
+      "order_type": "VARCHAR",
+      "ordered_at": "TIMESTAMP",
+      "status": "VARCHAR"
+    },
+    "order_item": {
+      "id": "INT",
+      "order_id": "INT",
+      "product_id": "INT",
+      "quantity": "SMALLINT",
+      "unit_price": "NUMERIC",
+      "subtotal": "NUMERIC",
+      "dish_status": "VARCHAR"
+    },
+    "product": {
+      "id": "INT",
+      "name": "VARCHAR",
+      "price": "NUMERIC",
+      "active": "BOOLEAN",
+      "unit_of_measure": "VARCHAR",
+      "current_stock": "NUMERIC",
+      "minimum_stock": "NUMERIC",
+      "affectation_igv": "VARCHAR",
+      "average_cost": "NUMERIC",
+      "last_cost": "NUMERIC",
+      "type": "VARCHAR",
+      "sellable": "BOOLEAN"
+    },
+    "purchase_invoice": {
+      "id": "INT",
+      "purchase_order_id": "INT",
+      "supplier_id": "INT",
+      "voucher_type": "VARCHAR",
+      "series": "VARCHAR",
+      "number": "INT",
+      "issued_at": "DATE",
+      "subtotal": "NUMERIC",
+      "igv": "NUMERIC",
+      "total_amount": "NUMERIC",
+      "created_at": "TIMESTAMP",
+      "active": "BOOLEAN"
+    },
+    "purchase_payment": {
+      "id": "INT",
+      "purchase_invoice_id": "INT",
+      "payment_type_id": "INT",
+      "amount": "NUMERIC",
+      "paid_at": "TIMESTAMP"
+    },
+    "supplier": {
+      "id": "INT",
+      "business_name": "VARCHAR",
+      "active": "BOOLEAN"
+    },
+    "order_table": {
+      "id": "INT",
+      "table_id": "INT",
+      "order_id": "INT"
+    },
+    "dining_table": {
+      "id": "INT",
+      "number": "SMALLINT",
+      "capacity": "SMALLINT",
+      "active": "BOOLEAN"
+    },
+    "product_recipe": {
+      "id": "INT",
+      "ingredient_id": "INT",
+      "quantity_required": "NUMERIC",
+      "product_id": "INT",
+      "active": "BOOLEAN"
+    },
+    "inventory_movement": {
+      "id": "INT",
+      "product_id": "INT",
+      "quantity": "NUMERIC",
+      "reason": "VARCHAR",
+      "moved_at": "TIMESTAMP",
+      "unit_cost": "NUMERIC",
+      "movement_type": "VARCHAR",
+      "informal_purchase_id": "INT",
+      "order_item_id": "INT",
+      "purchase_order_item_id": "INT",
+      "transformation_item_id": "INT"
+    },
+    "transformation": {
+      "id": "INT",
+      "date": "TIMESTAMP",
+      "annulled": "BOOLEAN",
+      "annulled_at": "TIMESTAMP"
+    },
+    "transformation_item": {
+      "id": "INT",
+      "transformation_id": "INT",
+      "product_id": "INT",
+      "item_type": "VARCHAR",
+      "quantity": "NUMERIC",
+      "unit_cost": "NUMERIC"
+    },
+    "purchase_order": {
+      "id": "INT",
+      "supplier_id": "INT",
+      "order_number": "VARCHAR",
+      "issued_at": "DATE",
+      "expected_at": "DATE",
+      "subtotal": "NUMERIC",
+      "igv": "NUMERIC",
+      "total": "NUMERIC",
+      "received_at": "TIMESTAMP",
+      "status": "VARCHAR"
+    },
+    "purchase_order_item": {
+      "id": "INT",
+      "purchase_order_id": "INT",
+      "product_id": "INT",
+      "quantity_ordered": "NUMERIC",
+      "unit_price": "NUMERIC",
+      "affectation_igv_applied": "VARCHAR",
+      "final_amount_line": "NUMERIC",
+      "igv_line": "NUMERIC",
+      "quantity_received": "NUMERIC",
+      "subtotal_line": "NUMERIC"
+    },
+    "informal_purchase": {
+      "id": "INT",
+      "product_id": "INT",
+      "quantity": "NUMERIC",
+      "amount_paid": "NUMERIC",
+      "date": "DATE",
+      "annulled": "BOOLEAN",
+      "expense_category": "VARCHAR",
+      "item_description": "VARCHAR",
+      "purchase_type": "VARCHAR"
+    },
+    "cash_register": {
+      "id": "INT",
+      "name": "VARCHAR",
+      "code": "VARCHAR",
+      "active": "BOOLEAN"
+    },
+    "cash_session": {
+      "id": "INT",
+      "cash_register_id": "INT",
+      "opened_at": "TIMESTAMP",
+      "closed_at": "TIMESTAMP",
+      "initial_amount": "NUMERIC",
+      "sales_cash": "NUMERIC",
+      "sales_other": "NUMERIC",
+      "total_sales": "NUMERIC",
+      "expected_amount": "NUMERIC",
+      "counted_amount": "NUMERIC",
+      "difference": "NUMERIC",
+      "status": "VARCHAR"
+    },
+    "cash_movement": {
+      "id": "INT",
+      "session_id": "INT",
+      "type": "VARCHAR",
+      "amount": "NUMERIC",
+      "reason": "VARCHAR",
+      "created_at": "TIMESTAMP"
+    },
+    "accounting_period": {
+      "id": "INT",
+      "start_date": "TIMESTAMP",
+      "end_date": "TIMESTAMP",
+      "status": "VARCHAR",
+      "closed_at": "TIMESTAMP"
+    }
+  },
+  "roles": {
+    "contador_demo": {
+      "accounting_account": [
+        "id",
+        "parent_id",
+        "code",
+        "name",
+        "type",
+        "active"
+      ],
+      "journal_entry": [
+        "id",
+        "sales_invoice_id",
+        "purchase_invoice_id",
+        "entry_date",
+        "description",
+        "book",
+        "code",
+        "status",
+        "period_id",
+        "transformation_id"
+      ],
+      "journal_entry_detail": [
+        "id",
+        "entry_id",
+        "account_id",
+        "description",
+        "debit",
+        "credit"
+      ],
+      "sales_invoice": [
+        "id",
+        "order_id",
+        "customer_id",
+        "voucher_type",
+        "series",
+        "number",
+        "issued_at",
+        "subtotal",
+        "igv",
+        "total_amount",
+        "status",
+        "created_at",
+        "cash_session_id"
+      ],
+      "sales_payment": [
+        "id",
+        "sales_invoice_id",
+        "payment_type_id",
+        "amount",
+        "paid_at"
+      ],
+      "payment_type": [
+        "id",
+        "name",
+        "active"
+      ],
+      "sales_order": [
+        "id",
+        "code",
+        "order_type",
+        "ordered_at",
+        "status"
+      ],
+      "order_item": [
+        "id",
+        "order_id",
+        "product_id",
+        "quantity",
+        "unit_price",
+        "subtotal",
+        "dish_status"
+      ],
+      "product": [
+        "id",
+        "name",
+        "price",
+        "active",
+        "unit_of_measure",
+        "current_stock",
+        "minimum_stock",
+        "affectation_igv",
+        "average_cost",
+        "last_cost",
+        "type",
+        "sellable"
+      ],
+      "purchase_invoice": [
+        "id",
+        "purchase_order_id",
+        "supplier_id",
+        "voucher_type",
+        "series",
+        "number",
+        "issued_at",
+        "subtotal",
+        "igv",
+        "total_amount",
+        "created_at",
+        "active"
+      ],
+      "purchase_payment": [
+        "id",
+        "purchase_invoice_id",
+        "payment_type_id",
+        "amount",
+        "paid_at"
+      ],
+      "supplier": [
+        "id",
+        "business_name",
+        "active"
+      ],
+      "order_table": [
+        "id",
+        "table_id",
+        "order_id"
+      ],
+      "dining_table": [
+        "id",
+        "number",
+        "capacity",
+        "active"
+      ],
+      "product_recipe": [
+        "id",
+        "ingredient_id",
+        "quantity_required",
+        "product_id",
+        "active"
+      ],
+      "inventory_movement": [
+        "id",
+        "product_id",
+        "quantity",
+        "reason",
+        "moved_at",
+        "unit_cost",
+        "movement_type",
+        "informal_purchase_id",
+        "order_item_id",
+        "purchase_order_item_id",
+        "transformation_item_id"
+      ],
+      "transformation": [
+        "id",
+        "date",
+        "annulled",
+        "annulled_at"
+      ],
+      "transformation_item": [
+        "id",
+        "transformation_id",
+        "product_id",
+        "item_type",
+        "quantity",
+        "unit_cost"
+      ],
+      "purchase_order": [
+        "id",
+        "supplier_id",
+        "order_number",
+        "issued_at",
+        "expected_at",
+        "subtotal",
+        "igv",
+        "total",
+        "received_at",
+        "status"
+      ],
+      "purchase_order_item": [
+        "id",
+        "purchase_order_id",
+        "product_id",
+        "quantity_ordered",
+        "unit_price",
+        "affectation_igv_applied",
+        "final_amount_line",
+        "igv_line",
+        "quantity_received",
+        "subtotal_line"
+      ],
+      "informal_purchase": [
+        "id",
+        "product_id",
+        "quantity",
+        "amount_paid",
+        "date",
+        "annulled",
+        "expense_category",
+        "item_description",
+        "purchase_type"
+      ],
+      "cash_register": [
+        "id",
+        "name",
+        "code",
+        "active"
+      ],
+      "cash_session": [
+        "id",
+        "cash_register_id",
+        "opened_at",
+        "closed_at",
+        "initial_amount",
+        "sales_cash",
+        "sales_other",
+        "total_sales",
+        "expected_amount",
+        "counted_amount",
+        "difference",
+        "status"
+      ],
+      "cash_movement": [
+        "id",
+        "session_id",
+        "type",
+        "amount",
+        "reason",
+        "created_at"
+      ],
+      "accounting_period": [
+        "id",
+        "start_date",
+        "end_date",
+        "status",
+        "closed_at"
+      ]
+    },
+    "lector_demo": {
+      "accounting_account": [
+        "code",
+        "name"
+      ]
+    }
+  }
+}
