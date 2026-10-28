@@ -1,6 +1,6 @@
 """Configuración del agente Gemini (activación **explícita**; falla de forma segura).
 
-Variables (del entorno o, si faltan, de ``ai-service/.env``; nunca ``DATABASE_URL``):
+Variables (del entorno o, si faltan, de ``agents-service/.env``; nunca ``DATABASE_URL``):
 
 - ``AI_GEMINI_SQL=1``: activa el agente. Sin esto no se lee ninguna otra variable y la ruta no existe.
 - ``GEMINI_API_KEY``: clave de la API de Gemini. ``GEMINI_MODEL`` (opcional, por defecto ``gemini-3.5-flash``).

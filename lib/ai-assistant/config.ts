@@ -11,6 +11,14 @@
  * - `AI_ASSISTANT_REAL_DATA`: `1` solo en pruebas locales controladas con datos reales; exige la
  *   clave de identidad. Por defecto el asistente usa datos ficticios.
  *
+ * Agentes de solo lectura (Gemini y GPT OSS vía Groq): viven en `agents-service`, un despliegue aparte de
+ * `ai-service` (que solo sirve al Modelo R). Cada servicio tiene su propia URL y su propio token, y ninguno
+ * hace falta para el otro: basta con configurar uno de los dos.
+ * - `AGENTS_SERVICE_URL`: `https://<servicio>.onrender.com` (sin puerto, ruta ni `/` final) o, solo en el modo
+ *   demostración local, `http://127.0.0.1:<puerto>`.
+ * - `AGENTS_SERVICE_INTERNAL_TOKEN`: token del proxy hacia `agents-service` (hex de 32 bytes o más, distinto
+ *   de la clave de identidad). Exige `AI_ASSISTANT_IDENTITY_KEY`.
+ *
  * Con `NODE_ENV=production` el modo demostración queda SIEMPRE deshabilitado. Ningún modo omite la
  * autenticación del ERP: exige sesión válida (`sesionActual()`) y un rol permitido.
  *
@@ -20,7 +28,7 @@
  *   (habilitación temporal y explícita para la evaluación). En `development` o fuera de Vercel queda
  *   deshabilitado. `NODE_ENV` no sirve para distinguirlos: Preview y Production compilan con `production`.
  *   Ambas banderas son privadas del servidor (sin `NEXT_PUBLIC_`).
- * - `AI_SERVICE_URL`: túnel HTTPS temporal hacia el FastAPI local, exactamente
+ * - `AI_SERVICE_URL` (Modelo R; opcional si hay `AGENTS_SERVICE_URL`): túnel HTTPS temporal hacia el FastAPI local, exactamente
  *   `https://<subdominio>.trycloudflare.com` (Cloudflare Quick Tunnel) o el dominio estático de ngrok
  *   del proyecto (`EVAL_NGROK_URL`); ningún otro dominio de ngrok. Sin puerto, ruta ni `/` final.
  *   `AI_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY` (P-9) son obligatorios.
@@ -38,11 +46,20 @@
 
 export type AssistantMode = "demo" | "eval";
 
+/** Destino y credencial del proxy hacia un servicio de IA. */
+export interface ServiceConnection {
+  serviceUrl: string;
+  token: string;
+}
+
 export type AssistantConfig =
   | {
       enabled: true;
-      serviceUrl: string;
-      token: string;
+      /** Modelo R (`ai-service`); `null` si solo se configuraron los agentes. */
+      serviceUrl: string | null;
+      token: string | null;
+      /** Agentes de solo lectura (`agents-service`); ausente o `null` si no se configuraron. */
+      agents?: ServiceConnection | null;
       identityKey: string | null;
       realData: boolean;
       demo: boolean;
@@ -60,6 +77,8 @@ const EVAL_URL_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.trycloudfl
 /** Dominio estático de ngrok del proyecto: se compara de forma exacta, no por sufijo. */
 export const EVAL_NGROK_URL = "https://charlott-unflagitious-unselfishly.ngrok-free.dev";
 const isEvalTunnelUrl = (url: string) => EVAL_URL_RE.test(url) || url === EVAL_NGROK_URL;
+/** `agents-service` desplegado en Render: `https://<servicio>.onrender.com`. */
+const AGENTS_URL_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.onrender\.com$/;
 const TOKEN_RE = /^[0-9a-fA-F]{64,}$/;
 const USER_IDS_RE = /^[1-9]\d{0,9}(,[1-9]\d{0,9}){0,9}$/;
 /** Local: la primera inferencia de XiYanSQL puede tardar más. */
@@ -67,31 +86,58 @@ export const DEMO_TIMEOUT_MS = 120_000;
 /** Vercel: por debajo de `maxDuration` (60 s) de `app/api/assistant/route.ts`. */
 export const EVAL_TIMEOUT_MS = 55_000;
 
+/**
+ * Conexión opcional: sin URL no hay servicio (`null`); con URL, la URL y el token deben ser válidos
+ * (`undefined` = configuración inválida, falla cerrado).
+ */
+function connection(url: string, token: string, urlOk: (url: string) => boolean): ServiceConnection | null | undefined {
+  if (!url) return null;
+  return urlOk(url) && TOKEN_RE.test(token) ? { serviceUrl: url, token } : undefined;
+}
+
+function localPortOk(url: string): boolean {
+  const port = URL_RE.exec(url)?.[1];
+  return !!port && Number(port) >= 1024 && Number(port) <= 65535;
+}
+
+/** `agents-service`: Render en ambos modos; el puerto local solo en la demostración. */
+function agentsConnection(env: Record<string, string | undefined>, mode: AssistantMode): ServiceConnection | null | undefined {
+  const urlOk = (url: string) => AGENTS_URL_RE.test(url) || (mode === "demo" && localPortOk(url));
+  return connection(env.AGENTS_SERVICE_URL?.trim() ?? "", env.AGENTS_SERVICE_INTERNAL_TOKEN?.trim() ?? "", urlOk);
+}
+
+/** La clave de identidad (P-9) es independiente de los tokens de cada servicio configurado. */
+function identityDistinct(identityKey: string, ...connections: (ServiceConnection | null)[]): boolean {
+  return connections.every((c) => c === null || c.token.toLowerCase() !== identityKey.toLowerCase());
+}
+
 function readEvalConfig(env: Record<string, string | undefined>): AssistantConfig {
   // Preview de Vercel, o Production solo con la segunda bandera explícita (deshabilitado por defecto).
   const allowed =
     env.VERCEL_ENV === "preview" ||
     (env.VERCEL_ENV === "production" && env.AI_ASSISTANT_ALLOW_PRODUCTION_EVAL === "1");
   if (!allowed) return { enabled: false, reason: "production" };
-  const url = env.AI_SERVICE_URL?.trim() ?? "";
-  const token = env.AI_SERVICE_INTERNAL_TOKEN?.trim() ?? "";
   const identityKey = env.AI_ASSISTANT_IDENTITY_KEY?.trim() ?? "";
   const realData = env.AI_ASSISTANT_REAL_DATA === "1";
   const usersText = (env.AI_ASSISTANT_EVAL_USER_IDS ?? "").replace(/\s/g, "");
   if (usersText && !USER_IDS_RE.test(usersText)) return { enabled: false, reason: "misconfigured" };
   const allowedUserIds = usersText ? usersText.split(",").map(Number) : null;
+  const modelR = connection(env.AI_SERVICE_URL?.trim() ?? "", env.AI_SERVICE_INTERNAL_TOKEN?.trim() ?? "", isEvalTunnelUrl);
+  const agents = agentsConnection(env, "eval");
   if (
-    !isEvalTunnelUrl(url) ||
-    !TOKEN_RE.test(token) ||
+    modelR === undefined ||
+    agents === undefined ||
+    (modelR === null && agents === null) || // al menos un servicio de IA
     !TOKEN_RE.test(identityKey) ||
-    identityKey.toLowerCase() === token.toLowerCase() ||
+    !identityDistinct(identityKey, modelR, agents) ||
     // Production y datos reales: solo cuentas evaluadoras explícitas, nunca todos los ADMIN.
     ((env.VERCEL_ENV === "production" || realData) && allowedUserIds === null)
   ) {
     return { enabled: false, reason: "misconfigured" };
   }
   return {
-    enabled: true, serviceUrl: url, token, identityKey, realData, demo: false, mode: "eval", timeoutMs: EVAL_TIMEOUT_MS, allowedUserIds,
+    enabled: true, serviceUrl: modelR?.serviceUrl ?? null, token: modelR?.token ?? null, agents, identityKey, realData, demo: false,
+    mode: "eval", timeoutMs: EVAL_TIMEOUT_MS, allowedUserIds,
     diagnostics: diagnosticsEnabled(env, identityKey, allowedUserIds),
   };
 }
@@ -112,20 +158,21 @@ export function readAssistantConfig(env: Record<string, string | undefined> = pr
   if (env.AI_ASSISTANT_EVAL_ENABLED === "1") return readEvalConfig(env);
   if (env.NODE_ENV === "production") return { enabled: false, reason: "production" };
   if (env.AI_ASSISTANT_DEMO !== "1") return { enabled: false, reason: "disabled" };
-  const url = env.AI_SERVICE_URL?.trim() ?? "";
-  const token = env.AI_SERVICE_INTERNAL_TOKEN?.trim() ?? "";
   const identityKey = env.AI_ASSISTANT_IDENTITY_KEY?.trim() || null;
   const realData = env.AI_ASSISTANT_REAL_DATA === "1";
-  const port = URL_RE.exec(url)?.[1];
-  if (!port || Number(port) < 1024 || Number(port) > 65535 || !TOKEN_RE.test(token)) {
+  const modelR = connection(env.AI_SERVICE_URL?.trim() ?? "", env.AI_SERVICE_INTERNAL_TOKEN?.trim() ?? "", localPortOk);
+  const agents = agentsConnection(env, "demo");
+  if (modelR === undefined || agents === undefined || (modelR === null && agents === null)) {
     return { enabled: false, reason: "misconfigured" };
   }
-  if (identityKey !== null && (!TOKEN_RE.test(identityKey) || identityKey.toLowerCase() === token.toLowerCase())) {
+  if (identityKey !== null && (!TOKEN_RE.test(identityKey) || !identityDistinct(identityKey, modelR, agents))) {
     return { enabled: false, reason: "misconfigured" };
   }
   if (realData && identityKey === null) return { enabled: false, reason: "misconfigured" }; // P-9 obligatorio
+  if (agents !== null && identityKey === null) return { enabled: false, reason: "misconfigured" }; // los agentes exigen P-9
   return {
-    enabled: true, serviceUrl: url, token, identityKey, realData, demo: true, mode: "demo", timeoutMs: DEMO_TIMEOUT_MS, allowedUserIds: null,
+    enabled: true, serviceUrl: modelR?.serviceUrl ?? null, token: modelR?.token ?? null, agents, identityKey, realData, demo: true,
+    mode: "demo", timeoutMs: DEMO_TIMEOUT_MS, allowedUserIds: null,
     diagnostics: diagnosticsEnabled(env, identityKey, null),
   };
 }

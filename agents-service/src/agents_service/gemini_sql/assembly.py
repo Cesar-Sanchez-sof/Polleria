@@ -7,15 +7,15 @@ from pathlib import Path
 
 import httpx
 
-from ai_service.execution.postgres_readonly import PostgresReadOnlyExecutor, psycopg_connection_factory
-from ai_service.gemini_sql.agent import ACCEPTED_ORIGIN, GeminiSqlAgent, SqlTextClient
-from ai_service.gemini_sql.client import GeminiHttpClient, GroqHttpClient
-from ai_service.gemini_sql.config import GeminiSqlSettings, GroqSqlSettings
-from ai_service.sqlgen.modules import load_erp_modules
-from ai_service.validation.allowlist import load_allowlist
-from ai_service.validation.validator import SqlValidator
+from agents_service.execution.postgres_readonly import PostgresReadOnlyExecutor, psycopg_connection_factory
+from agents_service.gemini_sql.agent import ACCEPTED_ORIGIN, GeminiSqlAgent, SqlTextClient
+from agents_service.gemini_sql.client import GeminiHttpClient, GroqHttpClient
+from agents_service.gemini_sql.config import GeminiSqlSettings, GroqSqlSettings
+from agents_service.sqlgen.modules import load_erp_modules
+from agents_service.validation.allowlist import load_allowlist
+from agents_service.validation.validator import SqlValidator
 
-SERVICE_ROOT = Path(__file__).resolve().parents[3]  # ai-service/
+SERVICE_ROOT = Path(__file__).resolve().parents[3]  # agents-service/
 ALLOWLIST_FILE = "allowlist.readonly_erp.json"  # misma allowlist que el Modelo R con datos reales
 ERP_MODULES_FILE = "erp_modules_v1.json"  # módulos del ERP: permisos por usuario
 

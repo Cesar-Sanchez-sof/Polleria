@@ -1,0 +1,35 @@
+{
+  "version": "ficticio-2026-10-12",
+  "schema": "ficticio",
+  "note": "Metadatos FICTICIOS para pruebas del SQL Validator (B2). No representan tablas reales del ERP; los objetos permitidos reales están pendientes de P-14.",
+  "tables": {
+    "cuenta_demo": {
+      "codigo": "TEXT",
+      "nombre": "TEXT",
+      "tipo": "TEXT"
+    },
+    "asiento_demo": {
+      "id": "INT",
+      "fecha": "DATE",
+      "glosa": "TEXT",
+      "vigente": "BOOLEAN"
+    },
+    "detalle_asiento_demo": {
+      "id": "INT",
+      "asiento_id": "INT",
+      "cuenta_codigo": "TEXT",
+      "debe": "DECIMAL(12,2)",
+      "haber": "DECIMAL(12,2)"
+    }
+  },
+  "roles": {
+    "contador_demo": {
+      "cuenta_demo": ["codigo", "nombre", "tipo"],
+      "asiento_demo": ["id", "fecha", "glosa", "vigente"],
+      "detalle_asiento_demo": ["id", "asiento_id", "cuenta_codigo", "debe", "haber"]
+    },
+    "lector_demo": {
+      "cuenta_demo": ["codigo", "nombre"]
+    }
+  }
+}

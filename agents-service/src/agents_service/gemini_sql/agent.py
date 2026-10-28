@@ -35,23 +35,23 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
-from ai_service.http.schemas import QueryRequest, ResponseState
-from ai_service.orchestrator.ports import (
+from agents_service.http.schemas import QueryRequest, ResponseState
+from agents_service.orchestrator.ports import (
     AuthorizationContext,
     InvalidGeneratorOutput,
     ResultTooLarge,
     Row,
     SqlExecutionError,
 )
-from ai_service.orchestrator.prefilter import prefilter
-from ai_service.policies.registered_entries import FINANCIAL_TABLES, RegisteredFilterError, apply_registered_entries_filter
-from ai_service.sqlgen.modules import ErpModules
-from ai_service.sqlgen.output_parser import parse_sql_output
-from ai_service.validation.allowlist import Allowlist
-from ai_service.validation.validator import SqlValidator, Verdict
-from ai_service.gemini_sql.client import LlmError
+from agents_service.orchestrator.prefilter import prefilter
+from agents_service.policies.registered_entries import FINANCIAL_TABLES, RegisteredFilterError, apply_registered_entries_filter
+from agents_service.sqlgen.modules import ErpModules
+from agents_service.sqlgen.output_parser import parse_sql_output
+from agents_service.validation.allowlist import Allowlist
+from agents_service.validation.validator import SqlValidator, Verdict
+from agents_service.gemini_sql.client import LlmError
 
-LOGGER = logging.getLogger("ai_service.gemini_sql")
+LOGGER = logging.getLogger("agents_service.gemini_sql")
 MAX_ROWS = 50
 MAX_CELL_CHARS = 200
 MAX_SQL_CHARS = 2000

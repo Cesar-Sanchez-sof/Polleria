@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from ai_service.gemini_sql.config import GeminiSqlSettings, GroqSqlSettings
+from agents_service.gemini_sql.config import GeminiSqlSettings, GroqSqlSettings
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"

@@ -87,10 +87,11 @@ describe("catálogo del selector", () => {
   });
 });
 
-describe("Gemini + ERP (agente de solo lectura en ai-service)", () => {
+describe("Gemini + ERP (agente de solo lectura en agents-service)", () => {
   const TRACE = "erp-00000000000000000000000000000001";
   const R_ON: AssistantConfig = {
-    enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32), identityKey: "cd".repeat(32),
+    enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32),
+    agents: { serviceUrl: "https://polleria-agents.onrender.com", token: "ef".repeat(32) }, identityKey: "cd".repeat(32),
     realData: true, demo: true, mode: "demo", timeoutMs: 1000, allowedUserIds: null,
   };
   const agentBody = (over: Record<string, unknown> = {}) => ({
@@ -100,10 +101,11 @@ describe("Gemini + ERP (agente de solo lectura en ai-service)", () => {
   const ask = (fetchFn: typeof fetch, overrides: Partial<ProxyDeps> = {}) =>
     handleQuery(JSON.stringify({ mensaje: "Saldo de caja", modelo: "gemini-erp" }), deps(fetchFn, { config: R_ON, geminiErp: true, ...overrides }));
 
-  it("solo aparece con ai-service, identidad firmada y la bandera AI_GEMINI_SQL", async () => {
+  it("solo aparece con agents-service, identidad firmada y la bandera AI_GEMINI_SQL", async () => {
     const ids = async (d: ProxyDeps) => ((await handleStatus(d)).body.modelos as { id: string }[]).map((m) => m.id);
     expect(await ids(deps(fetch, { config: R_ON, geminiErp: true }))).toContain("gemini-erp");
     expect(await ids(deps(fetch, { config: R_ON }))).not.toContain("gemini-erp");
+    expect(await ids(deps(fetch, { config: { ...R_ON, agents: null }, geminiErp: true }))).not.toContain("gemini-erp");
     expect(await ids(deps(fetch, { config: { ...R_ON, identityKey: null }, geminiErp: true }))).not.toContain("gemini-erp");
     expect(await ids(deps(fetch, { geminiErp: true }))).not.toContain("gemini-erp");
   });
@@ -126,9 +128,10 @@ describe("Gemini + ERP (agente de solo lectura en ai-service)", () => {
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ estado: "respondida", detalle: null, sql: "SELECT 1" });
     expect(result.body.tabla).toEqual({ columnas: ["code", "total"], filas: [["101", "1800.00"]] });
-    expect(calls[0].url).toBe("http://127.0.0.1:8001/v1/agent/queries");
+    expect(calls[0].url).toBe("https://polleria-agents.onrender.com/v1/agent/queries");
     const headers = calls[0].init.headers as Record<string, string>;
-    expect(headers["X-Internal-Token"]).toBe(R_ON.token);
+    expect(headers["X-Internal-Token"]).toBe("ef".repeat(32)); // el token de agents-service, no el de ai-service
+    expect(headers["X-Internal-Token"]).not.toBe(R_ON.token);
     expect(headers["X-ERP-Identity"]).toBeTruthy();
   });
 
@@ -154,10 +157,11 @@ describe("Gemini + ERP (agente de solo lectura en ai-service)", () => {
   });
 });
 
-describe("Groq + ERP (mismo agente de solo lectura, otra ruta en ai-service)", () => {
+describe("Groq + ERP (mismo agente de solo lectura, otra ruta en agents-service)", () => {
   const TRACE = "erp-00000000000000000000000000000001";
   const R_ON: AssistantConfig = {
-    enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32), identityKey: "cd".repeat(32),
+    enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32),
+    agents: { serviceUrl: "https://polleria-agents.onrender.com", token: "ef".repeat(32) }, identityKey: "cd".repeat(32),
     realData: true, demo: true, mode: "demo", timeoutMs: 1000, allowedUserIds: null,
   };
   const body = { id_traza: TRACE, estado: "respondida", texto: "Encontré 1 resultado(s).", tabla: { columnas: ["total"], filas: [["19"]] }, sql: "SELECT 1" };
@@ -165,9 +169,10 @@ describe("Groq + ERP (mismo agente de solo lectura, otra ruta en ai-service)", (
     handleQuery(JSON.stringify({ mensaje: "cuantos asientos hay", modelo: "groq-erp" }), deps(fetchFn, { config: R_ON, groqErp: true, ...overrides }));
   const ids = async (d: ProxyDeps) => ((await handleStatus(d)).body.modelos as { id: string }[]).map((m) => m.id);
 
-  it("solo aparece con ai-service, identidad firmada y la bandera AI_GROQ_SQL", async () => {
+  it("solo aparece con agents-service, identidad firmada y la bandera AI_GROQ_SQL", async () => {
     expect(await ids(deps(fetch, { config: R_ON, groqErp: true }))).toContain("groq-erp");
     expect(await ids(deps(fetch, { config: R_ON }))).not.toContain("groq-erp");
+    expect(await ids(deps(fetch, { config: { ...R_ON, agents: undefined }, groqErp: true }))).not.toContain("groq-erp");
     expect(await ids(deps(fetch, { config: { ...R_ON, identityKey: null }, groqErp: true }))).not.toContain("groq-erp");
     expect(await ids(deps(fetch, { groqErp: true }))).not.toContain("groq-erp");
   });
@@ -188,9 +193,10 @@ describe("Groq + ERP (mismo agente de solo lectura, otra ruta en ai-service)", (
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ estado: "respondida", detalle: null, sql: "SELECT 1" });
     expect(result.body.tabla).toEqual({ columnas: ["total"], filas: [["19"]] });
-    expect(calls[0].url).toBe("http://127.0.0.1:8001/v1/agent/groq/queries");
+    expect(calls[0].url).toBe("https://polleria-agents.onrender.com/v1/agent/groq/queries");
     const headers = calls[0].init.headers as Record<string, string>;
-    expect(headers["X-Internal-Token"]).toBe(R_ON.token);
+    expect(headers["X-Internal-Token"]).toBe("ef".repeat(32)); // el token de agents-service, no el de ai-service
+    expect(headers["X-Internal-Token"]).not.toBe(R_ON.token);
     expect(headers["X-ERP-Identity"]).toBeTruthy();
   });
 
@@ -198,7 +204,7 @@ describe("Groq + ERP (mismo agente de solo lectura, otra ruta en ai-service)", (
     const calls: string[] = [];
     const fetchFn = (async (url: string | URL | Request) => (calls.push(String(url)), Response.json(body))) as typeof fetch;
     await handleQuery(JSON.stringify({ mensaje: "cuantos asientos hay", modelo: "gemini-erp" }), deps(fetchFn, { config: R_ON, geminiErp: true, groqErp: true }));
-    expect(calls).toEqual(["http://127.0.0.1:8001/v1/agent/queries"]);
+    expect(calls).toEqual(["https://polleria-agents.onrender.com/v1/agent/queries"]);
   });
 
   it("rechaza respuestas malformadas del servicio y mapea 429/5xx", async () => {
@@ -215,5 +221,72 @@ describe("Groq + ERP (mismo agente de solo lectura, otra ruta en ai-service)", (
     expect((await ask(fetchFn, { groqErp: false })).status).toBe(404);
     expect((await ask(fetchFn, { session: async () => ({ userId: 9, username: "c", role: "CAJERO" }) })).status).toBe(403);
     expect(called).toBe(false);
+  });
+});
+
+describe("agents-service y ai-service son despliegues independientes", () => {
+  const TRACE = "erp-00000000000000000000000000000001";
+  const AGENTS = { serviceUrl: "https://polleria-agents.onrender.com", token: "ef".repeat(32) };
+  const AGENTS_ONLY: AssistantConfig = {
+    enabled: true, serviceUrl: null, token: null, agents: AGENTS, identityKey: "cd".repeat(32),
+    realData: false, demo: false, mode: "eval", timeoutMs: 1000, allowedUserIds: [7],
+  };
+  const R_ONLY: AssistantConfig = {
+    enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32), identityKey: "cd".repeat(32),
+    realData: false, demo: true, mode: "demo", timeoutMs: 1000, allowedUserIds: null,
+  };
+  const body = { id_traza: TRACE, estado: "respondida", texto: "Encontré 1 resultado(s).", tabla: { columnas: ["total"], filas: [["19"]] }, sql: "SELECT 1" };
+  const ids = async (d: ProxyDeps) => ((await handleStatus(d)).body.modelos as { id: string }[]).map((m) => m.id);
+
+  it("los agentes funcionan sin ai-service; el Modelo R no aparece", async () => {
+    const d = deps(fetch, { config: AGENTS_ONLY, geminiErp: true, groqErp: true });
+    expect(await ids(d)).toEqual(["gemini-erp", "groq-erp"]);
+    const status = (await handleStatus(d)).body;
+    expect(status.modeloPredeterminado).toBe("gemini-erp");
+    expect(status.fakeData).toBe(false);
+    expect(status.suggestions).not.toEqual([]);
+    const calls: { url: string; headers: Record<string, string> }[] = [];
+    const fetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), headers: init?.headers as Record<string, string> });
+      return Response.json(body);
+    }) as typeof fetch;
+    const ok = await handleQuery(JSON.stringify({ mensaje: "cuantos asientos hay", modelo: "groq-erp" }), deps(fetchFn, { config: AGENTS_ONLY, groqErp: true }));
+    expect(ok.status).toBe(200);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://polleria-agents.onrender.com/v1/agent/groq/queries");
+    expect(calls[0].headers["X-Internal-Token"]).toBe(AGENTS.token);
+    // Sin ai-service configurado, el Modelo R responde 404 sin llamar a nadie.
+    const r = await handleQuery(JSON.stringify({ mensaje: "Saldo de caja", modelo: "modelo-r" }), deps(fetchFn, { config: AGENTS_ONLY, geminiErp: true }));
+    expect(r.status).toBe(404);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("el Modelo R funciona sin agents-service; los agentes no aparecen", async () => {
+    expect(await ids(deps(fetch, { config: R_ONLY, geminiErp: true, groqErp: true }))).toEqual(["modelo-r"]);
+    let called = false;
+    const fetchFn = (async () => ((called = true), Response.json(body))) as typeof fetch;
+    const agent = await handleQuery(JSON.stringify({ mensaje: "cuantos asientos hay", modelo: "gemini-erp" }), deps(fetchFn, { config: R_ONLY, geminiErp: true }));
+    expect(agent.status).toBe(404);
+    expect(called).toBe(false);
+  });
+
+  it("el Modelo R sigue yendo a ai-service con su token aunque haya agentes configurados", async () => {
+    const calls: { url: string; headers: Record<string, string> }[] = [];
+    const fetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), headers: init?.headers as Record<string, string> });
+      return new Response("{}", { status: 500 });
+    }) as typeof fetch;
+    const both: AssistantConfig = { ...R_ONLY, agents: AGENTS };
+    await handleQuery(JSON.stringify({ mensaje: "Saldo de caja", modelo: "modelo-r" }), deps(fetchFn, { config: both, geminiErp: true, modelR: true }));
+    expect(calls[0].url).toBe("http://127.0.0.1:8001/v1/queries");
+    expect(calls[0].headers["X-Internal-Token"]).toBe("ab".repeat(32));
+  });
+
+  it("solo la cuenta evaluadora usa los agentes", async () => {
+    const fetchFn = (async () => Response.json(body)) as typeof fetch;
+    const other = await handleQuery(JSON.stringify({ mensaje: "cuantos asientos hay", modelo: "gemini-erp" }), deps(fetchFn, {
+      config: AGENTS_ONLY, geminiErp: true, session: async () => ({ userId: 8, username: "admin2", role: "ADMIN" }),
+    }));
+    expect(other.status).toBe(403);
   });
 });
