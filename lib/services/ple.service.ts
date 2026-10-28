@@ -22,7 +22,7 @@ export async function loadPleSnapshot(year: number, month: number): Promise<PleS
   const { from, to } = monthRange(year, month);
   const fromDate = parseUtcDate(from);
   const toDate = parseUtcDate(to);
-  const restaurant = getRestaurantGlobalConfig().restaurant;
+  const restaurant = (await getRestaurantGlobalConfig()).restaurant;
 
   // Entries dated in the month, plus the ones that support invoices issued in it.
   const monthEntries = await prisma.journalEntry.findMany({

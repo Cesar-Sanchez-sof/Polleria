@@ -56,3 +56,6 @@ next-env.d.ts
 CLAUDE.md
 skills-lock.json
 
+
+# Database backups
+backups/
