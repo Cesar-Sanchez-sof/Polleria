@@ -769,3 +769,37 @@ model AuditLog {
   @@index([module, entity], map: "idx_audit_log_module_entity")
   @@map("audit_log")
 }
+
+// =====================================================================
+// MODULE: RESTAURANT CONFIGURATION (SALONES & IMPRESORAS PERSISTENTES)
+// =====================================================================
+
+model DiningArea {
+  id           String   @id
+  name         String   @db.VarChar(100)
+  level        String   @default("Piso 1") @db.VarChar(50)
+  description  String?  @db.VarChar(255)
+  tableNumbers Int[]    @map("table_numbers")
+  active       Boolean  @default(true)
+  color        String?  @default("emerald") @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("dining_area")
+}
+
+model PrinterConfig {
+  id               String   @id @default("default")
+  paperWidth       String   @default("80mm") @map("paper_width") @db.VarChar(10)
+  autoCut          Boolean  @default(true) @map("auto_cut")
+  autoPrintVoucher Boolean  @default(true) @map("auto_print_voucher")
+  printWaiterCopy  Boolean  @default(false) @map("print_waiter_copy")
+  series           Json
+  kitchenPrinter   Json     @map("kitchen_printer")
+  barPrinter       Json     @map("bar_printer")
+  cashierPrinter   Json     @map("cashier_printer")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("printer_config")
+}

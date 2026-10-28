@@ -14,7 +14,7 @@ export async function GET() {
   const auth = await authorize(["configuracion.ver", "mesas.ver", "pedidos.ver"]);
   if (!auth.ok) return auth.response;
   try {
-    const areas = listDiningAreas();
+    const areas = await listDiningAreas();
 
     // Consultamos las mesas para calcular aforos y ocupación real por cada salón
     const tables = await prisma.diningTable.findMany({
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       color: body.color || "emerald",
     };
 
-    const updatedList = saveDiningArea(newArea);
+    const updatedList = await saveDiningArea(newArea);
     return NextResponse.json(
       { message: "Salón / Área registrado con éxito.", data: updatedList },
       { status: 201 }
@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "ID del salón a actualizar es requerido." }, { status: 400 });
     }
 
-    const updatedList = saveDiningArea(body);
+    const updatedList = await saveDiningArea(body);
     return NextResponse.json({
       message: "Salón / Área actualizado con éxito.",
       data: updatedList,
@@ -115,7 +115,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID del salón a eliminar es requerido." }, { status: 400 });
     }
 
-    const updatedList = deleteDiningArea(id);
+    const updatedList = await deleteDiningArea(id);
     return NextResponse.json({
       message: "Salón eliminado con éxito.",
       data: updatedList,

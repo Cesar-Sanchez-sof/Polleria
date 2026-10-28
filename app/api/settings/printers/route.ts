@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getRestaurantGlobalConfig,
+  getPrinterConfig,
   updatePrinterConfig,
   type PrinterConfig,
 } from "@/lib/services/restaurant-config.service";
@@ -12,8 +12,8 @@ export async function GET() {
   const auth = await authorize(["configuracion.ver", "ventas.ver"]);
   if (!auth.ok) return auth.response;
   try {
-    const config = getRestaurantGlobalConfig();
-    return NextResponse.json({ data: config.printers });
+    const printers = await getPrinterConfig();
+    return NextResponse.json({ data: printers });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "No se pudo obtener la configuración de comprobantes e impresión." },
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Datos de entrada inválidos." }, { status: 400 });
     }
 
-    const updated = updatePrinterConfig(body);
+    const updated = await updatePrinterConfig(body);
     return NextResponse.json({
       message: "Configuración de impresión y comprobantes actualizada.",
       data: updated,

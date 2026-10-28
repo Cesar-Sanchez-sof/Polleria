@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getRestaurantGlobalConfig,
+  getRestaurantInfo,
   updateRestaurantInfo,
   type RestaurantInfo,
 } from "@/lib/services/restaurant-config.service";
@@ -12,8 +12,8 @@ export async function GET() {
   const auth = await authorize(["configuracion.ver", "ventas.ver", "pedidos.ver"]);
   if (!auth.ok) return auth.response;
   try {
-    const config = getRestaurantGlobalConfig();
-    return NextResponse.json({ data: config.restaurant });
+    const restaurant = getRestaurantInfo();
+    return NextResponse.json({ data: restaurant });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "No se pudo obtener los datos del restaurante." },

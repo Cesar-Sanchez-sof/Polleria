@@ -483,6 +483,36 @@ const ENTITIES: EntityDef[] = [
 			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
 		],
 	},
+	{
+		id: 'DiningArea', label: 'DiningArea', module: 'Configuración', color: '#06b6d4',
+		fields: [
+			{ name: 'id', type: 'String', kind: 'pk' },
+			{ name: 'name', type: 'String', kind: 'field' },
+			{ name: 'level', type: 'String', kind: 'field' },
+			{ name: 'description', type: 'String', kind: 'field', optional: true },
+			{ name: 'tableNumbers', type: 'Int[]', kind: 'field' },
+			{ name: 'active', type: 'Boolean', kind: 'field' },
+			{ name: 'color', type: 'String', kind: 'field', optional: true },
+			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
+			{ name: 'updatedAt', type: 'Timestamp', kind: 'field' },
+		],
+	},
+	{
+		id: 'PrinterConfig', label: 'PrinterConfig', module: 'Configuración', color: '#06b6d4',
+		fields: [
+			{ name: 'id', type: 'String', kind: 'pk' },
+			{ name: 'paperWidth', type: 'String', kind: 'field' },
+			{ name: 'autoCut', type: 'Boolean', kind: 'field' },
+			{ name: 'autoPrintVoucher', type: 'Boolean', kind: 'field' },
+			{ name: 'printWaiterCopy', type: 'Boolean', kind: 'field' },
+			{ name: 'series', type: 'Json', kind: 'field' },
+			{ name: 'kitchenPrinter', type: 'Json', kind: 'field' },
+			{ name: 'barPrinter', type: 'Json', kind: 'field' },
+			{ name: 'cashierPrinter', type: 'Json', kind: 'field' },
+			{ name: 'createdAt', type: 'Timestamp', kind: 'field' },
+			{ name: 'updatedAt', type: 'Timestamp', kind: 'field' },
+		],
+	},
 ];
 
 const RELATIONS: RelationDef[] = [
@@ -552,6 +582,7 @@ const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
 	Contabilidad: { col: 4, rows: ['DiningTable', 'Customer', 'JournalEntry', '__SPACER__', 'JournalEntryDetail',] },
 	Caja: { col: 5, rows: ['PaymentType', '__SPACER__', 'AccountingPeriod', '__SPACER__', '__SPACER__', 'AccountingAccount'] },
 	C3: { col: 6, rows: ['AuditLog', '__SPACER__', 'PurchasePayment', 'SalesPayment', '__SPACER__', 'OrderTable'] },
+	Configuracion: { col: 7, rows: ['DiningArea', 'PrinterConfig'] },
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -561,6 +592,7 @@ const MODULE_COLORS: Record<string, string> = {
 	Ventas: '#ec4899',
 	Contabilidad: '#10b981',
 	Caja: '#ef4444',
+	Configuración: '#06b6d4',
 };
 
 const COL_WIDTH = 290;
