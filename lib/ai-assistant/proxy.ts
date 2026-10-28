@@ -8,11 +8,12 @@
  *   sesión y nunca del navegador. Roles no permitidos → 403. En evaluación, además, solo las cuentas
  *   de `AI_ASSISTANT_EVAL_USER_IDS` (otras cuentas del mismo rol → 403).
  * - El navegador solo puede enviar `mensaje`, `historial`, `ruta` y `modelo`; cualquier otra clave → 400.
- * - Selector de modelos: el Modelo R y los agentes de solo lectura (Gemini y GPT OSS vía Groq) pasan por
- *   `ai-service` con la misma identidad firmada; GPT Luna (OpenAI) solo conversa y no ve datos del ERP.
+ * - Selector de modelos: el Modelo R pasa por `ai-service` y los agentes de solo lectura (Gemini y GPT OSS vía
+ *   Groq) por `agents-service` (otro despliegue, con su propia URL y token), ambos con la misma identidad
+ *   firmada; GPT Luna (OpenAI) solo conversa y no ve datos del ERP.
  * - Al servicio solo se reenvían los turnos del usuario (las respuestas previas pueden contener
  *   importes y el servicio no los necesita).
- * - El token interno solo viaja en la cabecera hacia `ai-service`; nunca se devuelve ni se registra.
+ * - Cada token interno solo viaja en la cabecera hacia su servicio; nunca se devuelve ni se registra.
  * - P-9: con `AI_ASSISTANT_IDENTITY_KEY`, cada solicitud lleva una aserción HS256 firmada con la
  *   identidad de `sesionActual()` y el rol derivado en el servidor (`X-ERP-Identity`).
  * - Respuestas validadas contra el contrato; al navegador solo llega `AssistantReply`.
@@ -44,7 +45,7 @@ export const MAX_BODY_BYTES = 16 * 1024;
 const TOKEN_HEADER = "X-Internal-Token";
 export const DIAGNOSTICS_HEADER = "X-ERP-Diagnostics";
 const QUERY_PATH = "/v1/queries";
-/** Agentes de solo lectura: cada uno propone el SELECT con su proveedor (Gemini o Groq). */
+/** Agentes de solo lectura (`agents-service`): cada uno propone el SELECT con su proveedor (Gemini o Groq). */
 const AGENT_PATHS = { "gemini-erp": "/v1/agent/queries", "groq-erp": "/v1/agent/groq/queries" } as const;
 type AgentModelId = keyof typeof AGENT_PATHS;
 const isAgentModel = (id: AssistantModelId): id is AgentModelId => id in AGENT_PATHS;
@@ -59,7 +60,7 @@ export interface ProxyDeps {
   permissions?: (userId: number) => Promise<ModuleAccess>;
   /** Conexión opcional con GPT Luna (solo `OPENAI_API_KEY`). */
   openai?: OpenAiConfig;
-  /** Agente Gemini (`AI_GEMINI_SQL=1`): exige `ai-service` con identidad firmada (P-9). */
+  /** Agente Gemini (`AI_GEMINI_SQL=1`): exige `agents-service` (`AGENTS_SERVICE_URL`) con identidad firmada (P-9). */
   geminiErp?: boolean;
   /** Agente GPT OSS vía Groq (`AI_GROQ_SQL=1`): mismos requisitos que el agente Gemini. */
   groqErp?: boolean;
@@ -76,12 +77,18 @@ const error = (status: number, message: string): ProxyResult => ({ status, body:
 
 type Gate = { ok: true; session: SessionPayload; role: string } | { ok: false; result: ProxyResult };
 
+/** Modelo R configurado (`AI_SERVICE_URL`): independiente de los agentes. */
+const modelRConfigured = (config: AssistantConfig): boolean => config.enabled && config.serviceUrl !== null && config.token !== null;
+
+/** Agentes configurados (`AGENTS_SERVICE_URL`) y con identidad firmada. */
+const agentsConfigured = (config: AssistantConfig): boolean => config.enabled && !!config.agents && config.identityKey !== null;
+
 /** Modelos habilitados por la configuración del servidor (en el orden del selector). */
 function availableModels(deps: ProxyDeps): AssistantModelId[] {
   return ASSISTANT_MODELS.filter((id) => {
-    if (id === "modelo-r") return deps.config.enabled && deps.modelR !== false;
-    if (id === "gemini-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.geminiErp === true;
-    if (id === "groq-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.groqErp === true;
+    if (id === "modelo-r") return modelRConfigured(deps.config) && deps.modelR !== false;
+    if (id === "gemini-erp") return agentsConfigured(deps.config) && deps.geminiErp === true;
+    if (id === "groq-erp") return agentsConfigured(deps.config) && deps.groqErp === true;
     return deps.openai?.enabled === true;
   });
 }
@@ -107,15 +114,16 @@ export async function handleStatus(deps: ProxyDeps): Promise<ProxyResult> {
   const checked = await gate(deps, "estado");
   if (!checked.ok) return { status: checked.result.status, body: { enabled: false, ...checked.result.body } };
   const config = deps.config;
-  const rOn = config.enabled;
+  const rOn = modelRConfigured(config);
   const disponibles = availableModels(deps);
   return {
     status: 200,
     body: {
       enabled: true,
-      fakeData: rOn ? !config.realData : false,
+      fakeData: rOn && config.enabled ? !config.realData : false,
       usuario: checked.session.userId,
-      suggestions: rOn ? (config.realData ? REAL_DATA_SUGGESTIONS : DEMO_SUGGESTIONS) : [],
+      // Los agentes consultan siempre datos reales; los datos ficticios son solo del Modelo R.
+      suggestions: config.enabled ? (rOn && !config.realData ? DEMO_SUGGESTIONS : REAL_DATA_SUGGESTIONS) : [],
       modelos: disponibles.map((id) => MODEL_INFO[id]),
       catalogo: ASSISTANT_MODELS.map((id) => ({ ...MODEL_INFO[id], disponible: disponibles.includes(id) })),
       modeloPredeterminado: rOn ? DEFAULT_MODEL : (disponibles[0] ?? DEFAULT_MODEL),
@@ -196,6 +204,9 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   if (!deps.config.enabled) return error(404, MESSAGES.disabled);
   const config = deps.config;
   const agentModel = isAgentModel(input.modelo) ? input.modelo : null;
+  // Cada modelo tiene su servicio: `agents-service` para los agentes y `ai-service` para el Modelo R.
+  const target = agentModel ? config.agents : config.serviceUrl !== null && config.token !== null ? { serviceUrl: config.serviceUrl, token: config.token } : null;
+  if (!target) return error(404, MESSAGES.disabled);
 
   const payload: QueryRequest = {
     id_traza: deps.newTraceId(),
@@ -206,8 +217,8 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
     fecha_referencia_lima: limaDate(deps.now()),
   };
 
-  const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: config.token };
-  if (config.diagnostics) headers[DIAGNOSTICS_HEADER] = "1";
+  const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: target.token };
+  if (config.diagnostics && !agentModel) headers[DIAGNOSTICS_HEADER] = "1"; // la traza técnica es del Modelo R
   if (config.identityKey) {
     // P-9: identidad firmada a partir de la sesión del servidor; el navegador no interviene.
     // Módulos del ERP según los permisos reales del usuario: ai-service no lee tablas de otros módulos
@@ -226,7 +237,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   let response: Response;
   try {
-    response = await deps.fetchFn(`${config.serviceUrl}${agentModel ? AGENT_PATHS[agentModel] : QUERY_PATH}`, {
+    response = await deps.fetchFn(`${target.serviceUrl}${agentModel ? AGENT_PATHS[agentModel] : QUERY_PATH}`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),

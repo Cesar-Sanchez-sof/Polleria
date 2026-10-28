@@ -1,9 +1,6 @@
 """Endpoints HTTP del servicio de IA (T028, CT-B).
 
 - ``GET /v1/health``: estado mínimo ``{"estado": "ok"}``, sin versiones ni configuración.
-- ``POST /v1/agent/queries`` (solo con el agente Gemini activado) y ``POST /v1/agent/groq/queries`` (solo con
-  el agente Groq activado): mismo cuerpo CT-B, **identidad verificada obligatoria** (P-9). Ver
-  ``ai_service.gemini_sql``.
 - ``POST /v1/queries``: recibe el cuerpo CT-B y delega en ``Orchestrator.handle``, que ya valida el
   contrato (``400``), revalida el rol (``403``), aplica presupuesto e incidentes (``503``) y audita.
 
@@ -40,7 +37,6 @@ from starlette.concurrency import run_in_threadpool
 
 from ai_service.auth.identity import IDENTITY_HEADER, IdentityError, verify_identity_assertion
 from ai_service.config.settings import ServiceSettings
-from ai_service.gemini_sql.agent import AgentRefusal, AgentUnavailable, GeminiSqlAgent, RateLimited
 from ai_service.http.schemas import QueryRequest
 from ai_service.orchestrator.pipeline import ERROR_INVALID_REQUEST, ErrorBody, Orchestrator, PipelineOutcome
 from ai_service.orchestrator.ports import AuthorizationContext
@@ -54,8 +50,6 @@ ERROR_UNAUTHORIZED = "No autorizado."
 ERROR_FORBIDDEN = "Acceso no permitido."
 ERROR_TOO_LARGE = "La solicitud es demasiado grande."
 ERROR_UNSUPPORTED_MEDIA = "El contenido debe ser application/json."
-ERROR_RATE_LIMITED = "Demasiadas consultas; inténtalo de nuevo en unos minutos."
-ERROR_AGENT_UNAVAILABLE = "El asistente no está disponible por el momento."
 
 
 def error_response(status_code: int, message: str, errores: list[str] | None = None) -> JSONResponse:
@@ -140,44 +134,7 @@ async def _guarded_request(
     return text, authorization
 
 
-def _register_agent_route(router: APIRouter, settings: ServiceSettings, path: str, agent: GeminiSqlAgent) -> None:
-    @router.post(path)
-    async def agent_queries(request: Request) -> JSONResponse:
-        guarded = await _guarded_request(request, settings)
-        if isinstance(guarded, JSONResponse):
-            return guarded
-        text, authorization = guarded
-        if authorization is None:  # el agente exige identidad verificada (P-9), nunca el rol provisional
-            return error_response(401, ERROR_UNAUTHORIZED)
-        try:
-            query = QueryRequest.model_validate_json(text)
-        except ValidationError:
-            return error_response(400, ERROR_INVALID_REQUEST)
-        try:
-            answer = await run_in_threadpool(agent.answer, query, authorization)
-        except AgentRefusal as refusal:
-            body = {"id_traza": query.id_traza, "estado": refusal.estado, "texto": refusal.texto, "tabla": None, "sql": None}
-            return JSONResponse(body, status_code=200, headers=SECURITY_HEADERS)
-        except RateLimited:
-            return error_response(429, ERROR_RATE_LIMITED)
-        except AgentUnavailable as unavailable:
-            return error_response(unavailable.status, ERROR_AGENT_UNAVAILABLE)
-        body = {
-            "id_traza": answer.id_traza,
-            "estado": answer.estado,
-            "texto": answer.texto,
-            "tabla": {"columnas": answer.columnas, "filas": answer.filas} if answer.columnas else None,
-            "sql": answer.sql,
-        }
-        return JSONResponse(body, status_code=200, headers=SECURITY_HEADERS)
-
-
-def build_router(
-    settings: ServiceSettings,
-    orchestrator: Orchestrator,
-    agent: GeminiSqlAgent | None = None,
-    groq_agent: GeminiSqlAgent | None = None,
-) -> APIRouter:
+def build_router(settings: ServiceSettings, orchestrator: Orchestrator) -> APIRouter:
     router = APIRouter(prefix="/v1")
 
     @router.get("/health")
@@ -208,11 +165,6 @@ def build_router(
         if body.get("diagnostico", ...) is None:
             body.pop("diagnostico")  # campo opcional: ausente salvo en modo diagnóstico (proxies anteriores)
         return JSONResponse(body, status_code=outcome.status_code, headers=SECURITY_HEADERS)
-
-    if agent is not None:
-        _register_agent_route(router, settings, "/agent/queries", agent)
-    if groq_agent is not None:
-        _register_agent_route(router, settings, "/agent/groq/queries", groq_agent)
 
     return router
 

@@ -1,0 +1,38 @@
+# Blueprint de Render para agents-service (agentes Gemini y Groq de solo lectura), entorno nativo de Python.
+# En Render: New > Blueprint > repositorio > "Blueprint file path" = agents-service/render.yaml.
+# (Alternativa manual: New > Web Service > Language = Python, Root Directory = agents-service,
+#  Build Command = pip install -r requirements.txt, Start Command = python -m agents_service.main,
+#  Health Check Path = /v1/health, y las variables de entorno de este archivo.)
+services:
+  - type: web
+    name: polleria-agents-service
+    runtime: python
+    rootDir: agents-service
+    plan: free # el plan free se suspende por inactividad: la primera consulta tarda ~1 min. Usa starter para evitarlo.
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m agents_service.main
+    healthCheckPath: /v1/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: PYTHONPATH
+        value: src
+      - key: AGENTS_SERVICE_INTERNAL_TOKEN
+        sync: false # se pide al crear el Blueprint
+      - key: AI_ASSISTANT_IDENTITY_KEY
+        sync: false
+      - key: DATABASE_URL_READONLY
+        sync: false
+      - key: AI_GEMINI_SQL
+        value: "1"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: AI_GROQ_SQL
+        value: "1"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false

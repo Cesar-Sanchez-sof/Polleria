@@ -113,8 +113,6 @@ DOTENV_KEYS = frozenset(
     {
         OPENAI_KEY_VAR, OPENAI_MODEL_VAR, READONLY_DSN_VAR, IDENTITY_KEY_VAR, ZILLIZ_URI_VAR, ZILLIZ_TOKEN_VAR,
         RAG_MODE_VAR, RAG_COLLECTION_VAR, RAG_APPROVED_CORPUS_VAR, RAG_MODEL_EVIDENCE_VAR,
-        "GEMINI_API_KEY", "GEMINI_MODEL",  # agente Gemini (solo con AI_GEMINI_SQL=1)
-        "GROQ_API_KEY", "GROQ_MODEL",  # agente Groq (solo con AI_GROQ_SQL=1)
     }
 )
 RAG_MODES = frozenset({"lexico", "semantico", "milvus"})

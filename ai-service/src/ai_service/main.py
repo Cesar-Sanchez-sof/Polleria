@@ -20,8 +20,7 @@ import os
 import sys
 from pathlib import Path
 
-from ai_service.config.settings import ServiceConfigError, load_service_settings, read_dotenv_keys
-from ai_service.gemini_sql.config import GeminiSqlConfigError, load_gemini_sql_settings, load_groq_sql_settings
+from ai_service.config.settings import ServiceConfigError, load_service_settings
 
 # ai-service/.env (ignorado por Git): solo se leen OPENAI_API_KEY y OPENAI_MODEL, y solo con
 # AI_LLM_PROVIDER=openai.
@@ -32,15 +31,6 @@ def main() -> int:
     try:
         settings = load_service_settings(os.environ, dotenv_path=DOTENV_PATH)
     except ServiceConfigError as exc:
-        print(f"Configuración inválida: {exc}", file=sys.stderr)
-        return 2
-
-    try:
-        dotenv_keys = read_dotenv_keys(DOTENV_PATH)
-        identity_configured = settings.identity_key is not None
-        gemini_settings = load_gemini_sql_settings(os.environ, dotenv_keys, identity_key_configured=identity_configured)
-        groq_settings = load_groq_sql_settings(os.environ, dotenv_keys, identity_key_configured=identity_configured)
-    except GeminiSqlConfigError as exc:
         print(f"Configuración inválida: {exc}", file=sys.stderr)
         return 2
 
@@ -55,18 +45,8 @@ def main() -> int:
     trace_logger.setLevel(logging.INFO)
     trace_logger.addHandler(logging.StreamHandler(sys.stderr))
     trace_logger.propagate = False
-    agent = None
-    groq_agent = None
-    if gemini_settings is not None:  # agente Gemini: solo con AI_GEMINI_SQL=1 y su configuración completa
-        from ai_service.gemini_sql.assembly import build_gemini_sql_agent
-
-        agent = build_gemini_sql_agent(gemini_settings)
-    if groq_settings is not None:  # agente Groq: solo con AI_GROQ_SQL=1 y su configuración completa
-        from ai_service.gemini_sql.assembly import build_groq_sql_agent
-
-        groq_agent = build_groq_sql_agent(groq_settings)
     uvicorn.run(
-        create_app(settings, orchestrator, agent, groq_agent),
+        create_app(settings, orchestrator),
         host=settings.host,  # validado: solo 127.0.0.1
         port=settings.port,
         access_log=False,
