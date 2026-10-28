@@ -35,5 +35,11 @@ export async function POST(request: Request) {
     maxAge: 0,
     expires: new Date(0),
   });
+  response.cookies.delete("auth-token");
+  response.cookies.set("auth-token", "", {
+    ...COOKIE_OPTIONS,
+    maxAge: 0,
+    expires: new Date(0),
+  });
   return response;
 }

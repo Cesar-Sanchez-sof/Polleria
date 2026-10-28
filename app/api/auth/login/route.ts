@@ -60,8 +60,6 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({ userId: session.userId, username: session.username, role: session.role });
     response.cookies.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
-    // Compatibilidad: algunas rutas antiguas (períodos contables) aún leen esta cookie.
-    response.cookies.set("auth-token", token, COOKIE_OPTIONS);
     return response;
   } catch (e) {
     if (e instanceof UserError) {
