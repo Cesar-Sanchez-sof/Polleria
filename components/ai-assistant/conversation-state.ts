@@ -4,7 +4,7 @@
  * No usa localStorage ni sessionStorage: el historial se pierde al recargar y se limpia al cerrar
  * la conversación, al cerrar sesión o al cambiar de usuario.
  */
-import type { ResponseState } from "@/lib/ai-assistant/contract";
+import type { AgentTable, ResponseState } from "@/lib/ai-assistant/contract";
 import type { ReplyDetail } from "@/lib/ai-assistant/presentation";
 
 export const MAX_MESSAGES = 60;
@@ -12,7 +12,16 @@ export const MAX_HISTORY_SENT = 10;
 
 export type ChatMessage =
   | { id: string; rol: "usuario"; texto: string }
-  | { id: string; rol: "asistente"; texto: string; estado: ResponseState | "error"; detalle: ReplyDetail | null };
+  | {
+      id: string;
+      rol: "asistente";
+      texto: string;
+      estado: ResponseState | "error";
+      detalle: ReplyDetail | null;
+      /** Solo el agente Gemini + ERP: resultado en tabla y consulta de solo lectura ejecutada. */
+      tabla?: AgentTable | null;
+      sql?: string | null;
+    };
 
 export interface ConversationState {
   userKey: string | null;
@@ -22,7 +31,7 @@ export interface ConversationState {
 
 export type ConversationAction =
   | { type: "send"; id: string; texto: string }
-  | { type: "reply"; id: string; estado: ResponseState; texto: string; detalle: ReplyDetail | null }
+  | { type: "reply"; id: string; estado: ResponseState; texto: string; detalle: ReplyDetail | null; tabla?: AgentTable | null; sql?: string | null }
   | { type: "error"; id: string; texto: string }
   | { type: "reset"; userKey: string | null };
 
@@ -48,6 +57,8 @@ export function conversationReducer(state: ConversationState, action: Conversati
           texto: action.texto,
           estado: action.estado,
           detalle: action.estado === "respondida" ? action.detalle : null,
+          tabla: action.estado === "respondida" ? (action.tabla ?? null) : null,
+          sql: action.estado === "respondida" || action.estado === "sin_datos" ? (action.sql ?? null) : null,
         }),
       };
     case "error":

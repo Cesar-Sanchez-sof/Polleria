@@ -16,6 +16,9 @@ function deps(): ProxyDeps {
     config: readAssistantConfig(),
     gemini: readGeminiConfig(),
     openai: readOpenAiConfig(),
+    geminiErp: process.env.AI_GEMINI_SQL === "1",
+    // Con el agente Gemini activo, el Modelo R solo aparece si se habilita de forma explícita.
+    modelR: process.env.AI_GEMINI_SQL !== "1" || process.env.AI_MODEL_R === "1",
     session: () => currentSession(),
     fetchFn: fetch,
     now: () => new Date(),

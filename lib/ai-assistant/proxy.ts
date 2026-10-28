@@ -22,6 +22,7 @@ import {
   AUTHORIZED_ROUTES,
   MAX_HISTORY_TURNS,
   MAX_MESSAGE_CHARS,
+  parseAgentResponse,
   parseQueryResponse,
   type AuthorizedRoute,
   type QueryRequest,
@@ -34,6 +35,8 @@ import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantM
 
 export const MAX_BODY_BYTES = 16 * 1024;
 const TOKEN_HEADER = "X-Internal-Token";
+const QUERY_PATH = "/v1/queries";
+const AGENT_PATH = "/v1/agent/queries";
 
 export interface ProxyDeps {
   config: AssistantConfig;
@@ -45,6 +48,10 @@ export interface ProxyDeps {
   gemini?: GeminiConfig;
   /** Conexión opcional con GPT Luna (solo `OPENAI_API_KEY`). */
   openai?: OpenAiConfig;
+  /** Agente Gemini + ERP (`AI_GEMINI_SQL=1`): exige `ai-service` con identidad firmada (P-9). */
+  geminiErp?: boolean;
+  /** Modelo R disponible; por defecto sí. Con `AI_GEMINI_SQL=1` solo si se pide con `AI_MODEL_R=1`. */
+  modelR?: boolean;
 }
 
 export interface ProxyResult {
@@ -58,9 +65,11 @@ type Gate = { ok: true; session: SessionPayload; role: string } | { ok: false; r
 
 /** Modelos habilitados por la configuración del servidor (en el orden del selector). */
 function availableModels(deps: ProxyDeps): AssistantModelId[] {
-  return ASSISTANT_MODELS.filter((id) =>
-    id === "modelo-r" ? deps.config.enabled : id === "gpt-luna" ? deps.openai?.enabled === true : deps.gemini?.enabled === true,
-  );
+  return ASSISTANT_MODELS.filter((id) => {
+    if (id === "modelo-r") return deps.config.enabled && deps.modelR !== false;
+    if (id === "gemini-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.geminiErp === true;
+    return id === "gpt-luna" ? deps.openai?.enabled === true : deps.gemini?.enabled === true;
+  });
 }
 
 /**
@@ -184,6 +193,8 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   }
   if (!deps.config.enabled) return error(404, MESSAGES.disabled);
   const config = deps.config;
+  const useAgent = input.modelo === "gemini-erp";
+  if (useAgent && !availableModels(deps).includes("gemini-erp")) return error(404, MESSAGES.disabled);
 
   const payload: QueryRequest = {
     id_traza: deps.newTraceId(),
@@ -206,7 +217,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   let response: Response;
   try {
-    response = await deps.fetchFn(`${config.serviceUrl}/v1/queries`, {
+    response = await deps.fetchFn(`${config.serviceUrl}${useAgent ? AGENT_PATH : QUERY_PATH}`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -219,6 +230,7 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
     return name === "TimeoutError" || name === "AbortError" ? error(504, MESSAGES.timeout) : error(503, MESSAGES.unavailable);
   }
 
+  if (response.status === 429) return error(429, MESSAGES.rateLimited);
   if (response.status === 403) return error(403, MESSAGES.forbidden);
   if (response.status === 400 || response.status === 413) return error(400, MESSAGES.invalid);
   if (response.status !== 200) return error(503, MESSAGES.unavailable);
@@ -228,6 +240,11 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
     data = await response.json();
   } catch {
     return error(502, MESSAGES.unavailable);
+  }
+  if (useAgent) {
+    const agentReply = parseAgentResponse(data);
+    if (!agentReply || agentReply.id_traza !== payload.id_traza) return error(502, MESSAGES.unavailable);
+    return { status: 200, body: { ...agentReply, detalle: null } };
   }
   const validated = parseQueryResponse(data);
   if (!validated || validated.id_traza !== payload.id_traza) return error(502, MESSAGES.unavailable);

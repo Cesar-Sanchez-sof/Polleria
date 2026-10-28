@@ -31,6 +31,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_MESSAGE_CHARS } from "@/lib/ai-assistant/contract";
 import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId, type ModelInfo } from "@/lib/ai-assistant/models";
+import type { AgentTable } from "@/lib/ai-assistant/contract";
 import type { ReplyDetail } from "@/lib/ai-assistant/presentation";
 import {
   conversationReducer,
@@ -85,6 +86,49 @@ function CalculationDetail({ detalle }: { detalle: ReplyDetail }) {
   );
 }
 
+function ResultTable({ tabla }: { tabla: AgentTable }) {
+  return (
+    <div className="mt-2 max-h-64 overflow-auto rounded-md border bg-background/60">
+      <table className="w-full border-collapse text-xs">
+        <thead className="sticky top-0 bg-muted">
+          <tr>
+            {tabla.columnas.map((columna) => (
+              <th key={columna} scope="col" className="whitespace-nowrap px-2 py-1.5 text-left font-semibold">
+                {columna}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tabla.filas.map((fila, index) => (
+            <tr key={index} className="border-t">
+              {fila.map((celda, i) => (
+                <td key={i} className="whitespace-nowrap px-2 py-1 tabular-nums">
+                  {celda ?? <span className="text-muted-foreground">—</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ExecutedQuery({ sql }: { sql: string }) {
+  return (
+    <Collapsible className="mt-2">
+      <CollapsibleTrigger className="group/sql flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
+        Ver consulta ejecutada (solo lectura)
+        <ChevronDown className="size-3.5 transition-transform group-data-[panel-open]/sql:rotate-180" aria-hidden />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-background/60 p-2 text-[11px] leading-snug">{sql}</pre>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function AssistantBubble({ message }: { message: Extract<ChatMessage, { rol: "asistente" }> }) {
   const tone =
     message.estado === "error"
@@ -101,6 +145,8 @@ function AssistantBubble({ message }: { message: Extract<ChatMessage, { rol: "as
           <span>{message.texto}</span>
         </p>
         {message.detalle && <CalculationDetail detalle={message.detalle} />}
+        {message.tabla && <ResultTable tabla={message.tabla} />}
+        {message.sql && <ExecutedQuery sql={message.sql} />}
       </div>
     </div>
   );
@@ -200,7 +246,15 @@ export default function AssistantWidget() {
         });
         const data = await response.json().catch(() => null);
         if (response.ok && data && typeof data.texto === "string" && typeof data.estado === "string") {
-          dispatch({ type: "reply", id: newId(), estado: data.estado, texto: data.texto, detalle: data.detalle ?? null });
+          dispatch({
+            type: "reply",
+            id: newId(),
+            estado: data.estado,
+            texto: data.texto,
+            detalle: data.detalle ?? null,
+            tabla: data.tabla ?? null,
+            sql: typeof data.sql === "string" ? data.sql : null,
+          });
         } else {
           dispatch({ type: "error", id: newId(), texto: typeof data?.error === "string" ? data.error : CONNECTION_ERROR });
           if (response.status === 401) setStatus(null);
@@ -243,7 +297,11 @@ export default function AssistantWidget() {
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-sm font-semibold leading-tight">Asistente financiero</h2>
               <p className="truncate text-[11px] text-muted-foreground">Consultas de saldos de cuentas</p>
-              {noModels ? null : model !== "modelo-r" ? (
+              {noModels ? null : model === "gemini-erp" ? (
+                <Badge variant="outline" className="mt-1 border-sky-500/50 text-sky-700 dark:text-sky-400" title="Gemini solo ve la estructura de las tablas; la base se consulta con un rol de solo lectura">
+                  Datos del ERP · solo lectura
+                </Badge>
+              ) : model !== "modelo-r" ? (
                 <Badge variant="outline" className="mt-1 border-violet-500/50 text-violet-700 dark:text-violet-400" title={`${current.nombre} no consulta datos del ERP`}>
                   Sin datos del ERP
                 </Badge>
@@ -300,6 +358,8 @@ export default function AssistantWidget() {
                 <div className="rounded-lg bg-muted/60 p-3 text-sm leading-relaxed">
                   {noModels
                     ? NO_MODELS_MESSAGE
+                    : model === "gemini-erp"
+                    ? "Hola. Soy Gemini. Puedo consultar los datos contables del ERP en modo solo lectura (nunca modifico nada) y te muestro el resultado en una tabla. Escribe tu pregunta, por ejemplo: «ventas por cuenta de septiembre»."
                     : model !== "modelo-r"
                     ? `Hola. Soy ${current.nombre}. Puedo ayudarte con dudas generales de contabilidad y gestión; no veo los datos del ERP. Escribe tu pregunta.`
                     : "Hola. Puedo decirte cómo se movieron tus cuentas en un mes. Escribe tu pregunta o elige una de estas:"}

@@ -21,6 +21,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ai_service.config.settings import ALLOWED_HOST, ServiceSettings
+from ai_service.gemini_sql.agent import GeminiSqlAgent
 from ai_service.http.routes import SECURITY_HEADERS, build_router, error_response
 from ai_service.orchestrator.pipeline import Orchestrator
 
@@ -50,14 +51,19 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
-def create_app(settings: ServiceSettings, orchestrator: Orchestrator) -> FastAPI:
+def create_app(
+    settings: ServiceSettings,
+    orchestrator: Orchestrator,
+    agent: GeminiSqlAgent | None = None,
+    groq_agent: GeminiSqlAgent | None = None,
+) -> FastAPI:
     app = FastAPI(
         title="ai-service (desarrollo)",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
     )
-    app.include_router(build_router(settings, orchestrator))
+    app.include_router(build_router(settings, orchestrator, agent, groq_agent))
     # El último middleware añadido es el más externo: las cabeceras de seguridad deben cubrir
     # también el 400 que genera TrustedHostMiddleware.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=[ALLOWED_HOST])

@@ -4,12 +4,14 @@
  * - `modelo-r`: el modelo propio del ERP (XiYanSQL-QwenCoder-7B-2504 + adaptador LoRA, servido por
  *   `ai-service`). Consulta saldos contables con datos del ERP. Versión = adaptador por defecto
  *   (`DEFAULT_ADAPTER` en `ai-service/src/ai_service/sqlgen/profile.py`).
+ * - `gemini-erp`: Gemini propone un SELECT de solo lectura a partir del esquema permitido (sin datos); el SQL
+ *   lo valida y ejecuta `ai-service` con el rol `ai_readonly`. Las filas no vuelven a Gemini.
  * - `gpt-luna`: GPT Luna de OpenAI, conectado solo con `OPENAI_API_KEY`. Conversación general;
  *   no consulta datos del ERP.
  * - `gemini`: Gemini Flash 3.5 de Google, conectado solo con `GEMINI_API_KEY`. Conversación general;
  *   no consulta datos del ERP.
  */
-export const ASSISTANT_MODELS = ["modelo-r", "gpt-luna", "gemini"] as const;
+export const ASSISTANT_MODELS = ["modelo-r", "gemini-erp", "gpt-luna", "gemini"] as const;
 export type AssistantModelId = (typeof ASSISTANT_MODELS)[number];
 
 export const DEFAULT_MODEL: AssistantModelId = "modelo-r";
@@ -27,6 +29,12 @@ export const MODEL_INFO: Readonly<Record<AssistantModelId, ModelInfo>> = {
     nombre: "Modelo R",
     version: "v17",
     descripcion: "Saldos contables con datos del ERP",
+  },
+  "gemini-erp": {
+    id: "gemini-erp",
+    nombre: "Gemini + ERP",
+    version: "solo lectura",
+    descripcion: "Consulta datos del ERP con SELECT de solo lectura",
   },
   "gpt-luna": {
     id: "gpt-luna",

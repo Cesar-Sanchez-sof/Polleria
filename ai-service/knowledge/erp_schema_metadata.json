@@ -1,7 +1,7 @@
 {
   "version": "erp-schema-metadata-v1",
   "source": "prisma/schema.prisma",
-  "schema_sha256": "fcbda3c61b4b3f7c2b928012c62ee82051afee7addbf9b7d9f7865b4fb3b0235",
+  "schema_sha256": "335fb2448258a4567e96c27b779d7e94c66aa6cc013a9ae162c81142aef39748",
   "models": [
     {
       "model": "AccountingAccount",
@@ -249,6 +249,15 @@
           "unique": false
         },
         {
+          "field": "transformationId",
+          "column": "transformation_id",
+          "type": "Int",
+          "db_type": null,
+          "nullable": true,
+          "primary_key": false,
+          "unique": false
+        },
+        {
           "field": "entryDate",
           "column": "entry_date",
           "type": "DateTime",
@@ -382,6 +391,18 @@
           "target_table": "payroll",
           "columns": [
             "payroll_id"
+          ],
+          "target_columns": [
+            "id"
+          ],
+          "target_included": false
+        },
+        {
+          "field": "transformation",
+          "target_model": "Transformation",
+          "target_table": "transformation",
+          "columns": [
+            "transformation_id"
           ],
           "target_columns": [
             "id"

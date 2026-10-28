@@ -126,6 +126,49 @@ function parseDetail(value: unknown): Detail | null | undefined {
   };
 }
 
+/** Tabla de resultados del agente Gemini: solo texto, tamaño acotado y filas rectangulares. */
+export interface AgentTable {
+  columnas: string[];
+  filas: (string | null)[][];
+}
+
+export interface AgentResponse {
+  id_traza: string;
+  estado: ResponseState;
+  texto: string;
+  tabla: AgentTable | null;
+  sql: string | null;
+}
+
+const MAX_AGENT_COLUMNS = 20;
+const MAX_AGENT_ROWS = 50;
+const MAX_AGENT_CELL = 200;
+
+/** Valida la respuesta de `POST /v1/agent/queries`. Devuelve `null` si no cumple el contrato. */
+export function parseAgentResponse(value: unknown): AgentResponse | null {
+  if (!isObject(value) || !onlyKeys(value, ["id_traza", "estado", "texto", "tabla", "sql"])) return null;
+  const { id_traza, estado, texto, tabla, sql } = value;
+  if (typeof id_traza !== "string" || !TRACE_RE.test(id_traza)) return null;
+  if (typeof estado !== "string" || !(RESPONSE_STATES as readonly string[]).includes(estado)) return null;
+  if (!isString(texto, 4000)) return null;
+  if (sql !== null && !isString(sql, 2000, 1)) return null;
+  let table: AgentTable | null = null;
+  if (tabla !== null) {
+    if (!isObject(tabla) || !onlyKeys(tabla, ["columnas", "filas"])) return null;
+    const { columnas, filas } = tabla;
+    if (!Array.isArray(columnas) || columnas.length === 0 || columnas.length > MAX_AGENT_COLUMNS) return null;
+    if (!columnas.every((c) => isString(c, 80, 1))) return null;
+    if (!Array.isArray(filas) || filas.length > MAX_AGENT_ROWS) return null;
+    for (const fila of filas) {
+      if (!Array.isArray(fila) || fila.length !== columnas.length) return null;
+      if (!fila.every((cell) => cell === null || isString(cell, MAX_AGENT_CELL))) return null;
+    }
+    table = { columnas: columnas as string[], filas: filas as (string | null)[][] };
+  }
+  if (table && estado !== "respondida") return null;
+  return { id_traza, estado: estado as ResponseState, texto, tabla: table, sql: (sql as string | null) ?? null };
+}
+
 /** Valida la respuesta CT-B de `ai-service`. Devuelve `null` si no cumple el contrato. */
 export function parseQueryResponse(value: unknown): QueryResponse | null {
   const keys = ["id_traza", "estado", "texto", "cifras", "evidencias", "versiones", "detalle"];

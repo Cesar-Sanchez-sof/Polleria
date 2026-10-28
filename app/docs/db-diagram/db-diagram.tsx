@@ -3,20 +3,27 @@
 import '@xyflow/react/dist/style.css';
 import {
 	Background,
+	BaseEdge,
 	Controls,
 	type Edge,
+	EdgeLabelRenderer,
+	type EdgeProps,
+	getSmoothStepPath,
 	Handle,
-	MarkerType,
+	type InternalNode,
 	MiniMap,
 	type Node,
 	type NodeProps,
+	Panel,
 	Position,
 	ReactFlow,
 	ReactFlowProvider,
 	useNodesState,
+	useReactFlow,
 } from '@xyflow/react';
-import { Database, Key, Link } from 'lucide-react';
+import { Database, Download, Key, Link } from 'lucide-react';
 import { useMemo } from 'react';
+import { downloadDiagramSvg } from './export-svg';
 
 type FieldKind = 'pk' | 'fk' | 'field';
 
@@ -534,6 +541,7 @@ const RELATIONS: RelationDef[] = [
 	{ id: 're-je-transf', child: 'JournalEntry', fk: 'transformationId', parent: 'Transformation', label: 'generates' },
 	{ id: 're-jed-je', child: 'JournalEntryDetail', fk: 'entryId', parent: 'JournalEntry', label: 'has' },
 	{ id: 're-jed-acc', child: 'JournalEntryDetail', fk: 'accountId', parent: 'AccountingAccount', label: 'records' },
+	{ id: 're-acc-parent', child: 'AccountingAccount', fk: 'parentId', parent: 'AccountingAccount', label: 'child_of' },
 	{ id: 're-session-reg', child: 'CashSession', fk: 'cashRegisterId', parent: 'CashRegister', label: 'has' },
 	{ id: 're-session-open', child: 'CashSession', fk: 'openedById', parent: 'User', label: 'opened_by' },
 	{ id: 're-session-close', child: 'CashSession', fk: 'closedById', parent: 'User', label: 'closed_by' },
@@ -541,17 +549,17 @@ const RELATIONS: RelationDef[] = [
 ];
 
 const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
-	S0: { col: -4, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'TransformationItem'] },
-	S1: { col: -3, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'ProductRecipe'] },
-	S2: { col: -2, rows: ['__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'Shift', 'Transformation', 'Product',] },
-	S: { col: -1, rows: ['RolePermission', '__SPACER__', '__SPACER__', 'Employee', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'InventoryMovement', '__SPACER__', '__SPACER__', '__SPACER__'] },
-	Seguridad: { col: 0, rows: ['Permission', 'Role', '__SPACER__', '__SPACER__', '__SPACER__', 'InformalPurchase', 'PurchaseOrderItem',] },
-	RRHH: { col: 1, rows: ['CashRegister', 'User', 'Payroll', 'PurchaseOrder', '__SPACER__', '__SPACER__', 'OrderItem',] },
-	Compras: { col: 2, rows: ['CashSession', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', '__SPACER__', 'Supplier', 'SalesOrder'] },
-	Ventas: { col: 3, rows: ['CashMovement', '__SPACER__', '__SPACER__', '__SPACER__', 'SalesInvoice', 'PurchaseInvoice'] },
-	Contabilidad: { col: 4, rows: ['DiningTable', 'Customer', 'JournalEntry', '__SPACER__', 'JournalEntryDetail',] },
-	Caja: { col: 5, rows: ['PaymentType', '__SPACER__', 'AccountingPeriod', '__SPACER__', '__SPACER__', 'AccountingAccount'] },
-	C3: { col: 6, rows: ['AuditLog', '__SPACER__', 'PurchasePayment', 'SalesPayment', '__SPACER__', 'OrderTable'] },
+	__col0: { col: 0, rows: ['Permission', '____________', '____________', '____________', '____________', '____________', '____________', '____________', '____________', '____________', 'ProductRecipe'] },
+	__col1: { col: 1, rows: ['RolePermission', '____________', '____________', '____________', '____________', '____________', '____________', '____________', '____________', '____________', '____________', 'Product'] },
+	__col2: { col: 2, rows: ['AuditLog',      'Role'        , '____________', '____________', 'Shift', '____________', 'TransformationItem', '____________', '____________', 'OrderItem',] },
+	__col3: { col: 3, rows: ['____________', '____________', 'User', '____________', '____________', 'Employee', '____________', '____________', '____________', '____________', 'Transformation', 'SalesOrder'] },
+	Seguri: { col: 4, rows: ['____________', '____________', '____________', '____________', '____________', 'InformalPurchase', 'PurchaseOrderItem', 'InventoryMovement', '____________', '____________', '____________', 'OrderTable'] },
+	__RRHH: { col: 5, rows: ['CashRegister', '____________', 'Payroll', 'PurchaseOrder', '____________', '____________', '____________', '____________', '____________', '____________', '____________', '____________', 'DiningTable'] },
+	Compra: { col: 6, rows: ['____________', 'CashSession',  '____________', '____________', '____________', '____________', '____________', '____________', 'Supplier'] },
+    Ventas: { col: 7, rows: ['CashMovement', '____________', '____________', '____________', 'AccountingPeriod', '____________', '____________', '____________', 'PurchaseInvoice', 'SalesInvoice'] },
+	Contab: { col: 8, rows: ['____________', '____________', '____________', '____________', '____________', '____________', 'JournalEntry', '____________', 'PurchasePayment', '____________', '____________', 'Customer'] },
+	__Caja: { col: 9, rows: ['____________', '____________', '____________', '____________', 'JournalEntryDetail', 'AccountingAccount', '____________', '____________', '____________', 'PaymentType', 'SalesPayment'] },
+	___C3: { col: 10, rows: ['____________', '____________', '____________', '____________', '____________', ] },
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -574,7 +582,53 @@ function handleId(entity: string, field: string, side: 'left' | 'right', kind: '
 	return `${entity}.${field}-${side}-${kind}`;
 }
 
-/** Arrows go from the FK row of the child to the `id` row of the parent, on the sides that face each other. */
+/** Chen notation: plain line with the cardinality (`1` / `N`) written next to each entity. */
+function CardinalityEdge({
+	id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, label, data,
+}: EdgeProps) {
+	const [path, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+	const card = data as { sourceCardinality: string; targetCardinality: string };
+	const near = (x: number, y: number, position: Position) => ({
+		x: x + (position === Position.Left ? -12 : 12),
+		y: y - 10,
+	});
+	const source = near(sourceX, sourceY, sourcePosition);
+	const target = near(targetX, targetY, targetPosition);
+
+	return (
+		<>
+			<BaseEdge id={id} path={path} style={style} />
+			<EdgeLabelRenderer>
+				{[
+					{ key: 's', text: card.sourceCardinality, ...source },
+					{ key: 't', text: card.targetCardinality, ...target },
+				].map((c) => (
+					<div
+						key={c.key}
+						className="nodrag nopan pointer-events-none absolute text-[11px] font-bold"
+						style={{ transform: `translate(-50%, -50%) translate(${c.x}px, ${c.y}px)`, color: 'var(--foreground)' }}
+					>
+						{c.text}
+					</div>
+				))}
+				{label && (
+					<div
+						className="nodrag nopan pointer-events-none absolute rounded px-1 text-[9px]"
+						style={{
+							transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+							color: 'var(--foreground)',
+							background: 'color-mix(in srgb, var(--color-surface) 85%, transparent)',
+						}}
+					>
+						{label}
+					</div>
+				)}
+			</EdgeLabelRenderer>
+		</>
+	);
+}
+
+/** Edges go from the FK row of the child to the `id` row of the parent, on the sides that face each other. */
 function buildEdges(nodes: Node[]): Edge[] {
 	const x = new Map(nodes.map((n) => [n.id, n.position.x]));
 	const width = COL_WIDTH - 16;
@@ -596,17 +650,11 @@ function buildEdges(nodes: Node[]): Edge[] {
 			sourceHandle: handleId(rel.child, rel.fk, childSide, 's'),
 			target: rel.parent,
 			targetHandle: handleId(rel.parent, 'id', parentSide, 't'),
-			type: 'smoothstep',
+			type: 'cardinality',
 			label: rel.label,
-			labelStyle: { fontSize: 9, fill: 'var(--color-text-disabled)' },
-			labelBgStyle: { fill: 'var(--color-surface)', opacity: 0.85 },
+			// Chen notation: every FK is a plain (non-unique) column, so the relation is always N:1 child -> parent.
+			data: { sourceCardinality: 'N', targetCardinality: '1' },
 			style: { stroke: 'var(--color-border)', strokeWidth: 1.25 },
-			markerEnd: {
-				type: MarkerType.ArrowClosed,
-				color: 'var(--color-border)',
-				width: 8,
-				height: 8,
-			},
 		};
 	});
 }
@@ -620,7 +668,7 @@ function buildInitialNodes(): EntityNode[] {
 	for (const [, layout] of Object.entries(MODULE_LAYOUT)) {
 		let y = ROW_START;
 		for (const entityId of layout.rows) {
-			if (entityId === '__SPACER__') {
+			if (entityId === '____________') {
 				y += 100;
 				continue;
 			}
@@ -716,12 +764,37 @@ function EntityCardNode({ data }: NodeProps) {
 	);
 }
 
+function ExportSvgButton() {
+	const { getNodes, getEdges, getInternalNode } = useReactFlow();
+
+	const handleExport = () => {
+		const nodes = getNodes()
+			.map((n) => getInternalNode(n.id))
+			.filter((n): n is InternalNode => !!n);
+		downloadDiagramSvg(nodes, getEdges());
+	};
+
+	return (
+		<Panel position="top-left">
+			<button
+				type="button"
+				onClick={handleExport}
+				className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground shadow-xs hover:bg-surface-container"
+			>
+				<Download style={{ width: 12, height: 12 }} />
+				Guardar como SVG
+			</button>
+		</Panel>
+	);
+}
+
 const nodeTypes = { entityCard: EntityCardNode };
+const edgeTypes = { cardinality: CardinalityEdge };
 
 export function DbDiagram() {
 	const initialNodes = useMemo(() => buildInitialNodes(), []);
 
-const [nodes, , onNodesChange] = useNodesState<Node>(initialNodes);
+	const [nodes, , onNodesChange] = useNodesState<Node>(initialNodes);
 	const edges = useMemo(() => buildEdges(nodes), [nodes]);
 
 	return (
@@ -758,6 +831,7 @@ const [nodes, , onNodesChange] = useNodesState<Node>(initialNodes);
 						edges={edges}
 						onNodesChange={onNodesChange}
 						nodeTypes={nodeTypes}
+						edgeTypes={edgeTypes}
 						fitView
 						fitViewOptions={{ padding: 0.1 }}
 						minZoom={0.08}
@@ -769,20 +843,23 @@ const [nodes, , onNodesChange] = useNodesState<Node>(initialNodes);
 						aria-label="Diagrama de base de datos"
 					>
 						<Background gap={20} color="var(--color-border)" />
+						<ExportSvgButton />
 						<Controls
 							position="bottom-right"
 							showInteractive={false}
-							className="border! border-border! bg-surface-raised! !shadow-xs [&>button]:!bg-surface-raised [&>button]:!text-text [&>button:hover]:!bg-surface"
+							className="border! border-border! bg-surface! !shadow-xs [&>button]:!border-border [&>button]:!bg-surface [&>button]:!text-foreground [&>button:hover]:!bg-surface-container"
 						/>
 						<MiniMap
 							position="top-right"
 							pannable
 							zoomable
-							maskStrokeColor="var(--color-accent)"
+							bgColor="var(--color-surface)"
+							maskColor="color-mix(in srgb, var(--color-background) 65%, transparent)"
+							maskStrokeColor="var(--color-primary)"
 							maskStrokeWidth={1.5}
-							nodeColor={() => 'var(--color-border)'}
+							nodeColor={(node) => (node.data as EntityNodeData).color}
 							nodeStrokeColor="transparent"
-							className="!border border-border! !bg-surface-raised !shadow-sm"
+							className="!border border-border! !shadow-sm"
 						/>
 					</ReactFlow>
 				</ReactFlowProvider>

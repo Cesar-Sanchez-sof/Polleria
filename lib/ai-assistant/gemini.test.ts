@@ -108,12 +108,80 @@ describe("GPT Luna y selector de modelos", () => {
 });
 
 describe("catálogo del selector", () => {
-  it("el estado incluye los tres modelos y marca cuáles están disponibles", async () => {
+  it("el estado incluye todos los modelos y marca cuáles están disponibles", async () => {
     const result = await handleStatus(deps(fetch));
     expect(result.body.catalogo).toEqual([
       expect.objectContaining({ id: "modelo-r", disponible: false }),
+      expect.objectContaining({ id: "gemini-erp", disponible: false }),
       expect.objectContaining({ id: "gpt-luna", disponible: false }),
       expect.objectContaining({ id: "gemini", disponible: true }),
     ]);
+  });
+});
+
+describe("Gemini + ERP (agente de solo lectura en ai-service)", () => {
+  const TRACE = "erp-00000000000000000000000000000001";
+  const R_ON: AssistantConfig = {
+    enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32), identityKey: "cd".repeat(32),
+    realData: true, demo: true, mode: "demo", timeoutMs: 1000, allowedUserIds: null,
+  };
+  const agentBody = (over: Record<string, unknown> = {}) => ({
+    id_traza: TRACE, estado: "respondida", texto: "Encontré 1 resultado(s).",
+    tabla: { columnas: ["code", "total"], filas: [["101", "1800.00"]] }, sql: "SELECT 1", ...over,
+  });
+  const ask = (fetchFn: typeof fetch, overrides: Partial<ProxyDeps> = {}) =>
+    handleQuery(JSON.stringify({ mensaje: "Saldo de caja", modelo: "gemini-erp" }), deps(fetchFn, { config: R_ON, geminiErp: true, ...overrides }));
+
+  it("solo aparece con ai-service, identidad firmada y la bandera AI_GEMINI_SQL", async () => {
+    const ids = async (d: ProxyDeps) => ((await handleStatus(d)).body.modelos as { id: string }[]).map((m) => m.id);
+    expect(await ids(deps(fetch, { config: R_ON, geminiErp: true }))).toContain("gemini-erp");
+    expect(await ids(deps(fetch, { config: R_ON }))).not.toContain("gemini-erp");
+    expect(await ids(deps(fetch, { config: { ...R_ON, identityKey: null }, geminiErp: true }))).not.toContain("gemini-erp");
+    expect(await ids(deps(fetch, { geminiErp: true }))).not.toContain("gemini-erp");
+  });
+
+  it("el Modelo R se puede ocultar sin afectar a Gemini + ERP", async () => {
+    const ids = async (d: ProxyDeps) => ((await handleStatus(d)).body.modelos as { id: string }[]).map((m) => m.id);
+    expect(await ids(deps(fetch, { config: R_ON, geminiErp: true, modelR: false }))).toEqual(["gemini-erp", "gemini"]);
+    expect(await ids(deps(fetch, { config: R_ON, geminiErp: true }))).toContain("modelo-r");
+    const blocked = await handleQuery(JSON.stringify({ mensaje: "Saldo de caja", modelo: "modelo-r" }), deps(fetch, { config: R_ON, modelR: false }));
+    expect(blocked.status).toBe(404);
+  });
+
+  it("envía la consulta a /v1/agent/queries con token e identidad firmada y devuelve la tabla", async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const fetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return Response.json(agentBody());
+    }) as typeof fetch;
+    const result = await ask(fetchFn);
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ estado: "respondida", detalle: null, sql: "SELECT 1" });
+    expect(result.body.tabla).toEqual({ columnas: ["code", "total"], filas: [["101", "1800.00"]] });
+    expect(calls[0].url).toBe("http://127.0.0.1:8001/v1/agent/queries");
+    const headers = calls[0].init.headers as Record<string, string>;
+    expect(headers["X-Internal-Token"]).toBe(R_ON.token);
+    expect(headers["X-ERP-Identity"]).toBeTruthy();
+  });
+
+  it("rechaza respuestas malformadas del servicio y mapea 429", async () => {
+    for (const bad of [
+      agentBody({ id_traza: "erp-99999999999999999999999999999999" }),
+      agentBody({ tabla: { columnas: ["a"], filas: [["1", "2"]] } }),
+      agentBody({ tabla: { columnas: ["a"], filas: [[5]] } }),
+      agentBody({ estado: "solo_lectura" }),
+      { ...agentBody(), extra: "x" },
+    ]) {
+      expect((await ask((async () => Response.json(bad)) as typeof fetch)).status).toBe(502);
+    }
+    expect((await ask((async () => new Response("{}", { status: 429 })) as typeof fetch)).status).toBe(429);
+    expect((await ask((async () => new Response("{}", { status: 500 })) as typeof fetch)).status).toBe(503);
+  });
+
+  it("sin la bandera responde 404 sin llamar al servicio", async () => {
+    let called = false;
+    const fetchFn = (async () => ((called = true), Response.json(agentBody()))) as typeof fetch;
+    expect((await ask(fetchFn, { geminiErp: false })).status).toBe(404);
+    expect(called).toBe(false);
   });
 });

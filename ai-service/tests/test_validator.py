@@ -119,3 +119,24 @@ class LimitsTests(GuardedTestCase):
     def test_non_string_input(self) -> None:
         verdict = SqlValidator(ALLOWLIST).validate(None, DEFAULT_ROLE)  # type: ignore[arg-type]
         self.assertEqual(verdict.reasons, (EMPTY,))
+
+
+class CartesianJoinTests(GuardedTestCase):
+    """Los JOIN deben relacionar tablas por columnas; el producto cartesiano se rechaza."""
+
+    def _table_and_column(self) -> tuple[str, str]:
+        table = next(iter(ALLOWLIST.allowed_tables(DEFAULT_ROLE)))
+        return table, next(iter(ALLOWLIST.schema_for_role(DEFAULT_ROLE)[ALLOWLIST.schema][table]))
+
+    def test_cartesian_joins_are_rejected(self) -> None:
+        validator = SqlValidator(ALLOWLIST)
+        table, column = self._table_and_column()
+        for join in ("JOIN {t} b ON TRUE", "JOIN {t} b ON 1 = 1", "CROSS JOIN {t} b", ", {t} b"):
+            sql = f"SELECT a.{column} FROM {table} a {join.format(t=table)}"
+            self.assertFalse(validator.validate(sql, DEFAULT_ROLE).approved, sql)
+
+    def test_join_on_columns_is_still_allowed(self) -> None:
+        validator = SqlValidator(ALLOWLIST)
+        table, column = self._table_and_column()
+        sql = f"SELECT a.{column} FROM {table} a JOIN {table} b ON a.{column} = b.{column}"
+        self.assertTrue(validator.validate(sql, DEFAULT_ROLE).approved)

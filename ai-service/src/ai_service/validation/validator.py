@@ -54,6 +54,7 @@ FORBIDDEN_CAST = "FORBIDDEN_CAST"
 FORBIDDEN_NODE = "FORBIDDEN_NODE"
 STAR_NOT_ALLOWED = "STAR_NOT_ALLOWED"
 TOO_COMPLEX = "TOO_COMPLEX"
+CARTESIAN_JOIN = "CARTESIAN_JOIN"
 INVALID_LIMIT = "INVALID_LIMIT"
 LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
 INVALID_OFFSET = "INVALID_OFFSET"
@@ -151,6 +152,18 @@ def _subquery_depth(node: exp.Expression) -> int:
     return depth
 
 
+def _is_cartesian_join(join: exp.Join) -> bool:
+    """Un JOIN debe relacionar tablas por columnas (``ON a.x = b.y`` o ``USING``).
+
+    ``CROSS JOIN``, ``FROM a, b`` y ``ON TRUE`` / ``ON 1 = 1`` generan productos cartesianos que
+    agotan la base aunque haya ``LIMIT``; se rechazan antes de llegar a PostgreSQL (SEC-2).
+    """
+    if join.args.get("using"):
+        return False
+    condition = join.args.get("on")
+    return condition is None or condition.find(exp.Column) is None
+
+
 class SqlValidator:
     """Valida SQL candidato de solo lectura para un rol ya revalidado por el backend."""
 
@@ -244,6 +257,8 @@ class SqlValidator:
             reasons.append(TOO_COMPLEX)
 
         reasons.extend(self._limit_reasons(root))
+        if any(_is_cartesian_join(join) for join in root.find_all(exp.Join)):
+            reasons.append(CARTESIAN_JOIN)
         return list(dict.fromkeys(reasons))
 
     @staticmethod
