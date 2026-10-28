@@ -1,0 +1,1801 @@
+{
+ "version": "erp-modules-v1",
+ "generado": "2026-10-25",
+ "fuente": "pg_catalog de Neon (solo lectura) + especificación de scripts/extract_erp_modules.py",
+ "estructura_sha256": "72b9f3ff9ca8f4e78b471f1be8b77d4b8d0641f3a0266de8d96d95afc7a59ba1",
+ "excluidas": [
+  "app_user",
+  "role",
+  "permission",
+  "role_permission",
+  "audit_log",
+  "employee",
+  "payroll",
+  "customer",
+  "shift",
+  "_prisma_migrations"
+ ],
+ "modulos": {
+  "ventas": {
+   "nombre": "Ventas, pedidos y mesas",
+   "permisos": [
+    "pedidos.ver",
+    "ventas.ver",
+    "facturas.ver",
+    "caja.ver",
+    "mesas.ver"
+   ],
+   "tablas": [
+    "sales_order",
+    "order_item",
+    "order_table",
+    "dining_table",
+    "sales_invoice",
+    "sales_payment",
+    "payment_type"
+   ]
+  },
+  "productos": {
+   "nombre": "Productos, carta y stock",
+   "permisos": [
+    "platos.ver",
+    "inventario.ver"
+   ],
+   "tablas": [
+    "product",
+    "product_recipe"
+   ]
+  },
+  "inventario": {
+   "nombre": "Inventario y transformaciones",
+   "permisos": [
+    "inventario.ver",
+    "transformacion.ver"
+   ],
+   "tablas": [
+    "inventory_movement",
+    "transformation",
+    "transformation_item"
+   ]
+  },
+  "compras": {
+   "nombre": "Compras, órdenes y gastos",
+   "permisos": [
+    "compras.ver",
+    "dashcompras.ver"
+   ],
+   "tablas": [
+    "purchase_order",
+    "purchase_order_item",
+    "purchase_invoice",
+    "purchase_payment",
+    "informal_purchase"
+   ]
+  },
+  "proveedores": {
+   "nombre": "Proveedores",
+   "permisos": [
+    "proveedores.ver",
+    "compras.ver"
+   ],
+   "tablas": [
+    "supplier"
+   ]
+  },
+  "caja": {
+   "nombre": "Caja",
+   "permisos": [
+    "caja.ver"
+   ],
+   "tablas": [
+    "cash_register",
+    "cash_session",
+    "cash_movement"
+   ]
+  },
+  "contabilidad": {
+   "nombre": "Contabilidad",
+   "permisos": [
+    "asientos.ver",
+    "cuentas.ver",
+    "periodos.ver",
+    "pagar.ver",
+    "reportes.ver"
+   ],
+   "tablas": [
+    "accounting_account",
+    "accounting_period",
+    "journal_entry",
+    "journal_entry_detail"
+   ]
+  }
+ },
+ "tablas": {
+  "sales_order": {
+   "modulo": "ventas",
+   "descripcion": "Pedidos del restaurante (salón, delivery o para llevar) con su estado.",
+   "evidencia": "A sales_order is a customer order. sales_order has no amount columns: order amounts are SUM(order_item.subtotal) per order_id.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "code",
+     "tipo": "VARCHAR(20)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "order_type",
+     "tipo": "VARCHAR(10)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "ordered_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "status",
+     "tipo": "VARCHAR(15)",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {
+    "status": "Order status values: Received, Preparing, Served (still open), Closed (paid) and Cancelled. Pending or open orders are those not Closed and not Cancelled.",
+    "ordered_at": "Order timestamp.",
+    "order_type": "order_type Mesa is dine-in and Llevar is takeaway or delivery."
+   },
+   "valores": {
+    "order_type": [
+     "Mesa",
+     "Llevar"
+    ],
+    "status": [
+     "Received",
+     "Preparing",
+     "Served",
+     "Closed",
+     "Cancelled"
+    ]
+   },
+   "valores_cerrados": [
+    "order_type",
+    "status"
+   ]
+  },
+  "order_item": {
+   "modulo": "ventas",
+   "descripcion": "Platos o productos de cada pedido: cantidad, precio y subtotal.",
+   "evidencia": "order_item lines belong to a sales_order and reference a product.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "order_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "quantity",
+     "tipo": "SMALLINT",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "unit_price",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "subtotal",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "dish_status",
+     "tipo": "VARCHAR(30)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "product_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "product_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "order_id",
+     "tabla": "sales_order",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "subtotal": "Line amount sold in soles.",
+    "dish_status": "Kitchen status of the item."
+   },
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "order_table": {
+   "modulo": "ventas",
+   "descripcion": "Mesas asignadas a cada pedido.",
+   "evidencia": "order_table links a sales_order to a dining_table.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "table_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "order_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "table_id",
+     "tabla": "dining_table",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "order_id",
+     "tabla": "sales_order",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "dining_table": {
+   "modulo": "ventas",
+   "descripcion": "Mesas del salón: número, capacidad y si están activas.",
+   "evidencia": "dining_table is a restaurant table; the tables of the restaurant are the rows of dining_table (count them there, not in order_table).",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "number",
+     "tipo": "SMALLINT",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "capacity",
+     "tipo": "SMALLINT",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "sales_invoice": {
+   "modulo": "ventas",
+   "descripcion": "Comprobantes de venta emitidos (boletas y facturas): fecha, subtotal, IGV y total.",
+   "evidencia": "A sales_invoice is an issued sales voucher; issued_at is its date.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "order_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "voucher_type",
+     "tipo": "VARCHAR(10)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "series",
+     "tipo": "VARCHAR(4)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "number",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "issued_at",
+     "tipo": "DATE",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "subtotal",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "igv",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "total_amount",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "created_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "status",
+     "tipo": "VARCHAR(15)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "cash_session_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "order_id",
+     "tabla": "sales_order",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "cash_session_id",
+     "tabla": "cash_session",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "total_amount": "Invoiced sales amount in soles.",
+    "status": "Issued vouchers have status Issued.",
+    "voucher_type": "voucher_type Factura or Boleta: 'facturas' means voucher_type Factura only; 'comprobantes' or 'ventas' include both."
+   },
+   "valores": {
+    "voucher_type": [
+     "Boleta",
+     "Factura"
+    ],
+    "status": [
+     "Issued"
+    ]
+   },
+   "valores_cerrados": [
+    "voucher_type"
+   ]
+  },
+  "sales_payment": {
+   "modulo": "ventas",
+   "descripcion": "Cobros de ventas: importe cobrado, fecha y medio de pago.",
+   "evidencia": "sales_payment.amount is money received from customers; paid_at is the payment timestamp.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "sales_invoice_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "payment_type_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "amount",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "paid_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "sales_invoice_id",
+     "tabla": "sales_invoice",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "payment_type_id",
+     "tabla": "payment_type",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "payment_type": {
+   "modulo": "ventas",
+   "descripcion": "Medios de pago (efectivo, tarjeta, Yape, transferencia).",
+   "evidencia": "payment_type.name is the payment method; filter a method by payment_type.name.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "name",
+     "tipo": "VARCHAR(30)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {
+    "name": "payment_type.name values: Efectivo (cash), Plin, Tarjeta / POS (card), Transferencia, Yape."
+   },
+   "valores": {
+    "name": [
+     "Efectivo",
+     "Plin",
+     "Tarjeta / POS",
+     "Transferencia",
+     "Yape"
+    ]
+   },
+   "valores_cerrados": []
+  },
+  "product": {
+   "modulo": "productos",
+   "descripcion": "Productos e insumos: nombre, unidad, stock actual y mínimo, costos, precio de venta y si se vende.",
+   "evidencia": "product holds both raw materials (type RawMaterial) and sellable finished products (type FinishedProduct, sellable true).",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "name",
+     "tipo": "VARCHAR(100)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "unit_of_measure",
+     "tipo": "VARCHAR(10)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "current_stock",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "minimum_stock",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "affectation_igv",
+     "tipo": "VARCHAR",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "average_cost",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "last_cost",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "type",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "price",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "sellable",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {
+    "current_stock": "Current stock is product.current_stock; never compute stock from inventory_movement.",
+    "type": "Raw materials (insumos) are type RawMaterial; finished products are type FinishedProduct.",
+    "minimum_stock": "Products running out are active products with current_stock <= minimum_stock.",
+    "price": "Sale price in soles; the menu (carta) are products with sellable true; price can be NULL.",
+    "active": "Registered products are all rows of product; filter active only when active products are asked.",
+    "sellable": "Products that are sold (menu items) have sellable true; questions about product sales consider only sellable products.",
+    "name": "Product names are matched partially with ILIKE and the words the user wrote; names include portions such as 1/4 or Entero."
+   },
+   "valores": {
+    "affectation_igv": [
+     "Included",
+     "Excluded"
+    ],
+    "type": [
+     "RawMaterial",
+     "FinishedProduct"
+    ]
+   },
+   "valores_cerrados": [
+    "affectation_igv",
+    "type"
+   ]
+  },
+  "product_recipe": {
+   "modulo": "productos",
+   "descripcion": "Recetas: insumos (ingredientes) y cantidades que requiere cada producto.",
+   "evidencia": "product_recipe links a product to an ingredient product with quantity_required.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "ingredient_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "quantity_required",
+     "tipo": "DECIMAL(10,4)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "product_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "ingredient_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "product_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "inventory_movement": {
+   "modulo": "inventario",
+   "descripcion": "Movimientos de inventario: entradas y salidas de stock por compra, venta, merma, ajuste o transformación.",
+   "evidencia": "inventory_movement records stock changes; moved_at is its timestamp.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "product_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "quantity",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "reason",
+     "tipo": "VARCHAR(100)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "moved_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "unit_cost",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "movement_type",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "informal_purchase_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "order_item_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "purchase_order_item_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "transformation_item_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "product_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "purchase_order_item_id",
+     "tabla": "purchase_order_item",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "transformation_item_id",
+     "tabla": "transformation_item",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "order_item_id",
+     "tabla": "order_item",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "informal_purchase_id",
+     "tabla": "informal_purchase",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "movement_type": "movement_type values: Purchase, TransformationOut, TransformationIn, Sale, Shrinkage (waste or loss, merma), Adjustment, InformalPurchase."
+   },
+   "valores": {
+    "movement_type": [
+     "Purchase",
+     "TransformationOut",
+     "TransformationIn",
+     "Sale",
+     "Shrinkage",
+     "Adjustment",
+     "InformalPurchase"
+    ]
+   },
+   "valores_cerrados": [
+    "movement_type"
+   ]
+  },
+  "transformation": {
+   "modulo": "inventario",
+   "descripcion": "Transformaciones de insumos en productos (producción interna).",
+   "evidencia": "A transformation turns input products into output products.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "date",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "annulled",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "annulled_at",
+     "tipo": "TIMESTAMP",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {
+    "annulled": "Valid transformations have annulled false."
+   },
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "transformation_item": {
+   "modulo": "inventario",
+   "descripcion": "Insumos consumidos y productos obtenidos en cada transformación.",
+   "evidencia": "transformation_item lines of a transformation; item_type tells input or output.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "transformation_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "product_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "item_type",
+     "tipo": "VARCHAR(10)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "quantity",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "unit_cost",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "product_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "transformation_id",
+     "tabla": "transformation",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {
+    "item_type": [
+     "Consumo",
+     "Producido"
+    ]
+   },
+   "valores_cerrados": [
+    "item_type"
+   ]
+  },
+  "purchase_order": {
+   "modulo": "compras",
+   "descripcion": "Órdenes de compra a proveedores: número, fechas, totales y estado.",
+   "evidencia": "A purchase_order is an order to a supplier.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "supplier_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "order_number",
+     "tipo": "VARCHAR(20)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "issued_at",
+     "tipo": "DATE",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "expected_at",
+     "tipo": "DATE",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "subtotal",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "igv",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "total",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "received_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "status",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "supplier_id",
+     "tabla": "supplier",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "status": "Purchase order status values: Pending, PartiallyReceived, FullyReceived, Cancelled."
+   },
+   "valores": {
+    "status": [
+     "Pending",
+     "PartiallyReceived",
+     "FullyReceived",
+     "Cancelled"
+    ]
+   },
+   "valores_cerrados": [
+    "status"
+   ]
+  },
+  "purchase_order_item": {
+   "modulo": "compras",
+   "descripcion": "Productos e insumos de cada orden de compra: cantidad pedida y recibida, precio e importe.",
+   "evidencia": "purchase_order_item lines of a purchase_order.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "purchase_order_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "product_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "quantity_ordered",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "unit_price",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "affectation_igv_applied",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "final_amount_line",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "igv_line",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "quantity_received",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "subtotal_line",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "product_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "purchase_order_id",
+     "tabla": "purchase_order",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {
+    "affectation_igv_applied": [
+     "Included",
+     "Excluded"
+    ]
+   },
+   "valores_cerrados": [
+    "affectation_igv_applied"
+   ]
+  },
+  "purchase_invoice": {
+   "modulo": "compras",
+   "descripcion": "Facturas o comprobantes de compra de proveedores: fecha, subtotal, IGV y total.",
+   "evidencia": "purchase_invoice.total_amount is the invoiced purchase amount; issued_at is its date.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "supplier_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "voucher_type",
+     "tipo": "VARCHAR(10)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "series",
+     "tipo": "VARCHAR(4)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "number",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "issued_at",
+     "tipo": "DATE",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "subtotal",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "igv",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "total_amount",
+     "tipo": "DECIMAL(7,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "created_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "purchase_order_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "supplier_id",
+     "tabla": "supplier",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "purchase_order_id",
+     "tabla": "purchase_order",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "issued_at": "The last purchase is the purchase_invoice with the latest issued_at; use informal_purchase only when purchases without voucher are asked."
+   },
+   "valores": {
+    "voucher_type": [
+     "Boleta",
+     "Factura"
+    ]
+   },
+   "valores_cerrados": [
+    "voucher_type"
+   ]
+  },
+  "purchase_payment": {
+   "modulo": "compras",
+   "descripcion": "Pagos realizados a proveedores por sus facturas.",
+   "evidencia": "purchase_payment.amount is money paid to suppliers; paid_at is the payment timestamp.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "purchase_invoice_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "payment_type_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "amount",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "paid_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "purchase_invoice_id",
+     "tabla": "purchase_invoice",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "payment_type_id",
+     "tabla": "payment_type",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "informal_purchase": {
+   "modulo": "compras",
+   "descripcion": "Compras sin comprobante y gastos operativos menores (personal eventual, movilidad, limpieza, servicios).",
+   "evidencia": "informal_purchase records purchases without voucher; purchase_type OperatingExpense are the operating expenses of the restaurant (amount_paid, date) and InventoryItem are stock purchases.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "product_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "quantity",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "amount_paid",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "date",
+     "tipo": "DATE",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "annulled",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "expense_category",
+     "tipo": "VARCHAR",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "item_description",
+     "tipo": "VARCHAR(200)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "purchase_type",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "product_id",
+     "tabla": "product",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "annulled": "Valid records have annulled false.",
+    "expense_category": "expense_category values: CasualStaff, EventServices, TransportAndDelivery, CleaningSupplies, OtherMinorExpenses."
+   },
+   "valores": {
+    "expense_category": [
+     "CasualStaff",
+     "EventServices",
+     "TransportAndDelivery",
+     "CleaningSupplies",
+     "OtherMinorExpenses"
+    ],
+    "purchase_type": [
+     "InventoryItem",
+     "OperatingExpense"
+    ]
+   },
+   "valores_cerrados": [
+    "expense_category",
+    "purchase_type"
+   ]
+  },
+  "supplier": {
+   "modulo": "proveedores",
+   "descripcion": "Proveedores: razón social y si están activos.",
+   "evidencia": "supplier.business_name is the supplier name.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "business_name",
+     "tipo": "VARCHAR(150)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {
+    "business_name": "Supplier names are matched partially with ILIKE and the words the user wrote."
+   },
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "cash_register": {
+   "modulo": "caja",
+   "descripcion": "Cajas registradoras.",
+   "evidencia": "cash_register is a cash desk.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "name",
+     "tipo": "VARCHAR(50)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "code",
+     "tipo": "VARCHAR(20)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "cash_session": {
+   "modulo": "caja",
+   "descripcion": "Aperturas y cierres de caja: monto inicial, ventas en efectivo y otras, esperado, contado y diferencia.",
+   "evidencia": "cash_session is a cash desk shift between opened_at and closed_at.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "cash_register_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "opened_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "closed_at",
+     "tipo": "TIMESTAMP",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "initial_amount",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "sales_cash",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "sales_other",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "total_sales",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "expected_amount",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "counted_amount",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "difference",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "status",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "cash_register_id",
+     "tabla": "cash_register",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "status": "cash_session status values: OPEN, CLOSED. The last closing is the CLOSED session with the latest closed_at; open sessions have closed_at NULL.",
+    "difference": "difference is counted_amount minus expected_amount at closing.",
+    "sales_cash": "Cash sales of a session are cash_session.sales_cash; card and other sales are sales_other."
+   },
+   "valores": {
+    "status": [
+     "OPEN",
+     "CLOSED"
+    ]
+   },
+   "valores_cerrados": [
+    "status"
+   ]
+  },
+  "cash_movement": {
+   "modulo": "caja",
+   "descripcion": "Ingresos y egresos manuales de caja con su motivo.",
+   "evidencia": "cash_movement type INCOME or EXPENSE; amount in soles.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "session_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "type",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "amount",
+     "tipo": "DECIMAL(10,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "reason",
+     "tipo": "VARCHAR(150)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "created_at",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "session_id",
+     "tabla": "cash_session",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {
+    "type": "type INCOME is cash income (ingreso) and EXPENSE is cash outflow (egreso, salida). cash_movement holds only manual movements, never sales."
+   },
+   "valores": {
+    "type": [
+     "INCOME",
+     "EXPENSE"
+    ]
+   },
+   "valores_cerrados": [
+    "type"
+   ]
+  },
+  "accounting_account": {
+   "modulo": "contabilidad",
+   "descripcion": "Plan de cuentas contables: código, nombre y tipo.",
+   "evidencia": "accounting_account is the chart of accounts.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "parent_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "code",
+     "tipo": "VARCHAR(10)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "name",
+     "tipo": "VARCHAR(100)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "type",
+     "tipo": "VARCHAR(20)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "active",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "parent_id",
+     "tabla": "accounting_account",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {
+    "type": [
+     "Activo",
+     "Pasivo",
+     "Patrimonio",
+     "Ingreso",
+     "Gasto",
+     "Costo"
+    ]
+   },
+   "valores_cerrados": [
+    "type"
+   ]
+  },
+  "accounting_period": {
+   "modulo": "contabilidad",
+   "descripcion": "Periodos contables con fechas de inicio y fin y estado abierto o cerrado.",
+   "evidencia": "accounting_period status OPEN or CLOSED.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "start_date",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "end_date",
+     "tipo": "TIMESTAMP",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "status",
+     "tipo": "VARCHAR",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "closed_at",
+     "tipo": "TIMESTAMP",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [],
+   "notas": {},
+   "valores": {
+    "status": [
+     "OPEN",
+     "CLOSED"
+    ]
+   },
+   "valores_cerrados": [
+    "status"
+   ]
+  },
+  "journal_entry": {
+   "modulo": "contabilidad",
+   "descripcion": "Asientos contables: fecha, libro, glosa y estado (registrado o anulado).",
+   "evidencia": "journal_entry status true is registered and false is voided; entry_date is the accounting date.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "sales_invoice_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "purchase_invoice_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    },
+    {
+     "nombre": "entry_date",
+     "tipo": "DATE",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "description",
+     "tipo": "VARCHAR(200)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "status",
+     "tipo": "BOOLEAN",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "code",
+     "tipo": "VARCHAR(20)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "book",
+     "tipo": "VARCHAR(60)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "period_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "transformation_id",
+     "tipo": "INTEGER",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "purchase_invoice_id",
+     "tabla": "purchase_invoice",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "sales_invoice_id",
+     "tabla": "sales_invoice",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "transformation_id",
+     "tabla": "transformation",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "period_id",
+     "tabla": "accounting_period",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  },
+  "journal_entry_detail": {
+   "modulo": "contabilidad",
+   "descripcion": "Líneas de los asientos: cuenta, debe y haber.",
+   "evidencia": "journal_entry_detail.debit and credit are amounts of each entry line.",
+   "columnas": [
+    {
+     "nombre": "id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": true
+    },
+    {
+     "nombre": "entry_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "account_id",
+     "tipo": "INTEGER",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "debit",
+     "tipo": "DECIMAL(12,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "credit",
+     "tipo": "DECIMAL(12,2)",
+     "nullable": false,
+     "pk": false
+    },
+    {
+     "nombre": "description",
+     "tipo": "VARCHAR(200)",
+     "nullable": true,
+     "pk": false
+    }
+   ],
+   "relaciones": [
+    {
+     "columna": "entry_id",
+     "tabla": "journal_entry",
+     "columna_destino": "id"
+    },
+    {
+     "columna": "account_id",
+     "tabla": "accounting_account",
+     "columna_destino": "id"
+    }
+   ],
+   "notas": {},
+   "valores": {},
+   "valores_cerrados": []
+  }
+ }
+}

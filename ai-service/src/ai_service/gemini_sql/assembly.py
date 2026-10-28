@@ -11,11 +11,13 @@ from ai_service.execution.postgres_readonly import PostgresReadOnlyExecutor, psy
 from ai_service.gemini_sql.agent import ACCEPTED_ORIGIN, GeminiSqlAgent, SqlTextClient
 from ai_service.gemini_sql.client import GeminiHttpClient, GroqHttpClient
 from ai_service.gemini_sql.config import GeminiSqlSettings, GroqSqlSettings
+from ai_service.sqlgen.modules import load_erp_modules
 from ai_service.validation.allowlist import load_allowlist
 from ai_service.validation.validator import SqlValidator
 
 SERVICE_ROOT = Path(__file__).resolve().parents[3]  # ai-service/
-ALLOWLIST_FILE = "allowlist.readonly_erp.json"  # misma allowlist financiera que el Modelo R con datos reales
+ALLOWLIST_FILE = "allowlist.readonly_erp.json"  # misma allowlist que el Modelo R con datos reales
+ERP_MODULES_FILE = "erp_modules_v1.json"  # módulos del ERP: permisos por usuario
 
 
 def _assemble(
@@ -28,7 +30,8 @@ def _assemble(
         validator,
         accepted_origins=frozenset({ACCEPTED_ORIGIN}),
     )
-    return GeminiSqlAgent(client, allowlist, validator, executor, provider=provider)
+    modules = load_erp_modules(root / "knowledge" / ERP_MODULES_FILE)
+    return GeminiSqlAgent(client, allowlist, validator, executor, provider=provider, modules=modules)
 
 
 def build_gemini_sql_agent(

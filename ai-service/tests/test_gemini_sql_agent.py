@@ -44,11 +44,13 @@ from ai_service.http.app import create_app
 from ai_service.http.routes import TOKEN_HEADER
 from ai_service.http.schemas import QueryRequest
 from ai_service.orchestrator.ports import AuthorizationContext, ExecutionUnavailable
+from ai_service.sqlgen.modules import load_erp_modules
 from ai_service.validation.allowlist import load_allowlist
 from ai_service.validation.validator import SqlValidator
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWLIST = load_allowlist(ROOT / "knowledge" / "allowlist.readonly_erp.json")
+MODULES = load_erp_modules(ROOT / "knowledge" / "erp_modules_v1.json")
 VALIDATOR = SqlValidator(ALLOWLIST)
 VERIFIED = AuthorizationContext(rol="contador_demo", origen="erp-session", autenticado=True)
 NOW = datetime(2026, 10, 26, 17, 0, tzinfo=timezone.utc)
@@ -214,6 +216,47 @@ class PreconditionTests(AgentCase):
         agent.answer(request(user=8), VERIFIED)  # otro usuario no se ve afectado
         clock[0] = 61.0
         agent.answer(request(), VERIFIED)  # la ventana se renueva
+
+
+class ScopeTests(AgentCase):
+    """La allowlist del ERP es más amplia que el agente: solo ve las tablas contables y respeta los módulos."""
+
+    @staticmethod
+    def user(modulos) -> AuthorizationContext:
+        return AuthorizationContext(rol="contador_demo", origen="erp-session", autenticado=True, modulos=modulos)
+
+    def test_the_prompt_only_exposes_the_accounting_tables(self) -> None:
+        prompt = self.build(as_json(GOOD_SQL)).build_prompt("contador_demo", QUESTION)
+        for table in ("accounting_account", "journal_entry", "journal_entry_detail"):
+            self.assertIn(f"- {table}(", prompt)
+        for table in ("cash_movement", "sales_invoice", "supplier", "inventory_movement"):
+            self.assertNotIn(f"- {table}(", prompt)  # solo tablas; sales_invoice_id es una columna de journal_entry
+
+    def test_a_user_without_the_accounting_module_is_refused_before_anything_runs(self) -> None:
+        agent = self.build(as_json(GOOD_SQL), modules=MODULES)
+        for modulos in (frozenset({"ventas", "caja"}), frozenset()):
+            with self.subTest(modulos=sorted(modulos)), self.assertRaises(AgentRefusal) as ctx:
+                agent.answer(request(), self.user(modulos))
+            self.assertEqual(ctx.exception.code, "NO_MODULE")
+        self.assertEqual((len(self.gemini.calls), self.factory.calls), (0, 0))
+
+    def test_a_user_with_the_accounting_module_or_no_restriction_is_answered(self) -> None:
+        for modulos in (frozenset({"contabilidad"}), None):
+            with self.subTest(modulos=modulos):
+                agent = self.build(as_json(GOOD_SQL), modules=MODULES)
+                self.assertEqual(agent.answer(request(), self.user(modulos)).estado, "respondida")
+
+    def test_sql_over_tables_outside_the_agent_scope_never_reaches_the_database(self) -> None:
+        for name, sql in {
+            "other-module": "SELECT COUNT(*) AS total FROM cash_movement cm",
+            "join": "SELECT COUNT(*) AS total FROM journal_entry je JOIN sales_invoice si ON si.id = je.id",
+        }.items():
+            with self.subTest(case=name):
+                agent = self.build(as_json(sql), modules=MODULES)
+                with self.assertRaises(AgentRefusal) as ctx:
+                    agent.answer(request(), self.user(None))
+                self.assertEqual(ctx.exception.code, "TABLE_OUT_OF_SCOPE")
+                self.assertEqual(self.factory.calls, 0)
 
 
 class FailureTests(AgentCase):
@@ -447,6 +490,21 @@ class RouteTests(AgentCase):
         self.assertEqual(self.post(token=False).status_code, 401)
         self.assertEqual(self.post(identity=False).status_code, 401)
         self.assertEqual(len(self.gemini.calls), 0)
+
+    def test_signed_modules_reach_the_agent(self) -> None:
+        now = int(time.time())
+        body = {"id_traza": "erp-0123456789abcdef", "usuario": {"id": 7, "rol": "contador_demo"}, "mensaje": QUESTION,
+                "contexto": None, "historial": [], "fecha_referencia_lima": "2026-10-26"}
+        for modulos, expected in (["ventas"], "no_resoluble"), (["contabilidad"], "respondida"):
+            headers = {"Content-Type": "application/json", TOKEN_HEADER: self.settings.internal_token,
+                       IDENTITY_HEADER: sign(claims(iat=now, exp=now + 60, jti="erp-0123456789abcdef", mod=modulos),
+                                             key=bytes.fromhex(self.key_hex))}
+            agent = self.build(as_json(GOOD_SQL), modules=MODULES)
+            client = TestClient(create_app(self.settings, None, agent), base_url="http://127.0.0.1", raise_server_exceptions=False)
+            self.addCleanup(client.close)
+            response = client.post("/v1/agent/queries", content=json.dumps(body), headers=headers)
+            with self.subTest(modulos=modulos):
+                self.assertEqual((response.status_code, response.json()["estado"]), (200, expected))
 
     def test_refusals_are_200_with_a_fixed_message_and_no_sql(self) -> None:
         response = self.post("Anula el asiento 15 de caja")

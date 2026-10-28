@@ -1,7 +1,7 @@
 # Feature Specification: Gestión de Salones y Áreas del Restaurante
 
-**Feature Branch**: `feature/config-mesas-cobro-mozo-e2e`  
-**Created**: 2026-10-13  
+**Feature Branch**: `refactor/persist-areas-printers-db`  
+**Updated**: 2026-10-27  
 **Status**: Approved  
 **Spec Number**: 029  
 
@@ -9,7 +9,7 @@
 
 ## 1. Purpose & Overview
 
-Proveer un módulo interactivo para estructurar los distintos ambientes físicos del restaurante (**Salón Principal**, **Terraza**, **2do Piso**, **Barra / Lounge**), permitiendo organizar la distribución de mesas, aforo por salón y facilitar la visualización del salón para mozos y administradores.
+Proveer un módulo interactivo y persistente en base de datos para estructurar los distintos ambientes físicos del restaurante (**Salón Principal**, **Terraza**, **2do Piso**, **Barra / Lounge**), permitiendo organizar la distribución de mesas, aforo por salón y facilitar la visualización del salón para mozos y administradores con persistencia transaccional en PostgreSQL mediante Prisma ORM.
 
 ---
 
@@ -38,10 +38,24 @@ Como supervisor de sala, quiero consultar el aforo consolidado de cada área:
 
 ## 3. Technical Design
 
-- **Almacenamiento**: Persistencia mediante `restaurant-config.service.ts` con API REST (`/api/settings/areas`).
-- **Endpoints**:
-  - `GET /api/settings/areas`: Lista las áreas con mesas asignadas y aforo consolidado.
-  - `POST /api/settings/areas`: Registra una nueva área.
-  - `PUT /api/settings/areas`: Actualiza datos o asignación de mesas de un área.
-  - `DELETE /api/settings/areas?id=...`: Desactiva o elimina un área.
-- **Frontend**: Vista responsive en `/restaurant/areas` con tarjetas de área, contadores de aforo y modal interactivo.
+- **Almacenamiento y Persistencia**:
+  - Modelo Prisma `DiningArea` (`dining_area` en PostgreSQL):
+    - `id` (String, PK)
+    - `name` (VarChar 100)
+    - `level` (VarChar 50, default "Piso 1")
+    - `description` (VarChar 255, opcional)
+    - `tableNumbers` (`Int[]`, mapeado a `table_numbers`)
+    - `active` (Boolean, default true)
+    - `color` (VarChar 30, default "emerald")
+    - `createdAt`, `updatedAt` (Timestamp 6)
+  - Capa de servicio asíncrona en `restaurant-config.service.ts`:
+    - `async listDiningAreas(): Promise<DiningArea[]>`
+    - `async saveDiningArea(area: DiningArea): Promise<DiningArea[]>`
+    - `async deleteDiningArea(areaId: string): Promise<DiningArea[]>`
+    - Fallback y auto-seeding con `DEFAULT_CONFIG.areas` si la tabla en base de datos está vacía.
+- **Endpoints REST**:
+  - `GET /api/settings/areas`: Lista las áreas con mesas asignadas y aforo consolidado (asíncrono, con autorización de lectura).
+  - `POST /api/settings/areas`: Registra una nueva área en BD (asíncrono con `saveDiningArea`).
+  - `PUT /api/settings/areas`: Actualiza datos o asignación de mesas de un área (asíncrono con `saveDiningArea`).
+  - `DELETE /api/settings/areas?id=...`: Elimina un área de la BD (asíncrono con `deleteDiningArea`).
+- **Frontend**: Vista responsive en `/settings/areas` y `/settings/tables` con tarjetas de área, contadores de aforo y modal interactivo.

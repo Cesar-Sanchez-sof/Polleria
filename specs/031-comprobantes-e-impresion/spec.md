@@ -1,7 +1,7 @@
 # Feature Specification: Configuración de Comprobantes, Series e Impresoras Térmicas
 
-**Feature Branch**: `feature/config-mesas-cobro-mozo-e2e`  
-**Created**: 2026-10-13  
+**Feature Branch**: `refactor/persist-areas-printers-db`  
+**Updated**: 2026-10-27  
 **Status**: Approved  
 **Spec Number**: 031  
 
@@ -9,7 +9,7 @@
 
 ## 1. Purpose & Overview
 
-Gestionar la parametrización de comanderas e impresoras térmicas del restaurante (Cocina KDS, Bar y Caja de Cobro), así como la definición de series de facturación electrónica (Boletas `B001`, Facturas `F001`, Tickets `T001`), opciones de corte automático y ancho de papel térmico (80mm o 58mm).
+Gestionar la parametrización de comanderas e impresoras térmicas del restaurante (Cocina KDS, Bar y Caja de Cobro), así como la definición de series de facturación electrónica (Boletas `B001`, Facturas `F001`, Tickets `T001`), opciones de corte automático y ancho de papel térmico (80mm o 58mm), persistiendo los datos de manera robusta y centralizada en base de datos PostgreSQL mediante Prisma ORM.
 
 ---
 
@@ -39,7 +39,23 @@ Como cajero, quiero configurar:
 
 ## 3. Technical Design
 
-- **Endpoints**:
-  - `GET /api/settings/printers`: Obtiene las configuraciones de series e impresoras.
-  - `PUT /api/settings/printers`: Actualiza parámetros y asignación de dispositivos.
-- **Frontend**: Vista responsive en `/restaurant/settings/printers` con pestañas de Series, Comanderas y Ticket de Prueba interactivo.
+- **Almacenamiento y Persistencia**:
+  - Modelo Prisma `PrinterConfig` (`printer_config` en PostgreSQL):
+    - `id` (String, PK, default "default")
+    - `paperWidth` (VarChar 10, default "80mm")
+    - `autoCut` (Boolean, default true)
+    - `autoPrintVoucher` (Boolean, default true)
+    - `printWaiterCopy` (Boolean, default false)
+    - `series` (Json: boleta, factura, ticket)
+    - `kitchenPrinter` (Json: name, ipOrPort, active, autoPrintOnOrder)
+    - `barPrinter` (Json: name, ipOrPort, active, autoPrintOnOrder)
+    - `cashierPrinter` (Json: name, ipOrPort, active)
+    - `createdAt`, `updatedAt` (Timestamp 6)
+  - Capa de servicio asíncrona en `restaurant-config.service.ts`:
+    - `async getPrinterConfig(): Promise<PrinterConfig>`
+    - `async updatePrinterConfig(printers: Partial<PrinterConfig>): Promise<PrinterConfig>`
+    - Auto-creación de registro por defecto si no existe en la base de datos.
+- **Endpoints REST**:
+  - `GET /api/settings/printers`: Obtiene las configuraciones de series e impresoras desde Prisma con `getPrinterConfig()`.
+  - `PUT /api/settings/printers`: Actualiza parámetros y asignación de dispositivos en BD con `updatePrinterConfig()`.
+- **Frontend**: Vista responsive en `/settings/printers` con pestañas de Series, Comanderas y Ticket de Prueba interactivo.

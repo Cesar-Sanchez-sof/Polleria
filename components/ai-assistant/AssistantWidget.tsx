@@ -29,9 +29,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { MAX_MESSAGE_CHARS } from "@/lib/ai-assistant/contract";
+import { MAX_MESSAGE_CHARS, type AgentTable, type Diagnostic } from "@/lib/ai-assistant/contract";
 import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId, type ModelInfo } from "@/lib/ai-assistant/models";
-import type { AgentTable } from "@/lib/ai-assistant/contract";
 import type { ReplyDetail } from "@/lib/ai-assistant/presentation";
 import {
   conversationReducer,
@@ -69,7 +68,7 @@ function CalculationDetail({ detalle }: { detalle: ReplyDetail }) {
       </CollapsibleTrigger>
       <CollapsibleContent>
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border bg-background/60 p-2.5 text-xs">
-          <dt className="text-muted-foreground">Cuenta</dt>
+          <dt className="text-muted-foreground">{detalle.tipo === "consulta" ? "Consulta" : "Cuenta"}</dt>
           <dd className="font-medium">{detalle.cuenta}</dd>
           <dt className="text-muted-foreground">Período</dt>
           <dd className="font-medium">{detalle.periodo}</dd>
@@ -81,6 +80,109 @@ function CalculationDetail({ detalle }: { detalle: ReplyDetail }) {
           ))}
         </dl>
         {detalle.nota && <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{detalle.nota}</p>}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+const STAGE_LABELS: Record<Diagnostic["etapas"][number]["etapa"], string> = {
+  prefiltro: "Prefiltro de seguridad",
+  interpretacion: "Interpretación (OpenAI)",
+  plan: "Plan de consulta",
+  recuperacion: "Recuperación RAG",
+  generacion_sql: "Generación SQL (XiYanSQL + QLoRA)",
+  validacion_sql: "Validación SQL",
+  ejecucion_sql: "Ejecución en PostgreSQL",
+  calculo: "Cálculo financiero",
+  explicacion: "Redacción (OpenAI)",
+};
+
+/** Traza técnica: solo llega en modo diagnóstico autorizado (cuentas evaluadoras). */
+/** Qué recuperador respondió: Milvus (corpus aprobado) o el catálogo de módulos local; nunca se deduce de más. */
+function ragLabel(trace: Diagnostic): string {
+  if (trace.fuente_rag !== "semantico") return trace.fuente_rag ?? "";
+  if (trace.indice_rag === "milvus") return "Milvus/E5 + léxico";
+  if (trace.indice_rag === "local") return "E5 local + léxico";
+  return "semántico + léxico";
+}
+
+function TechnicalTrace({ trace }: { trace: Diagnostic }) {
+  const model = trace.modelo_sql;
+  return (
+    <Collapsible className="mt-2">
+      <CollapsibleTrigger className="group/trace flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
+        Ver traza técnica
+        <ChevronDown className="size-3.5 transition-transform group-data-[panel-open]/trace:rotate-180" aria-hidden />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-2 space-y-2 rounded-md border bg-background/60 p-2.5 text-[11px] leading-snug">
+          <ol className="space-y-0.5">
+            {trace.etapas.map((stage, index) => (
+              <li key={`${stage.etapa}-${index}`} className="flex justify-between gap-2">
+                <span className={stage.estado === "fallo" ? "text-destructive" : undefined}>
+                  {stage.estado === "ok" ? "✓" : "✗"} {STAGE_LABELS[stage.etapa]}
+                  {stage.codigo ? ` · ${stage.codigo}` : ""}
+                </span>
+                <span className="tabular-nums text-muted-foreground">{stage.ms} ms</span>
+              </li>
+            ))}
+          </ol>
+          {trace.ruta && (
+            <p>
+              <span className="text-muted-foreground">Ruta: </span>
+              <span className="font-medium">
+                {trace.ruta === "ampliada" ? "ampliada (fuera del catálogo entrenado)" : trace.ruta === "entrenada" ? "familia entrenada" : "saldo de cuenta"}
+              </span>
+              {trace.tablas_rag.length > 0 && <span className="text-muted-foreground"> · RAG: {trace.tablas_rag.join(", ")}</span>}
+              {trace.tablas_prompt.length > 0 && <span className="text-muted-foreground"> · Esquema enviado: {trace.tablas_prompt.join(", ")}</span>}
+            </p>
+          )}
+          <p>
+            <span className="text-muted-foreground">Tipo de consulta: </span>
+            <span className="font-mono">{trace.consulta ?? (trace.cuenta ? `saldo de la cuenta ${trace.cuenta}` : "—")}</span>
+            {trace.periodo && <span className="text-muted-foreground"> · {trace.periodo.desde} a {trace.periodo.hasta}</span>}
+          </p>
+          {trace.concepto && (
+            <p>
+              <span className="text-muted-foreground">Concepto contable: </span>
+              <span className="font-mono">{trace.concepto}</span>
+              {trace.ajuste && <span className="text-muted-foreground"> · consulta ajustada al concepto ({trace.ajuste})</span>}
+            </p>
+          )}
+          {model ? (
+            <p>
+              <span className="text-muted-foreground">Modelo SQL: </span>
+              {model.base} + adaptador <span className="font-medium">{model.adaptador}</span> · {model.latencia_ms} ms ·{" "}
+              {model.tokens_prompt}/{model.tokens_salida} tokens
+            </p>
+          ) : (
+            <p className="text-muted-foreground">El modelo de SQL no fue invocado en esta consulta.</p>
+          )}
+          {trace.sql_previo && (
+            <div>
+              <p className="text-muted-foreground">Primer intento del modelo (corregido una vez: {trace.reintento})</p>
+              <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-1.5 font-mono">{trace.sql_previo}</pre>
+            </div>
+          )}
+          {trace.sql_generado && (
+            <div>
+              <p className="text-muted-foreground">SQL generado por el modelo</p>
+              <pre className="mt-0.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-1.5 font-mono">{trace.sql_generado}</pre>
+            </div>
+          )}
+          {trace.sql_validado && (
+            <div>
+              <p className="text-muted-foreground">SQL validado y ejecutado</p>
+              <pre className="mt-0.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-1.5 font-mono">{trace.sql_validado}</pre>
+            </div>
+          )}
+          {trace.motivos_rechazo.length > 0 && <p>Motivos de rechazo: {trace.motivos_rechazo.join(", ")}</p>}
+          <p className="text-muted-foreground">
+            Filas: {trace.filas ?? "—"} · Fragmentos RAG: {trace.fragmentos_rag ?? "—"}
+            {trace.fuente_rag ? ` (${ragLabel(trace)})` : ""} · Total:{" "}
+            {trace.duracion_total_ms} ms
+          </p>
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -144,9 +246,15 @@ function AssistantBubble({ message }: { message: Extract<ChatMessage, { rol: "as
           {Icon && <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />}
           <span>{message.texto}</span>
         </p>
+        {message.codigo && (
+          <p className="mt-1 font-mono text-[10px] opacity-80" title="Código del componente que falló">
+            {message.codigo}
+          </p>
+        )}
         {message.detalle && <CalculationDetail detalle={message.detalle} />}
         {message.tabla && <ResultTable tabla={message.tabla} />}
         {message.sql && <ExecutedQuery sql={message.sql} />}
+        {message.diagnostico && <TechnicalTrace trace={message.diagnostico} />}
       </div>
     </div>
   );
@@ -254,9 +362,16 @@ export default function AssistantWidget() {
             detalle: data.detalle ?? null,
             tabla: data.tabla ?? null,
             sql: typeof data.sql === "string" ? data.sql : null,
+            diagnostico: data.diagnostico ?? undefined,
           });
         } else {
-          dispatch({ type: "error", id: newId(), texto: typeof data?.error === "string" ? data.error : CONNECTION_ERROR });
+          dispatch({
+            type: "error",
+            id: newId(),
+            texto: typeof data?.error === "string" ? data.error : CONNECTION_ERROR,
+            codigo: typeof data?.codigo === "string" ? data.codigo : undefined,
+            diagnostico: data?.diagnostico ?? undefined,
+          });
           if (response.status === 401) setStatus(null);
         }
       } catch {
@@ -298,7 +413,15 @@ export default function AssistantWidget() {
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-sm font-semibold leading-tight">Asistente financiero</h2>
-              <p className="truncate text-[11px] text-muted-foreground">Consultas de saldos de cuentas</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {isAgent
+                  ? "Asientos y cuentas contables del ERP"
+                  : model !== "modelo-r"
+                    ? "Conversación general"
+                    : status.fakeData
+                      ? "Consultas de saldos de cuentas"
+                      : "Ventas, compras, cobros, pagos y cuentas"}
+              </p>
               {noModels ? null : isAgent ? (
                 <Badge variant="outline" className="mt-1 border-sky-500/50 text-sky-700 dark:text-sky-400" title={`${agentName} solo ve la estructura de las tablas; la base se consulta con un rol de solo lectura`}>
                   Datos del ERP · solo lectura
@@ -315,8 +438,7 @@ export default function AssistantWidget() {
                 <Badge variant="outline" className="mt-1 border-sky-500/50 text-sky-700 dark:text-sky-400" title="Prueba local controlada con datos reales del ERP">
                   Datos reales (prueba)
                 </Badge>
-              )}
-            </div>
+              )}            </div>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -364,7 +486,9 @@ export default function AssistantWidget() {
                     ? `Hola. Soy ${agentName}. Puedo consultar los datos contables del ERP en modo solo lectura (nunca modifico nada) y te muestro el resultado en una tabla. Escribe tu pregunta, por ejemplo: «ventas por cuenta de septiembre».`
                     : model !== "modelo-r"
                     ? `Hola. Soy ${current.nombre}. Puedo ayudarte con dudas generales de contabilidad y gestión; no veo los datos del ERP. Escribe tu pregunta.`
-                    : "Hola. Puedo decirte cómo se movieron tus cuentas en un mes. Escribe tu pregunta o elige una de estas:"}
+                    : status.fakeData
+                    ? "Hola. Puedo decirte cómo se movieron tus cuentas en un mes. Escribe tu pregunta o elige una de estas:"
+                    : "Hola. Pregúntame por ventas, cobros, platos, compras, pagos a proveedores o cuentas contables. Algunos ejemplos:"}
                 </div>
                 <div className="flex flex-col gap-2">
                   {suggestions.map((suggestion) => (

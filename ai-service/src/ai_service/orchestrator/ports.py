@@ -67,6 +67,16 @@ class Interpretation:
     cuenta: str | None = None
     indicador: str | None = None
     necesita_aclaracion: bool = False
+    # Familia de consulta entrenada elegida de la lista cerrada (``sqlgen.families``); se revalida.
+    consulta: str | None = None
+    # Magnitud contable de la pregunta (lista cerrada del catálogo); el backend exige coherencia.
+    concepto: str | None = None
+    # Ruta ampliada: forma de la consulta sin familia entrenada (``llm.provider.FreeQuery``).
+    consulta_libre: object | None = None
+    # La pregunta pide datos restringidos para el asistente (usuarios, contraseñas, datos personales…).
+    restringido: bool = False
+    # Sin fechas y referida a todo el historial: el período por defecto es el historial completo, no el mes.
+    historico: bool = False
 
 
 @dataclass(frozen=True)
@@ -95,6 +105,8 @@ class AuthorizationContext:
     rol: str
     origen: Literal["ct-b-provisional", "erp-session"] = "ct-b-provisional"
     autenticado: bool = False
+    # Módulos del ERP permitidos al usuario (claim firmada ``mod``); ``None``: sin restricción adicional.
+    modulos: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         # ``erp-session`` solo existe tras verificar la aserción firmada del proxy (P-9).
@@ -108,12 +120,28 @@ class QueryPlan:
 
     ``autorizacion`` lo fija el pipeline en cada petición. Es opcional solo para conservar los
     simuladores; los generadores reales lo exigen y fallan de forma segura si falta.
+
+    ``familia`` (solo con ``kind="familia"``): id de una familia de consulta entrenada del catálogo
+    (P1); ``cuenta`` queda vacía.
     """
 
-    kind: Literal["saldo_cuenta"]
+    kind: Literal["saldo_cuenta", "familia", "libre"]
     cuenta: str
     periodo: Period
     autorizacion: AuthorizationContext | None = None
+    familia: str | None = None
+    # Ruta ampliada (``kind="libre"``): solicitud con la forma del contrato 1.0, tablas elegidas (RAG y
+    # Modelo 1, ya filtradas por rol y módulos) y, en el reintento, una pista segura para el modelo.
+    solicitud: Mapping[str, object] | None = None
+    tablas: tuple[str, ...] = ()
+    modulo: str | None = None
+    pista: str | None = None
+    # Qué calcular, en inglés (``FreeQuery.pregunta_en``, ya saneado): se entrega como evidencia.
+    objetivo: str | None = None
+    # Familias agrupadas: valor del grupo que pide la pregunta ("Tarjeta / POS", "Llevar"); es la respuesta principal.
+    foco: str | None = None
+    # Familias con varias métricas: la que pide la pregunta (p. ej. unidades frente a importe).
+    metrica: str | None = None
 
 
 @dataclass(frozen=True)
@@ -124,11 +152,21 @@ class SqlCandidate:
 
 @dataclass(frozen=True)
 class FinanceResult:
-    """Cifras verificadas o ausencia de datos (BR-5)."""
+    """Cifras verificadas o ausencia de datos (BR-5).
+
+    Para las familias (P1): ``labels`` da la etiqueta del backend de cada cifra (``marcador → texto``),
+    ``primary`` las cifras que se explican en la respuesta breve, ``meanings`` su significado genérico
+    para el Modelo 1 (sin valores de filas) y ``text_labels`` los textos de filas (``eN``) que el
+    backend inserta en la explicación sin enviarlos al proveedor.
+    """
 
     figures: tuple[Figure, ...] = ()
     no_data: bool = False
     notes: tuple[str, ...] = field(default_factory=tuple)
+    labels: Mapping[str, str] = field(default_factory=dict)
+    primary: tuple[str, ...] = ()
+    meanings: Mapping[str, str] = field(default_factory=dict)
+    text_labels: Mapping[str, str] = field(default_factory=dict)
 
 
 class Interpreter(Protocol):

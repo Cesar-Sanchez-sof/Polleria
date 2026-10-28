@@ -1,5 +1,6 @@
-  import fs from "fs";
+import fs from "fs";
 import path from "path";
+import { prisma } from "@/lib/prisma";
 
 export interface RestaurantInfo {
   name: string;
@@ -55,7 +56,7 @@ export interface RestaurantGlobalConfig {
   printers: PrinterConfig;
 }
 
-const DEFAULT_CONFIG: RestaurantGlobalConfig = {
+export const DEFAULT_CONFIG: RestaurantGlobalConfig = {
   restaurant: {
     name: "POLLERÍA & BRASAS EL BUEN SABOR S.A.C.",
     commercialName: "El Buen Sabor a la Brasa",
@@ -142,96 +143,304 @@ const DEFAULT_CONFIG: RestaurantGlobalConfig = {
 const CONFIG_FILE_PATH = path.join(process.cwd(), "data", "restaurant-config.json");
 
 /**
- * Obtiene la configuración global desde disco con fallback a los valores por defecto.
+ * Lee la identidad comercial y fiscal del restaurante (desde archivo o defaults).
  */
-export function getRestaurantGlobalConfig(): RestaurantGlobalConfig {
+export function getRestaurantInfo(): RestaurantInfo {
   try {
-    if (!fs.existsSync(CONFIG_FILE_PATH)) {
-      saveRestaurantGlobalConfig(DEFAULT_CONFIG);
-      return DEFAULT_CONFIG;
+    if (fs.existsSync(CONFIG_FILE_PATH)) {
+      const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed.restaurant) {
+        return { ...DEFAULT_CONFIG.restaurant, ...parsed.restaurant };
+      }
     }
-    const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf-8");
-    const parsed = JSON.parse(raw);
-    return {
-      restaurant: { ...DEFAULT_CONFIG.restaurant, ...(parsed.restaurant || {}) },
-      areas: Array.isArray(parsed.areas) && parsed.areas.length > 0 ? parsed.areas : DEFAULT_CONFIG.areas,
-      printers: { ...DEFAULT_CONFIG.printers, ...(parsed.printers || {}) },
-    };
   } catch (error) {
-    console.warn("[restaurant-config] Error al leer configuración, usando defaults:", error);
-    return DEFAULT_CONFIG;
+    console.warn("[restaurant-config] Error al leer información del restaurante:", error);
   }
-}
-
-/**
- * Guarda la configuración global en disco de manera segura.
- */
-export function saveRestaurantGlobalConfig(config: RestaurantGlobalConfig): void {
-  try {
-    const dir = path.dirname(CONFIG_FILE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2), "utf-8");
-  } catch (error) {
-    console.error("[restaurant-config] Error al guardar configuración en disco:", error);
-    throw new Error("No se pudo persistir la configuración en disco.");
-  }
+  return DEFAULT_CONFIG.restaurant;
 }
 
 /**
  * Actualiza los datos del restaurante.
  */
 export function updateRestaurantInfo(info: Partial<RestaurantInfo>): RestaurantInfo {
-  const current = getRestaurantGlobalConfig();
-  const updated = { ...current.restaurant, ...info };
-  saveRestaurantGlobalConfig({ ...current, restaurant: updated });
-  return updated;
+  try {
+    const dir = path.dirname(CONFIG_FILE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const current = getRestaurantInfo();
+    const updated = { ...current, ...info };
+
+    let existingData: any = {};
+    if (fs.existsSync(CONFIG_FILE_PATH)) {
+      try {
+        existingData = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
+      } catch {
+        existingData = {};
+      }
+    }
+    existingData.restaurant = updated;
+    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(existingData, null, 2), "utf-8");
+    return updated;
+  } catch (error) {
+    console.error("[restaurant-config] Error al actualizar restaurantInfo:", error);
+    return { ...DEFAULT_CONFIG.restaurant, ...info };
+  }
 }
 
-/**
- * Actualiza los parámetros de impresoras y comprobantes.
- */
-export function updatePrinterConfig(printers: Partial<PrinterConfig>): PrinterConfig {
-  const current = getRestaurantGlobalConfig();
-  const updated = {
-    ...current.printers,
-    ...printers,
-    series: { ...current.printers.series, ...(printers.series || {}) },
-    kitchenPrinter: { ...current.printers.kitchenPrinter, ...(printers.kitchenPrinter || {}) },
-    barPrinter: { ...current.printers.barPrinter, ...(printers.barPrinter || {}) },
-    cashierPrinter: { ...current.printers.cashierPrinter, ...(printers.cashierPrinter || {}) },
+// =====================================================================
+// PERSISTENCIA EN BD CON PRISMA: SALONES Y ÁREAS
+// =====================================================================
+
+function mapDbToDiningArea(record: any): DiningArea {
+  return {
+    id: record.id,
+    name: record.name,
+    level: record.level || "Piso 1",
+    description: record.description ?? "",
+    tableNumbers: Array.isArray(record.tableNumbers) ? record.tableNumbers : [],
+    active: Boolean(record.active),
+    color: record.color ?? undefined,
   };
-  saveRestaurantGlobalConfig({ ...current, printers: updated });
-  return updated;
 }
 
 /**
- * Gestiona salones y áreas.
+ * Lista todos los salones y áreas configuradas desde la base de datos con Prisma.
+ * Si la tabla está vacía, la inicializa con los salones por defecto.
  */
-export function listDiningAreas(): DiningArea[] {
-  return getRestaurantGlobalConfig().areas;
+export async function listDiningAreas(): Promise<DiningArea[]> {
+  try {
+    const areas = await prisma.diningArea.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (areas.length === 0) {
+      try {
+        await prisma.diningArea.createMany({
+          data: DEFAULT_CONFIG.areas.map((a) => ({
+            id: a.id,
+            name: a.name,
+            level: a.level,
+            description: a.description,
+            tableNumbers: a.tableNumbers,
+            active: a.active,
+            color: a.color || "emerald",
+          })),
+          skipDuplicates: true,
+        });
+
+        const seeded = await prisma.diningArea.findMany({
+          orderBy: { createdAt: "asc" },
+        });
+
+        if (seeded.length > 0) {
+          return seeded.map(mapDbToDiningArea);
+        }
+      } catch {
+        return DEFAULT_CONFIG.areas;
+      }
+    }
+
+    return areas.map(mapDbToDiningArea);
+  } catch (error) {
+    console.warn("[restaurant-config] Error al consultar salones en Prisma, usando defaults:", error);
+    return DEFAULT_CONFIG.areas;
+  }
 }
 
-export function saveDiningArea(area: DiningArea): DiningArea[] {
-  const current = getRestaurantGlobalConfig();
-  const existingIdx = current.areas.findIndex((a) => a.id === area.id);
-  let newAreas = [...current.areas];
-
-  if (existingIdx >= 0) {
-    newAreas[existingIdx] = { ...newAreas[existingIdx], ...area };
-  } else {
-    const newId = area.id || `area-${Date.now()}`;
-    newAreas.push({ ...area, id: newId });
+/**
+ * Crea o actualiza un salón en la base de datos con Prisma.
+ * Retorna la lista completa y actualizada de salones.
+ */
+export async function saveDiningArea(area: DiningArea): Promise<DiningArea[]> {
+  const targetId = area.id?.trim() || `area-${Date.now()}`;
+  try {
+    await prisma.diningArea.upsert({
+      where: { id: targetId },
+      create: {
+        id: targetId,
+        name: area.name,
+        level: area.level || "Piso 1",
+        description: area.description || "",
+        tableNumbers: Array.isArray(area.tableNumbers) ? area.tableNumbers : [],
+        active: area.active !== false,
+        color: area.color || "emerald",
+      },
+      update: {
+        ...(area.name !== undefined && { name: area.name }),
+        ...(area.level !== undefined && { level: area.level }),
+        ...(area.description !== undefined && { description: area.description }),
+        ...(area.tableNumbers !== undefined && { tableNumbers: area.tableNumbers }),
+        ...(area.active !== undefined && { active: area.active }),
+        ...(area.color !== undefined && { color: area.color }),
+      },
+    });
+  } catch (error) {
+    console.error("[restaurant-config] Error al guardar salón en Prisma:", error);
+    throw error;
   }
 
-  saveRestaurantGlobalConfig({ ...current, areas: newAreas });
-  return newAreas;
+  return listDiningAreas();
 }
 
-export function deleteDiningArea(areaId: string): DiningArea[] {
-  const current = getRestaurantGlobalConfig();
-  const newAreas = current.areas.filter((a) => a.id !== areaId);
-  saveRestaurantGlobalConfig({ ...current, areas: newAreas });
-  return newAreas;
+/**
+ * Elimina un salón de la base de datos con Prisma.
+ * Retorna la lista actualizada de salones restantes.
+ */
+export async function deleteDiningArea(areaId: string): Promise<DiningArea[]> {
+  try {
+    await prisma.diningArea
+      .delete({
+        where: { id: areaId },
+      })
+      .catch(() => null);
+  } catch (error) {
+    console.error("[restaurant-config] Error al eliminar salón en Prisma:", error);
+    throw error;
+  }
+
+  return listDiningAreas();
+}
+
+// =====================================================================
+// PERSISTENCIA EN BD CON PRISMA: IMPRESORAS Y COMPROBANTES
+// =====================================================================
+
+function mapDbToPrinterConfig(record: any): PrinterConfig {
+  return {
+    paperWidth: record.paperWidth === "58mm" ? "58mm" : "80mm",
+    autoCut: Boolean(record.autoCut),
+    autoPrintVoucher: Boolean(record.autoPrintVoucher),
+    printWaiterCopy: Boolean(record.printWaiterCopy),
+    series: typeof record.series === "string" ? JSON.parse(record.series) : (record.series || DEFAULT_CONFIG.printers.series),
+    kitchenPrinter:
+      typeof record.kitchenPrinter === "string"
+        ? JSON.parse(record.kitchenPrinter)
+        : (record.kitchenPrinter || DEFAULT_CONFIG.printers.kitchenPrinter),
+    barPrinter:
+      typeof record.barPrinter === "string"
+        ? JSON.parse(record.barPrinter)
+        : (record.barPrinter || DEFAULT_CONFIG.printers.barPrinter),
+    cashierPrinter:
+      typeof record.cashierPrinter === "string"
+        ? JSON.parse(record.cashierPrinter)
+        : (record.cashierPrinter || DEFAULT_CONFIG.printers.cashierPrinter),
+  };
+}
+
+/**
+ * Obtiene la configuración de impresoras y comprobantes desde Prisma en la BD.
+ * Si no existe, inicializa con la configuración predeterminada.
+ */
+export async function getPrinterConfig(): Promise<PrinterConfig> {
+  try {
+    const record = await prisma.printerConfig.findUnique({
+      where: { id: "default" },
+    });
+
+    if (!record) {
+      try {
+        const created = await prisma.printerConfig.create({
+          data: {
+            id: "default",
+            paperWidth: DEFAULT_CONFIG.printers.paperWidth,
+            autoCut: DEFAULT_CONFIG.printers.autoCut,
+            autoPrintVoucher: DEFAULT_CONFIG.printers.autoPrintVoucher,
+            printWaiterCopy: DEFAULT_CONFIG.printers.printWaiterCopy,
+            series: DEFAULT_CONFIG.printers.series as any,
+            kitchenPrinter: DEFAULT_CONFIG.printers.kitchenPrinter as any,
+            barPrinter: DEFAULT_CONFIG.printers.barPrinter as any,
+            cashierPrinter: DEFAULT_CONFIG.printers.cashierPrinter as any,
+          },
+        });
+        return mapDbToPrinterConfig(created);
+      } catch {
+        return DEFAULT_CONFIG.printers;
+      }
+    }
+
+    return mapDbToPrinterConfig(record);
+  } catch (error) {
+    console.warn("[restaurant-config] Error al leer configuración de impresoras en Prisma:", error);
+    return DEFAULT_CONFIG.printers;
+  }
+}
+
+/**
+ * Actualiza los parámetros de impresoras y comprobantes en la base de datos con Prisma.
+ */
+export async function updatePrinterConfig(printers: Partial<PrinterConfig>): Promise<PrinterConfig> {
+  const current = await getPrinterConfig();
+  const updated: PrinterConfig = {
+    ...current,
+    ...printers,
+    series: { ...current.series, ...(printers.series || {}) },
+    kitchenPrinter: { ...current.kitchenPrinter, ...(printers.kitchenPrinter || {}) },
+    barPrinter: { ...current.barPrinter, ...(printers.barPrinter || {}) },
+    cashierPrinter: { ...current.cashierPrinter, ...(printers.cashierPrinter || {}) },
+  };
+
+  try {
+    const record = await prisma.printerConfig.upsert({
+      where: { id: "default" },
+      create: {
+        id: "default",
+        paperWidth: updated.paperWidth,
+        autoCut: updated.autoCut,
+        autoPrintVoucher: updated.autoPrintVoucher,
+        printWaiterCopy: updated.printWaiterCopy,
+        series: updated.series as any,
+        kitchenPrinter: updated.kitchenPrinter as any,
+        barPrinter: updated.barPrinter as any,
+        cashierPrinter: updated.cashierPrinter as any,
+      },
+      update: {
+        paperWidth: updated.paperWidth,
+        autoCut: updated.autoCut,
+        autoPrintVoucher: updated.autoPrintVoucher,
+        printWaiterCopy: updated.printWaiterCopy,
+        series: updated.series as any,
+        kitchenPrinter: updated.kitchenPrinter as any,
+        barPrinter: updated.barPrinter as any,
+        cashierPrinter: updated.cashierPrinter as any,
+      },
+    });
+
+    return mapDbToPrinterConfig(record);
+  } catch (error) {
+    console.error("[restaurant-config] Error al actualizar impresoras en Prisma:", error);
+    throw error;
+  }
+}
+
+// =====================================================================
+// CONFIGURACIÓN GLOBAL AGREGADA
+// =====================================================================
+
+/**
+ * Obtiene la configuración consolidada (restaurante, salones e impresoras).
+ */
+export async function getRestaurantGlobalConfig(): Promise<RestaurantGlobalConfig> {
+  const [areas, printers] = await Promise.all([
+    listDiningAreas(),
+    getPrinterConfig(),
+  ]);
+
+  return {
+    restaurant: getRestaurantInfo(),
+    areas,
+    printers,
+  };
+}
+
+/**
+ * Versión síncrona de fallback para contextos que no soportan async.
+ */
+export function getRestaurantGlobalConfigSync(): RestaurantGlobalConfig {
+  return {
+    restaurant: getRestaurantInfo(),
+    areas: DEFAULT_CONFIG.areas,
+    printers: DEFAULT_CONFIG.printers,
+  };
 }

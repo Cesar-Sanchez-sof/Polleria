@@ -62,6 +62,26 @@ def build_retriever(
     return FallbackRetriever(HybridRetriever(lexical, semantic_remote), lexical), "hibrido-rrf-milvus-e5-small+lexico"
 
 
+def build_local_retriever(
+    fragments: Sequence[Fragment], mode: str, *, embedder: Embedder | None = None
+) -> tuple[Retriever, str]:
+    """RAG **local** (en memoria) para otro corpus, p. ej. los módulos del ERP de la ruta ampliada.
+
+    No usa Milvus ni la huella aprobada del corpus remoto: indexar este corpus en Milvus es un paso
+    aparte que requiere aprobar su huella y sincronizar (``milvus_sync``). Con ``lexico`` solo usa el
+    índice léxico; en los demás modos, híbrido RRF léxico + E5 en CPU con *fallback* léxico.
+    """
+    lexical = VectorRetriever.from_fragments(fragments, HashingEmbedder())
+    if mode == "lexico":
+        return lexical, "local-lexico"
+    if embedder is None:
+        from ai_service.retrieval.e5_embedder import E5OnnxEmbedder
+
+        embedder = E5OnnxEmbedder()
+    semantic = _LazySemantic(lambda: VectorRetriever.from_fragments(fragments, embedder))
+    return FallbackRetriever(HybridRetriever(lexical, semantic), lexical), "local-hibrido-e5+lexico"
+
+
 class _LazySemantic:
     """Indexa el corpus con el modelo semántico en la primera consulta (no al arrancar ni al importar)."""
 

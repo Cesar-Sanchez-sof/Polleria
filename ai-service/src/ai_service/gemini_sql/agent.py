@@ -45,6 +45,7 @@ from ai_service.orchestrator.ports import (
 )
 from ai_service.orchestrator.prefilter import prefilter
 from ai_service.policies.registered_entries import FINANCIAL_TABLES, RegisteredFilterError, apply_registered_entries_filter
+from ai_service.sqlgen.modules import ErpModules
 from ai_service.sqlgen.output_parser import parse_sql_output
 from ai_service.validation.allowlist import Allowlist
 from ai_service.validation.validator import SqlValidator, Verdict
@@ -59,6 +60,9 @@ RATE_LIMIT_WINDOW_S = 600
 ACCEPTED_ORIGIN = "erp-session"
 # Columnas que solo usa la política P-4: no se muestran a Gemini (se filtran de forma determinista).
 HIDDEN_COLUMNS = frozenset({("journal_entry", "status")})
+# Alcance del agente: las tablas contables para las que está probado (notas, filtro P-4 y permisos del rol
+# ``ai_readonly``). La allowlist del ERP es más amplia; ampliar este alcance es una decisión explícita.
+AGENT_TABLES = frozenset({"accounting_account", "journal_entry", "journal_entry_detail"})
 LIMA = timezone(timedelta(hours=-5))
 
 SYSTEM_PROMPT = (
@@ -104,6 +108,7 @@ NOT_ANSWERABLE_TEXT = (
     "Con la información que tengo habilitada no puedo responder eso. "
     "Solo consulto cuentas contables, asientos y sus movimientos (debe y haber)."
 )
+NO_MODULE_TEXT = "Tu usuario no tiene acceso al módulo de contabilidad, que es el que consulto."
 REFUSAL_TEXT: dict[str, str] = {
     "solo_lectura": "Solo puedo consultar información; no puedo modificar datos.",
     "fuera_de_dominio": "Solo puedo ayudarte con consultas contables y financieras del ERP.",
@@ -228,22 +233,32 @@ class GeminiSqlAgent:
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         limiter: SlidingWindowLimiter | None = None,
         provider: str = "gemini",
+        modules: ErpModules | None = None,
     ) -> None:
         self._provider = provider  # solo para el registro de resultados ("gemini" o "groq")
         self._client = client
         self._allowlist = allowlist
         self._validator = validator
         self._executor = executor
+        self._modules = modules  # permisos por módulo del ERP (``None``: sin restricción adicional)
         self._clock = clock
         self._limiter = limiter or SlidingWindowLimiter(RATE_LIMIT_CALLS, RATE_LIMIT_WINDOW_S)
         self.audit_log: deque[AuditEntry] = deque(maxlen=500)
 
     # ------------------------------------------------------------------ prompt
 
-    def build_prompt(self, role: str, question: str) -> str:
+    def permitted_tables(self, role: str, authorization: AuthorizationContext | None = None) -> set[str]:
+        """Tablas que el agente puede usar: su alcance ∩ allowlist del rol ∩ módulos del usuario."""
+        tables = AGENT_TABLES & set(self._allowlist.roles[role])
+        if self._modules is not None and authorization is not None and authorization.modulos is not None:
+            tables &= self._modules.tables_for(authorization.modulos)
+        return tables
+
+    def build_prompt(self, role: str, question: str, tables: set[str] | None = None) -> str:
         """Mensaje de usuario: esquema permitido al rol + fecha + pregunta (sin datos del ERP)."""
         lines = [f"Esquema PostgreSQL (esquema {self._allowlist.schema}); solo estas tablas y columnas:"]
-        grants = self._allowlist.roles[role]
+        allowed = self.permitted_tables(role) if tables is None else tables
+        grants = {table: columns for table, columns in self._allowlist.roles[role].items() if table in allowed}
         for table, columns in grants.items():
             parts = []
             for column in columns:
@@ -287,17 +302,20 @@ class GeminiSqlAgent:
         decision = prefilter(request)
         if not decision.allowed:
             raise AgentRefusal(decision.estado or "no_resoluble", decision.reason or "PREFILTER")
+        tables = self.permitted_tables(role, authorization)
+        if not tables:  # el usuario no tiene el módulo contable del ERP
+            raise AgentRefusal("no_resoluble", "NO_MODULE", NO_MODULE_TEXT)
         if not self._limiter.allow(request.usuario.id):
             raise RateLimited()
 
         try:
-            raw = self._client.generate(SYSTEM_PROMPT, self.build_prompt(role, request.mensaje.strip()))
+            raw = self._client.generate(SYSTEM_PROMPT, self.build_prompt(role, request.mensaje.strip(), tables))
         except LlmError as exc:
             code = f"{exc.category}:{exc.detail}" if exc.detail else exc.category
             raise AgentUnavailable(504 if exc.is_timeout else 503, code) from None
 
         sql = self._extract_sql(raw)
-        sql = self._guard_and_cap(sql)
+        sql = self._guard_and_cap(sql, tables)
         verdict = self._validator.validate(sql, role)
         if not verdict.approved or not verdict.normalized_sql:
             raise AgentRefusal("no_resoluble", "VALIDATOR:" + ",".join(verdict.reasons)[:120])
@@ -333,9 +351,12 @@ class GeminiSqlAgent:
         except InvalidGeneratorOutput as exc:
             raise AgentRefusal("no_resoluble", f"OUTPUT:{getattr(exc, 'code', '')}") from None
 
-    def _guard_and_cap(self, sql: str) -> str:
+    def _guard_and_cap(self, sql: str, tables: set[str]) -> str:
         try:
             tree = sqlglot.parse_one(sql, read="postgres")
+            ctes = {cte.alias_or_name for cte in tree.find_all(exp.CTE)}
+            if _table_names(tree) - ctes - tables:  # fuera del alcance del agente o de los módulos del usuario
+                raise AgentRefusal("no_resoluble", "TABLE_OUT_OF_SCOPE")
             if _table_names(tree) & FINANCIAL_TABLES:
                 sql = apply_registered_entries_filter(sql)  # P-4: solo asientos registrados, o se rechaza
             return _cap_limit(sql, MAX_ROWS)

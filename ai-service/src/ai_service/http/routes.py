@@ -19,12 +19,18 @@ Controles previos al orquestador, en orden (si fallan, el orquestador **no se in
 6. Con ``AI_SERVICE_EVAL_ALLOWED_USER_IDS`` (evaluación académica): el usuario de la identidad
    verificada debe estar en esa lista → si no, ``403``.
 
-Nunca se registran cuerpos, tokens ni valores sensibles. Los errores siguen ``{ error, errores? }``.
+Nunca se registran cuerpos, tokens ni valores sensibles. Los errores siguen ``{ error, errores? }``;
+en los ``503`` del orquestador, ``errores`` lleva los códigos fijos del componente que falló.
+
+Cada consulta deja una línea JSON en el logger ``ai_service.trace`` (:func:`log_outcome`). La traza
+técnica (``diagnostico``) solo viaja en la respuesta con ``AI_SERVICE_DIAGNOSTICS=1``, identidad P-9
+verificada y la cabecera ``X-ERP-Diagnostics: 1`` del proxy.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import time
 
 from fastapi import APIRouter, Request
@@ -36,10 +42,12 @@ from ai_service.auth.identity import IDENTITY_HEADER, IdentityError, verify_iden
 from ai_service.config.settings import ServiceSettings
 from ai_service.gemini_sql.agent import AgentRefusal, AgentUnavailable, GeminiSqlAgent, RateLimited
 from ai_service.http.schemas import QueryRequest
-from ai_service.orchestrator.pipeline import ERROR_INVALID_REQUEST, ErrorBody, Orchestrator
+from ai_service.orchestrator.pipeline import ERROR_INVALID_REQUEST, ErrorBody, Orchestrator, PipelineOutcome
 from ai_service.orchestrator.ports import AuthorizationContext
 
 TOKEN_HEADER = "X-Internal-Token"
+DIAGNOSTICS_HEADER = "X-ERP-Diagnostics"
+TRACE_LOGGER = logging.getLogger("ai_service.trace")
 SECURITY_HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
 
 ERROR_UNAUTHORIZED = "No autorizado."
@@ -53,7 +61,7 @@ ERROR_AGENT_UNAVAILABLE = "El asistente no está disponible por el momento."
 def error_response(status_code: int, message: str, errores: list[str] | None = None) -> JSONResponse:
     """Respuesta de error con el formato del ERP y las cabeceras de seguridad."""
     body = ErrorBody(error=message, errores=errores or [])
-    return JSONResponse(body.model_dump(mode="json"), status_code=status_code, headers=SECURITY_HEADERS)
+    return JSONResponse(body.model_dump(mode="json", exclude={"diagnostico"}), status_code=status_code, headers=SECURITY_HEADERS)
 
 
 async def _read_limited_body(request: Request, limit: int) -> bytes | None:
@@ -126,7 +134,9 @@ async def _guarded_request(
         # Evaluación académica: solo las cuentas evaluadoras configuradas (identidad ya verificada).
         if settings.eval_allowed_user_ids is not None and identity.user_id not in settings.eval_allowed_user_ids:
             return error_response(403, ERROR_FORBIDDEN)
-        authorization = AuthorizationContext(rol=identity.rol, origen="erp-session", autenticado=True)
+        authorization = AuthorizationContext(
+            rol=identity.rol, origen="erp-session", autenticado=True, modulos=identity.modulos
+        )
     return text, authorization
 
 
@@ -180,13 +190,24 @@ def build_router(
         if isinstance(guarded, JSONResponse):
             return guarded
         text, authorization = guarded
+
+        # Traza en la respuesta: configuración + identidad P-9 verificada (ya filtrada por la lista de
+        # evaluadores) + petición explícita del proxy. Cualquier otro caso: solo el log del servicio.
+        diagnostics = (
+            settings.diagnostics
+            and authorization is not None
+            and request.headers.get(DIAGNOSTICS_HEADER) == "1"
+        )
+        extra = {"diagnostics": True} if diagnostics else {}
         if authorization is None:
             outcome = await run_in_threadpool(orchestrator.handle, text)
         else:
-            outcome = await run_in_threadpool(lambda: orchestrator.handle(text, authorization=authorization))
-        return JSONResponse(
-            outcome.body.model_dump(mode="json"), status_code=outcome.status_code, headers=SECURITY_HEADERS
-        )
+            outcome = await run_in_threadpool(lambda: orchestrator.handle(text, authorization=authorization, **extra))
+        log_outcome(outcome)
+        body = outcome.body.model_dump(mode="json")
+        if body.get("diagnostico", ...) is None:
+            body.pop("diagnostico")  # campo opcional: ausente salvo en modo diagnóstico (proxies anteriores)
+        return JSONResponse(body, status_code=outcome.status_code, headers=SECURITY_HEADERS)
 
     if agent is not None:
         _register_agent_route(router, settings, "/agent/queries", agent)
@@ -194,3 +215,33 @@ def build_router(
         _register_agent_route(router, settings, "/agent/groq/queries", groq_agent)
 
     return router
+
+
+def log_outcome(outcome: PipelineOutcome) -> None:
+    """Una línea JSON por consulta: etapas, códigos, modelo de SQL y plantilla SQL **parametrizada**.
+
+    Nunca la pregunta, prompts, SQL con literales, filas, cifras, credenciales ni el usuario en claro
+    (la auditoría solo guarda su seudónimo HMAC).
+    """
+    audit, trace = getattr(outcome, "audit", None), getattr(outcome, "trace", None)
+    if audit is None:
+        return
+    entry: dict[str, object] = {
+        "evento": "consulta_asistente",
+        "id_traza": audit.id_traza,
+        "http": outcome.status_code,
+        "estado": audit.estado,
+        "intencion": audit.intencion,
+        "codigos": audit.codigos_rechazo,
+        "plantilla_sql": audit.plantilla_sql,
+        "filas": audit.filas,
+        "versiones": audit.versiones,
+    }
+    if trace is not None:
+        entry["etapas"] = [stage.model_dump(mode="json") for stage in trace.etapas]
+        entry["modelo_sql"] = trace.modelo_sql.model_dump(mode="json") if trace.modelo_sql else None
+        entry["consulta"], entry["fuente_rag"], entry["indice_rag"] = trace.consulta, trace.fuente_rag, trace.indice_rag
+        entry["concepto"], entry["ajuste"] = trace.concepto, trace.ajuste
+        entry["ruta"], entry["tablas_rag"], entry["reintento"] = trace.ruta, trace.tablas_rag, trace.reintento
+        entry["duracion_total_ms"] = trace.duracion_total_ms
+    TRACE_LOGGER.info(json.dumps(entry, ensure_ascii=False, default=str))

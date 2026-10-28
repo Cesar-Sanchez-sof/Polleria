@@ -91,7 +91,22 @@ def classify_database_error(exc: BaseException) -> SqlExecutionError:
         return ExecutionUnavailable("READ_PERMISSION_MISSING")
     if state[:2] in ("08", "28", "53", "57"):
         return ExecutionUnavailable("DATABASE_UNAVAILABLE")
-    return ExecutionFailed("QUERY_REJECTED_BY_DATABASE")
+    # Errores de la consulta (no de la base): código fijo por SQLSTATE, útil para el reintento controlado
+    # de la ruta ampliada. Nunca se conserva el mensaje del controlador.
+    return ExecutionFailed(QUERY_ERROR_CODES.get(state, "QUERY_REJECTED_BY_DATABASE"))
+
+
+QUERY_ERROR_CODES = {
+    "42703": "UNDEFINED_COLUMN",
+    "42803": "GROUPING_ERROR",
+    "42883": "UNDEFINED_FUNCTION",
+    "42804": "DATATYPE_MISMATCH",
+    "42725": "AMBIGUOUS_FUNCTION",
+    "42702": "AMBIGUOUS_COLUMN",
+    "22P02": "INVALID_TEXT_REPRESENTATION",
+    "22007": "INVALID_DATETIME_FORMAT",
+    "22008": "DATETIME_OUT_OF_RANGE",
+}
 
 
 def probe_connection(connection_factory: ConnectionFactory, allowlist: Allowlist) -> dict[str, object]:
@@ -116,11 +131,11 @@ def probe_connection(connection_factory: ConnectionFactory, allowlist: Allowlist
                     write = connection.execute(WRITE_PRIVILEGE_CHECK, (qualified,)).fetchone()
                     if write is None or write[0]:
                         writable.append(table)  # sin respuesta clara se trata como escribible
-                    table_ok = connection.execute("SELECT has_table_privilege(%s, 'SELECT')", (qualified,)).fetchone()
+                    # ``has_column_privilege`` cubre el SELECT de tabla y el concedido solo por columnas
+                    # (privilegios mínimos: GRANT SELECT (col, …) sin acceso a columnas sensibles).
                     tables[table] = {
                         column: bool(
-                            table_ok and table_ok[0]
-                            and connection.execute(
+                            connection.execute(
                                 "SELECT has_column_privilege(%s, %s, 'SELECT')", (qualified, column)
                             ).fetchone()[0]
                         )

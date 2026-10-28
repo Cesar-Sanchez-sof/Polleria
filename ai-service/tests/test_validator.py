@@ -135,6 +135,20 @@ class CartesianJoinTests(GuardedTestCase):
             sql = f"SELECT a.{column} FROM {table} a {join.format(t=table)}"
             self.assertFalse(validator.validate(sql, DEFAULT_ROLE).approved, sql)
 
+    def test_joining_a_single_row_aggregate_is_allowed_but_nothing_else(self) -> None:
+        validator = SqlValidator(ALLOWLIST)
+        table, column = self._table_and_column()
+        ok = f"WITH t AS (SELECT COALESCE(COUNT(*), 0) AS n FROM {table} x) SELECT a.{column}, t.n FROM {table} a CROSS JOIN t"
+        self.assertTrue(validator.validate(ok, DEFAULT_ROLE).approved, validator.validate(ok, DEFAULT_ROLE).reasons)
+        for name, cte in {
+            "group-by": f"SELECT x.{column} AS c, COUNT(*) AS n FROM {table} x GROUP BY x.{column}",
+            "rows": f"SELECT x.{column} AS c FROM {table} x",
+            "column-with-aggregate": f"SELECT x.{column} AS c, COUNT(*) AS n FROM {table} x",
+        }.items():
+            with self.subTest(case=name):
+                sql = f"WITH t AS ({cte}) SELECT a.{column} FROM {table} a CROSS JOIN t"
+                self.assertFalse(validator.validate(sql, DEFAULT_ROLE).approved, sql)
+
     def test_join_on_columns_is_still_allowed(self) -> None:
         validator = SqlValidator(ALLOWLIST)
         table, column = self._table_and_column()
