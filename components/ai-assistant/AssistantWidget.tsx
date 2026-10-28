@@ -276,7 +276,7 @@ export default function AssistantWidget() {
   const noModels = models.length === 0;
   const current = MODEL_INFO[model];
   const isAgent = model === "gemini-erp" || model === "groq-erp"; // agentes de solo lectura sobre el ERP
-  const agentName = current.nombre.replace(" + ERP", "");
+  const agentName = current.nombre;
 
   return (
     <div className={cn("pointer-events-none fixed inset-0 z-50 flex items-end justify-end", expanded ? "p-0" : "p-3 sm:p-5")}>
@@ -434,7 +434,7 @@ export default function AssistantWidget() {
                   }}
                 >
                   {ASSISTANT_MODELS.map((id, index) => {
-                    const info = status.catalogo?.find((m) => m.id === id) ?? MODEL_INFO[id];
+                    const info = MODEL_INFO[id]; // mismo texto que el botón; el servidor solo indica la disponibilidad
                     const available = models.some((m) => m.id === id);
                     return (
                       <DropdownMenuItem key={id} disabled={!available} onClick={() => setModel(id)} className="items-start">
@@ -446,7 +446,7 @@ export default function AssistantWidget() {
                         </span>
                         {!available ? (
                           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            <Info className="size-3" aria-hidden /> No configurado
+                            <Info className="size-3" aria-hidden /> {info.proximamente ? "Próximamente" : "No configurado"}
                           </span>
                         ) : id === model ? (
                           <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-label="Modelo actual" />
@@ -458,7 +458,6 @@ export default function AssistantWidget() {
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <span className="hidden min-w-0 truncate text-[11px] text-muted-foreground sm:inline">{current.descripcion}</span>
             </div>
             )}
             <div className="flex items-end gap-2">

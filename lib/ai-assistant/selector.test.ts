@@ -81,8 +81,8 @@ describe("catálogo del selector", () => {
     expect(result.body.catalogo).toEqual([
       expect.objectContaining({ id: "modelo-r", disponible: false }),
       expect.objectContaining({ id: "gemini-erp", disponible: false }),
-      expect.objectContaining({ id: "gpt-luna", disponible: false }),
       expect.objectContaining({ id: "groq-erp", disponible: false }),
+      expect.objectContaining({ id: "gpt-luna", disponible: false, proximamente: true }),
     ]);
   });
 });
