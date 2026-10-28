@@ -76,13 +76,21 @@ function deps(overrides: Partial<ProxyDeps> = {}, respond?: (call: Call) => Resp
 const ask = (body: unknown, d: ProxyDeps) => handleQuery(JSON.stringify(body), d);
 
 describe("controles de acceso (GET y POST)", () => {
-  it("deshabilitado: 404 sin consultar la sesión ni el servicio", async () => {
+  it("deshabilitado: POST 404 sin consultar la sesión ni el servicio", async () => {
     let sessionRead = false;
     const d = deps({ config: { enabled: false, reason: "production" }, session: async () => ((sessionRead = true), ADMIN) });
-    expect((await handleStatus(d)).status).toBe(404);
     expect((await ask({ mensaje: "Saldo de caja" }, d)).status).toBe(404);
     expect(sessionRead).toBe(false);
     expect(d.calls).toHaveLength(0);
+  });
+
+  it("deshabilitado: el estado muestra el globo con la lista de modelos vacía solo a ADMIN", async () => {
+    const config = { enabled: false, reason: "production" } as const;
+    const admin = await handleStatus(deps({ config, session: async () => ADMIN }));
+    expect(admin.status).toBe(200);
+    expect(admin.body).toMatchObject({ enabled: true, modelos: [], suggestions: [] });
+    expect((await handleStatus(deps({ config, session: async () => null }))).status).toBe(401);
+    expect((await handleStatus(deps({ config, session: async () => ({ ...ADMIN, role: "CAJERO" }) }))).status).toBe(403);
   });
 
   it("sin sesión: 401; rol no permitido: 403; nunca llega al servicio", async () => {

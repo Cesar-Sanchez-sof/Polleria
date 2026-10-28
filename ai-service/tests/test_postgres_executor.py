@@ -246,7 +246,12 @@ class ExecutionTests(GuardedTestCase):
         self.assertEqual(connection.statements, [*SESSION_STATEMENTS, READ_ONLY_CHECK, verdict.normalized_sql])
         self.assertEqual(
             SESSION_STATEMENTS,
-            ("SET TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '5s'", "SET LOCAL lock_timeout = '2s'"),
+            (
+                "SET TRANSACTION READ ONLY",
+                "SET LOCAL statement_timeout = '5s'",
+                "SET LOCAL lock_timeout = '2s'",
+                "SET LOCAL idle_in_transaction_session_timeout = '10s'",
+            ),
         )
         self.assertTrue(verdict.normalized_sql.startswith("SELECT "))
         self.assertIn("public.journal_entry_detail", verdict.normalized_sql)
@@ -457,7 +462,7 @@ class ProbeTests(GuardedTestCase):
         self.assertEqual((result["select_1"], result["read_only"]), (True, True))
         self.assertTrue(all(all(cols.values()) for cols in result["privileges"].values()))
         self.assertEqual(result["writable"], [])
-        self.assertEqual(connection.statements[:4], [*SESSION_STATEMENTS, READ_ONLY_CHECK])
+        self.assertEqual(connection.statements[: len(SESSION_STATEMENTS) + 1], [*SESSION_STATEMENTS, READ_ONLY_CHECK])
         allowed = ("SET ", READ_ONLY_CHECK, "SELECT 1", "SELECT has_table_privilege(", "SELECT has_column_privilege(")
         self.assertTrue(all(statement.startswith(allowed) for statement in connection.statements))
         self.assertNotIn("FROM", " ".join(connection.statements))  # nunca lee tablas de negocio

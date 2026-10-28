@@ -7,7 +7,9 @@
  * - Sesión del ERP validada en el servidor (`sesionActual`); el rol del asistente se deriva de la
  *   sesión y nunca del navegador. Roles no permitidos → 403. En evaluación, además, solo las cuentas
  *   de `AI_ASSISTANT_EVAL_USER_IDS` (otras cuentas del mismo rol → 403).
- * - El navegador solo puede enviar `mensaje`, `historial` y `ruta`; cualquier otra clave → 400.
+ * - El navegador solo puede enviar `mensaje`, `historial`, `ruta` y `modelo`; cualquier otra clave → 400.
+ * - Selector de modelos: el Modelo R y los agentes de solo lectura (Gemini y GPT OSS vía Groq) pasan por
+ *   `ai-service` con la misma identidad firmada; GPT Luna (OpenAI) solo conversa y no ve datos del ERP.
  * - Al servicio solo se reenvían los turnos del usuario (las respuestas previas pueden contener
  *   importes y el servicio no los necesita).
  * - El token interno solo viaja en la cabecera hacia `ai-service`; nunca se devuelve ni se registra.
@@ -26,6 +28,7 @@ import {
   AUTHORIZED_ROUTES,
   MAX_HISTORY_TURNS,
   MAX_MESSAGE_CHARS,
+  parseAgentResponse,
   parseDiagnostic,
   parseQueryResponse,
   type AuthorizedRoute,
@@ -33,11 +36,18 @@ import {
 } from "@/lib/ai-assistant/contract";
 import { IDENTITY_HEADER, signIdentity } from "@/lib/ai-assistant/identity";
 import { allowedModules, type ModuleAccess } from "@/lib/ai-assistant/modules";
+import { askOpenAi, type OpenAiConfig } from "@/lib/ai-assistant/openai";
+import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId } from "@/lib/ai-assistant/models";
 import { COMPONENT_MESSAGES, componentCode, MESSAGES, SERVICE_AUTH_CODE, toAssistantReply } from "@/lib/ai-assistant/presentation";
 
 export const MAX_BODY_BYTES = 16 * 1024;
 const TOKEN_HEADER = "X-Internal-Token";
 export const DIAGNOSTICS_HEADER = "X-ERP-Diagnostics";
+const QUERY_PATH = "/v1/queries";
+/** Agentes de solo lectura: cada uno propone el SELECT con su proveedor (Gemini o Groq). */
+const AGENT_PATHS = { "gemini-erp": "/v1/agent/queries", "groq-erp": "/v1/agent/groq/queries" } as const;
+type AgentModelId = keyof typeof AGENT_PATHS;
+const isAgentModel = (id: AssistantModelId): id is AgentModelId => id in AGENT_PATHS;
 
 export interface ProxyDeps {
   config: AssistantConfig;
@@ -47,6 +57,14 @@ export interface ProxyDeps {
   newTraceId: () => string;
   /** Permisos vigentes del usuario (BD); con ellos se firman los módulos consultables (`mod`). */
   permissions?: (userId: number) => Promise<ModuleAccess>;
+  /** Conexión opcional con GPT Luna (solo `OPENAI_API_KEY`). */
+  openai?: OpenAiConfig;
+  /** Agente Gemini (`AI_GEMINI_SQL=1`): exige `ai-service` con identidad firmada (P-9). */
+  geminiErp?: boolean;
+  /** Agente GPT OSS vía Groq (`AI_GROQ_SQL=1`): mismos requisitos que el agente Gemini. */
+  groqErp?: boolean;
+  /** Modelo R disponible; por defecto sí. Con un agente activo solo si se pide con `AI_MODEL_R=1`. */
+  modelR?: boolean;
 }
 
 export interface ProxyResult {
@@ -56,31 +74,51 @@ export interface ProxyResult {
 
 const error = (status: number, message: string): ProxyResult => ({ status, body: { error: message } });
 
-type Gate = { ok: true; session: SessionPayload; role: string; config: Extract<AssistantConfig, { enabled: true }> } | { ok: false; result: ProxyResult };
+type Gate = { ok: true; session: SessionPayload; role: string } | { ok: false; result: ProxyResult };
 
-async function gate(deps: ProxyDeps): Promise<Gate> {
-  if (!deps.config.enabled) return { ok: false, result: error(404, MESSAGES.disabled) };
+/** Modelos habilitados por la configuración del servidor (en el orden del selector). */
+function availableModels(deps: ProxyDeps): AssistantModelId[] {
+  return ASSISTANT_MODELS.filter((id) => {
+    if (id === "modelo-r") return deps.config.enabled && deps.modelR !== false;
+    if (id === "gemini-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.geminiErp === true;
+    if (id === "groq-erp") return deps.config.enabled && deps.config.identityKey !== null && deps.groqErp === true;
+    return deps.openai?.enabled === true;
+  });
+}
+
+/**
+ * `modelo`: el que se va a usar; `"estado"` solo valida sesión y rol (el globo se muestra aunque no haya
+ * modelos, con el aviso de que no hay disponibles).
+ */
+async function gate(deps: ProxyDeps, modelo: AssistantModelId | "estado"): Promise<Gate> {
+  if (modelo !== "estado" && !availableModels(deps).includes(modelo)) return { ok: false, result: error(404, MESSAGES.disabled) };
   const session = await deps.session().catch(() => null);
   if (!session) return { ok: false, result: error(401, MESSAGES.unauthorized) };
   const role = assistantRoleFor(session.role);
   if (!role) return { ok: false, result: error(403, MESSAGES.forbidden) };
   // Evaluación: solo las cuentas evaluadoras configuradas, aunque otros usuarios tengan el mismo rol.
-  const allowed = deps.config.allowedUserIds;
+  const allowed = deps.config.enabled ? deps.config.allowedUserIds : null;
   if (allowed !== null && !allowed.includes(session.userId)) return { ok: false, result: error(403, MESSAGES.forbidden) };
-  return { ok: true, session, role, config: deps.config };
+  return { ok: true, session, role };
 }
 
 /** GET: estado del asistente para el usuario actual (aplica los mismos controles que POST). */
 export async function handleStatus(deps: ProxyDeps): Promise<ProxyResult> {
-  const checked = await gate(deps);
+  const checked = await gate(deps, "estado");
   if (!checked.ok) return { status: checked.result.status, body: { enabled: false, ...checked.result.body } };
+  const config = deps.config;
+  const rOn = config.enabled;
+  const disponibles = availableModels(deps);
   return {
     status: 200,
     body: {
       enabled: true,
-      fakeData: !checked.config.realData,
+      fakeData: rOn ? !config.realData : false,
       usuario: checked.session.userId,
-      suggestions: checked.config.realData ? REAL_DATA_SUGGESTIONS : DEMO_SUGGESTIONS,
+      suggestions: rOn ? (config.realData ? REAL_DATA_SUGGESTIONS : DEMO_SUGGESTIONS) : [],
+      modelos: disponibles.map((id) => MODEL_INFO[id]),
+      catalogo: ASSISTANT_MODELS.map((id) => ({ ...MODEL_INFO[id], disponible: disponibles.includes(id) })),
+      modeloPredeterminado: rOn ? DEFAULT_MODEL : (disponibles[0] ?? DEFAULT_MODEL),
     },
   };
 }
@@ -99,12 +137,13 @@ interface BrowserInput {
   mensaje: string;
   historial: string[];
   ruta: AuthorizedRoute | null;
+  modelo: AssistantModelId;
 }
 
 function parseBrowserInput(value: unknown): BrowserInput | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
-  if (!Object.keys(input).every((key) => ["mensaje", "historial", "ruta"].includes(key))) return null;
+  if (!Object.keys(input).every((key) => ["mensaje", "historial", "ruta", "modelo"].includes(key))) return null;
   const mensaje = typeof input.mensaje === "string" ? input.mensaje.trim() : "";
   if (!mensaje || mensaje.length > MAX_MESSAGE_CHARS) return null;
 
@@ -123,23 +162,40 @@ function parseBrowserInput(value: unknown): BrowserInput | null {
     if (typeof input.ruta !== "string" || input.ruta.length > 200) return null;
     ruta = (AUTHORIZED_ROUTES as readonly string[]).includes(input.ruta) ? (input.ruta as AuthorizedRoute) : null;
   }
-  return { mensaje, historial: historial.slice(-MAX_HISTORY_TURNS), ruta };
+  if (input.modelo !== undefined && !isModelId(input.modelo)) return null;
+  const modelo = input.modelo ?? DEFAULT_MODEL;
+  return { mensaje, historial: historial.slice(-MAX_HISTORY_TURNS), ruta, modelo };
 }
 
 /** POST: pregunta del usuario → `ai-service` → respuesta sencilla y validada. */
 export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<ProxyResult> {
-  const checked = await gate(deps);
-  if (!checked.ok) return checked.result;
-  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) return error(413, MESSAGES.invalid);
-
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawBody);
   } catch {
-    return error(400, MESSAGES.invalid);
+    parsed = undefined;
   }
+  // El modelo se lee antes de la puerta de acceso para saber cuál debe estar habilitado.
+  const requested = (parsed as { modelo?: unknown } | null | undefined)?.modelo;
+  const checked = await gate(deps, isModelId(requested) ? requested : DEFAULT_MODEL);
+  if (!checked.ok) return checked.result;
+  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) return error(413, MESSAGES.invalid);
+
   const input = parseBrowserInput(parsed);
   if (!input) return error(400, MESSAGES.invalid);
+
+  if (input.modelo === "gpt-luna") {
+    const result =
+      deps.openai?.enabled === true ? await askOpenAi(deps.openai, input.historial, input.mensaje, deps.fetchFn) : null;
+    if (!result) return error(404, MESSAGES.disabled);
+    if (result.ok) {
+      return { status: 200, body: { id_traza: deps.newTraceId(), estado: "respondida", texto: result.texto, detalle: null } };
+    }
+    return result.reason === "timeout" ? error(504, MESSAGES.timeout) : error(503, MESSAGES.unavailable);
+  }
+  if (!deps.config.enabled) return error(404, MESSAGES.disabled);
+  const config = deps.config;
+  const agentModel = isAgentModel(input.modelo) ? input.modelo : null;
 
   const payload: QueryRequest = {
     id_traza: deps.newTraceId(),
@@ -150,15 +206,16 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
     fecha_referencia_lima: limaDate(deps.now()),
   };
 
-  const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: checked.config.token };
-  if (checked.config.diagnostics) headers[DIAGNOSTICS_HEADER] = "1";
-  if (checked.config.identityKey) {
+  const headers: Record<string, string> = { "Content-Type": "application/json", [TOKEN_HEADER]: config.token };
+  if (config.diagnostics) headers[DIAGNOSTICS_HEADER] = "1";
+  if (config.identityKey) {
     // P-9: identidad firmada a partir de la sesión del servidor; el navegador no interviene.
-    // Módulos del ERP según los permisos reales del usuario: ai-service no lee tablas de otros módulos.
+    // Módulos del ERP según los permisos reales del usuario: ai-service no lee tablas de otros módulos
+    // (tampoco los agentes de solo lectura).
     const access = deps.permissions ? await deps.permissions(checked.session.userId).catch(() => null) : undefined;
     if (access === null) return error(503, MESSAGES.unavailable); // sin permisos verificables no se consulta
     headers[IDENTITY_HEADER] = await signIdentity(
-      checked.config.identityKey,
+      config.identityKey,
       {
         userId: checked.session.userId, rol: checked.role, traceId: payload.id_traza,
         ...(access ? { modulos: allowedModules(access) } : {}),
@@ -169,25 +226,26 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
 
   let response: Response;
   try {
-    response = await deps.fetchFn(`${checked.config.serviceUrl}/v1/queries`, {
+    response = await deps.fetchFn(`${config.serviceUrl}${agentModel ? AGENT_PATHS[agentModel] : QUERY_PATH}`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(checked.config.timeoutMs),
+      signal: AbortSignal.timeout(config.timeoutMs),
     });
   } catch (exc) {
     const name = exc instanceof Error ? exc.name : "";
     return name === "TimeoutError" || name === "AbortError" ? error(504, MESSAGES.timeout) : error(503, MESSAGES.unavailable);
   }
 
+  if (response.status === 429) return error(429, MESSAGES.rateLimited);
   if (response.status === 403) return error(403, MESSAGES.forbidden);
   if (response.status === 400 || response.status === 413) return error(400, MESSAGES.invalid);
   // 401 de ai-service = token interno o identidad firmada rechazados: error de configuración, no
   // sesión vencida del usuario (por eso 502 y no 401, que el widget interpreta como cierre de sesión).
   if (response.status === 401) return { status: 502, body: { error: MESSAGES.serviceAuth, codigo: SERVICE_AUTH_CODE } };
-  if (response.status === 503) return await serviceError(response, checked.config.diagnostics === true);
+  if (response.status === 503) return await serviceError(response, config.diagnostics === true);
   if (response.status !== 200) return error(503, MESSAGES.unavailable);
 
   let data: unknown;
@@ -196,9 +254,14 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   } catch {
     return error(502, MESSAGES.unavailable);
   }
+  if (agentModel) {
+    const agentReply = parseAgentResponse(data);
+    if (!agentReply || agentReply.id_traza !== payload.id_traza) return error(502, MESSAGES.unavailable);
+    return { status: 200, body: { ...agentReply, detalle: null } };
+  }
   const validated = parseQueryResponse(data);
   if (!validated || validated.id_traza !== payload.id_traza) return error(502, MESSAGES.unavailable);
-  if (!checked.config.diagnostics) delete validated.diagnostico; // solo si este despliegue la pidió
+  if (!config.diagnostics) delete validated.diagnostico; // solo si este despliegue la pidió
   try {
     return { status: 200, body: { ...toAssistantReply(validated) } };
   } catch {

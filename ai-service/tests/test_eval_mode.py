@@ -253,7 +253,7 @@ class EvalRealDataHttpTests(GuardedTestCase):
         data = response.json()
         self.assertEqual(data["estado"], "respondida")
         self.assertEqual(data["versiones"]["executor"], "postgres-readonly")
-        self.assertEqual(self.connection.statements[:4], [*SESSION_STATEMENTS, READ_ONLY_CHECK])
+        self.assertEqual(self.connection.statements[: len(SESSION_STATEMENTS) + 1], [*SESSION_STATEMENTS, READ_ONLY_CHECK])
         executed = self.connection.statements[-1]
         self.assertTrue(executed.startswith("SELECT"))
         self.assertIn("je.status = TRUE", executed)  # P-4

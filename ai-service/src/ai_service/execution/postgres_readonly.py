@@ -11,7 +11,8 @@ Defensa en profundidad (además de la credencial de solo lectura de la base):
    rol de la petición; solo se ejecuta si el resultado es idéntico (una sola sentencia SELECT, sin
    funciones peligrosas ni objetos fuera del alcance).
 4. **Sesión acotada**: transacción explícita ``READ ONLY`` (comprobada con
-   ``SHOW transaction_read_only``), ``statement_timeout`` 5 s y ``lock_timeout`` 2 s.
+   ``SHOW transaction_read_only``), ``statement_timeout`` 5 s, ``lock_timeout`` 2 s e
+   ``idle_in_transaction_session_timeout`` 10 s.
 5. **Límite de filas**: más de :data:`MAX_ROWS` filas → :class:`ResultTooLarge` (no se trunca:
    un total parcial sería incorrecto).
 6. **Errores sin detalles**: se clasifican solo por SQLSTATE; nunca se propaga el mensaje del
@@ -48,6 +49,7 @@ SESSION_STATEMENTS: tuple[str, ...] = (
     "SET TRANSACTION READ ONLY",
     "SET LOCAL statement_timeout = '5s'",
     "SET LOCAL lock_timeout = '2s'",
+    "SET LOCAL idle_in_transaction_session_timeout = '10s'",
 )
 READ_ONLY_CHECK = "SHOW transaction_read_only"
 WRITE_PRIVILEGE_CHECK = "SELECT has_table_privilege(%s, 'INSERT, UPDATE, DELETE, TRUNCATE')"

@@ -43,6 +43,7 @@ export const MESSAGES = {
   invalid: "No pude procesar tu mensaje. Escribe tu pregunta de nuevo, en pocas palabras.",
   unavailable: "El asistente no está disponible en este momento. Intenta de nuevo en unos minutos.",
   timeout: "La consulta tardó demasiado. Intenta de nuevo en unos minutos.",
+  rateLimited: "Hiciste muchas consultas seguidas. Espera unos minutos e inténtalo de nuevo.",
   serviceAuth:
     "El servicio de IA rechazó la credencial interna del ERP. Es un error de configuración del despliegue, no de tu pregunta.",
 } as const;

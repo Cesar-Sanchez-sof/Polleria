@@ -54,6 +54,7 @@ FORBIDDEN_CAST = "FORBIDDEN_CAST"
 FORBIDDEN_NODE = "FORBIDDEN_NODE"
 STAR_NOT_ALLOWED = "STAR_NOT_ALLOWED"
 TOO_COMPLEX = "TOO_COMPLEX"
+CARTESIAN_JOIN = "CARTESIAN_JOIN"
 INVALID_LIMIT = "INVALID_LIMIT"
 LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
 INVALID_OFFSET = "INVALID_OFFSET"
@@ -153,6 +154,41 @@ def _subquery_depth(node: exp.Expression) -> int:
     return depth
 
 
+def _is_single_row(relation: exp.Expression | None, root: exp.Expression) -> bool:
+    """``True`` si la relación es un CTE o subconsulta que devuelve **una sola fila**: un ``SELECT`` solo con
+    agregados (sin ``GROUP BY`` ni columnas fuera de un agregado), p. ej. ``SELECT COALESCE(SUM(x), 0) ...``."""
+    if isinstance(relation, exp.Table) and not relation.args.get("db"):
+        cte = next((c for c in root.find_all(exp.CTE) if c.alias_or_name == relation.name), None)
+        select = cte.this if cte is not None else None
+    elif isinstance(relation, exp.Subquery):
+        select = relation.this
+    else:
+        return False
+    if not isinstance(select, exp.Select) or select.args.get("group") or not select.expressions:
+        return False
+    for projection in select.expressions:
+        if projection.find(exp.AggFunc) is None or projection.find(exp.Window) is not None:
+            return False
+        if any(column.find_ancestor(exp.AggFunc) is None for column in projection.find_all(exp.Column)):
+            return False
+    return True
+
+
+def _is_cartesian_join(join: exp.Join, root: exp.Expression) -> bool:
+    """Un JOIN debe relacionar tablas por columnas (``ON a.x = b.y`` o ``USING``).
+
+    ``CROSS JOIN``, ``FROM a, b`` y ``ON TRUE`` / ``ON 1 = 1`` generan productos cartesianos que
+    agotan la base aunque haya ``LIMIT``; se rechazan antes de llegar a PostgreSQL (SEC-2). Única
+    excepción: unir una relación de **una sola fila** (agregado sin ``GROUP BY``), que no multiplica filas.
+    """
+    if join.args.get("using"):
+        return False
+    condition = join.args.get("on")
+    if condition is not None and condition.find(exp.Column) is not None:
+        return False
+    return not _is_single_row(join.this, root)
+
+
 class SqlValidator:
     """Valida SQL candidato de solo lectura para un rol ya revalidado por el backend."""
 
@@ -246,6 +282,8 @@ class SqlValidator:
             reasons.append(TOO_COMPLEX)
 
         reasons.extend(self._limit_reasons(root))
+        if any(_is_cartesian_join(join, root) for join in root.find_all(exp.Join)):
+            reasons.append(CARTESIAN_JOIN)
         return list(dict.fromkeys(reasons))
 
     @staticmethod

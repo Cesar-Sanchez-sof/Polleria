@@ -9,6 +9,14 @@ import { EVAL_NGROK_URL, EVAL_TIMEOUT_MS } from "@/lib/ai-assistant/config";
 
 const TOKEN = "ef".repeat(32);
 
+/** Sin modelos disponibles el globo sigue visible: el estado responde 200 con la lista vacía. */
+async function expectNoModels(label: string) {
+  const response = await GET();
+  expect(response.status, label).toBe(200);
+  expect(await response.json(), label).toMatchObject({ enabled: true, modelos: [] });
+  currentSession.mockClear(); // el POST deshabilitado no debe consultar la sesión
+}
+
 function post(body: string, contentType = "application/json") {
   return POST(new Request("http://localhost/api/assistant", { method: "POST", headers: { "Content-Type": contentType }, body }));
 }
@@ -39,7 +47,7 @@ describe("/api/assistant", () => {
 
   it("deshabilitado en producción aunque exista el modo demostración", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    expect((await GET()).status).toBe(404);
+    await expectNoModels("producción");
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(404);
     expect(currentSession).not.toHaveBeenCalled();
   });
@@ -140,7 +148,7 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
     ];
     for (const [name, value] of blocked) {
       vi.stubEnv(name, value);
-      expect((await GET()).status, `${name}=${value}`).toBe(404);
+      await expectNoModels(`${name}=${value}`);
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, `${name}=${value}`).toBe(404);
       vi.stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
       vi.stubEnv("VERCEL_ENV", "preview");
@@ -239,7 +247,7 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
     const fetchMock = answering();
     for (const flags of [{}, { AI_ASSISTANT_EVAL_ENABLED: "1" }, { AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" }]) {
       for (const [name, value] of Object.entries(flags)) vi.stubEnv(name, value);
-      expect((await GET()).status, JSON.stringify(flags)).toBe(404);
+      await expectNoModels(JSON.stringify(flags));
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, JSON.stringify(flags)).toBe(404);
       vi.stubEnv("AI_ASSISTANT_EVAL_ENABLED", undefined);
       vi.stubEnv("AI_ASSISTANT_ALLOW_PRODUCTION_EVAL", undefined);
@@ -279,7 +287,7 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
     expect((await post(JSON.stringify({ mensaje: "Saldo de caja en julio" }))).status).toBe(200);
     expect((fetchMock.mock.calls[0][1].headers as Record<string, string>)["X-ERP-Identity"]).toBeTruthy(); // P-9 siempre
     vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", undefined);
-    expect((await GET()).status).toBe(404); // sin cuentas evaluadoras: deshabilitado
+    await expectNoModels("sin cuentas evaluadoras"); // deshabilitado
   });
 
   it("con ambas banderas sigue bloqueado sin cuentas evaluadoras, sin P-9 o fuera del túnel", async () => {
@@ -293,7 +301,7 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
       ["VERCEL_ENV", "development"],
     ] as Array<[string, string | undefined]>) {
       vi.stubEnv(name, value);
-      expect((await GET()).status, `${name}=${value}`).toBe(404);
+      await expectNoModels(`${name}=${value}`);
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, `${name}=${value}`).toBe(404);
       vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7");
       vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);

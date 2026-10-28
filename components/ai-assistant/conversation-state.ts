@@ -4,7 +4,7 @@
  * No usa localStorage ni sessionStorage: el historial se pierde al recargar y se limpia al cerrar
  * la conversación, al cerrar sesión o al cambiar de usuario.
  */
-import type { Diagnostic, ResponseState } from "@/lib/ai-assistant/contract";
+import type { AgentTable, Diagnostic, ResponseState } from "@/lib/ai-assistant/contract";
 import type { ReplyDetail } from "@/lib/ai-assistant/presentation";
 
 export const MAX_MESSAGES = 60;
@@ -18,6 +18,9 @@ export type ChatMessage =
       texto: string;
       estado: ResponseState | "error";
       detalle: ReplyDetail | null;
+      /** Solo los agentes (Gemini/Groq + ERP): resultado en tabla y consulta de solo lectura ejecutada. */
+      tabla?: AgentTable | null;
+      sql?: string | null;
       /** Código del componente que falló (solo errores). */
       codigo?: string;
       /** Traza técnica (solo modo diagnóstico autorizado). */
@@ -32,7 +35,16 @@ export interface ConversationState {
 
 export type ConversationAction =
   | { type: "send"; id: string; texto: string }
-  | { type: "reply"; id: string; estado: ResponseState; texto: string; detalle: ReplyDetail | null; diagnostico?: Diagnostic }
+  | {
+      type: "reply";
+      id: string;
+      estado: ResponseState;
+      texto: string;
+      detalle: ReplyDetail | null;
+      tabla?: AgentTable | null;
+      sql?: string | null;
+      diagnostico?: Diagnostic;
+    }
   | { type: "error"; id: string; texto: string; codigo?: string; diagnostico?: Diagnostic }
   | { type: "reset"; userKey: string | null };
 
@@ -58,6 +70,8 @@ export function conversationReducer(state: ConversationState, action: Conversati
           texto: action.texto,
           estado: action.estado,
           detalle: action.estado === "respondida" ? action.detalle : null,
+          tabla: action.estado === "respondida" ? (action.tabla ?? null) : null,
+          sql: action.estado === "respondida" || action.estado === "sin_datos" ? (action.sql ?? null) : null,
           ...(action.diagnostico ? { diagnostico: action.diagnostico } : {}),
         }),
       };
