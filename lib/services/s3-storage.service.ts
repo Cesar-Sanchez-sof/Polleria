@@ -436,7 +436,7 @@ export async function uploadPaymentProofToS3({
   try {
     const s3 = new S3Client({
       endpoint,
-      region: region || "us-east-1",
+      region: region || "us-east-2",
       credentials: {
         accessKeyId: accessKey!,
         secretAccessKey: secretKey!,
@@ -453,7 +453,10 @@ export async function uploadPaymentProofToS3({
       })
     );
 
-    const remoteUrl = `${endpoint}/${bucket}/${s3Key}`;
+    const cleanEndpoint = endpoint.replace(/\/+$/, "");
+    const cleanBucket = bucket.replace(/^\/+|\/+$/g, "");
+    const cleanKey = s3Key.replace(/^\/+/, "");
+    const remoteUrl = `${cleanEndpoint}/${cleanBucket}/${cleanKey}`;
     return {
       s3Key,
       publicUrl: remoteUrl,
@@ -534,7 +537,7 @@ export async function uploadYapeQrToS3({
   try {
     const s3 = new S3Client({
       endpoint,
-      region: region || "us-east-1",
+      region: region || "us-east-2",
       credentials: {
         accessKeyId: accessKey!,
         secretAccessKey: secretKey!,
@@ -551,7 +554,10 @@ export async function uploadYapeQrToS3({
       })
     );
 
-    const remoteUrl = `${endpoint}/${bucket}/${s3Key}`;
+    const cleanEndpoint = endpoint.replace(/\/+$/, "");
+    const cleanBucket = bucket.replace(/^\/+|\/+$/g, "");
+    const cleanKey = s3Key.replace(/^\/+/, "");
+    const remoteUrl = `${cleanEndpoint}/${cleanBucket}/${cleanKey}`;
     return {
       s3Key,
       publicUrl: remoteUrl,
