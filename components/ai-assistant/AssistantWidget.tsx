@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { VoiceButton } from "@/components/ai-assistant/VoiceButton";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_MESSAGE_CHARS, type AgentTable, type Diagnostic } from "@/lib/ai-assistant/contract";
 import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId, type ModelInfo } from "@/lib/ai-assistant/models";
@@ -53,6 +54,8 @@ type Status = {
   /** Los tres modelos del selector, con su disponibilidad en este servidor. */
   catalogo?: (ModelInfo & { disponible: boolean })[];
   modeloPredeterminado?: string;
+  /** Dictado por voz habilitado en este servidor (`AI_ASSISTANT_VOICE=1`). */
+  dictado?: boolean;
 };
 
 function newId(): string {
@@ -265,6 +268,7 @@ export default function AssistantWidget() {
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [model, setModel] = useState<AssistantModelId>(DEFAULT_MODEL);
@@ -387,6 +391,12 @@ export default function AssistantWidget() {
 
   if (onLogin || !status?.enabled) return null;
   const suggestions = model === "modelo-r" ? (status.suggestions ?? []) : [];
+  // El dictado solo rellena la caja: el usuario revisa el texto y lo envía él mismo.
+  const appendDictation = (text: string) => {
+    setVoiceError(null);
+    setDraft((previous) => `${previous.trim() ? `${previous.trimEnd()} ` : ""}${text}`.slice(0, MAX_MESSAGE_CHARS));
+    inputRef.current?.focus();
+  };
   const models = status.modelos ?? [];
   const noModels = models.length === 0;
   const current = MODEL_INFO[model];
@@ -584,6 +594,11 @@ export default function AssistantWidget() {
               </DropdownMenu>
             </div>
             )}
+            {voiceError && (
+              <p role="alert" className="text-xs text-destructive">
+                {voiceError}
+              </p>
+            )}
             <div className="flex items-end gap-2">
             <Textarea
               ref={inputRef}
@@ -602,6 +617,9 @@ export default function AssistantWidget() {
                 }
               }}
             />
+            {status.dictado && !noModels && (
+              <VoiceButton disabled={state.pending} onText={appendDictation} onError={setVoiceError} />
+            )}
             <Button type="submit" size="icon" aria-label="Enviar pregunta" disabled={state.pending || noModels || !draft.trim()}>
               <SendHorizontal />
             </Button>

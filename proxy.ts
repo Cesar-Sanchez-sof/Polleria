@@ -12,7 +12,8 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("X-XSS-Protection", "1; mode=block");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // El micrófono solo para este mismo sitio (dictado del asistente); cámara y ubicación siguen bloqueadas.
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
   return response;
 }
 

@@ -3,6 +3,7 @@ import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
 import { readOpenAiConfig } from "@/lib/ai-assistant/openai";
+import { readVoiceConfig } from "@/lib/ai-assistant/transcribe";
 import { authorize, permissionsForUser } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ function deps(): ProxyDeps {
   return {
     config: readAssistantConfig(),
     openai: readOpenAiConfig(),
+    voice: readVoiceConfig().enabled,
     geminiErp: process.env.AI_GEMINI_SQL === "1",
     groqErp: process.env.AI_GROQ_SQL === "1",
     // Con un agente (Gemini o Groq) activo, el Modelo R solo aparece si se habilita de forma explícita.
