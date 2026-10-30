@@ -67,8 +67,8 @@ export interface RouteHandlerConfig<TBody = unknown, TParams = Record<string, st
   permission?: string | string[];
   /** Exige sesión activa aunque no se requiera un permiso específico. */
   requireAuth?: boolean;
-  /** Función o schema validador (e.g. zodSchema.parse) para validar el body. */
-  schema?: (raw: unknown) => TBody;
+  /** Función o schema validador (e.g. zodSchema o zodSchema.parse) para validar el body. */
+  schema?: ((raw: unknown) => TBody) | { parse: (raw: unknown) => TBody };
   /** Código HTTP exitoso por defecto (200 o 201). */
   successStatus?: number;
   /** Lógica del handler que interactúa con la capa de servicios. */
@@ -115,10 +115,19 @@ export function createApiHandler<TBody = unknown, TParams = Record<string, strin
           const raw = await req.json().catch(() => null);
           if (config.schema) {
             try {
-              parsedBody = config.schema(raw);
+              if (typeof config.schema === "function") {
+                parsedBody = config.schema(raw);
+              } else if (config.schema && typeof config.schema.parse === "function") {
+                parsedBody = config.schema.parse(raw);
+              }
             } catch (err: unknown) {
               const errorMessage = err instanceof Error ? err.message : "Datos de solicitud inválidos.";
-              throw new ValidationError("Datos de solicitud inválidos.", errorMessage);
+              const details =
+                err && typeof err === "object" && ("issues" in err || "errors" in err)
+                  ? (err as { issues?: unknown; errors?: unknown }).issues ||
+                    (err as { errors?: unknown }).errors
+                  : errorMessage;
+              throw new ValidationError("Datos de solicitud inválidos.", details);
             }
           } else {
             parsedBody = raw as TBody;
@@ -128,7 +137,9 @@ export function createApiHandler<TBody = unknown, TParams = Record<string, strin
 
       // 3. Resolución de parámetros de ruta y query string
       const resolvedParams = context?.params
-        ? (context.params instanceof Promise ? await context.params : context.params)
+        ? context.params instanceof Promise
+          ? await context.params
+          : context.params
         : ({} as TParams);
       const searchParams = req.nextUrl?.searchParams || new URL(req.url).searchParams;
 
