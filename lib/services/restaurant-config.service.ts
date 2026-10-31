@@ -274,7 +274,11 @@ export function updateRestaurantInfo(
   }
 ): Promise<RestaurantInfo> & RestaurantInfo {
   // Pre-actualizar caché local para retorno síncrono inmediato si no se usa await
-  inMemoryRestaurantCache = { ...inMemoryRestaurantCache, ...info };
+  const safePreCache = { ...info };
+  if (safePreCache.yapeQrImageUrl?.startsWith("data:")) {
+    delete safePreCache.yapeQrImageUrl;
+  }
+  inMemoryRestaurantCache = { ...inMemoryRestaurantCache, ...safePreCache };
 
   const asyncPromise = (async (): Promise<RestaurantInfo> => {
     let finalQrUrl = info.yapeQrImageUrl;
@@ -287,7 +291,17 @@ export function updateRestaurantInfo(
       }
     }
 
+    // Salvaguarda: NUNCA permitir que un string base64 alcance Prisma (excede VARCHAR(500))
+    if (finalQrUrl && finalQrUrl.startsWith("data:")) {
+      finalQrUrl = inMemoryRestaurantCache.yapeQrImageUrl || "";
+    }
+
     const current = await getRestaurantInfo();
+
+    // Si se reenvía una presigned URL temporal (firmas AWS), conservar la URL canónica existente
+    if (finalQrUrl && (finalQrUrl.includes("X-Amz-Signature") || finalQrUrl.includes("X-Amz-Credential")) && current.yapeQrImageUrl) {
+      finalQrUrl = current.yapeQrImageUrl;
+    }
     const updatedData: RestaurantInfo = {
       ...current,
       ...info,

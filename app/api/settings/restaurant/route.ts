@@ -4,6 +4,7 @@ import {
   updateRestaurantInfo,
   type RestaurantInfo,
 } from "@/lib/services/restaurant-config.service";
+import { getVoucherPresignedUrl } from "@/lib/services/s3-storage.service";
 import { authorize } from "@/lib/auth/permissions";
 import { requestIp } from "@/lib/services/audit.service";
 
@@ -14,7 +15,24 @@ export async function GET() {
   if (!auth.ok) return auth.response;
   try {
     const restaurant = await getRestaurantInfo();
-    return NextResponse.json({ data: restaurant });
+    let viewableQrUrl = restaurant.yapeQrImageUrl;
+    if (restaurant.yapeQrImageUrl && (restaurant.yapeQrImageUrl.startsWith("http") || restaurant.yapeQrImageUrl.startsWith("restaurant/"))) {
+      try {
+        const presigned = await getVoucherPresignedUrl(restaurant.yapeQrImageUrl, 86400);
+        if (presigned) {
+          viewableQrUrl = presigned;
+        }
+      } catch {
+        // Fallback al URL original
+      }
+    }
+    return NextResponse.json({
+      data: {
+        ...restaurant,
+        yapeQrImageUrl: viewableQrUrl || restaurant.yapeQrImageUrl,
+        rawYapeQrImageUrl: restaurant.yapeQrImageUrl,
+      },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "No se pudo obtener los datos del restaurante." },
