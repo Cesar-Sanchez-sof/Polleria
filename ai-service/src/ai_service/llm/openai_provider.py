@@ -83,6 +83,38 @@ OPENAI_BASE_URL = "https://api.openai.com/v1"
 RESPONSES_PATH = "/responses"
 MAX_RESPONSE_BYTES = 256 * 1024
 REASONING_EFFORTS = frozenset({"minimal", "low", "medium", "high"})
+_SAME_EFFORT = object()  # centinela: ``explicar`` usa el mismo esfuerzo que ``interpretar``
+
+
+class _ConnectionProbe:
+    """Callback ``trace`` de httpx: distingue si la llamada abrió una conexión TCP/TLS nueva o reutilizó una.
+
+    Solo informa lo observado: sin eventos de la capa de transporte (p. ej. transportes simulados) no emite
+    nada, para no afirmar una reutilización que no se comprobó."""
+
+    def __init__(self) -> None:
+        self.connected = False
+        self.sent = False
+        self._tcp_started: float | None = None
+        self.handshake_ms: int | None = None
+
+    def __call__(self, name: str, info: Mapping[str, Any]) -> None:
+        if name == "connection.connect_tcp.started":
+            self.connected, self._tcp_started = True, time.perf_counter()
+        elif name == "connection.start_tls.complete" and self._tcp_started is not None:
+            self.handshake_ms = int((time.perf_counter() - self._tcp_started) * 1000)
+        elif name.endswith("send_request_headers.started"):
+            self.sent = True
+
+    def report(self, task: str) -> None:
+        from ai_service.orchestrator import diagnostics
+
+        if not self.sent:
+            return
+        if self.connected:
+            diagnostics.event("OPENAI_CONN_NEW", f"{task} tcp+tls={self.handshake_ms if self.handshake_ms is not None else '?'} ms")
+        else:
+            diagnostics.event("OPENAI_CONN_REUSE", task)
 
 INTERPRET_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -227,9 +259,16 @@ class OpenAiResponsesProvider:
         transport: httpx.BaseTransport | None = None,
         families: FamilyCatalog | None = None,
         modules: ErpModules | None = None,
+        explain_reasoning_effort: str | None | object = _SAME_EFFORT,
+        keepalive_s: float | None = None,
     ) -> None:
-        if reasoning_effort is not None and reasoning_effort not in REASONING_EFFORTS:
-            raise ValueError("Esfuerzo de razonamiento no válido.")
+        """``explain_reasoning_effort``: esfuerzo solo para ``explicar`` (por defecto, el de ``reasoning_effort``).
+        ``keepalive_s``: vida de las conexiones inactivas (``None`` = valor por defecto de httpx, 5 s)."""
+        if explain_reasoning_effort is _SAME_EFFORT:
+            explain_reasoning_effort = reasoning_effort
+        for effort in (reasoning_effort, explain_reasoning_effort):
+            if effort is not None and effort not in REASONING_EFFORTS:
+                raise ValueError("Esfuerzo de razonamiento no válido.")
         self.model = model
         self._api_key = api_key
         self._price = price
@@ -246,8 +285,10 @@ class OpenAiResponsesProvider:
             FREE_INSTRUCTIONS.format(modulos=_module_menu(modules), reglas=_business_rules(modules)) if self._free else ""
         )
         self._reasoning_effort = reasoning_effort
+        self._explain_reasoning_effort = explain_reasoning_effort
+        limits = httpx.Limits(keepalive_expiry=keepalive_s) if keepalive_s is not None else httpx.Limits()
         self._client = httpx.Client(
-            base_url=OPENAI_BASE_URL, transport=transport, trust_env=False, follow_redirects=False
+            base_url=OPENAI_BASE_URL, transport=transport, trust_env=False, follow_redirects=False, limits=limits
         )
 
     def __repr__(self) -> str:
@@ -274,12 +315,15 @@ class OpenAiResponsesProvider:
                 }
             },
         }
-        if self._reasoning_effort:
-            body["reasoning"] = {"effort": self._reasoning_effort}
+        effort = self._reasoning_effort if task == "interpretar" else self._explain_reasoning_effort
+        if effort:
+            body["reasoning"] = {"effort": effort}
 
         started = time.perf_counter()
-        data = self._post(body, timeout_s=request.timeout_ms / 1000)
+        connection = _ConnectionProbe()
+        data = self._post(body, timeout_s=request.timeout_ms / 1000, probe=connection)
         latency_ms = int((time.perf_counter() - started) * 1000)
+        connection.report(task)
 
         if data.get("status") != "completed":
             raise OpenAiProviderError("INCOMPLETE_RESPONSE")
@@ -306,12 +350,25 @@ class OpenAiResponsesProvider:
             raise OpenAiProviderError("INVALID_STRUCTURED_OUTPUT") from None
 
     # ----------------------------------------------------------------- detalles
-    def _post(self, body: dict[str, Any], *, timeout_s: float) -> dict[str, Any]:
+    def warm_up(self) -> None:
+        """Abre la conexión TLS con ``GET /v1/models`` (sin coste ni tokens) para que la primera consulta no
+        pague el *handshake*. Lanza ``OpenAiProviderError`` si no responde 200."""
+        try:
+            response = self._client.get(
+                "/models", headers={"Authorization": f"Bearer {self._api_key}"}, timeout=httpx.Timeout(10.0, connect=5.0)
+            )
+        except httpx.HTTPError:
+            raise OpenAiProviderError("CONNECTION_FAILED") from None
+        if response.status_code != 200:
+            raise OpenAiProviderError("HTTP_ERROR_STATUS")
+
+    def _post(self, body: dict[str, Any], *, timeout_s: float, probe: "_ConnectionProbe | None" = None) -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
         try:
             with self._client.stream(
                 "POST", RESPONSES_PATH, content=json.dumps(body, ensure_ascii=False).encode("utf-8"),
                 headers=headers, timeout=httpx.Timeout(timeout_s, connect=min(5.0, timeout_s)),
+                extensions={"trace": probe} if probe is not None else None,
             ) as response:
                 raw = bytearray()
                 for chunk in response.iter_bytes():
