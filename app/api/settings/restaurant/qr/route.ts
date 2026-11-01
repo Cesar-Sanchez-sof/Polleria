@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { getRestaurantInfo } from "@/lib/services/restaurant-config.service";
 import { getVoucherPresignedUrl } from "@/lib/services/s3-storage.service";
+import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,8 @@ export const dynamic = "force-dynamic";
  *     summary: Obtener y visualizar la imagen oficial del QR de Yape del restaurante
  */
 export async function GET(request: NextRequest) {
+  const auth = await authorize(["configuracion.ver", "ventas.ver", "pedidos.ver"]);
+  if (!auth.ok) return auth.response;
   try {
     const restaurant = await getRestaurantInfo();
     const qrUrl = restaurant.yapeQrImageUrl?.trim();
