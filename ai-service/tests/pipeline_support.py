@@ -103,6 +103,8 @@ def build_harness(
     verifier: Any = None,
     retriever: Any = None,
     prefilter_fn: Any = None,
+    parallel_retrieval: bool = False,
+    caches: dict[str, Any] | None = None,
 ) -> Harness:
     validator = SqlValidator(ALLOWLIST)
     provider = provider or MockLlmProvider(GOLD["account_keywords"])
@@ -116,18 +118,19 @@ def build_harness(
     audit = InMemoryAuditSink()
     pseudonymizer = Pseudonymizer(bytes.fromhex(secrets.token_hex(32)))
     orchestrator = Orchestrator(
-        interpreter=LlmBackedInterpreter(gateway),
+        interpreter=LlmBackedInterpreter(gateway, cache=(caches or {}).get("interpretacion"), namespace="sim"),
         retriever=retriever or KeywordRetriever(Fragment(**f) for f in GOLD["fragments"]),
         generator=generator,
         validator=validator,
         executor=executor,
         finance=DeterministicFinanceEngine(),
-        explainer=LlmBackedExplainer(gateway),
+        explainer=LlmBackedExplainer(gateway, cache=(caches or {}).get("explicacion"), namespace="sim"),
         audit_sink=audit,
         pseudonymizer=pseudonymizer,
         allowed_roles=frozenset(ALLOWLIST.roles),
         clock=lambda: NOW,
         versions={"pipeline": "b3-sim", "validator": "b2", "allowlist": ALLOWLIST.version},
+        parallel_retrieval=parallel_retrieval,
         **({"prefilter_fn": prefilter_fn} if prefilter_fn is not None else {}),
     )
     return Harness(orchestrator, provider, generator, executor, audit, usage, guard, pseudonymizer)

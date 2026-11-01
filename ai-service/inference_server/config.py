@@ -12,6 +12,15 @@ Variables (solo se leen estas):
   con ``XIYAN_ADAPTER_ID``.
 - ``HF_HUB_CACHE``: ruta **absoluta** de la caché local de Hugging Face con el modelo base.
 
+Rendimiento (reversibles; por defecto, el comportamiento previo):
+
+- ``XIYAN_PROMPT_LOOKUP``: ``0`` (por defecto) o 1–20. Activa la decodificación asistida por búsqueda en el
+  prompt (``prompt_lookup_num_tokens``) de transformers; con *greedy* propone n-gramas del propio prompt
+  (nombres de tablas y columnas del M-Schema) y el modelo los verifica.
+- ``XIYAN_WARMUP=1``: una generación corta con un texto sin datos antes de quedar ``ready``.
+- ``XIYAN_QUEUE_WAIT_S``: segundos (0–30, por defecto 0) que una petición espera a que termine otra
+  generación antes de responder ``503 BUSY``.
+
 Las rutas se reciben en tiempo de ejecución y no aparecen en mensajes de error ni en ``repr``.
 """
 
@@ -35,6 +44,11 @@ HF_CACHE_VAR = "HF_HUB_CACHE"
 DEVELOPMENT = "development"
 ALLOWED_HOST = "127.0.0.1"
 DEFAULT_PORT = 8011
+PROMPT_LOOKUP_VAR = "XIYAN_PROMPT_LOOKUP"
+WARMUP_VAR = "XIYAN_WARMUP"
+QUEUE_WAIT_VAR = "XIYAN_QUEUE_WAIT_S"
+MAX_PROMPT_LOOKUP = 20
+MAX_QUEUE_WAIT_S = 30
 MIN_TOKEN_BYTES = 32
 MAX_BODY_BYTES = 32 * 1024
 
@@ -52,11 +66,15 @@ class ServerSettings:
     adapter_dir: str = field(default="", repr=False)
     hf_hub_cache: str = field(default="", repr=False)
     max_body_bytes: int = MAX_BODY_BYTES
+    prompt_lookup: int = 0
+    warmup: bool = False
+    queue_wait_s: float = 0.0
 
     def __repr__(self) -> str:
         return (
             f"ServerSettings(host={self.host!r}, port={self.port}, token='***', "
-            f"adapter_id={self.adapter_id!r}, adapter_dir='***', hf_hub_cache='***')"
+            f"adapter_id={self.adapter_id!r}, adapter_dir='***', hf_hub_cache='***', "
+            f"prompt_lookup={self.prompt_lookup}, warmup={self.warmup}, queue_wait_s={self.queue_wait_s})"
         )
 
     def token_matches(self, provided: str | None) -> bool:
@@ -104,6 +122,16 @@ def load_server_settings(env: Mapping[str, str]) -> ServerSettings:
         raise ServerConfigError(f"{ADAPTER_DIR_VAR} no corresponde a {ADAPTER_ID_VAR}.")
     hf_hub_cache = _absolute_path(env, HF_CACHE_VAR)
 
+    lookup_text = _read(env, PROMPT_LOOKUP_VAR, "0")
+    if not lookup_text.isdigit() or int(lookup_text) > MAX_PROMPT_LOOKUP:
+        raise ServerConfigError(f"{PROMPT_LOOKUP_VAR} debe ser un entero entre 0 y {MAX_PROMPT_LOOKUP}.")
+    warmup_text = _read(env, WARMUP_VAR, "0")
+    if warmup_text not in ("0", "1"):
+        raise ServerConfigError(f"{WARMUP_VAR} debe ser '0' o '1'.")
+    wait_text = _read(env, QUEUE_WAIT_VAR, "0")
+    if not wait_text.isdigit() or int(wait_text) > MAX_QUEUE_WAIT_S:
+        raise ServerConfigError(f"{QUEUE_WAIT_VAR} debe ser un entero entre 0 y {MAX_QUEUE_WAIT_S}.")
+
     return ServerSettings(
         host=host,
         port=int(port_text),
@@ -111,4 +139,7 @@ def load_server_settings(env: Mapping[str, str]) -> ServerSettings:
         adapter_id=adapter_id,
         adapter_dir=adapter_dir,
         hf_hub_cache=hf_hub_cache,
+        prompt_lookup=int(lookup_text),
+        warmup=warmup_text == "1",
+        queue_wait_s=float(wait_text),
     )

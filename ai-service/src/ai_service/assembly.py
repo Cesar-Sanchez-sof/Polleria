@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -79,11 +80,26 @@ DEV_MONTHLY_LIMIT = Decimal("1.00")
 REAL_DB_ACCEPTED_ORIGINS: frozenset[str] = frozenset({"erp-session"})  # P-9: solo identidad verificada
 FICTITIOUS_ACCEPTED_ORIGINS: frozenset[str] = frozenset({"ct-b-provisional", "erp-session"})
 FAMILY_CATALOG_FILE = "query_families_v1.json"
+# Vida de las conexiones HTTP inactivas con AI_PERF_OPT=1 (httpx cierra a los 5 s por defecto).
+PERF_KEEPALIVE_S = 120.0
 ERP_MODULES_FILE = "erp_modules_v1.json"
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+@dataclass
+class PerfComponents:
+    """Referencias que ``build_dev_orchestrator`` rellena para el calentamiento y los registros ``[OPT]``."""
+
+    retriever: object | None = None
+    module_retriever: object | None = None
+    embedder: object | None = None
+    executor: object | None = None
+    provider: object | None = None
+    caches: list = field(default_factory=list)
+    active: list[str] = field(default_factory=list)
 
 
 def build_dev_orchestrator(
@@ -97,6 +113,7 @@ def build_dev_orchestrator(
     llm_transport: httpx.BaseTransport | None = None,
     rag_embedder: Embedder | None = None,
     milvus_client_factory: Callable[[], object] | None = None,
+    perf: PerfComponents | None = None,
 ) -> tuple[Orchestrator, InMemoryAuditSink]:
     """Devuelve el orquestador de desarrollo y su almacén de trazas en memoria.
 
@@ -126,9 +143,26 @@ def build_dev_orchestrator(
         load_json(root / "knowledge" / "metrics_v1.json"),
         load_json(root / "knowledge" / "sql_examples_v1.json"),
     )
+    perf = perf if perf is not None else PerfComponents()
+    if rag_embedder is None and settings.rag.mode != "lexico" and settings.perf_opt:
+        # Un solo modelo E5 para el corpus de Milvus y el catálogo de módulos (antes, dos cargas de ONNX).
+        from ai_service.retrieval.e5_embedder import E5OnnxEmbedder
+
+        rag_embedder = E5OnnxEmbedder()
+        perf.active.append("E5_SHARED")
+    perf.embedder = rag_embedder
     retriever, rag_version = build_retriever(
         settings.rag, corpus, embedder=rag_embedder, milvus_client_factory=milvus_client_factory
     )
+    perf.retriever = retriever
+    keepalive_s = PERF_KEEPALIVE_S if settings.perf_opt else None
+    caches = None
+    if settings.perf_cache:
+        from ai_service.perf.cache import TtlCache
+
+        caches = {name: TtlCache(name) for name in ("interpretacion", "generacion_sql", "explicacion")}
+        perf.caches = list(caches.values())
+        perf.active.append("CACHE")
     versions = {
         "pipeline": "b3-sim", "api": "t028-dev", "allowlist": allowlist.version, "dataset": dev["version"],
         "rag": rag_version,
@@ -160,8 +194,15 @@ def build_dev_orchestrator(
             )
             versions["modules"] = modules.version
             versions["modules_rag"] = module_rag_version
+        sqlgen_client = XiYanHttpClient(settings.sqlgen, transport=sqlgen_transport, keepalive_s=keepalive_s)
+        if caches is not None:
+            from ai_service.perf.cache import CachingGenerationClient
+
+            sqlgen_client = CachingGenerationClient(
+                sqlgen_client, caches["generacion_sql"], f"{settings.sqlgen.adapter}|{settings.sqlgen.max_new_tokens}"
+            )
         generator: SqlGenerator = XiYanSqlGenerator(
-            XiYanHttpClient(settings.sqlgen, transport=sqlgen_transport),
+            sqlgen_client,
             allowlist,
             MSchemaBuilder(allowlist, metadata),
             EvidenceBuilder(
@@ -185,7 +226,11 @@ def build_dev_orchestrator(
                 readonly_connection_factory or psycopg_connection_factory(settings.readonly_dsn),
                 validator,
                 accepted_origins=REAL_DB_ACCEPTED_ORIGINS,
+                pool=settings.perf_opt,
             )
+            perf.executor = executor
+            if settings.perf_opt:
+                perf.active.append("NEON_POOL")
             versions["executor"] = "postgres-readonly"
         else:
             executor = SaldoFixtureExecutor(dev["dataset"], dev["accounts"])
@@ -225,7 +270,12 @@ def build_dev_orchestrator(
             transport=llm_transport,
             families=families,
             modules=modules,
+            explain_reasoning_effort=llm.explain_reasoning_effort,
+            keepalive_s=keepalive_s,
         )
+        perf.provider = provider
+        if llm.explain_reasoning_effort != llm.reasoning_effort:
+            perf.active.append(f"EXPLAIN_EFFORT={llm.explain_reasoning_effort}")
         model_name, pricing = llm.model, {llm.model: price}
         max_in, max_out, timeout_ms = LLM_MAX_INPUT_TOKENS, LLM_MAX_OUTPUT_TOKENS, llm.timeout_s * 1000
         # Contador en memoria (R-06): el crédito prepago sin recarga automática es el tope externo.
@@ -247,15 +297,28 @@ def build_dev_orchestrator(
         provider, guard, model=model_name, max_input_tokens=max_in, max_output_tokens=max_out, timeout_ms=timeout_ms
     )
     audit_sink = InMemoryAuditSink()
+    effort = settings.llm.reasoning_effort if settings.llm else None
+    explain_effort = settings.llm.explain_reasoning_effort if settings.llm else None
+    interpreter = LlmBackedInterpreter(
+        gateway, cache=caches["interpretacion"] if caches else None, namespace=f"{model_name}|{effort}"
+    )
+    explainer = LlmBackedExplainer(
+        gateway, cache=caches["explicacion"] if caches else None, namespace=f"{model_name}|{explain_effort}"
+    )
+    if keepalive_s is not None:
+        perf.active.append(f"KEEPALIVE_{int(keepalive_s)}S")
+    if settings.perf_opt:
+        perf.active.append("RAG_PARALLEL")
+    perf.module_retriever = module_retriever
     orchestrator = Orchestrator(
-        interpreter=LlmBackedInterpreter(gateway),
+        interpreter=interpreter,
         retriever=retriever,
         retrieval_k=TOP_K,  # recuperación top-5 antes de generar SQL
         generator=generator,
         validator=validator,
         executor=executor,
         finance=finance,
-        explainer=LlmBackedExplainer(gateway),
+        explainer=explainer,
         audit_sink=audit_sink,
         pseudonymizer=Pseudonymizer(settings.audit_hmac_key),
         allowed_roles=frozenset(allowlist.roles),
@@ -265,5 +328,6 @@ def build_dev_orchestrator(
         families=families,
         modules=modules,
         module_retriever=module_retriever,
+        parallel_retrieval=settings.perf_opt,
     )
     return orchestrator, audit_sink

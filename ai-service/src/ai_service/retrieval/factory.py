@@ -13,6 +13,7 @@ informa, pero nunca amplía tablas ni permisos (el M-Schema y el SQL Validator s
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -88,10 +89,13 @@ class _LazySemantic:
     def __init__(self, build: Callable[[], VectorRetriever]) -> None:
         self._build = build
         self._retriever: VectorRetriever | None = None
+        self._lock = threading.Lock()
 
     def search(self, query: str, k: int) -> list[SearchHit]:
         if self._retriever is None:
-            self._retriever = self._build()
+            with self._lock:
+                if self._retriever is None:
+                    self._retriever = self._build()
         return self._retriever.search(query, k)
 
     def retrieve(self, query: str, k: int) -> list[Fragment]:

@@ -44,6 +44,7 @@ from ai_service.gemini_sql.agent import AgentRefusal, AgentUnavailable, GeminiSq
 from ai_service.http.schemas import QueryRequest
 from ai_service.orchestrator.pipeline import ERROR_INVALID_REQUEST, ErrorBody, Orchestrator, PipelineOutcome
 from ai_service.orchestrator.ports import AuthorizationContext
+from ai_service.perf.console import print_outcome
 
 TOKEN_HEADER = "X-Internal-Token"
 DIAGNOSTICS_HEADER = "X-ERP-Diagnostics"
@@ -204,6 +205,8 @@ def build_router(
         else:
             outcome = await run_in_threadpool(lambda: orchestrator.handle(text, authorization=authorization, **extra))
         log_outcome(outcome)
+        if settings.perf_console:
+            print_outcome(outcome)
         body = outcome.body.model_dump(mode="json")
         if body.get("diagnostico", ...) is None:
             body.pop("diagnostico")  # campo opcional: ausente salvo en modo diagnóstico (proxies anteriores)

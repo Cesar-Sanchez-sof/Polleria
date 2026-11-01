@@ -31,7 +31,10 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+import time
 from collections.abc import Callable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -383,6 +386,8 @@ class PipelineOutcome:
     """``True`` si el procesamiento se detuvo por un :class:`SecurityIncident` (para alertas)."""
     trace: Diagnostic | None = None
     """Traza técnica de la consulta, siempre calculada (para el log); el cuerpo solo la lleva si se pidió."""
+    events: tuple[tuple[str, str], ...] = ()
+    """Eventos de optimización (consola ``[OPT]``); nunca se envían al cliente."""
 
 
 @dataclass
@@ -399,6 +404,54 @@ class _Run:
     evidences: list[Evidence] = field(default_factory=list)
     security_incident: bool = False
     detalle: Detail | None = None
+
+
+_RETRIEVAL_POOL: ThreadPoolExecutor | None = None
+_RETRIEVAL_POOL_LOCK = threading.Lock()
+
+
+def _retrieval_pool() -> ThreadPoolExecutor:
+    global _RETRIEVAL_POOL
+    with _RETRIEVAL_POOL_LOCK:
+        if _RETRIEVAL_POOL is None:
+            _RETRIEVAL_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="rag-paralelo")
+        return _RETRIEVAL_POOL
+
+
+class _PendingRetrieval:
+    """Recuperación RAG lanzada en un hilo tras el prefiltro (solo depende del mensaje ya prefiltrado).
+
+    Mide su duración real dentro del hilo y, al recogerla, cuánto tuvo que esperar la petición: la diferencia
+    es el tiempo que dejó de estar en el camino crítico (evento ``RAG_PARALLEL``)."""
+
+    def __init__(self, future: Future) -> None:
+        self._future = future
+        self.consumed = False
+
+    @classmethod
+    def start(cls, retriever: Retriever, message: str, k: int) -> "_PendingRetrieval":
+        def work() -> tuple[list, int, Exception | None]:
+            started = time.perf_counter()
+            try:
+                fragments = retriever.retrieve(message, k)
+            except Exception as exc:  # se propaga en el hilo de la petición, como en serie
+                return [], int((time.perf_counter() - started) * 1000), exc
+            return fragments, int((time.perf_counter() - started) * 1000), None
+
+        return cls(_retrieval_pool().submit(work))
+
+    def collect(self, trace: tracing.TraceRecorder) -> list:
+        self.consumed = True
+        waited_from = time.perf_counter()
+        fragments, ms, error = self._future.result()
+        waited = int((time.perf_counter() - waited_from) * 1000)
+        if error is not None:
+            code = getattr(error, "category", None) or getattr(error, "code", None)
+            trace.add_measured("recuperacion", "fallo", ms, code if isinstance(code, str) else type(error).__name__.upper()[:40])
+            raise error
+        trace.add_measured("recuperacion", "ok", ms)
+        trace.event("RAG_PARALLEL", f"recuperacion={ms} ms espera={waited} ms fuera_del_camino_critico={max(0, ms - waited)} ms")
+        return fragments
 
 
 class Orchestrator:
@@ -423,7 +476,10 @@ class Orchestrator:
         families: FamilyCatalog | None = None,
         modules: ErpModules | None = None,
         module_retriever: Retriever | None = None,
+        parallel_retrieval: bool = False,
     ) -> None:
+        """``parallel_retrieval`` (``AI_PERF_OPT``): la recuperación RAG, que solo depende del mensaje, se lanza en
+        un hilo al pasar el prefiltro y corre a la vez que la interpretación; sin él, se ejecuta en serie."""
         if pseudonymizer is None:
             raise AuditConfigError("Falta la clave de auditoría; el orquestador no puede operar.")
         self._interpreter = interpreter
@@ -448,6 +504,7 @@ class Orchestrator:
         # Ruta ampliada: módulos del ERP y su RAG local (fragmentos por tabla).
         self._modules = modules
         self._module_retriever = module_retriever
+        self._parallel_retrieval = parallel_retrieval
 
     # ------------------------------------------------------------------ API pública
     def handle(
@@ -511,12 +568,13 @@ class Orchestrator:
         recorder.intencion = run.intencion
         recorder.rows = run.rows
         trace = recorder.build()
+        events = tuple(recorder.events)
         attached = trace if attach else None
         if status != 200:
             # Códigos fijos de auditoría (sin SQL, rutas ni credenciales): el proxy los traduce a un
             # mensaje que dice qué componente falló, en lugar de un "no disponible" indistinguible.
             body = ErrorBody(error=ERROR_UNAVAILABLE, errores=_public_codes(run.codes), diagnostico=attached)
-            return PipelineOutcome(status, body, audit, security_incident=run.security_incident, trace=trace)
+            return PipelineOutcome(status, body, audit, security_incident=run.security_incident, trace=trace, events=events)
         response = QueryResponse(
             id_traza=request.id_traza,
             estado=run.estado,
@@ -527,7 +585,7 @@ class Orchestrator:
             detalle=run.detalle,
             diagnostico=attached,
         )
-        return PipelineOutcome(200, response, audit, trace=trace)
+        return PipelineOutcome(200, response, audit, trace=trace, events=events)
 
     # ------------------------------------------------------------------ flujo
     @staticmethod
@@ -556,6 +614,28 @@ class Orchestrator:
             self._finish(run, decision.estado or "no_resoluble", text_key, decision.reason)
             return  # ningún modelo invocado
 
+        pending = _PendingRetrieval.start(self._retriever, request.mensaje, self._k) if self._parallel_retrieval else None
+        try:
+            self._run_allowed(request, run, authorization, trace, pending)
+        finally:
+            if pending is not None and not pending.consumed:
+                trace.event("RAG_PARALLEL_DISCARDED", "la ruta no usa la recuperación")
+
+    def _retrieve(self, request: QueryRequest, trace: tracing.TraceRecorder, pending: "_PendingRetrieval | None") -> list:
+        """Fragmentos RAG: del hilo lanzado tras el prefiltro (``AI_PERF_OPT``) o, sin él, en serie."""
+        if pending is None:
+            with trace.stage("recuperacion"):
+                return self._retriever.retrieve(request.mensaje, self._k)
+        return pending.collect(trace)
+
+    def _run_allowed(
+        self,
+        request: QueryRequest,
+        run: _Run,
+        authorization: AuthorizationContext,
+        trace: tracing.TraceRecorder,
+        pending: "_PendingRetrieval | None",
+    ) -> None:
         with trace.stage("interpretacion"):
             interpretation = self._interpreter.interpret(request)
         run.intencion = interpretation.intencion
@@ -634,8 +714,7 @@ class Orchestrator:
         trace.periodo = plan.periodo
         trace.consulta = plan.familia
 
-        with trace.stage("recuperacion"):
-            fragments = self._retriever.retrieve(request.mensaje, self._k)
+        fragments = self._retrieve(request, trace, pending)
         trace.fragments = len(fragments)
         # Con Milvus, un fallo cae al léxico sin error: la traza dice qué recuperador respondió.
         trace.rag_source = getattr(self._retriever, "last_source", "lexico")

@@ -31,6 +31,7 @@ from ai_service.http.schemas import Diagnostic, DiagnosticSqlModel, DiagnosticSt
 MAX_SQL_CHARS = 4000
 _CODE_RE = re.compile(r"^[A-Z_]{3,40}$")
 HIDDEN_SQL = "(oculto: el texto contenía un patrón sensible)"
+_CACHEABLE_STAGES = frozenset({"interpretacion", "generacion_sql", "explicacion"})
 
 _current: ContextVar["TraceRecorder | None"] = ContextVar("ai_service_trace", default=None)
 
@@ -67,6 +68,9 @@ class TraceRecorder:
     sql_previo: str | None = None
     cuenta: str | None = None
     periodo: Period | None = None
+    # Eventos de optimización (``RAG_PARALLEL``, ``POOL_REUSE``…) para la consola ``[OPT]``. Solo códigos fijos y
+    # números; nunca entran en ``Diagnostic`` (el contrato del proxy no cambia).
+    events: list[tuple[str, str]] = field(default_factory=list)
     started: float = field(default_factory=time.perf_counter)
 
     @contextmanager
@@ -86,6 +90,10 @@ class TraceRecorder:
     def add(self, name: StageName, estado: str, code: str | None = None, start: float | None = None) -> None:
         ms = int((time.perf_counter() - start) * 1000) if start is not None else 0
         self.stages.append(DiagnosticStage(etapa=name, estado=estado, codigo=_safe_code(code), ms=ms))  # type: ignore[arg-type]
+
+    def add_measured(self, name: StageName, estado: str, ms: int, code: str | None = None) -> None:
+        """Etapa medida fuera del hilo de la petición (p. ej. recuperación en paralelo): su duración real."""
+        self.stages.append(DiagnosticStage(etapa=name, estado=estado, codigo=_safe_code(code), ms=max(0, ms)))  # type: ignore[arg-type]
 
     def fail(self, name: StageName, code: str) -> None:
         """Marca como fallida una etapa ya registrada (p. ej., validación que rechaza sin excepción)."""
@@ -107,10 +115,26 @@ class TraceRecorder:
             fin=finish_reason if finish_reason in ("stop", "length") else "stop",  # type: ignore[arg-type]
         )
 
+    def event(self, code: str, detail: str = "") -> None:
+        """Evento de optimización con código fijo y detalle numérico (sin datos de la consulta)."""
+        if _CODE_RE.match(code):
+            self.events.append((code, detail[:120]))
+
+    def mark(self, name: StageName, code: str) -> None:
+        """Pone ``code`` (p. ej. ``CACHE_HIT``) en la última aparición ``ok`` de la etapa, sin cambiar su estado."""
+        for i in range(len(self.stages) - 1, -1, -1):
+            stage = self.stages[i]
+            if stage.etapa == name and stage.estado == "ok":
+                self.stages[i] = DiagnosticStage(etapa=name, estado="ok", codigo=_safe_code(code), ms=stage.ms)
+                return
+
     def total_ms(self) -> int:
         return int((time.perf_counter() - self.started) * 1000)
 
     def build(self) -> Diagnostic:
+        for code, detail in self.events:  # acierto de caché → ``codigo`` de su etapa (el proxy ya lo admite)
+            if code == "CACHE_HIT" and detail in _CACHEABLE_STAGES:
+                self.mark(detail, code)  # type: ignore[arg-type]
         return Diagnostic(
             etapas=self.stages[:20],
             intencion=self.intencion,
@@ -139,6 +163,13 @@ class TraceRecorder:
 def current() -> TraceRecorder | None:
     """Registrador de la petición en curso (``None`` fuera de ``Orchestrator.handle``)."""
     return _current.get()
+
+
+def event(code: str, detail: str = "") -> None:
+    """Evento de optimización en la traza en curso (no hace nada fuera de una petición)."""
+    recorder = _current.get()
+    if recorder is not None:
+        recorder.event(code, detail)
 
 
 @contextmanager
