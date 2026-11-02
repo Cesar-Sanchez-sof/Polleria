@@ -1,48 +1,51 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   getPrinterConfig,
   updatePrinterConfig,
   type PrinterConfig,
 } from "@/lib/services/restaurant-config.service";
-import { authorize } from "@/lib/auth/permissions";
 import { isValidVoucherSeries } from "@/lib/utils/series-validation";
+import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const auth = await authorize(["configuracion.ver", "ventas.ver"]);
-  if (!auth.ok) return auth.response;
-  try {
-    const printers = await getPrinterConfig();
-    return NextResponse.json({ data: printers });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "No se pudo obtener la configuración de comprobantes e impresión." },
-      { status: 500 }
-    );
-  }
-}
+/**
+ * @openapi
+ * /api/settings/printers:
+ *   get:
+ *     tags:
+ *       - Settings
+ *     summary: Obtener configuración de impresoras térmicas y series de comprobante
+ *   put:
+ *     tags:
+ *       - Settings
+ *     summary: Actualizar configuración de impresoras térmicas y series
+ */
 
-export async function PUT(request: NextRequest) {
-  const auth = await authorize("configuracion.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const body = (await request.json().catch(() => null)) as Partial<PrinterConfig> | null;
+export const GET = createApiHandler({
+  permission: ["configuracion.ver", "ventas.ver"],
+  handler: async () => {
+    const printers = await getPrinterConfig();
+    return { data: printers };
+  },
+});
+
+export const PUT = createApiHandler<Partial<PrinterConfig>>({
+  permission: "configuracion.editar",
+  handler: async ({ body }) => {
     if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Datos de entrada inválidos." }, { status: 400 });
+      throw new ValidationError("Datos de entrada inválidos.");
     }
 
     if (body.series) {
       if (body.series.boleta !== undefined && !isValidVoucherSeries(body.series.boleta, "Boleta")) {
-        return NextResponse.json(
-          { error: `Serie de boleta inválida "${body.series.boleta}". Debe cumplir con el formato B### (ej. B001, B002).` },
-          { status: 400 }
+        throw new ValidationError(
+          `Serie de boleta inválida "${body.series.boleta}". Debe cumplir con el formato B### (ej. B001, B002).`
         );
       }
       if (body.series.factura !== undefined && !isValidVoucherSeries(body.series.factura, "Factura")) {
-        return NextResponse.json(
-          { error: `Serie de factura inválida "${body.series.factura}". Debe cumplir con el formato F### (ej. F001, F002).` },
-          { status: 400 }
+        throw new ValidationError(
+          `Serie de factura inválida "${body.series.factura}". Debe cumplir con el formato F### (ej. F001, F002).`
         );
       }
     }
@@ -52,11 +55,5 @@ export async function PUT(request: NextRequest) {
       message: "Configuración de impresión y comprobantes actualizada.",
       data: updated,
     });
-  } catch (error: any) {
-    const isValidationError = error?.message?.includes("Serie de");
-    return NextResponse.json(
-      { error: error?.message || "Error al actualizar la configuración de impresión." },
-      { status: isValidationError ? 400 : 500 }
-    );
-  }
-}
+  },
+});

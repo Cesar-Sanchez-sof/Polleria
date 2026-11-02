@@ -75,18 +75,24 @@ export interface RouteHandlerConfig<TBody = unknown, TParams = Record<string, st
   handler: (ctx: HandlerContext<TBody, TParams>) => Promise<unknown>;
 }
 
+export interface NextRouteHandler<TParams = Record<string, string | string[]>> {
+  (req?: NextRequest, context?: { params?: Promise<TParams> | TParams }): Promise<Response>;
+  (req: NextRequest, context: { params: Promise<TParams> }): Promise<Response>;
+}
+
 /**
  * Helper estándar para route handlers en app/api.
  * Centraliza autorización RBAC, parseo/validación de entrada y mapeo de errores.
  */
 export function createApiHandler<TBody = unknown, TParams = Record<string, string | string[]>>(
   config: RouteHandlerConfig<TBody, TParams>
-) {
-  return async (
-    req: NextRequest,
+): NextRouteHandler<TParams> {
+  const handlerFn = async (
+    req?: NextRequest,
     context?: { params?: Promise<TParams> | TParams }
   ): Promise<Response> => {
     try {
+      const safeReq = req || (new NextRequest("http://localhost") as unknown as NextRequest);
       let session: SessionPayload | undefined;
       let superuser = false;
 
@@ -108,11 +114,11 @@ export function createApiHandler<TBody = unknown, TParams = Record<string, strin
 
       // 2. Parseo y Validación de Body (para métodos con carga útil)
       let parsedBody = undefined as TBody;
-      const method = req.method.toUpperCase();
+      const method = (safeReq.method || "GET").toUpperCase();
       if (["POST", "PUT", "PATCH"].includes(method)) {
-        const contentType = req.headers.get("content-type") || "";
+        const contentType = safeReq.headers?.get("content-type") || "";
         if (contentType.includes("application/json")) {
-          const raw = await req.json().catch(() => null);
+          const raw = await safeReq.json().catch(() => null);
           if (config.schema) {
             try {
               if (typeof config.schema === "function") {
@@ -141,11 +147,13 @@ export function createApiHandler<TBody = unknown, TParams = Record<string, strin
           ? await context.params
           : context.params
         : ({} as TParams);
-      const searchParams = req.nextUrl?.searchParams || new URL(req.url).searchParams;
+      const searchParams =
+        safeReq.nextUrl?.searchParams ||
+        (safeReq.url ? new URL(safeReq.url).searchParams : new URLSearchParams());
 
       // 4. Ejecución del Handler de Dominio
       const result = await config.handler({
-        req,
+        req: safeReq,
         session,
         superuser,
         body: parsedBody,
@@ -188,4 +196,5 @@ export function createApiHandler<TBody = unknown, TParams = Record<string, strin
       );
     }
   };
+  return handlerFn as NextRouteHandler<TParams>;
 }

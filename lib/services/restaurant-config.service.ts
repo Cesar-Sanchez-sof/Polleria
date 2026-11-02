@@ -31,6 +31,12 @@ export interface DiningArea {
   color?: string;
 }
 
+export interface EnrichedDiningArea extends DiningArea {
+  tableCount: number;
+  totalCapacity: number;
+  tables: Array<{ id: number; number: number; capacity: number; active: boolean }>;
+}
+
 export interface PrinterDevice {
   name: string;
   ipOrPort: string;
@@ -542,6 +548,44 @@ export async function saveDiningArea(area: DiningArea): Promise<DiningArea[]> {
   }
 
   return listDiningAreas();
+}
+
+/**
+ * Obtiene los salones y áreas enriquecidos con métricas de mesas y aforo real.
+ */
+export async function listEnrichedDiningAreas(): Promise<{
+  data: EnrichedDiningArea[];
+  allTables: Array<{ id: number; number: number; capacity: number }>;
+}> {
+  const [areas, tables] = await Promise.all([
+    listDiningAreas(),
+    prisma.diningTable.findMany({
+      select: { id: true, number: true, capacity: true, active: true },
+      orderBy: { number: "asc" },
+    }),
+  ]);
+
+  const tablesMap = new Map(tables.map((t) => [t.number, t]));
+
+  const enrichedAreas: EnrichedDiningArea[] = areas.map((area) => {
+    const areaTables = area.tableNumbers
+      .map((num) => tablesMap.get(num))
+      .filter(Boolean) as Array<{ id: number; number: number; capacity: number; active: boolean }>;
+
+    const totalCapacity = areaTables.reduce((acc, t) => acc + t.capacity, 0);
+
+    return {
+      ...area,
+      tableCount: areaTables.length,
+      totalCapacity,
+      tables: areaTables,
+    };
+  });
+
+  return {
+    data: enrichedAreas,
+    allTables: tables.map((t) => ({ id: t.id, number: t.number, capacity: t.capacity })),
+  };
 }
 
 /**
