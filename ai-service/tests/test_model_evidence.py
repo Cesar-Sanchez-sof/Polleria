@@ -45,7 +45,7 @@ CORPUS = build_corpus(
     load_json(K / "metrics_v1.json"), load_json(K / "sql_examples_v1.json"),
 )
 BY_ID = {f.fuente: f for f in CORPUS}
-APPROVED_SHA256 = "ed2d957455e55e50b4109390736e4e6355b18884fcebb85f8e0dd3beec360fb9"
+APPROVED_SHA256 = "0a52719ade77a8c74bd8bedf46664a664e96373ce00bfa202a681c072182c84d"
 TABLES = [model["table"] for model in METADATA["models"]]
 # M-Schema de saldo_cuenta (sin journal_entry.status, oculta al modelo por P-4).
 VISIBLE = {

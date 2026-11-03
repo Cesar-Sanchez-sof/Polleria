@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/auth/permissions";
+import { NextResponse } from "next/server";
+import { createApiHandler } from "@/lib/http/route-handler";
+import {
+  listDiningTables,
+  createOrReactivateDiningTable,
+} from "@/lib/services/dining-tables.service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,185 +20,30 @@ export const dynamic = "force-dynamic";
  *     summary: Registrar una nueva mesa en el salón
  */
 
-const CLOSED_STATUSES = ["Closed", "Cancelled"];
-
-export async function GET(request: NextRequest) {
-  const auth = await authorize(["mesas.ver", "pedidos.ver"]);
-  if (!auth.ok) return auth.response;
-  try {
-    const searchParams = request.nextUrl.searchParams;
+export const GET = createApiHandler({
+  permission: ["mesas.ver", "pedidos.ver"],
+  handler: async ({ searchParams }) => {
     const includeInactive = searchParams.get("includeInactive") === "true";
+    const result = await listDiningTables({ includeInactive });
+    return NextResponse.json(result);
+  },
+});
 
-    const tablesDb = await prisma.diningTable.findMany({
-      where: includeInactive
-        ? undefined
-        : {
-            OR: [
-              { active: true },
-              { orders: { some: { order: { status: { notIn: CLOSED_STATUSES } } } } },
-            ],
-          },
-      orderBy: { number: "asc" },
-      include: {
-        orders: {
-          where: {
-            order: {
-              status: { notIn: CLOSED_STATUSES },
-            },
-          },
-          include: {
-            order: {
-              include: {
-                items: {
-                  include: { product: true },
-                  orderBy: { id: "asc" },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const tables = tablesDb.map((m) => {
-      const activeTableOrder = m.orders[0] ?? null;
-      const order = activeTableOrder?.order ?? null;
-
-      let activeOrder = null;
-      if (order) {
-        const items = order.items.map((d) => ({
-          id: d.id,
-          productId: d.productId,
-          name: d.product.name,
-          quantity: d.quantity,
-          unitPrice: Number(d.unitPrice),
-          subtotal: Number(d.subtotal),
-          itemStatus: d.itemStatus,
-          notes: d.notes ?? "",
-        }));
-
-        const calculatedTotal = items.reduce((acc, it) => acc + it.subtotal, 0);
-
-        activeOrder = {
-          id: order.id,
-          orderTableId: activeTableOrder.id,
-          code: order.code,
-          orderType: order.orderType,
-          orderedAt: order.orderedAt.toISOString(),
-          status: order.status,
-          tableNotes: activeTableOrder.notes ?? "",
-          items,
-          total: calculatedTotal,
-          editable: !CLOSED_STATUSES.includes(order.status),
-          isAnnexed: Boolean(activeTableOrder.notes?.includes("[Anexa a Mesa")),
-        };
-      }
-
-      return {
-        id: m.id,
-        number: m.number,
-        capacity: m.capacity,
-        active: m.active || Boolean(activeOrder),
-        occupied: Boolean(activeOrder),
-        activeOrder,
-      };
-    });
-
-    const occupied = tables.filter((m) => m.occupied).length;
-    const available = tables.filter((m) => m.active && !m.occupied).length;
-    const inactive = tables.filter((m) => !m.active).length;
-
-    return NextResponse.json({
-      data: tables,
-      summary: {
-        total: tables.length,
-        available,
-        occupied,
-        inactive,
-      },
-    });
-  } catch (error) {
-    console.error("[api/tables] Error al listar mesas:", error);
-    return NextResponse.json(
-      { error: "No se pudo obtener la información de las mesas." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  const auth = await authorize("mesas.crear");
-  if (!auth.ok) return auth.response;
-  try {
-    const body = await request.json().catch(() => ({}));
-    const number = Number(body.number);
-    const capacity = Number(body.capacity ?? 4);
-
-    if (!number || Number.isNaN(number) || number <= 0) {
-      return NextResponse.json(
-        { error: "El número de mesa debe ser un entero positivo mayor a cero." },
-        { status: 400 }
-      );
-    }
-
-    if (Number.isNaN(capacity) || capacity < 1 || capacity > 30) {
-      return NextResponse.json(
-        { error: "La capacidad de comensales debe estar entre 1 y 30 personas." },
-        { status: 400 }
-      );
-    }
-
-    // Verificar si ya existe una mesa con ese número
-    const existingTable = await prisma.diningTable.findUnique({
-      where: { number },
-    });
-
-    if (existingTable) {
-      if (existingTable.active) {
-        return NextResponse.json(
-          { error: `Ya existe una mesa activa registrada con el número ${number}.` },
-          { status: 409 }
-        );
-      }
-
-      // Si existe pero estaba inactiva, se reactiva y actualiza su capacidad
-      const reactivated = await prisma.diningTable.update({
-        where: { id: existingTable.id },
-        data: {
-          active: true,
-          capacity,
-        },
-      });
-
-      return NextResponse.json(
-        {
-          message: `Mesa #${number} reactivada con éxito.`,
-          data: reactivated,
-        },
-        { status: 200 }
-      );
-    }
-
-    const newTable = await prisma.diningTable.create({
-      data: {
-        number,
-        capacity,
-        active: true,
-      },
+export const POST = createApiHandler({
+  permission: "mesas.crear",
+  handler: async ({ body }) => {
+    const payload = (body || {}) as { number?: number; capacity?: number };
+    const result = await createOrReactivateDiningTable({
+      number: Number(payload.number),
+      capacity: payload.capacity !== undefined ? Number(payload.capacity) : undefined,
     });
 
     return NextResponse.json(
       {
-        message: `Mesa #${number} registrada exitosamente.`,
-        data: newTable,
+        message: result.message,
+        data: result.table,
       },
-      { status: 201 }
+      { status: result.reactivated ? 200 : 201 }
     );
-  } catch (error: any) {
-    console.error("[api/tables] Error al registrar mesa:", error);
-    return NextResponse.json(
-      { error: error.message || "Error interno al registrar la mesa." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

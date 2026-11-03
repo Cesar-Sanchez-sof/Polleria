@@ -24,6 +24,8 @@ se usa con consumos y precios simulados.
 
 from __future__ import annotations
 
+import threading
+
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, fields
 from datetime import datetime
@@ -206,6 +208,8 @@ class BudgetGuard:
         self._verifier = remaining_verifier
         self._pending = Decimal("0")
         self._requests: dict[str, _RequestState] = {}
+        # Las peticiones concurrentes (threadpool de la API) comparten reservas y contadores.
+        self._lock = threading.RLock()
 
     @property
     def pending_reservations(self) -> Decimal:
@@ -213,6 +217,10 @@ class BudgetGuard:
 
     def authorize(self, request: CallRequest) -> Authorization:
         """Concede una autorización o lanza :class:`BudgetDenied`. Nunca llama al proveedor."""
+        with self._lock:
+            return self._authorize(request)
+
+    def _authorize(self, request: CallRequest) -> Authorization:
         if request.task not in TASKS:
             raise ValueError(f"Tarea desconocida: {request.task!r}.")
         if request.input_tokens < 0:
@@ -262,6 +270,20 @@ class BudgetGuard:
         outcome: str,
     ) -> UsageRecord:
         """Registra el consumo real de una llamada autorizada y libera su reserva."""
+        with self._lock:
+            return self._record(authorization, model_version=model_version, input_tokens=input_tokens,
+                                output_tokens=output_tokens, latency_ms=latency_ms, outcome=outcome)
+
+    def _record(
+        self,
+        authorization: Authorization,
+        *,
+        model_version: str,
+        input_tokens: int,
+        output_tokens: int,
+        latency_ms: int,
+        outcome: str,
+    ) -> UsageRecord:
         price = self._pricing[authorization.model]
         record = UsageRecord(
             trace_id=authorization.trace_id,
@@ -281,7 +303,8 @@ class BudgetGuard:
 
     def cancel(self, authorization: Authorization) -> None:
         """Libera la reserva de una autorización cuya llamada no llegó a hacerse."""
-        self._release(authorization)
+        with self._lock:
+            self._release(authorization)
 
     def _release(self, authorization: Authorization) -> None:
         self._pending = max(Decimal("0"), self._pending - authorization.reserved_cost)

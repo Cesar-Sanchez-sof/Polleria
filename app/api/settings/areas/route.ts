@@ -1,63 +1,47 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import {
-  listDiningAreas,
+  listEnrichedDiningAreas,
   saveDiningArea,
   deleteDiningArea,
   type DiningArea,
 } from "@/lib/services/restaurant-config.service";
-import { authorize } from "@/lib/auth/permissions";
+import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const auth = await authorize(["configuracion.ver", "mesas.ver", "pedidos.ver"]);
-  if (!auth.ok) return auth.response;
-  try {
-    const areas = await listDiningAreas();
+/**
+ * @openapi
+ * /api/settings/areas:
+ *   get:
+ *     tags:
+ *       - Settings
+ *     summary: Obtener listado de salones y áreas con aforos calculados
+ *   post:
+ *     tags:
+ *       - Settings
+ *     summary: Registrar un nuevo salón o área
+ *   put:
+ *     tags:
+ *       - Settings
+ *     summary: Actualizar un salón o área existente
+ *   delete:
+ *     tags:
+ *       - Settings
+ *     summary: Eliminar un salón o área
+ */
 
-    // Consultamos las mesas para calcular aforos y ocupación real por cada salón
-    const tables = await prisma.diningTable.findMany({
-      select: { id: true, number: true, capacity: true, active: true },
-      orderBy: { number: "asc" },
-    });
+export const GET = createApiHandler({
+  permission: ["configuracion.ver", "mesas.ver", "pedidos.ver"],
+  handler: async () => {
+    return listEnrichedDiningAreas();
+  },
+});
 
-    const tablesMap = new Map(tables.map((t) => [t.number, t]));
-
-    const enrichedAreas = areas.map((area) => {
-      const areaTables = area.tableNumbers
-        .map((num) => tablesMap.get(num))
-        .filter(Boolean) as Array<{ id: number; number: number; capacity: number; active: boolean }>;
-
-      const totalCapacity = areaTables.reduce((acc, t) => acc + t.capacity, 0);
-
-      return {
-        ...area,
-        tableCount: areaTables.length,
-        totalCapacity,
-        tables: areaTables,
-      };
-    });
-
-    return NextResponse.json({
-      data: enrichedAreas,
-      allTables: tables.map((t) => ({ id: t.id, number: t.number, capacity: t.capacity })),
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "No se pudieron obtener los salones y áreas." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  const auth = await authorize("configuracion.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const body = await request.json().catch(() => null);
+export const POST = createApiHandler<Partial<DiningArea>>({
+  permission: "configuracion.editar",
+  handler: async ({ body }) => {
     if (!body || !body.name || typeof body.name !== "string") {
-      return NextResponse.json({ error: "El nombre del área o salón es requerido." }, { status: 400 });
+      throw new ValidationError("El nombre del área o salón es requerido.");
     }
 
     const newArea: DiningArea = {
@@ -65,7 +49,9 @@ export async function POST(request: NextRequest) {
       name: body.name.trim(),
       level: body.level?.trim() || "Piso 1",
       description: body.description?.trim() || "",
-      tableNumbers: Array.isArray(body.tableNumbers) ? body.tableNumbers.map(Number).filter((n: number) => !Number.isNaN(n)) : [],
+      tableNumbers: Array.isArray(body.tableNumbers)
+        ? body.tableNumbers.map(Number).filter((n: number) => !Number.isNaN(n))
+        : [],
       active: body.active !== false,
       color: body.color || "emerald",
     };
@@ -75,21 +61,14 @@ export async function POST(request: NextRequest) {
       { message: "Salón / Área registrado con éxito.", data: updatedList },
       { status: 201 }
     );
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Error al registrar el salón." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});
 
-export async function PUT(request: NextRequest) {
-  const auth = await authorize("configuracion.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const body = await request.json().catch(() => null);
+export const PUT = createApiHandler<DiningArea>({
+  permission: "configuracion.editar",
+  handler: async ({ body }) => {
     if (!body || !body.id) {
-      return NextResponse.json({ error: "ID del salón a actualizar es requerido." }, { status: 400 });
+      throw new ValidationError("ID del salón a actualizar es requerido.");
     }
 
     const updatedList = await saveDiningArea(body);
@@ -97,22 +76,15 @@ export async function PUT(request: NextRequest) {
       message: "Salón / Área actualizado con éxito.",
       data: updatedList,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Error al actualizar el salón." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});
 
-export async function DELETE(request: NextRequest) {
-  const auth = await authorize("configuracion.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const { searchParams } = new URL(request.url);
+export const DELETE = createApiHandler({
+  permission: "configuracion.editar",
+  handler: async ({ searchParams }) => {
     const id = searchParams.get("id");
     if (!id) {
-      return NextResponse.json({ error: "ID del salón a eliminar es requerido." }, { status: 400 });
+      throw new ValidationError("ID del salón a eliminar es requerido.");
     }
 
     const updatedList = await deleteDiningArea(id);
@@ -120,10 +92,5 @@ export async function DELETE(request: NextRequest) {
       message: "Salón eliminado con éxito.",
       data: updatedList,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Error al eliminar el salón." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

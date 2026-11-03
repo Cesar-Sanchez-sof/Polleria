@@ -24,7 +24,10 @@ necesitan.
 
 from __future__ import annotations
 
+import threading
+import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from ai_service.orchestrator.ports import (
@@ -161,9 +164,13 @@ class PostgresReadOnlyExecutor:
         *,
         accepted_origins: frozenset[str],
         max_rows: int = MAX_ROWS,
+        pool: bool = False,
     ) -> None:
+        """``pool`` (``AI_PERF_OPT``): reutiliza conexiones inactivas en lugar de abrir una por consulta. Cada
+        consulta conserva su transacción READ ONLY, los SET, la comprobación y la revalidación."""
         if not 1 <= max_rows <= MAX_ROWS:
             raise ValueError("Límite de filas fuera de rango.")
+        self._pool = ConnectionPool(connection_factory) if pool else None
         self._connect = connection_factory
         self._validator = validator
         self._accepted_origins = frozenset(accepted_origins)
@@ -184,24 +191,166 @@ class PostgresReadOnlyExecutor:
         if not has_registered_entries_filter(sql):
             raise ExecutionRefused("REGISTERED_FILTER_MISSING")  # P-4: nunca sumar asientos anulados
 
-        try:
-            with self._connect() as connection:
-                with connection.transaction():
-                    for statement in SESSION_STATEMENTS:
-                        connection.execute(statement)
-                    read_only = connection.execute(READ_ONLY_CHECK).fetchone()
-                    if not read_only or read_only[0] != "on":
-                        raise ExecutionRefused("READ_ONLY_NOT_ENFORCED")
-                    cursor = connection.execute(sql)
-                    names = [column.name for column in (cursor.description or ())]
-                    batch = cursor.fetchmany(self._max_rows + 1)
-        except SqlExecutionError:
-            raise
-        except Exception as exc:  # errores del controlador o de la base: sin mensaje ni encadenamiento
-            raise classify_database_error(exc) from None
+        if self._pool is not None:
+            names, batch = self._run_pooled(sql)
+        else:
+            try:
+                with self._connect() as connection:
+                    names, batch = self._query(connection, sql)
+            except SqlExecutionError:
+                raise
+            except Exception as exc:  # errores del controlador o de la base: sin mensaje ni encadenamiento
+                raise classify_database_error(exc) from None
 
         if len(batch) > self._max_rows:
             raise ResultTooLarge("ROW_LIMIT_EXCEEDED")
         if not names or len(set(names)) != len(names):
             raise ExecutionFailed("AMBIGUOUS_RESULT_COLUMNS")
         return [dict(zip(names, row, strict=True)) for row in batch]
+
+    def _query(self, connection: Any, sql: str) -> tuple[list[str], list[Any]]:
+        """Una transacción de solo lectura acotada (SET, comprobación READ ONLY y la consulta), siempre completa:
+        también en una conexión reutilizada."""
+        with connection.transaction():
+            for statement in SESSION_STATEMENTS:
+                connection.execute(statement)
+            read_only = connection.execute(READ_ONLY_CHECK).fetchone()
+            if not read_only or read_only[0] != "on":
+                raise ExecutionRefused("READ_ONLY_NOT_ENFORCED")
+            cursor = connection.execute(sql)
+            names = [column.name for column in (cursor.description or ())]
+            batch = cursor.fetchmany(self._max_rows + 1)
+        return names, batch
+
+    def _run_pooled(self, sql: str) -> tuple[list[str], list[Any]]:
+        """Como la ruta normal, pero con una conexión reutilizada (``AI_PERF_OPT``). Una conexión reutilizada que
+        falla por la conexión (no por la consulta) se descarta y se reintenta UNA vez con otra nueva: es el mismo
+        SELECT de solo lectura ya revalidado."""
+        from ai_service.orchestrator import diagnostics
+
+        assert self._pool is not None
+        for attempt in (1, 2):
+            lease = self._pool.acquire()  # errores de conexión ya clasificados
+            try:
+                result = self._query(lease.connection, sql)
+            except SqlExecutionError:
+                self._pool.discard(lease)
+                raise
+            except Exception as exc:
+                if _is_connection_error(exc):
+                    self._pool.discard(lease)
+                    if lease.reused and attempt == 1:
+                        diagnostics.event("POOL_STALE_RETRY", f"conexion=#{lease.number} descartada; se abre otra")
+                        continue
+                else:
+                    self._pool.release(lease)  # error de la consulta: la conexión sigue sana si quedó inactiva
+                raise classify_database_error(exc) from None
+            self._pool.release(lease)
+            if lease.reused:
+                diagnostics.event("POOL_REUSE", f"conexion=#{lease.number} usos={lease.uses} inactiva={lease.idle_ms} ms")
+            else:
+                diagnostics.event("POOL_NEW", f"conexion=#{lease.number} apertura={lease.connect_ms} ms")
+            return result
+        raise ExecutionUnavailable("CONNECTION_FAILED")  # pragma: no cover - el bucle siempre retorna o lanza
+
+    def warm_up(self) -> int:
+        """Abre una conexión con la misma sesión acotada y solo ``SHOW``/``SELECT 1`` (ninguna fila de negocio).
+        Devuelve los ms de apertura. Sin pool no hace nada (devuelve 0)."""
+        if self._pool is None:
+            return 0
+        lease = self._pool.acquire()
+        try:
+            with lease.connection.transaction():
+                for statement in SESSION_STATEMENTS:
+                    lease.connection.execute(statement)
+                read_only = lease.connection.execute(READ_ONLY_CHECK).fetchone()
+                lease.connection.execute("SELECT 1").fetchone()
+            if not read_only or read_only[0] != "on":
+                raise ExecutionRefused("READ_ONLY_NOT_ENFORCED")
+        except SqlExecutionError:
+            self._pool.discard(lease)
+            raise
+        except Exception as exc:
+            self._pool.discard(lease)
+            raise classify_database_error(exc) from None
+        self._pool.release(lease)
+        return lease.connect_ms
+
+
+def _is_connection_error(exc: BaseException) -> bool:
+    """Fallo de la conexión (sin SQLSTATE, clase 08 o cierre administrativo), no de la consulta."""
+    state = getattr(exc, "sqlstate", None)
+    return not isinstance(state, str) or state[:2] == "08" or state in ("57P01", "57P02", "57P03")
+
+
+@dataclass
+class _Lease:
+    connection: Any
+    number: int
+    reused: bool
+    uses: int
+    connect_ms: int = 0
+    idle_ms: int = 0
+    last_used: float = 0.0
+
+
+class ConnectionPool:
+    """Pool mínimo de conexiones de solo lectura (sin dependencias). Solo guarda conexiones inactivas y sanas;
+    las que superan ``max_idle_s`` sin uso se cierran antes de reutilizarse."""
+
+    def __init__(self, factory: ConnectionFactory, *, max_idle: int = 2, max_idle_s: float = 180.0,
+                 clock: Callable[[], float] = time.monotonic) -> None:
+        self._factory = factory
+        self._max_idle = max_idle
+        self._max_idle_s = max_idle_s
+        self._clock = clock
+        self._idle: list[_Lease] = []
+        self._lock = threading.Lock()
+        self._opened = 0
+
+    def acquire(self) -> _Lease:
+        now = self._clock()
+        with self._lock:
+            while self._idle:
+                lease = self._idle.pop()
+                if now - lease.last_used <= self._max_idle_s and _healthy(lease.connection):
+                    lease.reused, lease.uses = True, lease.uses + 1
+                    lease.idle_ms = int((now - lease.last_used) * 1000)
+                    return lease
+                _close(lease.connection)
+            self._opened += 1
+            number = self._opened
+        started = time.perf_counter()
+        try:
+            connection = self._factory()
+        except SqlExecutionError:
+            raise
+        except Exception as exc:
+            raise classify_database_error(exc) from None
+        return _Lease(connection=connection, number=number, reused=False, uses=1,
+                      connect_ms=int((time.perf_counter() - started) * 1000))
+
+    def release(self, lease: _Lease) -> None:
+        lease.last_used = self._clock()
+        with self._lock:
+            if _healthy(lease.connection) and len(self._idle) < self._max_idle:
+                self._idle.append(lease)
+                return
+        _close(lease.connection)
+
+    def discard(self, lease: _Lease) -> None:
+        _close(lease.connection)
+
+
+def _healthy(connection: Any) -> bool:
+    if getattr(connection, "closed", False) or getattr(connection, "broken", False):
+        return False
+    status = getattr(getattr(connection, "info", None), "transaction_status", None)
+    return status is None or int(status) == 0  # psycopg.pq.TransactionStatus.IDLE
+
+
+def _close(connection: Any) -> None:
+    try:
+        connection.close()
+    except Exception:
+        pass

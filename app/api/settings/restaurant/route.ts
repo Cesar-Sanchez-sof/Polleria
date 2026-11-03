@@ -1,56 +1,76 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   getRestaurantInfo,
   updateRestaurantInfo,
   type RestaurantInfo,
 } from "@/lib/services/restaurant-config.service";
-import { authorize } from "@/lib/auth/permissions";
+import { getVoucherPresignedUrl } from "@/lib/services/s3-storage.service";
 import { requestIp } from "@/lib/services/audit.service";
+import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const auth = await authorize(["configuracion.ver", "ventas.ver", "pedidos.ver"]);
-  if (!auth.ok) return auth.response;
-  try {
+/**
+ * @openapi
+ * /api/settings/restaurant:
+ *   get:
+ *     tags:
+ *       - Settings
+ *     summary: Obtener datos de identidad comercial y fiscal del restaurante
+ *   put:
+ *     tags:
+ *       - Settings
+ *     summary: Actualizar datos comerciales, fiscales y QR del restaurante
+ */
+
+export const GET = createApiHandler({
+  permission: ["configuracion.ver", "ventas.ver", "pedidos.ver"],
+  handler: async () => {
     const restaurant = await getRestaurantInfo();
-    return NextResponse.json({ data: restaurant });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "No se pudo obtener los datos del restaurante." },
-      { status: 500 }
-    );
-  }
-}
+    let viewableQrUrl = restaurant.yapeQrImageUrl;
+    if (
+      restaurant.yapeQrImageUrl &&
+      (restaurant.yapeQrImageUrl.startsWith("http") ||
+        restaurant.yapeQrImageUrl.startsWith("restaurant/"))
+    ) {
+      try {
+        const presigned = await getVoucherPresignedUrl(restaurant.yapeQrImageUrl, 86400);
+        if (presigned) {
+          viewableQrUrl = presigned;
+        }
+      } catch {
+        // Fallback al URL original
+      }
+    }
 
-export async function PUT(request: NextRequest) {
-  const auth = await authorize("configuracion.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const body = (await request.json().catch(() => null)) as Partial<RestaurantInfo> | null;
+    return {
+      data: {
+        ...restaurant,
+        yapeQrImageUrl: viewableQrUrl || restaurant.yapeQrImageUrl,
+        rawYapeQrImageUrl: restaurant.yapeQrImageUrl,
+      },
+    };
+  },
+});
+
+export const PUT = createApiHandler<Partial<RestaurantInfo>>({
+  permission: "configuracion.editar",
+  handler: async ({ req, session, body }) => {
     if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Datos de entrada inválidos." }, { status: 400 });
+      throw new ValidationError("Datos de entrada inválidos.");
     }
 
-    if (body.ruc && (!/^\d{11}$/.test(body.ruc.trim()))) {
-      return NextResponse.json(
-        { error: "El RUC debe ser un número válido de 11 dígitos." },
-        { status: 400 }
-      );
+    if (body.ruc && !/^\d{11}$/.test(body.ruc.trim())) {
+      throw new ValidationError("El RUC debe ser un número válido de 11 dígitos.");
     }
 
-    const actor = auth.session ? { userId: auth.session.userId, username: auth.session.username } : null;
-    const ip = requestIp(request);
+    const actor = session ? { userId: session.userId, username: session.username } : null;
+    const ip = requestIp(req);
     const updated = await updateRestaurantInfo(body, { actor, ipAddress: ip });
 
     return NextResponse.json({
       message: "Datos del restaurante actualizados correctamente.",
       data: updated,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Error al actualizar los datos de la empresa." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

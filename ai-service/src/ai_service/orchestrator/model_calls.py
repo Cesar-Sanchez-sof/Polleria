@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -45,6 +46,9 @@ from ai_service.http.schemas import Turn
 from ai_service.orchestrator.ports import Interpretation
 from ai_service.orchestrator.prefilter import user_turns
 from ai_service.orchestrator.security import SecurityIncident, ensure_no_sensitive_data
+
+if TYPE_CHECKING:
+    from ai_service.perf.cache import TtlCache
 
 INSTRUCTIONS_VERSION = {"interpretar": "interpretar-v0", "explicar": "explicar-v0"}
 OUTPUT_SCHEMA = {"interpretar": "interpretar-salida-v0", "explicar": "explicar-salida-v0"}
@@ -126,22 +130,55 @@ class ModelGateway:
         return response
 
 
-class LlmBackedInterpreter:
+class _CachedModelCall:
+    """Caché opcional de las llamadas al Modelo 1 (``AI_PERF_CACHE``)."""
+
+    _gateway: ModelGateway
+    _cache: "TtlCache | None"
+    _namespace: str
+
+    def _cached_call(self, trace_id: str, entrada: InterpretInput | ExplainInput):
+        """Salida del Modelo 1 para ``entrada``: de la caché (sin llamada ni presupuesto) o del gateway.
+
+        Antes de la caché se aplica el mismo control de datos sensibles que el gateway (BR-13)."""
+        if self._cache is None:
+            return self._gateway.call(trace_id, entrada).salida
+        from ai_service.perf.cache import cache_key, record_hit, record_miss
+
+        payload = entrada.model_dump_json()
+        ensure_no_sensitive_data(payload)
+        stage = "interpretacion" if entrada.tarea == "interpretar" else "explicacion"
+        key = cache_key(self._namespace, INSTRUCTIONS_VERSION[entrada.tarea], payload)
+        cached = self._cache.get(key)
+        if cached is not None:
+            record_hit(stage)
+            return cached
+        output = self._gateway.call(trace_id, entrada).salida
+        self._cache.put(key, output)
+        record_miss(stage)
+        return output
+
+
+class LlmBackedInterpreter(_CachedModelCall):
     """Intérprete que usa el Modelo 1 a través de :class:`ModelGateway`.
 
     Solo envía el mensaje y los turnos del **usuario**: los turnos del asistente pueden contener
     cifras reales y no se reenvían (BR-13). El contexto de pantalla viaja como referencia.
     """
 
-    def __init__(self, gateway: ModelGateway) -> None:
+    def __init__(self, gateway: ModelGateway, *, cache: "TtlCache | None" = None, namespace: str = "") -> None:
+        """``cache`` (``AI_PERF_CACHE``): salida para la misma entrada exacta; ``namespace`` identifica modelo,
+        esfuerzo e instrucciones, para no reutilizar una salida de otra configuración."""
         self._gateway = gateway
+        self._cache = cache
+        self._namespace = namespace
 
     def interpret(self, request: QueryRequest) -> Interpretation:
         history = [Turn(rol="usuario", texto=text) for text in user_turns(request)]
         entrada = InterpretInput(
             tarea="interpretar", mensaje=request.mensaje, historial=history, contexto=request.contexto
         )
-        output = self._gateway.call(request.id_traza, entrada).salida
+        output = self._cached_call(request.id_traza, entrada)
         if not isinstance(output, InterpretOutput):
             raise ModelUnavailable("Salida de interpretación inesperada.")
         return Interpretation(
@@ -157,11 +194,13 @@ class LlmBackedInterpreter:
         )
 
 
-class LlmBackedExplainer:
+class LlmBackedExplainer(_CachedModelCall):
     """Explicador que usa el Modelo 1 **solo con marcadores** y verifica la salida (T023)."""
 
-    def __init__(self, gateway: ModelGateway) -> None:
+    def __init__(self, gateway: ModelGateway, *, cache: "TtlCache | None" = None, namespace: str = "") -> None:
         self._gateway = gateway
+        self._cache = cache
+        self._namespace = namespace
 
     def explain(
         self,
@@ -186,7 +225,7 @@ class LlmBackedExplainer:
             consulta=consulta,
             significados=[Meaning(marcador=m, significado=s) for m, s in (meanings or {}).items()],
         )
-        output = self._gateway.call(trace_id, entrada).salida
+        output = self._cached_call(trace_id, entrada)
         if not isinstance(output, ExplainOutput):
             raise ModelUnavailable("Salida de explicación inesperada.")
         return render_verified(output.texto, figures, text_labels)  # MarkerValidationError si no es segura

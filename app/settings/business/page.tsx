@@ -99,6 +99,11 @@ export default function RestaurantBusinessSettingsPage() {
         throw new Error(err.error || "Error al guardar configuración.");
       }
 
+      const resJson = await res.json().catch(() => null);
+      if (resJson?.data) {
+        setForm((prev) => ({ ...prev, ...resJson.data }));
+      }
+
       toast.success("¡Datos del restaurante actualizados correctamente!");
     } catch (err: any) {
       toast.error(err.message || "No se pudo actualizar los datos.");
