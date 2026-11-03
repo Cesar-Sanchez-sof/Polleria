@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { UserError } from "@/lib/services/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
+import { terminateContractsOnDeparture } from "@/lib/services/contracts.service";
 
 export const CONTRACT_TYPES = ["Planilla", "Part-time", "Por horas", "Locación de servicios", "Prácticas"] as const;
 
@@ -266,23 +267,26 @@ export async function updateEmployee(id: number, data: EmployeeData): Promise<Em
 
 /**
  * Baja o reingreso lógico (no se borra: hay compras, planillas y auditoría que lo referencian).
- * Al dar de baja se desactivan también sus usuarios para que no sigan entrando al sistema.
+ * Al dar de baja se desactivan también sus usuarios para que no sigan entrando al sistema
+ * y se rescinden sus contratos abiertos.
  */
 export async function setEmployeeActive(
   id: number,
   active: boolean,
-): Promise<{ employee: EmployeeDto; users_deactivated: number }> {
+): Promise<{ employee: EmployeeDto; users_deactivated: number; contracts_terminated: number }> {
   return prisma.$transaction(async (tx) => {
     const current = await tx.employee.findUnique({ where: { id }, select: { id: true } });
     if (!current) throw new UserError("Empleado no encontrado", 404);
     await tx.employee.update({ where: { id }, data: { active } });
     let usersDeactivated = 0;
+    let contractsTerminated = 0;
     if (!active) {
       const res = await tx.user.updateMany({ where: { employeeId: id, active: true }, data: { active: false } });
       usersDeactivated = res.count;
+      contractsTerminated = await terminateContractsOnDeparture(tx, id);
     }
     const e = await tx.employee.findUniqueOrThrow({ where: { id }, include: employeeInclude() });
-    return { employee: mapEmployee(e), users_deactivated: usersDeactivated };
+    return { employee: mapEmployee(e), users_deactivated: usersDeactivated, contracts_terminated: contractsTerminated };
   });
 }
 

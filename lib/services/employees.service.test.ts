@@ -8,6 +8,8 @@ const m = vi.hoisted(() => ({
   employeeUpdate: vi.fn(),
   userFindFirst: vi.fn(),
   userUpdateMany: vi.fn(),
+  contractFindMany: vi.fn(),
+  contractUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -21,6 +23,7 @@ vi.mock("@/lib/prisma", () => {
       update: m.employeeUpdate,
     },
     user: { findFirst: m.userFindFirst, updateMany: m.userUpdateMany },
+    employmentContract: { findMany: m.contractFindMany, update: m.contractUpdate },
     $transaction: (fn: (tx: unknown) => unknown) => fn(db),
   };
   return { prisma: db };
@@ -78,6 +81,8 @@ beforeEach(() => {
   m.employeeFindUniqueOrThrow.mockResolvedValue(row);
   m.userFindFirst.mockResolvedValue(null);
   m.userUpdateMany.mockResolvedValue({ count: 0 });
+  m.contractFindMany.mockResolvedValue([]);
+  m.contractUpdate.mockResolvedValue({});
 });
 
 describe("normalizeEmployee", () => {
@@ -137,9 +142,23 @@ describe("setEmployeeActive", () => {
     expect(m.userUpdateMany).toHaveBeenCalledWith({ where: { employeeId: 7, active: true }, data: { active: false } });
   });
 
+  it("la baja rescinde los contratos abiertos del empleado", async () => {
+    m.contractFindMany.mockResolvedValue([
+      { id: 3, startDate: new Date("2026-01-01"), endDate: null },
+      { id: 4, startDate: new Date("2026-01-01"), endDate: new Date("2026-02-01") }, // ya venció solo
+    ]);
+    const r = await setEmployeeActive(7, false);
+    expect(r.contracts_terminated).toBe(1);
+    expect(m.contractUpdate).toHaveBeenCalledTimes(1);
+    expect(m.contractUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 3 }, data: expect.objectContaining({ terminationReason: "Baja del empleado" }) }),
+    );
+  });
+
   it("el reingreso no toca a los usuarios", async () => {
     await setEmployeeActive(7, true);
     expect(m.userUpdateMany).not.toHaveBeenCalled();
+    expect(m.contractFindMany).not.toHaveBeenCalled();
   });
 });
 
