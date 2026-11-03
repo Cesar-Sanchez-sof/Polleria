@@ -64,6 +64,8 @@ export interface ProxyDeps {
   geminiErp?: boolean;
   /** Agente GPT OSS vía Groq (`AI_GROQ_SQL=1`): mismos requisitos que el agente Gemini. */
   groqErp?: boolean;
+  /** Dictado por voz disponible (`AI_ASSISTANT_VOICE=1` y `GROQ_API_KEY`): solo se informa al navegador para mostrar el botón. */
+  voice?: boolean;
   /** Modelo R disponible; por defecto sí. Con un agente activo solo si se pide con `AI_MODEL_R=1`. */
   modelR?: boolean;
 }
@@ -94,19 +96,30 @@ function availableModels(deps: ProxyDeps): AssistantModelId[] {
 }
 
 /**
+ * Sesión del ERP, rol del asistente y, en evaluación, cuentas evaluadoras: los controles de acceso comunes
+ * del chat y del dictado por voz. El rol se deriva siempre de la sesión del servidor.
+ */
+export async function authorizeAssistant(
+  config: AssistantConfig,
+  getSession: () => Promise<SessionPayload | null>,
+): Promise<Gate> {
+  const session = await getSession().catch(() => null);
+  if (!session) return { ok: false, result: error(401, MESSAGES.unauthorized) };
+  const role = assistantRoleFor(session.role);
+  if (!role) return { ok: false, result: error(403, MESSAGES.forbidden) };
+  // Evaluación: solo las cuentas evaluadoras configuradas, aunque otros usuarios tengan el mismo rol.
+  const allowed = config.enabled ? config.allowedUserIds : null;
+  if (allowed !== null && !allowed.includes(session.userId)) return { ok: false, result: error(403, MESSAGES.forbidden) };
+  return { ok: true, session, role };
+}
+
+/**
  * `modelo`: el que se va a usar; `"estado"` solo valida sesión y rol (el globo se muestra aunque no haya
  * modelos, con el aviso de que no hay disponibles).
  */
 async function gate(deps: ProxyDeps, modelo: AssistantModelId | "estado"): Promise<Gate> {
   if (modelo !== "estado" && !availableModels(deps).includes(modelo)) return { ok: false, result: error(404, MESSAGES.disabled) };
-  const session = await deps.session().catch(() => null);
-  if (!session) return { ok: false, result: error(401, MESSAGES.unauthorized) };
-  const role = assistantRoleFor(session.role);
-  if (!role) return { ok: false, result: error(403, MESSAGES.forbidden) };
-  // Evaluación: solo las cuentas evaluadoras configuradas, aunque otros usuarios tengan el mismo rol.
-  const allowed = deps.config.enabled ? deps.config.allowedUserIds : null;
-  if (allowed !== null && !allowed.includes(session.userId)) return { ok: false, result: error(403, MESSAGES.forbidden) };
-  return { ok: true, session, role };
+  return authorizeAssistant(deps.config, deps.session);
 }
 
 /** GET: estado del asistente para el usuario actual (aplica los mismos controles que POST). */
@@ -122,6 +135,7 @@ export async function handleStatus(deps: ProxyDeps): Promise<ProxyResult> {
       enabled: true,
       fakeData: rOn && config.enabled ? !config.realData : false,
       usuario: checked.session.userId,
+      dictado: deps.voice === true && disponibles.length > 0,
       // Los agentes consultan siempre datos reales; los datos ficticios son solo del Modelo R.
       suggestions: config.enabled ? (rOn && !config.realData ? DEMO_SUGGESTIONS : REAL_DATA_SUGGESTIONS) : [],
       modelos: disponibles.map((id) => MODEL_INFO[id]),

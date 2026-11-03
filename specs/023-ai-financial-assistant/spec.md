@@ -101,7 +101,8 @@ equipo; aún pendiente de evaluación e integración**.
 - Crear, modificar, anular o eliminar cualquier registro: asientos, cuentas, períodos, compras o
   ventas.
 - Gráficos, tablas, tarjetas de indicadores, archivos adjuntos o exportaciones dentro del chat.
-- Entrada o salida por voz, y respuestas en idiomas distintos del español.
+- Salida por voz, y respuestas en idiomas distintos del español. (La **entrada** por voz se añadió
+  después como dictado opcional, apagado por defecto: ver «Dictado por voz» más abajo.)
 - Persistencia de la conversación entre sesiones, pestañas o dispositivos.
 - Pantallas fuera de la lista explícita de P-2: módulos distintos de Contabilidad,
   `/accounting/guide` y `/accounting/income-statement` mientras sea una página vacía. Cualquier
@@ -1156,3 +1157,15 @@ Sidebar (CS-1), estado de resultados y entrenamiento detallado del Modelo 2 (spe
 ([plan.md](./plan.md)). Las decisiones marcadas [PROPUESTO], [NEEDS CLARIFICATION] o PENDIENTE
 deben resolverse antes de implementar las funcionalidades que dependen de ellas, y el futuro
 `tasks.md` puede recoger explícitamente esas dependencias y bloqueos.*
+
+## Dictado por voz (adenda)
+
+Entrada por voz opcional del asistente. **Apagada por defecto** (`AI_ASSISTANT_VOICE=1` y `GROQ_API_KEY`).
+
+- El navegador graba (máx. 60 s) y envía el audio a `POST /api/assistant/transcribe`, que lo reenvía a Whisper
+  (`whisper-large-v3-turbo`) en Groq y devuelve solo el texto. El audio no se guarda ni se registra.
+- El texto se escribe en la caja de pregunta; **nunca se envía solo**: el usuario lo revisa y lo envía.
+- Mismos controles de acceso que el chat (sesión, rol ADMIN, cuentas evaluadoras), tipo y tamaño de audio
+  acotados (3 MB) y límite de 10 dictados por usuario y minuto.
+- Privacidad: el audio sale a un tercero (Groq); los usuarios deben saberlo antes de activar la función.
+- `Permissions-Policy` permite el micrófono solo al propio sitio (`microphone=(self)`).
