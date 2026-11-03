@@ -195,6 +195,9 @@ model User {
   cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
   cashSessionsClosed CashSession[]      @relation("CashSessionClosedBy")
   auditLogs          AuditLog[]
+  dashboardsCreated       Dashboard[]             @relation("DashboardCreatedBy")
+  dashboardSharesCreated  DashboardShare[]        @relation("DashboardShareCreatedBy")
+  favoriteDashboards      UserDashboardFavorite[] @relation("UserFavoriteDashboards")
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -847,4 +850,83 @@ model DeveloperSetting {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
   @@map("developer_setting")
+}
+
+// =====================================================================
+// MODULE: CENTRAL DASHBOARDS (POWER BI STYLE)
+// =====================================================================
+
+model DashboardSection {
+  id         String      @id @default(uuid())
+  name       String      @db.VarChar(100)
+  order      Int         @default(0)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  
+  dashboards Dashboard[]
+
+  @@map("dashboard_section")
+}
+
+model Dashboard {
+  id              String           @id @default(uuid())
+  name            String           @db.VarChar(150)
+  sectionId       String           @map("section_id")
+  isPublished     Boolean          @default(false) @map("is_published")
+  accessGroups    String[]         @map("access_groups") 
+  allowedUsers    String[]         @map("allowed_users") 
+  createdById     Int              @map("created_by_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  
+  section         DashboardSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdBy       User             @relation("DashboardCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  widgets         DashboardWidget[]
+  shares          DashboardShare[]
+  favorites       UserDashboardFavorite[]
+
+  @@map("dashboard")
+}
+
+model DashboardWidget {
+  id          String    @id @default(uuid())
+  dashboardId String    @map("dashboard_id")
+  title       String    @db.VarChar(150)
+  type        String    @db.VarChar(30) 
+  metricKey   String    @map("metric_key") @db.VarChar(50) 
+  x           Int       @default(0)
+  y           Int       @default(0)
+  w           Int       @default(4)
+  h           Int       @default(2)
+  config      Json?     
+  
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@map("dashboard_widget")
+}
+
+model DashboardShare {
+  id          String    @id @default(uuid())
+  name        String    @db.VarChar(150) 
+  dashboardId String    @map("dashboard_id")
+  createdById Int       @map("created_by_id")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("DashboardShareCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@map("dashboard_share")
+}
+
+model UserDashboardFavorite {
+  userId      Int       @map("user_id")
+  dashboardId String    @map("dashboard_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  user        User      @relation("UserFavoriteDashboards", fields: [userId], references: [id], onDelete: Cascade)
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@id([userId, dashboardId])
+  @@map("user_dashboard_favorite")
 }
