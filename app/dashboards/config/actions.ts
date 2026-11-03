@@ -14,8 +14,10 @@ import {
   createShareLink,
   toggleShareLinkActive,
   deleteShareLinks,
+  updateDashboardWidgets,
   type CreateDashboardData,
   type UpdateDashboardData,
+  type DashboardWidgetInput,
 } from "@/lib/services/dashboard.service";
 
 // ============================================================================
@@ -165,5 +167,27 @@ export async function deleteShareLinksAction(ids: string[]) {
     return { success: true, count };
   } catch (error: any) {
     return { success: false, error: error.message || "Error al eliminar enlaces" };
+  }
+}
+
+// ============================================================================
+// Server Action para Guardar Widgets de un Tablero
+// ============================================================================
+
+export async function updateDashboardWidgetsAction(
+  dashboardId: string,
+  widgetsData: DashboardWidgetInput[]
+) {
+  try {
+    const updated = await updateDashboardWidgets(dashboardId, widgetsData);
+    revalidatePath("/dashboards");
+    revalidatePath(`/dashboards/${dashboardId}`);
+    revalidatePath(`/dashboards/${dashboardId}/edit`);
+    return { success: true, data: updated };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Error al actualizar los widgets del tablero",
+    };
   }
 }

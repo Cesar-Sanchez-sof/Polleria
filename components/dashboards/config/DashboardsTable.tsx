@@ -455,7 +455,7 @@ export function DashboardsTable({
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-end gap-1.5">
-                        <Link href={`/dashboards?id=${d.id}`}>
+                        <Link href={`/dashboards/${d.id}`}>
                           <Button
                             variant="ghost"
                             size="xs"
@@ -467,7 +467,7 @@ export function DashboardsTable({
                           </Button>
                         </Link>
 
-                        <Link href={`/dashboards?id=${d.id}&edit=true`}>
+                        <Link href={`/dashboards/${d.id}/edit`}>
                           <Button
                             variant="outline"
                             size="xs"

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useTransition, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Star,
@@ -39,8 +39,11 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ sections, dashboards }: DashboardSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const currentId = searchParams.get("id");
+  const pathnameMatch = pathname.match(/^\/dashboards\/([^/]+)/);
+  const pathId = pathnameMatch && pathnameMatch[1] !== "config" ? pathnameMatch[1] : null;
+  const currentId = pathId || searchParams.get("id");
 
   const [localSections, setLocalSections] = useState<DashboardSection[]>(sections);
 
@@ -195,7 +198,7 @@ export function DashboardSidebar({ sections, dashboards }: DashboardSidebarProps
                     return (
                       <Link
                         key={`fav-${d.id}`}
-                        href={`/dashboards?id=${d.id}`}
+                        href={`/dashboards/${d.id}`}
                         className={`group flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                           isActive
                             ? "bg-primary/10 text-primary font-semibold border border-primary/20 shadow-2xs"
@@ -270,7 +273,7 @@ export function DashboardSidebar({ sections, dashboards }: DashboardSidebarProps
                           return (
                             <Link
                               key={d.id}
-                              href={`/dashboards?id=${d.id}`}
+                              href={`/dashboards/${d.id}`}
                               className={`group flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                                 isActive
                                   ? "bg-primary/10 text-primary font-semibold border border-primary/20 shadow-2xs"
@@ -343,7 +346,7 @@ export function DashboardSidebar({ sections, dashboards }: DashboardSidebarProps
                     return (
                       <Link
                         key={d.id}
-                        href={`/dashboards?id=${d.id}`}
+                        href={`/dashboards/${d.id}`}
                         className={`group flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                           isActive
                             ? "bg-primary/10 text-primary font-semibold border border-primary/20 shadow-2xs"
