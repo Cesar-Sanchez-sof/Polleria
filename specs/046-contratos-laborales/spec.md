@@ -21,7 +21,7 @@ régimen y de las fechas del contrato.
 - Registrar, editar, **renovar** y **rescindir** contratos; historial por empleado.
 - Estado calculado por fechas (no se guarda): *por iniciar*, *vigente*, *por vencer* (30 días o menos),
   *vencido* y *rescindido*.
-- Tablero: vigentes, por vencer, vencidos sin renovar y empleados sin contrato vigente.
+- Pestañas por estado con conteo y aviso de los empleados sin contrato vigente (sin tarjetas de indicadores).
 - Al dar de baja a un empleado se rescinden sus contratos abiertos.
 
 **Fuera de alcance** (features siguientes): cálculo de planilla, gratificaciones, CTS, vacaciones,
