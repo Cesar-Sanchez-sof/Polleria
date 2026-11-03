@@ -209,13 +209,23 @@ model User {
 // MODULE 2: HUMAN RESOURCES (PAYROLL)
 // =====================================================================
 
-/// Tipo de contrato: a plazo fijo (tiempo determinado), a plazo indeterminado o contrato privado (sin vínculo laboral).
+/// Tipo de contrato: a plazo fijo (tiempo determinado), a plazo indeterminado, contrato privado (sin vínculo laboral)
+/// o convenio de prácticas (modalidad formativa, Ley 28518: tampoco es vínculo laboral).
 enum ContractKind {
   FixedTerm
   Indefinite
   Private
+  Internship
 
   @@map("contract_kind")
+}
+
+/// Modalidad del convenio de prácticas (Ley 28518).
+enum InternshipModality {
+  PreProfessional
+  Professional
+
+  @@map("internship_modality")
 }
 
 /// Régimen laboral que fija gratificaciones, CTS y vacaciones. `None` para el contrato privado.
@@ -250,6 +260,8 @@ model EmploymentContract {
   weeklyHours       Int                  @default(48) @map("weekly_hours") @db.SmallInt
   position          String?              @db.VarChar(30)
   pensionSystem     PensionSystem        @default(ONP) @map("pension_system")
+  /// Solo en el convenio de prácticas: preprofesional (jornada máx. 30 h) o profesional (48 h).
+  internshipModality InternshipModality? @map("internship_modality")
   familyAllowance   Boolean              @default(false) @map("family_allowance")
   notes             String?              @db.VarChar(300)
   renewsContractId  Int?                 @map("renews_contract_id")

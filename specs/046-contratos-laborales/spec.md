@@ -15,8 +15,9 @@ régimen y de las fechas del contrato.
 
 **Incluido**
 
-- Tres tipos: **plazo fijo** (tiempo determinado), **plazo indeterminado** y **contrato privado**
-  (acuerdo civil, por ejemplo locación de servicios: sin vínculo laboral).
+- Cuatro tipos: **plazo fijo** (tiempo determinado), **plazo indeterminado**, **contrato privado**
+  (acuerdo civil, por ejemplo locación de servicios: sin vínculo laboral) y **convenio de prácticas**
+  (practicante, Ley 28518: modalidad formativa, tampoco es vínculo laboral).
 - Registrar, editar, **renovar** y **rescindir** contratos; historial por empleado.
 - Estado calculado por fechas (no se guarda): *por iniciar*, *vigente*, *por vencer* (30 días o menos),
   *vencido* y *rescindido*.
@@ -48,6 +49,11 @@ sistema de pensiones (`PensionSystem`), asignación familiar, observaciones, `re
 - **FR-007** Rescindir exige fecha (dentro de la vigencia) y motivo.
 - **FR-008** Permisos `contratos.ver`, `contratos.crear` (registrar y renovar) y `contratos.editar`
   (editar y rescindir). No hay `eliminar`: el contrato es un registro legal. Toda acción queda en auditoría.
+
+- **FR-009** Convenio de prácticas: modalidad obligatoria (preprofesional o profesional), fecha de fin obligatoria,
+  sin régimen, pensiones ni asignación familiar. El monto mensual es una **subvención**, no remuneración. Jornada
+  máxima de 30 horas semanales (preprofesional) o 48 (profesional). No se valida el monto mínimo (la remuneración
+  mínima vital) ni los topes de duración o de porcentaje de practicantes: pendiente de confirmar en el reglamento.
 
 ## API
 

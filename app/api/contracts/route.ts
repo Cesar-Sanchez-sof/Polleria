@@ -34,7 +34,7 @@ const STATUSES: readonly ContractStatus[] = ["upcoming", "active", "expiring", "
  *         name: kind
  *         schema:
  *           type: string
- *           enum: [FixedTerm, Indefinite, Private]
+ *           enum: [FixedTerm, Indefinite, Private, Internship]
  *     responses:
  *       200:
  *         description: Contratos con su estado calculado por fechas y empleados activos

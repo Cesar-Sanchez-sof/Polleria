@@ -3,8 +3,28 @@
  * la pantalla y las pruebas. Las fechas son "AAAA-MM-DD" (se comparan como texto).
  */
 
-export const CONTRACT_KINDS = ["FixedTerm", "Indefinite", "Private"] as const;
+export const CONTRACT_KINDS = ["FixedTerm", "Indefinite", "Private", "Internship"] as const;
 export type ContractKind = (typeof CONTRACT_KINDS)[number];
+
+/** Solo plazo fijo e indeterminado crean vínculo laboral (régimen, pensiones, beneficios). */
+export function hasLaborLink(kind: ContractKind): boolean {
+  return kind === "FixedTerm" || kind === "Indefinite";
+}
+
+/** Convenio de prácticas (Ley 28518): modalidad formativa, no es un contrato de trabajo. */
+export const INTERNSHIP_MODALITIES = ["PreProfessional", "Professional"] as const;
+export type InternshipModality = (typeof INTERNSHIP_MODALITIES)[number];
+
+export const INTERNSHIP_MODALITY_LABEL: Record<InternshipModality, string> = {
+  PreProfessional: "Prácticas preprofesionales",
+  Professional: "Prácticas profesionales",
+};
+
+/** Jornada semanal máxima del practicante: 6 h diarias / 30 semanales (preprofesional) u 8 / 48 (profesional). */
+export const INTERNSHIP_MAX_WEEKLY_HOURS: Record<InternshipModality, number> = {
+  PreProfessional: 30,
+  Professional: 48,
+};
 
 /** Regímenes con vínculo laboral. El contrato privado no tiene régimen (`None`). */
 export const LABOR_REGIMES = ["General", "Micro", "Small"] as const;
@@ -17,12 +37,15 @@ export const CONTRACT_KIND_LABEL: Record<ContractKind, string> = {
   FixedTerm: "Plazo fijo",
   Indefinite: "Plazo indeterminado",
   Private: "Contrato privado",
+  Internship: "Convenio de prácticas",
 };
 
 export const CONTRACT_KIND_HINT: Record<ContractKind, string> = {
   FixedTerm: "Tiempo determinado: tiene fecha de inicio y de fin.",
   Indefinite: "Sin fecha de fin.",
   Private: "Acuerdo civil (por ejemplo locación de servicios): no genera vínculo laboral ni beneficios.",
+  Internship:
+    "Practicante (Ley 28518): no es trabajador. Recibe una subvención, no remuneración; sin CTS, gratificación ni ONP/AFP.",
 };
 
 export const LABOR_REGIME_LABEL: Record<LaborRegime, string> = {

@@ -122,6 +122,47 @@ describe("normalizeContract", () => {
     expect(n).toMatchObject({ regime: "None", pensionSystem: "None", familyAllowance: false });
   });
 
+  describe("convenio de prácticas", () => {
+    const internship: ContractData = {
+      ...fixedTerm,
+      kind: "Internship",
+      internship_modality: "PreProfessional",
+      monthly_salary: 1230,
+      weekly_hours: 30,
+    };
+
+    it("no tiene régimen, pensiones ni asignación familiar", () => {
+      const n = normalizeContract({ ...internship, regime: "General", pension_system: "AFP", family_allowance: true });
+      expect(n).toMatchObject({
+        kind: "Internship",
+        regime: "None",
+        pensionSystem: "None",
+        familyAllowance: false,
+        internshipModality: "PreProfessional",
+      });
+    });
+
+    it("exige modalidad y fecha de fin", () => {
+      expect(() => normalizeContract({ ...internship, internship_modality: "" })).toThrow(/modalidad/);
+      expect(() => normalizeContract({ ...internship, internship_modality: "Otra" })).toThrow(/modalidad/);
+      expect(() => normalizeContract({ ...internship, end_date: null })).toThrow(/fecha de fin/);
+    });
+
+    it("limita la jornada a 30 horas en preprofesional y a 48 en profesional", () => {
+      expect(() => normalizeContract({ ...internship, weekly_hours: 31 })).toThrow(/entre 1 y 30/);
+      expect(normalizeContract({ ...internship, internship_modality: "Professional", weekly_hours: 48 }).weeklyHours).toBe(48);
+      expect(normalizeContract({ ...internship, weekly_hours: "" }).weeklyHours).toBe(30);
+    });
+
+    it("habla de subvención y no de remuneración", () => {
+      expect(() => normalizeContract({ ...internship, monthly_salary: 0 })).toThrow(/subvención/);
+    });
+
+    it("los demás tipos no guardan modalidad", () => {
+      expect(normalizeContract({ ...fixedTerm, internship_modality: "Professional" }).internshipModality).toBeNull();
+    });
+  });
+
   it("con vínculo laboral exige régimen y sistema de pensiones", () => {
     expect(() => normalizeContract({ ...fixedTerm, regime: "" })).toThrow(/régimen/);
     expect(() => normalizeContract({ ...fixedTerm, regime: "None" })).toThrow(/régimen/);

@@ -18,6 +18,7 @@ import { usePermissions } from "@/components/personalized/PermissionsProvider";
 import {
   CONTRACT_KIND_LABEL,
   CONTRACT_STATUS_LABEL,
+  INTERNSHIP_MODALITY_LABEL,
   LABOR_REGIME_LABEL,
   limaToday,
   type ContractStatus,
@@ -166,11 +167,14 @@ export default function ContractsPage() {
       sortValue: (c) => c.kind,
       cell: (c) => (
         <div className="flex flex-col items-start gap-1">
-          <Tag tone={c.kind === "Private" ? "amber" : c.kind === "FixedTerm" ? "blue" : "emerald"} size="sm">
+          <Tag
+            tone={c.kind === "Private" ? "amber" : c.kind === "FixedTerm" ? "blue" : c.kind === "Internship" ? "indigo" : "emerald"}
+            size="sm"
+          >
             {CONTRACT_KIND_LABEL[c.kind]}
           </Tag>
           <span className="text-[11px] text-muted-foreground">
-            {LABOR_REGIME_LABEL[c.regime]}
+            {c.internship_modality ? INTERNSHIP_MODALITY_LABEL[c.internship_modality] : LABOR_REGIME_LABEL[c.regime]}
             {c.renews_contract_id ? " · Renovación" : ""}
           </span>
         </div>
@@ -195,7 +199,7 @@ export default function ContractsPage() {
     },
     {
       key: "salary",
-      header: "Remuneración",
+      header: "Remuneración / subvención",
       align: "right",
       sortable: true,
       sortValue: (c) => c.monthly_salary,

@@ -3,6 +3,8 @@ import {
   addDays,
   contractStatus,
   daysBetween,
+  hasLaborLink,
+  INTERNSHIP_MAX_WEEKLY_HOURS,
   isCurrentOrUpcoming,
   limaToday,
   periodsOverlap,
@@ -10,6 +12,19 @@ import {
 } from "./contracts";
 
 const TODAY = "2026-11-03";
+
+describe("vínculo laboral", () => {
+  it("solo el plazo fijo y el indeterminado crean vínculo laboral", () => {
+    expect(hasLaborLink("FixedTerm")).toBe(true);
+    expect(hasLaborLink("Indefinite")).toBe(true);
+    expect(hasLaborLink("Private")).toBe(false);
+    expect(hasLaborLink("Internship")).toBe(false);
+  });
+
+  it("la jornada del practicante tiene tope según la modalidad", () => {
+    expect(INTERNSHIP_MAX_WEEKLY_HOURS).toEqual({ PreProfessional: 30, Professional: 48 });
+  });
+});
 
 describe("limaToday", () => {
   it("usa la fecha de Lima aunque en UTC ya sea el día siguiente", () => {
