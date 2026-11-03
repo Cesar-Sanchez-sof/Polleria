@@ -96,6 +96,8 @@ model Role {
   isSystem    Boolean          @default(false) @map("is_system")
   permissions RolePermission[]
   users       User[]
+  dashboardAccess DashboardRoleAccess[]
+
 
   @@map("role")
 }
@@ -199,6 +201,7 @@ model User {
   dashboardsCreated       Dashboard[]             @relation("DashboardCreatedBy")
   dashboardSharesCreated  DashboardShare[]        @relation("DashboardShareCreatedBy")
   favoriteDashboards      UserDashboardFavorite[] @relation("UserFavoriteDashboards")
+  dashboardAccess         DashboardUserAccess[]
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -942,6 +945,8 @@ model Dashboard {
   widgets         DashboardWidget[]
   shares          DashboardShare[]
   favorites       UserDashboardFavorite[]
+  roleAccess      DashboardRoleAccess[]
+  userAccess      DashboardUserAccess[]
 
   @@map("dashboard")
 }
@@ -987,4 +992,34 @@ model UserDashboardFavorite {
 
   @@id([userId, dashboardId])
   @@map("user_dashboard_favorite")
+}
+
+// Nueva tabla para roles
+model DashboardRoleAccess {
+  id          String    @id @default(uuid())
+  dashboardId String    @map("dashboard_id")
+  roleId      Int       @map("role_id")
+  canView     Boolean   @default(true)
+  canEdit     Boolean   @default(false) // Permite editar el diseño
+  
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, roleId])
+  @@map("dashboard_role_access")
+}
+
+// Nueva tabla para usuarios específicos
+model DashboardUserAccess {
+  id          String    @id @default(uuid())
+  dashboardId String    @map("dashboard_id")
+  userId      Int       @map("user_id")
+  canView     Boolean   @default(true)
+  canEdit     Boolean   @default(false)
+  
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, userId])
+  @@map("dashboard_user_access")
 }

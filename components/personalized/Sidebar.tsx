@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   Component, User, LogOut, X, Menu, ChevronDown, Ticket, ChefHat, ShoppingCart,
-  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, Briefcase, type LucideIcon,
+  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, Briefcase, LayoutDashboard, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,7 +33,7 @@ interface NavSection {
   label: string;
   icon: LucideIcon;
   /** Clave en SECTIONS: permisos cuya presencia hace visible el grupo. */
-  permissions: string;
+  permissions?: string;
   items: NavItem[];
 }
 
@@ -46,6 +46,16 @@ const SUBGROUP_ICONS: Record<string, LucideIcon> = {
 };
 
 const NAV_SECTIONS: NavSection[] = [
+  {
+    key: "tableros",
+    label: "TABLEROS",
+    icon: LayoutDashboard,
+    permissions: "tableros",
+    items: [
+      { label: "Ver Tableros", href: "/dashboards", path: "dashboards" },
+      { label: "Configuración", href: "/dashboards/config", path: "dashboards-config" },
+    ],
+  },
   {
     key: "ventas", label: "VENTAS", icon: Ticket, permissions: "restaurant",
     items: [
@@ -210,7 +220,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
     if (cleanHref === "/") return pathname === "/";
     // Los enlaces con query (/sales?tab=...) y /sales son pantallas de una sola ruta: sus subrutas
     // (/sales/kitchen/products, /sales/kitchen/kds...) tienen su propio enlace en el menú.
-    const exactOnly = Boolean(hrefQuery) || cleanHref === "/sales";
+    const exactOnly = Boolean(hrefQuery) || cleanHref === "/sales" || cleanHref === "/dashboards";
     if (!(pathname === cleanHref || (!exactOnly && pathname.startsWith(cleanHref + "/")))) return false;
 
     // Si el enlace trae query (p.ej. ?tab=tables), solo activo si coincide exactamente
@@ -334,7 +344,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs">
             {NAV_SECTIONS.map((section) => {
-              if (!canAny(SECTIONS[section.permissions])) return null;
+              if (section.permissions && !canAny(SECTIONS[section.permissions])) return null;
               const Icon = section.icon;
               const open = isSectionOpen(section.key);
               const hasActive = section.items.some((item) => isLinkActive(item.href));
@@ -362,6 +372,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                     <div className="flex flex-col ml-[1.15rem] pl-2 gap-0.5 border-l border-surface-container-high">
                       {groupItems(section.items).map(({ group, items }) => {
                         const visible = items.filter((item) => {
+                          if (!section.permissions) return true;
                           const permission = linkPermission(item.href);
                           // Denegado por defecto: un enlace sin permiso asignado no se muestra.
                           return permission !== null && can(permission);
