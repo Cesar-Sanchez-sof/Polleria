@@ -6,6 +6,8 @@ cadenas de conexión son ficticias (dominio ``.invalid``) y nunca se leen variab
 
 from __future__ import annotations
 
+import re
+
 import importlib
 import sys
 from contextlib import contextmanager
@@ -68,8 +70,9 @@ class DbError(Exception):
 
 class FakeConnection:
     def __init__(self, rows=(("101", "Activo", Decimal("1800.00"), Decimal("650.40")),), names=NAMES,
-                 read_only: str = "on", error: Exception | None = None) -> None:
+                 read_only: str = "on", error: Exception | None = None, children=()) -> None:
         self.rows, self.names, self.read_only, self.error = list(rows), names, read_only, error
+        self.children = list(children)  # subcuentas que devuelve la consulta de alcance del agente (por defecto, ninguna)
         self.statements: list[str] = []
         self.in_transaction = False
         self.closed = False
@@ -99,6 +102,11 @@ class FakeConnection:
             return SimpleNamespace()
         if self.error is not None:
             raise self.error
+        if re.search(r"aa\.code <> '\d+'", sql):  # consulta de subcuentas del agente
+            return SimpleNamespace(
+                description=[SimpleNamespace(name=n) for n in ("code", "name")],
+                fetchmany=lambda size: self.children[:size],
+            )
         return SimpleNamespace(
             description=[SimpleNamespace(name=n) for n in self.names],
             fetchmany=lambda size: self.rows[:size],

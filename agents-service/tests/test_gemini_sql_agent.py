@@ -25,6 +25,10 @@ from agents_service.auth.identity import IDENTITY_HEADER
 from agents_service.config.settings import IDENTITY_KEY_VAR, TOKEN_VAR, load_service_settings
 from agents_service.execution.postgres_readonly import SESSION_STATEMENTS, PostgresReadOnlyExecutor
 from agents_service.gemini_sql.agent import (
+    ACCOUNT_CODE_TEXT,
+    SCOPE_MISMATCH_TEXT,
+    _account_codes,
+    _scope_choice,
     MAX_ROWS,
     AgentRefusal,
     AgentUnavailable,
@@ -54,7 +58,7 @@ MODULES = load_erp_modules(ROOT / "knowledge" / "erp_modules_v1.json")
 VALIDATOR = SqlValidator(ALLOWLIST)
 VERIFIED = AuthorizationContext(rol="contador_demo", origen="erp-session", autenticado=True)
 NOW = datetime(2026, 10, 26, 17, 0, tzinfo=timezone.utc)
-QUESTION = "¿Cuál fue el saldo de la cuenta 101 en septiembre?"
+QUESTION = "¿Cuál fue el saldo de caja y bancos en septiembre?"  # sin número de cuenta: no dispara la pregunta de alcance
 GOOD_SQL = (
     "SELECT aa.code AS account_code, SUM(jed.debit) AS total_debit, SUM(jed.credit) AS total_credit "
     "FROM journal_entry_detail jed JOIN accounting_account aa ON aa.id = jed.account_id "
@@ -81,11 +85,12 @@ def as_json(sql: str) -> str:
     return json.dumps({"sql": sql})
 
 
-def request(message: str = QUESTION, user: int = 7, trace: str = "erp-0123456789abcdef") -> QueryRequest:
+def request(message: str = QUESTION, user: int = 7, trace: str = "erp-0123456789abcdef", history: tuple[str, ...] = ()) -> QueryRequest:
     return QueryRequest.model_validate_json(
         json.dumps(
             {"id_traza": trace, "usuario": {"id": user, "rol": "contador_demo"}, "mensaje": message,
-             "contexto": None, "historial": [], "fecha_referencia_lima": "2026-10-26"}
+             "contexto": None, "historial": [{"rol": "usuario", "texto": text} for text in history],
+             "fecha_referencia_lima": "2026-10-26"}
         )
     )
 
@@ -133,6 +138,136 @@ class HappyPathTests(AgentCase):
                 agent = self.build(as_json(sql))
                 agent.answer(request(), VERIFIED)
                 self.assertIn(f"LIMIT {MAX_ROWS}", self.factory.connection.statements[-1])
+
+
+ACCOUNT_QUESTION = "cuantos asientos hay en la cuenta 701"
+ENTRIES_BY_CODE = (
+    "SELECT COUNT(DISTINCT je.id) AS total_asientos FROM journal_entry je "
+    "JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON jed.account_id = aa.id "
+    "WHERE aa.code LIKE '701%'"
+)
+
+
+class AccountCodeTests(AgentCase):
+    """El número de cuenta del usuario es el CÓDIGO contable, no el id interno de la fila."""
+
+    def test_the_prompt_explains_code_versus_internal_id(self) -> None:
+        agent = self.build(as_json(ENTRIES_BY_CODE))
+        agent.answer(request(ACCOUNT_QUESTION), VERIFIED)
+        system, user = self.gemini.calls[0]
+        self.assertIn("accounting_account.code", system)
+        self.assertIn("LIKE '701%'", system)
+        self.assertIn("id interno de la cuenta", user)  # nota de journal_entry_detail.account_id
+        self.assertIn("CÓDIGO contable", user)  # nota de accounting_account.code
+
+    def test_filtering_by_code_through_the_account_table_is_executed(self) -> None:
+        agent = self.build(as_json(ENTRIES_BY_CODE), FakeConnection(rows=((3,),), names=("total_asientos",)))
+        answer = agent.answer(request(ACCOUNT_QUESTION), VERIFIED)
+        self.assertEqual((answer.estado, answer.filas), ("respondida", [["3"]]))
+        self.assertIn("aa.code LIKE '701%'", self.factory.connection.statements[-1])
+
+    def test_comparing_account_id_with_a_number_is_refused_instead_of_answering_zero(self) -> None:
+        wrong = {
+            "equals": "SELECT COUNT(DISTINCT je.id) AS total_asientos FROM journal_entry je "
+            "JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE jed.account_id = 701",
+            "reversed": "SELECT COUNT(DISTINCT je.id) AS total_asientos FROM journal_entry je "
+            "JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE 701 = jed.account_id",
+            "in-list": "SELECT COUNT(DISTINCT je.id) AS total_asientos FROM journal_entry je "
+            "JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE jed.account_id IN (701, 702)",
+        }
+        for name, sql in wrong.items():
+            with self.subTest(case=name):
+                agent = self.build(as_json(sql))
+                with self.assertRaises(AgentRefusal) as ctx:
+                    agent.answer(request(ACCOUNT_QUESTION + " con sus subcuentas"), VERIFIED)
+                self.assertEqual((ctx.exception.estado, ctx.exception.code, ctx.exception.texto), ("no_resoluble", "ACCOUNT_ID_LITERAL", ACCOUNT_CODE_TEXT))
+                self.assertEqual(self.factory.calls, 0)  # no se llega a la base
+
+    def test_joining_on_account_id_between_columns_is_still_fine(self) -> None:
+        agent = self.build(as_json(GOOD_SQL))
+        self.assertEqual(agent.answer(request(), VERIFIED).estado, "respondida")
+
+
+CHILDREN = (("7011", "Mercaderías manufacturadas"), ("7012", "Mercaderías de extracción"))
+ENTRIES_EXACT = ENTRIES_BY_CODE.replace("LIKE '701%'", "= '701'")
+
+
+class SubAccountScopeTests(AgentCase):
+    """Si la cuenta tiene subcuentas, el agente pregunta si se incluyen y aplica la respuesta."""
+
+    def with_children(self, sql: str = ENTRIES_BY_CODE, rows=((3,),)):
+        return self.build(as_json(sql), FakeConnection(rows=rows, names=("total_asientos",), children=CHILDREN))
+
+    def test_asks_before_answering_and_does_not_call_the_model(self) -> None:
+        agent = self.with_children()
+        with self.assertRaises(AgentRefusal) as ctx:
+            agent.answer(request(ACCOUNT_QUESTION), VERIFIED)
+        refusal = ctx.exception
+        self.assertEqual((refusal.estado, refusal.code), ("requiere_aclaracion", "SCOPE_QUESTION"))
+        for fragment in ("701", "7011", "7012", "subcuentas", "con subcuentas", "solo la 701"):
+            self.assertIn(fragment, refusal.texto)
+        self.assertEqual(self.gemini.calls, [])  # no se gasta una llamada al modelo
+        executed = self.factory.connection.statements
+        self.assertIn("aa.code <> '701'", executed[-1])  # única lectura: las subcuentas
+        self.assertNotIn("journal_entry", executed[-1])
+
+    def test_an_account_without_children_is_answered_directly(self) -> None:
+        agent = self.build(as_json(ENTRIES_BY_CODE), FakeConnection(rows=((3,),), names=("total_asientos",)))
+        self.assertEqual(agent.answer(request(ACCOUNT_QUESTION), VERIFIED).estado, "respondida")
+
+    def test_choice_in_the_same_message_skips_the_question(self) -> None:
+        agent = self.with_children()
+        answer = agent.answer(request("cuantos asientos hay en la cuenta 701 con sus subcuentas"), VERIFIED)
+        self.assertEqual(answer.estado, "respondida")
+        self.assertIn("INCLUIR sus subcuentas (usa aa.code LIKE '701%')", self.gemini.calls[0][1])
+        self.assertIn("aa.code LIKE '701%'", self.factory.connection.statements[-1])
+
+    def test_follow_up_with_children_is_joined_to_the_previous_question(self) -> None:
+        agent = self.with_children()
+        answer = agent.answer(request("con subcuentas", history=(ACCOUNT_QUESTION,)), VERIFIED)
+        self.assertEqual(answer.estado, "respondida")
+        system, user = self.gemini.calls[0]
+        self.assertIn(ACCOUNT_QUESTION, user)
+        self.assertIn("(con subcuentas)", user)
+        self.assertIn("INCLUIR sus subcuentas", user)
+
+    def test_follow_up_with_exact_account_only(self) -> None:
+        agent = self.with_children(ENTRIES_EXACT)
+        answer = agent.answer(request("solo la 701", history=(ACCOUNT_QUESTION,)), VERIFIED)
+        self.assertEqual(answer.estado, "respondida")
+        self.assertIn("SOLO la cuenta 701, sin subcuentas", self.gemini.calls[0][1])
+        self.assertIn("aa.code = '701'", self.factory.connection.statements[-1])
+
+    def test_sql_that_ignores_the_chosen_scope_is_refused(self) -> None:
+        for name, sql, message in (
+            ("exact-but-like", ENTRIES_BY_CODE, "solo la cuenta 701"),
+            ("children-but-exact", ENTRIES_EXACT, "la cuenta 701 con sus subcuentas"),
+        ):
+            with self.subTest(case=name):
+                agent = self.with_children(sql)
+                with self.assertRaises(AgentRefusal) as ctx:
+                    agent.answer(request(f"cuantos asientos hay en {message}"), VERIFIED)
+                self.assertEqual((ctx.exception.code, ctx.exception.texto), ("SCOPE_MISMATCH", SCOPE_MISMATCH_TEXT))
+                self.assertEqual(self.factory.calls, 0)  # el SQL descartado nunca llega a la base
+
+    def test_a_follow_up_only_uses_the_immediately_previous_question(self) -> None:
+        agent = self.with_children()
+        # Sin cuenta en el turno inmediato anterior, «con subcuentas» no se reinterpreta como respuesta:
+        # queda como un mensaje suelto y el prefiltro lo trata como ajeno al dominio (sin llamar al modelo).
+        with self.assertRaises(AgentRefusal) as ctx:
+            agent.answer(request("con subcuentas", history=(ACCOUNT_QUESTION, "hola")), VERIFIED)
+        self.assertEqual((ctx.exception.estado, ctx.exception.code), ("fuera_de_dominio", "OUT_OF_DOMAIN"))
+        self.assertEqual(self.gemini.calls, [])
+
+    def test_phrases_for_the_choice(self) -> None:
+        for text in ("con subcuentas", "con sus hijos", "incluyendo las subcuentas", "con todas las subcuentas", "incluye sus hijas"):
+            self.assertEqual(_scope_choice(text), "children", text)
+        for text in ("solo la 701", "solo 701", "sin subcuentas", "sin sus hijos", "solo la cuenta padre", "cuenta exacta"):
+            self.assertEqual(_scope_choice(text), "exact", text)
+        for text in ("cuantos asientos hay", "con subcuentas pero solo la 701", ""):
+            self.assertIsNone(_scope_choice(text), text)
+        self.assertEqual(_account_codes("asientos de la cuenta 701 y de la cta. 1011 y la cuenta 701"), ["701", "1011"])
+        self.assertEqual(_account_codes("saldo de caja"), [])
 
 
 class UnsafeOutputTests(AgentCase):
