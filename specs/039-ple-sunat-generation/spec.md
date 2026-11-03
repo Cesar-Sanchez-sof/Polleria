@@ -41,7 +41,7 @@ para importarse al PLE / Validador y generar el Resumen.
 Como contador elijo año, mes y libro y pulso **PLE x.x**. Se descarga un `.TXT`
 llamado `LE{RUC}{AAAA}{MM}00{código}00{O}{C}1 1…` con los registros del mes.
 
-- **Given** ventas emitidas en octubre 2026, **When** descargo el 14.1, **Then** el archivo tiene una línea por comprobante, 34 campos separados por `|` y terminada en `|`.
+- **Given** ventas emitidas en octubre 2026, **When** descargo el 14.1, **Then** el archivo tiene una línea por comprobante, 35 campos separados por `|` y terminada en `|`.
 - **Given** un mes sin movimientos, **When** descargo el libro, **Then** el nombre lleva indicador de contenido `0`.
 
 ### US2 – Ver errores antes de descargar (P1)

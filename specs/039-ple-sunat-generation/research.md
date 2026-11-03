@@ -151,7 +151,7 @@ de emisión, cliente e importes quedan vacíos o en `0.00`.
 
 ## 5. Estructura 8.1 – Registro de Compras [OFICIAL, RS 361-2015 Anexo 2]
 
-41 campos (42–82 libre utilización, no se emiten).
+42 campos (43–84 libre utilización, no se emiten). El campo 22 es el ICBPER (Impuesto al Consumo de las Bolsas de Plástico) y va siempre, vacío si no aplica; la tabla de abajo es anterior y no lo lista.
 
 | # | Campo | # | Campo |
 |---|---|---|---|
