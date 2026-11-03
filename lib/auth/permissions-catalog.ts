@@ -20,6 +20,8 @@ const CRUD: readonly Action[] = ["ver", "crear", "editar", "eliminar"];
 const WITHOUT_DELETE: readonly Action[] = ["ver", "crear", "editar"];
 
 export const PERMISSION_MODULES: readonly PermissionModule[] = [
+  // Tableros (Business Intelligence)
+  { code: "tableros", name: "Tableros de control", group: "Tableros", actions: CRUD },
   // Ventas (una fila por pantalla del menú lateral)
   { code: "pedidos", name: "Salón de mesas", group: "Ventas", subgroup: "Salón", actions: CRUD },
   { code: "bebidas", name: "Despacho de bebidas", group: "Ventas", subgroup: "Salón", parent: "pedidos", actions: ["ver"] },

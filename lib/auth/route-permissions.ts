@@ -14,6 +14,7 @@ const DOC_VIEWS = ["endpoints.ver", "diagrama.ver", "estilos.ver"];
 
 /** Permisos "ver" cuya presencia (cualquiera) hace visible cada sección del menú. */
 export const SECTIONS: Record<string, string[]> = {
+  tableros: ["tableros.ver"],
   restaurant: [...SALES_VIEWS, "cocina.ver", "platos.ver"],
   sales: ["mesas.ver", ...SALES_VIEWS],
   kitchen: ["cocina.ver", "platos.ver"],
@@ -29,6 +30,8 @@ export const SECTIONS: Record<string, string[]> = {
 
 /** Permiso "ver" de cada enlace del menú, tal cual se escribe en el href. */
 const LINK_PERMISSION: Record<string, string> = {
+  "/dashboards": "tableros.ver",
+  "/dashboards/config": "tableros.ver",
   "/hr/employees": "empleados.ver",
   "/hr/schedules": "horarios.ver",
   "/hr/contracts": "contratos.ver",
@@ -83,6 +86,7 @@ export function linkPermission(href: string): string | null {
 
 /** Reglas por ruta: basta con tener UNO de los permisos. Gana el prefijo más específico. */
 const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
+  { prefix: "/dashboards", permissions: ["tableros.ver"] },
   { prefix: "/sales", permissions: SECTIONS.sales },
   { prefix: "/sales/kitchen/kds", permissions: ["cocina.ver"] },
   { prefix: "/sales/kitchen/products", permissions: ["platos.ver"] },
