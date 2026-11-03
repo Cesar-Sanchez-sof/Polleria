@@ -11,6 +11,7 @@ import {
   type PreviousAggregates,
 } from "@/lib/accounting/dashboard";
 import { authorize } from "@/lib/auth/permissions";
+import { CLOSING_BOOK } from "@/lib/accounting/closing";
 
 export const dynamic = "force-dynamic";
 
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
           by: ["accountId"],
           where: {
             accountId: { in: accountIds },
-            entry: { status: true, entryDate: { gte: fromDate, lte: toDate } },
+            entry: { status: true, book: { not: CLOSING_BOOK }, entryDate: { gte: fromDate, lte: toDate } },
           },
           _sum: { debit: true, credit: true },
         }),
@@ -156,6 +157,7 @@ export async function GET(request: NextRequest) {
                 accountId: { in: accountIds },
                 entry: {
                   status: true,
+                  book: { not: CLOSING_BOOK },
                   entryDate: { gte: parseUtcDate(previous.from), lte: parseUtcDate(previous.to) },
                 },
               },
@@ -190,6 +192,7 @@ export async function GET(request: NextRequest) {
           JOIN journal_entry e ON e.id = d.entry_id AND e.status = TRUE
           JOIN accounting_account a ON a.id = d.account_id AND a.active = TRUE
           WHERE e.entry_date BETWEEN ${fromDate} AND ${toDate}
+            AND e.book <> ${CLOSING_BOOK}
             AND a.type IN ('Ingreso','Gasto','Costo')
           GROUP BY 1, 2
           ORDER BY 1

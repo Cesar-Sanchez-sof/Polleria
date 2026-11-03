@@ -7,6 +7,7 @@ import {
   type ExecutiveAccountInput,
 } from "@/lib/accounting/executive-summary";
 import { authorize } from "@/lib/auth/permissions";
+import { CLOSING_BOOK } from "@/lib/accounting/closing";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
         by: ["accountId"],
         where: {
           accountId: { in: accountIds },
-          entry: { status: true, entryDate: { gte: fromUtc, lte: toUtc } },
+          entry: { status: true, book: { not: CLOSING_BOOK }, entryDate: { gte: fromUtc, lte: toUtc } },
         },
         _sum: { debit: true, credit: true },
       }),

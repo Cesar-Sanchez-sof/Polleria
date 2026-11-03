@@ -3,7 +3,8 @@
  *
  * Sale → 3 journal entries:
  *  1. Provisión de la venta: 12 (DEBE) / 40 IGV + 70 Ventas (HABER)
- *  2. Costo de ventas: 69 (DEBE) / 20 Mercaderías y 21 Productos terminados (HABER)
+ *  2. Costo de ventas: 69 (DEBE) / 20 Mercaderías, 21 Productos terminados o 24 Materias primas (HABER),
+ *     valorizado con el costo promedio de lo vendido (ver `buildSaleCostLines`)
  *  3. Cobro: 10 Caja/Bancos (DEBE) / 12 (HABER)
  *
  * Purchase voucher → 3 journal entries:
@@ -16,6 +17,12 @@
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  buildClosingLines,
+  CLOSING_BOOK,
+  ClosedPeriodError,
+  RETAINED_EARNINGS_CODE,
+} from "@/lib/accounting/closing";
 
 type Tx = Prisma.TransactionClient;
 
@@ -37,11 +44,6 @@ const ACCOUNT_CODES = {
   otherExpenses: "659",   // Otros Gastos de Gestión (salidas de caja chica / emergencias / faltantes)
   otherIncomes: "701",    // Ventas / Otros ingresos (sobrantes de caja)
 } as const;
-
-/** Estimated COGS as % of net sales when there is no recipe/BOM costing. */
-const SALE_COST_RATIO = 0.4;
-/** Share of COGS charged to merchandise (201) vs transformed finished products (211). */
-const SALE_COST_MERCHANDISE_SHARE = 0.7;
 
 const BOOK_SALES = "Ventas";
 const BOOK_PURCHASES = "Compras";
@@ -129,7 +131,8 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
         code === "211" ? "Productos Terminados" :
         code === "701" ? "Ventas de Mercaderías" :
         `Cuenta ${code}`;
-      const defaultType = code.startsWith("1") ? "Activo" : code.startsWith("6") ? "Gasto" : "Ingreso";
+      const defaultType =
+        code.startsWith("1") || code.startsWith("2") ? "Activo" : code.startsWith("6") ? "Gasto" : "Ingreso";
       const created = await tx.accountingAccount.upsert({
         where: { code },
         update: { active: true },
@@ -142,10 +145,17 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
   return map;
 }
 
+/**
+ * Periodo en el que cae la fecha. Si no existe se usa el último abierto (o se crea el del mes).
+ * Lanza `ClosedPeriodError` si el periodo de esa fecha está cerrado: ningún asiento entra en un mes cerrado.
+ */
 async function ensureOpenPeriod(tx: Tx, date: Date): Promise<number> {
   let period = await tx.accountingPeriod.findFirst({
     where: { startDate: { lte: date }, endDate: { gte: date } },
   });
+  if (period && period.status === "CLOSED") {
+    throw new ClosedPeriodError();
+  }
   if (!period) {
     period = await tx.accountingPeriod.findFirst({
       where: { status: "OPEN" },
@@ -293,6 +303,8 @@ export function pickCashOrBankAccountId(
 
 export interface PostSaleJournalInput {
   salesInvoiceId: number;
+  /** Pedido vendido. Con él se calcula el costo de ventas real; sin él no se registra costo. */
+  orderId?: number;
   voucherCode: string;
   entryDate?: Date;
   /** Net taxable base (without IGV). */
@@ -326,6 +338,7 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
     ACCOUNT_CODES.costOfSales,
     ACCOUNT_CODES.merchandise,
     ACCOUNT_CODES.finishedProducts,
+    ACCOUNT_CODES.rawMaterials,
   ]);
 
   const date = toUtcDateOnly(input.entryDate ?? new Date());
@@ -415,52 +428,122 @@ export async function postSaleJournalEntries(tx: Tx, input: PostSaleJournalInput
     );
   }
 
-  // 3) Costo de ventas — mercaderías y materias primas (asientos 4 y 5)
-  const totalCost = round2(subtotal * SALE_COST_RATIO);
-  const merchandiseCost = round2(totalCost * SALE_COST_MERCHANDISE_SHARE);
-  const finishedProductsCost = round2(totalCost - merchandiseCost);
-
-  // 4) Costo de ventas — mercaderías
-  if (merchandiseCost > 0) {
+  // 3) Costo de ventas: lo que costó lo vendido, una baja por cada cuenta de inventario de origen
+  const costLines = input.orderId ? buildSaleCostLines(await loadSaleCostItems(tx, input.orderId)) : [];
+  for (const cost of costLines) {
+    const label = SALE_COST_LABELS[cost.accountCode] ?? "inventario";
     ids.push(
       await createBalancedEntry(tx, {
         date,
         periodId,
-        description: `Costo de ventas (mercadería) ${ref}`,
+        description: `Costo de ventas (${label}) ${ref}`,
         book: BOOK_SALES,
         responsible: input.responsible,
         salesInvoiceId: input.salesInvoiceId,
-        observation: "Asiento 4/5 — Costo de ventas y baja de mercaderías",
+        observation: `Costo de ventas y baja de ${label} [Cuenta ${cost.accountCode}]`,
         debitAccountId: accounts.get(ACCOUNT_CODES.costOfSales)!,
-        creditAccountId: accounts.get(ACCOUNT_CODES.merchandise)!,
-        amount: merchandiseCost,
-        debitLineDescription: "Costo de ventas de mercaderías",
-        creditLineDescription: "Salida de inventario de mercaderías",
-      })
-    );
-  }
-
-  // 5) Costo de ventas — productos terminados (platos y cortes que salen de una transformación)
-  if (finishedProductsCost > 0) {
-    ids.push(
-      await createBalancedEntry(tx, {
-        date,
-        periodId,
-        description: `Costo de ventas (productos terminados) ${ref}`,
-        book: BOOK_SALES,
-        responsible: input.responsible,
-        salesInvoiceId: input.salesInvoiceId,
-        observation: "Asiento 5/5 — Costo de ventas y baja de productos terminados",
-        debitAccountId: accounts.get(ACCOUNT_CODES.costOfSales)!,
-        creditAccountId: accounts.get(ACCOUNT_CODES.finishedProducts)!,
-        amount: finishedProductsCost,
-        debitLineDescription: "Costo de ventas — productos terminados",
-        creditLineDescription: "Salida de inventario de productos terminados",
+        creditAccountId: accounts.get(cost.accountCode)!,
+        amount: cost.amount,
+        debitLineDescription: `Costo de ventas — ${label}`,
+        creditLineDescription: `Salida de inventario de ${label}`,
       })
     );
   }
 
   return ids;
+}
+
+const SALE_COST_LABELS: Record<string, string> = {
+  [ACCOUNT_CODES.merchandise]: "mercadería",
+  [ACCOUNT_CODES.finishedProducts]: "productos terminados",
+  [ACCOUNT_CODES.rawMaterials]: "materias primas",
+};
+
+/** Orden fijo de los asientos de costo, para que no dependan del orden de los platos en el pedido. */
+const SALE_COST_ACCOUNT_ORDER = [
+  ACCOUNT_CODES.merchandise,
+  ACCOUNT_CODES.finishedProducts,
+  ACCOUNT_CODES.rawMaterials,
+];
+
+export interface SaleCostItem {
+  quantity: number;
+  /** Costo unitario que quedó anotado al descontar el stock de la venta (promedio de ese momento). */
+  recordedUnitCost: number | null;
+  product: {
+    type: "RawMaterial" | "FinishedProduct";
+    averageCost: number;
+    /** Ingredientes por unidad, con su costo unitario. Vacío si el producto no tiene receta. */
+    recipe: Array<{ quantityRequired: number; unitCost: number }>;
+  };
+}
+
+function unitCostOf(item: SaleCostItem): number {
+  if (item.recordedUnitCost && item.recordedUnitCost > 0) return item.recordedUnitCost;
+  if (item.product.averageCost > 0) return item.product.averageCost;
+  return item.product.recipe.reduce((sum, r) => sum + r.quantityRequired * r.unitCost, 0);
+}
+
+/**
+ * Costo de lo vendido agrupado por la cuenta de inventario de la que sale (201, 211 o 241).
+ * Cada línea se valoriza con el costo registrado en la venta; si no hay, con el costo promedio del producto
+ * y, en último caso, con el costo de su receta. Un producto sin ningún costo conocido aporta cero.
+ */
+export function buildSaleCostLines(items: readonly SaleCostItem[]): Array<{ accountCode: string; amount: number }> {
+  const byAccount = new Map<string, number>();
+  for (const item of items) {
+    const amount = item.quantity * unitCostOf(item);
+    if (!(amount > 0)) continue;
+    const accountCode = inventoryAccountCode({ type: item.product.type, hasRecipe: item.product.recipe.length > 0 });
+    byAccount.set(accountCode, (byAccount.get(accountCode) ?? 0) + amount);
+  }
+  return SALE_COST_ACCOUNT_ORDER.flatMap((accountCode) => {
+    const amount = round2(byAccount.get(accountCode) ?? 0);
+    return amount > 0 ? [{ accountCode, amount }] : [];
+  });
+}
+
+async function loadSaleCostItems(tx: Tx, orderId: number): Promise<SaleCostItem[]> {
+  const rows = await tx.orderItem.findMany({
+    where: { orderId },
+    select: {
+      quantity: true,
+      product: {
+        select: {
+          type: true,
+          averageCost: true,
+          recipe: {
+            where: { active: true },
+            select: {
+              quantityRequired: true,
+              ingredient: { select: { averageCost: true, lastCost: true } },
+            },
+          },
+        },
+      },
+      inventoryMovements: {
+        where: { movementType: "Sale" },
+        select: { quantity: true, unitCost: true },
+      },
+    },
+  });
+
+  return rows.map((row) => {
+    const moved = row.inventoryMovements.reduce((sum, m) => sum + Number(m.quantity), 0);
+    const movedCost = row.inventoryMovements.reduce((sum, m) => sum + Number(m.quantity) * Number(m.unitCost ?? 0), 0);
+    return {
+      quantity: row.quantity,
+      recordedUnitCost: moved > 0 ? movedCost / moved : null,
+      product: {
+        type: row.product.type,
+        averageCost: Number(row.product.averageCost),
+        recipe: row.product.recipe.map((r) => ({
+          quantityRequired: Number(r.quantityRequired),
+          unitCost: Number(r.ingredient.averageCost) || Number(r.ingredient.lastCost) || 0,
+        })),
+      },
+    };
+  });
 }
 
 export interface PostPurchaseJournalInput {
@@ -1132,4 +1215,79 @@ export async function reverseTransformationJournalEntries(
     ids.push(entry.id);
   }
   return ids;
+}
+
+/**
+ * Asiento de cierre del ejercicio: lleva a cero las cuentas de ingresos, gastos y costos del año (1 de enero
+ * hasta el fin del periodo) y deja la utilidad o pérdida en Resultados acumulados. Devuelve `null` si el año
+ * no tuvo movimientos de resultados. Va fechado el último día del periodo y no se cuenta como actividad
+ * del mes en los reportes de resultados.
+ */
+export async function postYearEndClosingEntry(
+  tx: Tx,
+  input: { periodId: number; endDate: Date; responsible?: string },
+): Promise<{ id: number; code: string; result: number } | null> {
+  const date = toUtcDateOnly(input.endDate);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+
+  const grouped = await tx.journalEntryDetail.groupBy({
+    by: ["accountId"],
+    where: {
+      entry: { status: true, book: { not: CLOSING_BOOK }, entryDate: { gte: yearStart, lte: date } },
+      account: { type: { in: ["Ingreso", "Gasto", "Costo"] } },
+    },
+    _sum: { debit: true, credit: true },
+  });
+  if (grouped.length === 0) return null;
+
+  const accounts = await tx.accountingAccount.findMany({
+    where: { id: { in: grouped.map((g) => g.accountId) } },
+    select: { id: true, type: true },
+  });
+  const typeById = new Map(accounts.map((a) => [a.id, a.type]));
+  const retained = await resolveAccountIds(tx, [RETAINED_EARNINGS_CODE]);
+
+  const closing = buildClosingLines(
+    grouped.map((g) => ({
+      accountId: g.accountId,
+      type: typeById.get(g.accountId) ?? "",
+      debit: Number(g._sum.debit ?? 0),
+      credit: Number(g._sum.credit ?? 0),
+    })),
+    retained.get(RETAINED_EARNINGS_CODE)!,
+  );
+  if (!closing) return null;
+
+  const code = await nextJournalCode(tx, date);
+  const entry = await tx.journalEntry.create({
+    data: {
+      code,
+      entryDate: date,
+      periodId: input.periodId,
+      description: `Cierre del ejercicio ${date.getUTCFullYear()}`,
+      book: CLOSING_BOOK,
+      responsible: input.responsible ?? "Sistema ERP",
+      observation: `${closing.result >= 0 ? "Utilidad" : "Pérdida"} del ejercicio trasladada a Resultados acumulados`,
+      status: true,
+      entryDetails: {
+        create: closing.lines.map((line) => ({
+          accountId: line.accountId,
+          description: line.description,
+          debit: line.debit,
+          credit: line.credit,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+  return { id: entry.id, code, result: closing.result };
+}
+
+/** Anula el asiento de cierre de un periodo (al reabrirlo) para que se vuelva a calcular al cerrar de nuevo. */
+export async function annulYearEndClosingEntry(tx: Tx, periodId: number): Promise<number> {
+  const { count } = await tx.journalEntry.updateMany({
+    where: { periodId, book: CLOSING_BOOK, status: true },
+    data: { status: false, observation: "Anulado: el período se reabrió" },
+  });
+  return count;
 }

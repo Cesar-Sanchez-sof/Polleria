@@ -17,6 +17,7 @@ import {
   type IncomeStatementResult,
 } from "@/lib/accounting/income-statement";
 import { prisma } from "@/lib/prisma";
+import { CLOSING_BOOK } from "@/lib/accounting/closing";
 
 // Tipos del contrato re-exportados para los consumidores del servicio.
 export type { IncomeStatementInput, IncomeStatementResult } from "@/lib/accounting/income-statement";
@@ -89,6 +90,8 @@ export async function getIncomeStatement(
         accountId: { in: accounts.map((account) => account.id) },
         entry: {
           status: true,
+          // El asiento de cierre del ejercicio no es actividad del periodo: cancelaría sus ingresos y gastos.
+          book: { not: CLOSING_BOOK },
           entryDate: { gte: parseUtcDate(startDate), lte: parseUtcDate(endDate) },
         },
       },

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { logAudit, requestIp } from "@/lib/services/audit.service";
 import { authorize } from "@/lib/auth/permissions";
+import { PeriodClosingError } from "@/lib/accounting/closing";
+import { closeAccountingPeriod, reopenAccountingPeriod } from "@/lib/services/accounting-period-closing.service";
 
 export const dynamic = "force-dynamic";
 
@@ -208,26 +210,30 @@ export async function PATCH(request: NextRequest) {
     if (period.status === "CLOSED" && !reopen) {
       return Response.json({ error: "Period already closed" }, { status: 400 });
     }
-    const updated = await prisma.accountingPeriod.update({
-      where: { id: periodId },
-      data: {
-        status: reopen ? "OPEN" : "CLOSED",
-        closedAt: reopen ? null : new Date(),
-        closedById: reopen ? null : userId,
-      },
-    });
+    const result = await prisma.$transaction(async (tx) =>
+      reopen
+        ? reopenAccountingPeriod(tx, period)
+        : closeAccountingPeriod(tx, period, { userId, username: auth.session.username }),
+    );
+    const updated = result.period;
+    const closingEntry = "closingEntry" in result ? result.closingEntry : null;
     await logAudit({
       actor: { userId: auth.session.userId, username: auth.session.username },
       action: "STATUS_CHANGE",
       module: "Contabilidad",
       entity: "Período contable",
       entityId: periodId,
-      description: `${reopen ? "Reabrió" : "Cerró"} el período contable #${periodId}`,
+      description: `${reopen ? "Reabrió" : "Cerró"} el período contable #${periodId}${
+        closingEntry ? ` y registró el asiento de cierre ${closingEntry.code}` : ""
+      }`,
       details: { before: { status: period.status }, after: { status: updated.status } },
       ipAddress: requestIp(request),
     });
-    return Response.json(updated);
+    return Response.json(closingEntry ? { ...updated, closingEntry } : updated);
   } catch (error) {
+    if (error instanceof PeriodClosingError) {
+      return Response.json({ error: error.message, issues: error.issues }, { status: 409 });
+    }
     console.error("[api/accounting-periods] PATCH error:", error);
     const msg = error instanceof Error ? error.message : "Error closing period";
     return Response.json({ error: msg }, { status: 500 });

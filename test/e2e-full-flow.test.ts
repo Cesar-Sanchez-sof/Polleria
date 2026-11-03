@@ -156,7 +156,26 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
           upsert: vi.fn(),
         },
         accountingPeriod: {
-          findFirst: vi.fn().mockResolvedValue({ id: 10 }),
+          findFirst: vi.fn().mockResolvedValue({ id: 10, status: "OPEN" }),
+        },
+        // Pedido: 2 gaseosas compradas (mercadería, costo 3.5 c/u) y 1 plato con receta (costo promedio 6)
+        orderItem: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              quantity: 2,
+              product: { type: "FinishedProduct", averageCost: 3.5, recipe: [] },
+              inventoryMovements: [{ quantity: 2, unitCost: 3.5 }],
+            },
+            {
+              quantity: 1,
+              product: {
+                type: "FinishedProduct",
+                averageCost: 6,
+                recipe: [{ quantityRequired: 1, ingredient: { averageCost: 5, lastCost: 5 } }],
+              },
+              inventoryMovements: [{ quantity: 1, unitCost: 6 }],
+            },
+          ]),
         },
         journalEntry: {
           findMany: vi.fn().mockResolvedValue([]),
@@ -171,6 +190,7 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
 
       const journalIds = await postSaleJournalEntries(mockTx, {
         salesInvoiceId: 88,
+        orderId: 55,
         voucherCode: "B001-000123",
         subtotal: 100.0,
         igv: 18.0,
@@ -198,6 +218,12 @@ describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo 
         .filter((e) => e.description.startsWith("Costo de ventas"))
         .map((e) => e.entryDetails.create.find((d: any) => d.credit > 0).accountId);
       expect(cogsCredits).toEqual([8, 10]);
+
+      // El costo es el real del pedido (2 × 3.50 en mercadería y 1 × 6.00 en producto terminado), no un % de la venta
+      const cogsAmounts = createdEntries
+        .filter((e) => e.description.startsWith("Costo de ventas"))
+        .map((e) => e.entryDetails.create.find((d: any) => d.debit > 0).debit);
+      expect(cogsAmounts).toEqual([7, 6]);
 
       // 4. Al completar la venta, ambas mesas se liberan
       const tablesAfterRelease = [
