@@ -6,6 +6,7 @@ import { uploadVoucherToS3, uploadPaymentProofToS3, buildVoucherS3Key, getS3Conf
 import { broadcastRealtimeEvent } from "@/lib/realtime/event-emitter";
 import { authorize } from "@/lib/auth/permissions";
 import { formatDateToIso } from "@/lib/dates";
+import { ClosedPeriodError } from "@/lib/accounting/closing";
 import { getPrinterConfig } from "@/lib/services/restaurant-config.service";
 import { isValidVoucherSeries, formatVoucherCode } from "@/lib/utils/series-validation";
 
@@ -396,6 +397,7 @@ export async function POST(request: NextRequest) {
       try {
         journalEntryIds = await postSaleJournalEntries(tx, {
           salesInvoiceId: invoice.id,
+          orderId: order.id,
           voucherCode: fullCode,
           entryDate: now,
           subtotal: taxableSubtotal,
@@ -406,6 +408,8 @@ export async function POST(request: NextRequest) {
           responsible: "Caja / Ventas",
         });
       } catch (postErr) {
+        // Un periodo cerrado no admite asientos: se deshace el cobro en vez de dejar la venta sin contabilizar.
+        if (postErr instanceof ClosedPeriodError) throw postErr;
         console.warn("[api/sales] Asiento contable registrado con advertencia:", postErr);
       }
 
@@ -535,6 +539,9 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: any) {
+    if (error instanceof ClosedPeriodError) {
+      return Response.json({ error: error.message }, { status: 409 });
+    }
     console.error("[api/sales] Error al registrar venta:", error);
     return Response.json(
       {

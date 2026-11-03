@@ -8,6 +8,7 @@ import {
   type PeriodMovement,
 } from "@/lib/accounting/cash-flow-statement";
 import { authorize } from "@/lib/auth/permissions";
+import { CLOSING_BOOK } from "@/lib/accounting/closing";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
         by: ["accountId"],
         where: {
           accountId: { in: accountIds },
-          entry: { status: true, entryDate: { gte: startDate, lte: endDate } },
+          entry: { status: true, book: { not: CLOSING_BOOK }, entryDate: { gte: startDate, lte: endDate } },
         },
         _sum: { debit: true, credit: true },
       }),
