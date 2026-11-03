@@ -273,7 +273,9 @@ export function ContractForm({ open, mode, employees, onClose, onSaved }: Props)
             min={0.01}
             step="0.01"
           />
+          {/* `key`: el valor inicial cambia con la modalidad, así que el campo se vuelve a crear */}
           <Field
+            key={`hours-${maxHours}`}
             id="weekly_hours"
             label="Jornada semanal (horas)"
             type="number"
