@@ -2,7 +2,7 @@
 
 **Feature Branch**: `046-contratos-laborales`
 **Created**: 2026-11-03
-**Status**: Implemented (pendiente de aplicar la migración)
+**Status**: Implemented (migración `20261103180000_add_employment_contract` aplicada en la BD)
 
 ## Purpose
 
@@ -56,7 +56,8 @@ sistema de pensiones (`PensionSystem`), asignación familiar, observaciones, `re
 - `POST /api/contracts` (con `renews_contract_id` para renovar).
 - `GET | PUT | PATCH /api/contracts/{id}` (`PATCH` rescinde con `terminated_at` y `reason`).
 
-## Pendiente al desplegar
+## Despliegue
 
-1. Aplicar la migración `20261103180000_add_employment_contract`.
-2. Correr el seed de roles para crear los permisos `contratos.*` y asignarlos al rol que corresponda.
+1. ✅ Migración `20261103180000_add_employment_contract` aplicada: la tabla `employment_contract` ya existe en la BD.
+2. Pendiente verificar: correr el seed de roles para crear los permisos `contratos.*` y asignarlos al rol que corresponda.
+3. Pendiente: aplicar la misma migración en la base de producción antes de abrir la pantalla allí.
