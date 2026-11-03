@@ -14,6 +14,9 @@ Reglas, en orden:
    ``no_resoluble`` con ``RESTRICTED_DATA``.
 5. Preguntas claramente ajenas al dominio financiero y contable → ``fuera_de_dominio``.
 
+Un saludo suelto ("hola", "buenas tardes") no es una pregunta financiera, pero tampoco algo que rechazar:
+:func:`is_greeting` lo detecta para que el agente lo salude sin llamar a ningún modelo.
+
 Las reglas son **conservadoras y no exhaustivas**: lo que pase el prefiltro sigue sujeto a la
 interpretación, al SQL Validator y a la credencial de solo lectura.
 """
@@ -81,6 +84,14 @@ _RESTRICTED_RE = re.compile(
     r"remuneraci[oó]n\w*|empleados?|trabajadores?|dni|datos\s+personales|tel[eé]fonos?|correos?)\b",
     re.IGNORECASE,
 )
+# Saludo y nada más: "hola", "buenos días", "hola, buenas tardes", "¿qué tal?". Si el mensaje trae además una
+# pregunta ("hola, ¿cuánto vendimos?") NO es un saludo y sigue el flujo normal.
+_GREETING_RE = re.compile(
+    r"^(?:(?:hola+|holi+|ola|buenas|buen[oa]s?\s+(?:d[ií]as?|tardes?|noches?)|saludos|hey|hello|hi|"
+    r"qu[eé]\s+tal|qu[eé]\s+hubo|c[oó]mo\s+est[aá]s?|c[oó]mo\s+te\s+va|c[oó]mo\s+vas)(?:\s+|$))+$",
+    re.IGNORECASE,
+)
+MAX_GREETING_CHARS = 40
 _PERIOD_HINT_RE = re.compile(
     r"\b(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|"
     r"noviembre|diciembre|mes|año|trimestre|ayer|hoy)\b",
@@ -108,6 +119,14 @@ def user_turns(request: QueryRequest) -> list[str]:
     """Turnos del **usuario** del historial. Los del asistente nunca se reenvían a un modelo
     porque pueden contener cifras reales ya formateadas (BR-13)."""
     return [turn.texto for turn in request.historial if turn.rol == "usuario"]
+
+
+def is_greeting(message: str) -> bool:
+    """¿El mensaje es solo un saludo? Ignora mayúsculas, signos y emojis."""
+    if len(message) > MAX_GREETING_CHARS:
+        return False
+    words = re.sub(r"[^\w\s]|_", " ", message)
+    return bool(_GREETING_RE.match(" ".join(words.split())))
 
 
 def prefilter(request: QueryRequest, max_chars: int = MAX_MESSAGE_CHARS) -> PrefilterDecision:

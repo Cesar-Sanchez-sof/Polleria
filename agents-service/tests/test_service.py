@@ -37,7 +37,6 @@ def base_env(**extra: str) -> dict[str, str]:
     return {
         TOKEN_VAR: secrets.token_hex(32),
         IDENTITY_KEY_VAR: secrets.token_hex(32),
-        "AI_GEMINI_SQL": "1",
         "GEMINI_API_KEY": ConfigTests.KEY,
         "DATABASE_URL_READONLY": ConfigTests.DSN,
         **extra,
@@ -55,7 +54,7 @@ class SettingsTests(GuardedTestCase):
 
     def test_both_agents_and_optional_restrictions(self) -> None:
         env = base_env(
-            AI_GROQ_SQL="1", GROQ_API_KEY=GROQ_KEY, **{ALLOWED_HOSTS_VAR: "a.onrender.com, *.example.com", ALLOWED_USERS_VAR: "1, 2"}
+            GROQ_API_KEY=GROQ_KEY, **{ALLOWED_HOSTS_VAR: "a.onrender.com, *.example.com", ALLOWED_USERS_VAR: "1, 2"}
         )
         settings = load_service_settings(env)
         self.assertIsNotNone(settings.groq)
@@ -70,7 +69,7 @@ class SettingsTests(GuardedTestCase):
 
     def test_fail_closed(self) -> None:
         shared = secrets.token_hex(32)
-        no_agent = {k: v for k, v in base_env().items() if k != "AI_GEMINI_SQL"}
+        no_agent = {k: v for k, v in base_env().items() if k != "GEMINI_API_KEY"}
         cases = {
             "sin-token": {k: v for k, v in base_env().items() if k != TOKEN_VAR},
             "token-corto": base_env(**{TOKEN_VAR: secrets.token_hex(8)}),
@@ -91,11 +90,12 @@ class SettingsTests(GuardedTestCase):
                 if secret:
                     self.assertNotIn(secret, str(ctx.exception))
 
-    def test_agent_enabled_without_its_key_or_database_fails(self) -> None:
+    def test_agent_enabled_with_a_bad_key_or_without_database_fails(self) -> None:
         for name, env in {
-            "gemini-sin-clave": {k: v for k, v in base_env().items() if k != "GEMINI_API_KEY"},
+            "gemini-clave-corta": base_env(GEMINI_API_KEY="corta"),
             "gemini-sin-bd": {k: v for k, v in base_env().items() if k != "DATABASE_URL_READONLY"},
-            "groq-sin-clave": base_env(AI_GROQ_SQL="1"),
+            "groq-clave-corta": base_env(GROQ_API_KEY="corta"),
+            "groq-sin-bd": base_env(GROQ_API_KEY=GROQ_KEY, DATABASE_URL_READONLY=""),
         }.items():
             with self.subTest(case=name), self.assertRaises(GeminiSqlConfigError):
                 load_service_settings(env)
@@ -120,16 +120,16 @@ class SettingsTests(GuardedTestCase):
             keys = read_dotenv_keys(path)
             self.assertNotIn("DATABASE_URL", keys)
             self.assertNotIn("OTRA", keys)
-            settings = load_service_settings({"AI_GEMINI_SQL": "1"}, dotenv_path=path)
+            settings = load_service_settings({}, dotenv_path=path)
             self.assertIsNotNone(settings.gemini)
             other = secrets.token_hex(32)
-            self.assertEqual(load_service_settings({"AI_GEMINI_SQL": "1", TOKEN_VAR: other}, dotenv_path=path).internal_token, other)
+            self.assertEqual(load_service_settings({TOKEN_VAR: other}, dotenv_path=path).internal_token, other)
 
 
 class ServiceHttpTests(GuardedTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.env = base_env(AI_GROQ_SQL="1", GROQ_API_KEY=GROQ_KEY)
+        self.env = base_env(GROQ_API_KEY=GROQ_KEY)
         self.settings = load_service_settings(self.env)
         self.gemini = FakeGemini(as_json(GOOD_SQL))
         executor = PostgresReadOnlyExecutor(

@@ -25,6 +25,7 @@ from agents_service.auth.identity import IDENTITY_HEADER
 from agents_service.config.settings import IDENTITY_KEY_VAR, TOKEN_VAR, load_service_settings
 from agents_service.execution.postgres_readonly import SESSION_STATEMENTS, PostgresReadOnlyExecutor
 from agents_service.gemini_sql.agent import (
+    GREETING_TEXT,
     ACCOUNT_CODE_TEXT,
     SCOPE_MISMATCH_TEXT,
     _account_codes,
@@ -315,6 +316,73 @@ class UnsafeOutputTests(AgentCase):
                 self.assertEqual(self.factory.calls, 0)
 
 
+class RetryTests(AgentCase):
+    """Un único reintento cuando el SQL incumple P-4 o el validador; las demás guardas no se relajan."""
+
+    NO_ENTRY_JOIN = (
+        "SELECT SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry_detail jed "
+        "JOIN accounting_account aa ON aa.id = jed.account_id WHERE aa.code LIKE '101%'"
+    )
+    SUBQUERY = (
+        "SELECT SUM(jed.debit) AS d FROM journal_entry_detail jed WHERE jed.account_id IN "
+        "(SELECT aa.id FROM accounting_account aa WHERE aa.code LIKE '101%')"
+    )
+    FIXED = (
+        "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry_detail jed "
+        "JOIN journal_entry je ON jed.entry_id = je.id JOIN accounting_account aa ON jed.account_id = aa.id "
+        "WHERE aa.code LIKE '101%'"
+    )
+
+    def sequence(self, *replies: str):
+        agent = self.build(as_json(replies[0]))
+        queue = list(replies)
+
+        def generate(system: str, user: str) -> str:
+            self.gemini.calls.append((system, user))
+            return as_json(queue.pop(0) if len(queue) > 1 else queue[0])
+
+        self.gemini.generate = generate  # type: ignore[method-assign]
+        return agent
+
+    def ask(self, agent):
+        history = [{"rol": "usuario", "texto": "¿Cuál es el saldo de la cuenta 101?"}]
+        body = {"id_traza": "erp-0123456789abcdef", "usuario": {"id": 7, "rol": "contador_demo"}, "mensaje": "con subcuentas",
+                "contexto": None, "historial": history, "fecha_referencia_lima": "2026-10-26"}
+        return agent.answer(QueryRequest.model_validate_json(json.dumps(body)), VERIFIED)
+
+    def test_a_sql_without_the_entry_join_is_retried_once_with_a_fixed_hint(self) -> None:
+        for bad in (self.NO_ENTRY_JOIN, self.SUBQUERY):
+            with self.subTest(bad=bad[:40]):
+                agent = self.sequence(bad, self.FIXED)
+                answer = self.ask(agent)
+                self.assertEqual(answer.estado, "respondida")
+                self.assertEqual(len(self.gemini.calls), 2)
+                first, second = self.gemini.calls[0][1], self.gemini.calls[1][1]
+                self.assertNotIn("Tu SQL anterior fue rechazado", first)
+                self.assertIn("JOIN journal_entry je ON jed.entry_id = je.id", second.split("Pregunta del usuario")[0])
+                self.assertNotIn("SUM(jed.debit)", second)  # el SQL rechazado nunca vuelve al modelo
+                self.assertEqual(self.factory.calls, 1)  # solo el SQL corregido llega a la base
+
+    def test_it_gives_up_after_the_second_attempt_and_never_touches_the_database(self) -> None:
+        agent = self.sequence(self.NO_ENTRY_JOIN, self.SUBQUERY)
+        with self.assertRaises(AgentRefusal) as ctx:
+            self.ask(agent)
+        self.assertEqual(ctx.exception.code, "REGISTERED_FILTER_UNGUARANTEED")
+        self.assertEqual((len(self.gemini.calls), self.factory.calls), (2, 0))
+
+    def test_other_refusals_are_not_retried(self) -> None:
+        for name, reply in {
+            "account-id": "SELECT SUM(jed.debit) AS d FROM journal_entry_detail jed JOIN journal_entry je ON jed.entry_id = je.id WHERE jed.account_id = 101",
+            "scope-ignored": self.FIXED.replace("LIKE '101%'", "= '101'"),
+            "not-answerable": "",
+        }.items():
+            with self.subTest(case=name):
+                agent = self.sequence(reply, self.FIXED)
+                with self.assertRaises(AgentRefusal):
+                    self.ask(agent)
+                self.assertEqual((len(self.gemini.calls), self.factory.calls), (1, 0))
+
+
 class PreconditionTests(AgentCase):
     def test_prefilter_blocks_before_calling_gemini(self) -> None:
         for name, message in {
@@ -329,6 +397,26 @@ class PreconditionTests(AgentCase):
                 with self.assertRaises(AgentRefusal):
                     agent.answer(request(message), VERIFIED)
                 self.assertEqual((len(self.gemini.calls), self.factory.calls), (0, 0))
+
+    def test_a_greeting_is_answered_without_gemini_or_the_database(self) -> None:
+        for message in ("Hola", "¡Buenos días!", "hola, buenas tardes 👋", "¿Qué tal?", "HOLAAA"):
+            with self.subTest(message=message):
+                agent = self.build(as_json(GOOD_SQL))
+                answer = agent.answer(request(message), VERIFIED)
+                self.assertEqual((answer.estado, answer.texto), ("respondida", GREETING_TEXT))
+                self.assertEqual((answer.columnas, answer.filas, answer.sql), ([], [], ""))
+                self.assertEqual((len(self.gemini.calls), self.factory.calls), (0, 0))
+
+    def test_a_greeting_with_a_question_follows_the_normal_flow(self) -> None:
+        agent = self.build(as_json(GOOD_SQL))
+        answer = agent.answer(request("Hola, ¿cuál fue el saldo de la cuenta 101 en septiembre?"), VERIFIED)
+        self.assertEqual(answer.estado, "respondida")
+        self.assertEqual(len(self.gemini.calls), 1)
+
+    def test_a_greeting_never_bypasses_the_identity_check(self) -> None:
+        agent = self.build(as_json(GOOD_SQL))
+        with self.assertRaises(AgentRefusal):
+            agent.answer(request("Hola"), AuthorizationContext(rol="contador_demo"))
 
     def test_only_verified_erp_identity_is_accepted(self) -> None:
         for name, auth in {
@@ -430,11 +518,16 @@ class ConfigTests(GuardedTestCase):
     DSN = "postgresql://ai_readonly:clave_ficticia@db-ficticia.invalid:5432/ficticia"
 
     def env(self, **extra: str) -> dict[str, str]:
-        return {"AI_GEMINI_SQL": "1", "GEMINI_API_KEY": self.KEY, "DATABASE_URL_READONLY": self.DSN, **extra}
+        return {"GEMINI_API_KEY": self.KEY, "DATABASE_URL_READONLY": self.DSN, **extra}
 
-    def test_disabled_by_default_and_reads_nothing_else(self) -> None:
+    def test_the_key_activates_the_agent_and_without_it_nothing_else_is_read(self) -> None:
         self.assertIsNone(load_gemini_sql_settings({}, {}, identity_key_configured=True))
-        self.assertIsNone(load_gemini_sql_settings({"GEMINI_API_KEY": self.KEY}, {}, identity_key_configured=True))
+        self.assertIsNone(load_gemini_sql_settings({"DATABASE_URL_READONLY": self.DSN}, {}, identity_key_configured=True))
+        self.assertIsNone(load_gemini_sql_settings({"GEMINI_API_KEY": "  "}, {}, identity_key_configured=True))
+        self.assertIsNotNone(load_gemini_sql_settings(self.env(), {}, identity_key_configured=True))
+        # la clave también puede venir de agents-service/.env
+        only_file = {"GEMINI_API_KEY": self.KEY, "DATABASE_URL_READONLY": self.DSN}
+        self.assertIsNotNone(load_gemini_sql_settings({}, only_file, identity_key_configured=True))
 
     def test_valid_configuration_hides_secrets(self) -> None:
         settings = load_gemini_sql_settings(self.env(), {}, identity_key_configured=True)
@@ -445,8 +538,6 @@ class ConfigTests(GuardedTestCase):
     def test_unsafe_configurations_fail_closed(self) -> None:
         cases = {
             "no-identity": (self.env(), False),
-            "bad-flag": (self.env(AI_GEMINI_SQL="yes"), True),
-            "no-key": ({k: v for k, v in self.env().items() if k != "GEMINI_API_KEY"}, True),
             "short-key": (self.env(GEMINI_API_KEY="corta"), True),
             "bad-model": (self.env(GEMINI_MODEL="../../x"), True),
             "no-dsn": ({k: v for k, v in self.env().items() if k != "DATABASE_URL_READONLY"}, True),
@@ -511,7 +602,7 @@ class GroqTests(GuardedTestCase):
         return GroqHttpClient(self.SETTINGS, transport=httpx.MockTransport(handler))
 
     def env(self, **extra: str) -> dict[str, str]:
-        return {"AI_GROQ_SQL": "1", "GROQ_API_KEY": self.KEY, "DATABASE_URL_READONLY": self.DSN, **extra}
+        return {"GROQ_API_KEY": self.KEY, "DATABASE_URL_READONLY": self.DSN, **extra}
 
     def test_request_shape_and_key_only_in_header(self) -> None:
         seen = {}
@@ -563,9 +654,10 @@ class GroqTests(GuardedTestCase):
             self.assertEqual(self.client(handler).generate("s", "u"), "{}")
         self.assertEqual(len(calls), 2)
 
-    def test_disabled_by_default_and_valid_configuration_hides_secrets(self) -> None:
+    def test_the_key_activates_the_agent_and_valid_configuration_hides_secrets(self) -> None:
         self.assertIsNone(load_groq_sql_settings({}, {}, identity_key_configured=True))
-        self.assertIsNone(load_groq_sql_settings({"GROQ_API_KEY": self.KEY}, {}, identity_key_configured=True))
+        self.assertIsNone(load_groq_sql_settings({"DATABASE_URL_READONLY": self.DSN}, {}, identity_key_configured=True))
+        self.assertIsNone(load_groq_sql_settings({"GROQ_API_KEY": "  "}, {}, identity_key_configured=True))
         self.assertEqual(load_groq_sql_settings(self.env(), {}, identity_key_configured=True).model, "openai/gpt-oss-120b")
         settings = load_groq_sql_settings(self.env(GROQ_MODEL="qwen/qwen3.8-27b"), {}, identity_key_configured=True)
         self.assertEqual(settings.model, "qwen/qwen3.8-27b")
@@ -575,8 +667,6 @@ class GroqTests(GuardedTestCase):
     def test_unsafe_configurations_fail_closed(self) -> None:
         cases = {
             "no-identity": (self.env(), False),
-            "bad-flag": (self.env(AI_GROQ_SQL="yes"), True),
-            "no-key": ({k: v for k, v in self.env().items() if k != "GROQ_API_KEY"}, True),
             "short-key": (self.env(GROQ_API_KEY="corta"), True),
             "bad-model": (self.env(GROQ_MODEL="../../x"), True),
             "no-dsn": ({k: v for k, v in self.env().items() if k != "DATABASE_URL_READONLY"}, True),
@@ -594,7 +684,7 @@ class RouteTests(AgentCase):
     def setUp(self) -> None:
         super().setUp()
         self.key_hex = secrets.token_hex(32)
-        env = {TOKEN_VAR: secrets.token_hex(32), IDENTITY_KEY_VAR: self.key_hex, "AI_GEMINI_SQL": "1",
+        env = {TOKEN_VAR: secrets.token_hex(32), IDENTITY_KEY_VAR: self.key_hex,
                "GEMINI_API_KEY": "AIza" + "x" * 35, "DATABASE_URL_READONLY": ConfigTests.DSN}
         self.settings = load_service_settings(env)
         self.agent = self.build(as_json(GOOD_SQL))
@@ -620,6 +710,13 @@ class RouteTests(AgentCase):
         self.assertEqual(body["tabla"]["columnas"], list(NAMES))
         self.assertTrue(body["sql"].startswith("SELECT"))
         self.assertEqual(response.headers["cache-control"], "no-store")
+
+    def test_a_greeting_reaches_the_erp_with_a_null_sql(self) -> None:
+        response = self.post("Hola")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual((body["estado"], body["texto"], body["tabla"], body["sql"]), ("respondida", GREETING_TEXT, None, None))
+        self.assertEqual(len(self.gemini.calls), 0)
 
     def test_requires_internal_token_and_verified_identity(self) -> None:
         self.assertEqual(self.post(token=False).status_code, 401)

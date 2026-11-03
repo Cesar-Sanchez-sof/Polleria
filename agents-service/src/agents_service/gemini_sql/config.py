@@ -1,14 +1,15 @@
-"""Configuración del agente Gemini (activación **explícita**; falla de forma segura).
+"""Configuración del agente Gemini (se activa con su clave; falla de forma segura).
 
 Variables (del entorno o, si faltan, de ``agents-service/.env``; nunca ``DATABASE_URL``):
 
-- ``AI_GEMINI_SQL=1``: activa el agente. Sin esto no se lee ninguna otra variable y la ruta no existe.
-- ``GEMINI_API_KEY``: clave de la API de Gemini. ``GEMINI_MODEL`` (opcional, por defecto ``gemini-3.5-flash``).
+- ``GEMINI_API_KEY``: clave de la API de Gemini. **Activa el agente**: sin ella no se lee ninguna otra variable y la
+  ruta no existe; con ella, el resto de la configuración es obligatoria y una clave mal formada impide arrancar.
+  ``GEMINI_MODEL`` (opcional, por defecto ``gemini-3.5-flash``).
 - ``DATABASE_URL_READONLY``: conexión del rol ``ai_readonly`` (solo ``SELECT``); distinta de ``DATABASE_URL``.
 - ``AI_ASSISTANT_IDENTITY_KEY`` (P-9) es obligatoria: sin identidad firmada del ERP no hay agente.
 - ``AI_GEMINI_SQL_TIMEOUT_S`` (1–40, por defecto 20): espera máxima a Gemini.
 
-Groq usa el mismo agente con sus propias variables: ``AI_GROQ_SQL=1``, ``GROQ_API_KEY``, ``GROQ_MODEL``
+Groq usa el mismo agente con sus propias variables: ``GROQ_API_KEY`` (la activa), ``GROQ_MODEL``
 (opcional, por defecto ``openai/gpt-oss-120b``) y ``AI_GROQ_SQL_TIMEOUT_S``; comparte ``DATABASE_URL_READONLY``
 y ``AI_ASSISTANT_IDENTITY_KEY``.
 
@@ -21,13 +22,11 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-AI_GEMINI_SQL_VAR = "AI_GEMINI_SQL"
 GEMINI_KEY_VAR = "GEMINI_API_KEY"
 GEMINI_MODEL_VAR = "GEMINI_MODEL"
 GEMINI_TIMEOUT_VAR = "AI_GEMINI_SQL_TIMEOUT_S"
 READONLY_DSN_VAR = "DATABASE_URL_READONLY"
 IDENTITY_KEY_VAR = "AI_ASSISTANT_IDENTITY_KEY"
-AI_GROQ_SQL_VAR = "AI_GROQ_SQL"
 GROQ_KEY_VAR = "GROQ_API_KEY"
 GROQ_MODEL_VAR = "GROQ_MODEL"
 GROQ_TIMEOUT_VAR = "AI_GROQ_SQL_TIMEOUT_S"
@@ -59,19 +58,16 @@ class GeminiSqlSettings:
 def load_gemini_sql_settings(
     env: Mapping[str, str], from_file: Mapping[str, str], *, identity_key_configured: bool
 ) -> GeminiSqlSettings | None:
-    """``None`` si el agente no está activado; error si se activa con una configuración insegura."""
-    flag = env.get(AI_GEMINI_SQL_VAR, "").strip()
-    if flag not in ("", "0", "1"):
-        raise GeminiSqlConfigError(f"{AI_GEMINI_SQL_VAR} debe ser '1' o no definirse.")
-    if flag != "1":
-        return None
+    """``None`` si no hay ``GEMINI_API_KEY``; error si el agente se activa con una configuración insegura."""
 
     def read(name: str) -> str:
         return env.get(name, "").strip() or from_file.get(name, "").strip()
 
-    if not identity_key_configured:
-        raise GeminiSqlConfigError(f"{AI_GEMINI_SQL_VAR}=1 exige {IDENTITY_KEY_VAR} (P-9).")
     api_key = read(GEMINI_KEY_VAR)
+    if not api_key:
+        return None
+    if not identity_key_configured:
+        raise GeminiSqlConfigError(f"{GEMINI_KEY_VAR} exige {IDENTITY_KEY_VAR} (P-9).")
     if not _KEY_RE.match(api_key):
         raise GeminiSqlConfigError(f"{GEMINI_KEY_VAR} falta o no tiene un formato válido.")
     model = read(GEMINI_MODEL_VAR) or DEFAULT_GEMINI_MODEL
@@ -103,19 +99,16 @@ class GroqSqlSettings:
 def load_groq_sql_settings(
     env: Mapping[str, str], from_file: Mapping[str, str], *, identity_key_configured: bool
 ) -> GroqSqlSettings | None:
-    """Igual que Gemini: ``None`` si ``AI_GROQ_SQL`` no es ``1``; error si se activa con configuración insegura."""
-    flag = env.get(AI_GROQ_SQL_VAR, "").strip()
-    if flag not in ("", "0", "1"):
-        raise GeminiSqlConfigError(f"{AI_GROQ_SQL_VAR} debe ser '1' o no definirse.")
-    if flag != "1":
-        return None
+    """Igual que Gemini: ``None`` si no hay ``GROQ_API_KEY``; error si el agente se activa con configuración insegura."""
 
     def read(name: str) -> str:
         return env.get(name, "").strip() or from_file.get(name, "").strip()
 
-    if not identity_key_configured:
-        raise GeminiSqlConfigError(f"{AI_GROQ_SQL_VAR}=1 exige {IDENTITY_KEY_VAR} (P-9).")
     api_key = read(GROQ_KEY_VAR)
+    if not api_key:
+        return None
+    if not identity_key_configured:
+        raise GeminiSqlConfigError(f"{GROQ_KEY_VAR} exige {IDENTITY_KEY_VAR} (P-9).")
     if not _KEY_RE.match(api_key):
         raise GeminiSqlConfigError(f"{GROQ_KEY_VAR} falta o no tiene un formato válido.")
     model = read(GROQ_MODEL_VAR) or DEFAULT_GROQ_MODEL

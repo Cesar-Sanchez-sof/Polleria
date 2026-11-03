@@ -6,8 +6,8 @@ Variables (del entorno; en local también de ``agents-service/.env``, solo las c
 - ``AGENTS_SERVICE_INTERNAL_TOKEN``: hexadecimal de al menos 32 bytes; el mismo valor que el proxy del
   ERP envía en ``X-Internal-Token`` (``AGENTS_SERVICE_INTERNAL_TOKEN`` de Next.js). Obligatorio.
 - ``AI_ASSISTANT_IDENTITY_KEY`` (P-9): clave HS256 compartida con el proxy; distinta del token. Obligatoria.
-- ``DATABASE_URL_READONLY``, ``GEMINI_API_KEY``/``GROQ_API_KEY`` y las banderas ``AI_GEMINI_SQL``/``AI_GROQ_SQL``:
-  ver ``agents_service.gemini_sql.config``. Al menos un agente debe estar activo.
+- ``DATABASE_URL_READONLY`` y ``GEMINI_API_KEY``/``GROQ_API_KEY`` (cada clave activa su agente): ver
+  ``agents_service.gemini_sql.config``. Al menos un agente debe estar activo.
 - ``PORT``: puerto de escucha (Render lo fija); por defecto 8002. ``AGENTS_SERVICE_PORT`` lo sustituye en local.
 - ``AGENTS_SERVICE_HOST``: por defecto ``0.0.0.0`` (necesario dentro del contenedor); en local, ``127.0.0.1``.
 - ``AGENTS_SERVICE_ALLOWED_HOSTS`` (opcional): cabeceras ``Host`` aceptadas, separadas por comas. Sin definir
@@ -152,7 +152,7 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
     gemini = load_gemini_sql_settings(env, from_file, identity_key_configured=True)
     groq = load_groq_sql_settings(env, from_file, identity_key_configured=True)
     if gemini is None and groq is None:
-        raise ServiceConfigError("Activa al menos un agente: AI_GEMINI_SQL=1 o AI_GROQ_SQL=1 (con su clave de API).")
+        raise ServiceConfigError("Activa al menos un agente: configura GEMINI_API_KEY o GROQ_API_KEY.")
 
     hosts_text = _read(env, ALLOWED_HOSTS_VAR).replace(" ", "")
     allowed_hosts: tuple[str, ...] | None = None

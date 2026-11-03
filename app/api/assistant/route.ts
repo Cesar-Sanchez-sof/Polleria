@@ -2,24 +2,26 @@ import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
-import { readOpenAiConfig } from "@/lib/ai-assistant/openai";
 import { readVoiceConfig } from "@/lib/ai-assistant/transcribe";
 import { authorize, permissionsForUser } from "@/lib/auth/permissions";
+import { getDeveloperFlags } from "@/lib/services/developer-settings.service";
 
 export const dynamic = "force-dynamic";
 // Vercel: límite de la función (60 s cabe en todos los planes). El proxy corta antes (55 s en evaluación)
 // para responder un error sencillo en lugar de que la plataforma cierre la conexión.
 export const maxDuration = 60;
 
-function deps(): ProxyDeps {
+async function deps(): Promise<ProxyDeps> {
+  const flags = await getDeveloperFlags();
+  const geminiErp = flags["assistant.gemini_sql"];
+  const groqErp = flags["assistant.groq_sql"];
   return {
-    config: readAssistantConfig(),
-    openai: readOpenAiConfig(),
-    voice: readVoiceConfig().enabled,
-    geminiErp: process.env.AI_GEMINI_SQL === "1",
-    groqErp: process.env.AI_GROQ_SQL === "1",
+    config: readAssistantConfig(flags),
+    voice: readVoiceConfig(flags).enabled,
+    geminiErp,
+    groqErp,
     // Con un agente (Gemini o Groq) activo, el Modelo R solo aparece si se habilita de forma explícita.
-    modelR: (process.env.AI_GEMINI_SQL !== "1" && process.env.AI_GROQ_SQL !== "1") || process.env.AI_MODEL_R === "1",
+    modelR: (!geminiErp && !groqErp) || flags["assistant.model_r"],
     session: () => currentSession(),
     fetchFn: fetch,
     now: () => new Date(),
@@ -39,7 +41,7 @@ function toResponse(result: ProxyResult): NextResponse {
 export async function GET() {
   const auth = await authorize("reportes.ver");
   if (!auth.ok) return auth.response;
-  return toResponse(await handleStatus(deps()));
+  return toResponse(await handleStatus(await deps()));
 }
 
 /** Pregunta al asistente financiero (proxy seguro hacia ai-service). */
@@ -54,5 +56,5 @@ export async function POST(request: Request) {
     return toResponse({ status: 415, body: { error: "Formato de solicitud no admitido." } });
   }
   const raw = await request.text().catch(() => "");
-  return toResponse(await handleQuery(raw, deps()));
+  return toResponse(await handleQuery(raw, await deps()));
 }

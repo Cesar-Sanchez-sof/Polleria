@@ -1160,7 +1160,7 @@ deben resolverse antes de implementar las funcionalidades que dependen de ellas,
 
 ## Dictado por voz (adenda)
 
-Entrada por voz opcional del asistente. **Apagada por defecto** (`AI_ASSISTANT_VOICE=1` y `GROQ_API_KEY`).
+Entrada por voz opcional del asistente. **Apagada por defecto** (interruptor `assistant.voice` en Configuración → Desarrollador y `GROQ_API_KEY`).
 
 - El navegador graba (máx. 60 s) y envía el audio a `POST /api/assistant/transcribe`, que lo reenvía a Whisper
   (`whisper-large-v3-turbo`) en Groq y devuelve solo el texto. El audio no se guarda ni se registra.

@@ -4,6 +4,30 @@ import { jwtVerify } from "jose";
 const currentSession = vi.fn();
 vi.mock("@/lib/auth/current-session", () => ({ currentSession: () => currentSession() }));
 
+// Los interruptores viven en la BD (`developer_setting`), no en el entorno: aquí se simulan en memoria.
+const flags: Record<string, boolean> = {};
+vi.mock("@/lib/services/developer-settings.service", () => ({ getDeveloperFlags: async () => ({ ...flags }) }));
+
+const FLAG_BY_NAME: Readonly<Record<string, string>> = {
+  AI_ASSISTANT_DEMO: "assistant.demo",
+  AI_ASSISTANT_EVAL_ENABLED: "assistant.eval",
+  AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "assistant.allow_production_eval",
+  AI_ASSISTANT_REAL_DATA: "assistant.real_data",
+  AI_ASSISTANT_DIAGNOSTICS: "assistant.diagnostics",
+};
+
+/** Como `vi.stubEnv`, pero los nombres de interruptor (solo `"1"` enciende) van al simulacro de la BD. */
+function stubEnv(name: string, value: string | undefined) {
+  const flag = FLAG_BY_NAME[name];
+  if (flag) flags[flag] = value === "1";
+  else vi.stubEnv(name, value);
+}
+
+function unstubAll() {
+  for (const key of Object.keys(flags)) delete flags[key];
+  vi.unstubAllEnvs();
+}
+
 import { GET, maxDuration, POST } from "@/app/api/assistant/route";
 import { EVAL_NGROK_URL, EVAL_TIMEOUT_MS } from "@/lib/ai-assistant/config";
 
@@ -23,15 +47,15 @@ function post(body: string, contentType = "application/json") {
 
 describe("/api/assistant", () => {
   beforeEach(() => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("AI_ASSISTANT_DEMO", "1");
-    vi.stubEnv("AI_SERVICE_URL", "http://127.0.0.1:8001");
-    vi.stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
+    stubEnv("NODE_ENV", "development");
+    stubEnv("AI_ASSISTANT_DEMO", "1");
+    stubEnv("AI_SERVICE_URL", "http://127.0.0.1:8001");
+    stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
     currentSession.mockResolvedValue({ userId: 7, username: "admin", role: "ADMIN" });
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    unstubAll();
     vi.unstubAllGlobals();
     currentSession.mockReset();
   });
@@ -46,7 +70,7 @@ describe("/api/assistant", () => {
   });
 
   it("deshabilitado en producción aunque exista el modo demostración", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+    stubEnv("NODE_ENV", "production");
     await expectNoModels("producción");
     expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status).toBe(404);
     expect(currentSession).not.toHaveBeenCalled();
@@ -104,17 +128,17 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
 
   beforeEach(() => {
     // Así ejecuta Vercel un despliegue Preview: NODE_ENV=production y VERCEL_ENV=preview.
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "preview");
-    vi.stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
-    vi.stubEnv("AI_SERVICE_URL", TUNNEL);
-    vi.stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
-    vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
+    stubEnv("NODE_ENV", "production");
+    stubEnv("VERCEL_ENV", "preview");
+    stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
+    stubEnv("AI_SERVICE_URL", TUNNEL);
+    stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
+    stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
     currentSession.mockResolvedValue({ userId: 7, username: "admin", role: "ADMIN" });
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    unstubAll();
     vi.unstubAllGlobals();
     currentSession.mockReset();
   });
@@ -147,14 +171,14 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
       ["AI_ASSISTANT_IDENTITY_KEY", undefined],
     ];
     for (const [name, value] of blocked) {
-      vi.stubEnv(name, value);
+      stubEnv(name, value);
       await expectNoModels(`${name}=${value}`);
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, `${name}=${value}`).toBe(404);
-      vi.stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
-      vi.stubEnv("VERCEL_ENV", "preview");
-      vi.stubEnv("AI_ASSISTANT_REAL_DATA", undefined);
-      vi.stubEnv("AI_SERVICE_URL", TUNNEL);
-      vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
+      stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
+      stubEnv("VERCEL_ENV", "preview");
+      stubEnv("AI_ASSISTANT_REAL_DATA", undefined);
+      stubEnv("AI_SERVICE_URL", TUNNEL);
+      stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
     }
     expect(fetchMock).not.toHaveBeenCalled();
     expect(currentSession).not.toHaveBeenCalled();
@@ -181,7 +205,7 @@ describe("/api/assistant en evaluación académica (Vercel Preview → túnel HT
   });
 
   it("POST llega a FastAPI por el dominio estático de ngrok con token interno e identidad firmada (P-9)", async () => {
-    vi.stubEnv("AI_SERVICE_URL", EVAL_NGROK_URL);
+    stubEnv("AI_SERVICE_URL", EVAL_NGROK_URL);
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => Response.json({
       id_traza: JSON.parse(String(init.body)).id_traza, estado: "sin_datos", texto: "No encontré movimientos.",
       cifras: [], evidencias: [], versiones: {}, detalle: null,
@@ -211,8 +235,8 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
   const ERP_SESSION_SECRET = "secreto-de-sesion-del-erp-ficticio-0123456789";
 
   function both() {
-    vi.stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
-    vi.stubEnv("AI_ASSISTANT_ALLOW_PRODUCTION_EVAL", "1");
+    stubEnv("AI_ASSISTANT_EVAL_ENABLED", "1");
+    stubEnv("AI_ASSISTANT_ALLOW_PRODUCTION_EVAL", "1");
   }
 
   function answering() {
@@ -227,18 +251,18 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
   }
 
   beforeEach(() => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "production");
-    vi.stubEnv("AI_SERVICE_URL", TUNNEL);
-    vi.stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
-    vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
-    vi.stubEnv("SESSION_SECRET", ERP_SESSION_SECRET); // login del ERP: el asistente no la usa
-    vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7"); // cuenta evaluadora (idUsuario de la sesión ADMIN)
+    stubEnv("NODE_ENV", "production");
+    stubEnv("VERCEL_ENV", "production");
+    stubEnv("AI_SERVICE_URL", TUNNEL);
+    stubEnv("AI_SERVICE_INTERNAL_TOKEN", TOKEN);
+    stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
+    stubEnv("SESSION_SECRET", ERP_SESSION_SECRET); // login del ERP: el asistente no la usa
+    stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7"); // cuenta evaluadora (idUsuario de la sesión ADMIN)
     currentSession.mockResolvedValue({ userId: 7, username: "admin", role: "ADMIN" });
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    unstubAll();
     vi.unstubAllGlobals();
     currentSession.mockReset();
   });
@@ -246,11 +270,11 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
   it("deshabilitado por defecto y con una sola bandera", async () => {
     const fetchMock = answering();
     for (const flags of [{}, { AI_ASSISTANT_EVAL_ENABLED: "1" }, { AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "1" }]) {
-      for (const [name, value] of Object.entries(flags)) vi.stubEnv(name, value);
+      for (const [name, value] of Object.entries(flags)) stubEnv(name, value);
       await expectNoModels(JSON.stringify(flags));
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, JSON.stringify(flags)).toBe(404);
-      vi.stubEnv("AI_ASSISTANT_EVAL_ENABLED", undefined);
-      vi.stubEnv("AI_ASSISTANT_ALLOW_PRODUCTION_EVAL", undefined);
+      stubEnv("AI_ASSISTANT_EVAL_ENABLED", undefined);
+      stubEnv("AI_ASSISTANT_ALLOW_PRODUCTION_EVAL", undefined);
     }
     expect(fetchMock).not.toHaveBeenCalled();
     expect(currentSession).not.toHaveBeenCalled();
@@ -280,13 +304,13 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
   it("datos reales: solo con autorización explícita y cuentas evaluadoras; el estado lo indica", async () => {
     both();
     const fetchMock = answering();
-    vi.stubEnv("AI_ASSISTANT_REAL_DATA", "1");
+    stubEnv("AI_ASSISTANT_REAL_DATA", "1");
     const response = await GET();
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ enabled: true, fakeData: false });
     expect((await post(JSON.stringify({ mensaje: "Saldo de caja en julio" }))).status).toBe(200);
     expect((fetchMock.mock.calls[0][1].headers as Record<string, string>)["X-ERP-Identity"]).toBeTruthy(); // P-9 siempre
-    vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", undefined);
+    stubEnv("AI_ASSISTANT_EVAL_USER_IDS", undefined);
     await expectNoModels("sin cuentas evaluadoras"); // deshabilitado
   });
 
@@ -300,13 +324,13 @@ describe("/api/assistant en Vercel Production (evaluación académica temporal)"
       ["AI_SERVICE_URL", "http://127.0.0.1:8001"],
       ["VERCEL_ENV", "development"],
     ] as Array<[string, string | undefined]>) {
-      vi.stubEnv(name, value);
+      stubEnv(name, value);
       await expectNoModels(`${name}=${value}`);
       expect((await post(JSON.stringify({ mensaje: "Saldo" }))).status, `${name}=${value}`).toBe(404);
-      vi.stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7");
-      vi.stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
-      vi.stubEnv("AI_SERVICE_URL", TUNNEL);
-      vi.stubEnv("VERCEL_ENV", "production");
+      stubEnv("AI_ASSISTANT_EVAL_USER_IDS", "7");
+      stubEnv("AI_ASSISTANT_IDENTITY_KEY", IDENTITY_KEY);
+      stubEnv("AI_SERVICE_URL", TUNNEL);
+      stubEnv("VERCEL_ENV", "production");
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });

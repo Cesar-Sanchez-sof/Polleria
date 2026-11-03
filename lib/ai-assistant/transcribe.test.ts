@@ -46,28 +46,34 @@ function form(blob: Blob | null = new Blob([new Uint8Array(2000)], { type: "audi
 }
 
 describe("configuración del dictado", () => {
+  const ON = { "assistant.voice": true } as const;
+  const OFF = { "assistant.voice": false } as const;
+
   it("está cerrado por defecto: la clave de Groq sola no lo activa", () => {
-    expect(readVoiceConfig({})).toEqual({ enabled: false });
-    expect(readVoiceConfig({ GROQ_API_KEY: GROQ_KEY })).toEqual({ enabled: false });
-    expect(readVoiceConfig({ AI_ASSISTANT_VOICE: "1" })).toEqual({ enabled: false });
-    expect(readVoiceConfig({ AI_ASSISTANT_VOICE: "true", GROQ_API_KEY: GROQ_KEY })).toEqual({ enabled: false });
+    expect(readVoiceConfig(OFF, {})).toEqual({ enabled: false });
+    expect(readVoiceConfig(OFF, { GROQ_API_KEY: GROQ_KEY })).toEqual({ enabled: false });
+    expect(readVoiceConfig(ON, {})).toEqual({ enabled: false });
   });
 
-  it("se activa con la bandera exacta y una clave válida; el modelo por defecto es el turbo", () => {
-    expect(readVoiceConfig({ AI_ASSISTANT_VOICE: "1", GROQ_API_KEY: GROQ_KEY })).toEqual({
+  it("ya no se activa con la variable de entorno antigua", () => {
+    expect(readVoiceConfig(OFF, { AI_ASSISTANT_VOICE: "1", GROQ_API_KEY: GROQ_KEY })).toEqual({ enabled: false });
+  });
+
+  it("se activa con el interruptor y una clave válida; el modelo por defecto es el turbo", () => {
+    expect(readVoiceConfig(ON, { GROQ_API_KEY: GROQ_KEY })).toEqual({
       enabled: true, apiKey: GROQ_KEY, model: "whisper-large-v3-turbo",
     });
-    expect(readVoiceConfig({ AI_ASSISTANT_VOICE: "1", GROQ_API_KEY: GROQ_KEY, GROQ_WHISPER_MODEL: "whisper-large-v3" })).toMatchObject({
+    expect(readVoiceConfig(ON, { GROQ_API_KEY: GROQ_KEY, GROQ_WHISPER_MODEL: "whisper-large-v3" })).toMatchObject({
       enabled: true, model: "whisper-large-v3",
     });
   });
 
   it("rechaza claves mal formadas y modelos desconocidos (falla cerrado)", () => {
     for (const GROQ_API_KEY of ["", "corta", "con espacios " + "x".repeat(30)]) {
-      expect(readVoiceConfig({ AI_ASSISTANT_VOICE: "1", GROQ_API_KEY })).toEqual({ enabled: false });
+      expect(readVoiceConfig(ON, { GROQ_API_KEY })).toEqual({ enabled: false });
     }
     for (const GROQ_WHISPER_MODEL of ["otro-modelo", "../../x", "openai/gpt-oss-120b"]) {
-      expect(readVoiceConfig({ AI_ASSISTANT_VOICE: "1", GROQ_API_KEY: GROQ_KEY, GROQ_WHISPER_MODEL })).toEqual({ enabled: false });
+      expect(readVoiceConfig(ON, { GROQ_API_KEY: GROQ_KEY, GROQ_WHISPER_MODEL })).toEqual({ enabled: false });
     }
   });
 });

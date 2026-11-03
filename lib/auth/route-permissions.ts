@@ -23,7 +23,7 @@ export const SECTIONS: Record<string, string[]> = {
   accounting: [...RECORD_VIEWS, ...REPORT_VIEWS],
   hr: ["empleados.ver", "horarios.ver"],
   security: ["usuarios.ver", "roles.ver", "auditoria.ver"],
-  settings: ["mesas.ver", "configuracion.ver", "datos.ver", "areas.ver", "guia.ver"],
+  settings: ["mesas.ver", "configuracion.ver", "datos.ver", "areas.ver", "guia.ver", "desarrollador.ver"],
   documentation: DOC_VIEWS,
 };
 
@@ -44,6 +44,7 @@ const LINK_PERMISSION: Record<string, string> = {
   "/settings/areas": "areas.ver",
   "/settings/business": "datos.ver",
   "/settings/printers": "configuracion.ver",
+  "/settings/developer": "desarrollador.ver",
   "/purchases/dashboard": "dashcompras.ver",
   "/purchases/add": "compras.ver",
   "/purchases/list": "compras.ver",
@@ -87,6 +88,7 @@ const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
   { prefix: "/settings/areas", permissions: ["areas.ver"] },
   { prefix: "/settings/business", permissions: ["datos.ver"] },
   { prefix: "/settings/printers", permissions: ["configuracion.ver"] },
+  { prefix: "/settings/developer", permissions: ["desarrollador.ver"] },
   { prefix: "/purchases/dashboard", permissions: ["dashcompras.ver"] },
   { prefix: "/purchases/inventory", permissions: ["inventario.ver"] },
   { prefix: "/purchases/transformation", permissions: ["transformacion.ver"] },

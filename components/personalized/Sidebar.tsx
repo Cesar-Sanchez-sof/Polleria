@@ -111,6 +111,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Guía Contable", href: "/settings/accounting-guide", path: "guide-contable" },
       { label: "Mesas", href: "/settings/tables", path: "gestion-mesas" },
       { label: "Salones y Áreas", href: "/settings/areas", path: "salones-areas" },
+      { label: "Desarrollador", href: "/settings/developer", path: "desarrollador" },
     ],
   },
   {

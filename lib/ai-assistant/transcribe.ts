@@ -1,9 +1,10 @@
 /**
  * Dictado por voz del asistente (SOLO servidor): navegador → Next.js (`/api/assistant/transcribe`) → Whisper en Groq.
  *
+ * Interruptor `assistant.voice` (Configuración → Desarrollador): activa el dictado. Cerrado por defecto: tener
+ * `GROQ_API_KEY` (que también usa el agente de Groq) no basta, porque el audio sale a un tercero.
+ *
  * Variables privadas (sin prefijo `NEXT_PUBLIC_`, nunca llegan al navegador):
- * - `AI_ASSISTANT_VOICE`: exactamente `1` para activar el dictado. Cerrado por defecto: tener `GROQ_API_KEY`
- *   (que también usa el agente de Groq) no basta, porque el audio sale a un tercero.
  * - `GROQ_API_KEY`: clave de la API de Groq (la misma del agente Groq de `agents-service`).
  * - `GROQ_WHISPER_MODEL` (opcional): `whisper-large-v3-turbo` (por defecto) o `whisper-large-v3`.
  *
@@ -17,6 +18,7 @@
  */
 import type { SessionPayload } from "@/lib/auth/session";
 import type { AssistantConfig } from "@/lib/ai-assistant/config";
+import type { DeveloperFlags } from "@/lib/developer-settings/catalog";
 import { MAX_MESSAGE_CHARS } from "@/lib/ai-assistant/contract";
 import { authorizeAssistant, type ProxyResult } from "@/lib/ai-assistant/proxy";
 import { MESSAGES } from "@/lib/ai-assistant/presentation";
@@ -40,8 +42,10 @@ export type VoiceConfig = { enabled: true; apiKey: string; model: string } | { e
 
 const KEY_RE = /^[A-Za-z0-9_-]{20,200}$/;
 
-export function readVoiceConfig(env: Record<string, string | undefined> = process.env): VoiceConfig {
-  if (env.AI_ASSISTANT_VOICE !== "1") return { enabled: false };
+export function readVoiceConfig(
+  flags: Pick<DeveloperFlags, "assistant.voice">, env: Record<string, string | undefined> = process.env,
+): VoiceConfig {
+  if (!flags["assistant.voice"]) return { enabled: false };
   const apiKey = env.GROQ_API_KEY?.trim() ?? "";
   if (!KEY_RE.test(apiKey)) return { enabled: false };
   const model = env.GROQ_WHISPER_MODEL?.trim() || DEFAULT_WHISPER_MODEL;

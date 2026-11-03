@@ -10,7 +10,7 @@
  * - El navegador solo puede enviar `mensaje`, `historial`, `ruta` y `modelo`; cualquier otra clave → 400.
  * - Selector de modelos: el Modelo R pasa por `ai-service` y los agentes de solo lectura (Gemini y GPT OSS vía
  *   Groq) por `agents-service` (otro despliegue, con su propia URL y token), ambos con la misma identidad
- *   firmada; GPT Luna (OpenAI) solo conversa y no ve datos del ERP.
+ *   firmada.
  * - Al servicio solo se reenvían los turnos del usuario (las respuestas previas pueden contener
  *   importes y el servicio no los necesita).
  * - Cada token interno solo viaja en la cabecera hacia su servicio; nunca se devuelve ni se registra.
@@ -37,7 +37,6 @@ import {
 } from "@/lib/ai-assistant/contract";
 import { IDENTITY_HEADER, signIdentity } from "@/lib/ai-assistant/identity";
 import { allowedModules, type ModuleAccess } from "@/lib/ai-assistant/modules";
-import { askOpenAi, type OpenAiConfig } from "@/lib/ai-assistant/openai";
 import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId } from "@/lib/ai-assistant/models";
 import { COMPONENT_MESSAGES, componentCode, MESSAGES, SERVICE_AUTH_CODE, toAssistantReply } from "@/lib/ai-assistant/presentation";
 
@@ -58,15 +57,13 @@ export interface ProxyDeps {
   newTraceId: () => string;
   /** Permisos vigentes del usuario (BD); con ellos se firman los módulos consultables (`mod`). */
   permissions?: (userId: number) => Promise<ModuleAccess>;
-  /** Conexión opcional con GPT Luna (solo `OPENAI_API_KEY`). */
-  openai?: OpenAiConfig;
-  /** Agente Gemini (`AI_GEMINI_SQL=1`): exige `agents-service` (`AGENTS_SERVICE_URL`) con identidad firmada (P-9). */
+  /** Agente Gemini (interruptor `assistant.gemini_sql`): exige `agents-service` (`AGENTS_SERVICE_URL`) con identidad firmada (P-9). */
   geminiErp?: boolean;
-  /** Agente GPT OSS vía Groq (`AI_GROQ_SQL=1`): mismos requisitos que el agente Gemini. */
+  /** Agente GPT OSS vía Groq (interruptor `assistant.groq_sql`): mismos requisitos que el agente Gemini. */
   groqErp?: boolean;
-  /** Dictado por voz disponible (`AI_ASSISTANT_VOICE=1` y `GROQ_API_KEY`): solo se informa al navegador para mostrar el botón. */
+  /** Dictado por voz disponible (interruptor `assistant.voice` y `GROQ_API_KEY`): solo se informa al navegador para mostrar el botón. */
   voice?: boolean;
-  /** Modelo R disponible; por defecto sí. Con un agente activo solo si se pide con `AI_MODEL_R=1`. */
+  /** Modelo R disponible; por defecto sí. Con un agente activo solo si se enciende el interruptor `assistant.model_r`. */
   modelR?: boolean;
 }
 
@@ -90,8 +87,7 @@ function availableModels(deps: ProxyDeps): AssistantModelId[] {
   return ASSISTANT_MODELS.filter((id) => {
     if (id === "modelo-r") return modelRConfigured(deps.config) && deps.modelR !== false;
     if (id === "gemini-erp") return agentsConfigured(deps.config) && deps.geminiErp === true;
-    if (id === "groq-erp") return agentsConfigured(deps.config) && deps.groqErp === true;
-    return deps.openai?.enabled === true;
+    return agentsConfigured(deps.config) && deps.groqErp === true; // groq-erp
   });
 }
 
@@ -206,15 +202,6 @@ export async function handleQuery(rawBody: string, deps: ProxyDeps): Promise<Pro
   const input = parseBrowserInput(parsed);
   if (!input) return error(400, MESSAGES.invalid);
 
-  if (input.modelo === "gpt-luna") {
-    const result =
-      deps.openai?.enabled === true ? await askOpenAi(deps.openai, input.historial, input.mensaje, deps.fetchFn) : null;
-    if (!result) return error(404, MESSAGES.disabled);
-    if (result.ok) {
-      return { status: 200, body: { id_traza: deps.newTraceId(), estado: "respondida", texto: result.texto, detalle: null } };
-    }
-    return result.reason === "timeout" ? error(504, MESSAGES.timeout) : error(503, MESSAGES.unavailable);
-  }
   if (!deps.config.enabled) return error(404, MESSAGES.disabled);
   const config = deps.config;
   const agentModel = isAgentModel(input.modelo) ? input.modelo : null;
