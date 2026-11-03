@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Share2,
   Star,
@@ -27,14 +27,18 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 export function DashboardHeader() {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentDashboardId = searchParams.get("id");
+
+  const isConfigRoute = pathname.startsWith("/dashboards/config");
+  const isDashboardsActive = !isConfigRoute;
 
   const [isFavorite, setIsFavorite] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Estado para el menú desplegable de Configuración (acceso rápido)
+  // Estado para el menú desplegable de Configuración
   const [configOpen, setConfigOpen] = useState(false);
   const configMenuRef = useRef<HTMLDivElement>(null);
 
@@ -82,29 +86,23 @@ export function DashboardHeader() {
 
   return (
     <>
-      <header className="h-14 border-b border-border bg-card/60 backdrop-blur-sm px-4 flex items-center justify-between shrink-0 select-none">
+      <header className="relative z-50 h-14 border-b border-border bg-card/90 backdrop-blur-md px-4 flex items-center justify-between shrink-0 select-none">
         {/* Lado Izquierdo: Pestañas de Navegación estilo Odoo */}
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Logo / Módulo Icon */}
-          <div className="flex items-center gap-2 mr-3 pr-3 border-r border-border">
-            <div className="size-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold">
-              <LayoutDashboard className="size-4.5" />
-            </div>
-            <span className="font-semibold text-sm hidden sm:inline-block tracking-tight">
-              Tableros
-            </span>
-          </div>
-
-          {/* Pestaña: Tableros (Activo) */}
+          {/* Pestaña Única: Tableros (Izquierda) */}
           <Link
             href="/dashboards"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md bg-primary/10 text-primary transition-colors"
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+              isDashboardsActive
+                ? "bg-primary/10 text-primary font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+            }`}
           >
-            <LayoutDashboard className="size-3.5 sm:size-4" />
-            <span>Tableros</span>
+            <LayoutDashboard className="size-4" />
+            <span className="tracking-tight">Tableros</span>
           </Link>
 
-          {/* Botón Acceso Rápido: Configuración (Dropdown desplegable, sin navegación) */}
+          {/* Botón Acceso Rápido: Configuración (Dropdown desplegable) */}
           <div className="relative" ref={configMenuRef}>
             <button
               type="button"
@@ -114,7 +112,11 @@ export function DashboardHeader() {
                 setConfigOpen((prev) => !prev);
               }}
               aria-expanded={configOpen}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                isConfigRoute
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+              }`}
             >
               <Settings className="size-3.5 sm:size-4" />
               <span>Configuración</span>
@@ -127,50 +129,38 @@ export function DashboardHeader() {
 
             {/* Menú de Opciones Desplegable */}
             {configOpen && (
-              <div className="absolute left-0 top-full mt-1.5 z-50 w-56 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-lg animate-in fade-in-0 zoom-in-95 duration-100">
+              <div className="absolute left-0 top-full mt-1.5 z-50 w-56 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95 duration-100">
                 <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
                   Ajustes de Tableros
                 </div>
                 <div className="h-px bg-border my-1" />
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setConfigOpen(false);
-                    toast.info("Gestión de Secciones (próximamente)");
-                  }}
+                <Link
+                  href="/dashboards/config/secciones"
+                  onClick={() => setConfigOpen(false)}
                   className="w-full flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs sm:text-sm hover:bg-accent hover:text-accent-foreground text-left cursor-pointer transition-colors"
                 >
                   <Layers className="size-4 text-muted-foreground" />
                   <span>Secciones</span>
-                </button>
+                </Link>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setConfigOpen(false);
-                    toast.info("Gestión de Tableros (próximamente)");
-                  }}
+                <Link
+                  href="/dashboards/config/tableros"
+                  onClick={() => setConfigOpen(false)}
                   className="w-full flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs sm:text-sm hover:bg-accent hover:text-accent-foreground text-left cursor-pointer transition-colors"
                 >
                   <LayoutDashboard className="size-4 text-muted-foreground" />
                   <span>Tableros</span>
-                </button>
+                </Link>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setConfigOpen(false);
-                    toast.info("Compartir enlaces (próximamente)");
-                  }}
+                <Link
+                  href="/dashboards/config/enlaces"
+                  onClick={() => setConfigOpen(false)}
                   className="w-full flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs sm:text-sm hover:bg-accent hover:text-accent-foreground text-left cursor-pointer transition-colors"
                 >
                   <Link2 className="size-4 text-muted-foreground" />
                   <span>Compartir enlaces</span>
-                </button>
+                </Link>
               </div>
             )}
           </div>

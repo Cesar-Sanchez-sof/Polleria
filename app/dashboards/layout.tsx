@@ -16,7 +16,7 @@ export default function DashboardsLayout({
       {/* Barra de Navegación Superior (Header) */}
       <Suspense
         fallback={
-          <header className="h-14 border-b border-border bg-card/60 px-4 flex items-center justify-between shrink-0">
+          <header className="relative z-50 h-14 border-b border-border bg-card/60 px-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <div className="size-8 rounded-md bg-muted animate-pulse" />
               <div className="h-4 w-24 bg-muted rounded animate-pulse" />
@@ -27,8 +27,8 @@ export default function DashboardsLayout({
         <DashboardHeader />
       </Suspense>
 
-      {/* Contenedor del Módulo (Sidebar + Canvas) */}
-      <div className="flex flex-1 w-full overflow-hidden">
+      {/* Contenedor del Módulo (Sidebar + Canvas / Configuración) */}
+      <div className="flex flex-1 w-full overflow-hidden relative z-0">
         {children}
       </div>
     </div>
