@@ -50,6 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
     key: "tableros",
     label: "TABLEROS",
     icon: LayoutDashboard,
+    permissions: "tableros",
     items: [
       { label: "Ver Tableros", href: "/dashboards", path: "dashboards" },
       { label: "Configuración", href: "/dashboards/config", path: "dashboards-config" },
