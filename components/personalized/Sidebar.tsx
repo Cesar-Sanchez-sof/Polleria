@@ -85,6 +85,7 @@ const NAV_SECTIONS: NavSection[] = [
       { group: "Reportes", label: "Libro Mayor", href: "/accounting/reports/ledger", path: "libro-mayor" },
       { group: "Reportes", label: "Libros SUNAT (PLE)", href: "/accounting/reports/ple", path: "libros-sunat-ple" },
       { group: "Reportes", label: "Resumen Ejecutivo", href: "/accounting/reports/executive-summary", path: "resumen-ejecutivo" },
+      { group: "Reportes", label: "SIRE · Comprobantes de compras", href: "/accounting/reports/sire-compras", path: "sire-comprobantes-compras" },
     ],
   },
     {
