@@ -102,6 +102,11 @@ const CURRENT_ASSET_GROUPS: GroupDef[] = [
     match: (code) => code.startsWith("12"),
   },
   {
+    id: "staffReceivables",
+    label: "Cuentas por cobrar al personal",
+    match: (code) => code.startsWith("14"),
+  },
+  {
     id: "taxCredit",
     label: "Tributos por acreditar",
     match: (code) => code.startsWith("16"),

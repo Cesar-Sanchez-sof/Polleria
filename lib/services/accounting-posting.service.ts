@@ -130,9 +130,18 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
         code === "104" ? "Bancos - Cuentas Corrientes" :
         code === "211" ? "Productos Terminados" :
         code === "701" ? "Ventas de Mercaderías" :
+        code === "141" ? "Adelantos de Remuneraciones al Personal" :
+        code === "627" ? "Seguridad y Previsión Social (EsSalud/SIS)" :
+        code === "4031" ? "EsSalud por Pagar" :
+        code === "4032" ? "ONP por Pagar" :
+        code === "407" ? "Administradoras de Fondos de Pensiones por Pagar" :
+        code === "411" ? "Remuneraciones por Pagar" :
+        code === "621" ? "Gastos de Personal" :
         `Cuenta ${code}`;
       const defaultType =
-        code.startsWith("1") || code.startsWith("2") ? "Activo" : code.startsWith("6") ? "Gasto" : "Ingreso";
+        code.startsWith("1") || code.startsWith("2") ? "Activo" :
+        code.startsWith("4") ? "Pasivo" :
+        code.startsWith("6") ? "Gasto" : "Ingreso";
       const created = await tx.accountingAccount.upsert({
         where: { code },
         update: { active: true },
@@ -1290,4 +1299,146 @@ export async function annulYearEndClosingEntry(tx: Tx, periodId: number): Promis
     data: { status: false, observation: "Anulado: el período se reabrió" },
   });
   return count;
+}
+
+// ───────────────────────── Planilla ─────────────────────────
+
+const PAYROLL_ACCOUNTS = {
+  expense: "621", // Remuneraciones: lo ganado por el trabajador
+  socialSecurityExpense: "627", // Aporte del empleador (EsSalud / SIS)
+  essaludPayable: "4031",
+  onpPayable: "4032",
+  afpPayable: "407",
+  staffAdvances: "141", // Anticipos entregados que se descuentan en la planilla
+  payrollPayable: "411", // Neto a pagar al trabajador
+} as const;
+
+interface EntryLine {
+  accountId: number;
+  description: string;
+  debit: number;
+  credit: number;
+}
+
+/** Asiento de varias líneas: exige que cuadre y reintenta si el código de asiento se repite. */
+async function createMultiLineEntry(
+  tx: Tx,
+  input: { date: Date; description: string; book: string; observation: string; payrollId: number; responsible?: string; lines: EntryLine[] },
+): Promise<number> {
+  const lines = input.lines.filter((l) => l.debit > 0 || l.credit > 0);
+  const debit = round2(lines.reduce((sum, l) => sum + l.debit, 0));
+  const credit = round2(lines.reduce((sum, l) => sum + l.credit, 0));
+  if (debit <= 0 || debit !== credit) throw new Error(`El asiento no cuadra: ${input.description}`);
+
+  const periodId = await ensureOpenPeriod(tx, input.date);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const entry = await tx.journalEntry.create({
+        data: {
+          code: await nextJournalCode(tx, input.date),
+          entryDate: input.date,
+          description: input.description.slice(0, 200),
+          book: input.book,
+          responsible: input.responsible ?? "Sistema ERP",
+          observation: input.observation.slice(0, 200),
+          status: true,
+          periodId,
+          payrollId: input.payrollId,
+          entryDetails: { create: lines.map((l) => ({ ...l, description: l.description.slice(0, 200) })) },
+        },
+        select: { id: true },
+      });
+      return entry.id;
+    } catch (err) {
+      const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
+      if (code !== "P2002") throw err;
+    }
+  }
+  throw new Error(`No se pudo registrar el asiento: ${input.description}`);
+}
+
+export interface PostPayrollJournalInput {
+  payrollId: number;
+  employeeName: string;
+  month: number;
+  year: number;
+  grossPay: number;
+  pensionSystem: "ONP" | "AFP" | "None";
+  pensionAmount: number;
+  advances: number;
+  netPay: number;
+  employerContribution: number;
+  /** Último día del mes de la planilla. */
+  entryDate: Date;
+  responsible?: string;
+}
+
+/**
+ * Asiento de la boleta aprobada: el gasto de personal y el aporte del empleador contra lo que se debe pagar al
+ * trabajador, a la ONP/AFP, a EsSalud y lo que se recupera de anticipos. Lanza `ClosedPeriodError` si el mes está cerrado.
+ */
+export async function postPayrollJournalEntry(tx: Tx, input: PostPayrollJournalInput): Promise<number> {
+  const pensionCode = input.pensionSystem === "AFP" ? PAYROLL_ACCOUNTS.afpPayable : PAYROLL_ACCOUNTS.onpPayable;
+  const ids = await resolveAccountIds(tx, Object.values(PAYROLL_ACCOUNTS));
+  const id = (code: string) => ids.get(code)!;
+  const label = `${String(input.month).padStart(2, "0")}/${input.year}`;
+
+  return createMultiLineEntry(tx, {
+    date: toUtcDateOnly(input.entryDate),
+    description: `Planilla ${label} - ${input.employeeName}`,
+    book: BOOK_GENERAL_JOURNAL,
+    observation: "Provisión de remuneraciones y aportes del mes",
+    payrollId: input.payrollId,
+    responsible: input.responsible,
+    lines: [
+      { accountId: id(PAYROLL_ACCOUNTS.expense), description: "Remuneración del mes", debit: round2(input.grossPay), credit: 0 },
+      {
+        accountId: id(PAYROLL_ACCOUNTS.socialSecurityExpense),
+        description: "Aporte del empleador (EsSalud/SIS)",
+        debit: round2(input.employerContribution),
+        credit: 0,
+      },
+      {
+        accountId: id(PAYROLL_ACCOUNTS.essaludPayable),
+        description: "EsSalud/SIS por pagar",
+        debit: 0,
+        credit: round2(input.employerContribution),
+      },
+      { accountId: id(pensionCode), description: `Aporte del trabajador (${input.pensionSystem})`, debit: 0, credit: round2(input.pensionAmount) },
+      { accountId: id(PAYROLL_ACCOUNTS.staffAdvances), description: "Anticipos descontados", debit: 0, credit: round2(input.advances) },
+      { accountId: id(PAYROLL_ACCOUNTS.payrollPayable), description: "Neto a pagar al trabajador", debit: 0, credit: round2(input.netPay) },
+    ],
+  });
+}
+
+export interface PostPayrollPaymentJournalInput {
+  payrollId: number;
+  employeeName: string;
+  month: number;
+  year: number;
+  amount: number;
+  /** "Efectivo" sale de caja; cualquier otro medio sale de bancos. */
+  method: string;
+  entryDate: Date;
+  responsible?: string;
+}
+
+/** Asiento del pago del neto: cancela Remuneraciones por pagar contra caja o bancos. */
+export async function postPayrollPaymentJournalEntry(tx: Tx, input: PostPayrollPaymentJournalInput): Promise<number> {
+  const ids = await resolveAccountIds(tx, [PAYROLL_ACCOUNTS.payrollPayable, ACCOUNT_CODES.cash, ACCOUNT_CODES.banks]);
+  const cashId = ids.get(/efectivo|caja/i.test(input.method) ? ACCOUNT_CODES.cash : ACCOUNT_CODES.banks)!;
+  const label = `${String(input.month).padStart(2, "0")}/${input.year}`;
+  const amount = round2(input.amount);
+  return createMultiLineEntry(tx, {
+    date: toUtcDateOnly(input.entryDate),
+    description: `Pago de planilla ${label} - ${input.employeeName}`,
+    book: BOOK_CASH,
+    observation: `Pago de remuneraciones (${input.method})`,
+    payrollId: input.payrollId,
+    responsible: input.responsible,
+    lines: [
+      { accountId: ids.get(PAYROLL_ACCOUNTS.payrollPayable)!, description: "Cancelación de remuneraciones por pagar", debit: amount, credit: 0 },
+      { accountId: cashId, description: "Salida de caja / bancos", debit: 0, credit: amount },
+    ],
+  });
 }

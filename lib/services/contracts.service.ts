@@ -91,7 +91,7 @@ const contractInclude = {
 
 type ContractRow = Prisma.EmploymentContractGetPayload<{ include: typeof contractInclude }>;
 
-function fullName(e: {
+export function fullName(e: {
   firstName: string;
   middleName: string | null;
   paternalLastName: string;

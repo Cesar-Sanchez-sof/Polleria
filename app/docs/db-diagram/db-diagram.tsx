@@ -153,14 +153,33 @@ const ENTITIES: EntityDef[] = [
 		fields: [
 			{ name: 'id', type: 'Int', kind: 'pk' },
 			{ name: 'employeeId', type: 'Int', kind: 'fk' },
+			{ name: 'contractId', type: 'Int', kind: 'fk', optional: true },
 			{ name: 'month', type: 'Int', kind: 'field' },
 			{ name: 'year', type: 'Int', kind: 'field' },
 			{ name: 'baseSalary', type: 'Decimal', kind: 'field' },
+			{ name: 'familyAllowance', type: 'Decimal', kind: 'field' },
 			{ name: 'overtimePay', type: 'Decimal', kind: 'field' },
 			{ name: 'bonus', type: 'Decimal', kind: 'field' },
+			{ name: 'absenceDiscount', type: 'Decimal', kind: 'field' },
+			{ name: 'grossPay', type: 'Decimal', kind: 'field' },
+			{ name: 'pensionSystem', type: 'PensionSystem', kind: 'field' },
+			{ name: 'pensionAmount', type: 'Decimal', kind: 'field' },
+			{ name: 'advances', type: 'Decimal', kind: 'field' },
 			{ name: 'deductions', type: 'Decimal', kind: 'field' },
 			{ name: 'netPay', type: 'Decimal', kind: 'field' },
+			{ name: 'employerContribution', type: 'Decimal', kind: 'field' },
+			{ name: 'status', type: 'PayrollStatus', kind: 'field' },
 			{ name: 'paymentDate', type: 'Date', kind: 'field', optional: true },
+		],
+	},
+	{
+		id: 'PayrollParameter', label: 'PayrollParameter', module: 'RRHH', color: '#8b5cf6',
+		fields: [
+			{ name: 'id', type: 'Int', kind: 'pk' },
+			{ name: 'code', type: 'String', kind: 'field' },
+			{ name: 'value', type: 'Decimal', kind: 'field' },
+			{ name: 'effectiveFrom', type: 'Date', kind: 'field' },
+			{ name: 'notes', type: 'String', kind: 'field', optional: true },
 		],
 	},
 	{
@@ -555,6 +574,7 @@ const RELATIONS: RelationDef[] = [
 	{ id: 're-es-emp', child: 'EmployeeShift', fk: 'employeeId', parent: 'Employee', label: 'works' },
 	{ id: 're-es-shift', child: 'EmployeeShift', fk: 'shiftId', parent: 'Shift', label: 'covers' },
 	{ id: 're-payroll-emp', child: 'Payroll', fk: 'employeeId', parent: 'Employee', label: 'earns' },
+	{ id: 're-payroll-contract', child: 'Payroll', fk: 'contractId', parent: 'EmploymentContract', label: 'paid_under' },
 	{ id: 're-contract-emp', child: 'EmploymentContract', fk: 'employeeId', parent: 'Employee', label: 'signs' },
 	{ id: 're-contract-renews', child: 'EmploymentContract', fk: 'renewsContractId', parent: 'EmploymentContract', label: 'renews' },
 	{ id: 're-po-supplier', child: 'PurchaseOrder', fk: 'supplierId', parent: 'Supplier', label: 'products' },
@@ -616,7 +636,7 @@ const MODULE_LAYOUT: Record<string, { col: number; rows: string[] }> = {
     Ventas: { col: 7, rows: ['CashMovement', '____________', '____________', '____________', 'AccountingPeriod', '____________', '____________', '____________', 'PurchaseInvoice', 'SalesInvoice'] },
 	Contab: { col: 8, rows: ['____________', '____________', '____________', '____________', '____________', '____________', 'JournalEntry', '____________', 'PurchasePayment', '____________', '____________', 'Customer'] },
 	__Caja: { col: 9, rows: ['____________', '____________', '____________', '____________', 'JournalEntryDetail', 'AccountingAccount', '____________', '____________', '____________', 'PaymentType', 'SalesPayment'] },
-	___C3: { col: 10, rows: ['DiningArea', '____________', 'PrinterConfig'] },
+	___C3: { col: 10, rows: ['DiningArea', '____________', 'PrinterConfig', 'PayrollParameter'] },
 };
 
 const MODULE_COLORS: Record<string, string> = {

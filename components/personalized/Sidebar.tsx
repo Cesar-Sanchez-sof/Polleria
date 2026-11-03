@@ -94,6 +94,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Empleados", href: "/hr/employees", path: "empleados" },
       { label: "Horarios Laborales", href: "/hr/schedules", path: "horarios" },
       { label: "Contratos", href: "/hr/contracts", path: "contratos" },
+      { label: "Planilla", href: "/hr/payroll", path: "planilla" },
     ],
   },
   {
