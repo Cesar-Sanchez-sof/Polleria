@@ -835,3 +835,16 @@ model RestaurantConfig {
 
   @@map("restaurant_config")
 }
+
+
+/// Interruptores de desarrollador (una fila por bandera; sin fila = apagada). Los define
+/// `lib/developer-settings/catalog.ts` y se cambian desde Configuración → Desarrollador.
+model DeveloperSetting {
+  key       String   @id @db.VarChar(60)
+  enabled   Boolean  @default(false)
+  /// Copia del username de quien la cambió por última vez.
+  updatedBy String?  @map("updated_by") @db.VarChar(50)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("developer_setting")
+}

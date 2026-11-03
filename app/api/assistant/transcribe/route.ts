@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { authorize } from "@/lib/auth/permissions";
+import { getDeveloperFlags } from "@/lib/services/developer-settings.service";
 import {
   createRateLimiter,
   handleTranscribe,
@@ -24,7 +25,7 @@ function toResponse(result: { status: number; body: Record<string, unknown> }): 
   });
 }
 
-/** Dictado por voz: audio → texto para la caja de pregunta (`AI_ASSISTANT_VOICE=1`). */
+/** Dictado por voz: audio → texto para la caja de pregunta (interruptor `assistant.voice`). */
 export async function POST(request: Request) {
   const auth = await authorize("reportes.ver");
   if (!auth.ok) return auth.response;
@@ -36,10 +37,11 @@ export async function POST(request: Request) {
     return toResponse({ status: 415, body: { error: VOICE_MESSAGES.unsupported } });
   }
   const form = await request.formData().catch(() => null);
+  const flags = await getDeveloperFlags();
   return toResponse(
     await handleTranscribe(form, {
-      config: readAssistantConfig(),
-      voice: readVoiceConfig(),
+      config: readAssistantConfig(flags),
+      voice: readVoiceConfig(flags),
       session: () => currentSession(),
       fetchFn: fetch,
       allow,

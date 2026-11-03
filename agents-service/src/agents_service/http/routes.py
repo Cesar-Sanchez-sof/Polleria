@@ -146,7 +146,7 @@ def _register_agent_route(router: APIRouter, settings: AgentsServiceSettings, pa
             "estado": answer.estado,
             "texto": answer.texto,
             "tabla": {"columnas": answer.columnas, "filas": answer.filas} if answer.columnas else None,
-            "sql": answer.sql,
+            "sql": answer.sql or None,
         }
         return JSONResponse(body, status_code=200, headers=SECURITY_HEADERS)
 

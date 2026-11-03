@@ -86,10 +86,6 @@ Set-EnvValue $serviceEnv "DATABASE_URL_READONLY" "" -OnlyIfEmpty
 
 $geminiOn = (Get-EnvValue $serviceEnv "GEMINI_API_KEY") -ne ""
 $groqOn = (Get-EnvValue $serviceEnv "GROQ_API_KEY") -ne ""
-$geminiFlag = if ($geminiOn) { "1" } else { "" }
-$groqFlag = if ($groqOn) { "1" } else { "" }
-Set-EnvValue $rootEnv "AI_GEMINI_SQL" $geminiFlag
-Set-EnvValue $rootEnv "AI_GROQ_SQL" $groqFlag
 
 $missing = @()
 if (-not $geminiOn -and -not $groqOn) { $missing += "GEMINI_API_KEY o GROQ_API_KEY (al menos una)" }
@@ -105,8 +101,6 @@ if ($missing.Count -gt 0) {
 if ($NoStart) { Write-Host "Listo (-NoStart): .env preparados, no se arranco el servicio."; exit 0 }
 
 # 4) Entorno del proceso y arranque (solo escucha en local)
-$env:AI_GEMINI_SQL = $geminiFlag
-$env:AI_GROQ_SQL = $groqFlag
 $env:AGENTS_SERVICE_HOST = "127.0.0.1"
 $env:AGENTS_SERVICE_PORT = "8002"
 $env:PYTHONPATH = "src"

@@ -24,14 +24,10 @@ services:
         sync: false
       - key: DATABASE_URL_READONLY
         sync: false
-      - key: AI_GEMINI_SQL
-        value: "1"
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
         sync: false
-      - key: AI_GROQ_SQL
-        value: "1"
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
