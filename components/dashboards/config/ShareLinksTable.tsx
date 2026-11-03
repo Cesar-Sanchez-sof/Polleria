@@ -7,8 +7,7 @@ import {
   Check,
   Plus,
   Trash2,
-  ExternalLink,
-  Calendar,
+  Edit2,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,6 @@ import {
   deleteShareLinksAction,
 } from "@/app/dashboards/config/actions";
 import type { DashboardShareWithDetails } from "@/lib/services/dashboard.service";
-import type { DashboardSection } from "@prisma/client";
 import { toast } from "sonner";
 
 interface ShareLinksTableProps {
@@ -55,6 +53,11 @@ export function ShareLinksTable({
   const [newDashboardId, setNewDashboardId] = useState(
     availableDashboards[0]?.id || ""
   );
+
+  // Modal Editar Enlace
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<DashboardShareWithDetails | null>(null);
+  const [editLinkName, setEditLinkName] = useState("");
 
   // Filtrado
   const filtered = useMemo(() => {
@@ -168,6 +171,56 @@ export function ShareLinksTable({
     });
   };
 
+  // Abrir Modal de Edición
+  const openEditModal = (link: DashboardShareWithDetails) => {
+    setEditingLink(link);
+    setEditLinkName(link.name);
+    setEditDialogOpen(true);
+  };
+
+  // Guardar Edición de Nombre
+  const handleUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLink || !editLinkName.trim()) return;
+
+    setLinks((prev) =>
+      prev.map((l) =>
+        l.id === editingLink.id ? { ...l, name: editLinkName.trim() } : l
+      )
+    );
+    toast.success("Nombre del enlace actualizado");
+    setEditDialogOpen(false);
+    setEditingLink(null);
+  };
+
+  // Duplicar enlaces seleccionados
+  const handleDuplicateSelected = (ids: string[]) => {
+    startTransition(async () => {
+      let count = 0;
+      for (const id of ids) {
+        const original = links.find((l) => l.id === id);
+        if (original) {
+          const res = await createShareLinkAction(
+            original.dashboardId,
+            `${original.name} (Copia)`,
+            1
+          );
+          if (res.success && res.data) {
+            const newItem: DashboardShareWithDetails = {
+              ...res.data,
+              dashboard: original.dashboard,
+              createdBy: original.createdBy,
+            };
+            setLinks((prev) => [newItem, ...prev]);
+            count++;
+          }
+        }
+      }
+      setSelectedIds(new Set());
+      toast.success(`${count} enlace(s) duplicado(s) exitosamente`);
+    });
+  };
+
   // Eliminar
   const handleDeleteSelected = async (ids: string[]) => {
     if (!confirm(`¿Eliminar ${ids.length} enlace(s) compartido(s)?`)) return;
@@ -185,7 +238,13 @@ export function ShareLinksTable({
   };
 
   const handleGlobalAction = (action: "edit" | "duplicate" | "delete") => {
-    if (action === "delete") {
+    if (action === "edit" && selectedIds.size === 1) {
+      const id = Array.from(selectedIds)[0];
+      const link = links.find((l) => l.id === id);
+      if (link) openEditModal(link);
+    } else if (action === "duplicate") {
+      handleDuplicateSelected(Array.from(selectedIds));
+    } else if (action === "delete") {
       handleDeleteSelected(Array.from(selectedIds));
     }
   };
@@ -202,8 +261,6 @@ export function ShareLinksTable({
         selectedCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onAction={handleGlobalAction}
-        hideEditAction={true}
-        hideDuplicateAction={true}
         totalItems={filtered.length}
         currentPage={currentPage}
         pageSize={pageSize}
@@ -425,6 +482,47 @@ export function ShareLinksTable({
               </Button>
               <Button type="submit" size="sm" disabled={isPending}>
                 Generar Enlace
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Editar Enlace */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleUpdate}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit2 className="size-4.5 text-primary" />
+                Editar Enlace Compartido
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="py-4 space-y-3">
+              <label className="text-xs font-semibold text-foreground">
+                Etiqueta del enlace
+              </label>
+              <Input
+                required
+                autoFocus
+                value={editLinkName}
+                onChange={(e) => setEditLinkName(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" disabled={isPending}>
+                Actualizar
               </Button>
             </DialogFooter>
           </form>

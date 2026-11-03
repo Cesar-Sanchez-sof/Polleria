@@ -249,15 +249,22 @@ export function DashboardsTable({
       const id = Array.from(selectedIds)[0];
       const d = dashboards.find((item) => item.id === id);
       if (d) openEditModal(d);
-    } else if (action === "duplicate" && selectedIds.size === 1) {
-      const id = Array.from(selectedIds)[0];
+    } else if (action === "duplicate") {
+      const ids = Array.from(selectedIds);
       startTransition(async () => {
-        const res = await duplicateDashboardAction(id, 1);
-        if (res.success && res.data) {
-          setDashboards((prev) => [res.data, ...prev]);
-          toast.success("Tablero duplicado exitosamente");
+        let count = 0;
+        for (const id of ids) {
+          const res = await duplicateDashboardAction(id, 1);
+          if (res.success && res.data) {
+            setDashboards((prev) => [res.data, ...prev]);
+            count++;
+          }
+        }
+        setSelectedIds(new Set());
+        if (count > 0) {
+          toast.success(`${count} tablero(s) duplicado(s) exitosamente`);
         } else {
-          toast.error(res.error || "Error al duplicar");
+          toast.error("Error al duplicar tablero(s)");
         }
       });
     } else if (action === "delete") {
@@ -392,12 +399,12 @@ export function DashboardsTable({
                             {d.roleAccess?.slice(0, 2).map((ra) => (
                               <Badge
                                 key={ra.id}
-                                variant="secondary"
-                                className="text-[10px] gap-1 px-1.5 h-4.5 font-normal"
+                                variant="outline"
+                                className="text-[10px] gap-1 px-1.5 h-4.5 font-normal bg-background/80 text-foreground border-border/80"
                               >
                                 <Shield className="size-2.5 text-primary" />
                                 <span>{ra.role.name}</span>
-                                <span className="opacity-70">
+                                <span className="text-muted-foreground font-normal">
                                   ({ra.canEdit ? "Edit" : "Ver"})
                                 </span>
                               </Badge>
@@ -462,12 +469,12 @@ export function DashboardsTable({
 
                         <Link href={`/dashboards?id=${d.id}&edit=true`}>
                           <Button
-                            variant="secondary"
+                            variant="outline"
                             size="xs"
-                            className="h-7 px-2 text-[11px] gap-1 hover:bg-primary/20 text-primary font-medium"
+                            className="h-7 px-2 text-[11px] gap-1 font-medium bg-background hover:bg-muted text-foreground border-border/80"
                             title="Editar diseño de widgets"
                           >
-                            <Sliders className="size-3" />
+                            <Sliders className="size-3 text-muted-foreground" />
                             <span>Editar diseño</span>
                           </Button>
                         </Link>

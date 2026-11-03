@@ -175,7 +175,7 @@ export function PermissionSelector({
             return (
               <span
                 key={sel.id}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground border border-border/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-background text-foreground border border-border shadow-2xs"
               >
                 <span>
                   {name}{" "}

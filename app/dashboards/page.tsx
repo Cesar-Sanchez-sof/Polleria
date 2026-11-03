@@ -65,8 +65,12 @@ export default async function DashboardsPage(props: DashboardsPageProps) {
                       </Badge>
                     )}
                     <Badge
-                      variant={activeDashboard.isPublished ? "default" : "secondary"}
-                      className="text-[10px] h-4.5 px-1.5"
+                      variant="outline"
+                      className={`text-[10px] h-4.5 px-2 font-medium ${
+                        activeDashboard.isPublished
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/40"
+                          : "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40"
+                      }`}
                     >
                       {activeDashboard.isPublished ? "Publicado" : "Borrador"}
                     </Badge>

@@ -190,6 +190,24 @@ export function SectionsTable({ initialSections }: SectionsTableProps) {
       const id = Array.from(selectedIds)[0];
       const sec = sections.find((s) => s.id === id);
       if (sec) openEditModal(sec);
+    } else if (action === "duplicate") {
+      const ids = Array.from(selectedIds);
+      startTransition(async () => {
+        let count = 0;
+        for (const id of ids) {
+          const sec = sections.find((s) => s.id === id);
+          if (sec) {
+            const nextOrder = sections.length + count + 1;
+            const res = await createSectionAction(`${sec.name} (Copia)`, nextOrder);
+            if (res.success && res.data) {
+              setSections((prev) => [...prev, res.data]);
+              count++;
+            }
+          }
+        }
+        setSelectedIds(new Set());
+        toast.success(`${count} sección(es) duplicada(s) exitosamente`);
+      });
     } else if (action === "delete") {
       handleDeleteSelected(Array.from(selectedIds));
     }
@@ -207,7 +225,6 @@ export function SectionsTable({ initialSections }: SectionsTableProps) {
         selectedCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onAction={handleGlobalAction}
-        hideDuplicateAction={true}
         totalItems={filtered.length}
         currentPage={currentPage}
         pageSize={pageSize}
@@ -274,13 +291,13 @@ export function SectionsTable({ initialSections }: SectionsTableProps) {
                       />
                     </td>
 
-                    {/* Icono de Agarre para Drag & Drop */}
+                    {/* Icono de Agarre para Drag & Drop (Número primero, luego icono de agarre) */}
                     <td className="px-2 py-2.5 text-center text-muted-foreground group-hover:text-foreground cursor-grab active:cursor-grabbing">
                       <div className="flex items-center justify-center gap-1">
-                        <GripVertical className="size-4 opacity-50 group-hover:opacity-100" />
                         <span className="font-mono text-[10px] opacity-70">
                           {sec.order}
                         </span>
+                        <GripVertical className="size-4 opacity-50 group-hover:opacity-100" />
                       </div>
                     </td>
 

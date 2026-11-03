@@ -166,37 +166,39 @@ export function DashboardHeader() {
           </div>
         </div>
 
-        {/* Lado Derecho: Acciones (Compartir y Favorito) */}
-        <div className="flex items-center gap-2">
-          {/* Botón de Compartir */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShareDialogOpen(true)}
-            className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
-          >
-            <Share2 className="size-3.5 text-muted-foreground" />
-            <span className="hidden sm:inline">Compartir</span>
-          </Button>
+        {/* Lado Derecho: Acciones (Compartir y Favorito) solo en la vista de tableros */}
+        {!isConfigRoute && (
+          <div className="flex items-center gap-2">
+            {/* Botón de Compartir */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShareDialogOpen(true)}
+              className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+            >
+              <Share2 className="size-3.5 text-muted-foreground" />
+              <span className="hidden sm:inline">Compartir</span>
+            </Button>
 
-          {/* Botón de Favorito */}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={toggleFavorite}
-            aria-label="Marcar como favorito"
-            className="size-8 cursor-pointer hover:bg-muted"
-            title={isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
-          >
-            <Star
-              className={`size-4 transition-colors ${
-                isFavorite
-                  ? "fill-amber-400 text-amber-500"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            />
-          </Button>
-        </div>
+            {/* Botón de Favorito */}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={toggleFavorite}
+              aria-label="Marcar como favorito"
+              className="size-8 cursor-pointer hover:bg-muted"
+              title={isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
+            >
+              <Star
+                className={`size-4 transition-colors ${
+                  isFavorite
+                    ? "fill-amber-400 text-amber-500"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              />
+            </Button>
+          </div>
+        )}
       </header>
 
       {/* Diálogo de Compartir */}

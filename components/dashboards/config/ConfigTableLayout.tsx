@@ -7,11 +7,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MoreVertical,
   Edit,
   Copy,
   Trash2,
-  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +21,6 @@ export interface ConfigTableLayoutProps {
   selectedCount: number;
   onClearSelection: () => void;
   onAction?: (action: "edit" | "duplicate" | "delete") => void;
-  hideEditAction?: boolean;
-  hideDuplicateAction?: boolean;
   primaryAction?: React.ReactNode;
   children: React.ReactNode;
   // Paginación
@@ -42,8 +38,6 @@ export function ConfigTableLayout({
   selectedCount,
   onClearSelection,
   onAction,
-  hideEditAction = false,
-  hideDuplicateAction = false,
   primaryAction,
   children,
   totalItems,
@@ -111,7 +105,8 @@ export function ConfigTableLayout({
 
                 {actionsOpen && (
                   <div className="absolute left-0 top-full mt-1.5 z-50 w-44 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg animate-in fade-in-0 zoom-in-95">
-                    {!hideEditAction && (
+                    {/* EDITAR: Solo visible cuando exactamente 1 fila está seleccionada */}
+                    {selectedCount === 1 && (
                       <button
                         type="button"
                         onClick={() => {
@@ -125,22 +120,22 @@ export function ConfigTableLayout({
                       </button>
                     )}
 
-                    {!hideDuplicateAction && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsOpen(false);
-                          onAction?.("duplicate");
-                        }}
-                        className="w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground text-left cursor-pointer transition-colors"
-                      >
-                        <Copy className="size-3.5 text-muted-foreground" />
-                        <span>Duplicar</span>
-                      </button>
-                    )}
+                    {/* DUPLICAR: Siempre visible (para 1 o más elementos seleccionados) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        onAction?.("duplicate");
+                      }}
+                      className="w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground text-left cursor-pointer transition-colors"
+                    >
+                      <Copy className="size-3.5 text-muted-foreground" />
+                      <span>Duplicar</span>
+                    </button>
 
                     <div className="h-px bg-border my-1" />
 
+                    {/* ELIMINAR: Siempre visible */}
                     <button
                       type="button"
                       onClick={() => {
