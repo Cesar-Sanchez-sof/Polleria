@@ -353,8 +353,8 @@ export default function EmployeesPage() {
             </DialogTitle>
             <DialogDescription>
               {toDeactivate?.full_name} dejará de figurar como personal activo y no podrá asignarse a nuevos horarios.
-              {toDeactivate?.has_user && " También se desactivará su acceso al sistema."} El historial se conserva y puedes
-              reingresarlo cuando quieras.
+              {toDeactivate?.has_user && " También se desactivará su acceso al sistema."} Sus contratos abiertos se
+              rescinden desde hoy. El historial se conserva y puedes reingresarlo cuando quieras.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -67,6 +67,7 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
     // Recursos humanos
   { code: "empleados", name: "Empleados", group: "Recursos humanos", actions: WITHOUT_DELETE },
   { code: "horarios", name: "Horarios laborales", group: "Recursos humanos", actions: CRUD },
+  { code: "contratos", name: "Contratos laborales", group: "Recursos humanos", actions: WITHOUT_DELETE },
 ];
 
 /**
