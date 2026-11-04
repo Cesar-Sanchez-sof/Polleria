@@ -55,6 +55,7 @@ export default function PayrollPage() {
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [paramsOpen, setParamsOpen] = useState(false);
+  const [confirmingCalc, setConfirmingCalc] = useState(false);
   const { can } = usePermissions();
 
   const load = useCallback(async () => {
@@ -319,7 +320,7 @@ export default function PayrollPage() {
             </AppButton>
           )}
           {can("planilla.crear") && (
-            <AppButton size="sm" icon={<Calculator />} onClick={calculate} loading={busy} disabled={missing.length > 0}>
+            <AppButton size="sm" icon={<Calculator />} onClick={() => setConfirmingCalc(true)} loading={busy} disabled={missing.length > 0}>
               Calcular planilla
             </AppButton>
           )}
@@ -462,6 +463,66 @@ export default function PayrollPage() {
               </AppButton>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmingCalc} onOpenChange={setConfirmingCalc}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Calcular planilla de {MONTH_LABEL[month - 1].toLowerCase()} de {year}
+            </DialogTitle>
+            <DialogDescription>
+              Se genera una boleta en borrador por cada empleado con contrato en el mes (no incluye contratos privados). No se
+              contabiliza ni se paga nada todavía.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 text-sm">
+            <p className="font-medium">Qué calcula en cada boleta</p>
+            <ol className="flex list-decimal flex-col gap-2 pl-5">
+              <li>
+                <strong>Remuneración base:</strong> el sueldo del contrato por los días cubiertos entre los días del mes. Si el
+                contrato empezó o terminó a mitad de mes, se prorratea.
+              </li>
+              <li>
+                <strong>Asignación familiar:</strong> 10% de la RMV, solo si el contrato tiene el check marcado. El practicante no
+                la recibe.
+              </li>
+              <li>
+                <strong>Bruto:</strong> base + asignación familiar + horas extra + bonos − descuento por faltas. Las horas extra,
+                bonos y faltas empiezan en 0 y los escribes tú con el lápiz de editar, porque aún no hay módulo de asistencia.
+              </li>
+              <li>
+                <strong>Pensión:</strong> ONP 13% o AFP (aporte 10% + prima de seguro + comisión), según el contrato. El
+                practicante no aporta.
+              </li>
+              <li>
+                <strong>Neto a pagar:</strong> bruto − pensión − anticipos (también manuales).
+              </li>
+              <li>
+                <strong>Aporte del empleador:</strong> EsSalud 9% del bruto. En microempresa es un monto fijo de SIS. Esto no se
+                descuenta al trabajador, es costo de la empresa.
+              </li>
+            </ol>
+            <p className="text-muted-foreground">
+              Si ya hay boletas en borrador este mes, se recalculan conservando las horas extra, bonos, faltas y anticipos que
+              hayas escrito; las aprobadas o pagadas no se tocan. Los porcentajes salen de la tabla de parámetros.
+            </p>
+          </div>
+          <DialogFooter>
+            <AppButton variant="secondary" onClick={() => setConfirmingCalc(false)}>
+              Cancelar
+            </AppButton>
+            <AppButton
+              icon={<Calculator />}
+              onClick={() => {
+                setConfirmingCalc(false);
+                void calculate();
+              }}
+            >
+              Calcular planilla
+            </AppButton>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
