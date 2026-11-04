@@ -28,7 +28,7 @@ import {
   deleteRole,
   verifyAssignableRole,
   verifyModifiableUser,
-} from "./roles.service";
+} from "@/lib/services/roles.service";
 
 function roleWithRelations(extra: Partial<{ id: number; name: string; isSystem: boolean; active: boolean; users: number }> = {}) {
   return {

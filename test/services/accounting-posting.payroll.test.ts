@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ClosedPeriodError } from "@/lib/accounting/closing";
-import { postPayrollJournalEntry, postPayrollPaymentJournalEntry } from "./accounting-posting.service";
+import { postPayrollJournalEntry, postPayrollPaymentJournalEntry } from "@/lib/services/accounting-posting.service";
 
 const ACCOUNTS: Record<string, number> = { "621": 1, "627": 2, "4031": 3, "4032": 4, "407": 5, "141": 6, "411": 7, "101": 8, "104": 9 };
 

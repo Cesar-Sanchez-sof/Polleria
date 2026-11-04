@@ -47,7 +47,7 @@ import {
   payPayrolls,
   savePayrollParameter,
   updatePayrollManual,
-} from "./payroll.service";
+} from "@/lib/services/payroll.service";
 
 const date = (iso: string) => new Date(`${iso}T00:00:00Z`);
 

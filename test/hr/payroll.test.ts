@@ -9,7 +9,7 @@ import {
   resolveParams,
   type PayrollContract,
   type PayrollParams,
-} from "./payroll";
+} from "@/lib/hr/payroll";
 
 const PARAMS: PayrollParams = {
   RMV: 1130,

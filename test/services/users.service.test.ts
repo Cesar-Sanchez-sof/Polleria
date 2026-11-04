@@ -33,7 +33,7 @@ import {
   createUser,
   UserError,
   type UserData,
-} from "./users.service";
+} from "@/lib/services/users.service";
 
 const userData: UserData = {
   first_name: "Ana",

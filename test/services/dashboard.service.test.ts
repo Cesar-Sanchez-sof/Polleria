@@ -89,7 +89,7 @@ import {
   deleteShareLinks,
   getRolesForAccess,
   getUsersForAccess,
-} from "./dashboard.service";
+} from "@/lib/services/dashboard.service";
 
 describe("Dashboard Service (Módulo de Tableros)", () => {
   beforeEach(() => {

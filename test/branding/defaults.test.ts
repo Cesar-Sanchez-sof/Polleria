@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BRANDING, MAX_UPDATES, assetUrl, detectImageMime, isAssetSlot, resolveBranding } from "./defaults";
+import { DEFAULT_BRANDING, MAX_UPDATES, assetUrl, detectImageMime, isAssetSlot, resolveBranding } from "@/lib/branding/defaults";
 
 describe("resolveBranding", () => {
   it("sin datos devuelve los valores por defecto", () => {

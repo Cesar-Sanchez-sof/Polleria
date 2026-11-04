@@ -28,7 +28,7 @@ import {
   terminateContract,
   updateContract,
   type ContractData,
-} from "./contracts.service";
+} from "@/lib/services/contracts.service";
 
 const fixedTerm: ContractData = {
   employee_id: 7,

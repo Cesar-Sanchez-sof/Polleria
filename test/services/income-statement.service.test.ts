@@ -16,7 +16,7 @@ import {
   ErrorIncomeStatement,
   getIncomeStatement,
   type IncomeStatementResult,
-} from "./income-statement.service";
+} from "@/lib/services/income-statement.service";
 
 /** Saldos agregados por cuenta devueltos por `groupBy` (accountId, sums). */
 const GROUP_BY_RESULT = [

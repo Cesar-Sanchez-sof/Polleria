@@ -9,7 +9,7 @@ import {
   limaToday,
   periodsOverlap,
   suggestedRenewalStart,
-} from "./contracts";
+} from "@/lib/hr/contracts";
 
 const TODAY = "2026-11-03";
 

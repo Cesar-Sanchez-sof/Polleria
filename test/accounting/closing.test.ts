@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClosingLines, findEntryIssues, isYearEndPeriod } from "./closing";
+import { buildClosingLines, findEntryIssues, isYearEndPeriod } from "@/lib/accounting/closing";
 
 describe("isYearEndPeriod", () => {
   it("solo diciembre cierra el ejercicio", () => {

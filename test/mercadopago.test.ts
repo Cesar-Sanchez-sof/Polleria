@@ -411,8 +411,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
     });
 
     it("debe rechazar si el pedido no existe en la base de datos", async () => {
-
-
+      vi.spyOn(prisma.salesOrder, "findUnique").mockResolvedValue(null);
       const result = await processMercadoPagoPaymentApproval("MP-PAGO-999", 999);
 
       expect(result.success).toBe(false);

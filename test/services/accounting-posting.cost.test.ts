@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSaleCostLines, type SaleCostItem } from "./accounting-posting.service";
+import { buildSaleCostLines, type SaleCostItem } from "@/lib/services/accounting-posting.service";
 
 function item(overrides: Partial<Omit<SaleCostItem, "product">> & { product?: Partial<SaleCostItem["product"]> } = {}): SaleCostItem {
   const { product, ...rest } = overrides;
@@ -53,7 +53,7 @@ describe("buildSaleCostLines", () => {
 
 describe("periodo cerrado", () => {
   it("un asiento automático no entra en un periodo cerrado", async () => {
-    const { postSaleJournalEntries } = await import("./accounting-posting.service");
+    const { postSaleJournalEntries } = await import("@/lib/services/accounting-posting.service");
     const { ClosedPeriodError } = await import("@/lib/accounting/closing");
     const create = vi.fn();
     const tx = {

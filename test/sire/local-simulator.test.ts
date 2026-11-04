@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { simulateSireSubmission } from "./local-simulator";
+import { simulateSireSubmission } from "@/lib/sire/local-simulator";
 import type { PleSnapshot } from "@/lib/ple/snapshot";
 
 function snapshot(): PleSnapshot {

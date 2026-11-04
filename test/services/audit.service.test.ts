@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { auditLog: { create: m.create, count: m.count, findMany: m.findMany } },
 }));
 
-import { buildFilter, listAudit, logAudit, sanitizeDetails } from "./audit.service";
+import { buildFilter, listAudit, logAudit, sanitizeDetails } from "@/lib/services/audit.service";
 
 beforeEach(() => vi.clearAllMocks());
 
