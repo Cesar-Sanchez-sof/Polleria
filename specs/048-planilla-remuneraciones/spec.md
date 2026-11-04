@@ -1,6 +1,7 @@
 # Feature Specification: Planilla de remuneraciones
 
-**Feature Branch**: `047-planilla-remuneraciones`
+**Spec Number**: 048  
+**Feature Branch**: `048-planilla-remuneraciones`
 **Created**: 2026-11-05
 **Status**: Implemented (pendiente de aplicar la migración y de validar los parámetros con el contador)
 
