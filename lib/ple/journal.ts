@@ -13,7 +13,7 @@ const CUO_MAX_LENGTH = 40;
 
 /**
  * Unique operation code (CUO). It is the journal entry code with the characters the
- * layout forbids (`&`, `|`) removed.
+ * layout forbids (`&`, `|`, `/` and the backslash) removed.
  */
 export function sanitizeCuo(code: string): string {
   return sanitizeText(code, CUO_MAX_LENGTH).text.replace(/\s+/g, "");

@@ -50,12 +50,12 @@ export interface SanitizedText {
 }
 
 /**
- * Removes characters that break the PLE layout (pipe, ampersand, line breaks,
+ * Removes characters that break the PLE layout (pipe, slash, backslash, ampersand, line breaks,
  * control characters), collapses whitespace and truncates to `maxLength`.
  */
 export function sanitizeText(value: string, maxLength: number): SanitizedText {
   const cleaned = value
-    .replace(/[|&]/g, " ")
+    .replace(/[|&/\\]/g, " ")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
