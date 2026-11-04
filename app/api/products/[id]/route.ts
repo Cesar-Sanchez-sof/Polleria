@@ -1,16 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ProductType } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/auth/permissions";
-import { mapRecipe } from "@/lib/services/product-recipe";
+import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
+import {
+  getProductByIdService,
+  updateProductService,
+  setProductActiveService,
+  deleteProductService,
+  type UpdateProductInput,
+} from "@/lib/services/products.service";
 
 export const dynamic = "force-dynamic";
 
 const VIEW_PERMISSIONS = ["platos.ver", "inventario.ver", "pedidos.crear", "ventas.crear"];
 
-async function readId(params: Promise<{ id: string }>): Promise<number | null> {
-  const id = Number.parseInt((await params).id, 10);
-  return Number.isNaN(id) ? null : id;
+function parseId(params: Record<string, string | string[]>): number {
+  const raw = params.id;
+  const str = Array.isArray(raw) ? raw[0] : raw;
+  const id = Number.parseInt(str ?? "", 10);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new ValidationError("ID de producto inválido.");
+  }
+  return id;
 }
 
 /**
@@ -33,154 +41,52 @@ async function readId(params: Promise<{ id: string }>): Promise<number | null> {
  *       - Products
  *     summary: Ocultar un producto de la carta (baja lógica)
  */
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorize(VIEW_PERMISSIONS);
-  if (!auth.ok) return auth.response;
-  try {
-    const id = await readId(params);
-    if (id === null) return NextResponse.json({ error: "ID de producto inválido." }, { status: 400 });
+export const GET = createApiHandler({
+  permission: VIEW_PERMISSIONS,
+  handler: async ({ params }) => {
+    const id = parseId(params);
+    const data = await getProductByIdService(id);
+    return { data };
+  },
+});
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: { recipe: { include: { ingredient: true } } },
-    });
-    if (!product) return NextResponse.json({ error: "Producto no encontrado." }, { status: 404 });
+export const PUT = createApiHandler<UpdateProductInput>({
+  permission: "platos.editar",
+  handler: async ({ params, body }) => {
+    const id = parseId(params);
+    const updated = await updateProductService(id, body);
+    return {
+      message: "Producto y receta actualizados con éxito.",
+      data: updated,
+    };
+  },
+});
 
-    return NextResponse.json({
-      data: {
-        ...product,
-        price: product.price === null ? null : Number(product.price),
-        stock: Number(product.currentStock),
-        currentStock: Number(product.currentStock),
-        minimumStock: Number(product.minimumStock),
-        ...mapRecipe(product.recipe),
-      },
-    });
-  } catch (error) {
-    console.error("[api/products/[id]] Error al obtener producto:", error);
-    return NextResponse.json({ error: "Error al obtener el producto." }, { status: 500 });
-  }
-}
-
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorize("platos.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const id = await readId(params);
-    if (id === null) return NextResponse.json({ error: "ID de producto inválido." }, { status: 400 });
-
-    const existing = await prisma.product.findUnique({ where: { id } });
-    if (!existing) return NextResponse.json({ error: "Producto no encontrado." }, { status: 404 });
-
-    const body = await request.json().catch(() => ({}));
-    const name = body.name !== undefined ? String(body.name).trim() : undefined;
-    const description = body.description !== undefined ? String(body.description).trim() : undefined;
-    const price = body.price !== undefined ? Number(body.price) : undefined;
-    const active = body.active !== undefined ? Boolean(body.active) : undefined;
-    const unitOfMeasure = body.unitOfMeasure !== undefined ? String(body.unitOfMeasure).trim() : undefined;
-    const type =
-      body.type === ProductType.RawMaterial || body.type === ProductType.FinishedProduct ? body.type : undefined;
-    const recipe: unknown[] | undefined = Array.isArray(body.recipe ?? body.ingredients)
-      ? (body.recipe ?? body.ingredients)
-      : undefined;
-
-    if (name !== undefined && !name) {
-      return NextResponse.json({ error: "El nombre no puede estar vacío." }, { status: 400 });
+export const PATCH = createApiHandler<{ active?: boolean; status?: boolean }>({
+  permission: "platos.editar",
+  handler: async ({ params, body }) => {
+    const id = parseId(params);
+    const bodyObj = body ?? {};
+    if (bodyObj.active === undefined && bodyObj.status === undefined) {
+      throw new ValidationError("Debe enviar el nuevo estado (active: true/false).");
     }
-    if (price !== undefined && (Number.isNaN(price) || price <= 0)) {
-      return NextResponse.json({ error: "El precio debe ser un número mayor a 0." }, { status: 400 });
-    }
-    if (unitOfMeasure !== undefined && !unitOfMeasure) {
-      return NextResponse.json({ error: "La unidad de medida no puede estar vacía." }, { status: 400 });
-    }
-
-    // El tipo decide la cuenta contable del inventario (241 / 201 / 211): con movimientos ya no se puede cambiar.
-    if (type !== undefined && type !== existing.type) {
-      const movements = await prisma.inventoryMovement.count({ where: { productId: id } });
-      if (movements > 0) {
-        return NextResponse.json(
-          { error: "No se puede cambiar el tipo de un producto que ya tiene movimientos de inventario." },
-          { status: 409 }
-        );
-      }
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.product.update({
-        where: { id },
-        data: {
-          ...(name !== undefined ? { name } : {}),
-          ...(description !== undefined ? { description: description || null } : {}),
-          ...(price !== undefined ? { price } : {}),
-          ...(active !== undefined ? { active } : {}),
-          ...(unitOfMeasure !== undefined ? { unitOfMeasure } : {}),
-          ...(type !== undefined ? { type } : {}),
-        },
-      });
-
-      if (recipe !== undefined) {
-        await tx.productRecipe.deleteMany({ where: { productId: id } });
-        for (const raw of recipe) {
-          const item = raw as { ingredientId?: unknown; quantityRequired?: unknown; quantity?: unknown };
-          const ingredientId = Number(item.ingredientId);
-          const quantityRequired = Number(item.quantityRequired ?? item.quantity);
-          if (ingredientId && ingredientId !== id && quantityRequired > 0) {
-            await tx.productRecipe.create({ data: { productId: id, ingredientId, quantityRequired } });
-          }
-        }
-      }
-    });
-
-    const updated = await prisma.product.findUnique({
-      where: { id },
-      include: { recipe: { include: { ingredient: true } } },
-    });
-    return NextResponse.json({ message: "Producto y receta actualizados con éxito.", data: updated });
-  } catch (error) {
-    console.error("[api/products/[id]] Error al actualizar producto:", error);
-    return NextResponse.json({ error: "Error al actualizar el producto." }, { status: 500 });
-  }
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorize("platos.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const id = await readId(params);
-    if (id === null) return NextResponse.json({ error: "ID de producto inválido." }, { status: 400 });
-
-    const body = await request.json().catch(() => ({}));
-    if (body.active === undefined && body.status === undefined) {
-      return NextResponse.json({ error: "Debe enviar el nuevo estado (active: true/false)." }, { status: 400 });
-    }
-    const active = Boolean(body.active ?? body.status);
-
-    const updated = await prisma.product.update({ where: { id }, data: { active } });
-    return NextResponse.json({
+    const active = Boolean(bodyObj.active ?? bodyObj.status);
+    const updated = await setProductActiveService(id, active);
+    return {
       message: `Producto "${updated.name}" ${active ? "activado" : "desactivado (pausado)"} correctamente.`,
       data: updated,
-    });
-  } catch (error) {
-    console.error("[api/products/[id]] Error al cambiar estado del producto:", error);
-    return NextResponse.json({ error: "Error al cambiar el estado del producto." }, { status: 500 });
-  }
-}
+    };
+  },
+});
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorize("platos.eliminar");
-  if (!auth.ok) return auth.response;
-  try {
-    const id = await readId(params);
-    if (id === null) return NextResponse.json({ error: "ID de producto inválido." }, { status: 400 });
-
-    // Baja lógica: el producto sigue en el Kardex y en los pedidos ya vendidos.
-    const deactivated = await prisma.product.update({ where: { id }, data: { active: false } });
-    return NextResponse.json({
+export const DELETE = createApiHandler({
+  permission: "platos.eliminar",
+  handler: async ({ params }) => {
+    const id = parseId(params);
+    const deactivated = await deleteProductService(id);
+    return {
       message: `Producto "${deactivated.name}" desactivado de la carta exitosamente.`,
       data: deactivated,
-    });
-  } catch (error) {
-    console.error("[api/products/[id]] Error al desactivar producto:", error);
-    return NextResponse.json({ error: "Error al desactivar el producto." }, { status: 500 });
-  }
-}
+    };
+  },
+});
