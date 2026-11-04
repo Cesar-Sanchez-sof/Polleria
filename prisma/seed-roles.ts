@@ -79,6 +79,25 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
   },
 ];
 
+// Recursos humanos: gestiona personal, contratos, horarios, asistencia, licencias y beneficios.
+ROLES_BASE.push({
+  name: "RRHH",
+  description: "Gestiona el personal: contratos, horarios, asistencia, vacaciones, seguros y adelantos",
+  permissions: [
+    ...p("empleados", "ver", "crear", "editar"),
+    ...p("contratos", "ver", "crear", "editar"),
+    ...p("horarios", "ver", "crear", "editar", "eliminar"),
+    ...p("asistencia", "ver", "crear", "editar"),
+    ...p("vacaciones", "ver", "crear", "editar"),
+    ...p("seguros", "ver", "crear", "editar"),
+    ...p("anticipos", "ver", "crear", "editar"),
+    ...p("planilla", "ver", "crear", "editar"),
+  ],
+});
+
+// El contador revisa la planilla y sus asientos (no la calcula ni la aprueba: segregación de funciones).
+ROLES_BASE.find((r) => r.name === "CONTADOR")?.permissions.push(...p("planilla", "ver"));
+
 export async function seedRolesPermissions(prisma: PrismaClient) {
   // 1. Sincroniza el catálogo (alta/actualización y baja de códigos obsoletos).
   const known = new Set((await prisma.permission.findMany({ select: { code: true } })).map((x) => x.code));

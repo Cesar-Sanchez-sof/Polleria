@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock, Edit2, List, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { AlertCircle, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock, Edit2, Layers, List, Plus, Trash2, UserPlus, Users, Wand2 } from "lucide-react";
+import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
@@ -14,6 +15,9 @@ import { usePermissions } from "@/components/personalized/PermissionsProvider";
 import { addDays, formatLongCap, formatWeekRange, mondayOf, todayLima } from "./dates";
 import { AssignEmployeesDialog, DeleteScheduleDialog, ScheduleDetailDialog, ScheduleForm, type ScheduleRow } from "./ScheduleDialogs";
 import { WeekGrid } from "./WeekGrid";
+import { TemplatesDialog } from "./TemplatesDialog";
+import { api } from "../_lib/hr-client";
+import type { GenerateWeekResult } from "@/lib/services/schedules.service";
 
 type View = "week" | "list";
 
@@ -31,6 +35,8 @@ export default function SchedulesPage() {
   const [newDate, setNewDate] = useState("");
   const [assigning, setAssigning] = useState<ScheduleRow | null>(null);
   const [deleting, setDeleting] = useState<ScheduleRow | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const { can } = usePermissions();
 
   useEffect(() => {
@@ -70,6 +76,24 @@ export default function SchedulesPage() {
     }),
     [schedules],
   );
+
+  /** Programa la semana visible con el horario pactado en los contratos vigentes. */
+  async function generateWeek() {
+    if (!monday) return;
+    setGenerating(true);
+    try {
+      const r = await api<GenerateWeekResult>("/api/schedules/generate", { method: "POST", body: { monday } });
+      const skipped = r.skipped.length ? ` · ${r.skipped.length} omitida(s)` : "";
+      toast.success(`Semana programada: ${r.assignments} asignación(es), ${r.shifts_created} horario(s) nuevo(s)${skipped}`, {
+        description: r.skipped.slice(0, 4).map((x) => `${x.employee} ${x.date} ${x.shift}: ${x.reason}`).join("\n") || undefined,
+      });
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo programar la semana");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   function openCreate(date: string) {
     setEditing(null);
@@ -173,6 +197,21 @@ export default function SchedulesPage() {
               { value: "list", label: "Lista", icon: <List />, tone: "brand" },
             ]}
           />
+          <AppButton size="sm" variant="secondary" icon={<Layers />} onClick={() => setTemplatesOpen(true)}>
+            Turnos base
+          </AppButton>
+          {can("horarios.crear") && (
+            <AppButton
+              size="sm"
+              variant="soft"
+              icon={<Wand2 />}
+              loading={generating}
+              disabled={!monday || !today || addDays(monday, 6) < today}
+              onClick={generateWeek}
+            >
+              Programar desde contratos
+            </AppButton>
+          )}
           {can("horarios.crear") && (
             <AppButton size="sm" icon={<Plus />} onClick={() => openCreate(today ?? "")}>
               Nuevo Horario
@@ -281,6 +320,7 @@ export default function SchedulesPage() {
           load();
         }}
       />
+      <TemplatesDialog open={templatesOpen} onClose={() => setTemplatesOpen(false)} canEdit={can("horarios.editar")} />
       <DeleteScheduleDialog
         schedule={deleting}
         onClose={() => setDeleting(null)}

@@ -1,14 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { DomainError } from "@/lib/http/errors";
+import { verifyAssignableRole, verifyModifiableUser } from "@/lib/services/roles.service";
+import { logAudit, type AuditActor } from "@/lib/services/audit.service";
 
 /** Error de negocio con el código HTTP que debe devolver la API. */
-export class UserError extends Error {
+export class UserError extends DomainError {
   constructor(
     message: string,
     public readonly status: number = 400,
   ) {
-    super(message);
+    super(message, status);
     this.name = "ErrorUsuario";
   }
 }
@@ -48,7 +51,24 @@ export interface UserRowDto {
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RE_USERNAME = /^[a-z0-9._-]{3,20}$/;
 
-function mapUserToDto(u: any): UserRowDto {
+type UserEntityForDto = {
+  id: number;
+  username: string;
+  email: string | null;
+  active: boolean;
+  lastAccessAt: Date | string | null;
+  role: { id: number; name: string };
+  employee: {
+    id: number;
+    dni: string;
+    firstName: string;
+    middleName: string | null;
+    paternalLastName: string;
+    maternalLastName: string | null;
+  };
+};
+
+function mapUserToDto(u: UserEntityForDto): UserRowDto {
   return {
     user_id: u.id,
     username: u.username,
@@ -311,4 +331,82 @@ export async function authenticate(identifier: string, password: string) {
 export async function activeUser(userId: number): Promise<boolean> {
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { active: true } });
   return u?.active === true;
+}
+
+export async function createUserWithAudit(params: {
+  data: UserData;
+  actor: AuditActor | null;
+  superuser: boolean;
+  ipAddress?: string | null;
+}): Promise<UserRowDto> {
+  const { data, actor, superuser, ipAddress } = params;
+  await verifyAssignableRole(data.role_id, superuser);
+  const newUser = await createUser(data);
+  if (actor) {
+    await logAudit({
+      actor,
+      action: "CREATE",
+      module: "Usuarios",
+      entity: "Usuario",
+      entityId: newUser.user_id,
+      description: `Creó el usuario ${newUser.username}`,
+      details: { after: { username: newUser.username, email: newUser.email, role: newUser.role.name } },
+      ipAddress: ipAddress ?? null,
+    });
+  }
+  return newUser;
+}
+
+export async function updateUserWithAudit(params: {
+  id: number;
+  data: UserData;
+  actor: AuditActor | null;
+  superuser: boolean;
+  ipAddress?: string | null;
+}): Promise<UserRowDto> {
+  const { id, data, actor, superuser, ipAddress } = params;
+  await verifyModifiableUser(id, superuser);
+  await verifyAssignableRole(data.role_id, superuser);
+  const updated = await updateUser(id, data);
+  if (actor) {
+    await logAudit({
+      actor,
+      action: "UPDATE",
+      module: "Usuarios",
+      entity: "Usuario",
+      entityId: id,
+      description: `Modificó el usuario ${updated.username}`,
+      details: {
+        after: { username: updated.username, email: updated.email, role: updated.role.name },
+        passwordChanged: Boolean(data.password),
+      },
+      ipAddress: ipAddress ?? null,
+    });
+  }
+  return updated;
+}
+
+export async function setUserActiveWithAudit(params: {
+  id: number;
+  active: boolean;
+  actor: AuditActor | null;
+  superuser: boolean;
+  ipAddress?: string | null;
+}): Promise<UserRowDto> {
+  const { id, active, actor, superuser, ipAddress } = params;
+  await verifyModifiableUser(id, superuser);
+  const updated = await setUserActive(id, active);
+  if (actor) {
+    await logAudit({
+      actor,
+      action: "STATUS_CHANGE",
+      module: "Usuarios",
+      entity: "Usuario",
+      entityId: id,
+      description: `${updated.active ? "Activó" : "Desactivó"} al usuario ${updated.username}`,
+      details: { active: updated.active },
+      ipAddress: ipAddress ?? null,
+    });
+  }
+  return updated;
 }

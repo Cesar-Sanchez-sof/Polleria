@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { deleteDraftPayroll, updatePayrollManual, type PayrollManualInput } from "@/lib/services/payroll.service";
+import { approvePayrollPeriod, getPayrollPeriod, payPayrollPeriod, reopenPayrollPeriod } from "@/lib/services/hr/payroll.service";
+import { auditHr, badRequest, routeId, type IdContext } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";
-
-type Context = { params: Promise<{ id: string }> };
-
-async function readId(ctx: Context): Promise<number | null> {
-  const id = Number((await ctx.params).id);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
 
 /**
  * @openapi
  * /api/payroll/{id}:
- *   put:
+ *   get:
  *     tags:
  *       - Planilla
- *     summary: Editar los montos manuales de una boleta en borrador
+ *     summary: Planilla con sus boletas y asientos contables
  *     parameters:
  *       - in: path
  *         name: id
@@ -28,13 +21,11 @@ async function readId(ctx: Context): Promise<number | null> {
  *           type: integer
  *     responses:
  *       200:
- *         description: Boleta recalculada
- *       409:
- *         description: La boleta ya está aprobada o pagada
- *   delete:
+ *         description: Planilla
+ *   patch:
  *     tags:
  *       - Planilla
- *     summary: Quitar una boleta en borrador
+ *     summary: Aprobar (asiento de devengo), pagar (asiento de pago y descuento de adelantos) o reabrir (anula el devengo) — body { action approve|pay|reopen, payment_method, payment_date, reason }
  *     parameters:
  *       - in: path
  *         name: id
@@ -43,59 +34,53 @@ async function readId(ctx: Context): Promise<number | null> {
  *           type: integer
  *     responses:
  *       200:
- *         description: Boleta quitada
+ *         description: Planilla actualizada
  */
-export async function PUT(request: NextRequest, ctx: Context) {
+export async function GET(_request: NextRequest, ctx: IdContext) {
   try {
-    const auth = await authorize("planilla.editar");
+    const auth = await authorize("planilla.ver");
     if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
-    const body = await readJson(request);
-    if (!id || !body) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
-
-    const updated = await updatePayrollManual(id, body as unknown as PayrollManualInput);
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
-      action: "UPDATE",
-      module: "Planilla",
-      entity: "Boleta de planilla",
-      entityId: id,
-      description: `Editó la boleta de ${updated.employee_name} (${updated.month}/${updated.year})`,
-      details: {
-        after: {
-          overtime_pay: updated.overtime_pay,
-          bonus: updated.bonus,
-          absence_discount: updated.absence_discount,
-          advances: updated.advances,
-          net_pay: updated.net_pay,
-        },
-      },
-      ipAddress: requestIp(request),
-    });
-    return NextResponse.json(updated);
-  } catch (error) {
-    return errorResponse(error);
+    const id = await routeId(ctx);
+    if (!id) return badRequest();
+    return NextResponse.json(await getPayrollPeriod(id));
+  } catch (e) {
+    return errorResponse(e);
   }
 }
 
-export async function DELETE(request: NextRequest, ctx: Context) {
+export async function PATCH(request: NextRequest, ctx: IdContext) {
   try {
     const auth = await authorize("planilla.editar");
     if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
-    if (!id) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
-    await deleteDraftPayroll(id);
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
-      action: "DELETE",
+    const id = await routeId(ctx);
+    const body = await readJson(request);
+    if (!id || !body) return badRequest();
+    const actor = { userId: auth.session.userId, username: auth.session.username };
+
+    let period;
+    let description: string;
+    if (body.action === "approve") {
+      period = await approvePayrollPeriod(id, actor);
+      description = `Aprobó la planilla de ${period.label} y registró el asiento de devengo (S/ ${period.total_gross.toFixed(2)})`;
+    } else if (body.action === "pay") {
+      period = await payPayrollPeriod(id, body, actor);
+      description = `Pagó la planilla de ${period.label} por ${period.payment_method} (neto S/ ${period.total_net.toFixed(2)})`;
+    } else if (body.action === "reopen") {
+      period = await reopenPayrollPeriod(id, body.reason);
+      description = `Reabrió la planilla de ${period.label} y anuló su asiento de devengo: ${String(body.reason)}`;
+    } else {
+      return badRequest("Acción no válida");
+    }
+    await auditHr(auth.session, request, {
+      action: "STATUS_CHANGE",
       module: "Planilla",
-      entity: "Boleta de planilla",
+      entity: "Planilla",
       entityId: id,
-      description: `Quitó la boleta en borrador #${id}`,
-      ipAddress: requestIp(request),
+      description,
+      details: { after: { status: period.status, journal_entries: period.journal_entries.map((j) => j.code) } },
     });
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return errorResponse(error);
+    return NextResponse.json(period);
+  } catch (e) {
+    return errorResponse(e);
   }
 }

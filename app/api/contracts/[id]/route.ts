@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { getContract, terminateContract, updateContract, type ContractData } from "@/lib/services/contracts.service";
+import {
+  getContract,
+  renewContract,
+  terminateContract,
+  updateContract,
+  type ContractData,
+  type ContractDto,
+  type TerminationData,
+} from "@/lib/services/hr/contracts.service";
+import { employeeIdOfUser, verifyModifiableEmployee } from "@/lib/services/employees.service";
+import { auditHr, badRequest, routeId, type IdContext } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";
-
-type Context = { params: Promise<{ id: string }> };
-
-async function readId(ctx: Context): Promise<number | null> {
-  const id = Number((await ctx.params).id);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
 
 /**
  * @openapi
@@ -19,7 +21,7 @@ async function readId(ctx: Context): Promise<number | null> {
  *   get:
  *     tags:
  *       - Contratos
- *     summary: Ver un contrato
+ *     summary: Consultar un contrato
  *     parameters:
  *       - in: path
  *         name: id
@@ -29,64 +31,74 @@ async function readId(ctx: Context): Promise<number | null> {
  *     responses:
  *       200:
  *         description: Contrato
- *       404:
- *         description: No existe
  *   put:
  *     tags:
  *       - Contratos
- *     summary: Editar un contrato que no esté rescindido
+ *     summary: Adenda — modificar cargo, sueldo, fechas u horario de un contrato vigente
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
  *         description: Contrato actualizado
- *       409:
- *         description: Rescindido o con periodo cruzado
- *   patch:
+ *   post:
  *     tags:
  *       - Contratos
- *     summary: Rescindir un contrato (terminated_at y reason)
+ *     summary: Renovar (body { action "renew", ...contrato }) o cesar (body { action "terminate", termination_date, reason, kind })
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Contrato rescindido
+ *         description: Operación realizada
  */
-export async function GET(_request: NextRequest, ctx: Context) {
+const snapshot = (c: ContractDto) => ({
+  contract_type: c.contract_type,
+  position: c.position,
+  area: c.area,
+  base_salary: c.base_salary,
+  start_date: c.start_date,
+  end_date: c.end_date,
+  weekly_hours: c.weekly_hours,
+  status: c.status,
+});
+
+export async function GET(_request: NextRequest, ctx: IdContext) {
   try {
-    const auth = await authorize("contratos.ver");
+    const auth = await authorize(["contratos.ver", "empleados.ver"]);
     if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
-    if (!id) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
+    const id = await routeId(ctx);
+    if (!id) return badRequest();
     return NextResponse.json(await getContract(id));
   } catch (e) {
     return errorResponse(e);
   }
 }
 
-export async function PUT(request: NextRequest, ctx: Context) {
+export async function PUT(request: NextRequest, ctx: IdContext) {
   try {
     const auth = await authorize("contratos.editar");
     if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
+    const id = await routeId(ctx);
     const body = await readJson(request);
-    if (!id || !body) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
+    if (!id || !body) return badRequest();
 
     const before = await getContract(id);
+    await verifyModifiableEmployee(before.employee_id, auth.superuser);
     const updated = await updateContract(id, body as unknown as ContractData);
-    const snapshot = (c: typeof before) => ({
-      kind: c.kind,
-      regime: c.regime,
-      start_date: c.start_date,
-      end_date: c.end_date,
-      monthly_salary: c.monthly_salary,
-      weekly_hours: c.weekly_hours,
-    });
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
+    await auditHr(auth.session, request, {
       action: "UPDATE",
       module: "Contratos",
-      entity: "Contrato laboral",
+      entity: "Contrato",
       entityId: id,
-      description: `Modificó el contrato de ${updated.employee_name}`,
+      description: `Registró una adenda al contrato de ${updated.employee_name}`,
       details: { before: snapshot(before), after: snapshot(updated) },
-      ipAddress: requestIp(request),
     });
     return NextResponse.json(updated);
   } catch (e) {
@@ -94,32 +106,59 @@ export async function PUT(request: NextRequest, ctx: Context) {
   }
 }
 
-export async function PATCH(request: NextRequest, ctx: Context) {
+export async function POST(request: NextRequest, ctx: IdContext) {
   try {
-    const auth = await authorize("contratos.editar");
-    if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
+    const id = await routeId(ctx);
     const body = await readJson(request);
-    if (!id || !body) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
+    if (!id || !body) return badRequest();
 
-    const terminated = await terminateContract(id, {
-      terminated_at: typeof body.terminated_at === "string" ? body.terminated_at : null,
-      reason: typeof body.reason === "string" ? body.reason : null,
-    });
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
-      action: "STATUS_CHANGE",
-      module: "Contratos",
-      entity: "Contrato laboral",
-      entityId: id,
-      description: `Rescindió el contrato de ${terminated.employee_name}`,
-      details: {
-        before: { status: "active" },
-        after: { terminated_at: terminated.terminated_at, reason: terminated.termination_reason },
-      },
-      ipAddress: requestIp(request),
-    });
-    return NextResponse.json(terminated);
+    if (body.action === "renew") {
+      const auth = await authorize("contratos.crear");
+      if (!auth.ok) return auth.response;
+      const before = await getContract(id);
+      await verifyModifiableEmployee(before.employee_id, auth.superuser);
+      const renewed = await renewContract(id, body as unknown as ContractData, auth.session.userId);
+      await auditHr(auth.session, request, {
+        action: "CREATE",
+        module: "Contratos",
+        entity: "Contrato",
+        entityId: renewed.contract_id,
+        description: `Renovó el contrato de ${renewed.employee_name} desde el ${renewed.start_date}`,
+        details: { before: { contract_id: id, ...snapshot(before) }, after: snapshot(renewed) },
+      });
+      return NextResponse.json(renewed);
+    }
+
+    if (body.action === "terminate") {
+      const auth = await authorize("contratos.editar");
+      if (!auth.ok) return auth.response;
+      const before = await getContract(id);
+      if ((await employeeIdOfUser(auth.session.userId)) === before.employee_id) {
+        return badRequest("No puedes registrar tu propio cese");
+      }
+      await verifyModifiableEmployee(before.employee_id, auth.superuser);
+      const result = await terminateContract(id, body as unknown as TerminationData);
+      await auditHr(auth.session, request, {
+        action: "STATUS_CHANGE",
+        module: "Contratos",
+        entity: "Contrato",
+        entityId: id,
+        description: `Registró el cese de ${before.employee_name} (${result.contract.status.toLowerCase()}) al ${result.contract.termination_date}`,
+        details: {
+          before: { status: before.status, end_date: before.end_date },
+          after: {
+            status: result.contract.status,
+            termination_date: result.contract.termination_date,
+            reason: result.contract.termination_reason,
+          },
+          users_deactivated: result.users_deactivated,
+          shifts_removed: result.shifts_removed,
+        },
+      });
+      return NextResponse.json(result);
+    }
+
+    return badRequest("Acción no válida");
   } catch (e) {
     return errorResponse(e);
   }

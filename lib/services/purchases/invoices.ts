@@ -6,6 +6,7 @@ import {
   postPurchasePaymentJournalEntry,
 } from "@/lib/services/accounting-posting.service";
 import { requirePermission } from "@/lib/auth/permissions";
+import { auditPurchase, plain } from "./purchase-audit";
 
 export interface PurchaseVoucherInput {
   supplierId: number;
@@ -45,7 +46,7 @@ export async function getReceiptsWithoutVoucher() {
 }
 
 export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
-  await requirePermission("compras.crear");
+  const session = await requirePermission("compras.crear");
   const purchaseOrderId = data.purchaseOrderId || data.receiptId;
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
@@ -66,7 +67,7 @@ export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
     throw new Error("Debe seleccionar el tipo de pago para venta al contado");
   }
 
-  return await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const duplicate = await tx.purchaseInvoice.findFirst({
       where: {
         supplierId: data.supplierId,
@@ -147,6 +148,22 @@ export async function createPurchaseVoucher(data: PurchaseVoucherInput) {
 
     return { ...voucher, journalEntryIds };
   });
+
+  await auditPurchase(session, {
+    action: "CREATE",
+    entity: "ComprobanteCompra",
+    entityId: result.id,
+    description: `Registró el comprobante ${result.voucherType} ${result.series}-${result.number} de la orden #${purchaseOrderId}`,
+    details: {
+      after: plain({
+        purchase_order_id: purchaseOrderId,
+        supplier_id: result.supplierId,
+        total: result.totalAmount,
+        payment_condition: data.paymentCondition,
+      }),
+    },
+  });
+  return result;
 }
 
 export async function getPurchaseVouchers() {
@@ -203,7 +220,7 @@ export async function registerPurchasePayment(
   paymentTypeId: number,
   amount: number
 ) {
-  await requirePermission("compras.editar");
+  const session = await requirePermission("compras.editar");
   if (amount <= 0) {
     throw new Error("El monto del pago debe ser mayor a 0");
   }
@@ -226,7 +243,7 @@ export async function registerPurchasePayment(
     throw new Error(`El monto supera el saldo pendiente (S/ ${pendingBalance.toFixed(2)})`);
   }
 
-  return await prisma.$transaction(async (tx) => {
+  const paid = await prisma.$transaction(async (tx) => {
     const payment = await tx.purchasePayment.create({
       data: {
         purchaseInvoiceId,
@@ -257,6 +274,18 @@ export async function registerPurchasePayment(
       })
     );
   });
+
+  await auditPurchase(session, {
+    action: "CREATE",
+    entity: "PagoCompra",
+    entityId: paid?.id ?? null,
+    description: `Registró un pago de S/ ${amount.toFixed(2)} al comprobante ${voucher.voucherType} ${voucher.series}-${voucher.number}`,
+    details: {
+      before: { pending_balance: Math.round(pendingBalance * 100) / 100 },
+      after: { amount, payment_type_id: paymentTypeId, pending_balance: Math.round((pendingBalance - amount) * 100) / 100 },
+    },
+  });
+  return paid;
 }
 
 export async function getPaymentTypes() {

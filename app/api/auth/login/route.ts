@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { signSession, SESSION_COOKIE, COOKIE_OPTIONS } from "@/lib/auth/session";
-import { readJson, errorResponse } from "@/lib/auth/responses";
-import { authenticate, UserError } from "@/lib/services/users.service";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { createApiHandler } from "@/lib/http/route-handler";
+import { requestIp } from "@/lib/services/audit.service";
+import { loginWithCredentials } from "@/lib/services/auth.service";
 
 export const dynamic = "force-dynamic";
 
@@ -35,44 +34,17 @@ export const dynamic = "force-dynamic";
  *       403:
  *         description: Usuario desactivado.
  */
-export async function POST(request: Request) {
-  const body = await readJson(request);
-  const username = typeof body?.username === "string" ? body.username.trim() : "";
-  const password = typeof body?.password === "string" ? body.password : "";
-  if (!username || !password) {
-    return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
-  }
-
-  const ip = requestIp(request);
-  try {
-    const session = await authenticate(username, password);
-    const token = await signSession(session);
-
-    await logAudit({
-      actor: { userId: session.userId, username: session.username },
-      action: "LOGIN",
-      module: "Seguridad",
-      entity: "Sesión",
-      entityId: session.userId,
-      description: `Inicio de sesión de ${session.username}`,
-      ipAddress: ip,
+export const POST = createApiHandler<{ username?: string; password?: string }>({
+  handler: async ({ body, req }) => {
+    const result = await loginWithCredentials({
+      username: body?.username,
+      password: body?.password,
+      ipAddress: requestIp(req),
+      userAgent: req.headers.get("user-agent"),
     });
 
-    const response = NextResponse.json({ userId: session.userId, username: session.username, role: session.role });
-    response.cookies.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
+    const response = NextResponse.json({ ...result.user, attendance: result.attendance }, { status: 200 });
+    response.cookies.set(result.cookieName, result.token, result.cookieOptions);
     return response;
-  } catch (e) {
-    if (e instanceof UserError) {
-      await logAudit({
-        actor: { userId: null, username },
-        action: "LOGIN_FAILED",
-        module: "Seguridad",
-        entity: "Sesión",
-        description: `Intento de inicio de sesión fallido para "${username}"`,
-        details: { reason: e.message },
-        ipAddress: ip,
-      });
-    }
-    return errorResponse(e);
-  }
-}
+  },
+});

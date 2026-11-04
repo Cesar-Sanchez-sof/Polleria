@@ -1880,7 +1880,12 @@ function SalesManagementContent() {
       {/* PESTAÑA 1: SALÓN DE MESAS Y PEDIDOS */}
       {/* =================================================================== */}
       {activeTab === "tables" && (
-        <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+        <main
+          data-testid="sales-tables-main"
+          data-cash-checked={cashChecked ? "true" : "false"}
+          data-cash-opened={cashSessionState.isOpened ? "true" : "false"}
+          className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5"
+        >
           {/* Mientras se consulta el estado de la caja no se asume cerrada */}
           {!cashChecked && (
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600 shadow-2xs">
@@ -1968,6 +1973,7 @@ function SalesManagementContent() {
               return (
                 <Card
                   key={table.id}
+                  data-testid={`mesa-${table.number}`}
                   className={`rounded-2xl transition-all duration-200 overflow-hidden flex flex-col justify-between ${table.occupied
                     ? "border-red-200 bg-white shadow-sm ring-1 ring-red-100"
                     : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer"
@@ -2263,6 +2269,7 @@ function SalesManagementContent() {
                       </>
                     ) : (
                       <Button
+                        data-testid={`tomar-pedido-mesa-${table.number}`}
                         onClick={() => openTakeTableOrder(table)}
                         className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 rounded-xl flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                       >
@@ -3013,6 +3020,7 @@ function SalesManagementContent() {
                       return (
                         <div
                           key={c.orderId}
+                          data-testid={`cuenta-pendiente-${c.identifier.toLowerCase().replace(/\s+/g, "-")}`}
                           onClick={() => {
                             setOrderToCharge(c.orderObj);
                             setPaymentSource(c.identifier);
@@ -3914,6 +3922,7 @@ function SalesManagementContent() {
 
                     {/* Botón de Confirmación y Cierre de Venta */}
                     <Button
+                      data-testid="cobrar-emitir-btn"
                       onClick={executeCounterPayment}
                       disabled={processingSale}
                       className="w-full bg-red-700 hover:bg-red-800 text-white font-bold text-sm h-11 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
@@ -4145,6 +4154,7 @@ function SalesManagementContent() {
               return (
               <div
                 key={product.id}
+                data-testid={`producto-${product.id}`}
                 onClick={() => addOrderItem(product)}
                 className={`bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between transition-all ${soldOut
                   ? "opacity-50 cursor-not-allowed"
@@ -4372,6 +4382,7 @@ function SalesManagementContent() {
             </Button>
             <Button
               size="sm"
+              data-testid="enviar-cocina-btn"
               onClick={saveOrder}
               disabled={savingOrder || orderItems.length === 0}
               className="bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"

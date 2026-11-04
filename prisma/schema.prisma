@@ -89,15 +89,14 @@ enum AffectationIgv {
 // =====================================================================
 
 model Role {
-  id          Int              @id @default(autoincrement())
-  name        String           @unique @db.VarChar(50)
-  description String?          @db.VarChar(150)
-  active      Boolean          @default(true)
-  isSystem    Boolean          @default(false) @map("is_system")
-  permissions RolePermission[]
-  users       User[]
+  id              Int                   @id @default(autoincrement())
+  name            String                @unique @db.VarChar(50)
+  description     String?               @db.VarChar(150)
+  active          Boolean               @default(true)
+  isSystem        Boolean               @default(false) @map("is_system")
+  permissions     RolePermission[]
+  users           User[]
   dashboardAccess DashboardRoleAccess[]
-
 
   @@map("role")
 }
@@ -127,11 +126,11 @@ model RolePermission {
 }
 
 model Shift {
-  id        Int        @id @default(autoincrement())
-  name      String     @db.VarChar(30)
-  date      DateTime   @db.Date
-  startTime DateTime   @map("start_time") @db.Time
-  endTime   DateTime   @map("end_time") @db.Time
+  id        Int             @id @default(autoincrement())
+  name      String          @db.VarChar(30)
+  date      DateTime        @db.Date
+  startTime DateTime        @map("start_time") @db.Time
+  endTime   DateTime        @map("end_time") @db.Time
   employees EmployeeShift[]
 
   @@map("shift")
@@ -149,59 +148,72 @@ model EmployeeShift {
   @@index([shiftId], map: "idx_employee_shift_shift")
   @@map("employee_shift")
 }
+
 model Employee {
-  id                      Int                @id @default(autoincrement())
-  dni                     String             @unique @db.VarChar(8)
-  firstName               String             @map("first_name") @db.VarChar(50)
-  middleName              String?            @map("middle_name") @db.VarChar(50)
-  paternalLastName        String             @map("paternal_last_name") @db.VarChar(50)
-  maternalLastName        String?            @map("maternal_last_name") @db.VarChar(50)
-  phone                   String?            @db.VarChar(9)
-  address                 String?            @db.VarChar(200)
-  birthDate               DateTime?          @map("birth_date") @db.Date
-  hireDate                DateTime           @default(now()) @map("hire_date") @db.Date
-  position                String?            @db.VarChar(30)
-  area                    String?            @db.VarChar(30)
-  contractType            String?            @map("contract_type") @db.VarChar(30)
-  baseSalary              Decimal            @default(0) @map("base_salary") @db.Decimal(10, 2)
-  active                  Boolean            @default(true)
-    shifts                  EmployeeShift[]
+  id                      Int                  @id @default(autoincrement())
+  dni                     String               @unique @db.VarChar(8)
+  firstName               String               @map("first_name") @db.VarChar(50)
+  middleName              String?              @map("middle_name") @db.VarChar(50)
+  paternalLastName        String               @map("paternal_last_name") @db.VarChar(50)
+  maternalLastName        String?              @map("maternal_last_name") @db.VarChar(50)
+  phone                   String?              @db.VarChar(9)
+  email                   String?              @db.VarChar(80)
+  address                 String?              @db.VarChar(200)
+  birthDate               DateTime?            @map("birth_date") @db.Date
+  /// Fecha de ingreso a la empresa (inicio del primer contrato). Cargo, área, sueldo y
+  /// condiciones laborales viven en `EmploymentContract`.
+  hireDate                DateTime             @default(now()) @map("hire_date") @db.Date
+  emergencyContact        String?              @map("emergency_contact") @db.VarChar(100)
+  emergencyPhone          String?              @map("emergency_phone") @db.VarChar(9)
+  active                  Boolean              @default(true)
+  shifts                  EmployeeShift[]
+  contracts               EmploymentContract[]
+  attendances             Attendance[]
+  attendanceMarks         AttendanceMark[]
+  leaveRequests           LeaveRequest[]
+  insurances              EmployeeInsurance[]
+  salaryAdvances          SalaryAdvance[]
   users                   User[]
   payrolls                Payroll[]
-  contracts               EmploymentContract[]
   purchaseOrders          PurchaseOrder[]
-  receivedOrders          PurchaseOrder[]    @relation("ReceivedBy")
-  transformations         Transformation[]   @relation("EmployeeTransformations")
-  annulledTransformations Transformation[]   @relation("AnnulledTransformations")
-  informalPurchases       InformalPurchase[] @relation("EmployeeInformalPurchases")
-  annulledPurchases       InformalPurchase[] @relation("AnnulledPurchases")
+  receivedOrders          PurchaseOrder[]      @relation("ReceivedBy")
+  transformations         Transformation[]     @relation("EmployeeTransformations")
+  annulledTransformations Transformation[]     @relation("AnnulledTransformations")
+  informalPurchases       InformalPurchase[]   @relation("EmployeeInformalPurchases")
+  annulledPurchases       InformalPurchase[]   @relation("AnnulledPurchases")
 
   @@map("employee")
 }
 
 model User {
-  id                 Int                @id @default(autoincrement())
-  employeeId         Int                @map("employee_id")
-  roleId             Int                @map("role_id")
-  username           String             @unique @db.VarChar(20)
-  email              String?            @unique @db.VarChar(80)
-  password           String             @db.VarChar(255)
-  active             Boolean            @default(true)
-  failedAttempts     Int                @default(0) @map("failed_attempts")
-  locked             Boolean            @default(false)
-  lockedAt           DateTime?          @map("locked_at") @db.Timestamp(6)
-  lastAccessAt       DateTime?          @map("last_access_at") @db.Timestamp(6)
-  employee           Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role               Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  accountingPeriods  AccountingPeriod[]
-  closedPeriods      AccountingPeriod[] @relation("ClosedPeriods")
-  cashSessionsOpened CashSession[]      @relation("CashSessionOpenedBy")
-  cashSessionsClosed CashSession[]      @relation("CashSessionClosedBy")
-  auditLogs          AuditLog[]
-  dashboardsCreated       Dashboard[]             @relation("DashboardCreatedBy")
-  dashboardSharesCreated  DashboardShare[]        @relation("DashboardShareCreatedBy")
-  favoriteDashboards      UserDashboardFavorite[] @relation("UserFavoriteDashboards")
-  dashboardAccess         DashboardUserAccess[]
+  id                     Int                     @id @default(autoincrement())
+  employeeId             Int                     @map("employee_id")
+  roleId                 Int                     @map("role_id")
+  username               String                  @unique @db.VarChar(20)
+  email                  String?                 @unique @db.VarChar(80)
+  password               String                  @db.VarChar(255)
+  active                 Boolean                 @default(true)
+  failedAttempts         Int                     @default(0) @map("failed_attempts")
+  locked                 Boolean                 @default(false)
+  lockedAt               DateTime?               @map("locked_at") @db.Timestamp(6)
+  lastAccessAt           DateTime?               @map("last_access_at") @db.Timestamp(6)
+  employee               Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role                   Role                    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  accountingPeriods      AccountingPeriod[]
+  closedPeriods          AccountingPeriod[]      @relation("ClosedPeriods")
+  cashSessionsOpened     CashSession[]           @relation("CashSessionOpenedBy")
+  cashSessionsClosed     CashSession[]           @relation("CashSessionClosedBy")
+  auditLogs              AuditLog[]
+  dashboardsCreated      Dashboard[]             @relation("DashboardCreatedBy")
+  dashboardSharesCreated DashboardShare[]        @relation("DashboardShareCreatedBy")
+  favoriteDashboards     UserDashboardFavorite[] @relation("UserFavoriteDashboards")
+  dashboardAccess        DashboardUserAccess[]
+  contractsCreated       EmploymentContract[]    @relation("ContractCreatedBy")
+  attendancesLogged      Attendance[]            @relation("AttendanceRegisteredBy")
+  leavesReviewed         LeaveRequest[]          @relation("LeaveReviewedBy")
+  advancesReviewed       SalaryAdvance[]         @relation("AdvanceReviewedBy")
+  payrollsApproved       PayrollPeriod[]         @relation("PayrollApprovedBy")
+  payrollsPaid           PayrollPeriod[]         @relation("PayrollPaidBy")
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -212,18 +224,44 @@ model User {
 // MODULE 2: HUMAN RESOURCES (PAYROLL)
 // =====================================================================
 
-/// Tipo de contrato: a plazo fijo (tiempo determinado), a plazo indeterminado, contrato privado (sin vínculo laboral)
-/// o convenio de prácticas (modalidad formativa, Ley 28518: tampoco es vínculo laboral).
-enum ContractKind {
-  FixedTerm
-  Indefinite
-  Private
-  Internship
+/// Modalidad del contrato (D. Leg. 728, Ley 28518 de prácticas y Código Civil para locación).
+enum ContractType {
+  Indeterminado
+  PlazoFijo
+  TiempoParcial
+  Practicas
+  LocacionServicios
 
-  @@map("contract_kind")
+  @@map("contract_type")
 }
 
-/// Modalidad del convenio de prácticas (Ley 28518).
+/// Régimen laboral de la empresa para el contrato: define días de vacaciones y beneficios.
+enum LaborRegime {
+  General
+  Pequena @map("Small")
+  Micro
+
+  @@map("labor_regime")
+}
+
+enum ContractStatus {
+  Vigente
+  Finalizado
+  Rescindido
+
+  @@map("contract_status")
+}
+
+enum PensionSystem {
+  ONP
+  AFP
+  Ninguno @map("None")
+
+  @@map("pension_system")
+}
+
+/// Modalidad del convenio de prácticas (Ley 28518): preprofesional (máx. 6 h diarias / 30 h
+/// semanales) o profesional (máx. 8 h diarias / 48 h semanales).
 enum InternshipModality {
   PreProfessional
   Professional
@@ -231,117 +269,334 @@ enum InternshipModality {
   @@map("internship_modality")
 }
 
-/// Régimen laboral que fija gratificaciones, CTS y vacaciones. `None` para el contrato privado.
-enum LaborRegime {
-  General
-  Micro
-  Small
-  None
+enum LeaveType {
+  Vacaciones
+  DescansoMedico
+  LicenciaMaternidad
+  LicenciaPaternidad
+  LicenciaFallecimiento
+  PermisoPersonal
+  LicenciaSinGoce
 
-  @@map("labor_regime")
+  @@map("leave_type")
 }
 
-enum PensionSystem {
-  ONP
-  AFP
-  None
+enum RequestStatus {
+  Pendiente
+  Aprobada
+  Rechazada
+  Anulada
 
-  @@map("pension_system")
+  @@map("request_status")
 }
 
-/// Contrato de un empleado. El estado (vigente, por vencer, vencido) se calcula con las fechas;
-/// solo se guarda si se rescindió. Un contrato renovado apunta al anterior con `renewsContractId`.
+enum InsuranceType {
+  EsSalud
+  EPS
+  SCTR
+  VidaLey
+  SeguroPrivado
+
+  @@map("insurance_type")
+}
+
+enum AdvanceStatus {
+  Pendiente
+  Aprobado
+  Rechazado
+  Pagado
+  Liquidado
+  Anulado
+
+  @@map("advance_status")
+}
+
+/// Turno base (Preparación 16:00–18:00, Atención 18:00–23:30…). El contrato define en qué
+/// turnos base trabaja el empleado cada día de la semana y con ellos se programa el rol semanal.
+model ShiftTemplate {
+  id           Int                   @id @default(autoincrement())
+  name         String                @unique @db.VarChar(30)
+  startTime    DateTime              @map("start_time") @db.Time
+  endTime      DateTime              @map("end_time") @db.Time
+  active       Boolean               @default(true)
+  contractDays ContractScheduleDay[]
+
+  @@map("shift_template")
+}
+
+/// Contrato laboral: cargo, área, sueldo, régimen, pensión y su horario semanal.
+/// Un empleado tiene a lo más un contrato vigente; los anteriores quedan como historial.
 model EmploymentContract {
-  id                Int                  @id @default(autoincrement())
-  employeeId        Int                  @map("employee_id")
-  kind              ContractKind
-  regime            LaborRegime          @default(General)
-  startDate         DateTime             @map("start_date") @db.Date
-  /// Obligatoria en el contrato a plazo fijo; vacía en el indeterminado.
-  endDate           DateTime?            @map("end_date") @db.Date
-  monthlySalary     Decimal              @map("monthly_salary") @db.Decimal(10, 2)
-  weeklyHours       Int                  @default(48) @map("weekly_hours") @db.SmallInt
-  position          String?              @db.VarChar(30)
-  pensionSystem     PensionSystem        @default(ONP) @map("pension_system")
-  /// Solo en el convenio de prácticas: preprofesional (jornada máx. 30 h) o profesional (48 h).
-  internshipModality InternshipModality? @map("internship_modality")
-  familyAllowance   Boolean              @default(false) @map("family_allowance")
-  notes             String?              @db.VarChar(300)
-  renewsContractId  Int?                 @map("renews_contract_id")
-  terminatedAt      DateTime?            @map("terminated_at") @db.Date
-  terminationReason String?              @map("termination_reason") @db.VarChar(200)
-  createdAt         DateTime             @default(now()) @map("created_at")
-  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at")
-  employee          Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  renews            EmploymentContract?  @relation("ContractRenewal", fields: [renewsContractId], references: [id], onDelete: SetNull)
-  renewedBy         EmploymentContract[] @relation("ContractRenewal")
-  payrolls          Payroll[]
+  id                 Int                   @id @default(autoincrement())
+  employeeId         Int                   @map("employee_id")
+  contractType       ContractType          @map("contract_type")
+  laborRegime        LaborRegime           @default(General) @map("regime")
+  position           String                @db.VarChar(40)
+  area               String                @default("General") @db.VarChar(30)
+  startDate          DateTime              @map("start_date") @db.Date
+  /// Obligatoria salvo en contratos a plazo indeterminado.
+  endDate            DateTime?             @map("end_date") @db.Date
+  trialEndDate       DateTime?             @map("trial_end_date") @db.Date
+  baseSalary         Decimal               @map("monthly_salary") @db.Decimal(10, 2)
+  familyAllowance    Boolean               @default(false) @map("family_allowance")
+  pensionSystem      PensionSystem         @default(ONP) @map("pension_system")
+  afpName            String?               @map("afp_name") @db.VarChar(30)
+  cuspp              String?               @db.VarChar(12)
+  /// Solo en el convenio de prácticas.
+  internshipModality InternshipModality?   @map("internship_modality")
+  status             ContractStatus        @default(Vigente)
+  terminationDate    DateTime?             @map("terminated_at") @db.Date
+  terminationReason  String?               @map("termination_reason") @db.VarChar(200)
+  notes              String?               @db.VarChar(300)
+  /// Contrato anterior cuando este es una renovación.
+  renewedFromId      Int?                  @unique(map: "uq_employment_contract_renews") @map("renews_contract_id")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at")
+  createdById        Int?                  @map("created_by_id")
+  employee           Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  renewedFrom        EmploymentContract?   @relation("ContractRenewal", fields: [renewedFromId], references: [id], onDelete: SetNull)
+  renewedBy          EmploymentContract?   @relation("ContractRenewal")
+  createdBy          User?                 @relation("ContractCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  schedule           ContractScheduleDay[]
+  payrolls           Payroll[]
 
   @@index([employeeId], map: "idx_employment_contract_employee")
   @@index([endDate], map: "idx_employment_contract_end")
+  @@index([status, endDate], map: "idx_contract_status_end")
   @@map("employment_contract")
 }
 
-model Payroll {
-  id                   Int                @id @default(autoincrement())
-  employeeId           Int                @map("employee_id")
-  /// Contrato del que sale el cálculo (la planilla guarda sus propios montos, no cambia si el contrato cambia).
-  contractId           Int?               @map("contract_id")
-  month                Int                @db.SmallInt
-  year                 Int                @db.SmallInt
-  /// Remuneración (o subvención) del mes, ya prorrateada si el contrato empezó o terminó dentro del mes.
-  baseSalary           Decimal            @map("base_salary") @db.Decimal(7, 2)
-  familyAllowance      Decimal            @default(0) @map("family_allowance") @db.Decimal(7, 2)
-  overtimePay          Decimal            @default(0) @map("overtime_pay") @db.Decimal(7, 2)
-  bonus                Decimal            @default(0) @db.Decimal(7, 2)
-  /// Descuento por faltas o tardanzas: resta de lo ganado.
-  absenceDiscount      Decimal            @default(0) @map("absence_discount") @db.Decimal(7, 2)
-  /// Remuneración bruta: base + asignación familiar + horas extra + bonos - descuento por faltas.
-  grossPay             Decimal            @default(0) @map("gross_pay") @db.Decimal(8, 2)
-  pensionSystem        PensionSystem      @default(None) @map("pension_system")
-  /// Aporte del trabajador a la ONP o la AFP.
-  pensionAmount        Decimal            @default(0) @map("pension_amount") @db.Decimal(7, 2)
-  /// Anticipos entregados antes que se descuentan en esta planilla.
-  advances             Decimal            @default(0) @db.Decimal(7, 2)
-  /// Total descontado al trabajador: pensión + anticipos.
-  deductions           Decimal            @default(0) @db.Decimal(7, 2)
-  netPay               Decimal            @map("net_pay") @db.Decimal(7, 2)
-  /// Aporte del empleador (EsSalud o SIS): costo de la empresa, no se descuenta al trabajador.
-  employerContribution Decimal            @default(0) @map("employer_contribution") @db.Decimal(7, 2)
-  status               PayrollStatus      @default(Draft)
-  approvedAt           DateTime?          @map("approved_at")
-  paymentDate          DateTime?          @map("payment_date") @db.Date
-  active               Boolean            @default(true)
-  employee             Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  contract             EmploymentContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
-  journalEntries       JournalEntry[]
+/// Horario pactado en el contrato: turno base que cubre en cada día de la semana (0 = lunes).
+model ContractScheduleDay {
+  id              Int                @id @default(autoincrement())
+  contractId      Int                @map("contract_id")
+  weekday         Int                @db.SmallInt
+  shiftTemplateId Int                @map("shift_template_id")
+  contract        EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  shiftTemplate   ShiftTemplate      @relation(fields: [shiftTemplateId], references: [id], onDelete: Restrict)
 
-  @@unique([employeeId, month, year], map: "uq_payroll_period")
-  @@index([employeeId], map: "idx_payroll_employee")
-  @@index([year, month], map: "idx_payroll_period")
-  @@map("payroll")
+  @@unique([contractId, weekday, shiftTemplateId], map: "uq_contract_schedule_day")
+  @@map("contract_schedule_day")
 }
 
-/// Borrador (se puede recalcular y editar), aprobada (ya tiene asiento contable) o pagada.
+/// Marcación diaria (entrada/salida). El estado (puntual, tardanza, falta…) se calcula
+/// comparándola con los horarios asignados ese día.
+model Attendance {
+  id             Int              @id @default(autoincrement())
+  employeeId     Int              @map("employee_id")
+  date           DateTime         @db.Date
+  checkIn        DateTime?        @map("check_in") @db.Timestamptz(6)
+  checkOut       DateTime?        @map("check_out") @db.Timestamptz(6)
+  /// Origen de la entrada: InicioSesion, Autoservicio, Manual (RR. HH.) o Correccion.
+  source         String           @default("Manual") @db.VarChar(15)
+  /// Origen de la salida: CierreSesion, Autoservicio, Manual o Correccion.
+  checkOutSource String?          @map("check_out_source") @db.VarChar(15)
+  checkInIp      String?          @map("check_in_ip") @db.VarChar(45)
+  checkOutIp     String?          @map("check_out_ip") @db.VarChar(45)
+  justified      Boolean          @default(false)
+  justification  String?          @db.VarChar(200)
+  notes          String?          @db.VarChar(200)
+  registeredById Int?             @map("registered_by_id")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamp(6)
+  employee       Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  registeredBy   User?            @relation("AttendanceRegisteredBy", fields: [registeredById], references: [id], onDelete: SetNull)
+  marks          AttendanceMark[]
+
+  @@unique([employeeId, date], map: "uq_attendance_employee_date")
+  @@index([date], map: "idx_attendance_date")
+  @@map("attendance")
+}
+
+/// Bitácora inmutable de marcaciones: cada entrada, salida o corrección con su origen,
+/// IP y dispositivo. RR. HH. la consulta para verificar quién marcó, cómo y desde dónde.
+model AttendanceMark {
+  id           Int         @id @default(autoincrement())
+  attendanceId Int?        @map("attendance_id")
+  employeeId   Int         @map("employee_id")
+  /// "Entrada" o "Salida".
+  kind         String      @db.VarChar(10)
+  /// Instante marcado (puede diferir de `createdAt` en las correcciones).
+  markedAt     DateTime?   @map("marked_at") @db.Timestamptz(6)
+  /// InicioSesion, CierreSesion, Autoservicio, Manual o Correccion.
+  source       String      @db.VarChar(15)
+  userId       Int?        @map("user_id")
+  username     String?     @db.VarChar(50)
+  ipAddress    String?     @map("ip_address") @db.VarChar(45)
+  userAgent    String?     @map("user_agent") @db.VarChar(200)
+  note         String?     @db.VarChar(200)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  attendance   Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt], map: "idx_attendance_mark_employee")
+  @@index([createdAt], map: "idx_attendance_mark_created")
+  @@map("attendance_mark")
+}
+
+/// Vacaciones (incluido el adelanto de vacaciones, D. Leg. 1405), licencias y permisos.
+model LeaveRequest {
+  id           Int           @id @default(autoincrement())
+  employeeId   Int           @map("employee_id")
+  type         LeaveType
+  startDate    DateTime      @map("start_date") @db.Date
+  endDate      DateTime      @map("end_date") @db.Date
+  /// Días calendario entre inicio y fin (inclusive).
+  days         Int           @db.SmallInt
+  /// Vacaciones que se toman antes de cumplir el récord vacacional.
+  isAdvance    Boolean       @default(false) @map("is_advance")
+  paid         Boolean       @default(true)
+  reason       String?       @db.VarChar(255)
+  /// Sustento: N.° de CITT, certificado médico, partida, etc.
+  documentRef  String?       @map("document_ref") @db.VarChar(60)
+  status       RequestStatus @default(Pendiente)
+  reviewedById Int?          @map("reviewed_by_id")
+  reviewedAt   DateTime?     @map("reviewed_at") @db.Timestamp(6)
+  reviewNote   String?       @map("review_note") @db.VarChar(255)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewedBy   User?         @relation("LeaveReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, startDate], map: "idx_leave_employee_start")
+  @@index([status], map: "idx_leave_status")
+  @@map("leave_request")
+}
+
+/// Pólizas y coberturas del trabajador (EsSalud, EPS, SCTR, Vida Ley…).
+model EmployeeInsurance {
+  id               Int           @id @default(autoincrement())
+  employeeId       Int           @map("employee_id")
+  type             InsuranceType
+  provider         String        @db.VarChar(80)
+  policyNumber     String?       @map("policy_number") @db.VarChar(40)
+  startDate        DateTime      @map("start_date") @db.Date
+  endDate          DateTime?     @map("end_date") @db.Date
+  /// Prima o aporte mensual a cargo del empleador.
+  monthlyCost      Decimal       @default(0) @map("monthly_cost") @db.Decimal(10, 2)
+  coversDependents Boolean       @default(false) @map("covers_dependents")
+  active           Boolean       @default(true)
+  notes            String?       @db.VarChar(200)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId], map: "idx_insurance_employee")
+  @@map("employee_insurance")
+}
+
+/// Adelanto de sueldo: se descuenta en cuotas en las siguientes planillas.
+model SalaryAdvance {
+  id             Int           @id @default(autoincrement())
+  employeeId     Int           @map("employee_id")
+  amount         Decimal       @db.Decimal(10, 2)
+  installments   Int           @default(1) @db.SmallInt
+  deductedAmount Decimal       @default(0) @map("deducted_amount") @db.Decimal(10, 2)
+  requestDate    DateTime      @map("request_date") @db.Date
+  reason         String        @db.VarChar(200)
+  status         AdvanceStatus @default(Pendiente)
+  reviewedById   Int?          @map("reviewed_by_id")
+  reviewedAt     DateTime?     @map("reviewed_at") @db.Timestamp(6)
+  reviewNote     String?       @map("review_note") @db.VarChar(255)
+  paidAt         DateTime?     @map("paid_at") @db.Timestamp(6)
+  paymentMethod  String?       @map("payment_method") @db.VarChar(30)
+  /// Asiento contable de la entrega (141 Adelantos al personal / 10 Caja-Bancos).
+  journalEntryId Int?          @map("journal_entry_id")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewedBy     User?         @relation("AdvanceReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId], map: "idx_advance_employee")
+  @@index([status], map: "idx_advance_status")
+  @@map("salary_advance")
+}
+
 enum PayrollStatus {
-  Draft
-  Approved
-  Paid
+  Borrador @map("Draft")
+  Aprobada @map("Approved")
+  Pagada   @map("Paid")
 
   @@map("payroll_status")
 }
 
-/// Tasas y montos de la planilla (RMV, ONP, AFP, EsSalud...) con fecha de vigencia: se usa el vigente al mes calculado.
-model PayrollParameter {
-  id            Int      @id @default(autoincrement())
-  code          String   @db.VarChar(40)
-  value         Decimal  @db.Decimal(12, 4)
-  effectiveFrom DateTime @map("effective_from") @db.Date
-  notes         String?  @db.VarChar(200)
-  createdAt     DateTime @default(now()) @map("created_at")
+/// Planilla mensual: se calcula (Borrador), se aprueba (asiento de devengo) y se paga
+/// (asiento de pago y descuento de adelantos). Una por mes.
+model PayrollPeriod {
+  id              Int            @id @default(autoincrement())
+  year            Int            @db.SmallInt
+  month           Int            @db.SmallInt
+  status          PayrollStatus  @default(Borrador)
+  totalGross      Decimal        @default(0) @map("total_gross") @db.Decimal(12, 2)
+  totalDeductions Decimal        @default(0) @map("total_deductions") @db.Decimal(12, 2)
+  totalNet        Decimal        @default(0) @map("total_net") @db.Decimal(12, 2)
+  totalEmployer   Decimal        @default(0) @map("total_employer") @db.Decimal(12, 2)
+  calculatedAt    DateTime?      @map("calculated_at") @db.Timestamp(6)
+  approvedAt      DateTime?      @map("approved_at") @db.Timestamp(6)
+  approvedById    Int?           @map("approved_by_id")
+  paidAt          DateTime?      @map("paid_at") @db.Timestamp(6)
+  paidById        Int?           @map("paid_by_id")
+  paymentMethod   String?        @map("payment_method") @db.VarChar(30)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
+  approvedBy      User?          @relation("PayrollApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  paidBy          User?          @relation("PayrollPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  lines           Payroll[]
+  journalEntries  JournalEntry[]
 
-  @@unique([code, effectiveFrom], map: "uq_payroll_parameter")
-  @@map("payroll_parameter")
+  @@unique([year, month], map: "uq_payroll_period_month")
+  @@map("payroll_period")
+}
+
+/// Línea de planilla (boleta de pago) de un trabajador en un mes.
+model Payroll {
+  id               Int                 @id @default(autoincrement())
+  employeeId       Int                 @map("employee_id")
+  periodId         Int?                @map("period_id")
+  contractId       Int?                @map("contract_id")
+  month            Int                 @db.SmallInt
+  year             Int                 @db.SmallInt
+  /// Sueldo básico pactado (mensual completo).
+  baseSalary       Decimal             @map("base_salary") @db.Decimal(10, 2)
+  /// Días del mes cubiertos por el contrato (mes comercial de 30 días).
+  contractDays     Int                 @default(30) @map("contract_days") @db.SmallInt
+  /// Días no remunerados: faltas injustificadas y licencias sin goce.
+  unpaidDays       Int                 @default(0) @map("unpaid_days") @db.SmallInt
+  paidDays         Int                 @default(30) @map("paid_days") @db.SmallInt
+  lateMinutes      Int                 @default(0) @map("late_minutes")
+  overtimeMinutes  Int                 @default(0) @map("overtime_minutes")
+  /// Básico proporcional a los días pagados.
+  basicPay         Decimal             @default(0) @map("basic_pay") @db.Decimal(10, 2)
+  familyAllowance  Decimal             @default(0) @map("family_allowance") @db.Decimal(10, 2)
+  overtimePay      Decimal             @default(0) @map("overtime_pay") @db.Decimal(10, 2)
+  /// Otros ingresos (bonos, comisiones) ingresados por RR. HH.
+  bonus            Decimal             @default(0) @db.Decimal(10, 2)
+  lateDiscount     Decimal             @default(0) @map("absence_discount") @db.Decimal(10, 2)
+  grossPay         Decimal             @default(0) @map("gross_pay") @db.Decimal(10, 2)
+  /// ONP, AFP o "Ninguno".
+  pensionSystem    String?             @map("pension_system") @db.VarChar(20)
+  pensionAmount    Decimal             @default(0) @map("pension_amount") @db.Decimal(10, 2)
+  incomeTax        Decimal             @default(0) @map("income_tax") @db.Decimal(10, 2)
+  advanceDeduction Decimal             @default(0) @map("advances") @db.Decimal(10, 2)
+  /// Otros descuentos ingresados por RR. HH. (judiciales, préstamos…).
+  otherDeductions  Decimal             @default(0) @map("other_deductions") @db.Decimal(10, 2)
+  /// Total de descuentos al trabajador.
+  deductions       Decimal             @default(0) @db.Decimal(10, 2)
+  netPay           Decimal             @map("net_pay") @db.Decimal(10, 2)
+  essalud          Decimal             @default(0) @map("employer_contribution") @db.Decimal(10, 2)
+  /// Primas de seguros (Vida Ley, SCTR, EPS…) a cargo del empleador.
+  insuranceCost    Decimal             @default(0) @map("insurance_cost") @db.Decimal(10, 2)
+  /// Detalle del cálculo (tasas, adelantos descontados…) para la boleta.
+  detail           Json?
+  notes            String?             @db.VarChar(200)
+  paymentDate      DateTime?           @map("payment_date") @db.Date
+  active           Boolean             @default(true)
+  employee         Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  period           PayrollPeriod?      @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  contract         EmploymentContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  journalEntries   JournalEntry[]
+
+  @@unique([employeeId, month, year], map: "uq_payroll_period")
+  @@index([employeeId], map: "idx_payroll_employee")
+  @@index([year, month], map: "idx_payroll_period")
+  @@index([periodId], map: "idx_payroll_period_id")
+  @@map("payroll")
 }
 
 // =====================================================================
@@ -402,30 +657,30 @@ model PurchaseOrder {
 /// Unified catalog: raw materials and finished products. A product may be sold (`sellable` + `price`),
 /// always has its own stock and may carry a reference recipe (`recipe`) for the cook.
 model Product {
-  id                  Int                    @id @default(autoincrement())
-  name                String                 @db.VarChar(100)
-  description         String?                @db.Text
-  type                ProductType            @default(RawMaterial)
-  affectationIgv      AffectationIgv?        @map("affectation_igv")
-  unitOfMeasure       String                 @map("unit_of_measure") @db.VarChar(10)
-  currentStock        Decimal                @default(0) @map("current_stock") @db.Decimal(10, 2)
-  minimumStock        Decimal                @default(0) @map("minimum_stock") @db.Decimal(10, 2)
-  lastCost            Decimal                @default(0) @map("last_cost") @db.Decimal(10, 2)
-  averageCost         Decimal                @default(0) @map("average_cost") @db.Decimal(10, 2)
+  id                  Int                  @id @default(autoincrement())
+  name                String               @db.VarChar(100)
+  description         String?              @db.Text
+  type                ProductType          @default(RawMaterial)
+  affectationIgv      AffectationIgv?      @map("affectation_igv")
+  unitOfMeasure       String               @map("unit_of_measure") @db.VarChar(10)
+  currentStock        Decimal              @default(0) @map("current_stock") @db.Decimal(10, 2)
+  minimumStock        Decimal              @default(0) @map("minimum_stock") @db.Decimal(10, 2)
+  lastCost            Decimal              @default(0) @map("last_cost") @db.Decimal(10, 2)
+  averageCost         Decimal              @default(0) @map("average_cost") @db.Decimal(10, 2)
   /// Sale price (only meaningful when `sellable`).
-  price               Decimal?               @db.Decimal(10, 2)
+  price               Decimal?             @db.Decimal(10, 2)
   /// Shown in the sales menu (waiter / kitchen) when true.
-  sellable            Boolean                @default(false)
-  active              Boolean                @default(true)
+  sellable            Boolean              @default(false)
+  active              Boolean              @default(true)
   purchaseOrderItems  PurchaseOrderItem[]
   inventoryMovements  InventoryMovement[]
   transformationItems TransformationItem[]
   informalPurchases   InformalPurchase[]
   orderItems          OrderItem[]
   /// Recipe of this product: ingredients per 1 unit produced. Transformations consume them and add stock to the product.
-  recipe              ProductRecipe[]        @relation("RecipeOf")
+  recipe              ProductRecipe[]      @relation("RecipeOf")
   /// Recipes of other products where this product appears as an ingredient.
-  usedInRecipes       ProductRecipe[]        @relation("RecipeIngredient")
+  usedInRecipes       ProductRecipe[]      @relation("RecipeIngredient")
 
   @@map("product")
 }
@@ -433,7 +688,7 @@ model Product {
 model PurchaseOrderItem {
   id                    Int                 @id @default(autoincrement())
   purchaseOrderId       Int                 @map("purchase_order_id")
-  productId              Int                 @map("product_id")
+  productId             Int                 @map("product_id")
   quantityOrdered       Decimal             @map("quantity_ordered") @db.Decimal(10, 2)
   quantityReceived      Decimal?            @map("quantity_received") @db.Decimal(10, 2)
   unitPrice             Decimal             @map("unit_price") @db.Decimal(10, 2)
@@ -443,7 +698,7 @@ model PurchaseOrderItem {
   finalAmountLine       Decimal?            @map("final_amount_line") @db.Decimal(10, 2)
   observation           String?             @db.VarChar(100)
   purchaseOrder         PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product                Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product               Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements    InventoryMovement[]
 
   @@index([purchaseOrderId], map: "idx_purchase_order_item_order")
@@ -453,7 +708,7 @@ model PurchaseOrderItem {
 
 model InventoryMovement {
   id                   Int                   @id @default(autoincrement())
-  productId             Int                   @map("product_id")
+  productId            Int                   @map("product_id")
   purchaseOrderItemId  Int?                  @map("purchase_order_item_id")
   transformationItemId Int?                  @map("transformation_item_id")
   orderItemId          Int?                  @map("order_item_id")
@@ -463,7 +718,7 @@ model InventoryMovement {
   unitCost             Decimal?              @map("unit_cost") @db.Decimal(10, 2)
   reason               String?               @db.VarChar(100)
   movedAt              DateTime              @default(now()) @map("moved_at") @db.Timestamp(6)
-  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product              Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
   purchaseOrderItem    PurchaseOrderItem?    @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
   transformationItem   TransformationItem?   @relation(fields: [transformationItemId], references: [id], onDelete: SetNull)
   orderItem            OrderItem?            @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
@@ -537,12 +792,12 @@ model Transformation {
 model TransformationItem {
   id                 Int                 @id @default(autoincrement())
   transformationId   Int                 @map("transformation_id")
-  productId           Int                 @map("product_id")
+  productId          Int                 @map("product_id")
   itemType           String              @map("item_type") @db.VarChar(10)
   quantity           Decimal             @db.Decimal(10, 2)
   unitCost           Decimal?            @map("unit_cost") @db.Decimal(10, 2)
   transformation     Transformation      @relation(fields: [transformationId], references: [id], onDelete: Cascade)
-  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements InventoryMovement[]
 
   @@index([transformationId], map: "idx_transformation_item_transformation")
@@ -552,7 +807,7 @@ model TransformationItem {
 
 model InformalPurchase {
   id                    Int                  @id @default(autoincrement())
-  productId              Int?                 @map("product_id")
+  productId             Int?                 @map("product_id")
   employeeId            Int                  @map("employee_id")
   purchaseType          InformalPurchaseType @default(InventoryItem) @map("purchase_type")
   expenseCategory       ExpenseCategory?     @map("expense_category")
@@ -566,7 +821,7 @@ model InformalPurchase {
   annulledAt            DateTime?            @map("annulled_at") @db.Timestamp(6)
   annulledById          Int?                 @map("annulled_by_id")
   annulmentReason       String?              @map("annulment_reason") @db.VarChar(200)
-  product                Product?              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product               Product?             @relation(fields: [productId], references: [id], onDelete: Restrict)
   employee              Employee             @relation("EmployeeInformalPurchases", fields: [employeeId], references: [id], onDelete: Restrict)
   annulledBy            Employee?            @relation("AnnulledPurchases", fields: [annulledById], references: [id], onDelete: Restrict)
   inventoryMovements    InventoryMovement[]
@@ -651,14 +906,14 @@ model OrderTable {
 model OrderItem {
   id                 Int                 @id @default(autoincrement())
   orderId            Int                 @map("order_id")
-  productId             Int                 @map("product_id")
+  productId          Int                 @map("product_id")
   quantity           Int                 @db.SmallInt
   unitPrice          Decimal             @map("unit_price") @db.Decimal(10, 2)
   subtotal           Decimal             @db.Decimal(10, 2)
   itemStatus         String              @default("Pending") @map("dish_status") @db.VarChar(30)
   notes              String?             @db.VarChar(100)
   order              SalesOrder          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements InventoryMovement[]
 
   @@index([orderId], map: "idx_order_item_order")
@@ -756,6 +1011,7 @@ model JournalEntry {
   salesInvoiceId    Int?                 @map("sales_invoice_id")
   purchaseInvoiceId Int?                 @map("purchase_invoice_id")
   payrollId         Int?                 @map("payroll_id")
+  payrollPeriodId   Int?                 @map("payroll_period_id")
   transformationId  Int?                 @map("transformation_id")
   entryDate         DateTime             @default(now()) @map("entry_date") @db.Date
   periodId          Int                  @map("period_id")
@@ -771,6 +1027,7 @@ model JournalEntry {
   salesInvoice      SalesInvoice?        @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
   purchaseInvoice   PurchaseInvoice?     @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Restrict)
   payroll           Payroll?             @relation(fields: [payrollId], references: [id], onDelete: Restrict)
+  payrollPeriod     PayrollPeriod?       @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
   transformation    Transformation?      @relation(fields: [transformationId], references: [id], onDelete: Restrict)
   entryDetails      JournalEntryDetail[]
 
@@ -778,6 +1035,7 @@ model JournalEntry {
   @@index([purchaseInvoiceId], map: "idx_journal_entry_purchase_invoice")
   @@index([periodId], map: "idx_journal_entry_period")
   @@index([payrollId], map: "idx_journal_entry_payroll")
+  @@index([payrollPeriodId], map: "idx_journal_entry_payroll_period")
   @@index([transformationId], map: "idx_journal_entry_transformation")
   @@index([entryDate], map: "idx_journal_entry_date")
   @@index([book], map: "idx_journal_entry_book")
@@ -933,7 +1191,6 @@ model PrinterConfig {
   @@map("printer_config")
 }
 
-
 model RestaurantConfig {
   id             String   @id @default("default") @db.VarChar(50)
   name           String   @db.VarChar(150)
@@ -955,7 +1212,6 @@ model RestaurantConfig {
   @@map("restaurant_config")
 }
 
-
 /// Interruptores de desarrollador (una fila por bandera; sin fila = apagada). Los define
 /// `lib/developer-settings/catalog.ts` y se cambian desde Configuración → Desarrollador.
 model DeveloperSetting {
@@ -973,77 +1229,77 @@ model DeveloperSetting {
 // =====================================================================
 
 model DashboardSection {
-  id         String      @id @default(uuid())
-  name       String      @db.VarChar(100)
-  order      Int         @default(0)
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
-  
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(100)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   dashboards Dashboard[]
 
   @@map("dashboard_section")
 }
 
 model Dashboard {
-  id              String           @id @default(uuid())
-  name            String           @db.VarChar(150)
-  sectionId       String           @map("section_id")
-  isPublished     Boolean          @default(false) @map("is_published")
-  accessGroups    String[]         @map("access_groups") 
-  allowedUsers    String[]         @map("allowed_users") 
-  createdById     Int              @map("created_by_id")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  
-  section         DashboardSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  createdBy       User             @relation("DashboardCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  widgets         DashboardWidget[]
-  shares          DashboardShare[]
-  favorites       UserDashboardFavorite[]
-  roleAccess      DashboardRoleAccess[]
-  userAccess      DashboardUserAccess[]
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(150)
+  sectionId    String   @map("section_id")
+  isPublished  Boolean  @default(false) @map("is_published")
+  accessGroups String[] @map("access_groups")
+  allowedUsers String[] @map("allowed_users")
+  createdById  Int      @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  section    DashboardSection        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdBy  User                    @relation("DashboardCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  widgets    DashboardWidget[]
+  shares     DashboardShare[]
+  favorites  UserDashboardFavorite[]
+  roleAccess DashboardRoleAccess[]
+  userAccess DashboardUserAccess[]
 
   @@map("dashboard")
 }
 
 model DashboardWidget {
-  id          String    @id @default(uuid())
-  dashboardId String    @map("dashboard_id")
-  title       String    @db.VarChar(150)
-  type        String    @db.VarChar(30) 
-  metricKey   String    @map("metric_key") @db.VarChar(50) 
-  x           Int       @default(0)
-  y           Int       @default(0)
-  w           Int       @default(4)
-  h           Int       @default(2)
-  config      Json?     
-  
-  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  id          String @id @default(uuid())
+  dashboardId String @map("dashboard_id")
+  title       String @db.VarChar(150)
+  type        String @db.VarChar(30)
+  metricKey   String @map("metric_key") @db.VarChar(50)
+  x           Int    @default(0)
+  y           Int    @default(0)
+  w           Int    @default(4)
+  h           Int    @default(2)
+  config      Json?
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
 
   @@map("dashboard_widget")
 }
 
 model DashboardShare {
-  id          String    @id @default(uuid())
-  name        String    @db.VarChar(150) 
-  dashboardId String    @map("dashboard_id")
-  createdById Int       @map("created_by_id")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
-  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation("DashboardShareCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(150)
+  dashboardId String   @map("dashboard_id")
+  createdById Int      @map("created_by_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("DashboardShareCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@map("dashboard_share")
 }
 
 model UserDashboardFavorite {
-  userId      Int       @map("user_id")
-  dashboardId String    @map("dashboard_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
-  user        User      @relation("UserFavoriteDashboards", fields: [userId], references: [id], onDelete: Cascade)
-  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  userId      Int      @map("user_id")
+  dashboardId String   @map("dashboard_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User      @relation("UserFavoriteDashboards", fields: [userId], references: [id], onDelete: Cascade)
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
 
   @@id([userId, dashboardId])
   @@map("user_dashboard_favorite")
@@ -1051,14 +1307,14 @@ model UserDashboardFavorite {
 
 // Nueva tabla para roles
 model DashboardRoleAccess {
-  id          String    @id @default(uuid())
-  dashboardId String    @map("dashboard_id")
-  roleId      Int       @map("role_id")
-  canView     Boolean   @default(true)
-  canEdit     Boolean   @default(false) // Permite editar el diseño
-  
-  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
-  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id          String  @id @default(uuid())
+  dashboardId String  @map("dashboard_id")
+  roleId      Int     @map("role_id")
+  canView     Boolean @default(true)
+  canEdit     Boolean @default(false) // Permite editar el diseño
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([dashboardId, roleId])
   @@map("dashboard_role_access")
@@ -1066,14 +1322,14 @@ model DashboardRoleAccess {
 
 // Nueva tabla para usuarios específicos
 model DashboardUserAccess {
-  id          String    @id @default(uuid())
-  dashboardId String    @map("dashboard_id")
-  userId      Int       @map("user_id")
-  canView     Boolean   @default(true)
-  canEdit     Boolean   @default(false)
-  
-  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String  @id @default(uuid())
+  dashboardId String  @map("dashboard_id")
+  userId      Int     @map("user_id")
+  canView     Boolean @default(true)
+  canEdit     Boolean @default(false)
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([dashboardId, userId])
   @@map("dashboard_user_access")
