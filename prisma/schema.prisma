@@ -1078,3 +1078,31 @@ model DashboardUserAccess {
   @@unique([dashboardId, userId])
   @@map("dashboard_user_access")
 }
+
+// =====================================================================
+// MODULE: PERSONALIZACIÓN (marca, login e inicio editables)
+// =====================================================================
+
+/// Textos editables de la marca, del login y del inicio (una sola fila `default`).
+/// `content` lo valida y completa con valores por defecto `lib/branding/defaults.ts`.
+model BrandingSetting {
+  id        String   @id @default("default") @db.VarChar(50)
+  content   Json
+  updatedBy String?  @map("updated_by") @db.VarChar(50)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("branding_setting")
+}
+
+/// Imágenes de la marca (logo, foto del inicio) guardadas en la base de datos para que
+/// funcionen en despliegues sin disco persistente. Una fila por ranura.
+model BrandingAsset {
+  slot      String   @id @db.VarChar(40)
+  mimeType  String   @map("mime_type") @db.VarChar(60)
+  data      Bytes
+  sizeBytes Int      @map("size_bytes")
+  updatedBy String?  @map("updated_by") @db.VarChar(50)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("branding_asset")
+}
