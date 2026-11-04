@@ -17,6 +17,10 @@ import {
   CONTRACT_KINDS,
   CONTRACT_KIND_HINT,
   CONTRACT_KIND_LABEL,
+  hasLaborLink,
+  INTERNSHIP_MAX_WEEKLY_HOURS,
+  INTERNSHIP_MODALITIES,
+  INTERNSHIP_MODALITY_LABEL,
   LABOR_REGIMES,
   LABOR_REGIME_LABEL,
   limaToday,
@@ -26,6 +30,7 @@ import {
   suggestedRenewalStart,
   type ContractKind,
   type ContractStatus,
+  type InternshipModality,
   type LaborRegime,
   type PensionSystem,
 } from "@/lib/hr/contracts";
@@ -43,6 +48,7 @@ export interface ContractRow {
   weekly_hours: number;
   position: string | null;
   pension_system: PensionSystem;
+  internship_modality: InternshipModality | null;
   family_allowance: boolean;
   notes: string | null;
   renews_contract_id: number | null;
@@ -80,10 +86,13 @@ export function ContractForm({ open, mode, employees, onClose, onSaved }: Props)
   const editing = mode.type === "edit";
 
   const [kind, setKind] = useState<ContractKind>(source?.kind ?? "Indefinite");
+  const [modality, setModality] = useState<InternshipModality>(source?.internship_modality ?? "PreProfessional");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const isPrivate = kind === "Private";
+  const laborLink = hasLaborLink(kind);
+  const isInternship = kind === "Internship";
+  const maxHours = isInternship ? INTERNSHIP_MAX_WEEKLY_HOURS[modality] : MAX_WEEKLY_HOURS;
   const startDefault = renewing ? suggestedRenewalStart(source!.end_date) : (source?.start_date ?? limaToday());
   const endDefault = renewing ? "" : (source?.end_date ?? "");
 
@@ -94,6 +103,7 @@ export function ContractForm({ open, mode, employees, onClose, onSaved }: Props)
     const form = new FormData(ev.currentTarget);
     const data: Record<string, unknown> = Object.fromEntries(form);
     data.kind = kind;
+    if (isInternship) data.internship_modality = modality;
     data.family_allowance = form.get("family_allowance") === "on";
     if (source) data.employee_id = source.employee_id;
     if (renewing) data.renews_contract_id = source!.contract_id;
@@ -184,12 +194,36 @@ export function ContractForm({ open, mode, employees, onClose, onSaved }: Props)
               label="Fecha de fin"
               type="date"
               value={endDefault}
-              required={kind === "FixedTerm"}
+              required={kind === "FixedTerm" || isInternship}
               min={startDefault}
             />
           )}
 
-          {!isPrivate && (
+          {isInternship && (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="internship_modality">
+                Modalidad <span className="text-red-500">*</span>
+              </Label>
+              <NativeSelect
+                id="internship_modality"
+                value={modality}
+                onChange={(e) => setModality(e.target.value as InternshipModality)}
+                className="w-full"
+              >
+                {INTERNSHIP_MODALITIES.map((m) => (
+                  <NativeSelectOption key={m} value={m}>
+                    {INTERNSHIP_MODALITY_LABEL[m]}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <p className="text-xs text-muted-foreground">
+                Jornada máxima de {INTERNSHIP_MAX_WEEKLY_HOURS[modality]} horas semanales. La subvención no puede ser menor a la
+                remuneración mínima vital si cumple la jornada máxima.
+              </p>
+            </div>
+          )}
+
+          {laborLink && (
             <>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="regime">
@@ -232,24 +266,26 @@ export function ContractForm({ open, mode, employees, onClose, onSaved }: Props)
 
           <Field
             id="monthly_salary"
-            label={isPrivate ? "Honorario mensual (S/)" : "Remuneración mensual (S/)"}
+            label={isInternship ? "Subvención mensual (S/)" : kind === "Private" ? "Honorario mensual (S/)" : "Remuneración mensual (S/)"}
             type="number"
             value={source ? String(source.monthly_salary) : ""}
             required
             min={0.01}
             step="0.01"
           />
+          {/* `key`: el valor inicial cambia con la modalidad, así que el campo se vuelve a crear */}
           <Field
+            key={`hours-${maxHours}`}
             id="weekly_hours"
             label="Jornada semanal (horas)"
             type="number"
-            value={String(source?.weekly_hours ?? MAX_WEEKLY_HOURS)}
+            value={String(Math.min(source?.weekly_hours ?? maxHours, maxHours))}
             min={1}
-            max={MAX_WEEKLY_HOURS}
+            max={maxHours}
             step={1}
           />
           <Field id="position" label="Cargo" value={source?.position} maxLength={30} placeholder="Mesero, cocinero, cajero…" />
-          {!isPrivate && (
+          {laborLink && (
             <label className="flex items-center gap-2 self-end pb-2 text-sm">
               <input
                 type="checkbox"

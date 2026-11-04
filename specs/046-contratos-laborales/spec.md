@@ -2,7 +2,7 @@
 
 **Feature Branch**: `046-contratos-laborales`
 **Created**: 2026-11-03
-**Status**: Implemented (pendiente de aplicar la migración)
+**Status**: Implemented (migración `20261103180000_add_employment_contract` aplicada en la BD)
 
 ## Purpose
 
@@ -15,12 +15,13 @@ régimen y de las fechas del contrato.
 
 **Incluido**
 
-- Tres tipos: **plazo fijo** (tiempo determinado), **plazo indeterminado** y **contrato privado**
-  (acuerdo civil, por ejemplo locación de servicios: sin vínculo laboral).
+- Cuatro tipos: **plazo fijo** (tiempo determinado), **plazo indeterminado**, **contrato privado**
+  (acuerdo civil, por ejemplo locación de servicios: sin vínculo laboral) y **convenio de prácticas**
+  (practicante, Ley 28518: modalidad formativa, tampoco es vínculo laboral).
 - Registrar, editar, **renovar** y **rescindir** contratos; historial por empleado.
 - Estado calculado por fechas (no se guarda): *por iniciar*, *vigente*, *por vencer* (30 días o menos),
   *vencido* y *rescindido*.
-- Tablero: vigentes, por vencer, vencidos sin renovar y empleados sin contrato vigente.
+- Pestañas por estado con conteo y aviso de los empleados sin contrato vigente (sin tarjetas de indicadores).
 - Al dar de baja a un empleado se rescinden sus contratos abiertos.
 
 **Fuera de alcance** (features siguientes): cálculo de planilla, gratificaciones, CTS, vacaciones,
@@ -49,6 +50,11 @@ sistema de pensiones (`PensionSystem`), asignación familiar, observaciones, `re
 - **FR-008** Permisos `contratos.ver`, `contratos.crear` (registrar y renovar) y `contratos.editar`
   (editar y rescindir). No hay `eliminar`: el contrato es un registro legal. Toda acción queda en auditoría.
 
+- **FR-009** Convenio de prácticas: modalidad obligatoria (preprofesional o profesional), fecha de fin obligatoria,
+  sin régimen, pensiones ni asignación familiar. El monto mensual es una **subvención**, no remuneración. Jornada
+  máxima de 30 horas semanales (preprofesional) o 48 (profesional). No se valida el monto mínimo (la remuneración
+  mínima vital) ni los topes de duración o de porcentaje de practicantes: pendiente de confirmar en el reglamento.
+
 ## API
 
 - `GET /api/contracts` → `{ contracts, employees }` (filtros `q`, `employee_id`, `status`, `kind`);
@@ -56,7 +62,8 @@ sistema de pensiones (`PensionSystem`), asignación familiar, observaciones, `re
 - `POST /api/contracts` (con `renews_contract_id` para renovar).
 - `GET | PUT | PATCH /api/contracts/{id}` (`PATCH` rescinde con `terminated_at` y `reason`).
 
-## Pendiente al desplegar
+## Despliegue
 
-1. Aplicar la migración `20261103180000_add_employment_contract`.
-2. Correr el seed de roles para crear los permisos `contratos.*` y asignarlos al rol que corresponda.
+1. ✅ Migración `20261103180000_add_employment_contract` aplicada: la tabla `employment_contract` ya existe en la BD.
+2. Pendiente verificar: correr el seed de roles para crear los permisos `contratos.*` y asignarlos al rol que corresponda.
+3. Pendiente: aplicar la misma migración en la base de producción antes de abrir la pantalla allí.

@@ -1,81 +1,20 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { requireServerSession } from "@/lib/auth/guard";
-import {
-  ArrowRight,
-  BookOpen,
-  ChefHat,
-  CreditCard,
-  Flame,
-  Package,
-  ShoppingCart,
-  Utensils,
-  Warehouse,
-  Calendar,
-} from "lucide-react";
+import { getBranding } from "@/lib/services/branding.service";
+import type { UpdateEntry } from "@/lib/branding/defaults";
+import { ArrowRight, Flame, Megaphone } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Pollería | Inicio",
-  description: "Panel principal del ERP integral para restaurante y pollería.",
-};
+// El nombre y los textos se editan desde Configuración → Personalización.
+export const dynamic = "force-dynamic";
 
-const QUICK_ACTIONS = [
-  {
-    href: "/sales?tab=tables",
-    label: "Salón de mesas",
-    hint: "Tomar pedidos en piso",
-    icon: Utensils,
-  },
-  {
-    href: "/sales?tab=kitchen",
-    label: "Cocina KDS",
-    hint: "Comandas en preparación",
-    icon: ChefHat,
-  },
-  {
-    href: "/sales?tab=cashier",
-    label: "Ventanilla",
-    hint: "Cerrar cuentas",
-    icon: CreditCard,
-  },
-  {
-    href: "/sales",
-    label: "Ventas",
-    hint: "Gestión completa",
-    icon: ShoppingCart,
-  },
-] as const;
-
-const MODULES = [
-  {
-    href: "/sales?tab=tables",
-    title: "Ventas y salón",
-    description: "Mesas, para llevar, clientes, cobros y facturación electrónica.",
-    icon: ShoppingCart,
-    accent: "bg-primary/10 text-primary",
-  },
-  {
-    href: "/purchases",
-    title: "Compras e inventario",
-    description: "Proveedores, órdenes, recepción, kardex y transformación.",
-    icon: Package,
-    accent: "bg-secondary/15 text-secondary",
-  },
-  {
-    href: "/purchases/inventory",
-    title: "Stock e insumos",
-    description: "Control de existencias, ajustes y alertas de reorden.",
-    icon: Warehouse,
-    accent: "bg-emerald-100 text-emerald-800",
-  },
-  {
-    href: "/accounting/entries",
-    title: "Contabilidad",
-    description: "Asientos, plan de cuentas, diario, mayor y resultados.",
-    icon: BookOpen,
-    accent: "bg-amber-100 text-amber-900",
-  },
-] as const;
+export async function generateMetadata(): Promise<Metadata> {
+  const { content } = await getBranding();
+  return {
+    title: `${content.home.title} | Inicio`,
+    description: "Panel principal del ERP integral para restaurante y pollería.",
+  };
+}
 
 function formatToday(): string {
   return new Date().toLocaleDateString("es-PE", {
@@ -86,20 +25,57 @@ function formatToday(): string {
   });
 }
 
+/** "2026-11-03" -> "3 nov" (con el año si no es el actual). Al mediodía para que la zona horaria no cambie el día. */
+function formatUpdateDate(date: string): string {
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  const sameYear = parsed.getFullYear() === new Date().getFullYear();
+  return parsed.toLocaleDateString("es-PE", { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
+}
+
+function UpdatesPanel({ title, updates }: Readonly<{ title: string; updates: UpdateEntry[] }>) {
+  return (
+    <aside
+      aria-label={title}
+      className="w-full shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-black/40 text-white shadow-2xl backdrop-blur-md lg:w-96"
+    >
+      <header className="flex items-center gap-2.5 border-b border-white/10 px-5 py-4">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-300/15 text-amber-300">
+          <Megaphone className="h-4 w-4" />
+        </span>
+        <h2 className="font-headline text-sm font-bold uppercase tracking-[0.14em] text-white/90">{title}</h2>
+      </header>
+      <ol className="max-h-[46vh] space-y-0 overflow-y-auto px-5 py-4 lg:max-h-[56vh]">
+        {updates.map((update, index) => (
+          <li key={`${update.date}-${update.title}-${index}`} className="relative pb-5 pl-5 last:pb-0">
+            <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-amber-300" aria-hidden />
+            {index < updates.length - 1 ? (
+              <span className="absolute bottom-0 left-[3px] top-4 w-px bg-white/15" aria-hidden />
+            ) : null}
+            <time dateTime={update.date} className="block text-[11px] font-semibold uppercase tracking-wider text-amber-200/80">
+              {formatUpdateDate(update.date)}
+            </time>
+            <p className="mt-0.5 text-sm font-bold leading-snug text-white">{update.title}</p>
+            {update.description ? <p className="mt-1 text-xs leading-relaxed text-white/70">{update.description}</p> : null}
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
+}
+
 export default async function HomePage() {
   await requireServerSession();
   const today = formatToday();
+  const { content, assets } = await getBranding();
+  const home = content.home;
 
   return (
     <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-surface text-on-surface">
-      {/* Hero — brand first, one composition */}
-      <section className="relative min-h-[70vh] overflow-hidden">
+      <section className="relative min-h-screen overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url(https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=1800&auto=format&fit=crop&q=80)",
-          }}
+          style={{ backgroundImage: `url(${assets["home-hero"]})` }}
           aria-hidden
         />
         <div
@@ -113,118 +89,43 @@ export default async function HomePage() {
         <div
           className="absolute inset-0 opacity-[0.12]"
           style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, #fff 0.6px, transparent 0.7px)",
+            backgroundImage: "radial-gradient(circle at 20% 20%, #fff 0.6px, transparent 0.7px)",
             backgroundSize: "18px 18px",
           }}
           aria-hidden
         />
 
-        <div className="relative z-10 flex min-h-[70vh] flex-col justify-end px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
+        <div className="relative z-10 flex min-h-screen flex-col justify-end gap-8 px-6 py-10 sm:px-10 lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:py-14">
           <div className="max-w-3xl space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-700">
             <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-200/90">
               <Flame className="h-3.5 w-3.5 text-amber-300" />
-              ERP integral · {today}
+              {home.eyebrow} · {today}
             </p>
 
             <h1 className="font-headline text-5xl font-bold leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Pollería
+              {home.title}
             </h1>
 
-            <p className="max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
-              Opera el salón, la cocina, las compras y la contabilidad desde un solo lugar.
-            </p>
+            <p className="max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">{home.subtitle}</p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
-                href="/sales?tab=tables"
+                href={home.primaryHref}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary shadow-lg shadow-primary/30 transition hover:bg-primary-container active:scale-[0.98]"
               >
-                Abrir salón
+                {home.primaryLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/sales?tab=cashier"
+                href={home.secondaryHref}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/18"
               >
-                Ir a caja
+                {home.secondaryLabel}
               </Link>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Accesos rápidos operativos */}
-      <section className="px-6 py-8 sm:px-10 lg:px-14">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <div>
-              <h2 className="font-headline text-lg font-bold text-on-surface">Operación de hoy</h2>
-              <p className="text-sm text-outline">Atajos al flujo del restaurante</p>
-            </div>
-          </div>
-          {QUICK_ACTIONS.map((action, index) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={`${action.href}-${action.label}`}
-                href={action.href}
-                className="group flex items-center gap-4 rounded-2xl border border-surface-container-high bg-surface-container-lowest p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                style={{ animationDelay: `${index * 60}ms` }}
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-white">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-on-surface">{action.label}</span>
-                  <span className="block text-xs text-outline">{action.hint}</span>
-                </span>
-                <ArrowRight className="h-4 w-4 text-outline transition group-hover:translate-x-0.5 group-hover:text-primary" />
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-      {/* Módulos ERP */}
-      <section className="px-6 pb-4 sm:px-10 lg:px-14">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-          <div className="mb-5">
-            <h2 className="font-headline text-lg font-bold text-on-surface">Módulos del sistema</h2>
-            <p className="text-sm text-outline">Administración comercial, logística y financiera</p>
-          </div>
-          {MODULES.map((module) => {
-            const Icon = module.icon;
-            return (
-              <Link
-                key={module.href}
-                href={module.href}
-                className="group relative overflow-hidden rounded-2xl border border-surface-container-high bg-surface-container-lowest p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div
-                  className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/5 blur-2xl transition group-hover:bg-primary/10"
-                  aria-hidden
-                />
-                <div className="relative flex items-start gap-4">
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${module.accent}`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-headline text-base font-bold text-on-surface">
-                        {module.title}
-                      </h3>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-outline transition group-hover:translate-x-1 group-hover:text-primary" />
-                    </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-outline">
-                      {module.description}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          {home.updates.length > 0 ? <UpdatesPanel title={home.updatesTitle} updates={home.updates} /> : null}
         </div>
       </section>
     </main>

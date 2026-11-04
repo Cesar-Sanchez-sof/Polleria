@@ -96,6 +96,8 @@ model Role {
   isSystem    Boolean          @default(false) @map("is_system")
   permissions RolePermission[]
   users       User[]
+  dashboardAccess DashboardRoleAccess[]
+
 
   @@map("role")
 }
@@ -199,6 +201,7 @@ model User {
   dashboardsCreated       Dashboard[]             @relation("DashboardCreatedBy")
   dashboardSharesCreated  DashboardShare[]        @relation("DashboardShareCreatedBy")
   favoriteDashboards      UserDashboardFavorite[] @relation("UserFavoriteDashboards")
+  dashboardAccess         DashboardUserAccess[]
 
   @@index([employeeId], map: "idx_user_employee")
   @@index([roleId], map: "idx_user_role")
@@ -209,13 +212,23 @@ model User {
 // MODULE 2: HUMAN RESOURCES (PAYROLL)
 // =====================================================================
 
-/// Tipo de contrato: a plazo fijo (tiempo determinado), a plazo indeterminado o contrato privado (sin vínculo laboral).
+/// Tipo de contrato: a plazo fijo (tiempo determinado), a plazo indeterminado, contrato privado (sin vínculo laboral)
+/// o convenio de prácticas (modalidad formativa, Ley 28518: tampoco es vínculo laboral).
 enum ContractKind {
   FixedTerm
   Indefinite
   Private
+  Internship
 
   @@map("contract_kind")
+}
+
+/// Modalidad del convenio de prácticas (Ley 28518).
+enum InternshipModality {
+  PreProfessional
+  Professional
+
+  @@map("internship_modality")
 }
 
 /// Régimen laboral que fija gratificaciones, CTS y vacaciones. `None` para el contrato privado.
@@ -250,6 +263,8 @@ model EmploymentContract {
   weeklyHours       Int                  @default(48) @map("weekly_hours") @db.SmallInt
   position          String?              @db.VarChar(30)
   pensionSystem     PensionSystem        @default(ONP) @map("pension_system")
+  /// Solo en el convenio de prácticas: preprofesional (jornada máx. 30 h) o profesional (48 h).
+  internshipModality InternshipModality? @map("internship_modality")
   familyAllowance   Boolean              @default(false) @map("family_allowance")
   notes             String?              @db.VarChar(300)
   renewsContractId  Int?                 @map("renews_contract_id")
@@ -260,6 +275,7 @@ model EmploymentContract {
   employee          Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   renews            EmploymentContract?  @relation("ContractRenewal", fields: [renewsContractId], references: [id], onDelete: SetNull)
   renewedBy         EmploymentContract[] @relation("ContractRenewal")
+  payrolls          Payroll[]
 
   @@index([employeeId], map: "idx_employment_contract_employee")
   @@index([endDate], map: "idx_employment_contract_end")
@@ -267,23 +283,65 @@ model EmploymentContract {
 }
 
 model Payroll {
-  id             Int            @id @default(autoincrement())
-  employeeId     Int            @map("employee_id")
-  month          Int            @db.SmallInt
-  year           Int            @db.SmallInt
-  baseSalary     Decimal        @map("base_salary") @db.Decimal(7, 2)
-  overtimePay    Decimal        @default(0) @map("overtime_pay") @db.Decimal(7, 2)
-  bonus          Decimal        @default(0) @db.Decimal(7, 2)
-  deductions     Decimal        @default(0) @db.Decimal(7, 2)
-  netPay         Decimal        @map("net_pay") @db.Decimal(7, 2)
-  paymentDate    DateTime?      @map("payment_date") @db.Date
-  active         Boolean        @default(true)
-  employee       Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  journalEntries JournalEntry[]
+  id                   Int                @id @default(autoincrement())
+  employeeId           Int                @map("employee_id")
+  /// Contrato del que sale el cálculo (la planilla guarda sus propios montos, no cambia si el contrato cambia).
+  contractId           Int?               @map("contract_id")
+  month                Int                @db.SmallInt
+  year                 Int                @db.SmallInt
+  /// Remuneración (o subvención) del mes, ya prorrateada si el contrato empezó o terminó dentro del mes.
+  baseSalary           Decimal            @map("base_salary") @db.Decimal(7, 2)
+  familyAllowance      Decimal            @default(0) @map("family_allowance") @db.Decimal(7, 2)
+  overtimePay          Decimal            @default(0) @map("overtime_pay") @db.Decimal(7, 2)
+  bonus                Decimal            @default(0) @db.Decimal(7, 2)
+  /// Descuento por faltas o tardanzas: resta de lo ganado.
+  absenceDiscount      Decimal            @default(0) @map("absence_discount") @db.Decimal(7, 2)
+  /// Remuneración bruta: base + asignación familiar + horas extra + bonos - descuento por faltas.
+  grossPay             Decimal            @default(0) @map("gross_pay") @db.Decimal(8, 2)
+  pensionSystem        PensionSystem      @default(None) @map("pension_system")
+  /// Aporte del trabajador a la ONP o la AFP.
+  pensionAmount        Decimal            @default(0) @map("pension_amount") @db.Decimal(7, 2)
+  /// Anticipos entregados antes que se descuentan en esta planilla.
+  advances             Decimal            @default(0) @db.Decimal(7, 2)
+  /// Total descontado al trabajador: pensión + anticipos.
+  deductions           Decimal            @default(0) @db.Decimal(7, 2)
+  netPay               Decimal            @map("net_pay") @db.Decimal(7, 2)
+  /// Aporte del empleador (EsSalud o SIS): costo de la empresa, no se descuenta al trabajador.
+  employerContribution Decimal            @default(0) @map("employer_contribution") @db.Decimal(7, 2)
+  status               PayrollStatus      @default(Draft)
+  approvedAt           DateTime?          @map("approved_at")
+  paymentDate          DateTime?          @map("payment_date") @db.Date
+  active               Boolean            @default(true)
+  employee             Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  contract             EmploymentContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  journalEntries       JournalEntry[]
 
   @@unique([employeeId, month, year], map: "uq_payroll_period")
   @@index([employeeId], map: "idx_payroll_employee")
+  @@index([year, month], map: "idx_payroll_period")
   @@map("payroll")
+}
+
+/// Borrador (se puede recalcular y editar), aprobada (ya tiene asiento contable) o pagada.
+enum PayrollStatus {
+  Draft
+  Approved
+  Paid
+
+  @@map("payroll_status")
+}
+
+/// Tasas y montos de la planilla (RMV, ONP, AFP, EsSalud...) con fecha de vigencia: se usa el vigente al mes calculado.
+model PayrollParameter {
+  id            Int      @id @default(autoincrement())
+  code          String   @db.VarChar(40)
+  value         Decimal  @db.Decimal(12, 4)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  notes         String?  @db.VarChar(200)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([code, effectiveFrom], map: "uq_payroll_parameter")
+  @@map("payroll_parameter")
 }
 
 // =====================================================================
@@ -942,6 +1000,8 @@ model Dashboard {
   widgets         DashboardWidget[]
   shares          DashboardShare[]
   favorites       UserDashboardFavorite[]
+  roleAccess      DashboardRoleAccess[]
+  userAccess      DashboardUserAccess[]
 
   @@map("dashboard")
 }
@@ -987,4 +1047,62 @@ model UserDashboardFavorite {
 
   @@id([userId, dashboardId])
   @@map("user_dashboard_favorite")
+}
+
+// Nueva tabla para roles
+model DashboardRoleAccess {
+  id          String    @id @default(uuid())
+  dashboardId String    @map("dashboard_id")
+  roleId      Int       @map("role_id")
+  canView     Boolean   @default(true)
+  canEdit     Boolean   @default(false) // Permite editar el diseño
+  
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, roleId])
+  @@map("dashboard_role_access")
+}
+
+// Nueva tabla para usuarios específicos
+model DashboardUserAccess {
+  id          String    @id @default(uuid())
+  dashboardId String    @map("dashboard_id")
+  userId      Int       @map("user_id")
+  canView     Boolean   @default(true)
+  canEdit     Boolean   @default(false)
+  
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, userId])
+  @@map("dashboard_user_access")
+}
+
+// =====================================================================
+// MODULE: PERSONALIZACIÓN (marca, login e inicio editables)
+// =====================================================================
+
+/// Textos editables de la marca, del login y del inicio (una sola fila `default`).
+/// `content` lo valida y completa con valores por defecto `lib/branding/defaults.ts`.
+model BrandingSetting {
+  id        String   @id @default("default") @db.VarChar(50)
+  content   Json
+  updatedBy String?  @map("updated_by") @db.VarChar(50)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("branding_setting")
+}
+
+/// Imágenes de la marca (logo, foto del inicio) guardadas en la base de datos para que
+/// funcionen en despliegues sin disco persistente. Una fila por ranura.
+model BrandingAsset {
+  slot      String   @id @db.VarChar(40)
+  mimeType  String   @map("mime_type") @db.VarChar(60)
+  data      Bytes
+  sizeBytes Int      @map("size_bytes")
+  updatedBy String?  @map("updated_by") @db.VarChar(50)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("branding_asset")
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, CheckCircle2, Edit2, FileText, Plus, RefreshCw, Search, UserX, X, XCircle } from "lucide-react";
+import { Edit2, FileText, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +11,13 @@ import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge, type StatusBadgeTone } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
 import {
   CONTRACT_KIND_LABEL,
   CONTRACT_STATUS_LABEL,
+  INTERNSHIP_MODALITY_LABEL,
   LABOR_REGIME_LABEL,
   limaToday,
   type ContractStatus,
@@ -166,11 +166,14 @@ export default function ContractsPage() {
       sortValue: (c) => c.kind,
       cell: (c) => (
         <div className="flex flex-col items-start gap-1">
-          <Tag tone={c.kind === "Private" ? "amber" : c.kind === "FixedTerm" ? "blue" : "emerald"} size="sm">
+          <Tag
+            tone={c.kind === "Private" ? "amber" : c.kind === "FixedTerm" ? "blue" : c.kind === "Internship" ? "indigo" : "emerald"}
+            size="sm"
+          >
             {CONTRACT_KIND_LABEL[c.kind]}
           </Tag>
           <span className="text-[11px] text-muted-foreground">
-            {LABOR_REGIME_LABEL[c.regime]}
+            {c.internship_modality ? INTERNSHIP_MODALITY_LABEL[c.internship_modality] : LABOR_REGIME_LABEL[c.regime]}
             {c.renews_contract_id ? " · Renovación" : ""}
           </span>
         </div>
@@ -195,7 +198,7 @@ export default function ContractsPage() {
     },
     {
       key: "salary",
-      header: "Remuneración",
+      header: "Remuneración / subvención",
       align: "right",
       sortable: true,
       sortValue: (c) => c.monthly_salary,
@@ -309,13 +312,6 @@ export default function ContractsPage() {
       </ModuleHeader>
 
       <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <StatCard layout="label-first" tone="emerald" icon={<CheckCircle2 />} label="Contratos Vigentes" value={metrics.active} colorValue />
-          <StatCard layout="label-first" tone="amber" icon={<CalendarClock />} label="Por Vencer (30 días)" value={metrics.expiring} colorValue />
-          <StatCard layout="label-first" tone="rose" icon={<AlertCircle />} label="Vencidos sin Renovar" value={metrics.expired} colorValue />
-          <StatCard layout="label-first" tone="blue" icon={<UserX />} label="Empleados sin Contrato" value={metrics.withoutContract.length} colorValue />
-        </div>
-
         {metrics.withoutContract.length > 0 && (
           <p className="text-xs text-muted-foreground">
             Sin contrato vigente:{" "}

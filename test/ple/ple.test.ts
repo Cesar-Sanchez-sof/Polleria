@@ -201,6 +201,10 @@ describe("format helpers", () => {
     expect(sanitizeText("A|B & C\nD", 50).text).toBe("A B C D");
     expect(sanitizeText("abcdef", 3)).toEqual({ text: "abc", truncated: true });
   });
+
+  it("removes the slash and the backslash, which the general rules forbid in text", () => {
+    expect(sanitizeText("POLLERIA / PARRILLAS \\ SAC", 50).text).toBe("POLLERIA PARRILLAS SAC");
+  });
 });
 
 describe("buildPleFileName", () => {
@@ -243,11 +247,11 @@ describe("sales register 14.1", () => {
     expect(lines).toHaveLength(3);
   });
 
-  it("writes the invoice with 34 fields and a trailing separator", () => {
+  it("writes the invoice with 35 fields and a trailing separator", () => {
     const cells = lines[0].split("|");
-    expect(cells).toHaveLength(35); // 34 fields + empty after the trailing separator
+    expect(cells).toHaveLength(36); // 35 fields + empty after the trailing separator
     expect(cells[0]).toBe("20261000");
-    expect(cells[1]).toBe("MISC/2026/10/0001");
+    expect(cells[1]).toBe("MISC2026100001");
     expect(cells[2]).toBe("M1");
     expect(cells[3]).toBe("05/10/2026");
     expect(cells[5]).toBe("01");
@@ -257,9 +261,10 @@ describe("sales register 14.1", () => {
     expect(cells[10]).toBe("20200008554");
     expect(cells[13]).toBe("100.00");
     expect(cells[15]).toBe("18.00");
-    expect(cells[23]).toBe("118.00");
-    expect(cells[24]).toBe("PEN");
-    expect(cells[33]).toBe("1");
+    expect(cells[22]).toBe(""); // field 23: ICBPER, present even when empty
+    expect(cells[24]).toBe("118.00");
+    expect(cells[25]).toBe("PEN");
+    expect(cells[34]).toBe("1");
   });
 
   it("omits the customer of boletas below 700 without a valid document", () => {
@@ -272,9 +277,9 @@ describe("sales register 14.1", () => {
 
   it("reports annulled vouchers with status 2 and no amounts", () => {
     const cells = lines[2].split("|");
-    expect(cells[33]).toBe("2");
+    expect(cells[34]).toBe("2");
     expect(cells[3]).toBe("");
-    expect(cells[23]).toBe("0.00");
+    expect(cells[24]).toBe("0.00");
   });
 
   it("errors when an invoice has no RUC", () => {
@@ -290,31 +295,32 @@ describe("purchases register 8.1", () => {
   const result = generatePleBook("purchases-register", buildSnapshot());
   const lines = result.content.split("\r\n").filter(Boolean);
 
-  it("has no errors and 41 fields", () => {
+  it("has no errors and 42 fields", () => {
     expect(result.hasErrors).toBe(false);
     expect(lines).toHaveLength(3);
-    expect(lines[0].split("|")).toHaveLength(42);
+    expect(lines[0].split("|")).toHaveLength(43);
   });
 
   it("uses status 1 for a same-period invoice with credit in fields 14 and 15", () => {
     const cells = lines.find((line) => line.includes("F010"))!.split("|");
-    expect(cells[40]).toBe("1");
+    expect(cells[41]).toBe("1");
     expect(cells[13]).toBe("200.00");
     expect(cells[14]).toBe("36.00");
-    expect(cells[22]).toBe("236.00");
+    expect(cells[21]).toBe(""); // field 22: ICBPER, present even when empty
+    expect(cells[23]).toBe("236.00");
   });
 
   it("uses status 6 for an invoice issued in a previous month", () => {
     const cells = lines.find((line) => line.includes("F020"))!.split("|");
-    expect(cells[40]).toBe("6");
+    expect(cells[41]).toBe("6");
   });
 
   it("puts boletas in non-taxed acquisitions with status 0", () => {
     const cells = lines.find((line) => line.includes("B050"))!.split("|");
-    expect(cells[40]).toBe("0");
+    expect(cells[41]).toBe("0");
     expect(cells[13]).toBe("");
     expect(cells[19]).toBe("20.00");
-    expect(cells[22]).toBe("20.00");
+    expect(cells[23]).toBe("20.00");
   });
 
   it("computes the status window", () => {
@@ -330,7 +336,7 @@ describe("general journal 5.1 and ledger 6.1", () => {
   const journal = generatePleBook("general-journal", buildSnapshot());
   const lines = journal.content.split("\r\n").filter(Boolean);
 
-  const saleLines = lines.filter((line) => line.includes("MISC/2026/10/0001"));
+  const saleLines = lines.filter((line) => line.includes("MISC2026100001"));
 
   it("emits one 21-field line per accounting line", () => {
     expect(journal.hasErrors).toBe(false);
@@ -345,15 +351,15 @@ describe("general journal 5.1 and ledger 6.1", () => {
   it("links the sale receivable line with the register through the structured data", () => {
     const cells = saleLines[0].split("|");
     expect(cells[2]).toBe("M1");
-    expect(cells[19]).toBe("140100&20261000&MISC/2026/10/0001&M1");
+    expect(cells[19]).toBe("140100&20261000&MISC2026100001&M1");
     const sales = generatePleBook("sales-register", buildSnapshot()).content.split("\r\n")[0];
     const salesCells = sales.split("|");
     expect(`140100&${salesCells[0]}&${salesCells[1]}&${salesCells[2]}`).toBe(cells[19]);
   });
 
   it("links the purchase payable line with 080100", () => {
-    const line = lines.find((l) => l.includes("MISC/2026/10/0004") && l.includes("&M3"))!;
-    expect(line.split("|")[19]).toBe("080100&20261000&MISC/2026/10/0004&M3");
+    const line = lines.find((l) => l.includes("MISC2026100004") && l.includes("&M3"))!;
+    expect(line.split("|")[19]).toBe("080100&20261000&MISC2026100004&M3");
   });
 
   it("uses voucher type 00 for entries without voucher and the invoice for the others", () => {

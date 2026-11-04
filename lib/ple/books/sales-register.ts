@@ -9,7 +9,7 @@ import { field } from "./fields";
 
 /**
  * Format 14.1 - Sales and Income Register (RS 361-2015/SUNAT Annex 1, item 14.1, with the
- * field 9 change of RS 042-2021/SUNAT). 34 fields; fields 35-68 are free use and are not emitted.
+ * field 9 change of RS 042-2021/SUNAT). 35 fields; fields 36-70 are free use and are not emitted.
  */
 export const SALES_REGISTER_DEFINITION: BookDefinition = {
   id: "sales-register",
@@ -36,18 +36,19 @@ export const SALES_REGISTER_DEFINITION: BookDefinition = {
     field(20, "isc", "Selective consumption tax", "money", 15),
     field(21, "ivapBase", "Rice IVAP taxable base", "money", 15),
     field(22, "ivap", "Rice IVAP", "money", 15),
-    field(23, "otherCharges", "Other charges outside the taxable base", "money", 15),
-    field(24, "total", "Voucher total", "money", 15),
-    field(25, "currency", "Currency", "alphanumeric", 3),
-    field(26, "exchangeRate", "Exchange rate", "rate", 5),
-    field(27, "modifiedIssueDate", "Modified voucher issue date", "date", 10),
-    field(28, "modifiedVoucherType", "Modified voucher type", "numeric", 2),
-    field(29, "modifiedSeries", "Modified voucher series", "alphanumeric", 20),
-    field(30, "modifiedNumber", "Modified voucher number", "alphanumeric", 20),
-    field(31, "contractId", "Contract or project identification", "alphanumeric", 12),
-    field(32, "exchangeRateError", "Error type 1: exchange rate inconsistency", "numeric", 1),
-    field(33, "paidWithBankedMeans", "Paid with a payment method (table 1)", "numeric", 1),
-    field(34, "status", "Operation status", "numeric", 1, true),
+    field(23, "icbper", "Plastic bag consumption tax (ICBPER)", "money", 15),
+    field(24, "otherCharges", "Other charges outside the taxable base", "money", 15),
+    field(25, "total", "Voucher total", "money", 15),
+    field(26, "currency", "Currency", "alphanumeric", 3),
+    field(27, "exchangeRate", "Exchange rate", "rate", 5),
+    field(28, "modifiedIssueDate", "Modified voucher issue date", "date", 10),
+    field(29, "modifiedVoucherType", "Modified voucher type", "numeric", 2),
+    field(30, "modifiedSeries", "Modified voucher series", "alphanumeric", 20),
+    field(31, "modifiedNumber", "Modified voucher number", "alphanumeric", 20),
+    field(32, "contractId", "Contract or project identification", "alphanumeric", 12),
+    field(33, "exchangeRateError", "Error type 1: exchange rate inconsistency", "numeric", 1),
+    field(34, "paidWithBankedMeans", "Paid with a payment method (table 1)", "numeric", 1),
+    field(35, "status", "Operation status", "numeric", 1, true),
   ],
 };
 
@@ -137,7 +138,7 @@ export function buildSalesRegisterRows(
     }
 
     if (!annulled && toCents(invoice.subtotal) + toCents(invoice.igv) !== toCents(total)) {
-      collector.warning(ref, "Total differs from taxable base plus IGV.", 24);
+      collector.warning(ref, "Total differs from taxable base plus IGV.", 25);
     }
 
     const showCustomer = !annulled && doc !== null;
