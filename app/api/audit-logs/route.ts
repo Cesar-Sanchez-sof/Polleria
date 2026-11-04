@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { unauthorized, errorResponse } from "@/lib/auth/responses";
-import { currentSession } from "@/lib/auth/current-session";
-import { listAudit, AUDIT_MODULES, AUDIT_ACTIONS } from "@/lib/services/audit.service";
-import { authorize } from "@/lib/auth/permissions";
+import { NextResponse } from "next/server";
+import { createApiHandler } from "@/lib/http/route-handler";
+import { listAuditLogsService } from "@/lib/services/audit.service";
 
 export const dynamic = "force-dynamic";
 
@@ -45,31 +43,23 @@ export const dynamic = "force-dynamic";
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Sin permisos
+ *         description: Sin permisos o no administrador
  */
-export async function GET(request: NextRequest) {
-  const auth = await authorize("auditoria.ver");
-  if (!auth.ok) return auth.response;
-  try {
-    const session = await currentSession().catch(() => null);
-    if (!session) return unauthorized();
-    if (!["ADMIN", "ADMINISTRADOR"].includes(session.role.toUpperCase())) {
-      return NextResponse.json({ error: "Solo un administrador puede ver la auditoría" }, { status: 403 });
-    }
+export const GET = createApiHandler({
+  permission: "auditoria.ver",
+  handler: async ({ searchParams, session }) => {
+    const filters = {
+      from: searchParams.get("from"),
+      to: searchParams.get("to"),
+      user: searchParams.get("user"),
+      action: searchParams.get("action"),
+      module: searchParams.get("module"),
+      q: searchParams.get("q"),
+      page: Number(searchParams.get("page")) || 1,
+      perPage: Number(searchParams.get("perPage")) || 20,
+    };
 
-    const p = request.nextUrl.searchParams;
-    const result = await listAudit({
-      from: p.get("from"),
-      to: p.get("to"),
-      user: p.get("user"),
-      action: p.get("action"),
-      module: p.get("module"),
-      q: p.get("q"),
-      page: Number(p.get("page")) || 1,
-      perPage: Number(p.get("perPage")) || 20,
-    });
-    return NextResponse.json({ ...result, modules: AUDIT_MODULES, actions: AUDIT_ACTIONS });
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
+    const result = await listAuditLogsService(filters, session?.role);
+    return NextResponse.json(result);
+  },
+});

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, COOKIE_OPTIONS } from "@/lib/auth/session";
+import { createApiHandler } from "@/lib/http/route-handler";
 import { currentActor } from "@/lib/auth/audit-actor";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { requestIp } from "@/lib/services/audit.service";
+import { logoutUser } from "@/lib/services/auth.service";
+
+export const dynamic = "force-dynamic";
 
 /**
  * @openapi
@@ -15,31 +18,16 @@ import { logAudit, requestIp } from "@/lib/services/audit.service";
  *       200:
  *         description: Cierre de sesión exitoso.
  */
-export async function POST(request: Request) {
-  const actor = await currentActor();
-  if (actor) {
-    await logAudit({
-      actor,
-      action: "LOGOUT",
-      module: "Seguridad",
-      entity: "Sesión",
-      entityId: actor.userId,
-      description: `Cierre de sesión de ${actor.username}`,
-      ipAddress: requestIp(request),
-    });
-  }
-  const response = NextResponse.json({ ok: true });
-  response.cookies.delete(SESSION_COOKIE);
-  response.cookies.set(SESSION_COOKIE, "", {
-    ...COOKIE_OPTIONS,
-    maxAge: 0,
-    expires: new Date(0),
-  });
-  response.cookies.delete("auth-token");
-  response.cookies.set("auth-token", "", {
-    ...COOKIE_OPTIONS,
-    maxAge: 0,
-    expires: new Date(0),
-  });
-  return response;
-}
+export const POST = createApiHandler({
+  handler: async ({ req }) => {
+    const actor = await currentActor();
+    const result = await logoutUser(actor, requestIp(req));
+
+    const response = NextResponse.json({ ok: result.ok });
+    for (const cookie of result.cookiesToClear) {
+      response.cookies.delete(cookie.name);
+      response.cookies.set(cookie.name, "", cookie.options);
+    }
+    return response;
+  },
+});
