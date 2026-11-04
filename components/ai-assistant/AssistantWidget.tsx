@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { VoiceButton } from "@/components/ai-assistant/VoiceButton";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_MESSAGE_CHARS, type AgentTable, type Diagnostic } from "@/lib/ai-assistant/contract";
 import { ASSISTANT_MODELS, DEFAULT_MODEL, isModelId, MODEL_INFO, type AssistantModelId, type ModelInfo } from "@/lib/ai-assistant/models";
@@ -53,6 +54,8 @@ type Status = {
   /** Los tres modelos del selector, con su disponibilidad en este servidor. */
   catalogo?: (ModelInfo & { disponible: boolean })[];
   modeloPredeterminado?: string;
+  /** Dictado por voz habilitado en este servidor (interruptor `assistant.voice`). */
+  dictado?: boolean;
 };
 
 function newId(): string {
@@ -265,6 +268,7 @@ export default function AssistantWidget() {
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [model, setModel] = useState<AssistantModelId>(DEFAULT_MODEL);
@@ -387,6 +391,12 @@ export default function AssistantWidget() {
 
   if (onLogin || !status?.enabled) return null;
   const suggestions = model === "modelo-r" ? (status.suggestions ?? []) : [];
+  // El dictado solo rellena la caja: el usuario revisa el texto y lo envía él mismo.
+  const appendDictation = (text: string) => {
+    setVoiceError(null);
+    setDraft((previous) => `${previous.trim() ? `${previous.trimEnd()} ` : ""}${text}`.slice(0, MAX_MESSAGE_CHARS));
+    inputRef.current?.focus();
+  };
   const models = status.modelos ?? [];
   const noModels = models.length === 0;
   const current = MODEL_INFO[model];
@@ -416,19 +426,13 @@ export default function AssistantWidget() {
               <p className="truncate text-[11px] text-muted-foreground">
                 {isAgent
                   ? "Asientos y cuentas contables del ERP"
-                  : model !== "modelo-r"
-                    ? "Conversación general"
-                    : status.fakeData
-                      ? "Consultas de saldos de cuentas"
-                      : "Ventas, compras, cobros, pagos y cuentas"}
+                  : status.fakeData
+                    ? "Consultas de saldos de cuentas"
+                    : "Ventas, compras, cobros, pagos y cuentas"}
               </p>
               {noModels ? null : isAgent ? (
                 <Badge variant="outline" className="mt-1 border-sky-500/50 text-sky-700 dark:text-sky-400" title={`${agentName} solo ve la estructura de las tablas; la base se consulta con un rol de solo lectura`}>
                   Datos del ERP · solo lectura
-                </Badge>
-              ) : model !== "modelo-r" ? (
-                <Badge variant="outline" className="mt-1 border-violet-500/50 text-violet-700 dark:text-violet-400" title={`${current.nombre} no consulta datos del ERP`}>
-                  Sin datos del ERP
                 </Badge>
               ) : status.fakeData ? (
                 <Badge variant="outline" className="mt-1 border-amber-500/50 text-amber-700 dark:text-amber-400">
@@ -484,8 +488,6 @@ export default function AssistantWidget() {
                     ? NO_MODELS_MESSAGE
                     : isAgent
                     ? `Hola. Soy ${agentName}. Puedo consultar los datos contables del ERP en modo solo lectura (nunca modifico nada) y te muestro el resultado en una tabla. Escribe tu pregunta, por ejemplo: «ventas por cuenta de septiembre».`
-                    : model !== "modelo-r"
-                    ? `Hola. Soy ${current.nombre}. Puedo ayudarte con dudas generales de contabilidad y gestión; no veo los datos del ERP. Escribe tu pregunta.`
                     : status.fakeData
                     ? "Hola. Puedo decirte cómo se movieron tus cuentas en un mes. Escribe tu pregunta o elige una de estas:"
                     : "Hola. Pregúntame por ventas, cobros, platos, compras, pagos a proveedores o cuentas contables. Algunos ejemplos:"}
@@ -570,7 +572,7 @@ export default function AssistantWidget() {
                         </span>
                         {!available ? (
                           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            <Info className="size-3" aria-hidden /> {info.proximamente ? "Próximamente" : "No configurado"}
+                            <Info className="size-3" aria-hidden /> No configurado
                           </span>
                         ) : id === model ? (
                           <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-label="Modelo actual" />
@@ -583,6 +585,11 @@ export default function AssistantWidget() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            )}
+            {voiceError && (
+              <p role="alert" className="text-xs text-destructive">
+                {voiceError}
+              </p>
             )}
             <div className="flex items-end gap-2">
             <Textarea
@@ -602,6 +609,9 @@ export default function AssistantWidget() {
                 }
               }}
             />
+            {status.dictado && !noModels && (
+              <VoiceButton disabled={state.pending} onText={appendDictation} onError={setVoiceError} />
+            )}
             <Button type="submit" size="icon" aria-label="Enviar pregunta" disabled={state.pending || noModels || !draft.trim()}>
               <SendHorizontal />
             </Button>

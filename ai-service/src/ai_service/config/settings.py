@@ -55,6 +55,17 @@ temporal a este servicio, que sigue escuchando solo en ``127.0.0.1``):
 - Peor caso de espera: ``AI_SQLGEN_TIMEOUT_S`` + 2 × ``AI_LLM_TIMEOUT_S`` (+ 5 s del Executor real)
   ≤ 50 s, por debajo del tiempo de espera del proxy de Next.js en Vercel (55 s).
 
+Optimizaciones de rendimiento (reversibles; desactivadas por defecto = comportamiento previo):
+
+- ``AI_PERF_OPT=1``: recuperación RAG en paralelo con la interpretación, conexiones de solo lectura
+  reutilizadas (pool), *keep-alive* HTTP de 120 s y calentamiento al arrancar.
+- ``AI_PERF_CACHE=1``: cachés deterministas en memoria (interpretación, salida de XiYanSQL y
+  explicación); nunca filas ni cifras. El validador, los permisos y el Executor se aplican siempre.
+- ``AI_LLM_EXPLAIN_REASONING_EFFORT``: esfuerzo de razonamiento solo para ``explicar`` (por defecto, el
+  mismo que ``AI_LLM_REASONING_EFFORT``).
+- ``AI_PERF_CONSOLE=1``: bloque ``[PERF]``/``[OPT]`` por consulta en la terminal (tiempos, códigos e id de
+  traza; nunca la pregunta ni el SQL). Independiente de ``AI_PERF_OPT`` para medir también la línea base.
+
 Ningún mensaje de error ni ``repr`` incluye valores de estas variables.
 
 El token interno **no es autenticación real del ERP**: identifica al proxy, no a los usuarios. Los
@@ -104,6 +115,10 @@ EVAL_MODE_VAR = "AI_SERVICE_EVAL_MODE"
 EVAL_REAL_DATA_VAR = "AI_SERVICE_EVAL_REAL_DATA"
 EVAL_USERS_VAR = "AI_SERVICE_EVAL_ALLOWED_USER_IDS"
 DIAGNOSTICS_VAR = "AI_SERVICE_DIAGNOSTICS"
+LLM_EXPLAIN_REASONING_VAR = "AI_LLM_EXPLAIN_REASONING_EFFORT"
+PERF_OPT_VAR = "AI_PERF_OPT"
+PERF_CACHE_VAR = "AI_PERF_CACHE"
+PERF_CONSOLE_VAR = "AI_PERF_CONSOLE"
 EVAL_MAX_WAIT_S = 50
 EVAL_DB_TIMEOUT_S = 5  # statement_timeout del PostgresReadOnlyExecutor
 _EVAL_USERS_RE = re.compile(r"^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,9}$")
@@ -203,6 +218,7 @@ class LlmSettings:
     max_cost_per_request: Decimal
     timeout_s: int
     reasoning_effort: str | None = None
+    explain_reasoning_effort: str | None = None
 
     def __repr__(self) -> str:
         return (
@@ -245,6 +261,10 @@ class ServiceSettings:
     # Modo diagnóstico: traza técnica en la respuesta, solo para identidades P-9 verificadas que la
     # pidan con la cabecera del proxy (y, en evaluación, solo cuentas evaluadoras).
     diagnostics: bool = False
+    # Optimizaciones de rendimiento (``AI_PERF_OPT``) y cachés (``AI_PERF_CACHE``); ambas reversibles.
+    perf_opt: bool = False
+    perf_cache: bool = False
+    perf_console: bool = False
 
     def __repr__(self) -> str:
         return (
@@ -255,7 +275,8 @@ class ServiceSettings:
             f"llm_provider={self.llm_provider!r}, llm={self.llm!r}, "
             f"identity_key={'***' if self.identity_key else None}, rag={self.rag!r}, eval_mode={self.eval_mode}, "
             f"eval_real_data={self.eval_real_data}, eval_allowed_user_ids={sorted(self.eval_allowed_user_ids or ())}, "
-            f"diagnostics={self.diagnostics})"
+            f"diagnostics={self.diagnostics}, perf_opt={self.perf_opt}, perf_cache={self.perf_cache}, "
+            f"perf_console={self.perf_console})"
         )
 
     def token_matches(self, provided: str | None) -> bool:
@@ -394,6 +415,7 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
         raise ServiceConfigError(f"{DIAGNOSTICS_VAR}=1 exige {IDENTITY_KEY_VAR} (P-9): solo identidades verificadas.")
     if diagnostics and eval_mode and eval_users is None:
         raise ServiceConfigError(f"{DIAGNOSTICS_VAR}=1 en evaluación exige {EVAL_USERS_VAR} (cuentas evaluadoras).")
+    perf_opt, perf_cache, perf_console = (_flag(env, v) for v in (PERF_OPT_VAR, PERF_CACHE_VAR, PERF_CONSOLE_VAR))
 
     return ServiceSettings(
         environment=environment,
@@ -413,7 +435,17 @@ def load_service_settings(env: Mapping[str, str], *, dotenv_path: Path | None = 
         eval_real_data=eval_real_data,
         eval_allowed_user_ids=eval_users,
         diagnostics=diagnostics,
+        perf_opt=perf_opt,
+        perf_cache=perf_cache,
+        perf_console=perf_console,
     )
+
+
+def _flag(env: Mapping[str, str], name: str) -> bool:
+    text = _read(env, name)
+    if text not in ("", "0", "1"):
+        raise ServiceConfigError(f"{name} debe ser '0' o '1'.")
+    return text == "1"
 
 
 def _check_eval_profile(
@@ -541,6 +573,9 @@ def _load_llm_settings(env: Mapping[str, str], from_file: Mapping[str, str]) -> 
     effort = _read(env, LLM_REASONING_VAR) or None
     if effort is not None and effort not in ("minimal", "low", "medium", "high"):
         raise ServiceConfigError(f"{LLM_REASONING_VAR} no es válido.")
+    explain_effort = _read(env, LLM_EXPLAIN_REASONING_VAR) or effort
+    if explain_effort is not None and explain_effort not in ("minimal", "low", "medium", "high"):
+        raise ServiceConfigError(f"{LLM_EXPLAIN_REASONING_VAR} no es válido.")
 
     settings = LlmSettings(
         api_key=api_key,
@@ -551,6 +586,7 @@ def _load_llm_settings(env: Mapping[str, str], from_file: Mapping[str, str]) -> 
         max_cost_per_request=max_request,
         timeout_s=int(timeout_text),
         reasoning_effort=effort,
+        explain_reasoning_effort=explain_effort,
     )
     if settings.worst_case_request_cost() > max_request:
         raise ServiceConfigError(

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
 from typing import Any
 
@@ -38,10 +39,17 @@ class E5OnnxEmbedder:
         self._session: Any = None
         self._tokenizer: Any = None
         self._input_names: frozenset[str] = frozenset()
+        # La recuperación en paralelo (AI_PERF_OPT) y las peticiones concurrentes pueden llegar a la vez.
+        self._load_lock = threading.Lock()
 
     def _load(self) -> None:
         if self._session is not None:
             return
+        with self._load_lock:
+            if self._session is None:
+                self._load_locked()
+
+    def _load_locked(self) -> None:
         try:
             import onnxruntime as ort
             from huggingface_hub import hf_hub_download

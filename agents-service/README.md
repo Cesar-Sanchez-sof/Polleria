@@ -18,12 +18,13 @@ Los contratos no cambiaron: `POST /v1/agent/queries` (Gemini), `POST /v1/agent/g
 
 ## Variables de entorno
 
-Ver [`.env.example`](.env.example). Obligatorias: `AGENTS_SERVICE_INTERNAL_TOKEN`, `AI_ASSISTANT_IDENTITY_KEY`,
-`DATABASE_URL_READONLY` y al menos un agente (`AI_GEMINI_SQL=1` + `GEMINI_API_KEY`, y/o `AI_GROQ_SQL=1` +
-`GROQ_API_KEY`). Si el servicio arranca con una configuración inválida, termina con código 2 sin escuchar.
+Ver [`.env.example.agents`](.env.example.agents). Obligatorias: `AGENTS_SERVICE_INTERNAL_TOKEN`,
+`AI_ASSISTANT_IDENTITY_KEY`, `DATABASE_URL_READONLY` y al menos un agente: cada clave activa el suyo
+(`GEMINI_API_KEY` para Gemini, `GROQ_API_KEY` para GPT OSS vía Groq). Si el servicio arranca con una configuración
+inválida, termina con código 2 sin escuchar.
 
-> Si solo quieres un agente, **no** actives la bandera del otro: con `AI_GEMINI_SQL=1` y sin `GEMINI_API_KEY` el
-> servicio no arranca.
+> Si solo quieres un agente, deja vacía la clave del otro: sin clave, ese agente no existe. Una clave presente pero
+> mal formada impide arrancar.
 
 ## Desplegar en Render
 
@@ -42,7 +43,7 @@ Ver [`.env.example`](.env.example). Obligatorias: `AGENTS_SERVICE_INTERNAL_TOKEN
      *Build Command* = `pip install -r requirements.txt`, *Start Command* = `python -m agents_service.main`,
      *Health Check Path* = `/v1/health`.
 
-3. **Environment** del servicio en Render: las variables de [`.env.example`](.env.example) más
+3. **Environment** del servicio en Render: las variables de [`.env.example.agents`](.env.example.agents) más
    `PYTHONPATH=src` y `PYTHON_VERSION=3.11.9` (el Blueprint ya las trae). `PORT` lo fija Render
    (el servicio escucha en `0.0.0.0:$PORT`). Opcional: `AGENTS_SERVICE_ALLOWED_HOSTS=<tu-servicio>.onrender.com`.
 
@@ -52,10 +53,10 @@ Ver [`.env.example`](.env.example). Obligatorias: `AGENTS_SERVICE_INTERNAL_TOKEN
    AGENTS_SERVICE_URL=https://<tu-servicio>.onrender.com     # sin puerto, ruta ni "/" final
    AGENTS_SERVICE_INTERNAL_TOKEN=<el mismo valor que en Render>
    AI_ASSISTANT_IDENTITY_KEY=<el mismo valor que en Render>
-   AI_GEMINI_SQL=1     # y/o AI_GROQ_SQL=1
    ```
 
-   Con eso los agentes funcionan **sin** `AI_SERVICE_URL`; el Modelo R aparece solo si además configuras `ai-service`.
+   Que cada agente aparezca en el selector se enciende en Configuración → Desarrollador («Agente Gemini» y
+   «Agente GPT OSS»). Con eso los agentes funcionan **sin** `AI_SERVICE_URL`; el Modelo R aparece solo si además configuras `ai-service`.
 
 Notas de Render:
 - El plan *free* se suspende por inactividad; la primera consulta tras una pausa tarda cerca de un minuto y el proxy
@@ -68,12 +69,12 @@ Notas de Render:
 
 ```bash
 pip install -r requirements.txt pytest
-cp .env.example .env        # completa las claves
+cp .env.example.agents .env   # completa las claves
 PYTHONPATH=src AGENTS_SERVICE_HOST=127.0.0.1 AGENTS_SERVICE_PORT=8002 python -m agents_service.main
 ```
 
 En Windows: `.\scripts\start-local.ps1` genera el token y la clave de identidad, completa el `.env` de la raíz
-(`AGENTS_SERVICE_URL=http://127.0.0.1:8002`, solo válido con `AI_ASSISTANT_DEMO=1`) y arranca el servicio.
+(`AGENTS_SERVICE_URL=http://127.0.0.1:8002`, solo válido con el interruptor «Modo demostración local» encendido) y arranca el servicio.
 
 ## Pruebas
 

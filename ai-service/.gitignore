@@ -14,6 +14,7 @@ dist/
 
 # Secretos y configuración local: nunca se versionan
 .env
+.env.local
 
 # Pesos, checkpoints y adaptadores de modelos: nunca se versionan (D-9)
 *.safetensors

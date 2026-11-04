@@ -1,14 +1,17 @@
 /**
  * Configuración del asistente financiero (SOLO servidor; nunca importar desde componentes cliente).
  *
+ * Interruptores (tabla `developer_setting`, Configuración → Desarrollador; ver `lib/developer-settings/catalog.ts`):
+ * `assistant.demo`, `assistant.eval`, `assistant.allow_production_eval`, `assistant.real_data` y
+ * `assistant.diagnostics`. Ya no se leen de variables de entorno; un interruptor sin fila está apagado.
+ *
  * Variables privadas (sin prefijo `NEXT_PUBLIC_`, nunca llegan al navegador):
- * - `AI_ASSISTANT_DEMO`: debe ser exactamente `1` para activar el modo demostración.
  * - `AI_SERVICE_URL`: exactamente `http://127.0.0.1:<puerto>` (servicio de IA local).
  * - `AI_SERVICE_INTERNAL_TOKEN`: token del proxy hacia `ai-service` (hex de 32 bytes o más).
  *
  * - `AI_ASSISTANT_IDENTITY_KEY` (P-9): clave HS256 compartida con `ai-service` para firmar la
  *   identidad de cada solicitud (hex de 32 bytes o más, distinta del token interno).
- * - `AI_ASSISTANT_REAL_DATA`: `1` solo en pruebas locales controladas con datos reales; exige la
+ * - Interruptor `assistant.real_data`: solo en pruebas locales controladas con datos reales; exige la
  *   clave de identidad. Por defecto el asistente usa datos ficticios.
  *
  * Agentes de solo lectura (Gemini y GPT OSS vía Groq): viven en `agents-service`, un despliegue aparte de
@@ -23,11 +26,10 @@
  * autenticación del ERP: exige sesión válida (`sesionActual()`) y un rol permitido.
  *
  * Modo evaluación académica (despliegue en Vercel):
- * - `AI_ASSISTANT_EVAL_ENABLED`: exactamente `1`. Surte efecto con `VERCEL_ENV=preview` (Vercel lo fija
- *   en cada despliegue). Con `VERCEL_ENV=production` exige ADEMÁS `AI_ASSISTANT_ALLOW_PRODUCTION_EVAL=1`
+ * - Interruptor `assistant.eval`. Surte efecto con `VERCEL_ENV=preview` (Vercel lo fija
+ *   en cada despliegue). Con `VERCEL_ENV=production` exige ADEMÁS el interruptor `assistant.allow_production_eval`
  *   (habilitación temporal y explícita para la evaluación). En `development` o fuera de Vercel queda
  *   deshabilitado. `NODE_ENV` no sirve para distinguirlos: Preview y Production compilan con `production`.
- *   Ambas banderas son privadas del servidor (sin `NEXT_PUBLIC_`).
  * - `AI_SERVICE_URL` (Modelo R; opcional si hay `AGENTS_SERVICE_URL`): túnel HTTPS temporal hacia el FastAPI local, exactamente
  *   `https://<subdominio>.trycloudflare.com` (Cloudflare Quick Tunnel) o el dominio estático de ngrok
  *   del proyecto (`EVAL_NGROK_URL`); ningún otro dominio de ngrok. Sin puerto, ruta ni `/` final.
@@ -35,16 +37,24 @@
  * - `AI_ASSISTANT_EVAL_USER_IDS`: ids del ERP (`sesionActual().idUsuario`) de las cuentas evaluadoras,
  *   separados por comas. Obligatorio en Production y con datos reales: solo esas cuentas ADMIN usan el
  *   asistente; los demás administradores reciben 403.
- * - Datos ficticios por defecto. `AI_ASSISTANT_REAL_DATA=1` (consulta real en solo lectura, decidida y
+ * - Datos ficticios por defecto. `assistant.real_data` (consulta real en solo lectura, decidida y
  *   aplicada por `ai-service` con `AI_SERVICE_EVAL_REAL_DATA=1`) solo es válido junto con
  *   `AI_ASSISTANT_EVAL_USER_IDS`; si falta, la configuración se invalida (falla cerrado).
  *
- * - `AI_ASSISTANT_DIAGNOSTICS`: `1` para pedir la traza técnica de cada consulta (etapas, modelo y
+ * - Interruptor `assistant.diagnostics`: pide la traza técnica de cada consulta (etapas, modelo y
  *   adaptador que respondieron, SQL generado y validado, filas y tiempos). Exige la clave de identidad
  *   y, en evaluación, `AI_ASSISTANT_EVAL_USER_IDS`. Cerrado por defecto.
  */
 
+import type { DeveloperFlags } from "@/lib/developer-settings/catalog";
+
 export type AssistantMode = "demo" | "eval";
+
+/** Interruptores de desarrollador que gobiernan el asistente. */
+export type AssistantFlags = Pick<
+  DeveloperFlags,
+  "assistant.demo" | "assistant.eval" | "assistant.allow_production_eval" | "assistant.real_data" | "assistant.diagnostics"
+>;
 
 /** Destino y credencial del proxy hacia un servicio de IA. */
 export interface ServiceConnection {
@@ -67,7 +77,7 @@ export type AssistantConfig =
       timeoutMs: number;
       /** Evaluación: únicas cuentas del ERP autorizadas; `null` = cualquier usuario del rol permitido. */
       allowedUserIds: readonly number[] | null;
-      /** Pide la traza técnica a `ai-service` (`AI_ASSISTANT_DIAGNOSTICS=1`; ver `diagnosticsEnabled`). */
+      /** Pide la traza técnica a `ai-service` (interruptor `assistant.diagnostics`; ver `diagnosticsEnabled`). */
       diagnostics?: boolean;
     }
   | { enabled: false; reason: "production" | "disabled" | "misconfigured" };
@@ -111,14 +121,14 @@ function identityDistinct(identityKey: string, ...connections: (ServiceConnectio
   return connections.every((c) => c === null || c.token.toLowerCase() !== identityKey.toLowerCase());
 }
 
-function readEvalConfig(env: Record<string, string | undefined>): AssistantConfig {
+function readEvalConfig(flags: AssistantFlags, env: Record<string, string | undefined>): AssistantConfig {
   // Preview de Vercel, o Production solo con la segunda bandera explícita (deshabilitado por defecto).
   const allowed =
     env.VERCEL_ENV === "preview" ||
-    (env.VERCEL_ENV === "production" && env.AI_ASSISTANT_ALLOW_PRODUCTION_EVAL === "1");
+    (env.VERCEL_ENV === "production" && flags["assistant.allow_production_eval"]);
   if (!allowed) return { enabled: false, reason: "production" };
   const identityKey = env.AI_ASSISTANT_IDENTITY_KEY?.trim() ?? "";
-  const realData = env.AI_ASSISTANT_REAL_DATA === "1";
+  const realData = flags["assistant.real_data"];
   const usersText = (env.AI_ASSISTANT_EVAL_USER_IDS ?? "").replace(/\s/g, "");
   if (usersText && !USER_IDS_RE.test(usersText)) return { enabled: false, reason: "misconfigured" };
   const allowedUserIds = usersText ? usersText.split(",").map(Number) : null;
@@ -138,28 +148,30 @@ function readEvalConfig(env: Record<string, string | undefined>): AssistantConfi
   return {
     enabled: true, serviceUrl: modelR?.serviceUrl ?? null, token: modelR?.token ?? null, agents, identityKey, realData, demo: false,
     mode: "eval", timeoutMs: EVAL_TIMEOUT_MS, allowedUserIds,
-    diagnostics: diagnosticsEnabled(env, identityKey, allowedUserIds),
+    diagnostics: diagnosticsEnabled(flags, identityKey, allowedUserIds),
   };
 }
 
 /**
- * Modo diagnóstico (traza técnica en cada respuesta): `AI_ASSISTANT_DIAGNOSTICS=1`, identidad firmada
+ * Modo diagnóstico (traza técnica en cada respuesta): interruptor `assistant.diagnostics`, identidad firmada
  * (P-9) y, en evaluación, cuentas evaluadoras explícitas. `ai-service` exige además su propia bandera
  * (`AI_SERVICE_DIAGNOSTICS=1`) y verifica la identidad: los tres candados deben coincidir.
  */
 function diagnosticsEnabled(
-  env: Record<string, string | undefined>, identityKey: string | null, allowedUserIds: readonly number[] | null,
+  flags: AssistantFlags, identityKey: string | null, allowedUserIds: readonly number[] | null,
 ): boolean {
-  if (env.AI_ASSISTANT_DIAGNOSTICS !== "1" || !identityKey) return false;
-  return env.AI_ASSISTANT_EVAL_ENABLED !== "1" || allowedUserIds !== null;
+  if (!flags["assistant.diagnostics"] || !identityKey) return false;
+  return !flags["assistant.eval"] || allowedUserIds !== null;
 }
 
-export function readAssistantConfig(env: Record<string, string | undefined> = process.env): AssistantConfig {
-  if (env.AI_ASSISTANT_EVAL_ENABLED === "1") return readEvalConfig(env);
+export function readAssistantConfig(
+  flags: AssistantFlags, env: Record<string, string | undefined> = process.env,
+): AssistantConfig {
+  if (flags["assistant.eval"]) return readEvalConfig(flags, env);
   if (env.NODE_ENV === "production") return { enabled: false, reason: "production" };
-  if (env.AI_ASSISTANT_DEMO !== "1") return { enabled: false, reason: "disabled" };
+  if (!flags["assistant.demo"]) return { enabled: false, reason: "disabled" };
   const identityKey = env.AI_ASSISTANT_IDENTITY_KEY?.trim() || null;
-  const realData = env.AI_ASSISTANT_REAL_DATA === "1";
+  const realData = flags["assistant.real_data"];
   const modelR = connection(env.AI_SERVICE_URL?.trim() ?? "", env.AI_SERVICE_INTERNAL_TOKEN?.trim() ?? "", localPortOk);
   const agents = agentsConnection(env, "demo");
   if (modelR === undefined || agents === undefined || (modelR === null && agents === null)) {
@@ -173,7 +185,7 @@ export function readAssistantConfig(env: Record<string, string | undefined> = pr
   return {
     enabled: true, serviceUrl: modelR?.serviceUrl ?? null, token: modelR?.token ?? null, agents, identityKey, realData, demo: true,
     mode: "demo", timeoutMs: DEMO_TIMEOUT_MS, allowedUserIds: null,
-    diagnostics: diagnosticsEnabled(env, identityKey, null),
+    diagnostics: diagnosticsEnabled(flags, identityKey, null),
   };
 }
 

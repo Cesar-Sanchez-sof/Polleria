@@ -20,6 +20,8 @@ const CRUD: readonly Action[] = ["ver", "crear", "editar", "eliminar"];
 const WITHOUT_DELETE: readonly Action[] = ["ver", "crear", "editar"];
 
 export const PERMISSION_MODULES: readonly PermissionModule[] = [
+  // Tableros (Business Intelligence)
+  { code: "tableros", name: "Tableros de control", group: "Tableros", actions: CRUD },
   // Ventas (una fila por pantalla del menú lateral)
   { code: "pedidos", name: "Salón de mesas", group: "Ventas", subgroup: "Salón", actions: CRUD },
   { code: "bebidas", name: "Despacho de bebidas", group: "Ventas", subgroup: "Salón", parent: "pedidos", actions: ["ver"] },
@@ -59,6 +61,7 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
   { code: "guia", name: "Guía contable", group: "Configuración", parent: "reportes", actions: ["ver"] },
   { code: "mesas", name: "Mesas", group: "Configuración", actions: CRUD },
   { code: "areas", name: "Salones y áreas", group: "Configuración", parent: "configuracion", actions: ["ver", "editar"] },
+  { code: "desarrollador", name: "Interruptores de desarrollador", group: "Configuración", actions: ["ver", "editar"] },
   // Documentación
   { code: "endpoints", name: "Endpoints", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "diagrama", name: "Diagrama DB", group: "Documentación", parent: "documentacion", actions: ["ver"] },
@@ -66,6 +69,8 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
     // Recursos humanos
   { code: "empleados", name: "Empleados", group: "Recursos humanos", actions: WITHOUT_DELETE },
   { code: "horarios", name: "Horarios laborales", group: "Recursos humanos", actions: CRUD },
+  { code: "contratos", name: "Contratos laborales", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "planilla", name: "Planilla de remuneraciones", group: "Recursos humanos", actions: WITHOUT_DELETE },
 ];
 
 /**

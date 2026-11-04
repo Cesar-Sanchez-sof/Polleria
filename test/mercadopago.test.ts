@@ -64,6 +64,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
   describe("Inicio de Cobro (startMercadoPagoCharge)", () => {
     it("debe operar en modo seguro simulado cuando no se ha configurado Access Token en .env", async () => {
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
       const result = await startMercadoPagoCharge({
         orderId: 20,
         kitchenOrderCode: "PED-020",
@@ -94,6 +95,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
   describe("Creación de Preferencias y QR (Checkout Pro)", () => {
     it("debe retornar preferencia simulada cuando no hay token configurado", async () => {
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
 
       const res = await createMercadoPagoPreference({
         orderId: 30,
@@ -146,6 +148,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
   describe("Cobros con Yape Dinámico y Mercado Pago (createMercadoPagoYapePayment)", () => {
     it("debe generar un QR EMVCo dinámico con el monto exacto de la comanda en modo simulado", async () => {
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
 
       const res = await createMercadoPagoYapePayment({
         orderId: 10,
@@ -229,7 +232,9 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
     });
 
     it("debe procesar cobro Yape con código de aprobación (OTP) en modo simulación/fallback", async () => {
+      vi.spyOn(prisma.salesOrder, "findUnique").mockResolvedValue(null);
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
 
       const res = await createMercadoPagoYapePayment({
         orderId: 1,
@@ -248,6 +253,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
   describe("Consulta de Pagos en API de Mercado Pago", () => {
     it("debe retornar estado simulado si no hay token configurado", async () => {
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
       const payment = await getMercadoPagoPayment("12345");
       expect(payment.status).toBe("approved");
       expect(payment.status_detail).toBe("simulated_without_token");
@@ -405,7 +411,7 @@ describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => 
     });
 
     it("debe rechazar si el pedido no existe en la base de datos", async () => {
-      vi.spyOn(prisma.salesOrder, "findUnique").mockResolvedValue(null);
+
 
       const result = await processMercadoPagoPaymentApproval("MP-PAGO-999", 999);
 

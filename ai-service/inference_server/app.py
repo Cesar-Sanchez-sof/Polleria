@@ -7,14 +7,18 @@ Controles:
 - Solo ``Host: 127.0.0.1``; sin documentación ni CORS; ``Cache-Control: no-store`` y ``nosniff``.
 - Cuerpo JSON acotado; el mensaje debe tener la estructura del prompt XiYan del entrenamiento (no
   es un punto de completado genérico) y caber en 1024 tokens con ``max_new_tokens``.
-- Una sola generación a la vez: si el modelo está ocupado → ``503 BUSY`` (sin cola).
+- Una sola generación a la vez: si el modelo está ocupado → ``503 BUSY`` (sin cola; con
+  ``XIYAN_QUEUE_WAIT_S`` espera como máximo esos segundos).
 - El modelo se carga en un hilo al arrancar (``lifespan``), nunca al importar. Mientras carga →
   ``503 MODEL_LOADING``; si la carga falla → ``503 MODEL_ERROR``.
 - Sin registros de prompts, SQL, rutas ni credenciales; errores con código fijo.
+- Consola ``[MODEL]``: tiempo de carga, memoria de la GPU y, por generación, tokens del prompt y de salida,
+  latencia, tokens por segundo, motivo de fin y pico de VRAM (solo números y el id aleatorio de la petición).
 """
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from collections.abc import AsyncIterator
@@ -28,7 +32,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from ai_service.sqlgen.profile import TRAINING_MAX_LENGTH
+from ai_service.sqlgen.profile import BASE_MODEL_ID, TRAINING_MAX_LENGTH
 from ai_service.sqlgen.prompt import is_xiyan_user_content
 from ai_service.sqlgen.wire import TOKEN_HEADER, ErrorResponse, GenerateRequest, GenerateResponse, HealthResponse
 
@@ -62,25 +66,64 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
+def model_log(line: str) -> None:
+    """Línea ``[MODEL]`` en la terminal del servicio (sin prompts, SQL, rutas ni credenciales)."""
+    print(f"[MODEL] {line}", file=sys.stderr, flush=True)
+
+
+def _gib(mib: int | None) -> str:
+    return f"{mib / 1024:.2f} GiB" if isinstance(mib, int) else "n/d"
+
+
 class ModelState:
     """Estado de carga del modelo y exclusión mutua de la generación."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, warmup: bool = False) -> None:
         self.status = "loading"
         self.generation_lock = threading.Lock()
         self.loader: threading.Thread | None = None
+        self._warmup = warmup
 
     def load(self, engine: InferenceEngine) -> None:
+        started = time.perf_counter()
         try:
             engine.load()
-        except Exception:  # sin detalles: ni rutas ni trazas en la respuesta
+        except Exception as exc:  # sin detalles: ni rutas ni trazas en la respuesta
             self.status = "error"
-        else:
-            self.status = "ready"
+            model_log(f"error de carga: {getattr(exc, 'code', type(exc).__name__)}")
+            return
+        seconds = time.perf_counter() - started
+        resources = _resources(engine)
+        model_log(
+            f"cargado {BASE_MODEL_ID} + {engine.adapter} en {seconds:.1f} s · VRAM asignada "
+            f"{_gib(resources.get('allocated'))} · reservada {_gib(resources.get('reserved'))} · "
+            f"libre {_gib(resources.get('free'))} de {_gib(resources.get('total'))}"
+        )
+        lookup = getattr(engine, "prompt_lookup", 0)
+        model_log(f"prompt_lookup={'on (' + str(lookup) + ' tokens)' if lookup else 'off'} · warmup={'on' if self._warmup else 'off'}")
+        if self._warmup and hasattr(engine, "warm_up"):
+            started = time.perf_counter()
+            try:
+                result = engine.warm_up()
+            except Exception as exc:
+                model_log(f"WARMUP fallo: {getattr(exc, 'code', type(exc).__name__)}")
+            else:
+                model_log(f"WARMUP {int((time.perf_counter() - started) * 1000)} ms · {result.output_tokens} tok salida")
+        self.status = "ready"
+
+
+def _resources(engine: InferenceEngine) -> dict[str, int]:
+    resources = getattr(engine, "resources", None)
+    if not callable(resources):
+        return {}
+    try:
+        return dict(resources())
+    except Exception:
+        return {}
 
 
 def create_app(settings: ServerSettings, engine: InferenceEngine, *, background_load: bool = True) -> FastAPI:
-    state = ModelState()
+    state = ModelState(warmup=settings.warmup)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -123,7 +166,12 @@ def create_app(settings: ServerSettings, engine: InferenceEngine, *, background_
             return error(400, "INVALID_REQUEST")
         if state.status != "ready":
             return error(503, "MODEL_LOADING" if state.status == "loading" else "MODEL_ERROR")
-        if not state.generation_lock.acquire(blocking=False):
+        if settings.queue_wait_s > 0:
+            acquired = await run_in_threadpool(state.generation_lock.acquire, True, settings.queue_wait_s)
+        else:
+            acquired = state.generation_lock.acquire(blocking=False)
+        if not acquired:
+            model_log("BUSY: generación en curso; petición rechazada")
             return error(503, "BUSY")
         try:
             return await run_in_threadpool(_generate, payload)
@@ -139,6 +187,13 @@ def create_app(settings: ServerSettings, engine: InferenceEngine, *, background_
             started = time.perf_counter()
             result = engine.generate(rendered, payload.max_new_tokens)
             latency_ms = int((time.perf_counter() - started) * 1000)
+            rate = result.output_tokens / (latency_ms / 1000) if latency_ms > 0 else 0.0
+            model_log(
+                f"generate id={payload.request_id[:8]} prompt={prompt_tokens} tok · salida={result.output_tokens} tok · "
+                f"{latency_ms} ms · {rate:.1f} tok/s (incluye prefill) · fin={result.finish_reason} · "
+                f"VRAM pico {_gib(getattr(result, 'peak_vram_mib', None))} · "
+                f"prompt_lookup={'on' if getattr(engine, 'prompt_lookup', 0) else 'off'}"
+            )
             body = GenerateResponse(
                 request_id=payload.request_id,
                 adapter=engine.adapter,

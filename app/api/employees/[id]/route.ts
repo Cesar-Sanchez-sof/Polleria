@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest, ctx: Context) {
     }
 
     await verifyModifiableEmployee(id, auth.superuser);
-    const { employee, users_deactivated } = await setEmployeeActive(id, body.active);
+    const { employee, users_deactivated, contracts_terminated } = await setEmployeeActive(id, body.active);
     await logAudit({
       actor: { userId: auth.session.userId, username: auth.session.username },
       action: "STATUS_CHANGE",
@@ -135,10 +135,10 @@ export async function PATCH(request: NextRequest, ctx: Context) {
       entity: "Empleado",
       entityId: id,
       description: `${body.active ? "Reingresó" : "Dio de baja"} al empleado ${employee.full_name}`,
-      details: { before: { active: !body.active }, after: { active: body.active }, users_deactivated },
+      details: { before: { active: !body.active }, after: { active: body.active }, users_deactivated, contracts_terminated },
       ipAddress: requestIp(request),
     });
-    return NextResponse.json({ ...employee, users_deactivated });
+    return NextResponse.json({ ...employee, users_deactivated, contracts_terminated });
   } catch (e) {
     return errorResponse(e);
   }

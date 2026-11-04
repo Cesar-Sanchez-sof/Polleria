@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantConfig } from "@/lib/ai-assistant/config";
-import { readOpenAiConfig } from "@/lib/ai-assistant/openai";
+import { isModelId } from "@/lib/ai-assistant/models";
 import { handleQuery, handleStatus, type ProxyDeps } from "@/lib/ai-assistant/proxy";
 
 const DISABLED_R: AssistantConfig = { enabled: false, reason: "disabled" };
@@ -16,62 +16,19 @@ function deps(fetchFn: typeof fetch, overrides: Partial<ProxyDeps> = {}): ProxyD
   };
 }
 
-describe("GPT Luna y selector de modelos", () => {
-  const OPENAI_KEY = "test-openai-key";
-
-  it("sin OPENAI_API_KEY queda deshabilitado; con clave usa gpt-6-luna por defecto", () => {
-    expect(readOpenAiConfig({}).enabled).toBe(false);
-    expect(readOpenAiConfig({ OPENAI_API_KEY: OPENAI_KEY })).toEqual({ enabled: true, apiKey: OPENAI_KEY, model: "gpt-6-luna" });
-  });
-
-  it("el estado lista los modelos habilitados en orden", async () => {
-    const d = deps(fetch, {
-      config: { enabled: true, serviceUrl: "http://127.0.0.1:8001", token: "ab".repeat(32), identityKey: null, realData: false, demo: true, mode: "demo", timeoutMs: 1000, allowedUserIds: null },
-      openai: readOpenAiConfig({ OPENAI_API_KEY: OPENAI_KEY }),
-    });
-    const result = await handleStatus(d);
-    expect((result.body.modelos as { id: string }[]).map((m) => m.id)).toEqual(["modelo-r", "gpt-luna"]);
-    expect(result.body.modeloPredeterminado).toBe("modelo-r");
-    expect(JSON.stringify(result.body)).not.toContain(OPENAI_KEY);
-  });
-
-  it("responde con GPT Luna enviando la clave solo en la cabecera hacia OpenAI", async () => {
-    const calls: { url: string; init: RequestInit }[] = [];
-    const fetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      return Response.json({ output: [{ type: "message", content: [{ type: "output_text", text: "Hola desde Luna" }] }] });
-    }) as typeof fetch;
-    const result = await handleQuery(
-      JSON.stringify({ mensaje: "Hola", modelo: "gpt-luna" }),
-      deps(fetchFn, { openai: readOpenAiConfig({ OPENAI_API_KEY: OPENAI_KEY }) }),
-    );
-    expect(result.status).toBe(200);
-    expect(result.body).toMatchObject({ estado: "respondida", texto: "Hola desde Luna", detalle: null });
-    expect(calls[0].url).toBe("https://api.openai.com/v1/responses");
-    expect(String(calls[0].init.body)).not.toContain(OPENAI_KEY);
-    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe(`Bearer ${OPENAI_KEY}`);
-    expect(JSON.parse(String(calls[0].init.body)).model).toBe("gpt-6-luna");
-  });
-
-  it("un rol no permitido recibe 403 sin llamar a OpenAI", async () => {
-    let called = false;
-    const fetchFn = (async () => ((called = true), Response.json({}))) as typeof fetch;
-    const d = deps(fetchFn, { openai: readOpenAiConfig({ OPENAI_API_KEY: OPENAI_KEY }), session: async () => ({ userId: 9, username: "c", role: "CAJERO" }) });
-    expect((await handleQuery(JSON.stringify({ mensaje: "Hola", modelo: "gpt-luna" }), d)).status).toBe(403);
-    expect(called).toBe(false);
-  });
-
+describe("selector de modelos", () => {
   it("modelo desconocido → 404 y Modelo R deshabilitado → 404", async () => {
     const fetchFn = (async () => Response.json({})) as typeof fetch;
     expect((await handleQuery(JSON.stringify({ mensaje: "Saldo de caja" }), deps(fetchFn))).status).toBe(404);
     expect((await handleQuery(JSON.stringify({ mensaje: "Hola", modelo: "otro" }), deps(fetchFn))).status).toBe(404);
   });
 
-  it("GPT Luna sin clave → 404 sin llamar a OpenAI", async () => {
+  it("GPT Luna ya no existe: ni en el catálogo ni como modelo solicitable", async () => {
     let called = false;
     const fetchFn = (async () => ((called = true), Response.json({}))) as typeof fetch;
     expect((await handleQuery(JSON.stringify({ mensaje: "Hola", modelo: "gpt-luna" }), deps(fetchFn))).status).toBe(404);
     expect(called).toBe(false);
+    expect(isModelId("gpt-luna")).toBe(false);
   });
 });
 
@@ -82,7 +39,6 @@ describe("catálogo del selector", () => {
       expect.objectContaining({ id: "modelo-r", disponible: false }),
       expect.objectContaining({ id: "gemini-erp", disponible: false }),
       expect.objectContaining({ id: "groq-erp", disponible: false }),
-      expect.objectContaining({ id: "gpt-luna", disponible: false, proximamente: true }),
     ]);
   });
 });

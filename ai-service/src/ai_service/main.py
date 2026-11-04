@@ -36,10 +36,16 @@ def main() -> int:
 
     import uvicorn  # solo necesario para levantar el servidor local
 
-    from ai_service.assembly import build_dev_orchestrator
+    from ai_service.assembly import PerfComponents, build_dev_orchestrator
     from ai_service.http.app import create_app
+    from ai_service.perf.console import print_startup, run_warm_up
 
-    orchestrator, _audit = build_dev_orchestrator(settings)
+    perf = PerfComponents()
+    orchestrator, _audit = build_dev_orchestrator(settings, perf=perf)
+    if settings.perf_console or settings.perf_opt or settings.perf_cache:
+        print_startup(settings, perf.active)
+    if settings.perf_opt:
+        run_warm_up(perf)  # cada paso medido; un fallo se informa y no impide arrancar
     # Una línea JSON por consulta (``http.routes.log_outcome``): evidencia del pipeline en la terminal.
     trace_logger = logging.getLogger("ai_service.trace")
     trace_logger.setLevel(logging.INFO)

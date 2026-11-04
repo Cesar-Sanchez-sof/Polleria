@@ -10,7 +10,10 @@ adaptador LoRA con PEFT en modo inferencia. Antes de quedar listo comprueba que:
 - hay GPU CUDA (no se ejecuta un 7B en CPU).
 
 Generación: *greedy* (``do_sample=False``, ``num_beams=1``), parada en ``<|im_end|>`` o
-``<|endoftext|>``; ``finish_reason="length"`` si se agotó ``max_new_tokens``.
+``<|endoftext|>``; ``finish_reason="length"`` si se agotó ``max_new_tokens``. Con ``XIYAN_PROMPT_LOOKUP``
+se añade ``prompt_lookup_num_tokens`` (decodificación asistida por n-gramas del prompt, sin otro modelo).
+
+Recursos: tras cargar y en cada generación se informa la memoria de la GPU (``torch.cuda``), sin rutas.
 """
 
 from __future__ import annotations
@@ -35,11 +38,17 @@ class EngineError(Exception):
         self.code = code
 
 
+MIB = 1024 * 1024
+WARMUP_CONTENT = "Warm-up request without data."  # texto fijo: no contiene datos del ERP
+
+
 @dataclass(frozen=True)
 class Generation:
     text: str
     finish_reason: str
     output_tokens: int
+    peak_vram_mib: int | None = None
+    """Pico de memoria asignada por PyTorch durante esta generación (solo diagnóstico)."""
 
 
 class InferenceEngine(Protocol):
@@ -53,6 +62,10 @@ class InferenceEngine(Protocol):
 
     def generate(self, rendered: str, max_new_tokens: int) -> Generation: ...
 
+    # Opcionales (los motores de prueba pueden no tenerlos):
+    # def resources(self) -> dict[str, int]: memoria de la GPU en MiB
+    # def warm_up(self) -> Generation: generación corta sin datos
+
 
 class TransformersEngine:
     def __init__(self, settings: ServerSettings) -> None:
@@ -62,6 +75,7 @@ class TransformersEngine:
         self._tokenizer: Any = None
         self._model: Any = None
         self._stop_ids: list[int] = []
+        self.prompt_lookup = settings.prompt_lookup
 
     def load(self) -> None:
         # Nunca descargar: modelo base y adaptador deben estar ya en disco.
@@ -111,6 +125,21 @@ class TransformersEngine:
         model.eval()
         self._torch, self._tokenizer, self._model, self._stop_ids = torch, tokenizer, model, stop_ids
 
+    def resources(self) -> dict[str, int]:
+        """Memoria de la GPU en MiB: asignada y reservada por PyTorch, libre y total del dispositivo."""
+        cuda = self._torch.cuda
+        free, total = cuda.mem_get_info(0)
+        return {
+            "allocated": int(cuda.memory_allocated(0) // MIB),
+            "reserved": int(cuda.memory_reserved(0) // MIB),
+            "free": int(free // MIB),
+            "total": int(total // MIB),
+        }
+
+    def warm_up(self) -> Generation:
+        """Inicializa los núcleos CUDA y bitsandbytes con una generación corta de un texto fijo sin datos."""
+        return self.generate(self.render(WARMUP_CONTENT), 8)
+
     def render(self, user_content: str) -> str:
         return self._tokenizer.apply_chat_template(
             [{"role": "user", "content": user_content}], tokenize=False, add_generation_prompt=True
@@ -122,6 +151,8 @@ class TransformersEngine:
     def generate(self, rendered: str, max_new_tokens: int) -> Generation:
         inputs = self._tokenizer(rendered, return_tensors="pt", add_special_tokens=False).to("cuda:0")
         prompt_length = inputs["input_ids"].shape[1]
+        extra = {"prompt_lookup_num_tokens": self.prompt_lookup} if self.prompt_lookup > 0 else {}
+        self._torch.cuda.reset_peak_memory_stats(0)
         with self._torch.inference_mode():
             output = self._model.generate(
                 **inputs,
@@ -130,8 +161,11 @@ class TransformersEngine:
                 num_beams=1,
                 eos_token_id=self._stop_ids,
                 pad_token_id=self._tokenizer.pad_token_id,
+                **extra,
             )
         new_tokens = output[0][prompt_length:]
         finished = len(new_tokens) > 0 and int(new_tokens[-1]) in self._stop_ids
         text = self._tokenizer.decode(new_tokens, skip_special_tokens=True)
-        return Generation(text=text, finish_reason="stop" if finished else "length", output_tokens=len(new_tokens))
+        peak = int(self._torch.cuda.max_memory_allocated(0) // MIB)
+        return Generation(text=text, finish_reason="stop" if finished else "length", output_tokens=len(new_tokens),
+                          peak_vram_mib=peak)

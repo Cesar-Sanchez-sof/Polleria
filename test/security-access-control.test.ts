@@ -26,6 +26,8 @@ describe("Seguridad ISO/IEC 27001:2022 - Control de Acceso y Perímetro (A.5.15,
     expect(response.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     expect(response.headers.get("X-XSS-Protection")).toBe("1; mode=block");
     expect(response.headers.get("Permissions-Policy")).toContain("camera=()");
+    expect(response.headers.get("Permissions-Policy")).toContain("microphone=(self)"); // dictado del asistente: solo este sitio
+    expect(response.headers.get("Permissions-Policy")).toContain("geolocation=()");
   });
 
   it("A.8.3: Deniega acceso a llamadas API protegidas sin sesión con HTTP 401", async () => {

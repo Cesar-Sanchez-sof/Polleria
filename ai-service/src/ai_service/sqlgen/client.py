@@ -47,7 +47,10 @@ INPUT_REJECTED_STATUSES = frozenset({400, 413, 422})
 
 
 class XiYanHttpClient:
-    def __init__(self, config: SqlGenSettings, *, transport: httpx.BaseTransport | None = None) -> None:
+    def __init__(
+        self, config: SqlGenSettings, *, transport: httpx.BaseTransport | None = None, keepalive_s: float | None = None
+    ) -> None:
+        """``keepalive_s``: vida de la conexión inactiva con el servicio de WSL (``None`` = 5 s de httpx)."""
         self._config = config
         self._client = httpx.Client(
             base_url=config.url,
@@ -55,6 +58,7 @@ class XiYanHttpClient:
             transport=transport,
             trust_env=False,
             follow_redirects=False,
+            limits=httpx.Limits(keepalive_expiry=keepalive_s) if keepalive_s is not None else httpx.Limits(),
         )
 
     def close(self) -> None:

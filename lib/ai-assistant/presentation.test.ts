@@ -1,9 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { parseQueryResponse } from "@/lib/ai-assistant/contract";
 import { formatPen, periodText, toAssistantReply } from "@/lib/ai-assistant/presentation";
-import { assistantRoleFor, EVAL_NGROK_URL, EVAL_TIMEOUT_MS, readAssistantConfig } from "@/lib/ai-assistant/config";
+import {
+  assistantRoleFor,
+  EVAL_NGROK_URL,
+  EVAL_TIMEOUT_MS,
+  readAssistantConfig as readWithFlags,
+  type AssistantFlags,
+} from "@/lib/ai-assistant/config";
 
 const TOKEN = "cd".repeat(32);
+
+/** Los interruptores ya no viven en el entorno: se separan de las variables de prueba (solo `"1"` enciende). */
+const FLAG_BY_NAME: Readonly<Record<string, keyof AssistantFlags>> = {
+  AI_ASSISTANT_DEMO: "assistant.demo",
+  AI_ASSISTANT_EVAL_ENABLED: "assistant.eval",
+  AI_ASSISTANT_ALLOW_PRODUCTION_EVAL: "assistant.allow_production_eval",
+  AI_ASSISTANT_REAL_DATA: "assistant.real_data",
+  AI_ASSISTANT_DIAGNOSTICS: "assistant.diagnostics",
+};
+
+function readAssistantConfig(input: Record<string, string | undefined>) {
+  const flags: Record<keyof AssistantFlags, boolean> = {
+    "assistant.demo": false,
+    "assistant.eval": false,
+    "assistant.allow_production_eval": false,
+    "assistant.real_data": false,
+    "assistant.diagnostics": false,
+  };
+  const env: Record<string, string | undefined> = {};
+  for (const [name, value] of Object.entries(input)) {
+    const flag = FLAG_BY_NAME[name];
+    if (flag) flags[flag] = value === "1";
+    else env[name] = value;
+  }
+  return readWithFlags(flags, env);
+}
 
 describe("formato de importes en soles", () => {
   it("coincide con el formato del backend y no usa coma flotante", () => {

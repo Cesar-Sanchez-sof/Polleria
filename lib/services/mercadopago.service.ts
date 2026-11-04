@@ -807,6 +807,7 @@ export async function processMercadoPagoPaymentApproval(
     try {
       await postSaleJournalEntries(tx, {
         salesInvoiceId: invoice.id,
+        orderId: order.id,
         voucherCode: `${series}-${String(sequentialNumber).padStart(6, "0")}`,
         entryDate: invoice.issuedAt,
         subtotal,
