@@ -186,6 +186,15 @@ describe("consulta a SUNAT", () => {
     }
   });
 
+  it("401/403 después de aceptar el token: no es error de credenciales y no activa la pausa", async () => {
+    for (const status of [401, 403]) {
+      const { deps } = sunat({ token: TOKEN.clone(), export: new Response("{}", { status }) });
+      const error = await consultPurchases(QUERY, deps).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(SireError);
+      expect(error).toMatchObject({ status: 403, kind: "other", message: SIRE_MESSAGES.proposalDenied });
+    }
+  });
+
   it("errores de SUNAT: 5xx, red, sin respuesta útil y proceso con error", async () => {
     const run = async (routes: Parameters<typeof sunat>[0]) => consultPurchases(QUERY, sunat(routes).deps).catch((e: unknown) => e as SireError);
     expect(await run({ token: new Response("", { status: 503 }) })).toMatchObject({ status: 502, kind: "other" });
