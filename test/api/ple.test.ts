@@ -30,7 +30,7 @@ function snapshot(ruc = "20608976543"): PleSnapshot {
     journalEntries: [
       {
         id: 1,
-        code: "MISC/2026/10/0001",
+        code: "MISC2026100001",
         date: "2026-10-05",
         description: "Sale",
         active: true,
@@ -87,9 +87,9 @@ describe("GET /api/ple/[book]", () => {
     const body = await (
       await GET(request("?year=2026&month=10"), ctx("sales-register"))
     ).json();
-    expect(body.columns).toHaveLength(34);
+    expect(body.columns).toHaveLength(35);
     expect(body.rows).toHaveLength(1);
-    expect(body.rows[0][1]).toBe("MISC/2026/10/0001");
+    expect(body.rows[0][1]).toBe("MISC2026100001");
     expect(body.truncated).toBe(false);
   });
 
@@ -103,7 +103,7 @@ describe("GET /api/ple/[book]", () => {
     expect(response.headers.get("Content-Disposition")).toContain(".csv");
     const text = await response.text();
     expect(text).toContain("1. Period,2. Unique operation code (CUO)");
-    expect(text).toContain("20261000,MISC/2026/10/0001,M1,05/10/2026");
+    expect(text).toContain("20261000,MISC2026100001,M1,05/10/2026");
   });
 
   it("downloads the TXT when there are no errors", async () => {
@@ -117,7 +117,7 @@ describe("GET /api/ple/[book]", () => {
       "LE2060897654320261000140100001111.TXT"
     );
     const text = await response.text();
-    expect(text.startsWith("20261000|MISC/2026/10/0001|M1|05/10/2026|")).toBe(true);
+    expect(text.startsWith("20261000|MISC2026100001|M1|05/10/2026|")).toBe(true);
   });
 
   it("blocks the download when the book has errors", async () => {
