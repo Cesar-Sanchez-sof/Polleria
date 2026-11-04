@@ -62,7 +62,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: |
-          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db push --skip-generate --force-reset
           npx prisma db seed
 
       - name: Ejecutar pruebas E2E
