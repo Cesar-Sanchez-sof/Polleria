@@ -52,3 +52,21 @@ jobs:
       - name: Ejecutar linter
         run: npm run lint
         continue-on-error: true
+
+        ## Pruebas E2E con Playwright
+    
+      - name: Instalar navegadores de Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Preparar base de datos de pruebas (Push & Seed)
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db seed
+
+      - name: Ejecutar pruebas E2E
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          NEXT_PUBLIC_APP_URL: "http://localhost:3001"
+        run: npx playwright test
