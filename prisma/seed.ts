@@ -68,6 +68,80 @@ async function main() {
   console.log("✔ Usuario admin creado o actualizado.");
     await seedRolesPermissions(prisma);
 
+  // 1.1 CAJA REGISTRADORA Y SESIÓN INICIAL
+  const mainRegister = await prisma.cashRegister.upsert({
+    where: { code: 'CAJA-01' },
+    update: { active: true },
+    create: {
+      name: 'Caja Principal - Salón',
+      code: 'CAJA-01',
+      description: 'Caja registradora principal del salón',
+      active: true,
+    },
+  });
+
+  const adminUser = await prisma.user.findUnique({ where: { username: 'admin' } });
+  if (adminUser) {
+    await prisma.cashSession.updateMany({
+      where: { status: 'OPEN' },
+      data: { status: 'CLOSED', closedAt: new Date() },
+    });
+    await prisma.cashSession.create({
+      data: {
+        cashRegisterId: mainRegister.id,
+        openedById: adminUser.id,
+        initialAmount: 100,
+        status: 'OPEN',
+        openedAt: new Date(),
+      },
+    });
+    console.log('✔ Sesión de caja abierta para el turno inicial.');
+  }
+
+  // 1.2 PROVEEDOR Y MATERIA PRIMA POR DEFECTO
+  const defaultSupplier = await prisma.supplier.findFirst({
+    where: { ruc: '20100154308' },
+  });
+  if (!defaultSupplier) {
+    await prisma.supplier.create({
+      data: {
+        ruc: '20100154308',
+        businessName: 'Corporación Avícola San Fernando S.A.',
+        contactPerson: 'Carlos San Fernando',
+        phone: '987654321',
+        email: 'ventas@sanfernando.com.pe',
+        address: 'Av. República de Panamá 4295, Surquillo, Lima',
+        active: true,
+      },
+    });
+    console.log('✔ Proveedor San Fernando registrado.');
+  }
+
+  const defaultRawChicken = await prisma.product.findFirst({
+    where: { name: 'Pollo entero', type: 'RawMaterial' },
+  });
+  if (!defaultRawChicken) {
+    await prisma.product.create({
+      data: {
+        name: 'Pollo entero',
+        description: 'Pollo entero eviscerado crudo para marinado y brasa',
+        type: 'RawMaterial',
+        unitOfMeasure: 'KG',
+        currentStock: 0,
+        minimumStock: 20,
+        sellable: false,
+        active: true,
+      },
+    });
+    console.log('✔ Insumo Pollo entero registrado con stock inicial 0.');
+  } else {
+    await prisma.product.update({
+      where: { id: defaultRawChicken.id },
+      data: { currentStock: 0 },
+    });
+    console.log('✔ Insumo Pollo entero reiniciado a stock 0 para pruebas.');
+  }
+
   // 2. MÉTODOS DE PAGO
   const paymentMethods = [
     "Efectivo",
@@ -87,6 +161,12 @@ async function main() {
   console.log("✔ Métodos de pago registrados (Efectivo, Yape, Plin, Tarjeta / POS).");
 
   // 3. MESAS DEL SALÓN (Mesas 1 a 12 con distintas capacidades)
+  // Cancelar cualquier pedido de mesa previo para que inicien libres en pruebas
+  await prisma.salesOrder.updateMany({
+    where: { orderType: "Mesa", status: { notIn: ["Closed", "Cancelled"] } },
+    data: { status: "Cancelled" },
+  }).catch(() => null);
+
   const tablesData = [
     { number: 1, capacity: 2 },
     { number: 2, capacity: 2 },
@@ -308,7 +388,7 @@ async function main() {
     },
   ];
 
-  // El stock de cada producto empieza en 0: se llena con compras, transformación o un ajuste en el Kardex.
+  // Stock inicial disponible para platos de la carta del salón
   for (const product of productsData) {
     const exists = await prisma.product.findFirst({ where: { name: product.name, sellable: true } });
     if (!exists) {
@@ -319,9 +399,16 @@ async function main() {
           price: product.price,
           type: "FinishedProduct",
           unitOfMeasure: "UND",
+          currentStock: 50,
+          minimumStock: 5,
           sellable: true,
           active: true,
         },
+      });
+    } else {
+      await prisma.product.update({
+        where: { id: exists.id },
+        data: { currentStock: 50, active: true },
       });
     }
   }
