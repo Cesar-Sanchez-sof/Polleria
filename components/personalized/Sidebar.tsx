@@ -120,11 +120,11 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Comprobantes e Impresión", href: "/settings/printers", path: "impresoras-comanderas" },
       { label: "Datos del Restaurante", href: "/settings/business", path: "datos-empresa" },
+      { label: "Desarrollador", href: "/settings/developer", path: "desarrollador" },
       { label: "Guía Contable", href: "/settings/accounting-guide", path: "guide-contable" },
       { label: "Mesas", href: "/settings/tables", path: "gestion-mesas" },
-      { label: "Salones y Áreas", href: "/settings/areas", path: "salones-areas" },
       { label: "Personalización", href: "/settings/personalization", path: "personalizacion" },
-      { label: "Desarrollador", href: "/settings/developer", path: "desarrollador" },
+      { label: "Salones y Áreas", href: "/settings/areas", path: "salones-areas" },
     ],
   },
   {

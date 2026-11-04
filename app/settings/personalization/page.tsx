@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImageIcon, Palette, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
+import { ImageIcon, Palette, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Button } from "@/components/ui/button";
@@ -14,15 +14,17 @@ import {
   ASSET_SLOTS,
   DEFAULT_BRANDING,
   MAX_ASSET_BYTES,
+  MAX_UPDATES,
   type AssetSlot,
   type BrandingContent,
+  type UpdateEntry,
 } from "@/lib/branding/defaults";
 import type { BrandingDto } from "@/lib/services/branding.service";
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback);
 
 type LoginKey = keyof BrandingContent["login"];
-type HomeTextKey = Exclude<keyof BrandingContent["home"], "quickActions" | "modules">;
+type HomeTextKey = Exclude<keyof BrandingContent["home"], "updates">;
 
 const BRAND_FIELDS: Array<{ key: "brandName" | "fullName" | "tagline" | "slogan"; label: string; hint: string }> = [
   { key: "brandName", label: "Nombre de la marca", hint: "Título grande del login. Ej.: Los Betos" },
@@ -49,10 +51,7 @@ const HOME_FIELDS: Array<{ key: HomeTextKey; label: string; kind?: "href" }> = [
   { key: "primaryHref", label: "Botón principal: ruta", kind: "href" },
   { key: "secondaryLabel", label: "Botón secundario: texto" },
   { key: "secondaryHref", label: "Botón secundario: ruta", kind: "href" },
-  { key: "quickActionsTitle", label: "Atajos: título" },
-  { key: "quickActionsSubtitle", label: "Atajos: subtítulo" },
-  { key: "modulesTitle", label: "Módulos: título" },
-  { key: "modulesSubtitle", label: "Módulos: subtítulo" },
+  { key: "updatesTitle", label: "Panel de novedades: título" },
 ];
 
 function Field({
@@ -134,16 +133,21 @@ export default function PersonalizationPage() {
   }, []);
   const setLogin = (key: LoginKey, value: string) => setDraft((d) => ({ ...d, login: { ...d.login, [key]: value } }));
   const setHome = (key: HomeTextKey, value: string) => setDraft((d) => ({ ...d, home: { ...d.home, [key]: value } }));
-  const setQuick = (index: number, patch: Partial<BrandingContent["home"]["quickActions"][number]>) =>
+  const setUpdate = (index: number, patch: Partial<UpdateEntry>) =>
     setDraft((d) => ({
       ...d,
-      home: { ...d.home, quickActions: d.home.quickActions.map((item, i) => (i === index ? { ...item, ...patch } : item)) },
+      home: { ...d.home, updates: d.home.updates.map((item, i) => (i === index ? { ...item, ...patch } : item)) },
     }));
-  const setModule = (index: number, patch: Partial<BrandingContent["home"]["modules"][number]>) =>
+  const addUpdate = () =>
     setDraft((d) => ({
       ...d,
-      home: { ...d.home, modules: d.home.modules.map((item, i) => (i === index ? { ...item, ...patch } : item)) },
+      home: {
+        ...d.home,
+        updates: [{ date: new Date().toISOString().slice(0, 10), title: "", description: "" }, ...d.home.updates].slice(0, MAX_UPDATES),
+      },
     }));
+  const removeUpdate = (index: number) =>
+    setDraft((d) => ({ ...d, home: { ...d.home, updates: d.home.updates.filter((_, i) => i !== index) } }));
 
   const save = async () => {
     setSaving(true);
@@ -305,23 +309,56 @@ export default function PersonalizationPage() {
             </Card>
 
             <Card className="p-4 sm:p-5 rounded-2xl border-border shadow-xs space-y-4">
-              <h3 className="font-bold text-sm text-foreground pb-2 border-b border-border">Atajos de operación</h3>
-              {draft.home.quickActions.map((item, i) => (
-                <div key={item.key} className="grid grid-cols-1 md:grid-cols-3 gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                  <Field id={`qa-${item.key}-label`} label="Título" value={item.label} onChange={(v) => setQuick(i, { label: v })} disabled={disabled} />
-                  <Field id={`qa-${item.key}-hint`} label="Descripción" value={item.hint} onChange={(v) => setQuick(i, { hint: v })} disabled={disabled} />
-                  <Field id={`qa-${item.key}-href`} label="Ruta" value={item.href} onChange={(v) => setQuick(i, { href: v })} disabled={disabled} />
+              <div className="flex items-center justify-between gap-3 pb-2 border-b border-border">
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Últimas actualizaciones</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Se muestran sobre la foto del inicio, en el orden de esta lista. Hasta {MAX_UPDATES}; sin novedades el panel se oculta.
+                  </p>
                 </div>
-              ))}
-            </Card>
-
-            <Card className="p-4 sm:p-5 rounded-2xl border-border shadow-xs space-y-4">
-              <h3 className="font-bold text-sm text-foreground pb-2 border-b border-border">Módulos del sistema</h3>
-              {draft.home.modules.map((item, i) => (
-                <div key={item.key} className="grid grid-cols-1 md:grid-cols-3 gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                  <Field id={`mod-${item.key}-title`} label="Título" value={item.title} onChange={(v) => setModule(i, { title: v })} disabled={disabled} />
-                  <Field id={`mod-${item.key}-description`} label="Descripción" value={item.description} onChange={(v) => setModule(i, { description: v })} disabled={disabled} />
-                  <Field id={`mod-${item.key}-href`} label="Ruta" value={item.href} onChange={(v) => setModule(i, { href: v })} disabled={disabled} />
+                {canEdit ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={addUpdate}
+                    disabled={saving || draft.home.updates.length >= MAX_UPDATES}
+                    className="h-9 px-3 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Agregar
+                  </Button>
+                ) : null}
+              </div>
+              {draft.home.updates.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2">No hay novedades: el panel no se mostrará en el inicio.</p>
+              ) : null}
+              {draft.home.updates.map((item, i) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[9rem_1fr_2fr_auto] gap-3 items-end pb-3 border-b border-border last:border-0 last:pb-0">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`upd-${i}-date`} className="text-xs font-semibold text-foreground">Fecha</Label>
+                    <Input
+                      id={`upd-${i}-date`}
+                      type="date"
+                      value={item.date}
+                      onChange={(e) => setUpdate(i, { date: e.target.value })}
+                      disabled={disabled}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <Field id={`upd-${i}-title`} label="Título" value={item.title} onChange={(v) => setUpdate(i, { title: v })} disabled={disabled} />
+                  <Field id={`upd-${i}-description`} label="Descripción" value={item.description} onChange={(v) => setUpdate(i, { description: v })} disabled={disabled} />
+                  {canEdit ? (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeUpdate(i)}
+                      disabled={saving}
+                      aria-label={`Quitar «${item.title || "novedad"}»`}
+                      className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  ) : null}
                 </div>
               ))}
             </Card>
