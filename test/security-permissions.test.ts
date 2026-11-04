@@ -92,6 +92,8 @@ describe("ninguna API queda sin control de acceso", () => {
     "app/api/realtime/route.ts",
     "app/api/payment-methods/route.ts",
     "app/api/checkout/yape/route.ts",
+    // Imágenes de la marca: el login las necesita antes de tener sesión (solo ranuras conocidas, ver el handler).
+    "app/api/branding/assets/[slot]/route.ts",
   ];
   const routes = files(join(ROOT, "app/api"), /^route\.ts$/)
     .map((r) => relative(ROOT, r).replace(/\\/g, "/"))

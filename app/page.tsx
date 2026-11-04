@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { LucideIcon } from "lucide-react";
 import { requireServerSession } from "@/lib/auth/guard";
+import { getBranding } from "@/lib/services/branding.service";
 import {
   ArrowRight,
   BookOpen,
@@ -11,71 +13,33 @@ import {
   ShoppingCart,
   Utensils,
   Warehouse,
-  Calendar,
 } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Pollería | Inicio",
-  description: "Panel principal del ERP integral para restaurante y pollería.",
+// El nombre y los textos se editan desde Configuración → Personalización.
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { content } = await getBranding();
+  return {
+    title: `${content.home.title} | Inicio`,
+    description: "Panel principal del ERP integral para restaurante y pollería.",
+  };
+}
+
+/** Los textos y enlaces son editables; los íconos y el color de cada tarjeta son fijos por clave. */
+const QUICK_ACTION_ICONS: Record<string, LucideIcon> = {
+  tables: Utensils,
+  kitchen: ChefHat,
+  cashier: CreditCard,
+  sales: ShoppingCart,
 };
 
-const QUICK_ACTIONS = [
-  {
-    href: "/sales?tab=tables",
-    label: "Salón de mesas",
-    hint: "Tomar pedidos en piso",
-    icon: Utensils,
-  },
-  {
-    href: "/sales?tab=kitchen",
-    label: "Cocina KDS",
-    hint: "Comandas en preparación",
-    icon: ChefHat,
-  },
-  {
-    href: "/sales?tab=cashier",
-    label: "Ventanilla",
-    hint: "Cerrar cuentas",
-    icon: CreditCard,
-  },
-  {
-    href: "/sales",
-    label: "Ventas",
-    hint: "Gestión completa",
-    icon: ShoppingCart,
-  },
-] as const;
-
-const MODULES = [
-  {
-    href: "/sales?tab=tables",
-    title: "Ventas y salón",
-    description: "Mesas, para llevar, clientes, cobros y facturación electrónica.",
-    icon: ShoppingCart,
-    accent: "bg-primary/10 text-primary",
-  },
-  {
-    href: "/purchases",
-    title: "Compras e inventario",
-    description: "Proveedores, órdenes, recepción, kardex y transformación.",
-    icon: Package,
-    accent: "bg-secondary/15 text-secondary",
-  },
-  {
-    href: "/purchases/inventory",
-    title: "Stock e insumos",
-    description: "Control de existencias, ajustes y alertas de reorden.",
-    icon: Warehouse,
-    accent: "bg-emerald-100 text-emerald-800",
-  },
-  {
-    href: "/accounting/entries",
-    title: "Contabilidad",
-    description: "Asientos, plan de cuentas, diario, mayor y resultados.",
-    icon: BookOpen,
-    accent: "bg-amber-100 text-amber-900",
-  },
-] as const;
+const MODULE_STYLES: Record<string, { icon: LucideIcon; accent: string }> = {
+  sales: { icon: ShoppingCart, accent: "bg-primary/10 text-primary" },
+  purchases: { icon: Package, accent: "bg-secondary/15 text-secondary" },
+  stock: { icon: Warehouse, accent: "bg-emerald-100 text-emerald-800" },
+  accounting: { icon: BookOpen, accent: "bg-amber-100 text-amber-900" },
+};
 
 function formatToday(): string {
   return new Date().toLocaleDateString("es-PE", {
@@ -89,6 +53,8 @@ function formatToday(): string {
 export default async function HomePage() {
   await requireServerSession();
   const today = formatToday();
+  const { content, assets } = await getBranding();
+  const home = content.home;
 
   return (
     <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-surface text-on-surface">
@@ -98,7 +64,7 @@ export default async function HomePage() {
           className="absolute inset-0 bg-cover bg-center"
           style={{
             backgroundImage:
-              "url(https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=1800&auto=format&fit=crop&q=80)",
+              `url(${assets["home-hero"]})`,
           }}
           aria-hidden
         />
@@ -124,30 +90,30 @@ export default async function HomePage() {
           <div className="max-w-3xl space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-700">
             <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-200/90">
               <Flame className="h-3.5 w-3.5 text-amber-300" />
-              ERP integral · {today}
+              {home.eyebrow} · {today}
             </p>
 
             <h1 className="font-headline text-5xl font-bold leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Pollería
+              {home.title}
             </h1>
 
             <p className="max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
-              Opera el salón, la cocina, las compras y la contabilidad desde un solo lugar.
+              {home.subtitle}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
-                href="/sales?tab=tables"
+                href={home.primaryHref}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary shadow-lg shadow-primary/30 transition hover:bg-primary-container active:scale-[0.98]"
               >
-                Abrir salón
+                {home.primaryLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/sales?tab=cashier"
+                href={home.secondaryHref}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/18"
               >
-                Ir a caja
+                {home.secondaryLabel}
               </Link>
             </div>
           </div>
@@ -159,12 +125,12 @@ export default async function HomePage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <h2 className="font-headline text-lg font-bold text-on-surface">Operación de hoy</h2>
-              <p className="text-sm text-outline">Atajos al flujo del restaurante</p>
+              <h2 className="font-headline text-lg font-bold text-on-surface">{home.quickActionsTitle}</h2>
+              <p className="text-sm text-outline">{home.quickActionsSubtitle}</p>
             </div>
           </div>
-          {QUICK_ACTIONS.map((action, index) => {
-            const Icon = action.icon;
+          {home.quickActions.map((action, index) => {
+            const Icon = QUICK_ACTION_ICONS[action.key] ?? ShoppingCart;
             return (
               <Link
                 key={`${action.href}-${action.label}`}
@@ -189,14 +155,15 @@ export default async function HomePage() {
       <section className="px-6 pb-4 sm:px-10 lg:px-14">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <div className="mb-5">
-            <h2 className="font-headline text-lg font-bold text-on-surface">Módulos del sistema</h2>
-            <p className="text-sm text-outline">Administración comercial, logística y financiera</p>
+            <h2 className="font-headline text-lg font-bold text-on-surface">{home.modulesTitle}</h2>
+            <p className="text-sm text-outline">{home.modulesSubtitle}</p>
           </div>
-          {MODULES.map((module) => {
-            const Icon = module.icon;
+          {home.modules.map((module) => {
+            const style = MODULE_STYLES[module.key] ?? MODULE_STYLES.sales;
+            const Icon = style.icon;
             return (
               <Link
-                key={module.href}
+                key={module.key}
                 href={module.href}
                 className="group relative overflow-hidden rounded-2xl border border-surface-container-high bg-surface-container-lowest p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
               >
@@ -206,7 +173,7 @@ export default async function HomePage() {
                 />
                 <div className="relative flex items-start gap-4">
                   <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${module.accent}`}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${style.accent}`}
                   >
                     <Icon className="h-5 w-5" />
                   </span>
