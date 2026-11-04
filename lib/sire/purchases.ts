@@ -43,6 +43,7 @@ export class SireError extends Error {
 
 export const SIRE_MESSAGES = {
   credentials: "SUNAT rechazó las credenciales. Verifica RUC, usuario SOL, clave SOL y las credenciales de API. Evita reintentar muchas veces: SUNAT puede bloquear la clave SOL.",
+  proposalDenied: "SUNAT no entregó la propuesta de ese periodo (las credenciales fueron aceptadas). Prueba con un periodo ya cerrado o verifica que tu RUC tenga acceso a SIRE Compras.",
   unavailable: "SUNAT no está disponible en este momento. Inténtalo de nuevo en unos minutos.",
   timeout: "SUNAT tardó demasiado en responder. Inténtalo de nuevo.",
   noProposal: "SUNAT no tiene comprobantes de compra para ese periodo.",
@@ -193,7 +194,26 @@ async function jsonBody(response: Response): Promise<Record<string, unknown> | n
 
 /** Respuestas de error de SUNAT -> mensaje propio (el cuerpo de SUNAT no se reenvía). */
 function failFrom(response: Response): SireError {
-  if (response.status === 401 || response.status === 403) return new SireError(401, SIRE_MESSAGES.credentials, "credentials");
+  // Diagnóstico en el log del servidor: solo estado y ruta (sin query), nunca el cuerpo ni credenciales.
+  let path = "?";
+  try {
+    path = new URL(response.url).pathname;
+  } catch {
+    /* sin URL */
+  }
+  console.warn(`[sire] SUNAT respondió http=${response.status} en ${path}`);
+  // Los errores de SIRE traen `cod` y `msg` genéricos (sin datos del contribuyente); se registran acotados.
+  void response
+    .clone()
+    .json()
+    .then((body: unknown) => {
+      const data = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+      console.warn(`[sire] detalle: cod=${str(data.cod)} msg=${str(data.msg).slice(0, 200)}`);
+    })
+    .catch(() => undefined);
+  // El token ya fue aceptado: un 401/403 aquí no son credenciales inválidas (periodo no disponible o sin acceso a
+  // la propuesta), así que no se marca como "credentials" para no activar la pausa de reintentos.
+  if (response.status === 401 || response.status === 403) return new SireError(403, SIRE_MESSAGES.proposalDenied);
   if (response.status === 404) return new SireError(404, SIRE_MESSAGES.noProposal);
   return new SireError(502, SIRE_MESSAGES.unavailable);
 }
@@ -217,6 +237,10 @@ export async function requestToken(credentials: SireCredentials, deps: SireDeps)
   );
   // 400/401: credenciales o usuario SOL inválidos (SUNAT usa 400 con `invalid_grant`).
   if (response.status === 400 || response.status === 401 || response.status === 403) {
+    // Diagnóstico solo en el log del servidor: el código de error de OAuth (`invalid_client`: Client ID/secret,
+    // `invalid_grant`: usuario o clave SOL) no contiene datos sensibles. Nunca se muestra en pantalla.
+    const detail = await jsonBody(response);
+    console.warn(`[sire] token rechazado: http=${response.status} error=${str(detail?.error) || "?"}`);
     throw new SireError(401, SIRE_MESSAGES.credentials, "credentials");
   }
   if (!response.ok) throw new SireError(502, SIRE_MESSAGES.unavailable);
