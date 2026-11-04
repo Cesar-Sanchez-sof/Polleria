@@ -81,10 +81,7 @@ import {
   createDashboard,
   toggleDashboardPublished,
   deleteDashboards,
-  getDashboardById,
-  updateDashboardWidgets,
   getShareLinks,
-  createShareLink,
   toggleShareLinkActive,
   deleteShareLinks,
   getRolesForAccess,
@@ -196,7 +193,7 @@ describe("Dashboard Service (Módulo de Tableros)", () => {
         userAccess: input.userAccess,
       };
 
-      mocks.transaction.mockImplementation(async (callback: any) => {
+      mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => {
         return callback({
           dashboard: {
             create: mocks.dashboardCreate.mockResolvedValue({ id: "dash-1" }),
