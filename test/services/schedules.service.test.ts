@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   shiftUpdate: vi.fn(),
   shiftDelete: vi.fn(),
   employeeFindMany: vi.fn(),
+  templateFindFirst: vi.fn(),
   linkFindMany: vi.fn(),
   linkDeleteMany: vi.fn(),
   linkCreateMany: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/lib/prisma", () => {
       delete: m.shiftDelete,
     },
     employee: { findMany: m.employeeFindMany },
+    shiftTemplate: { findFirst: m.templateFindFirst },
     employeeShift: { findMany: m.linkFindMany, deleteMany: m.linkDeleteMany, createMany: m.linkCreateMany },
     $transaction: (fn: (tx: unknown) => unknown) => fn(db),
   };
@@ -50,9 +52,29 @@ const row = {
   startTime: new Date("1970-01-01T08:00:00Z"),
   endTime: new Date("1970-01-01T16:30:00Z"),
   employees: [
-    { employee: { id: 1, dni: "11111111", firstName: "Ana", paternalLastName: "Pérez", position: null, active: true } },
+    {
+      employee: {
+        id: 1,
+        dni: "11111111",
+        firstName: "Ana",
+        paternalLastName: "Pérez",
+        active: true,
+        contracts: [{ position: "Mesera" }],
+      },
+    },
   ],
 };
+
+/** Empleado tal como lo lee la validación de asignación (contrato vigente y licencias del día). */
+const assignable = (over: Record<string, unknown> = {}) => ({
+  id: 1,
+  firstName: "Ana",
+  paternalLastName: "Pérez",
+  active: true,
+  contracts: [{ id: 4 }],
+  leaveRequests: [],
+  ...over,
+});
 
 /** Otro turno del mismo empleado, ya asignado, tal como lo devuelve la consulta de cruces. */
 const other = (name: string, date: string, start: string, end: string) => ({
@@ -72,7 +94,8 @@ beforeEach(() => {
   m.shiftFindUniqueOrThrow.mockResolvedValue(row);
   m.shiftCreate.mockResolvedValue(row);
   m.shiftUpdate.mockResolvedValue(row);
-  m.employeeFindMany.mockResolvedValue([{ id: 1, active: true }]);
+  m.employeeFindMany.mockResolvedValue([assignable()]);
+  m.templateFindFirst.mockResolvedValue(null);
   m.linkFindMany.mockResolvedValue([]);
   m.linkDeleteMany.mockResolvedValue({ count: 0 });
   m.linkCreateMany.mockResolvedValue({ count: 1 });
@@ -110,6 +133,7 @@ describe("createSchedule / updateSchedule / deleteSchedule", () => {
     const s = await createSchedule(valid);
     expect(s).toMatchObject({ shift_id: 3, start_time: "08:00", end_time: "16:30", overnight: false, hours: 8.5 });
     expect(s.employees[0].full_name).toBe("Ana Pérez");
+    expect(s.employees[0].position).toBe("Mesera"); // cargo del contrato vigente
   });
 
   it("rechaza nombre y fecha repetidos con 409", async () => {
@@ -123,6 +147,14 @@ describe("createSchedule / updateSchedule / deleteSchedule", () => {
     m.shiftFindMany.mockResolvedValue([other("Cena", "2026-11-02", "16:00", "20:00")]);
     await expect(updateSchedule(3, valid)).rejects.toMatchObject({ status: 409 });
     expect(m.shiftUpdate).not.toHaveBeenCalled();
+  });
+
+  it("un horario con el nombre de un turno base debe tener sus mismas horas", async () => {
+    m.templateFindFirst.mockResolvedValue({ name: "Turno mañana", startTime: new Date("1970-01-01T08:00:00Z"), endTime: new Date("1970-01-01T15:00:00Z") });
+    await expect(createSchedule(valid)).rejects.toThrow("es un turno base de 08:00–15:00");
+    expect(m.shiftCreate).not.toHaveBeenCalled();
+    m.templateFindFirst.mockResolvedValue({ name: "Turno mañana", startTime: new Date("1970-01-01T08:00:00Z"), endTime: new Date("1970-01-01T16:30:00Z") });
+    await expect(createSchedule(valid)).resolves.toBeDefined();
   });
 
   it("eliminar un horario inexistente da 404", async () => {
@@ -167,8 +199,25 @@ describe("setScheduleEmployees", () => {
   it("rechaza empleados inexistentes, dados de baja o ids inválidos", async () => {
     m.employeeFindMany.mockResolvedValue([]);
     await expect(setScheduleEmployees(3, [1])).rejects.toMatchObject({ status: 404 });
-    m.employeeFindMany.mockResolvedValue([{ id: 1, active: false }]);
+    m.employeeFindMany.mockResolvedValue([assignable({ active: false })]);
     await expect(setScheduleEmployees(3, [1])).rejects.toThrow("baja");
     await expect(setScheduleEmployees(3, ["x"])).rejects.toThrow("no es válida");
+  });
+
+  it("no programa a quien no tiene contrato vigente ese día", async () => {
+    m.employeeFindMany.mockResolvedValue([assignable({ contracts: [] })]);
+    await expect(setScheduleEmployees(3, [1])).rejects.toThrow("no tiene contrato vigente el 2026-11-02");
+    expect(m.linkCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("no programa a quien está de vacaciones o con licencia aprobada", async () => {
+    m.employeeFindMany.mockResolvedValue([assignable({ leaveRequests: [{ type: "Vacaciones" }] })]);
+    await expect(setScheduleEmployees(3, [1])).rejects.toThrow("vacaciones o con licencia");
+  });
+
+  it("conserva a quien ya estaba asignado aunque luego cambie su situación", async () => {
+    m.linkFindMany.mockResolvedValue([{ employeeId: 1 }]);
+    m.employeeFindMany.mockResolvedValue([assignable({ contracts: [] })]);
+    await expect(setScheduleEmployees(3, [1])).resolves.toBeDefined();
   });
 });

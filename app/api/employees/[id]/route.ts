@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import {
-  employeeIdOfUser,
-  getEmployee,
-  setEmployeeActive,
-  updateEmployee,
-  verifyModifiableEmployee,
-  type EmployeeData,
-} from "@/lib/services/employees.service";
+import { getEmployee, updateEmployee, verifyModifiableEmployee, type EmployeeData } from "@/lib/services/employees.service";
+import { auditHr, badRequest, routeId, type IdContext } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +12,7 @@ export const dynamic = "force-dynamic";
  *   get:
  *     tags:
  *       - Empleados
- *     summary: Consultar un empleado
+ *     summary: Consultar la ficha de un empleado
  *     parameters:
  *       - in: path
  *         name: id
@@ -34,7 +27,7 @@ export const dynamic = "force-dynamic";
  *   put:
  *     tags:
  *       - Empleados
- *     summary: Editar la información de un empleado
+ *     summary: Editar los datos personales (las condiciones laborales se cambian por adenda del contrato)
  *     parameters:
  *       - in: path
  *         name: id
@@ -46,99 +39,47 @@ export const dynamic = "force-dynamic";
  *         description: Empleado actualizado
  *       409:
  *         description: Documento duplicado
- *   patch:
- *     tags:
- *       - Empleados
- *     summary: Dar de baja o reingresar a un empleado (body { active })
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Estado actualizado
  */
-type Context = { params: Promise<{ id: string }> };
-
-async function readId(ctx: Context): Promise<number | null> {
-  const id = Number((await ctx.params).id);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
-export async function GET(_request: NextRequest, ctx: Context) {
+export async function GET(_request: NextRequest, ctx: IdContext) {
   try {
     const auth = await authorize("empleados.ver");
     if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
-    if (!id) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
+    const id = await routeId(ctx);
+    if (!id) return badRequest();
     return NextResponse.json(await getEmployee(id));
   } catch (e) {
     return errorResponse(e);
   }
 }
 
-export async function PUT(request: NextRequest, ctx: Context) {
+export async function PUT(request: NextRequest, ctx: IdContext) {
   try {
     const auth = await authorize("empleados.editar");
     if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
+    const id = await routeId(ctx);
     const body = await readJson(request);
-    if (!id || !body) return NextResponse.json({ error: "Petición inválida" }, { status: 400 });
+    if (!id || !body) return badRequest();
 
     await verifyModifiableEmployee(id, auth.superuser);
     const before = await getEmployee(id);
     const updated = await updateEmployee(id, body as unknown as EmployeeData);
     const snapshot = (e: typeof before) => ({
       dni: e.dni,
-      position: e.position,
-      area: e.area,
-      contract_type: e.contract_type,
-      base_salary: e.base_salary,
+      full_name: e.full_name,
+      phone: e.phone,
+      email: e.email,
+      address: e.address,
+      emergency_contact: e.emergency_contact,
     });
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
+    await auditHr(auth.session, request, {
       action: "UPDATE",
       module: "Empleados",
       entity: "Empleado",
       entityId: id,
-      description: `Modificó al empleado ${updated.full_name}`,
+      description: `Modificó los datos personales de ${updated.full_name}`,
       details: { before: snapshot(before), after: snapshot(updated) },
-      ipAddress: requestIp(request),
     });
     return NextResponse.json(updated);
-  } catch (e) {
-    return errorResponse(e);
-  }
-}
-
-export async function PATCH(request: NextRequest, ctx: Context) {
-  try {
-    const auth = await authorize("empleados.editar");
-    if (!auth.ok) return auth.response;
-    const id = await readId(ctx);
-    const body = await readJson(request);
-    if (!id || typeof body?.active !== "boolean") {
-      return NextResponse.json({ error: "Indica el estado (true/false)" }, { status: 400 });
-    }
-    if (!body.active && (await employeeIdOfUser(auth.session.userId)) === id) {
-      return NextResponse.json({ error: "No puedes darte de baja a ti mismo" }, { status: 400 });
-    }
-
-    await verifyModifiableEmployee(id, auth.superuser);
-    const { employee, users_deactivated, contracts_terminated } = await setEmployeeActive(id, body.active);
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
-      action: "STATUS_CHANGE",
-      module: "Empleados",
-      entity: "Empleado",
-      entityId: id,
-      description: `${body.active ? "Reingresó" : "Dio de baja"} al empleado ${employee.full_name}`,
-      details: { before: { active: !body.active }, after: { active: body.active }, users_deactivated, contracts_terminated },
-      ipAddress: requestIp(request),
-    });
-    return NextResponse.json({ ...employee, users_deactivated, contracts_terminated });
   } catch (e) {
     return errorResponse(e);
   }

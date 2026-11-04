@@ -48,8 +48,6 @@ export async function getOrCreateActiveEmployee(
       dni: "00000000",
       firstName: "Administrador",
       paternalLastName: "Sistema",
-      position: "Administrador",
-      area: "Administración",
       active: true,
     },
   });

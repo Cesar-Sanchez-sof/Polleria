@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "db:seed": "npx tsx prisma/seed.ts",
-    "test:e2e": "node scripts/run-e2e.mjs"
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "db:seed:hr": "npx tsx prisma/seed-hr-demo.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

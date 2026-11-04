@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
+import { auditPurchase, plain, sessionEmployeeId } from "./purchase-audit";
 import {
   postInformalPurchaseJournalEntry,
   annulInformalPurchaseJournalEntry,
@@ -27,7 +28,8 @@ export interface PurchaseWithoutVoucherInput {
 }
 
 export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVoucherInput) {
-  await requirePermission("compras.crear");
+  const session = await requirePermission("compras.crear");
+  const actorEmployeeId = data.employeeId ?? (await sessionEmployeeId(session));
   const purchaseType =
     (data.purchaseType as InformalPurchaseType) || InformalPurchaseType.InventoryItem;
 
@@ -54,8 +56,8 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
     }
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.employeeId);
+  const registered = await prisma.$transaction(async (tx) => {
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, actorEmployeeId);
     const purchaseDate = data.date ? new Date(data.date) : new Date();
 
     if (purchaseType === InformalPurchaseType.OperatingExpense) {
@@ -152,6 +154,25 @@ export async function registerPurchaseWithoutVoucher(data: PurchaseWithoutVouche
 
     return purchase;
   });
+
+  await auditPurchase(session, {
+    action: "CREATE",
+    entity: "CompraSinComprobante",
+    entityId: registered.id,
+    description: `Registró una compra sin comprobante de S/ ${Number(data.amountPaid).toFixed(2)}`,
+    details: {
+      after: plain({
+        purchase_type: registered.purchaseType,
+        expense_category: registered.expenseCategory,
+        product_id: registered.productId,
+        description: registered.itemDescription,
+        quantity: registered.quantity,
+        amount_paid: registered.amountPaid,
+        vendor: registered.informalPlaceOrVendor,
+      }),
+    },
+  });
+  return registered;
 }
 
 export async function annulInformalPurchase(
@@ -159,12 +180,13 @@ export async function annulInformalPurchase(
   reason: string,
   employeeId?: number
 ) {
-  await requirePermission("compras.eliminar");
+  const session = await requirePermission("compras.eliminar");
+  const actorEmployeeId = employeeId ?? (await sessionEmployeeId(session));
   if (!reason || reason.trim() === "") {
     throw new Error("El motivo de anulación es obligatorio");
   }
 
-  return await prisma.$transaction(async (tx) => {
+  const annulled = await prisma.$transaction(async (tx) => {
     const purchase = await tx.informalPurchase.findUnique({
       where: { id },
       include: { product: true },
@@ -178,7 +200,7 @@ export async function annulInformalPurchase(
       throw new Error("Esta compra ya está anulada");
     }
 
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, employeeId);
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, actorEmployeeId);
 
     if (
       purchase.purchaseType === InformalPurchaseType.InventoryItem &&
@@ -246,6 +268,18 @@ export async function annulInformalPurchase(
 
     return updated;
   });
+
+  await auditPurchase(session, {
+    action: "STATUS_CHANGE",
+    entity: "CompraSinComprobante",
+    entityId: id,
+    description: `Anuló la compra sin comprobante #${id}`,
+    details: {
+      before: { annulled: false },
+      after: plain({ annulled: true, reason: reason.trim(), amount_paid: annulled.amountPaid }),
+    },
+  });
+  return annulled;
 }
 
 export async function getPurchasesWithoutVoucher() {

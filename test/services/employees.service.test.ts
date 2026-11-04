@@ -7,9 +7,11 @@ const m = vi.hoisted(() => ({
   employeeCreate: vi.fn(),
   employeeUpdate: vi.fn(),
   userFindFirst: vi.fn(),
-  userUpdateMany: vi.fn(),
-  contractFindMany: vi.fn(),
-  contractUpdate: vi.fn(),
+  templateFindMany: vi.fn(),
+  contractFindFirst: vi.fn(),
+  contractCreate: vi.fn(),
+  insuranceFindFirst: vi.fn(),
+  insuranceCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -22,21 +24,20 @@ vi.mock("@/lib/prisma", () => {
       create: m.employeeCreate,
       update: m.employeeUpdate,
     },
-    user: { findFirst: m.userFindFirst, updateMany: m.userUpdateMany },
-    employmentContract: { findMany: m.contractFindMany, update: m.contractUpdate },
+    user: { findFirst: m.userFindFirst },
+    shiftTemplate: { findMany: m.templateFindMany },
+    employmentContract: { findFirst: m.contractFindFirst, create: m.contractCreate },
+    employeeInsurance: { findFirst: m.insuranceFindFirst, create: m.insuranceCreate },
     $transaction: (fn: (tx: unknown) => unknown) => fn(db),
   };
   return { prisma: db };
 });
 
-import {
-  createEmployee,
-  normalizeEmployee,
-  setEmployeeActive,
-  updateEmployee,
-  verifyModifiableEmployee,
-  type EmployeeData,
-} from "@/lib/services/employees.service";
+const scheduleAhead = vi.hoisted(() => vi.fn().mockResolvedValue({ assignments: 12 }));
+vi.mock("@/lib/services/schedules.service", () => ({ scheduleEmployeeAhead: scheduleAhead }));
+
+import { hireEmployee, normalizeEmployee, updateEmployee, verifyModifiableEmployee, type EmployeeData } from "@/lib/services/employees.service";
+import type { ContractData } from "@/lib/services/hr/contracts.service";
 import { UserError } from "@/lib/services/users.service";
 
 const valid: EmployeeData = {
@@ -44,15 +45,52 @@ const valid: EmployeeData = {
   first_name: "  Ana ",
   paternal_last_name: "Pérez",
   phone: "987654321",
+  email: "ANA@Correo.pe",
   birth_date: "1995-04-10",
-  hire_date: "2026-10-01",
-  position: "Mesera",
-  area: "Salón",
-  contract_type: "Planilla",
-  base_salary: "1130.5",
 };
 
-const row = {
+const time = (hhmm: string) => new Date(`1970-01-01T${hhmm}:00.000Z`);
+const ATENCION = { id: 2, name: "Atención", startTime: time("18:00"), endTime: time("23:30"), active: true };
+
+/** Mesera a plazo indeterminado: Atención de lunes a sábado (33 h), descansa el domingo. */
+const contract: ContractData = {
+  contract_type: "Indeterminado",
+  labor_regime: "Micro",
+  position: "Mesera",
+  area: "Salón",
+  start_date: "2026-11-02",
+  base_salary: 1200,
+  pension_system: "ONP",
+  schedule: [0, 1, 2, 3, 4, 5].map((weekday) => ({ weekday, template_ids: [2] })),
+};
+
+const contractRow = {
+  id: 11,
+  employeeId: 7,
+  contractType: "Indeterminado",
+  laborRegime: "Micro",
+  position: "Mesera",
+  area: "Salón",
+  startDate: new Date("2026-11-02T00:00:00Z"),
+  endDate: null,
+  trialEndDate: new Date("2027-02-01T00:00:00Z"),
+  baseSalary: "1200.00",
+  familyAllowance: false,
+  pensionSystem: "ONP",
+  afpName: null,
+  cuspp: null,
+  status: "Vigente",
+  terminationDate: null,
+  terminationReason: null,
+  notes: null,
+  renewedFromId: null,
+  renewedBy: null,
+  createdAt: new Date("2026-11-01T15:00:00Z"),
+  employee: { id: 7, dni: "12345678", firstName: "Ana", middleName: null, paternalLastName: "Pérez", maternalLastName: null },
+  schedule: [0, 1, 2, 3, 4, 5].map((weekday) => ({ weekday, shiftTemplateId: 2, shiftTemplate: ATENCION })),
+};
+
+const employeeRow = {
   id: 7,
   dni: "12345678",
   firstName: "Ana",
@@ -60,39 +98,39 @@ const row = {
   paternalLastName: "Pérez",
   maternalLastName: null,
   phone: "987654321",
+  email: "ana@correo.pe",
   address: null,
   birthDate: new Date("1995-04-10T00:00:00Z"),
-  hireDate: new Date("2026-10-01T00:00:00Z"),
-  position: "Mesera",
-  area: "Salón",
-  contractType: "Planilla",
-  baseSalary: "1130.50",
+  hireDate: new Date("2026-11-02T00:00:00Z"),
+  emergencyContact: null,
+  emergencyPhone: null,
   active: true,
   shifts: [],
+  contracts: [contractRow],
   users: [],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   m.employeeFindFirst.mockResolvedValue(null);
-  m.employeeFindUnique.mockResolvedValue({ id: 7 });
-  m.employeeCreate.mockResolvedValue(row);
-  m.employeeUpdate.mockResolvedValue(row);
-  m.employeeFindUniqueOrThrow.mockResolvedValue(row);
+  m.employeeFindUnique.mockResolvedValue({ id: 7, active: true, hireDate: new Date("2026-11-02T00:00:00Z") });
+  m.employeeCreate.mockResolvedValue({ id: 7 });
+  m.employeeUpdate.mockResolvedValue(employeeRow);
+  m.employeeFindUniqueOrThrow.mockResolvedValue(employeeRow);
   m.userFindFirst.mockResolvedValue(null);
-  m.userUpdateMany.mockResolvedValue({ count: 0 });
-  m.contractFindMany.mockResolvedValue([]);
-  m.contractUpdate.mockResolvedValue({});
+  m.templateFindMany.mockResolvedValue([ATENCION]);
+  m.contractFindFirst.mockResolvedValue(null);
+  m.contractCreate.mockResolvedValue(contractRow);
+  m.insuranceFindFirst.mockResolvedValue(null);
+  m.insuranceCreate.mockResolvedValue({ id: 1 });
 });
 
 describe("normalizeEmployee", () => {
-  const today = new Date("2026-10-28T12:00:00Z");
-
-  it("normaliza espacios y convierte el sueldo", () => {
-    const n = normalizeEmployee(valid, today);
+  it("normaliza espacios y el correo", () => {
+    const n = normalizeEmployee(valid, "2026-11-02");
     expect(n.firstName).toBe("Ana");
-    expect(n.baseSalary).toBe(1130.5);
-    expect(n.hireDate.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(n.email).toBe("ana@correo.pe");
+    expect(n.birthDate?.toISOString()).toBe("1995-04-10T00:00:00.000Z");
   });
 
   it.each([
@@ -100,29 +138,54 @@ describe("normalizeEmployee", () => {
     [{ first_name: " " }, "nombre es obligatorio"],
     [{ paternal_last_name: "" }, "apellido paterno es obligatorio"],
     [{ phone: "12345" }, "teléfono"],
+    [{ emergency_phone: "123" }, "emergencia"],
+    [{ email: "ana@" }, "correo"],
     [{ birth_date: "2026-02-30" }, "fecha de nacimiento no es una fecha válida"],
-    [{ birth_date: "2030-01-01" }, "no puede ser futura"],
-    [{ birth_date: "2015-01-01" }, "mayor de 18"],
-    [{ contract_type: "Eventual" }, "contrato"],
-    [{ base_salary: -1 }, "sueldo base"],
+    [{ birth_date: "2099-01-01" }, "no puede ser futura"],
+    [{ birth_date: "2010-01-01" }, "mayor de 18"],
   ])("rechaza %j", (override, message) => {
-    expect(() => normalizeEmployee({ ...valid, ...override } as EmployeeData, today)).toThrow(message);
+    expect(() => normalizeEmployee({ ...valid, ...override } as EmployeeData, "2026-11-02")).toThrow(message);
   });
 });
 
-describe("createEmployee / updateEmployee", () => {
-  it("crea el empleado activo", async () => {
-    const e = await createEmployee(valid);
-    expect(e).toMatchObject({ employee_id: 7, full_name: "Ana Pérez", base_salary: 1130.5, active: true, has_user: false, upcoming_shifts: 0, next_shift: null });
-    expect(m.employeeCreate.mock.calls[0][0].data).toMatchObject({ dni: "12345678", active: true });
+describe("hireEmployee (contratación)", () => {
+  it("registra empleado, contrato con su horario y EsSalud en una sola operación", async () => {
+    const r = await hireEmployee(valid, contract, 1);
+    expect(m.employeeCreate.mock.calls[0][0].data).toMatchObject({ dni: "12345678", active: true, hireDate: new Date("2026-11-02T00:00:00Z") });
+    const created = m.contractCreate.mock.calls[0][0].data;
+    expect(created).toMatchObject({ employeeId: 7, contractType: "Indeterminado", baseSalary: 1200, createdById: 1 });
+    expect(created.schedule.create).toHaveLength(6);
+    // Periodo de prueba de 3 meses por defecto
+    expect(created.trialEndDate.toISOString()).toBe("2027-02-01T00:00:00.000Z");
+    expect(m.insuranceCreate.mock.calls[0][0].data).toMatchObject({ type: "EsSalud", monthlyCost: 108 });
+    expect(r.contract).toMatchObject({ weekly_hours: 33, working_days: 6, position: "Mesera" });
+    expect(r.employee.contract).toMatchObject({ position: "Mesera", weekly_hours: 33 });
+    // Su horario pactado queda programado solo en Horarios laborales (sin reprogramar: es alta).
+    expect(scheduleAhead).toHaveBeenCalledWith(expect.anything(), 7, false);
   });
 
-  it("rechaza un DNI repetido con 409", async () => {
-    m.employeeFindFirst.mockResolvedValue({ id: 99 });
-    await expect(createEmployee(valid)).rejects.toMatchObject({ status: 409 });
+  it("no contrata si el horario no deja día de descanso", async () => {
+    const all = { ...contract, schedule: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, template_ids: [2] })) };
+    await expect(hireEmployee(valid, all, 1)).rejects.toThrow("descanso semanal");
+    expect(m.contractCreate).not.toHaveBeenCalled();
+  });
+
+  it("no contrata por debajo de la remuneración mínima", async () => {
+    await expect(hireEmployee(valid, { ...contract, base_salary: 900 }, 1)).rejects.toThrow("remuneración mínima");
+  });
+
+  it("rechaza un DNI repetido con 409 y orienta al reingreso si es ex empleado", async () => {
+    m.employeeFindFirst.mockResolvedValue({ id: 99, active: false });
+    await expect(hireEmployee(valid, contract, 1)).rejects.toThrow("ex empleado");
     expect(m.employeeCreate).not.toHaveBeenCalled();
   });
 
+  it("exige mayoría de edad a la fecha de inicio del contrato", async () => {
+    await expect(hireEmployee({ ...valid, birth_date: "2008-12-01" }, contract, 1)).rejects.toThrow("mayor de 18");
+  });
+});
+
+describe("updateEmployee", () => {
   it("edita excluyendo al propio empleado de la búsqueda de duplicados", async () => {
     await updateEmployee(7, valid);
     expect(m.employeeFindFirst.mock.calls[0][0].where).toMatchObject({ dni: "12345678", NOT: { id: 7 } });
@@ -131,34 +194,6 @@ describe("createEmployee / updateEmployee", () => {
   it("editar un empleado inexistente da 404", async () => {
     m.employeeFindUnique.mockResolvedValue(null);
     await expect(updateEmployee(7, valid)).rejects.toBeInstanceOf(UserError);
-  });
-});
-
-describe("setEmployeeActive", () => {
-  it("la baja desactiva también sus usuarios", async () => {
-    m.userUpdateMany.mockResolvedValue({ count: 1 });
-    const r = await setEmployeeActive(7, false);
-    expect(r.users_deactivated).toBe(1);
-    expect(m.userUpdateMany).toHaveBeenCalledWith({ where: { employeeId: 7, active: true }, data: { active: false } });
-  });
-
-  it("la baja rescinde los contratos abiertos del empleado", async () => {
-    m.contractFindMany.mockResolvedValue([
-      { id: 3, startDate: new Date("2026-01-01"), endDate: null },
-      { id: 4, startDate: new Date("2026-01-01"), endDate: new Date("2026-02-01") }, // ya venció solo
-    ]);
-    const r = await setEmployeeActive(7, false);
-    expect(r.contracts_terminated).toBe(1);
-    expect(m.contractUpdate).toHaveBeenCalledTimes(1);
-    expect(m.contractUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 3 }, data: expect.objectContaining({ terminationReason: "Baja del empleado" }) }),
-    );
-  });
-
-  it("el reingreso no toca a los usuarios", async () => {
-    await setEmployeeActive(7, true);
-    expect(m.userUpdateMany).not.toHaveBeenCalled();
-    expect(m.contractFindMany).not.toHaveBeenCalled();
   });
 });
 

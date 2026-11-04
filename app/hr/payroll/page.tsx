@@ -1,685 +1,435 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Banknote, Calculator, Edit2, Settings2, Trash2, Wallet } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Banknote, BookOpenCheck, Calculator, CheckCircle2, Edit2, Eye, FileText, Landmark, RotateCcw, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AppButton } from "@/components/shared/AppButton";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
-import { StatusBadge, type StatusBadgeTone } from "@/components/shared/StatusBadge";
-import { Tag } from "@/components/shared/TagCell";
+import { StatCard } from "@/components/shared/StatCard";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
-import { CONTRACT_KIND_LABEL, limaToday, LABOR_REGIME_LABEL } from "@/lib/hr/contracts";
-import {
-  MONTH_LABEL,
-  PAYROLL_PARAMETER_CODES,
-  PAYROLL_PARAMETER_META,
-  PAYROLL_STATUS_LABEL,
-  round2,
-  type PayrollParameterCode,
-  type PayrollStatus,
-} from "@/lib/hr/payroll";
-import type { PayrollDto, PayrollParameterDto } from "@/lib/services/payroll.service";
+import type { PayrollLineDto, PayrollPeriodDto } from "@/lib/services/hr/payroll.service";
+import { PayslipDialog } from "../_components/Payslip";
+import { api, fmtDateTime, fmtMinutes, money } from "../_lib/hr-client";
 
-const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
-
-const STATUS_TONE: Record<PayrollStatus, StatusBadgeTone> = {
-  Draft: "warning",
-  Approved: "info",
-  Paid: "success",
-};
-
-const PAYMENT_METHODS = ["Efectivo", "Transferencia bancaria"] as const;
-
-/** Un parámetro "rate" se guarda como fracción (0.13) y se muestra y escribe como porcentaje (13). */
-function showValue(p: Pick<PayrollParameterDto, "unit" | "value">): string {
-  return p.unit === "rate" ? `${round2(p.value * 100)}%` : money.format(p.value);
+const todayIso = () => new Date(Date.now() - 5 * 3600_000).toISOString().slice(0, 10);
+/** Por defecto, el mes anterior (la planilla se trabaja al cierre del mes). */
+function previousMonth() {
+  const t = todayIso();
+  const y = Number(t.slice(0, 4));
+  const m = Number(t.slice(5, 7));
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }
 
+const STATUS_TONE = { Borrador: "warning", Aprobada: "info", Pagada: "success" } as const;
+
 export default function PayrollPage() {
-  const today = limaToday();
-  const [year, setYear] = useState(Number(today.slice(0, 4)));
-  const [month, setMonth] = useState(Number(today.slice(5, 7)));
-  const [rows, setRows] = useState<PayrollDto[]>([]);
-  const [missing, setMissing] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [toEdit, setToEdit] = useState<PayrollDto | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [paying, setPaying] = useState(false);
-  const [payError, setPayError] = useState<string | null>(null);
-  const [paramsOpen, setParamsOpen] = useState(false);
-  const [confirmingCalc, setConfirmingCalc] = useState(false);
   const { can } = usePermissions();
+  const [month, setMonth] = useState(previousMonth);
+  const [period, setPeriod] = useState<PayrollPeriodDto | null>(null);
+  const [history, setHistory] = useState<PayrollPeriodDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [payslip, setPayslip] = useState<PayrollLineDto | null>(null);
+  const [editing, setEditing] = useState<PayrollLineDto | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [reopening, setReopening] = useState(false);
+
+  const [y, m] = month.split("-").map(Number);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/payroll?year=${year}&month=${month}`);
-      if (!res.ok) throw new Error();
-      const body = await res.json();
-      setRows(body.payrolls);
-      setMissing(body.missing_parameters);
-      setError(null);
-    } catch {
-      setError("No se pudo cargar la planilla");
+      const [p, h] = await Promise.all([
+        api<PayrollPeriodDto | null>(`/api/payroll?year=${y}&month=${m}`),
+        api<PayrollPeriodDto[]>("/api/payroll"),
+      ]);
+      setPeriod(p);
+      setHistory(h);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo cargar la planilla");
     } finally {
       setLoading(false);
     }
-  }, [year, month]);
+  }, [y, m]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de datos remotos al cambiar de mes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de datos remotos
     load();
   }, [load]);
 
-  const drafts = useMemo(() => rows.filter((r) => r.status === "Draft"), [rows]);
-  const approved = useMemo(() => rows.filter((r) => r.status === "Approved"), [rows]);
-  const totals = useMemo(
-    () => ({
-      gross: round2(rows.reduce((s, r) => s + r.gross_pay, 0)),
-      net: round2(rows.reduce((s, r) => s + r.net_pay, 0)),
-      employer: round2(rows.reduce((s, r) => s + r.employer_contribution, 0)),
-    }),
-    [rows],
-  );
-
-  async function call(url: string, init: RequestInit, onOk: (body: unknown) => string, onFail?: (message: string) => void) {
-    setBusy(true);
+  async function run(label: string, fn: () => Promise<PayrollPeriodDto>, ok: string) {
+    setBusy(label);
     try {
-      const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json" } });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const message = body.error ?? "No se pudo completar la operación";
-        if (onFail) onFail(message);
-        else toast.error(message);
-        return false;
-      }
-      toast.success(onOk(body));
-      await load();
-      return true;
-    } catch {
-      const message = "No se pudo conectar con el servidor";
-      if (onFail) onFail(message);
-      else toast.error(message);
-      return false;
+      setPeriod(await fn());
+      toast.success(ok);
+      api<PayrollPeriodDto[]>("/api/payroll").then(setHistory).catch(() => undefined);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo completar la operación");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   const calculate = () =>
-    call(
-      "/api/payroll",
-      { method: "POST", body: JSON.stringify({ year, month }) },
-      (b) => {
-        const r = b as { created: number; updated: number; locked: number; without_contract: number };
-        return `Planilla calculada: ${r.created} nuevas, ${r.updated} recalculadas${r.locked ? `, ${r.locked} ya aprobadas` : ""}`;
-      },
-    );
+    run("calc", () => api<PayrollPeriodDto>("/api/payroll", { method: "POST", body: { year: y, month: m } }), "Planilla calculada con la asistencia, licencias y adelantos del mes");
+  const approve = () =>
+    period && run("approve", () => api<PayrollPeriodDto>(`/api/payroll/${period.period_id}`, { method: "PATCH", body: { action: "approve" } }), "Planilla aprobada: asiento de devengo registrado en Contabilidad");
 
-  const approveDrafts = () =>
-    call(
-      "/api/payroll",
-      { method: "PATCH", body: JSON.stringify({ action: "approve", ids: drafts.map((r) => r.payroll_id) }) },
-      (b) => `${(b as unknown[]).length} boleta(s) aprobadas y contabilizadas`,
-    );
-
-  async function pay(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    const data = Object.fromEntries(new FormData(ev.currentTarget));
-    setPayError(null);
-    const ok = await call(
-      "/api/payroll",
-      { method: "PATCH", body: JSON.stringify({ action: "pay", ids: approved.map((r) => r.payroll_id), ...data }) },
-      (b) => `${(b as unknown[]).length} boleta(s) pagadas`,
-      setPayError,
-    );
-    if (ok) setPaying(false);
-  }
-
-  async function saveEdit(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    if (!toEdit) return;
-    const data = Object.fromEntries(new FormData(ev.currentTarget));
-    setEditError(null);
-    const ok = await call(
-      `/api/payroll/${toEdit.payroll_id}`,
-      { method: "PUT", body: JSON.stringify(data) },
-      () => `Boleta de ${toEdit.employee_name} actualizada`,
-      setEditError,
-    );
-    if (ok) setToEdit(null);
-  }
-
-  const remove = (r: PayrollDto) =>
-    call(`/api/payroll/${r.payroll_id}`, { method: "DELETE" }, () => `Boleta de ${r.employee_name} quitada`);
-
-  const columns: DataTableColumn<PayrollDto>[] = [
+  const p = period;
+  const draft = p?.status === "Borrador";
+  const columns: DataTableColumn<PayrollLineDto>[] = [
     {
       key: "employee",
-      header: "Empleado",
-      width: "min-w-[220px]",
+      header: "Trabajador",
+      width: "min-w-[200px]",
       sortable: true,
-      sortValue: (r) => r.employee_name,
-      primary: {
-        title: (r) => r.employee_name,
-        subtitle: (r) => `DNI ${r.employee_dni}${r.position ? ` · ${r.position}` : ""}`,
-        icon: <Wallet />,
-        iconTone: "indigo",
-      },
+      sortValue: (l) => l.employee_name,
+      primary: { title: (l) => l.employee_name, subtitle: (l) => `${l.position ?? "—"} · ${l.contract_type_label ?? ""}`, icon: <Users />, iconTone: "amber", onClick: (l) => setPayslip(l) },
     },
     {
-      key: "contract",
-      header: "Contrato",
-      width: "min-w-[150px]",
-      cell: (r) => (
-        <div className="flex flex-col items-start gap-1">
-          {r.contract_kind && (
-            <Tag tone={r.contract_kind === "Internship" ? "indigo" : r.contract_kind === "FixedTerm" ? "blue" : "emerald"} size="sm">
-              {CONTRACT_KIND_LABEL[r.contract_kind]}
-            </Tag>
-          )}
-          {r.regime && r.regime !== "None" && (
-            <span className="text-[11px] text-muted-foreground">{LABOR_REGIME_LABEL[r.regime]}</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "earned",
-      header: "Ganado",
-      align: "right",
-      sortable: true,
-      sortValue: (r) => r.gross_pay,
-      cell: (r) => (
-        <div className="text-right">
-          <p className="font-mono text-xs font-semibold">{money.format(r.gross_pay)}</p>
-          <p className="text-[11px] text-muted-foreground">
-            Base {money.format(r.base_salary)}
-            {r.family_allowance > 0 ? ` + asig. ${money.format(r.family_allowance)}` : ""}
-            {r.overtime_pay + r.bonus > 0 ? ` + extras ${money.format(r.overtime_pay + r.bonus)}` : ""}
-            {r.absence_discount > 0 ? ` − faltas ${money.format(r.absence_discount)}` : ""}
+      key: "days",
+      header: "Días / incidencias",
+      cell: (l) => (
+        <div className="text-xs">
+          <p>
+            <b>{l.paid_days}</b>/{l.contract_days} días pagados
           </p>
+          {l.unpaid_days > 0 && <p className="text-rose-600">{l.unpaid_days} día(s) no remunerado(s)</p>}
+          {l.late_minutes > 0 && <p className="text-amber-600">{fmtMinutes(l.late_minutes)} de tardanza</p>}
+          {l.overtime_minutes > 0 && <p className="text-blue-600">{fmtMinutes(l.overtime_minutes)} extra</p>}
         </div>
       ),
     },
+    { key: "gross", header: "Bruto", align: "right", sortable: true, sortValue: (l) => l.gross_pay, cell: (l) => <span className="font-mono text-xs">{money.format(l.gross_pay)}</span> },
     {
       key: "deductions",
       header: "Descuentos",
       align: "right",
-      sortable: true,
-      sortValue: (r) => r.deductions,
-      cell: (r) => (
-        <div className="text-right">
-          <p className="font-mono text-xs font-semibold">{money.format(r.deductions)}</p>
+      cell: (l) => (
+        <div className="text-right text-xs">
+          <p className="font-mono">{money.format(l.deductions)}</p>
           <p className="text-[11px] text-muted-foreground">
-            {r.pension_system !== "None" ? `${r.pension_system} ${money.format(r.pension_amount)}` : "Sin pensión"}
-            {r.advances > 0 ? ` · anticipo ${money.format(r.advances)}` : ""}
+            {l.pension_system ?? ""}
+            {l.advance_deduction ? ` · adel. ${money.format(l.advance_deduction)}` : ""}
+            {l.income_tax ? ` · 5.ª ${money.format(l.income_tax)}` : ""}
           </p>
         </div>
       ),
     },
-    {
-      key: "net",
-      header: "Neto a pagar",
-      align: "right",
-      sortable: true,
-      sortValue: (r) => r.net_pay,
-      cell: (r) => <span className="font-mono text-sm font-bold">{money.format(r.net_pay)}</span>,
-    },
-    {
-      key: "employer",
-      header: "Aporte empleador",
-      align: "right",
-      sortable: true,
-      sortValue: (r) => r.employer_contribution,
-      cell: (r) => <span className="font-mono text-xs">{money.format(r.employer_contribution)}</span>,
-    },
-    {
-      key: "status",
-      header: "Estado",
-      align: "center",
-      width: "w-32",
-      sortable: true,
-      sortValue: (r) => r.status,
-      cell: (r) => (
-        <div className="flex flex-col items-center gap-0.5">
-          <StatusBadge tone={STATUS_TONE[r.status]}>{PAYROLL_STATUS_LABEL[r.status]}</StatusBadge>
-          {r.payment_date && (
-            <span className="text-[11px] text-muted-foreground">
-              {r.payment_date.slice(8)}/{r.payment_date.slice(5, 7)}/{r.payment_date.slice(0, 4)}
-            </span>
-          )}
-        </div>
-      ),
-    },
+    { key: "net", header: "Neto", align: "right", sortable: true, sortValue: (l) => l.net_pay, cell: (l) => <span className="font-mono text-xs font-bold">{money.format(l.net_pay)}</span> },
+    { key: "employer", header: "EsSalud + seguros", align: "right", cell: (l) => <span className="font-mono text-xs">{money.format(l.essalud + l.insurance_cost)}</span> },
     {
       key: "actions",
-      header: "Acciones",
+      header: "",
       align: "right",
-      width: "w-28",
-      cell: (r) => (
+      cell: (l) => (
         <RowActions
           size="sm"
           actions={[
-            {
-              key: "edit",
-              label: "Horas extra, bonos, faltas y anticipos",
-              icon: <Edit2 />,
-              tone: "amber",
-              hidden: r.status !== "Draft" || !can("planilla.editar"),
-              onClick: () => {
-                setEditError(null);
-                setToEdit(r);
-              },
-            },
-            {
-              key: "remove",
-              label: "Quitar boleta",
-              icon: <Trash2 />,
-              tone: "rose",
-              hidden: r.status !== "Draft" || !can("planilla.editar"),
-              onClick: () => remove(r),
-            },
+            { key: "view", label: "Ver boleta", icon: <Eye />, tone: "blue", onClick: () => setPayslip(l) },
+            { key: "edit", label: "Bonos y descuentos", icon: <Edit2 />, tone: "amber", hidden: !draft || !can("planilla.crear"), onClick: () => setEditing(l) },
           ]}
         />
       ),
     },
   ];
 
-  const years = Array.from({ length: 6 }, (_, i) => Number(today.slice(0, 4)) - 4 + i);
-
   return (
     <>
-      <ModuleHeader title="Planilla" subtitle="Remuneraciones mensuales, aportes y asientos contables" icon={Wallet}>
+      <ModuleHeader title="Planilla de sueldos" subtitle="Cálculo mensual, boletas de pago y su impacto contable" icon={Wallet}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <NativeSelect value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Mes" className="h-9 w-36">
-            {MONTH_LABEL.map((label, i) => (
-              <NativeSelectOption key={label} value={i + 1}>
-                {label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Año" className="h-9 w-24">
-            {years.map((y) => (
-              <NativeSelectOption key={y} value={y}>
-                {y}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          {can("planilla.ver") && (
-            <AppButton size="sm" variant="secondary" icon={<Settings2 />} onClick={() => setParamsOpen(true)}>
-              Parámetros
+          <Input type="month" value={month} max={todayIso().slice(0, 7)} onChange={(e) => e.target.value && setMonth(e.target.value)} className="h-9 w-44 text-xs" aria-label="Mes de la planilla" />
+          {can("planilla.crear") && (!p || draft) && (
+            <AppButton size="sm" variant="soft" icon={<Calculator />} loading={busy === "calc"} onClick={calculate}>
+              {p ? "Recalcular" : "Calcular planilla"}
             </AppButton>
           )}
-          {can("planilla.crear") && (
-            <AppButton size="sm" icon={<Calculator />} onClick={() => setConfirmingCalc(true)} loading={busy} disabled={missing.length > 0}>
-              Calcular planilla
+          {can("planilla.editar") && draft && (
+            <AppButton size="sm" icon={<CheckCircle2 />} loading={busy === "approve"} onClick={approve}>
+              Aprobar y contabilizar
             </AppButton>
           )}
-          {can("planilla.editar") && drafts.length > 0 && (
-            <AppButton size="sm" variant="secondary" icon={<BadgeCheck />} onClick={approveDrafts} loading={busy}>
-              Aprobar borradores ({drafts.length})
-            </AppButton>
-          )}
-          {can("planilla.editar") && approved.length > 0 && (
-            <AppButton
-              size="sm"
-              variant="secondary"
-              icon={<Banknote />}
-              onClick={() => {
-                setPayError(null);
-                setPaying(true);
-              }}
-            >
-              Pagar aprobadas ({approved.length})
-            </AppButton>
+          {can("planilla.editar") && p?.status === "Aprobada" && (
+            <>
+              <AppButton size="sm" variant="secondary" icon={<RotateCcw />} onClick={() => setReopening(true)}>
+                Reabrir
+              </AppButton>
+              <AppButton size="sm" variant="success" icon={<Banknote />} onClick={() => setPaying(true)}>
+                Registrar pago
+              </AppButton>
+            </>
           )}
         </div>
       </ModuleHeader>
+      <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
+        {p ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <p className="font-bold">Planilla de {p.label}</p>
+            <StatusBadge tone={STATUS_TONE[p.status]}>{p.status}</StatusBadge>
+            <span className="text-xs text-muted-foreground">
+              Calculada {fmtDateTime(p.calculated_at)}
+              {p.approved_at ? ` · aprobada por ${p.approved_by} el ${fmtDateTime(p.approved_at)}` : ""}
+              {p.paid_at ? ` · pagada por ${p.paid_by} (${p.payment_method}) el ${fmtDateTime(p.paid_at)}` : ""}
+            </span>
+          </div>
+        ) : (
+          !loading && (
+            <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Aún no se calculó la planilla de este mes. «Calcular planilla» toma los contratos vigentes, la asistencia (faltas, tardanzas y horas
+              extra), las licencias sin goce, los seguros y las cuotas de adelantos.
+            </p>
+          )
+        )}
 
-      <main className="flex min-w-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-        {missing.length > 0 && (
-          <p role="alert" className="text-sm font-medium text-amber-700">
-            Faltan parámetros vigentes en {MONTH_LABEL[month - 1].toLowerCase()} de {year}: {missing.join(", ")}. Cárgalos en
-            Parámetros para poder calcular.
-          </p>
-        )}
-        {rows.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {MONTH_LABEL[month - 1]} {year}: ganado{" "}
-            <span className="font-medium text-foreground">{money.format(totals.gross)}</span> · neto a pagar{" "}
-            <span className="font-medium text-foreground">{money.format(totals.net)}</span> · aporte del empleador{" "}
-            <span className="font-medium text-foreground">{money.format(totals.employer)}</span>
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="text-sm font-medium text-rose-600">
-            {error}
-          </p>
-        )}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <StatCard layout="label-first" tone="neutral" icon={<Users />} label="Trabajadores" value={p?.workers ?? 0} />
+          <StatCard layout="label-first" tone="blue" icon={<FileText />} label="Remuneración bruta" value={money.format(p?.total_gross ?? 0)} />
+          <StatCard layout="label-first" tone="emerald" icon={<Banknote />} label="Neto a pagar" value={money.format(p?.total_net ?? 0)} colorValue />
+          <StatCard layout="label-first" tone="amber" icon={<Landmark />} label="Aportes del empleador" value={money.format(p?.total_employer ?? 0)} footerLeft="EsSalud + seguros" />
+        </div>
 
         <DataTable
           columns={columns}
-          rows={rows}
-          rowKey={(r) => r.payroll_id}
+          rows={p?.lines ?? []}
+          rowKey={(l) => l.payroll_id}
           loading={loading}
           loadingMode="auto"
-          defaultSort={{ key: "employee", direction: "asc" }}
-          pageResetKey={`${year}-${month}`}
-          pagination={{ defaultPageSize: 15, itemLabel: "boletas" }}
-          emptyState={{
-            icon: <Wallet className="h-7 w-7" />,
-            title: `No hay boletas en ${MONTH_LABEL[month - 1].toLowerCase()} de ${year}`,
-            description:
-              "Calcula la planilla para generar la boleta de cada empleado con contrato en el mes. Los contratos privados no entran.",
-          }}
+          emptyState={{ icon: <Wallet className="h-7 w-7" />, title: "Sin boletas", description: "Calcula la planilla del mes." }}
         />
-      </main>
 
-      <Dialog open={toEdit !== null} onOpenChange={(o) => !o && setToEdit(null)}>
-        <DialogContent className="sm:max-w-md">
-          <form onSubmit={saveEdit} key={toEdit?.payroll_id ?? "none"} className="flex flex-col gap-4">
-            <DialogHeader>
-              <DialogTitle>Boleta de {toEdit?.employee_name}</DialogTitle>
-              <DialogDescription>
-                Montos del mes que no salen del contrato. La pensión y el aporte del empleador se recalculan solos.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
-              {(
-                [
-                  ["overtime_pay", "Horas extra (S/)", toEdit?.overtime_pay],
-                  ["bonus", "Bonos (S/)", toEdit?.bonus],
-                  ["absence_discount", "Descuento por faltas (S/)", toEdit?.absence_discount],
-                  ["advances", "Anticipos a descontar (S/)", toEdit?.advances],
-                ] as const
-              ).map(([name, label, value]) => (
-                <div key={name} className="flex flex-col gap-1.5">
-                  <Label htmlFor={name}>{label}</Label>
-                  <Input id={name} name={name} type="number" min={0} step="0.01" defaultValue={String(value ?? 0)} />
-                </div>
+        {p && p.journal_entries.length > 0 && (
+          <section className="rounded-2xl border bg-card p-4">
+            <p className="mb-2 flex items-center gap-2 text-sm font-bold">
+              <BookOpenCheck className="h-4 w-4 text-primary" /> Impacto contable
+            </p>
+            <ul className="flex flex-col gap-1.5 text-xs">
+              {p.journal_entries.map((j) => (
+                <li key={j.id} className={`flex justify-between gap-3 rounded-lg border px-3 py-2 ${j.status ? "" : "opacity-60 line-through"}`}>
+                  <span>
+                    <b className="font-mono">{j.code}</b> · {j.description}
+                    {!j.status && " (anulado)"}
+                  </span>
+                  <span className="font-mono">{money.format(j.total)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Devengo: 6211 Sueldos · 6271 EsSalud · 6274 Seguros / 4031 EsSalud · 4032 ONP · 407 AFP · 4017 Renta 5.ª · 141 Adelantos · 461
+              Aseguradoras · 411 Remuneraciones por pagar. Pago: 411 / 104 Bancos o 101 Caja. Los asientos se ven en Contabilidad → Asientos
+              contables (libro «Planillas» y «Caja y bancos»).
+            </p>
+          </section>
+        )}
+
+        {history.length > 0 && (
+          <section className="rounded-2xl border bg-card p-4">
+            <p className="mb-2 text-sm font-bold">Historial de planillas</p>
+            <div className="flex flex-wrap gap-2">
+              {history.map((h) => (
+                <button
+                  key={h.period_id}
+                  type="button"
+                  onClick={() => setMonth(`${h.year}-${String(h.month).padStart(2, "0")}`)}
+                  className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs hover:bg-muted"
+                >
+                  {h.label} <StatusBadge tone={STATUS_TONE[h.status]}>{h.status}</StatusBadge> {money.format(h.total_net)}
+                </button>
               ))}
             </div>
-            {editError && (
-              <p role="alert" className="text-sm font-medium text-rose-600">
-                {editError}
-              </p>
-            )}
-            <DialogFooter>
-              <AppButton variant="secondary" onClick={() => setToEdit(null)} disabled={busy}>
-                Cancelar
-              </AppButton>
-              <AppButton type="submit" loading={busy}>
-                Guardar
-              </AppButton>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </section>
+        )}
+      </main>
 
-      <Dialog open={paying} onOpenChange={setPaying}>
-        <DialogContent className="sm:max-w-md">
-          <form onSubmit={pay} className="flex flex-col gap-4">
-            <DialogHeader>
-              <DialogTitle>Pagar planilla de {MONTH_LABEL[month - 1].toLowerCase()}</DialogTitle>
-              <DialogDescription>
-                Se pagan {approved.length} boleta(s) aprobadas por{" "}
-                {money.format(round2(approved.reduce((s, r) => s + r.net_pay, 0)))} y se registra la salida de caja o bancos.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="method">Medio de pago</Label>
-              <NativeSelect id="method" name="method" defaultValue="Efectivo" className="w-full">
-                {PAYMENT_METHODS.map((m) => (
-                  <NativeSelectOption key={m} value={m}>
-                    {m}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="payment_date">Fecha de pago</Label>
-              <Input id="payment_date" name="payment_date" type="date" required defaultValue={limaToday()} />
-            </div>
-            {payError && (
-              <p role="alert" className="text-sm font-medium text-rose-600">
-                {payError}
-              </p>
-            )}
-            <DialogFooter>
-              <AppButton variant="secondary" onClick={() => setPaying(false)} disabled={busy}>
-                Cancelar
-              </AppButton>
-              <AppButton type="submit" icon={<Banknote />} loading={busy}>
-                Registrar pago
-              </AppButton>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={confirmingCalc} onOpenChange={setConfirmingCalc}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              Calcular planilla de {MONTH_LABEL[month - 1].toLowerCase()} de {year}
-            </DialogTitle>
-            <DialogDescription>
-              Se genera una boleta en borrador por cada empleado con contrato en el mes (no incluye contratos privados). No se
-              contabiliza ni se paga nada todavía.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 text-sm">
-            <p className="font-medium">Qué calcula en cada boleta</p>
-            <ol className="flex list-decimal flex-col gap-2 pl-5">
-              <li>
-                <strong>Remuneración base:</strong> el sueldo del contrato por los días cubiertos entre los días del mes. Si el
-                contrato empezó o terminó a mitad de mes, se prorratea.
-              </li>
-              <li>
-                <strong>Asignación familiar:</strong> 10% de la RMV, solo si el contrato tiene el check marcado. El practicante no
-                la recibe.
-              </li>
-              <li>
-                <strong>Bruto:</strong> base + asignación familiar + horas extra + bonos − descuento por faltas. Las horas extra,
-                bonos y faltas empiezan en 0 y los escribes tú con el lápiz de editar, porque aún no hay módulo de asistencia.
-              </li>
-              <li>
-                <strong>Pensión:</strong> ONP 13% o AFP (aporte 10% + prima de seguro + comisión), según el contrato. El
-                practicante no aporta.
-              </li>
-              <li>
-                <strong>Neto a pagar:</strong> bruto − pensión − anticipos (también manuales).
-              </li>
-              <li>
-                <strong>Aporte del empleador:</strong> EsSalud 9% del bruto. En microempresa es un monto fijo de SIS. Esto no se
-                descuenta al trabajador, es costo de la empresa.
-              </li>
-            </ol>
-            <p className="text-muted-foreground">
-              Si ya hay boletas en borrador este mes, se recalculan conservando las horas extra, bonos, faltas y anticipos que
-              hayas escrito; las aprobadas o pagadas no se tocan. Los porcentajes salen de la tabla de parámetros.
-            </p>
-          </div>
-          <DialogFooter>
-            <AppButton variant="secondary" onClick={() => setConfirmingCalc(false)}>
-              Cancelar
-            </AppButton>
-            <AppButton
-              icon={<Calculator />}
-              onClick={() => {
-                setConfirmingCalc(false);
-                void calculate();
-              }}
-            >
-              Calcular planilla
-            </AppButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <ParametersDialog open={paramsOpen} onClose={() => setParamsOpen(false)} canEdit={can("planilla.editar")} onChanged={load} />
+      <PayslipDialog line={payslip} periodLabel={p?.label ?? ""} onClose={() => setPayslip(null)} />
+      {editing && p && (
+        <LineDialog
+          line={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(np) => {
+            setEditing(null);
+            setPeriod(np);
+            toast.success("Boleta ajustada y planilla recalculada");
+          }}
+        />
+      )}
+      {paying && p && (
+        <PayDialog
+          period={p}
+          onClose={() => setPaying(false)}
+          onPaid={(np) => {
+            setPaying(false);
+            setPeriod(np);
+            toast.success("Pago registrado: asiento de pago contabilizado y adelantos descontados");
+          }}
+        />
+      )}
+      {reopening && p && (
+        <ReopenDialog
+          period={p}
+          onClose={() => setReopening(false)}
+          onDone={(np) => {
+            setReopening(false);
+            setPeriod(np);
+            toast.success("Planilla reabierta: el asiento de devengo quedó anulado");
+          }}
+        />
+      )}
     </>
   );
 }
 
-function ParametersDialog({
-  open,
-  onClose,
-  canEdit,
-  onChanged,
-}: {
-  open: boolean;
-  onClose: () => void;
-  canEdit: boolean;
-  onChanged: () => void;
-}) {
-  const [items, setItems] = useState<PayrollParameterDto[]>([]);
-  const [code, setCode] = useState<PayrollParameterCode>("RMV");
+function LineDialog({ line, onClose, onSaved }: { line: PayrollLineDto; onClose: () => void; onSaved: (p: PayrollPeriodDto) => void }) {
+  const [bonus, setBonus] = useState(String(line.bonus || ""));
+  const [other, setOther] = useState(String(line.other_deductions || ""));
+  const [notes, setNotes] = useState(line.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formKey, setFormKey] = useState(0);
-
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch("/api/payroll/parameters");
-      if (res.ok) setItems(await res.json());
-    } catch {
-      /* la lista queda como estaba */
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de datos remotos al abrir el diálogo
-    if (open) refresh();
-  }, [open, refresh]);
-
-  const meta = PAYROLL_PARAMETER_META[code];
-
-  async function save(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    const form = new FormData(ev.currentTarget);
-    const raw = Number(form.get("value"));
-    // Las tasas se escriben como porcentaje y se guardan como fracción.
-    const value = meta.unit === "rate" ? raw / 100 : raw;
+  async function submit() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/payroll/parameters", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, value: form.get("value") === "" ? "" : value, effective_from: form.get("effective_from"), notes: form.get("notes") }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(body.error ?? "No se pudo guardar");
-        return;
-      }
-      toast.success(`${meta.label} guardado`);
-      setFormKey((k) => k + 1);
-      await refresh();
-      onChanged();
-    } catch {
-      setError("No se pudo conectar con el servidor");
+      onSaved(await api<PayrollPeriodDto>(`/api/payroll/lines/${line.payroll_id}`, { method: "PUT", body: { bonus, other_deductions: other, notes } }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar");
     } finally {
       setSaving(false);
     }
   }
-
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Parámetros de planilla</DialogTitle>
-          <DialogDescription>
-            Cada valor rige desde su fecha de vigencia. Los iniciales son sugeridos: confírmalos con tu contador antes de
-            aprobar una planilla.
-          </DialogDescription>
+          <DialogTitle>Bonos y descuentos</DialogTitle>
+          <DialogDescription>{line.employee_name}. Los días, tardanzas y horas extra salen de la asistencia: corrígelos allí.</DialogDescription>
         </DialogHeader>
-
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/50 text-left text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Parámetro</th>
-                <th className="px-3 py-2 text-right font-medium">Valor</th>
-                <th className="px-3 py-2 font-medium">Vigente desde</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.parameter_id} className="border-t">
-                  <td className="px-3 py-1.5">{p.label}</td>
-                  <td className="px-3 py-1.5 text-right font-mono">{showValue(p)}</td>
-                  <td className="px-3 py-1.5 font-mono">
-                    {p.effective_from.slice(8)}/{p.effective_from.slice(5, 7)}/{p.effective_from.slice(0, 4)}
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">
-                    Aún no hay parámetros cargados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pl-bonus">Bonos / otros ingresos (S/)</Label>
+            <Input id="pl-bonus" type="number" min={0} step="0.01" value={bonus} onChange={(e) => setBonus(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pl-other">Otros descuentos (S/)</Label>
+            <Input id="pl-other" type="number" min={0} step="0.01" value={other} onChange={(e) => setOther(e.target.value)} />
+          </div>
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label htmlFor="pl-notes">Observación (aparece en la boleta)</Label>
+            <Input id="pl-notes" maxLength={200} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Bono por metas, retención judicial…" />
+          </div>
         </div>
-
-        {canEdit && (
-          <form key={formKey} onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="param_code">Parámetro</Label>
-              <NativeSelect id="param_code" value={code} onChange={(e) => setCode(e.target.value as PayrollParameterCode)} className="w-full">
-                {PAYROLL_PARAMETER_CODES.map((c) => (
-                  <NativeSelectOption key={c} value={c}>
-                    {PAYROLL_PARAMETER_META[c].label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="value">
-                Nuevo valor ({meta.unit === "rate" ? "%" : "S/"}) <span className="text-red-500">*</span>
-              </Label>
-              <Input id="value" name="value" type="number" step="0.0001" min={0} required />
-              <p className="text-[11px] text-muted-foreground">{meta.hint}</p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="effective_from">
-                Vigente desde <span className="text-red-500">*</span>
-              </Label>
-              <Input id="effective_from" name="effective_from" type="date" required defaultValue={limaToday()} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="notes">Nota</Label>
-              <Input id="notes" name="notes" maxLength={200} placeholder="Norma o fuente" />
-            </div>
-            {error && (
-              <p role="alert" className="text-sm font-medium text-rose-600 sm:col-span-2">
-                {error}
-              </p>
-            )}
-            <DialogFooter className="sm:col-span-2">
-              <AppButton variant="secondary" onClick={onClose} disabled={saving}>
-                Cerrar
-              </AppButton>
-              <AppButton type="submit" loading={saving}>
-                Guardar valor
-              </AppButton>
-            </DialogFooter>
-          </form>
-        )}
+        {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
+        <DialogFooter>
+          <AppButton variant="secondary" onClick={onClose} disabled={saving}>
+            Cancelar
+          </AppButton>
+          <AppButton loading={saving} onClick={submit}>
+            Guardar y recalcular
+          </AppButton>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+function PayDialog({ period, onClose, onPaid }: { period: PayrollPeriodDto; onClose: () => void; onPaid: (p: PayrollPeriodDto) => void }) {
+  const [method, setMethod] = useState("Transferencia");
+  const [date, setDate] = useState(todayIso());
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  async function submit() {
+    setSaving(true);
+    setError(null);
+    try {
+      onPaid(await api<PayrollPeriodDto>(`/api/payroll/${period.period_id}`, { method: "PATCH", body: { action: "pay", payment_method: method, payment_date: date } }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo registrar el pago");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registrar pago de la planilla</DialogTitle>
+          <DialogDescription>
+            Neto total {money.format(period.total_net)} a {period.workers} trabajadores. Se registra el asiento 411 / Caja-Bancos y se descuentan
+            las cuotas de adelantos.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pp-method">Medio de pago</Label>
+            <NativeSelect id="pp-method" className="w-full" value={method} onChange={(e) => setMethod(e.target.value)}>
+              {["Transferencia", "Efectivo", "Yape", "Plin"].map((x) => (
+                <NativeSelectOption key={x} value={x}>
+                  {x}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pp-date">Fecha de pago</Label>
+            <Input id="pp-date" type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} />
+          </div>
+        </div>
+        {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
+        <DialogFooter>
+          <AppButton variant="secondary" onClick={onClose} disabled={saving}>
+            Cancelar
+          </AppButton>
+          <AppButton variant="success" loading={saving} onClick={submit}>
+            Registrar pago
+          </AppButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReopenDialog({ period, onClose, onDone }: { period: PayrollPeriodDto; onClose: () => void; onDone: (p: PayrollPeriodDto) => void }) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  async function submit() {
+    setSaving(true);
+    setError(null);
+    try {
+      onDone(await api<PayrollPeriodDto>(`/api/payroll/${period.period_id}`, { method: "PATCH", body: { action: "reopen", reason } }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo reabrir");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reabrir planilla de {period.label}</DialogTitle>
+          <DialogDescription>El asiento de devengo queda anulado (no se borra) y la planilla vuelve a borrador para corregirla.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="rp-reason">Motivo</Label>
+          <Input id="rp-reason" maxLength={150} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Faltó registrar una licencia, bono omitido…" />
+        </div>
+        {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
+        <DialogFooter>
+          <AppButton variant="secondary" onClick={onClose} disabled={saving}>
+            Cancelar
+          </AppButton>
+          <AppButton variant="danger" loading={saving} onClick={submit}>
+            Reabrir
+          </AppButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

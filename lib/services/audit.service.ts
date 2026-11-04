@@ -3,7 +3,21 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/http/errors";
 
 /** Módulos del sistema que generan registros de auditoría. */
-export const AUDIT_MODULES = ["Seguridad", "Usuarios", "Empleados", "Horarios", "Contabilidad", "Compras", "Ventas", "Caja"] as const;
+export const AUDIT_MODULES = [
+  "Seguridad",
+  "Usuarios",
+  "Empleados",
+  "Contratos",
+  "Horarios",
+  "Asistencia",
+  "Vacaciones",
+  "Beneficios",
+  "Planilla",
+  "Contabilidad",
+  "Compras",
+  "Ventas",
+  "Caja",
+] as const;
 
 export const AUDIT_ACTIONS: AuditAction[] = [
   "CREATE",

@@ -18,12 +18,15 @@ export const dynamic = "force-dynamic";
  *       200:
  *         description: Cierre de sesión exitoso.
  */
-export const POST = createApiHandler({
-  handler: async ({ req }) => {
+export const POST = createApiHandler<{ mark_exit?: boolean }>({
+  handler: async ({ req, body }) => {
     const actor = await currentActor();
-    const result = await logoutUser(actor, requestIp(req));
+    const result = await logoutUser(actor, requestIp(req), {
+      markExit: body?.mark_exit === true,
+      userAgent: req.headers.get("user-agent"),
+    });
 
-    const response = NextResponse.json({ ok: result.ok });
+    const response = NextResponse.json({ ok: result.ok, attendance: result.attendance });
     for (const cookie of result.cookiesToClear) {
       response.cookies.delete(cookie.name);
       response.cookies.set(cookie.name, "", cookie.options);

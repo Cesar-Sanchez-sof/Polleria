@@ -104,7 +104,8 @@ describe("ninguna API queda sin control de acceso", () => {
   });
 
   it.each(routes)("%s: cada handler valida sesión o permiso", (route) => {
-    const unprotected = unprotectedFunctions(join(ROOT, route), /\b(authorize|currentSession)\(/, /^(GET|POST|PUT|PATCH|DELETE)$/);
+    // `requireSelf()` (autoservicio de RR. HH.) exige la sesión con `currentSession()`.
+    const unprotected = unprotectedFunctions(join(ROOT, route), /\b(authorize|currentSession|requireSelf)\(/, /^(GET|POST|PUT|PATCH|DELETE)$/);
     expect(unprotected).toEqual([]);
   });
 });

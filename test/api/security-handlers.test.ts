@@ -27,6 +27,7 @@ describe("Security Domain Handlers (users, auth, audit-logs)", () => {
         token: "fake-jwt-token",
         cookieName: SESSION_COOKIE,
         cookieOptions: COOKIE_OPTIONS,
+        attendance: null,
       });
 
       const req = new NextRequest("http://localhost:3000/api/auth/login", {
@@ -38,7 +39,7 @@ describe("Security Domain Handlers (users, auth, audit-logs)", () => {
       const res = await loginPost(req);
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data).toEqual({ userId: 1, username: "admin", role: "ADMIN" });
+      expect(data).toEqual({ userId: 1, username: "admin", role: "ADMIN", attendance: null });
       expect(res.headers.get("set-cookie")).toContain("sesion=fake-jwt-token");
     });
 
@@ -60,6 +61,7 @@ describe("Security Domain Handlers (users, auth, audit-logs)", () => {
     it("retorna 200 y limpia las cookies de sesión", async () => {
       vi.spyOn(authService, "logoutUser").mockResolvedValueOnce({
         ok: true,
+        attendance: null,
         cookiesToClear: [
           { name: SESSION_COOKIE, options: { ...COOKIE_OPTIONS, maxAge: 0, expires: new Date(0) } },
           { name: "auth-token", options: { ...COOKIE_OPTIONS, maxAge: 0, expires: new Date(0) } },
@@ -73,7 +75,7 @@ describe("Security Domain Handlers (users, auth, audit-logs)", () => {
       const res = await logoutPost(req);
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data).toEqual({ ok: true });
+      expect(data).toEqual({ ok: true, attendance: null });
     });
   });
 

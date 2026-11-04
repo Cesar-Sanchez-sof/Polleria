@@ -67,11 +67,15 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
   { code: "endpoints", name: "Endpoints", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "diagrama", name: "Diagrama DB", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "estilos", name: "Guía de estilos", group: "Documentación", parent: "documentacion", actions: ["ver"] },
-    // Recursos humanos
-  { code: "empleados", name: "Empleados", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  // Recursos humanos ("crear" en empleados = contratar personal)
+  { code: "empleados", name: "Empleados (contratar y ficha)", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "contratos", name: "Contratos (renovar, adendas y cese)", group: "Recursos humanos", actions: WITHOUT_DELETE },
   { code: "horarios", name: "Horarios laborales", group: "Recursos humanos", actions: CRUD },
-  { code: "contratos", name: "Contratos laborales", group: "Recursos humanos", actions: WITHOUT_DELETE },
-  { code: "planilla", name: "Planilla de remuneraciones", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "asistencia", name: "Asistencia (marcar, corregir y justificar)", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "vacaciones", name: "Vacaciones y permisos (\"editar\" = aprobar)", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "seguros", name: "Seguros del personal", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "planilla", name: "Planilla de sueldos (\"crear\" = calcular, \"editar\" = aprobar y pagar)", group: "Recursos humanos", actions: WITHOUT_DELETE },
+  { code: "anticipos", name: "Adelantos de sueldo (\"editar\" = aprobar y entregar)", group: "Recursos humanos", actions: WITHOUT_DELETE },
 ];
 
 /**
