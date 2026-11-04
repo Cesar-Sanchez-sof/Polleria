@@ -1,5 +1,6 @@
 import { Prisma, type AuditAction } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ForbiddenError } from "@/lib/http/errors";
 
 /** Módulos del sistema que generan registros de auditoría. */
 export const AUDIT_MODULES = ["Seguridad", "Usuarios", "Empleados", "Horarios", "Contabilidad", "Compras", "Ventas", "Caja"] as const;
@@ -167,5 +168,21 @@ export async function listAudit(f: AuditFilters = {}): Promise<AuditListDto> {
     page,
     perPage,
     totalPages: Math.max(Math.ceil(total / perPage), 1),
+  };
+}
+
+export async function listAuditLogsService(
+  filters: AuditFilters,
+  sessionUserRole?: string
+): Promise<AuditListDto & { modules: typeof AUDIT_MODULES; actions: typeof AUDIT_ACTIONS }> {
+  const role = (sessionUserRole || "").toUpperCase();
+  if (!["ADMIN", "ADMINISTRADOR"].includes(role)) {
+    throw new ForbiddenError("Solo un administrador puede ver la auditoría");
+  }
+  const result = await listAudit(filters);
+  return {
+    ...result,
+    modules: AUDIT_MODULES,
+    actions: AUDIT_ACTIONS,
   };
 }

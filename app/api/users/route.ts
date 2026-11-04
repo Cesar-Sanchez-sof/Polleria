@@ -1,11 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { readJson, errorResponse } from "@/lib/auth/responses";
-import { authorize } from "@/lib/auth/permissions";
-import { verifyAssignableRole } from "@/lib/services/roles.service";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { NextResponse } from "next/server";
+import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
+import { requestIp } from "@/lib/services/audit.service";
 import {
   listUsers,
-  createUser,
+  createUserWithAudit,
   type UserData,
 } from "@/lib/services/users.service";
 
@@ -45,45 +43,29 @@ export const dynamic = "force-dynamic";
  *       403:
  *         description: Sin permiso usuarios.crear
  */
-export async function GET() {
-  try {
-    const auth = await authorize("usuarios.ver");
-    if (!auth.ok) return auth.response;
-
+export const GET = createApiHandler({
+  permission: "usuarios.ver",
+  handler: async () => {
     const users = await listUsers();
     return NextResponse.json(users);
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
+  },
+});
 
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await authorize("usuarios.crear");
-    if (!auth.ok) return auth.response;
-    const session = auth.session;
-
-    const body = (await readJson(request)) as unknown as UserData;
+export const POST = createApiHandler<UserData>({
+  permission: "usuarios.crear",
+  handler: async ({ body, session, superuser, req }) => {
     if (!body) {
-      return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 });
+      throw new ValidationError("Cuerpo de solicitud inválido");
     }
 
-    // El rol debe existir, estar activo y, si es de sistema, solo lo asigna un administrador.
-    await verifyAssignableRole(body.role_id, auth.superuser);
-
-    const newUser = await createUser(body);
-    await logAudit({
-      actor: { userId: session.userId, username: session.username },
-      action: "CREATE",
-      module: "Usuarios",
-      entity: "Usuario",
-      entityId: newUser.user_id,
-      description: `Creó el usuario ${newUser.username}`,
-      details: { after: { username: newUser.username, email: newUser.email, role: newUser.role.name } },
-      ipAddress: requestIp(request),
+    const actor = session ? { userId: session.userId, username: session.username } : null;
+    const newUser = await createUserWithAudit({
+      data: body,
+      actor,
+      superuser,
+      ipAddress: requestIp(req),
     });
+
     return NextResponse.json(newUser, { status: 201 });
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
+  },
+});
