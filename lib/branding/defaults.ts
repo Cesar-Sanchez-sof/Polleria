@@ -30,19 +30,15 @@ export const ASSET_LABELS: Record<AssetSlot, string> = {
   "home-hero": "Foto del inicio",
 };
 
-export interface QuickActionContent {
-  key: string;
-  label: string;
-  hint: string;
-  href: string;
-}
-
-export interface ModuleContent {
-  key: string;
+/** Una novedad del panel «Últimas actualizaciones» del inicio. */
+export interface UpdateEntry {
+  /** Fecha `AAAA-MM-DD`. */
+  date: string;
   title: string;
   description: string;
-  href: string;
 }
+
+export const MAX_UPDATES = 8;
 
 export interface BrandingContent {
   /** "Los Betos": nombre corto de la marca (título grande del login). */
@@ -70,12 +66,8 @@ export interface BrandingContent {
     primaryHref: string;
     secondaryLabel: string;
     secondaryHref: string;
-    quickActionsTitle: string;
-    quickActionsSubtitle: string;
-    modulesTitle: string;
-    modulesSubtitle: string;
-    quickActions: QuickActionContent[];
-    modules: ModuleContent[];
+    updatesTitle: string;
+    updates: UpdateEntry[];
   };
 }
 
@@ -101,40 +93,37 @@ export const DEFAULT_BRANDING: BrandingContent = {
     primaryHref: "/sales?tab=tables",
     secondaryLabel: "Ir a caja",
     secondaryHref: "/sales?tab=cashier",
-    quickActionsTitle: "Operación de hoy",
-    quickActionsSubtitle: "Atajos al flujo del restaurante",
-    modulesTitle: "Módulos del sistema",
-    modulesSubtitle: "Administración comercial, logística y financiera",
-    quickActions: [
-      { key: "tables", label: "Salón de mesas", hint: "Tomar pedidos en piso", href: "/sales?tab=tables" },
-      { key: "kitchen", label: "Cocina KDS", hint: "Comandas en preparación", href: "/sales?tab=kitchen" },
-      { key: "cashier", label: "Ventanilla", hint: "Cerrar cuentas", href: "/sales?tab=cashier" },
-      { key: "sales", label: "Ventas", hint: "Gestión completa", href: "/sales" },
-    ],
-    modules: [
+    updatesTitle: "Últimas actualizaciones",
+    updates: [
       {
-        key: "sales",
-        title: "Ventas y salón",
-        description: "Mesas, para llevar, clientes, cobros y facturación electrónica.",
-        href: "/sales?tab=tables",
+        date: "2026-11-03",
+        title: "Personalización del sistema",
+        description: "El login y el inicio se editan desde Configuración → Personalización.",
       },
       {
-        key: "purchases",
-        title: "Compras e inventario",
-        description: "Proveedores, órdenes, recepción, kardex y transformación.",
-        href: "/purchases",
+        date: "2026-11-03",
+        title: "Planilla de remuneraciones",
+        description: "Cálculo mensual de boletas con asientos contables y parámetros editables.",
       },
       {
-        key: "stock",
-        title: "Stock e insumos",
-        description: "Control de existencias, ajustes y alertas de reorden.",
-        href: "/purchases/inventory",
+        date: "2026-11-03",
+        title: "Contratos laborales",
+        description: "Plazo fijo, indeterminado, privado y convenio de prácticas.",
       },
       {
-        key: "accounting",
-        title: "Contabilidad",
-        description: "Asientos, plan de cuentas, diario, mayor y resultados.",
-        href: "/accounting/entries",
+        date: "2026-11-03",
+        title: "PLE más completo",
+        description: "Los libros 8.1 y 14.1 incluyen el ICBPER y limpian caracteres no permitidos.",
+      },
+      {
+        date: "2026-11-02",
+        title: "SIRE · Comprobantes de compras",
+        description: "Consulta tus compras en SUNAT sin guardar sus datos en el sistema.",
+      },
+      {
+        date: "2026-11-02",
+        title: "Dictado por voz en el asistente",
+        description: "Habla en lugar de escribir al consultar al asistente.",
       },
     ],
   },
@@ -164,13 +153,37 @@ function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-/** Cada elemento se identifica por su `key`; los que no llegan conservan el valor por defecto. */
-function byKey<T extends { key: string }>(defaults: T[], raw: unknown, merge: (base: T, entry: Record<string, unknown>) => T): T[] {
-  const entries = Array.isArray(raw) ? raw.map(record) : [];
-  return defaults.map((base) => {
-    const entry = entries.find((candidate) => candidate.key === base.key);
-    return entry ? merge(base, entry) : base;
-  });
+/** Fecha `AAAA-MM-DD` real (rechaza 2026-13-45); si no es válida devuelve `fallback`. */
+function isoDate(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return fallback;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const real = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return real ? value.trim() : fallback;
+}
+
+/**
+ * Novedades: si no llega una lista se usan las de por defecto; si llega (aunque vacía) se respeta.
+ * Se descartan las entradas sin título y se conservan las `MAX_UPDATES` primeras.
+ */
+function updates(raw: unknown, fallback: UpdateEntry[]): UpdateEntry[] {
+  if (!Array.isArray(raw)) return fallback;
+  const today = new Date().toISOString().slice(0, 10);
+  const result: UpdateEntry[] = [];
+  for (const item of raw) {
+    const entry = record(item);
+    const title = text(entry.title, "", SHORT);
+    if (!title) continue;
+    result.push({
+      date: isoDate(entry.date, today),
+      title,
+      description: text(entry.description, "", LONG),
+    });
+    if (result.length === MAX_UPDATES) break;
+  }
+  return result;
 }
 
 /** Completa y sanea cualquier contenido de personalización. Nunca lanza. */
@@ -202,22 +215,8 @@ export function resolveBranding(raw: unknown): BrandingContent {
       primaryHref: internalHref(home.primaryHref, d.home.primaryHref),
       secondaryLabel: text(home.secondaryLabel, d.home.secondaryLabel, SHORT),
       secondaryHref: internalHref(home.secondaryHref, d.home.secondaryHref),
-      quickActionsTitle: text(home.quickActionsTitle, d.home.quickActionsTitle, SHORT),
-      quickActionsSubtitle: text(home.quickActionsSubtitle, d.home.quickActionsSubtitle, MEDIUM),
-      modulesTitle: text(home.modulesTitle, d.home.modulesTitle, SHORT),
-      modulesSubtitle: text(home.modulesSubtitle, d.home.modulesSubtitle, MEDIUM),
-      quickActions: byKey(d.home.quickActions, home.quickActions, (base, entry) => ({
-        key: base.key,
-        label: text(entry.label, base.label, SHORT),
-        hint: text(entry.hint, base.hint, MEDIUM),
-        href: internalHref(entry.href, base.href),
-      })),
-      modules: byKey(d.home.modules, home.modules, (base, entry) => ({
-        key: base.key,
-        title: text(entry.title, base.title, SHORT),
-        description: text(entry.description, base.description, LONG),
-        href: internalHref(entry.href, base.href),
-      })),
+      updatesTitle: text(home.updatesTitle, d.home.updatesTitle, SHORT),
+      updates: updates(home.updates, d.home.updates),
     },
   };
 }

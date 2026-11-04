@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BRANDING, assetUrl, detectImageMime, isAssetSlot, resolveBranding } from "./defaults";
+import { DEFAULT_BRANDING, MAX_UPDATES, assetUrl, detectImageMime, isAssetSlot, resolveBranding } from "./defaults";
 
 describe("resolveBranding", () => {
   it("sin datos devuelve los valores por defecto", () => {
@@ -30,21 +30,33 @@ describe("resolveBranding", () => {
     expect(resolveBranding({ home: { primaryHref: "/purchases/list" } }).home.primaryHref).toBe("/purchases/list");
   });
 
-  it("accesos y módulos se identifican por clave; las claves desconocidas se ignoran", () => {
+  it("sin lista de novedades usa las de por defecto; con lista (aunque vacía) respeta la del usuario", () => {
+    expect(resolveBranding({ home: {} }).home.updates).toEqual(DEFAULT_BRANDING.home.updates);
+    expect(resolveBranding({ home: { updates: "no es una lista" } }).home.updates).toEqual(DEFAULT_BRANDING.home.updates);
+    expect(resolveBranding({ home: { updates: [] } }).home.updates).toEqual([]);
+  });
+
+  it("las novedades se sanean: sin título se descartan, fechas inválidas pasan a hoy y hay un tope", () => {
+    const today = new Date().toISOString().slice(0, 10);
     const result = resolveBranding({
       home: {
-        quickActions: [
-          { key: "kitchen", label: "Cocina", href: "/sales/kitchen/kds" },
-          { key: "inventada", label: "Hackeo", href: "/x" },
+        updates: [
+          { date: "2026-10-05", title: "  Nueva carta ", description: "Platos   nuevos" },
+          { date: "2026-13-45", title: "Fecha rara" },
+          { date: "ayer", title: "Otra", description: 5 },
+          { date: "2026-10-05", title: "   ", description: "sin título" },
+          null,
+          "texto",
         ],
-        modules: "no es una lista",
       },
     });
-    expect(result.home.quickActions).toHaveLength(DEFAULT_BRANDING.home.quickActions.length);
-    const kitchen = result.home.quickActions.find((a) => a.key === "kitchen");
-    expect(kitchen).toMatchObject({ label: "Cocina", href: "/sales/kitchen/kds", hint: "Comandas en preparación" });
-    expect(result.home.quickActions.some((a) => a.label === "Hackeo")).toBe(false);
-    expect(result.home.modules).toEqual(DEFAULT_BRANDING.home.modules);
+    expect(result.home.updates).toEqual([
+      { date: "2026-10-05", title: "Nueva carta", description: "Platos nuevos" },
+      { date: today, title: "Fecha rara", description: "" },
+      { date: today, title: "Otra", description: "" },
+    ]);
+    const many = Array.from({ length: 20 }, (_, i) => ({ date: "2026-10-05", title: `n${i}` }));
+    expect(resolveBranding({ home: { updates: many } }).home.updates).toHaveLength(MAX_UPDATES);
   });
 
   it("es idempotente", () => {
