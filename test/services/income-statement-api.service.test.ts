@@ -5,7 +5,7 @@ import {
   formatPeriodLabel,
   getIncomeStatement,
   type IncomeStatementResult,
-} from "./income-statement-api.service";
+} from "@/lib/services/income-statement-api.service";
 
 const RESULT: IncomeStatementResult = {
   operating_income: {

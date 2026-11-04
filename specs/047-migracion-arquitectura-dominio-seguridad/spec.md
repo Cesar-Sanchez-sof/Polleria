@@ -148,15 +148,15 @@ Para sustentar el esfuerzo de desarrollo estimado (2–3 días), se ejecutaron y
 ```text
  RUN  v4.1.11 C:/Users/Cesar Sanchez/Documents/GitHub/Polleria/Polleria
 
- ✓ lib/services/audit.service.test.ts (6 tests)
- ✓ lib/services/roles.service.test.ts (15 tests)
- ✓ lib/ai-assistant/proxy.test.ts (24 tests)
+ ✓ test/services/audit.service.test.ts (6 tests)
+ ✓ test/services/roles.service.test.ts (15 tests)
+ ✓ test/ai-assistant/proxy.test.ts (24 tests)
  ✓ test/route-handler.test.ts (12 tests)
  ✓ test/security-permissions.test.ts (84 tests)
  ✓ test/api/security-handlers.test.ts (11 tests)
  ✓ test/services/auth.service.test.ts (6 tests)
  ✓ test/security-access-control.test.ts (7 tests)
- ✓ lib/services/users.service.test.ts (13 tests)
+ ✓ test/services/users.service.test.ts (13 tests)
 
  Test Files  9 passed (9)
       Tests  178 passed (178)

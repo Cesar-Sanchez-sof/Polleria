@@ -3,7 +3,7 @@ import {
   buildCashFlowStatement,
   type CashFlowStatementParams,
   type CashFlowStatementResult,
-} from "./cash-flow-statement";
+} from "@/lib/accounting/cash-flow-statement";
 
 /* ------------------------------------------------------------------ *
  * Helpers

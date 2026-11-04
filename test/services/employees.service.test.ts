@@ -36,8 +36,8 @@ import {
   updateEmployee,
   verifyModifiableEmployee,
   type EmployeeData,
-} from "./employees.service";
-import { UserError } from "./users.service";
+} from "@/lib/services/employees.service";
+import { UserError } from "@/lib/services/users.service";
 
 const valid: EmployeeData = {
   dni: "12345678",

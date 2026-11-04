@@ -9,7 +9,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: m.userFindUnique 
 vi.mock("@/lib/auth/current-session", () => ({ currentSession: m.currentSession }));
 
 // El setup global sustituye "@/lib/auth/permissions"; aquí se prueba la implementación real.
-const permissions = await vi.importActual<typeof import("./permissions")>("./permissions");
+const permissions = await vi.importActual<typeof import("@/lib/auth/permissions")>("@/lib/auth/permissions");
 
 const session = { userId: 7, username: "ana", role: "CAJERO" };
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildPleFileName } from "./file-name";
-import { formatCents, formatDate, formatMoney, sanitizeText, toCents } from "./format";
-import { generatePleBook } from "./generate";
-import { purchaseStatus } from "./books/purchases-register";
-import type { PleSnapshot } from "./snapshot";
+import { buildPleFileName } from "@/lib/ple/file-name";
+import { formatCents, formatDate, formatMoney, sanitizeText, toCents } from "@/lib/ple/format";
+import { generatePleBook } from "@/lib/ple/generate";
+import { purchaseStatus } from "@/lib/ple/books/purchases-register";
+import type { PleSnapshot } from "@/lib/ple/snapshot";
 
 const RUC = "20608976543";
 

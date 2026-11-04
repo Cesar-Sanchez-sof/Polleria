@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createSupplier } from "./supplier";
-import { lookupDocument } from "./document-lookup";
-import { createProduct, registerInventoryAdjustment, updateProductMinimum, updateProductUnit, setProductStatus } from "./product";
-import { createPurchaseOrder, registerUnifiedPurchase } from "./purchase-order";
-import { createPurchaseVoucher } from "./invoices";
+import { createSupplier } from "@/lib/services/purchases/supplier";
+import { lookupDocument } from "@/lib/services/purchases/document-lookup";
+import { createProduct, registerInventoryAdjustment, updateProductMinimum, updateProductUnit, setProductStatus } from "@/lib/services/purchases/product";
+import { createPurchaseOrder, registerUnifiedPurchase } from "@/lib/services/purchases/purchase-order";
+import { createPurchaseVoucher } from "@/lib/services/purchases/invoices";
 import {
   registerTransformation,
   createTransformationRecipe,
@@ -12,7 +12,7 @@ import {
   deleteTransformationRecipe,
   executeTransformation,
   annulTransformation,
-} from "./transformation";
+} from "@/lib/services/purchases/transformation";
 import {
   postTransformationJournalEntries,
   reverseTransformationJournalEntries,
@@ -20,7 +20,7 @@ import {
 import {
   registerPurchaseWithoutVoucher,
   annulInformalPurchase,
-} from "./purchase-without-voucher";
+} from "@/lib/services/purchases/purchase-without-voucher";
 import { ProductType, InventoryMovementType, InformalPurchaseType, ExpenseCategory, AffectationIgv } from "@prisma/client";
 
 vi.mock("@/lib/services/accounting-posting.service", () => ({

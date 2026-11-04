@@ -19,7 +19,7 @@ import {
   getDeveloperFlags,
   listDeveloperSettings,
   setDeveloperSetting,
-} from "./developer-settings.service";
+} from "@/lib/services/developer-settings.service";
 
 beforeEach(() => {
   vi.clearAllMocks();

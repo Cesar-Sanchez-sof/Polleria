@@ -4,7 +4,7 @@ import {
   ApiError,
   getGeneralLedger,
   type GeneralLedger,
-} from "./general-ledger.service";
+} from "@/lib/services/general-ledger.service";
 
 const LEDGER_DATA: GeneralLedger = {
   account: { code: "101", name: "Caja", type: "Activo" },

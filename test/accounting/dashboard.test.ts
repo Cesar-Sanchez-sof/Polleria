@@ -13,7 +13,7 @@ import {
   type AccountMovement,
   type DashboardInput,
   type MonthlyRow,
-} from "./dashboard";
+} from "@/lib/accounting/dashboard";
 
 /* ------------------------------------------------------------------ *
  * Fixtures
