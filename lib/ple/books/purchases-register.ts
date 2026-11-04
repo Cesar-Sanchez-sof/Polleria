@@ -15,7 +15,7 @@ import { field } from "./fields";
 
 /**
  * Format 8.1 - Purchases Register (RS 361-2015/SUNAT Annex 2, item 8.1).
- * 41 fields; fields 42-82 are free use and are not emitted.
+ * 42 fields; fields 43-84 are free use and are not emitted.
  */
 export const PURCHASES_REGISTER_DEFINITION: BookDefinition = {
   id: "purchases-register",
@@ -41,26 +41,27 @@ export const PURCHASES_REGISTER_DEFINITION: BookDefinition = {
     field(19, "noCreditIgv", "IGV of the base in field 18", "money", 15),
     field(20, "nonTaxed", "Value of non-taxed acquisitions", "money", 15),
     field(21, "isc", "Selective consumption tax", "money", 15),
-    field(22, "otherCharges", "Other charges outside the taxable base", "money", 15),
-    field(23, "total", "Total of the voucher", "money", 15, true),
-    field(24, "currency", "Currency", "alphanumeric", 3),
-    field(25, "exchangeRate", "Exchange rate", "rate", 5),
-    field(26, "modifiedIssueDate", "Modified voucher issue date", "date", 10),
-    field(27, "modifiedVoucherType", "Modified voucher type", "numeric", 2),
-    field(28, "modifiedSeries", "Modified voucher series", "alphanumeric", 20),
-    field(29, "customsCode", "Customs office code (DUA / DSI)", "alphanumeric", 3),
-    field(30, "modifiedNumber", "Modified voucher number", "alphanumeric", 20),
-    field(31, "detractionDate", "Detraction deposit date", "date", 10),
-    field(32, "detractionNumber", "Detraction deposit number", "alphanumeric", 24),
-    field(33, "withholdingMark", "Subject to withholding", "numeric", 1),
-    field(34, "goodsClassification", "Goods and services classification (table 30)", "numeric", 1),
-    field(35, "contractId", "Contract or project identification", "alphanumeric", 12),
-    field(36, "error1", "Error type 1: exchange rate inconsistency", "numeric", 1),
-    field(37, "error2", "Error type 2: non-habido suppliers", "numeric", 1),
-    field(38, "error3", "Error type 3: suppliers that waived the IGV exemption", "numeric", 1),
-    field(39, "error4", "Error type 4: DNIs that already have RUC", "numeric", 1),
-    field(40, "paidWithBankedMeans", "Paid with a payment method (table 1)", "numeric", 1),
-    field(41, "status", "Operation status", "numeric", 1, true),
+    field(22, "icbper", "Plastic bag consumption tax (ICBPER)", "money", 15),
+    field(23, "otherCharges", "Other charges outside the taxable base", "money", 15),
+    field(24, "total", "Total of the voucher", "money", 15, true),
+    field(25, "currency", "Currency", "alphanumeric", 3),
+    field(26, "exchangeRate", "Exchange rate", "rate", 5),
+    field(27, "modifiedIssueDate", "Modified voucher issue date", "date", 10),
+    field(28, "modifiedVoucherType", "Modified voucher type", "numeric", 2),
+    field(29, "modifiedSeries", "Modified voucher series", "alphanumeric", 20),
+    field(30, "customsCode", "Customs office code (DUA / DSI)", "alphanumeric", 3),
+    field(31, "modifiedNumber", "Modified voucher number", "alphanumeric", 20),
+    field(32, "detractionDate", "Detraction deposit date", "date", 10),
+    field(33, "detractionNumber", "Detraction deposit number", "alphanumeric", 24),
+    field(34, "withholdingMark", "Subject to withholding", "numeric", 1),
+    field(35, "goodsClassification", "Goods and services classification (table 30)", "numeric", 1),
+    field(36, "contractId", "Contract or project identification", "alphanumeric", 12),
+    field(37, "error1", "Error type 1: exchange rate inconsistency", "numeric", 1),
+    field(38, "error2", "Error type 2: non-habido suppliers", "numeric", 1),
+    field(39, "error3", "Error type 3: suppliers that waived the IGV exemption", "numeric", 1),
+    field(40, "error4", "Error type 4: DNIs that already have RUC", "numeric", 1),
+    field(41, "paidWithBankedMeans", "Paid with a payment method (table 1)", "numeric", 1),
+    field(42, "status", "Operation status", "numeric", 1, true),
   ],
 };
 
@@ -88,7 +89,7 @@ export interface PurchaseRegisterRow {
   ref: string;
 }
 
-/** Status (field 41) from the voucher type and the distance between issue date and period. */
+/** Status (field 42) from the voucher type and the distance between issue date and period. */
 export function purchaseStatus(
   voucherType: string,
   issuedAt: string,
@@ -156,7 +157,7 @@ export function buildPurchaseRegisterRows(
       collector.warning(
         ref,
         "Voucher total differs from taxable base plus IGV; the register uses base plus IGV.",
-        23
+        24
       );
     }
 
@@ -183,7 +184,7 @@ export function buildPurchaseRegisterRows(
   return rows;
 }
 
-/** Converts canonical rows to 8.1 records. Field 23 equals the sum of fields 14 to 22. */
+/** Converts canonical rows to 8.1 records. Field 24 equals the sum of fields 14 to 23. */
 export function purchaseRowsToRecords(rows: readonly PurchaseRegisterRow[]): PleRecord[] {
   return rows.map((row) => {
     const credit = row.status !== "0";
