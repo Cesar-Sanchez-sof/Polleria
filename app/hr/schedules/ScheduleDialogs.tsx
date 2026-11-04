@@ -17,6 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatLongCap } from "./dates";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { useShiftTemplates } from "../_components/useShiftTemplates";
 
 export interface ScheduleRow {
   shift_id: number;
@@ -161,12 +163,52 @@ export function ScheduleForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const editing = schedule !== null;
+  const { templates } = useShiftTemplates(open);
+  // "" = horario eventual (nombre y horas libres); si no, el id del turno base elegido.
+  const [templateId, setTemplateId] = useState<string>("");
+  const [name, setName] = useState("");
+  const [start, setStart] = useState("18:00");
+  const [end, setEnd] = useState("23:30");
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+
+  // Reinicia los campos al abrir el formulario para otro horario o fecha.
+  const formKey = open ? `${schedule?.shift_id ?? "nuevo"}-${defaultDate}-${templates.length}` : null;
+  if (formKey !== loadedFor) {
+    setLoadedFor(formKey);
+    setError(null);
+    const match = templates.find((t) => t.name.toLowerCase() === (schedule?.name ?? "").toLowerCase());
+    const first = templates.find((t) => t.active);
+    if (schedule) {
+      setTemplateId(match ? String(match.id) : "");
+      setName(schedule.name);
+      setStart(schedule.start_time);
+      setEnd(schedule.end_time);
+    } else if (first) {
+      setTemplateId(String(first.id));
+      setName(first.name);
+      setStart(first.start_time);
+      setEnd(first.end_time);
+    }
+  }
+
+  function chooseTemplate(id: string) {
+    setTemplateId(id);
+    const t = templates.find((x) => String(x.id) === id);
+    if (t) {
+      setName(t.name);
+      setStart(t.start_time);
+      setEnd(t.end_time);
+    } else {
+      setName("");
+    }
+  }
+  const fromTemplate = templateId !== "";
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSaving(true);
-    const data = Object.fromEntries(new FormData(e.currentTarget));
+    const data = { ...Object.fromEntries(new FormData(e.currentTarget)), name, start_time: start, end_time: end };
     const { error: err } = await send(
       editing ? `/api/schedules/${schedule.shift_id}` : "/api/schedules",
       editing ? "PUT" : "POST",
@@ -187,16 +229,37 @@ export function ScheduleForm({
         <DialogHeader>
           <DialogTitle>{editing ? "Editar Horario" : "Nuevo Horario"}</DialogTitle>
           <DialogDescription>
-            Si la hora de fin es menor que la de inicio, el turno termina al día siguiente.
+            Elige un turno base (los mismos que se pactan en los contratos) o crea un horario eventual. Si la hora de fin es menor
+            que la de inicio, el turno termina al día siguiente.
           </DialogDescription>
         </DialogHeader>
         <form key={schedule?.shift_id ?? `nuevo-${defaultDate}`} onSubmit={submit} className="grid grid-cols-2 gap-4 py-2">
           <div className="col-span-2 flex flex-col gap-1.5">
-            <Label htmlFor="name">
-              Nombre del horario <span className="text-red-500">*</span>
-            </Label>
-            <Input id="name" name="name" defaultValue={schedule?.name ?? ""} required maxLength={30} placeholder="Atención" />
+            <Label htmlFor="template">Turno</Label>
+            <NativeSelect id="template" className="w-full" value={templateId} onChange={(e) => chooseTemplate(e.target.value)}>
+              {templates
+                .filter((t) => t.active || String(t.id) === templateId)
+                .map((t) => (
+                  <NativeSelectOption key={t.id} value={String(t.id)}>
+                    {t.name} ({t.start_time}–{t.end_time})
+                  </NativeSelectOption>
+                ))}
+              <NativeSelectOption value="">Horario eventual (no pactado en contratos)</NativeSelectOption>
+            </NativeSelect>
+            {!fromTemplate && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                Un horario eventual sirve para eventos o refuerzos puntuales: no aparece en el horario pactado de los contratos.
+              </p>
+            )}
           </div>
+          {!fromTemplate && (
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label htmlFor="name">
+                Nombre del horario <span className="text-red-500">*</span>
+              </Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={30} placeholder="Evento privado" />
+            </div>
+          )}
           <div className="col-span-2 flex flex-col gap-1.5">
             <Label htmlFor="date">
               Fecha <span className="text-red-500">*</span>
@@ -207,13 +270,13 @@ export function ScheduleForm({
             <Label htmlFor="start_time">
               Hora de inicio <span className="text-red-500">*</span>
             </Label>
-            <Input id="start_time" name="start_time" type="time" defaultValue={schedule?.start_time ?? "18:00"} required />
+            <Input id="start_time" type="time" value={start} onChange={(e) => setStart(e.target.value)} disabled={fromTemplate} required />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="end_time">
               Hora de fin <span className="text-red-500">*</span>
             </Label>
-            <Input id="end_time" name="end_time" type="time" defaultValue={schedule?.end_time ?? "23:30"} required />
+            <Input id="end_time" type="time" value={end} onChange={(e) => setEnd(e.target.value)} disabled={fromTemplate} required />
           </div>
           {error && (
             <p role="alert" className="col-span-2 text-sm font-medium text-rose-600">

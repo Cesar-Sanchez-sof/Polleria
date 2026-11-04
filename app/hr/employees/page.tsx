@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Briefcase, CheckCircle2, Edit2, KeyRound, Plus, Power, Search, UserX, Users, X } from "lucide-react";
+import { AlertCircle, Briefcase, CheckCircle2, Clock, Edit2, Eye, FilePlus2, FileWarning, KeyRound, Search, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AppButton } from "@/components/shared/AppButton";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
@@ -15,33 +14,39 @@ import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
+import type { HrAlert } from "@/lib/services/hr/contracts.service";
 import { EmployeeForm, type EmployeeRow } from "./EmployeeForm";
+import { ContractDialog, HireWizard, type ContractDialogMode } from "../_components/ContractDialogs";
+import { AlertsPanel } from "../_components/AlertsPanel";
+import { ContractPhaseBadge } from "../_components/HrBadges";
+import { api, fmtDate, money } from "../_lib/hr-client";
 
 type StatusFilter = "all" | "active" | "inactive";
 
-const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
-
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
+  const [alerts, setAlerts] = useState<HrAlert[]>([]);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const [status, setStatus] = useState<StatusFilter>("active");
   const [area, setArea] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const [hiring, setHiring] = useState(false);
   const [editing, setEditing] = useState<EmployeeRow | null>(null);
-  const [toDeactivate, setToDeactivate] = useState<EmployeeRow | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [contractMode, setContractMode] = useState<ContractDialogMode | null>(null);
   const { can } = usePermissions();
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/employees");
-      if (!res.ok) throw new Error();
-      setEmployees(await res.json());
+      const [list, alertList] = await Promise.all([
+        api<EmployeeRow[]>("/api/employees"),
+        api<HrAlert[]>("/api/contracts/alerts").catch(() => []),
+      ]);
+      setEmployees(list);
+      setAlerts(alertList);
       setError(null);
-    } catch {
-      setError("No se pudo cargar la lista de empleados");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar la lista de empleados");
     } finally {
       setLoading(false);
     }
@@ -52,73 +57,35 @@ export default function EmployeesPage() {
     load();
   }, [load]);
 
-  const metrics = useMemo(
-    () => ({
+  const metrics = useMemo(() => {
+    const active = employees.filter((e) => e.active);
+    return {
       total: employees.length,
-      active: employees.filter((e) => e.active).length,
-      inactive: employees.filter((e) => !e.active).length,
-      withUser: employees.filter((e) => e.has_user).length,
-       withoutShift: employees.filter((e) => e.active && e.upcoming_shifts === 0).length,
-    }),
-    [employees],
-  );
+      active: active.length,
+      inactive: employees.length - active.length,
+      withUser: active.filter((e) => e.has_user).length,
+      expiring: active.filter((e) => e.contract && (e.contract.phase === "Por vencer" || e.contract.phase === "Vencido")).length,
+      payroll: active.reduce((sum, e) => sum + (e.contract?.base_salary ?? 0), 0),
+    };
+  }, [employees]);
 
-  const areas = useMemo(
-    () => [...new Set(employees.map((e) => e.area).filter((a): a is string => Boolean(a)))].sort(),
-    [employees],
-  );
+  const areas = useMemo(() => [...new Set(employees.map((e) => e.area).filter((a): a is string => Boolean(a)))].sort(), [employees]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return employees.filter((e) => {
-      const matchesSearch =
-        !q || e.dni.includes(q) || e.full_name.toLowerCase().includes(q) || (e.position ?? "").toLowerCase().includes(q);
+      const matchesSearch = !q || e.dni.includes(q) || e.full_name.toLowerCase().includes(q) || (e.position ?? "").toLowerCase().includes(q);
       const matchesStatus = status === "all" || (status === "active" ? e.active : !e.active);
-      const matchesArea = !area || e.area === area;
-      return matchesSearch && matchesStatus && matchesArea;
+      return matchesSearch && matchesStatus && (!area || e.area === area);
     });
   }, [employees, search, status, area]);
 
-  const hasActiveFilter = search.trim() !== "" || status !== "all" || area !== "";
-
-  function openForm(e: EmployeeRow | null) {
-    setEditing(e);
-    setFormOpen(true);
-  }
-
-  async function changeStatus(e: EmployeeRow, active: boolean) {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/employees/${e.employee_id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(body.error ?? "No se pudo cambiar el estado");
-        return;
-      }
-      toast.success(
-        active
-          ? `${e.full_name} reingresó. Sus usuarios siguen inactivos hasta que los actives en Seguridad.`
-          : body.users_deactivated > 0
-            ? `${e.full_name} fue dado de baja y se desactivó su acceso al sistema.`
-            : `${e.full_name} fue dado de baja.`,
-      );
-      setToDeactivate(null);
-      await load();
-    } catch {
-      toast.error("No se pudo conectar con el servidor");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const hasActiveFilter = search.trim() !== "" || status !== "active" || area !== "";
 
   const columns: DataTableColumn<EmployeeRow>[] = [
     {
       key: "name",
-      header: "Empleado",
+      header: "Trabajador",
       width: "min-w-[240px]",
       sortable: true,
       sortValue: (e) => `${e.paternal_last_name} ${e.first_name}`,
@@ -126,81 +93,91 @@ export default function EmployeesPage() {
         title: (e) => e.full_name,
         subtitle: (e) => (
           <span className="inline-flex items-center gap-1.5">
-            {e.position ?? "Sin cargo registrado"}
+            <span className="font-mono">DNI {e.dni}</span>
             {e.has_user && <KeyRound className="h-3 w-3 text-blue-600" aria-label="Tiene usuario del sistema" />}
           </span>
         ),
         icon: <Briefcase />,
         iconTone: "amber",
+        href: (e) => `/hr/employees/${e.employee_id}`,
       },
     },
     {
-      key: "dni",
-      header: "Documento",
-      width: "w-40",
-      cell: (e) => (
-        <div className="flex items-center gap-2">
-          <Tag tone="amber" size="sm">
-            DNI
-          </Tag>
-          <span className="font-mono text-xs font-bold text-foreground">{e.dni}</span>
-        </div>
-      ),
+      key: "position",
+      header: "Cargo y área",
+      sortable: true,
+      sortValue: (e) => e.position ?? "",
+      cell: (e) =>
+        e.contract ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold">{e.contract.position}</span>
+            <Tag tone="indigo" variant="soft" size="sm">
+              {e.contract.area}
+            </Tag>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">Sin contrato</span>
+        ),
     },
     {
-      key: "area",
-      header: "Área",
-      sortable: true,
-      sortValue: (e) => e.area ?? "",
+      key: "contract",
+      header: "Contrato",
+      width: "min-w-[180px]",
       cell: (e) =>
-        e.area ? (
-          <Tag tone="indigo" variant="soft" size="sm">
-            {e.area}
-          </Tag>
+        e.contract ? (
+          <div className="flex flex-col gap-1 text-xs">
+            <span>{e.contract.contract_type_label}</span>
+            <span className="text-muted-foreground">
+              {e.contract.end_date ? `Hasta ${fmtDate(e.contract.end_date)}` : `Desde ${fmtDate(e.contract.start_date)}`}
+            </span>
+            <ContractPhaseBadge phase={e.contract.phase} />
+          </div>
         ) : (
-          <span className="text-xs text-muted-foreground/60">-</span>
+          <span className="text-xs text-muted-foreground/60">—</span>
         ),
     },
     {
       key: "salary",
-      header: "Sueldo base",
+      header: "Sueldo y jornada",
       align: "right",
       sortable: true,
-      sortValue: (e) => e.base_salary,
-      cell: (e) => (
-        <div className="text-right">
-          <p className="font-mono text-xs font-semibold">{money.format(e.base_salary)}</p>
-          {e.contract_type && <p className="text-[11px] text-muted-foreground">{e.contract_type}</p>}
-        </div>
-      ),
+      sortValue: (e) => e.contract?.base_salary ?? 0,
+      cell: (e) =>
+        e.contract ? (
+          <div className="text-right">
+            <p className="font-mono text-xs font-semibold">{money.format(e.contract.base_salary)}</p>
+            <p className="text-[11px] text-muted-foreground">{e.contract.weekly_hours ? `${e.contract.weekly_hours} h/sem` : "Sin horario"}</p>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">—</span>
+        ),
     },
-        {
+    {
       key: "shift",
-      header: "Próximo horario",
-      width: "min-w-[170px]",
+      header: "Próximo turno",
+      width: "min-w-[150px]",
       cell: (e) =>
         e.next_shift ? (
           <div className="text-xs">
-            <p className="font-semibold text-foreground">{e.next_shift.name}</p>
+            <p className="font-semibold">{e.next_shift.name}</p>
             <p className="font-mono text-muted-foreground">
               {e.next_shift.date.slice(8)}/{e.next_shift.date.slice(5, 7)} · {e.next_shift.start_time}–{e.next_shift.end_time}
             </p>
-            {e.upcoming_shifts > 1 && <p className="text-[11px] text-muted-foreground">+{e.upcoming_shifts - 1} más</p>}
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground/60">Sin horario</span>
+          <span className="text-xs text-muted-foreground/60">Sin programar</span>
         ),
     },
     {
       key: "status",
       header: "Estado",
       align: "center",
-      width: "w-32",
+      width: "w-28",
       sortable: true,
       sortValue: (e) => (e.active ? 1 : 0),
       cell: (e) => (
         <StatusBadge tone={e.active ? "success" : "neutral"} pulse={e.active}>
-          {e.active ? "Activo" : "Inactivo"}
+          {e.active ? "Activo" : "Cesado"}
         </StatusBadge>
       ),
     },
@@ -208,20 +185,21 @@ export default function EmployeesPage() {
       key: "actions",
       header: "Acciones",
       align: "right",
-      width: "w-28",
+      width: "w-24",
       cell: (e) => (
         <RowActions
           size="sm"
           actions={[
-            { key: "edit", label: "Editar empleado", icon: <Edit2 />, tone: "amber", hidden: !can("empleados.editar"), onClick: () => openForm(e) },
+            { key: "view", label: "Ver ficha", icon: <Eye />, tone: "blue", href: `/hr/employees/${e.employee_id}` },
             {
-              key: "toggle",
-              label: e.active ? "Dar de baja" : "Reingresar",
-              icon: <Power />,
-              tone: e.active ? "rose" : "emerald",
-              hidden: !can("empleados.editar"),
-              onClick: () => (e.active ? setToDeactivate(e) : changeStatus(e, true)),
+              key: "contract",
+              label: e.active ? "Registrar contrato" : "Reingresar (nuevo contrato)",
+              icon: <FilePlus2 />,
+              tone: "emerald",
+              hidden: Boolean(e.contract) || !can("contratos.crear"),
+              onClick: () => setContractMode({ kind: "new", employee: { employee_id: e.employee_id, full_name: e.full_name } }),
             },
+            { key: "edit", label: "Editar datos personales", icon: <Edit2 />, tone: "amber", hidden: !can("empleados.editar"), onClick: () => setEditing(e) },
           ]}
         />
       ),
@@ -230,17 +208,13 @@ export default function EmployeesPage() {
 
   return (
     <>
-      <ModuleHeader
-        title="Empleados"
-        subtitle="Registro y consulta del personal"
-        icon={Users}
-      >
+      <ModuleHeader title="Empleados" subtitle="Personal, contratos y condiciones laborales" icon={Users}>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="relative w-56">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Buscar empleado..."
+              placeholder="Buscar por nombre, DNI o cargo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Buscar empleados"
@@ -271,14 +245,14 @@ export default function EmployeesPage() {
             onValueChange={setStatus}
             className="max-w-full overflow-x-auto"
             items={[
-              { value: "all", label: "Todos", count: metrics.total, tone: "brand" },
               { value: "active", label: "Activos", count: metrics.active, tone: "success" },
-              { value: "inactive", label: "Inactivos", count: metrics.inactive, tone: "danger" },
+              { value: "inactive", label: "Cesados", count: metrics.inactive, tone: "danger" },
+              { value: "all", label: "Todos", count: metrics.total, tone: "brand" },
             ]}
           />
           {can("empleados.crear") && (
-            <AppButton size="sm" icon={<Plus />} onClick={() => openForm(null)}>
-              Nuevo Empleado
+            <AppButton size="sm" icon={<UserPlus />} onClick={() => setHiring(true)}>
+              Contratar personal
             </AppButton>
           )}
         </div>
@@ -286,15 +260,17 @@ export default function EmployeesPage() {
 
       <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <StatCard layout="label-first" tone="neutral" icon={<Users />} label="Total Empleados" value={metrics.total} />
-          <StatCard layout="label-first" tone="emerald" icon={<CheckCircle2 />} label="Activos" value={metrics.active} colorValue />
-          <StatCard layout="label-first" tone="blue" icon={<KeyRound />} label="Con Acceso al Sistema" value={metrics.withUser} colorValue />
-          <StatCard layout="label-first" tone="amber" icon={<AlertCircle />} label="Sin Horario Asignado" value={metrics.withoutShift} colorValue />
+          <StatCard layout="label-first" tone="emerald" icon={<CheckCircle2 />} label="Personal activo" value={metrics.active} colorValue />
+          <StatCard layout="label-first" tone="blue" icon={<KeyRound />} label="Con acceso al sistema" value={metrics.withUser} colorValue />
+          <StatCard layout="label-first" tone="amber" icon={<FileWarning />} label="Contratos por vencer" value={metrics.expiring} colorValue />
+          <StatCard layout="label-first" tone="neutral" icon={<Clock />} label="Planilla básica mensual" value={money.format(metrics.payroll)} />
         </div>
 
+        <AlertsPanel alerts={alerts} />
+
         {error && (
-          <p role="alert" className="text-sm font-medium text-rose-600">
-            {error}
+          <p role="alert" className="flex items-center gap-2 text-sm font-medium text-rose-600">
+            <AlertCircle className="h-4 w-4" /> {error}
           </p>
         )}
 
@@ -309,64 +285,61 @@ export default function EmployeesPage() {
           pagination={{ defaultPageSize: 15, itemLabel: "empleados" }}
           emptyState={{
             icon: <Users className="h-7 w-7" />,
-            title: hasActiveFilter ? "No se encontraron empleados con esos filtros" : "Aún no tienes empleados registrados",
-            description: hasActiveFilter
-              ? "Prueba cambiando los términos de búsqueda o selecciona otro filtro."
-              : "Comienza registrando al personal de la pollería.",
+            title: hasActiveFilter ? "No se encontraron empleados con esos filtros" : "Aún no tienes personal contratado",
+            description: hasActiveFilter ? "Prueba con otros términos o filtros." : "Contrata al primer trabajador con su contrato y horario.",
             action: hasActiveFilter ? (
               <AppButton
                 variant="secondary"
                 size="sm"
                 onClick={() => {
                   setSearch("");
-                  setStatus("all");
+                  setStatus("active");
                   setArea("");
                 }}
               >
                 Limpiar filtros
               </AppButton>
             ) : can("empleados.crear") ? (
-              <AppButton size="sm" icon={<Plus />} onClick={() => openForm(null)}>
-                Registrar Primer Empleado
+              <AppButton size="sm" icon={<UserPlus />} onClick={() => setHiring(true)}>
+                Contratar personal
               </AppButton>
             ) : undefined,
           }}
         />
       </main>
 
-      <EmployeeForm
-        open={formOpen}
-        employee={editing}
-        onClose={() => setFormOpen(false)}
-        onSaved={(saved, created) => {
-          setFormOpen(false);
-          toast.success(created ? `Empleado ${saved.full_name} registrado exitosamente` : "Empleado actualizado exitosamente");
+      {hiring && (
+        <HireWizard
+          open
+          onClose={() => setHiring(false)}
+          onHired={(e) => {
+            setHiring(false);
+            toast.success(`${e.full_name} fue contratado y su horario quedó programado las próximas 2 semanas. Registra su Seguro Vida Ley.`);
+            load();
+          }}
+        />
+      )}
+
+      <ContractDialog
+        mode={contractMode}
+        onClose={() => setContractMode(null)}
+        onSaved={(c) => {
+          setContractMode(null);
+          toast.success(`Contrato de ${c.employee_name} registrado con su horario pactado`);
           load();
         }}
       />
 
-      <Dialog open={toDeactivate !== null} onOpenChange={(o) => !o && setToDeactivate(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserX className="h-5 w-5 text-rose-600" /> Dar de baja al empleado
-            </DialogTitle>
-            <DialogDescription>
-              {toDeactivate?.full_name} dejará de figurar como personal activo y no podrá asignarse a nuevos horarios.
-              {toDeactivate?.has_user && " También se desactivará su acceso al sistema."} Sus contratos abiertos se
-              rescinden desde hoy. El historial se conserva y puedes reingresarlo cuando quieras.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <AppButton variant="secondary" onClick={() => setToDeactivate(null)} disabled={busy}>
-              Cancelar
-            </AppButton>
-            <AppButton variant="danger" icon={<Power />} loading={busy} onClick={() => toDeactivate && changeStatus(toDeactivate, false)}>
-              Dar de baja
-            </AppButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EmployeeForm
+        open={editing !== null}
+        employee={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          toast.success("Datos personales actualizados");
+          load();
+        }}
+      />
     </>
   );
 }

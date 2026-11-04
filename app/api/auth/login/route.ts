@@ -40,9 +40,10 @@ export const POST = createApiHandler<{ username?: string; password?: string }>({
       username: body?.username,
       password: body?.password,
       ipAddress: requestIp(req),
+      userAgent: req.headers.get("user-agent"),
     });
 
-    const response = NextResponse.json(result.user, { status: 200 });
+    const response = NextResponse.json({ ...result.user, attendance: result.attendance }, { status: 200 });
     response.cookies.set(result.cookieName, result.token, result.cookieOptions);
     return response;
   },

@@ -2,13 +2,17 @@
 import { useEffect, useState } from "react";
 import {
   Component, User, LogOut, X, Menu, ChevronDown, Ticket, ChefHat, ShoppingCart,
-  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, Briefcase, LayoutDashboard, type LucideIcon,
+  FileText, BarChart3, Calculator, UtensilsCrossed, Wallet, ShieldCheck, Settings, BookOpen, Briefcase, LayoutDashboard, Users, Clock,
+  HeartHandshake, CalendarClock, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
 import React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
 import { SECTIONS, linkPermission } from "@/lib/auth/route-permissions";
 
@@ -43,6 +47,9 @@ const SUBGROUP_ICONS: Record<string, LucideIcon> = {
   "Caja": Wallet,
   "Registros": FileText,
   "Reportes": BarChart3,
+  "Personal": Users,
+  "Jornada": Clock,
+  "Remuneraciones": HeartHandshake,
 };
 
 const NAV_SECTIONS: NavSection[] = [
@@ -101,10 +108,13 @@ const NAV_SECTIONS: NavSection[] = [
     {
     key: "rrhh", label: "RECURSOS HUMANOS", icon: Briefcase, permissions: "hr",
     items: [
-      { label: "Empleados", href: "/hr/employees", path: "empleados" },
-      { label: "Horarios Laborales", href: "/hr/schedules", path: "horarios" },
-      { label: "Contratos", href: "/hr/contracts", path: "contratos" },
-      { label: "Planilla", href: "/hr/payroll", path: "planilla" },
+      { group: "Personal", label: "Empleados", href: "/hr/employees", path: "empleados" },
+      { group: "Personal", label: "Contratos", href: "/hr/contracts", path: "contratos" },
+      { group: "Jornada", label: "Horarios Laborales", href: "/hr/schedules", path: "horarios" },
+      { group: "Jornada", label: "Asistencia", href: "/hr/attendance", path: "asistencia" },
+      { group: "Jornada", label: "Vacaciones y Permisos", href: "/hr/leaves", path: "vacaciones" },
+      { group: "Remuneraciones", label: "Planilla de Sueldos", href: "/hr/payroll", path: "planilla" },
+      { group: "Remuneraciones", label: "Seguros y Adelantos", href: "/hr/benefits", path: "beneficios" },
     ],
   },
   {
@@ -206,9 +216,50 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
     };
   }, [pathname]);
 
-  async function closeSession() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+  // Aviso de la marcación automática hecha al iniciar sesión.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("attendance-login");
+      if (!raw) return;
+      sessionStorage.removeItem("attendance-login");
+      const a = JSON.parse(raw) as { status: string; message: string };
+      if (a.status === "marked") toast.success(a.message, { description: "Asistencia registrada al iniciar sesión" });
+      else toast.info(a.message);
+    } catch {
+      /* sin almacenamiento */
+    }
+  }, []);
+
+  const [exitPrompt, setExitPrompt] = useState<{ check_in: string; expected_end: string | null; minutes_to_end: number | null } | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function logout(markExit: boolean) {
+    setLoggingOut(true);
+    const res = await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mark_exit: markExit }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (data?.attendance?.message) {
+      try {
+        sessionStorage.setItem("attendance-logout", data.attendance.message);
+      } catch {
+        /* sin almacenamiento */
+      }
+    }
     window.location.href = "/login";
+  }
+
+  /** Si el trabajador tiene la entrada marcada sin salida, se le ofrece registrar su salida. */
+  async function closeSession() {
+    const res = await fetch("/api/me/attendance", { cache: "no-store" }).catch(() => null);
+    const data = res?.ok ? await res.json().catch(() => null) : null;
+    if (data?.open) {
+      setExitPrompt(data.open);
+      return;
+    }
+    await logout(false);
   }
   const isControlled = typeof onCloseMobile === "function";
   const mobileOpen = isControlled ? !!controlledOpen : internalOpen;
@@ -343,6 +394,19 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
           <ThemeToggle />
 
+          {/* Autoservicio: todo usuario con sesión ve su horario, marca asistencia y pide vacaciones. */}
+          {user && (
+            <Link
+              href="/hr/me"
+              target="_top"
+              onClick={handleLinkClick}
+              className={`mx-space-xs ${getLinkClass("/hr/me")} gap-2 py-1.5`}
+            >
+              <CalendarClock className="h-4 w-4 shrink-0" />
+              Mi horario y asistencia
+            </Link>
+          )}
+
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs">
             {NAV_SECTIONS.map((section) => {
@@ -462,6 +526,29 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           </button>
         </div>
       </aside>
+
+      <Dialog open={exitPrompt !== null} onOpenChange={(o) => !o && !loggingOut && setExitPrompt(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Registrar tu salida?</DialogTitle>
+            <DialogDescription>
+              Marcaste tu entrada a las {exitPrompt?.check_in}
+              {exitPrompt?.expected_end ? ` y tu turno termina a las ${exitPrompt.expected_end}` : ""}.
+              {exitPrompt?.minutes_to_end != null && exitPrompt.minutes_to_end > 30
+                ? " Si solo cambias de usuario o sales un momento, cierra la sesión sin marcar la salida."
+                : " Si terminaste tu jornada, registra tu salida al cerrar la sesión."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={loggingOut} onClick={() => logout(false)}>
+              Solo cerrar sesión
+            </Button>
+            <Button disabled={loggingOut} onClick={() => logout(true)}>
+              Marcar salida y cerrar sesión
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

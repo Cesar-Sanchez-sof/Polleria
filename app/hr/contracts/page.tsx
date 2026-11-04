@@ -1,78 +1,44 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Edit2, FileText, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Eye, FilePlus2, FileSignature, FileText, FileX, RefreshCw, Search, UserX } from "lucide-react";
+import { AppButton } from "@/components/shared/AppButton";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AppButton } from "@/components/shared/AppButton";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
-import { StatusBadge, type StatusBadgeTone } from "@/components/shared/StatusBadge";
+import { StatCard } from "@/components/shared/StatCard";
 import { Tag } from "@/components/shared/TagCell";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
-import {
-  CONTRACT_KIND_LABEL,
-  CONTRACT_STATUS_LABEL,
-  INTERNSHIP_MODALITY_LABEL,
-  LABOR_REGIME_LABEL,
-  limaToday,
-  type ContractStatus,
-} from "@/lib/hr/contracts";
-import { ContractForm, type ContractFormMode, type ContractRow, type EmployeeOption } from "./ContractForm";
+import type { ContractDto, HrAlert } from "@/lib/services/hr/contracts.service";
+import { ContractDialog, TerminateDialog, type ContractDialogMode } from "../_components/ContractDialogs";
+import { AlertsPanel } from "../_components/AlertsPanel";
+import { ContractPhaseBadge } from "../_components/HrBadges";
+import { api, fmtDate, money } from "../_lib/hr-client";
 
-type StatusFilter = "all" | ContractStatus;
-
-const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
-
-const STATUS_TONE: Record<ContractStatus, StatusBadgeTone> = {
-  active: "success",
-  expiring: "warning",
-  upcoming: "info",
-  expired: "danger",
-  terminated: "neutral",
-};
-
-/** "AAAA-MM-DD" → "DD/MM/AAAA". */
-const shortDate = (iso: string) => `${iso.slice(8)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
-
-function endNote(c: ContractRow): string | null {
-  if (c.terminated_at) return `Rescindido el ${shortDate(c.terminated_at)}`;
-  if (c.days_to_end === null) return null;
-  if (c.days_to_end < 0) return `Venció hace ${-c.days_to_end} día(s)`;
-  if (c.days_to_end === 0) return "Vence hoy";
-  if (c.status === "expiring") return `Vence en ${c.days_to_end} día(s)`;
-  return null;
-}
+type Filter = "current" | "expiring" | "history" | "all";
 
 export default function ContractsPage() {
-  const [contracts, setContracts] = useState<ContractRow[]>([]);
-  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [contracts, setContracts] = useState<ContractDto[]>([]);
+  const [alerts, setAlerts] = useState<HrAlert[]>([]);
+  const [filter, setFilter] = useState<Filter>("current");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formMode, setFormMode] = useState<ContractFormMode>({ type: "create" });
-  const [formKey, setFormKey] = useState(0);
-  const [toTerminate, setToTerminate] = useState<ContractRow | null>(null);
-  const [terminateError, setTerminateError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<ContractDialogMode | null>(null);
+  const [terminating, setTerminating] = useState<ContractDto | null>(null);
   const { can } = usePermissions();
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/contracts");
-      if (!res.ok) throw new Error();
-      const body = await res.json();
-      setContracts(body.contracts);
-      setEmployees(body.employees);
+      const [list, alertList] = await Promise.all([api<ContractDto[]>("/api/contracts"), api<HrAlert[]>("/api/contracts/alerts")]);
+      setContracts(list);
+      setAlerts(alertList);
       setError(null);
-    } catch {
-      setError("No se pudo cargar la lista de contratos");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudieron cargar los contratos");
     } finally {
       setLoading(false);
     }
@@ -83,356 +49,196 @@ export default function ContractsPage() {
     load();
   }, [load]);
 
-  const metrics = useMemo(() => {
-    const count = (s: ContractStatus) => contracts.filter((c) => c.status === s).length;
-    return {
-      total: contracts.length,
-      active: count("active") + count("expiring"),
-      expiring: count("expiring"),
-      expired: count("expired"),
-      upcoming: count("upcoming"),
-      terminated: count("terminated"),
-      withoutContract: employees.filter((e) => !e.has_current_contract),
-    };
-  }, [contracts, employees]);
+  const counts = useMemo(
+    () => ({
+      current: contracts.filter((c) => c.status === "Vigente").length,
+      expiring: contracts.filter((c) => c.phase === "Por vencer" || c.phase === "Vencido").length,
+      history: contracts.filter((c) => c.status !== "Vigente").length,
+      trial: contracts.filter((c) => c.in_trial).length,
+      payroll: contracts.filter((c) => c.status === "Vigente").reduce((s, c) => s + c.base_salary, 0),
+    }),
+    [contracts],
+  );
 
-  const filtered = useMemo(() => {
+  const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return contracts.filter((c) => {
-      const matchesSearch = !q || c.employee_dni.includes(q) || c.employee_name.toLowerCase().includes(q);
-      return matchesSearch && (status === "all" || c.status === status);
+      const byFilter =
+        filter === "all" ||
+        (filter === "current" && c.status === "Vigente") ||
+        (filter === "expiring" && (c.phase === "Por vencer" || c.phase === "Vencido")) ||
+        (filter === "history" && c.status !== "Vigente");
+      const byText = !q || c.employee_name.toLowerCase().includes(q) || c.employee_dni.includes(q) || c.position.toLowerCase().includes(q);
+      return byFilter && byText;
     });
-  }, [contracts, search, status]);
+  }, [contracts, filter, search]);
 
-  const hasActiveFilter = search.trim() !== "" || status !== "all";
-
-  function openForm(mode: ContractFormMode) {
-    setFormMode(mode);
-    setFormKey((k) => k + 1);
-    setFormOpen(true);
-  }
-
-  function askTerminate(c: ContractRow) {
-    setTerminateError(null);
-    setToTerminate(c);
-  }
-
-  async function terminate(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    if (!toTerminate) return;
-    const data = Object.fromEntries(new FormData(ev.currentTarget));
-    setBusy(true);
-    setTerminateError(null);
-    try {
-      const res = await fetch(`/api/contracts/${toTerminate.contract_id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setTerminateError(body.error ?? "No se pudo rescindir el contrato");
-        return;
-      }
-      toast.success(`Contrato de ${toTerminate.employee_name} rescindido`);
-      setToTerminate(null);
-      await load();
-    } catch {
-      setTerminateError("No se pudo conectar con el servidor");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const columns: DataTableColumn<ContractRow>[] = [
+  const columns: DataTableColumn<ContractDto>[] = [
     {
       key: "employee",
-      header: "Empleado",
+      header: "Trabajador",
       width: "min-w-[220px]",
       sortable: true,
       sortValue: (c) => c.employee_name,
       primary: {
         title: (c) => c.employee_name,
-        subtitle: (c) => `DNI ${c.employee_dni}${c.position ? ` · ${c.position}` : ""}`,
-        icon: <FileText />,
-        iconTone: "indigo",
+        subtitle: (c) => `${c.position} · ${c.area}`,
+        icon: <FileSignature />,
+        iconTone: "amber",
+        href: (c) => `/hr/employees/${c.employee_id}`,
       },
     },
     {
-      key: "kind",
-      header: "Contrato",
-      width: "min-w-[170px]",
-      sortable: true,
-      sortValue: (c) => c.kind,
+      key: "type",
+      header: "Modalidad",
       cell: (c) => (
-        <div className="flex flex-col items-start gap-1">
-          <Tag
-            tone={c.kind === "Private" ? "amber" : c.kind === "FixedTerm" ? "blue" : c.kind === "Internship" ? "indigo" : "emerald"}
-            size="sm"
-          >
-            {CONTRACT_KIND_LABEL[c.kind]}
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold">{c.contract_type_label}</span>
+          <Tag tone="neutral" size="sm">
+            {c.labor_regime_label}
           </Tag>
-          <span className="text-[11px] text-muted-foreground">
-            {c.internship_modality ? INTERNSHIP_MODALITY_LABEL[c.internship_modality] : LABOR_REGIME_LABEL[c.regime]}
-            {c.renews_contract_id ? " · Renovación" : ""}
-          </span>
         </div>
       ),
     },
     {
-      key: "period",
+      key: "dates",
       header: "Vigencia",
-      width: "min-w-[190px]",
       sortable: true,
-      sortValue: (c) => c.start_date,
+      sortValue: (c) => c.end_date ?? "9999",
       cell: (c) => (
         <div className="text-xs">
-          <p className="font-mono font-semibold text-foreground">
-            {shortDate(c.start_date)} – {c.end_date ? shortDate(c.end_date) : "Sin fin"}
+          <p>
+            {fmtDate(c.start_date)} → {c.end_date ? fmtDate(c.end_date) : "indeterminado"}
           </p>
-          {endNote(c) && (
-            <p className={c.status === "expired" ? "text-rose-600" : "text-muted-foreground"}>{endNote(c)}</p>
+          {c.days_to_expiry != null && c.days_to_expiry <= 30 && (
+            <p className={c.days_to_expiry < 0 ? "font-semibold text-rose-600" : "font-semibold text-amber-600"}>
+              {c.days_to_expiry < 0 ? `Venció hace ${-c.days_to_expiry} día(s)` : `Vence en ${c.days_to_expiry} día(s)`}
+            </p>
           )}
+          {c.in_trial && <p className="text-blue-600">En periodo de prueba hasta {fmtDate(c.trial_end_date)}</p>}
         </div>
       ),
     },
     {
       key: "salary",
-      header: "Remuneración / subvención",
+      header: "Sueldo / jornada",
       align: "right",
       sortable: true,
-      sortValue: (c) => c.monthly_salary,
+      sortValue: (c) => c.base_salary,
       cell: (c) => (
-        <div className="text-right">
-          <p className="font-mono text-xs font-semibold">{money.format(c.monthly_salary)}</p>
-          <p className="text-[11px] text-muted-foreground">{c.weekly_hours} h/semana</p>
+        <div className="text-right text-xs">
+          <p className="font-mono font-semibold">{money.format(c.base_salary)}</p>
+          <p className="text-muted-foreground">{c.weekly_hours} h/sem</p>
         </div>
       ),
     },
-    {
-      key: "status",
-      header: "Estado",
-      align: "center",
-      width: "w-32",
-      sortable: true,
-      sortValue: (c) => c.status,
-      cell: (c) => (
-        <StatusBadge tone={STATUS_TONE[c.status]} pulse={c.status === "expiring"}>
-          {CONTRACT_STATUS_LABEL[c.status]}
-        </StatusBadge>
-      ),
-    },
+    { key: "status", header: "Estado", cell: (c) => <ContractPhaseBadge phase={c.phase} /> },
     {
       key: "actions",
       header: "Acciones",
       align: "right",
-      width: "w-32",
-      cell: (c) => {
-        const open = c.status !== "terminated";
-        return (
-          <RowActions
-            size="sm"
-            actions={[
-              {
-                key: "edit",
-                label: "Editar contrato",
-                icon: <Edit2 />,
-                tone: "amber",
-                hidden: !open || !can("contratos.editar"),
-                onClick: () => openForm({ type: "edit", contract: c }),
-              },
-              {
-                key: "renew",
-                label: "Renovar contrato",
-                icon: <RefreshCw />,
-                tone: "emerald",
-                hidden: !(c.status === "expiring" || c.status === "expired") || !can("contratos.crear"),
-                onClick: () => openForm({ type: "renew", contract: c }),
-              },
-              {
-                key: "terminate",
-                label: "Rescindir contrato",
-                icon: <XCircle />,
-                tone: "rose",
-                hidden: !open || c.status === "expired" || !can("contratos.editar"),
-                onClick: () => askTerminate(c),
-              },
-            ]}
-          />
-        );
-      },
+      cell: (c) => (
+        <RowActions
+          size="sm"
+          actions={[
+            { key: "view", label: "Ver ficha", icon: <Eye />, tone: "blue", href: `/hr/employees/${c.employee_id}` },
+            {
+              key: "renew",
+              label: "Renovar",
+              icon: <RefreshCw />,
+              tone: "emerald",
+              hidden: c.status !== "Vigente" || !can("contratos.crear") || c.renewed_by_id != null || c.contract_type === "Indeterminado",
+              onClick: () => setMode({ kind: "renew", contract: c }),
+            },
+            {
+              key: "edit",
+              label: "Adenda",
+              icon: <FileText />,
+              tone: "amber",
+              hidden: c.status !== "Vigente" || !can("contratos.editar"),
+              onClick: () => setMode({ kind: "edit", contract: c }),
+            },
+            {
+              key: "end",
+              label: "Registrar cese",
+              icon: <UserX />,
+              tone: "rose",
+              hidden: c.status !== "Vigente" || !can("contratos.editar"),
+              onClick: () => setTerminating(c),
+            },
+          ]}
+        />
+      ),
     },
   ];
 
   return (
     <>
-      <ModuleHeader title="Contratos" subtitle="Contratos laborales y vencimientos del personal" icon={FileText}>
+      <ModuleHeader title="Contratos" subtitle="Vigencias, renovaciones, adendas y ceses" icon={FileSignature}>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="relative w-56">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar empleado..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Buscar contratos"
-              className="h-9 rounded-xl pl-9 pr-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="Limpiar búsqueda"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <Input placeholder="Buscar trabajador o cargo..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 rounded-xl pl-9 text-xs" />
           </div>
-          <SegmentedTabs<StatusFilter>
-            ariaLabel="Filtrar por estado"
-            value={status}
-            onValueChange={setStatus}
+          <SegmentedTabs<Filter>
+            ariaLabel="Filtrar contratos"
+            value={filter}
+            onValueChange={setFilter}
             className="max-w-full overflow-x-auto"
             items={[
-              { value: "all", label: "Todos", count: metrics.total, tone: "brand" },
-              { value: "active", label: "Vigentes", count: contracts.filter((c) => c.status === "active").length, tone: "success" },
-              { value: "expiring", label: "Por vencer", count: metrics.expiring, tone: "warning" },
-              { value: "upcoming", label: "Por iniciar", count: metrics.upcoming, tone: "info" },
-              { value: "expired", label: "Vencidos", count: metrics.expired, tone: "danger" },
-              { value: "terminated", label: "Rescindidos", count: metrics.terminated, tone: "neutral" },
+              { value: "current", label: "Vigentes", count: counts.current, tone: "success" },
+              { value: "expiring", label: "Por vencer", count: counts.expiring, tone: "warning" },
+              { value: "history", label: "Historial", count: counts.history, tone: "neutral" },
+              { value: "all", label: "Todos", count: contracts.length, tone: "brand" },
             ]}
           />
           {can("contratos.crear") && (
-            <AppButton size="sm" icon={<Plus />} onClick={() => openForm({ type: "create" })}>
-              Nuevo Contrato
+            <AppButton size="sm" icon={<FilePlus2 />} onClick={() => setMode({ kind: "new", employee: null })}>
+              Nuevo contrato
             </AppButton>
           )}
         </div>
       </ModuleHeader>
-
       <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
-        {metrics.withoutContract.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Sin contrato vigente:{" "}
-            <span className="font-medium text-foreground">
-              {metrics.withoutContract
-                .slice(0, 6)
-                .map((e) => e.full_name)
-                .join(", ")}
-              {metrics.withoutContract.length > 6 ? ` y ${metrics.withoutContract.length - 6} más` : ""}
-            </span>
-          </p>
-        )}
-
-        {error && (
-          <p role="alert" className="text-sm font-medium text-rose-600">
-            {error}
-          </p>
-        )}
-
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <StatCard layout="label-first" tone="emerald" icon={<FileSignature />} label="Contratos vigentes" value={counts.current} colorValue />
+          <StatCard layout="label-first" tone="amber" icon={<AlertTriangle />} label="Por vencer o vencidos" value={counts.expiring} colorValue />
+          <StatCard layout="label-first" tone="blue" icon={<FileText />} label="En periodo de prueba" value={counts.trial} colorValue />
+          <StatCard layout="label-first" tone="neutral" icon={<FileX />} label="Planilla básica" value={money.format(counts.payroll)} />
+        </div>
+        <AlertsPanel alerts={alerts} max={10} />
+        {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
         <DataTable
           columns={columns}
-          rows={filtered}
+          rows={rows}
           rowKey={(c) => c.contract_id}
           loading={loading}
           loadingMode="auto"
-          defaultSort={{ key: "period", direction: "desc" }}
-          pageResetKey={`${search}|${status}`}
+          pageResetKey={`${filter}|${search}`}
           pagination={{ defaultPageSize: 15, itemLabel: "contratos" }}
-          emptyState={{
-            icon: <FileText className="h-7 w-7" />,
-            title: hasActiveFilter ? "No se encontraron contratos con esos filtros" : "Aún no hay contratos registrados",
-            description: hasActiveFilter
-              ? "Prueba cambiando los términos de búsqueda o selecciona otro estado."
-              : "Registra el contrato de cada empleado para llevar sus vencimientos.",
-            action: hasActiveFilter ? (
-              <AppButton
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setSearch("");
-                  setStatus("all");
-                }}
-              >
-                Limpiar filtros
-              </AppButton>
-            ) : can("contratos.crear") ? (
-              <AppButton size="sm" icon={<Plus />} onClick={() => openForm({ type: "create" })}>
-                Registrar Primer Contrato
-              </AppButton>
-            ) : undefined,
-          }}
+          emptyState={{ icon: <FileSignature className="h-7 w-7" />, title: "No hay contratos en esta vista" }}
         />
       </main>
-
-      <ContractForm
-        key={formKey}
-        open={formOpen}
-        mode={formMode}
-        employees={employees}
-        onClose={() => setFormOpen(false)}
-        onSaved={(saved, kind) => {
-          setFormOpen(false);
+      <ContractDialog
+        mode={mode}
+        onClose={() => setMode(null)}
+        onSaved={(c) => {
           toast.success(
-            kind === "renew"
-              ? `Contrato de ${saved.employee_name} renovado`
-              : kind === "edit"
-                ? "Contrato actualizado exitosamente"
-                : `Contrato de ${saved.employee_name} registrado`,
+            mode?.kind === "renew" ? `Contrato de ${c.employee_name} renovado` : mode?.kind === "new" ? `Contrato de ${c.employee_name} registrado` : "Adenda registrada",
           );
+          setMode(null);
           load();
         }}
       />
-
-      <Dialog open={toTerminate !== null} onOpenChange={(o) => !o && setToTerminate(null)}>
-        <DialogContent className="sm:max-w-md">
-          <form onSubmit={terminate} key={toTerminate?.contract_id ?? "none"} className="flex flex-col gap-4">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-rose-600" /> Rescindir contrato
-              </DialogTitle>
-              <DialogDescription>
-                El contrato de {toTerminate?.employee_name} dejará de regir desde la fecha que indiques. Queda en el historial;
-                no se borra.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="terminated_at">
-                Fecha de rescisión <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="terminated_at"
-                name="terminated_at"
-                type="date"
-                required
-                defaultValue={limaToday()}
-                min={toTerminate?.start_date}
-                max={toTerminate?.end_date ?? undefined}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="reason">
-                Motivo <span className="text-red-500">*</span>
-              </Label>
-              <Input id="reason" name="reason" required maxLength={200} placeholder="Renuncia, mutuo disenso, falta grave…" />
-            </div>
-            {terminateError && (
-              <p role="alert" className="text-sm font-medium text-rose-600">
-                {terminateError}
-              </p>
-            )}
-            <DialogFooter>
-              <AppButton variant="secondary" onClick={() => setToTerminate(null)} disabled={busy}>
-                Cancelar
-              </AppButton>
-              <AppButton type="submit" variant="danger" icon={<XCircle />} loading={busy}>
-                Rescindir
-              </AppButton>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <TerminateDialog
+        contract={terminating}
+        onClose={() => setTerminating(null)}
+        onDone={(msg) => {
+          setTerminating(null);
+          toast.success(msg);
+          load();
+        }}
+      />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PurchaseOrderStatus, InventoryMovementType, AffectationIgv } from "@prisma/client";
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
+import { auditPurchase, plain, sessionEmployeeId } from "./purchase-audit";
 import { postPurchaseJournalEntries } from "@/lib/services/accounting-posting.service";
 
 export interface PurchaseOrderLineInput {
@@ -46,7 +47,8 @@ export async function generateOrderNumber(): Promise<string> {
 }
 
 export async function createPurchaseOrder(data: PurchaseOrderInput) {
-  await requirePermission("compras.crear");
+  const session = await requirePermission("compras.crear");
+  const actorEmployeeId = data.employeeId ?? (await sessionEmployeeId(session));
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
   }
@@ -66,8 +68,8 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
     }
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const validEmployeeId = await getOrCreateActiveEmployee(tx, data.employeeId);
+  const created = await prisma.$transaction(async (tx) => {
+    const validEmployeeId = await getOrCreateActiveEmployee(tx, actorEmployeeId);
 
     let orderNumber = await generateOrderNumber();
     const existing = await tx.purchaseOrder.findUnique({ where: { orderNumber } });
@@ -117,10 +119,27 @@ export async function createPurchaseOrder(data: PurchaseOrderInput) {
 
     return order;
   });
+
+  await auditPurchase(session, {
+    action: "CREATE",
+    entity: "OrdenCompra",
+    entityId: created.id,
+    description: `Registró la orden de compra ${created.orderNumber} a ${created.supplier?.businessName ?? `proveedor #${created.supplierId}`}`,
+    details: {
+      after: plain({
+        order_number: created.orderNumber,
+        supplier_id: created.supplierId,
+        total: created.total,
+        items: (created.items ?? []).map((i) => ({ product: i.product?.name ?? i.productId, quantity: i.quantityOrdered, unit_price: i.unitPrice })),
+      }),
+    },
+  });
+  return created;
 }
 
 export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
-  await requirePermission("compras.crear");
+  const session = await requirePermission("compras.crear");
+  const actorEmployeeId = data.receivedById ?? (await sessionEmployeeId(session));
   if (!data.supplierId) {
     throw new Error("Debe seleccionar un proveedor");
   }
@@ -163,9 +182,9 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
     orderNumber = `${orderNumber}-${Math.floor(Math.random() * 1000)}`;
   }
 
-  return await prisma.$transaction(
+  const registered = await prisma.$transaction(
     async (tx) => {
-      const validEmployeeId = await getOrCreateActiveEmployee(tx, data.receivedById);
+      const validEmployeeId = await getOrCreateActiveEmployee(tx, actorEmployeeId);
 
       let subtotalGeneral = 0;
       let igvGeneral = 0;
@@ -361,6 +380,24 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
     },
     { maxWait: 10000, timeout: 20000 }
   );
+
+  await auditPurchase(session, {
+    action: "CREATE",
+    entity: "Compra",
+    entityId: registered?.id ?? null,
+    description: `Registró la compra ${data.voucherType} ${data.series}-${data.number} (${data.paymentCondition.toLowerCase()})`,
+    details: {
+      after: {
+        order_number: registered?.orderNumber ?? null,
+        supplier_id: data.supplierId,
+        voucher: `${data.voucherType} ${data.series}-${data.number}`,
+        payment_condition: data.paymentCondition,
+        total: registered?.total ?? null,
+        items: data.items.map((i) => ({ product_id: i.productId, quantity: i.quantity, unit_price: i.unitPrice, igv: i.affectationIgv })),
+      },
+    },
+  });
+  return registered;
 }
 
 export async function getPurchaseOrders() {

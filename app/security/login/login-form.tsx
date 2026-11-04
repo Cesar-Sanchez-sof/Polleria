@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,21 @@ export function LoginForm({ brand, logoUrl }: Readonly<LoginBranding>) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Resultado de la salida de asistencia marcada al cerrar sesión.
+  useEffect(() => {
+    try {
+      const msg = sessionStorage.getItem("attendance-logout");
+      if (msg) {
+        sessionStorage.removeItem("attendance-logout");
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- dato del navegador, solo disponible en el cliente
+        setNotice(msg);
+      }
+    } catch {
+      /* sin almacenamiento */
+    }
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -41,6 +56,15 @@ export function LoginForm({ brand, logoUrl }: Readonly<LoginBranding>) {
         body: JSON.stringify({ username: user, password }),
       });
       if (res.ok) {
+        // El resultado de la marcación automática de asistencia se muestra al entrar (ver Sidebar).
+        const data = await res.json().catch(() => ({}));
+        if (data?.attendance?.message) {
+          try {
+            sessionStorage.setItem("attendance-login", JSON.stringify(data.attendance));
+          } catch {
+            /* sin almacenamiento: no se muestra el aviso */
+          }
+        }
         window.location.href = "/";
         return;
       }
@@ -209,6 +233,12 @@ export function LoginForm({ brand, logoUrl }: Readonly<LoginBranding>) {
               </div>
 
               {/* Mensaje de Error */}
+              {notice && !error && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2.5 text-xs text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{notice}</span>
+                </div>
+              )}
               {error && (
                 <div
                   role="alert"

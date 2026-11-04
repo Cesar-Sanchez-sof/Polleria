@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth/permissions";
+import { auditPurchase } from "./purchase-audit";
 
 export interface SupplierInput {
   documentType?: "RUC" | "DNI";
@@ -27,7 +28,7 @@ export async function getSuppliers() {
 }
 
 export async function createSupplier(data: SupplierInput) {
-  await requirePermission("proveedores.crear");
+  const session = await requirePermission("proveedores.crear");
   const document = data.ruc ? data.ruc.trim() : "";
   if (!document || (document.length !== 8 && document.length !== 11)) {
     throw new Error("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
@@ -43,7 +44,7 @@ export async function createSupplier(data: SupplierInput) {
     throw new Error(`Ya existe un proveedor registrado con el documento ${document}`);
   }
 
-  return await prisma.supplier.create({
+  const created = await prisma.supplier.create({
     data: {
       ruc: document,
       businessName: data.businessName.trim(),
@@ -54,10 +55,18 @@ export async function createSupplier(data: SupplierInput) {
       active: data.active !== undefined ? data.active : true,
     },
   });
+  await auditPurchase(session, {
+    action: "CREATE",
+    entity: "Proveedor",
+    entityId: created.id,
+    description: `Registró al proveedor ${created.businessName} (${created.ruc})`,
+    details: { after: { ruc: created.ruc, business_name: created.businessName } },
+  });
+  return created;
 }
 
 export async function updateSupplier(id: number, data: SupplierInput) {
-  await requirePermission("proveedores.editar");
+  const session = await requirePermission("proveedores.editar");
   const document = data.ruc ? data.ruc.trim() : "";
   if (!document || (document.length !== 8 && document.length !== 11)) {
     throw new Error("El documento debe tener 8 dígitos (DNI) u 11 dígitos (RUC)");
@@ -82,7 +91,7 @@ export async function updateSupplier(id: number, data: SupplierInput) {
     }
   }
 
-  return await prisma.supplier.update({
+  const updated = await prisma.supplier.update({
     where: { id },
     data: {
       ruc: document,
@@ -94,12 +103,36 @@ export async function updateSupplier(id: number, data: SupplierInput) {
       active: data.active !== undefined ? data.active : existingSupplier.active,
     },
   });
+  const snapshot = (s: typeof existingSupplier) => ({
+    ruc: s.ruc,
+    business_name: s.businessName,
+    contact_person: s.contactPerson,
+    phone: s.phone,
+    email: s.email,
+    active: s.active,
+  });
+  await auditPurchase(session, {
+    action: "UPDATE",
+    entity: "Proveedor",
+    entityId: id,
+    description: `Modificó al proveedor ${updated.businessName}`,
+    details: { before: snapshot(existingSupplier), after: snapshot(updated) },
+  });
+  return updated;
 }
 
 export async function setSupplierStatus(id: number, active: boolean) {
-  await requirePermission("proveedores.editar");
-  return await prisma.supplier.update({
+  const session = await requirePermission("proveedores.editar");
+  const updated = await prisma.supplier.update({
     where: { id },
     data: { active },
   });
+  await auditPurchase(session, {
+    action: "STATUS_CHANGE",
+    entity: "Proveedor",
+    entityId: id,
+    description: `${active ? "Activó" : "Desactivó"} al proveedor ${updated.businessName}`,
+    details: { before: { active: !active }, after: { active } },
+  });
+  return updated;
 }

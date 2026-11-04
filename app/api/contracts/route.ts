@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { createContract, listContracts, type ContractData } from "@/lib/services/contracts.service";
-import { CONTRACT_KINDS, type ContractKind, type ContractStatus } from "@/lib/hr/contracts";
+import { createContract, listContracts, type ContractData } from "@/lib/services/hr/contracts.service";
+import { verifyModifiableEmployee } from "@/lib/services/employees.service";
+import { auditHr, badRequest, optionalInt } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";
-
-const STATUSES: readonly ContractStatus[] = ["upcoming", "active", "expiring", "expired", "terminated"];
 
 /**
  * @openapi
@@ -15,33 +13,14 @@ const STATUSES: readonly ContractStatus[] = ["upcoming", "active", "expiring", "
  *   get:
  *     tags:
  *       - Contratos
- *     summary: Listar contratos laborales y los empleados que pueden recibir uno
- *     parameters:
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *       - in: query
- *         name: employee_id
- *         schema:
- *           type: integer
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [upcoming, active, expiring, expired, terminated]
- *       - in: query
- *         name: kind
- *         schema:
- *           type: string
- *           enum: [FixedTerm, Indefinite, Private, Internship]
+ *     summary: Listar contratos (filtros employee_id, status=Vigente|Historial, q)
  *     responses:
  *       200:
- *         description: Contratos con su estado calculado por fechas y empleados activos
+ *         description: Contratos con su horario pactado y estado (vigente, por vencer, vencido…)
  *   post:
  *     tags:
  *       - Contratos
- *     summary: Registrar un contrato (o renovar uno con renews_contract_id)
+ *     summary: Registrar un contrato para un empleado existente (reingreso o nuevo contrato tras un cese)
  *     requestBody:
  *       required: true
  *       content:
@@ -50,31 +29,25 @@ const STATUSES: readonly ContractStatus[] = ["upcoming", "active", "expiring", "
  *             type: object
  *     responses:
  *       201:
- *         description: Contrato registrado
- *       400:
- *         description: Datos inválidos
+ *         description: Contrato creado
  *       409:
- *         description: El periodo se cruza con otro contrato del empleado
+ *         description: Ya tiene un contrato vigente en ese periodo
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await authorize("contratos.ver");
+    const auth = await authorize(["contratos.ver", "empleados.ver"]);
     if (!auth.ok) return auth.response;
-
     const sp = new URL(request.url).searchParams;
     const status = sp.get("status");
-    const kind = sp.get("kind");
-    const employeeId = Number(sp.get("employee_id"));
     return NextResponse.json(
       await listContracts({
+        employee_id: optionalInt(sp.get("employee_id")),
+        status: status === "Vigente" || status === "Historial" ? status : null,
         q: sp.get("q"),
-        employeeId: Number.isInteger(employeeId) && employeeId > 0 ? employeeId : null,
-        status: STATUSES.includes(status as ContractStatus) ? (status as ContractStatus) : null,
-        kind: CONTRACT_KINDS.includes(kind as ContractKind) ? (kind as ContractKind) : null,
       }),
     );
-  } catch (error) {
-    return errorResponse(error);
+  } catch (e) {
+    return errorResponse(e);
   }
 }
 
@@ -82,31 +55,31 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await authorize("contratos.crear");
     if (!auth.ok) return auth.response;
+    const body = await readJson(request);
+    const employeeId = Number(body?.employee_id);
+    if (!body || !Number.isInteger(employeeId) || employeeId <= 0) return badRequest("Indica el empleado");
 
-    const body = (await readJson(request)) as unknown as ContractData | null;
-    if (!body) return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 });
-
-    const contract = await createContract(body);
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
+    await verifyModifiableEmployee(employeeId, auth.superuser);
+    const contract = await createContract(employeeId, body as unknown as ContractData, auth.session.userId);
+    await auditHr(auth.session, request, {
       action: "CREATE",
       module: "Contratos",
-      entity: "Contrato laboral",
+      entity: "Contrato",
       entityId: contract.contract_id,
-      description: `${contract.renews_contract_id ? "Renovó" : "Registró"} el contrato de ${contract.employee_name}`,
+      description: `Registró un contrato de ${contract.contract_type_label.toLowerCase()} para ${contract.employee_name}`,
       details: {
         after: {
-          kind: contract.kind,
-          regime: contract.regime,
+          employee_id: employeeId,
+          position: contract.position,
+          base_salary: contract.base_salary,
           start_date: contract.start_date,
           end_date: contract.end_date,
-          monthly_salary: contract.monthly_salary,
+          weekly_hours: contract.weekly_hours,
         },
       },
-      ipAddress: requestIp(request),
     });
     return NextResponse.json(contract, { status: 201 });
-  } catch (error) {
-    return errorResponse(error);
+  } catch (e) {
+    return errorResponse(e);
   }
 }
