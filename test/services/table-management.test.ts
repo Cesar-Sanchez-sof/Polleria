@@ -6,12 +6,12 @@ import {
   canEditOrder,
   calculateTablesSummary,
   calculateDailySalesSummary,
-} from "../lib/utils/sales-helpers";
+} from "@/lib/utils/sales-helpers";
 import {
   calculateDenominationsTotal,
   formatDenominationsSummary,
   type CashDenominations,
-} from "../lib/services/cash-register.service";
+} from "@/lib/services/cash-register.service";
 
 describe("Módulo de Ventas & Gestión de Mesas - Pruebas Unitarias", () => {
   describe("1. Cálculos de Importes e IGV (18%)", () => {

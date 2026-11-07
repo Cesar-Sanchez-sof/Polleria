@@ -9,13 +9,13 @@ import {
   searchMercadoPagoPaymentsByOrder,
   verifyMercadoPagoWebhookSignature,
   processMercadoPagoPaymentApproval,
-} from "../lib/services/mercadopago.service";
-import { prisma } from "../lib/prisma";
-import { realtimeHub } from "../lib/realtime/event-emitter";
-import { GET as statusGET } from "../app/api/payments/mercadopago/status/route";
-import { POST as preferencePOST } from "../app/api/payments/mercadopago/preference/route";
-import { POST as yapePOST } from "../app/api/payments/mercadopago/yape/route";
-import { POST as webhookPOST } from "../app/api/webhooks/mercadopago/route";
+} from "@/lib/services/mercadopago.service";
+import { prisma } from "@/lib/prisma";
+import { realtimeHub } from "@/lib/realtime/event-emitter";
+import { GET as statusGET } from "@/app/api/payments/mercadopago/status/route";
+import { POST as preferencePOST } from "@/app/api/payments/mercadopago/preference/route";
+import { POST as yapePOST } from "@/app/api/payments/mercadopago/yape/route";
+import { POST as webhookPOST } from "@/app/api/webhooks/mercadopago/route";
 import { NextRequest } from "next/server";
 
 describe("Módulo de Mercado Pago - Pruebas Unitarias y de Integración", () => {

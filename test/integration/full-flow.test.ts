@@ -4,14 +4,14 @@ import {
   calculateTablesSummary,
   calculateChangeAmount,
   validateCustomerDocument,
-} from "../lib/utils/sales-helpers";
+} from "@/lib/utils/sales-helpers";
 import {
   inventoryAccountCode,
   pickPaymentAccountTarget,
   postSaleJournalEntries,
   postTransformationJournalEntries,
   reverseTransformationJournalEntries,
-} from "../lib/services/accounting-posting.service";
+} from "@/lib/services/accounting-posting.service";
 
 describe("E2E Test Suite: Flujo Completo de Salón, Unión de Mesas, Cobro Mozo y Asientos Contables", () => {
   beforeEach(() => {

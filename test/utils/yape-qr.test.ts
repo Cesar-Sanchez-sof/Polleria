@@ -3,7 +3,7 @@ import {
   generateDynamicYapeQR,
   sanitizeYapePhone,
   calculateEmvcoCRC,
-} from "../lib/utils/yape-qr";
+} from "@/lib/utils/yape-qr";
 
 describe("Generador de Códigos QR Dinámicos Yape (EMVCo Interoperable BCRP)", () => {
   it("debe limpiar y normalizar números de teléfono peruanos a 9 dígitos", () => {

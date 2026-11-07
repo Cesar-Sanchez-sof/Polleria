@@ -23,7 +23,7 @@ import {
   groupByFiscalYear,
   statusLabel,
   type AccountingPeriod,
-} from "./fiscal-years";
+} from "@/lib/accounting/fiscal-years";
 
 /** Valor del selector que desactiva el filtro de año fiscal. */
 const ALL_YEARS = "todos";

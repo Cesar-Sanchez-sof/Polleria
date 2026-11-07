@@ -78,7 +78,7 @@ describe("catálogo de permisos", () => {
   });
 
   it("los roles base del seed solo usan códigos del catálogo", async () => {
-    await expect(import("../prisma/seed-roles")).resolves.toBeDefined();
+    await expect(import("@/prisma/seed-roles")).resolves.toBeDefined();
   });
 });
 

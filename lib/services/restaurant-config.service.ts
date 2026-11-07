@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import { isValidVoucherSeries } from "@/lib/utils/series-validation";
 import { uploadYapeQrToS3 } from "@/lib/services/s3-storage.service";
@@ -149,7 +147,6 @@ export const DEFAULT_CONFIG: RestaurantGlobalConfig = {
   },
 };
 
-const CONFIG_FILE_PATH = path.join(process.cwd(), "data", "restaurant-config.json");
 
 function mapDbToRestaurantInfo(record: any): RestaurantInfo {
   return {
@@ -175,18 +172,7 @@ let inMemoryRestaurantCache: RestaurantInfo = { ...DEFAULT_CONFIG.restaurant };
  * Lee la identidad comercial y fiscal del restaurante directamente desde JSON o defaults (fallback estático).
  */
 export function getJsonConfigRestaurantInfo(): RestaurantInfo {
-  try {
-    if (fs.existsSync(CONFIG_FILE_PATH)) {
-      const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed.restaurant) {
-        return { ...DEFAULT_CONFIG.restaurant, ...parsed.restaurant };
-      }
-    }
-  } catch (error) {
-    console.warn("[restaurant-config] Error al leer información del restaurante desde JSON:", error);
-  }
-  return DEFAULT_CONFIG.restaurant;
+  return { ...DEFAULT_CONFIG.restaurant };
 }
 
 /**
@@ -371,20 +357,6 @@ export function updateRestaurantInfo(
         });
       } catch (auditErr) {
         console.warn("[restaurant-config] Aviso al registrar auditoría:", auditErr);
-      }
-
-      // Mantener respaldo local en data/restaurant-config.json (sin base64 gigante)
-      try {
-        const dir = path.dirname(CONFIG_FILE_PATH);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        let existingData: any = {};
-        if (fs.existsSync(CONFIG_FILE_PATH)) {
-          existingData = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
-        }
-        existingData.restaurant = mapped;
-        fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(existingData, null, 2), "utf-8");
-      } catch {
-        // En entornos de solo lectura (como Vercel Serverless), esto no afectará la operación
       }
 
       return mapped;

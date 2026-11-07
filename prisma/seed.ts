@@ -9,6 +9,14 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Iniciando población de base de datos para la Pollería...");
 
+  // 0. HUSO HORARIO DE LA BASE DE DATOS (Trujillo, La Libertad, Perú / UTC-5)
+  try {
+    await prisma.$executeRawUnsafe("SET timezone TO 'America/Lima';");
+    console.log("✔ Zona horaria de la sesión configurada a 'America/Lima' (Trujillo, Perú).");
+  } catch (tzErr) {
+    console.warn("⚠️ Aviso al configurar timezone en sesión:", tzErr);
+  }
+
   // 1. CLIENTE GENÉRICO (para ventas rápidas en caja)
   const existingCustomer = await prisma.customer.findFirst({
     where: { documentNumber: "00000000" },

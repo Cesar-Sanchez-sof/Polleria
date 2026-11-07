@@ -20,6 +20,6 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./test/setup-permissions.ts"],
     include: ["**/*.test.ts"],
-    exclude: ["node_modules/**", ".next/**", "out/**", "build/**"],
+    exclude: ["node_modules/**", ".next/**", "out/**", "build/**", "test/e2e/**"],
   },
 });
