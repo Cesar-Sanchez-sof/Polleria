@@ -6,6 +6,7 @@ import { ListChecks } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { TrialBalanceFilters } from "./components/TrialBalanceFilters";
 import { TrialBalanceTable } from "./components/TrialBalanceTable";
+import { ReportInterpreterButton } from "@/components/accounting/ReportInterpreterButton";
 import {
   getTrialBalance,
   type TrialBalanceStatement,
@@ -91,12 +92,21 @@ export default function TrialBalancePage() {
         icon={ListChecks}
         iconClassName="bg-slate-900 text-white"
       >
-        <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
-          Periodo:{" "}
-          <span className="font-semibold text-slate-900">
-            {statement && !invalidRange ? statement.periodLabel : `${from} al ${to}`}
+        <div className="flex items-center gap-2">
+          <ReportInterpreterButton
+            reportType="trial-balance"
+            reportTitle="Balance de Comprobación"
+            periodOrCutOff={statement && !invalidRange ? statement.periodLabel : `${from} al ${to}`}
+            getData={() => statement}
+            disabled={loading || !statement}
+          />
+          <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
+            Periodo:{" "}
+            <span className="font-semibold text-slate-900">
+              {statement && !invalidRange ? statement.periodLabel : `${from} al ${to}`}
+            </span>
           </span>
-        </span>
+        </div>
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
