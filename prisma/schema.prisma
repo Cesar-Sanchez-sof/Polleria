@@ -84,8 +84,42 @@ enum AffectationIgv {
   @@map("affectation_igv")
 }
 
-// =====================================================================
-// MODULE 1: SECURITY & ACCESS CONTROL
+
+model SirePurchase {
+  id            Int                     @id @default(autoincrement())
+  ruc           String
+  period        String                  // AAAAMM
+  ticket        String?
+  documentCount Int
+  truncated     Boolean
+  createdAt     DateTime                @default(now())
+  documents     SirePurchaseDocument[]
+
+  @@map("sire_purchase")
+}
+
+model SirePurchaseDocument {
+  id               Int      @id @default(autoincrement())
+  sirePurchaseId   Int
+  car              String
+  issueDate        String
+  dueDate          String
+  typeCode         String
+  typeName         String
+  series           String
+  number           String
+  supplierDocument String
+  supplierName     String
+  currency         String
+  exchangeRate     Float?
+  taxableBase      Float
+  igv              Float
+  total            Float
+
+  sirePurchase   SirePurchase @relation(fields: [sirePurchaseId], references: [id], onDelete: Cascade)
+
+  @@map("sire_purchase_document")
+}
 // =====================================================================
 
 model Role {
