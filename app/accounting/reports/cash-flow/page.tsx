@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { formatDateToIso } from "@/lib/dates";
+import { ReportInterpreterButton } from "@/components/accounting/ReportInterpreterButton";
 import {
   getCashFlowStatement,
   formatPen,
@@ -141,9 +142,18 @@ export default function CashFlowStatementPage() {
         icon={Waves}
         iconClassName="bg-slate-900 text-white dark:bg-primary dark:text-primary-foreground"
       >
-        <span className="bg-card border border-border px-2.5 py-1.5 rounded-lg text-xs font-semibold text-foreground shadow-2xs">
-          Rango: {formatCutOffDate(from)} — {formatCutOffDate(to)}
-        </span>
+        <div className="flex items-center gap-2">
+          <ReportInterpreterButton
+            reportType="cash-flow"
+            reportTitle="Flujo de Efectivo"
+            periodOrCutOff={`${formatCutOffDate(from)} — ${formatCutOffDate(to)}`}
+            getData={() => statement}
+            disabled={loading || !statement}
+          />
+          <span className="bg-card border border-border px-2.5 py-1.5 rounded-lg text-xs font-semibold text-foreground shadow-2xs">
+            Rango: {formatCutOffDate(from)} — {formatCutOffDate(to)}
+          </span>
+        </div>
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-5 md:p-6">

@@ -25,8 +25,8 @@ export interface ModelInfo {
 export const MODEL_INFO: Readonly<Record<AssistantModelId, ModelInfo>> = {
   "modelo-r": {
     id: "modelo-r",
-    nombre: "Modelo R",
-    version: "v17",
+    nombre: "XiYanSQL-QwenCoder-7B-QLoRA",
+    version: "v1.7",
     descripcion: "Saldos contables con datos del ERP",
   },
   "gemini-erp": {

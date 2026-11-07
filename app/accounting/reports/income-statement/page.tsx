@@ -6,6 +6,7 @@ import { TrendingUp } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { IncomeStatementFilters } from "./components/IncomeStatementFilters";
 import { IncomeStatementTable } from "./components/IncomeStatementTable";
+import { ReportInterpreterButton } from "@/components/accounting/ReportInterpreterButton";
 import {
   formatPeriodLabel,
   getIncomeStatement,
@@ -103,10 +104,19 @@ export default function IncomeStatementPage() {
         icon={TrendingUp}
         iconClassName="bg-emerald-100 text-emerald-800"
       >
-        <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
-          Periodo:{" "}
-          <span className="font-semibold text-slate-900">{periodLabel}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <ReportInterpreterButton
+            reportType="income-statement"
+            reportTitle="Estado de Resultados"
+            periodOrCutOff={periodLabel}
+            getData={() => result}
+            disabled={isLoading || !result}
+          />
+          <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
+            Periodo:{" "}
+            <span className="font-semibold text-slate-900">{periodLabel}</span>
+          </span>
+        </div>
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
