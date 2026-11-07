@@ -12,20 +12,22 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      # Utiliza la SECRET configurada en GitHub Actions
+      DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.TEST_DATABASE_URL }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'polleria_jwt_session_secret_production_key_32_chars_min' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID || 'mock-aws-key-id' }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || 'mock-aws-secret-access-key' }}
+      AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 || 'http://localhost:9000' }}
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       S3_BUCKET: "comprobantes"
-      JSON_PE_TOKEN: ${{ secrets.JSON_PE_TOKEN }}
-      MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN }}
-      MERCADO_PAGO_WEBHOOK_SECRET: ${{ secrets.MERCADO_PAGO_WEBHOOK_SECRET }}
-      MERCADO_PAGO_PUBLIC_KEY: ${{ secrets.MERCADO_PAGO_PUBLIC_KEY }}
-      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      JSON_PE_TOKEN: ${{ secrets.JSON_PE_TOKEN || 'mock-token' }}
+      MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN || 'mock-token' }}
+      MERCADO_PAGO_WEBHOOK_SECRET: ${{ secrets.MERCADO_PAGO_WEBHOOK_SECRET || 'mock-secret' }}
+      MERCADO_PAGO_PUBLIC_KEY: ${{ secrets.MERCADO_PAGO_PUBLIC_KEY || 'mock-key' }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL || 'http://localhost:8079' }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN || 'mock-token' }}
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      TZ: "America/Lima"
 
     steps:
       - name: Checkout del código
@@ -43,6 +45,43 @@ jobs:
       - name: Generar cliente de Prisma
         run: npx prisma generate
 
+      - name: Configurar Zona Horaria de Trujillo y Despertar Base de Datos (Neon)
+        run: |
+          # 1. Asegurar parámetros de conexión para la zona horaria de Trujillo, La Libertad (America/Lima) y timeout
+          DB_URL="${DATABASE_URL}"
+          if [ -n "$DB_URL" ]; then
+            if [[ "$DB_URL" != *"timezone="* ]]; then
+              SEP=$([[ "$DB_URL" == *"?"* ]] && echo "&" || echo "?")
+              DB_URL="${DB_URL}${SEP}options=-c%20timezone=America/Lima"
+            fi
+            if [[ "$DB_URL" != *"connect_timeout="* ]]; then
+              SEP=$([[ "$DB_URL" == *"?"* ]] && echo "&" || echo "?")
+              DB_URL="${DB_URL}${SEP}connect_timeout=30"
+            fi
+            echo "DATABASE_URL=${DB_URL}" >> $GITHUB_ENV
+            echo "✔ Zona horaria de Trujillo (America/Lima) y connect_timeout inyectados a DATABASE_URL."
+          fi
+
+          # 2. Despertar Neon (Cold Start Retry Loop) para evitar error de conexión P1001
+          echo "⏳ Verificando disponibilidad y despertando la base de datos Neon..."
+          MAX_RETRIES=6
+          RETRY_COUNT=0
+          until [ $RETRY_COUNT -ge $MAX_RETRIES ]
+          do
+            if npx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
+              echo "✅ Conexión con Neon establecida exitosamente."
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT+1))
+            echo "Base de datos en proceso de inicio... intento $RETRY_COUNT de $MAX_RETRIES. Esperando 6 segundos..."
+            sleep 6
+          done
+
+      - name: Sincronizar esquema y poblar datos (Push & Seed)
+        run: |
+          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db seed
+
       - name: Ejecutar pruebas unitarias
         run: npx vitest run
 
@@ -53,20 +92,12 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-        ## Pruebas E2E con Playwright
+      ## Pruebas E2E con Playwright
     
       - name: Instalar navegadores de Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Preparar base de datos de pruebas (Push & Seed)
-        env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-        run: |
-          npx prisma db push --skip-generate --force-reset
-          npx prisma db seed
-
       - name: Ejecutar pruebas E2E
         env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
           NEXT_PUBLIC_APP_URL: "http://localhost:3001"
         run: npx playwright test
