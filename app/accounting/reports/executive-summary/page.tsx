@@ -6,6 +6,7 @@ import { LayoutDashboard } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { ExecutiveSummaryFilters } from "./components/ExecutiveSummaryFilters";
 import { ExecutiveSummaryPanel } from "./components/ExecutiveSummaryPanel";
+import { ReportInterpreterButton } from "@/components/accounting/ReportInterpreterButton";
 import {
   getExecutiveSummary,
   formatYear,
@@ -69,10 +70,19 @@ export default function ExecutiveSummaryPage() {
         icon={LayoutDashboard}
         iconClassName="bg-slate-900 text-white"
       >
-        <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
-          Ejercicio:{" "}
-          <span className="font-semibold text-slate-900">{formatYear(year)}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <ReportInterpreterButton
+            reportType="executive-summary"
+            reportTitle="Resumen Ejecutivo"
+            periodOrCutOff={formatYear(year)}
+            getData={() => summary}
+            disabled={loading || !summary}
+          />
+          <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
+            Ejercicio:{" "}
+            <span className="font-semibold text-slate-900">{formatYear(year)}</span>
+          </span>
+        </div>
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">

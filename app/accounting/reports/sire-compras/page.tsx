@@ -63,16 +63,18 @@ export default function SirePurchasesPage() {
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // Load saved purchases without voucher on mount
+    // Cargar comprobantes de compra registrados localmente para cotejo/conciliación
     const fetchLocal = async () => {
       try {
         const data = await getPurchasesWithoutVoucher();
-        setLocalPurchases(data);
+        if (Array.isArray(data)) {
+          setLocalPurchases(data);
+        }
       } catch (e) {
-        console.error('Error loading local purchases', e);
+        console.warn("No se pudieron cargar compras locales para conciliación:", e);
       }
     };
-    fetchLocal();
+    void fetchLocal();
   }, []);
 
   const reconcile = () => {

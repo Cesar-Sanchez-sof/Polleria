@@ -390,7 +390,31 @@ export default function AssistantWidget() {
   );
 
   if (onLogin || !status?.enabled) return null;
-  const suggestions = model === "modelo-r" ? (status.suggestions ?? []) : [];
+  const isAccountingReport = Boolean(pathname?.startsWith("/accounting/reports/"));
+  const reportName = pathname?.includes("balance")
+    ? "el Balance General"
+    : pathname?.includes("income-statement")
+    ? "el Estado de Resultados"
+    : pathname?.includes("executive-summary")
+    ? "el Resumen Ejecutivo"
+    : pathname?.includes("cash-flow")
+    ? "el Flujo de Efectivo"
+    : pathname?.includes("trial-balance")
+    ? "el Balance de Comprobación"
+    : pathname?.includes("dashboard")
+    ? "el Dashboard Contable"
+    : "este reporte contable";
+
+  const suggestions =
+    model === "modelo-r"
+      ? (status.suggestions ?? [])
+      : isAccountingReport
+      ? [
+          `¿Qué interpretación y diagnóstico financiero puedes darme sobre ${reportName}?`,
+          `¿Cuáles son las principales alertas o variaciones en ${reportName}?`,
+          `¿Qué ratios o recomendaciones de liquidez y rentabilidad sugieres para ${reportName}?`,
+        ]
+      : [];
   // El dictado solo rellena la caja: el usuario revisa el texto y lo envía él mismo.
   const appendDictation = (text: string) => {
     setVoiceError(null);

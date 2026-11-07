@@ -20,6 +20,7 @@ import { DashboardCharts } from "./components/DashboardCharts";
 import { DashboardFilters } from "./components/DashboardFilters";
 import { FinancialHealthBanner } from "./components/FinancialHealthBanner";
 import { exportDashboardCsv } from "./components/dashboard-utils";
+import { ReportInterpreterButton } from "@/components/accounting/ReportInterpreterButton";
 import {
   getDashboard,
   formatCutOffDate,
@@ -165,6 +166,13 @@ export default function AccountingDashboardPage() {
         iconClassName="bg-slate-900 text-white dark:bg-primary dark:text-primary-foreground"
       >
         <div className="flex items-center gap-2">
+          <ReportInterpreterButton
+            reportType="dashboard"
+            reportTitle="Dashboard Contable"
+            periodOrCutOff={visibleLabel}
+            getData={() => payload}
+            disabled={loading || !payload}
+          />
           <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-muted-foreground shadow-2xs">
             <Coins className="h-3.5 w-3.5 text-primary" />
             <span>Moneda: PEN (Soles)</span>

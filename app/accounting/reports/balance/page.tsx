@@ -6,6 +6,7 @@ import { Scale } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { BalanceSheetFilters } from "./components/BalanceSheetFilters";
 import { BalanceSheetTable } from "./components/BalanceSheetTable";
+import { ReportInterpreterButton } from "@/components/accounting/ReportInterpreterButton";
 import {
   formatCutOffDate,
   getBalanceSheet,
@@ -73,10 +74,19 @@ export default function BalanceSheetPage() {
         icon={Scale}
         iconClassName="bg-slate-900 text-white"
       >
-        <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
-          Corte:{" "}
-          <span className="font-semibold text-slate-900">{formatCutOffDate(asOf)}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <ReportInterpreterButton
+            reportType="balance"
+            reportTitle="Balance General"
+            periodOrCutOff={formatCutOffDate(asOf)}
+            getData={() => statement}
+            disabled={loading || !statement}
+          />
+          <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
+            Corte:{" "}
+            <span className="font-semibold text-slate-900">{formatCutOffDate(asOf)}</span>
+          </span>
+        </div>
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
