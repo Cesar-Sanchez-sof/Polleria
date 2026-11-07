@@ -30,7 +30,7 @@ interface ReportInterpreterButtonProps {
   reportType: ReportInterpretationRequest["reportType"];
   reportTitle: string;
   periodOrCutOff?: string;
-  getData: () => Record<string, unknown> | unknown[] | null | undefined;
+  getData: () => unknown;
   disabled?: boolean;
   className?: string;
 }

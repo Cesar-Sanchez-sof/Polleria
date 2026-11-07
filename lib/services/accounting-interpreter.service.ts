@@ -7,7 +7,7 @@ export interface ReportInterpretationRequest {
   reportType: "balance" | "income-statement" | "executive-summary" | "cash-flow" | "trial-balance" | "dashboard" | "general";
   reportTitle: string;
   periodOrCutOff?: string;
-  data: Record<string, unknown> | unknown[];
+  data: unknown;
   userPrompt?: string;
 }
 
