@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { getPurchasesWithoutVoucher } from "@/lib/services/purchases-client.service";
 import {
   consultSirePurchases,
   type SireOutcome,
@@ -54,18 +55,57 @@ export default function SirePurchasesPage() {
   const [progress, setProgress] = useState<string | null>(null);
   const [pendingTicket, setPendingTicket] = useState<string | null>(null);
   const [result, setResult] = useState<Ready | null>(null);
+  const [localPurchases, setLocalPurchases] = useState<any[]>([]);
+  const [reconciliation, setReconciliation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("facturas-boletas");
   const [search, setSearch] = useState("");
   const controller = useRef<AbortController | null>(null);
 
-  useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    // Load saved purchases without voucher on mount
+    const fetchLocal = async () => {
+      try {
+        const data = await getPurchasesWithoutVoucher();
+        setLocalPurchases(data);
+      } catch (e) {
+        console.error('Error loading local purchases', e);
+      }
+    };
+    fetchLocal();
+  }, []);
+
+  const reconcile = () => {
+    if (!result) return;
+    // Simple reconciliation: match by supplierDocument and number/series
+    const sireMap = new Map<string, SirePurchaseDocument>();
+    result.documents.forEach((doc) => {
+      const key = `${doc.supplierDocument}-${doc.series}-${doc.number}`;
+      sireMap.set(key, doc);
+    });
+    const unmatchedLocal = localPurchases.filter((p) => {
+      const key = `${p.supplierDocument}-${p.series}-${p.number}`;
+      return !sireMap.has(key);
+    });
+    const unmatchedSire = result.documents.filter((doc) => {
+      const key = `${doc.supplierDocument}-${doc.series}-${doc.number}`;
+      return !localPurchases.some((p) => `${p.supplierDocument}-${p.series}-${p.number}` === key);
+    });
+    const summary = `Local sin coincidencia: ${unmatchedLocal.length}, SIRE sin coincidencia: ${unmatchedSire.length}`;
+    setReconciliation(summary);
+    toast.info(summary);
+  };
+
+  // Existing clearResult function updated above
+
 
   const years = useMemo(() => Array.from({ length: 6 }, (_, index) => now.getFullYear() - index), [now]);
   const clearResult = () => {
     setResult(null);
     setPendingTicket(null);
     setError(null);
+    // reset reconciliation when clearing
+    setReconciliation(null);
   };
 
   const consult = async (event: FormEvent) => {
@@ -190,7 +230,14 @@ export default function SirePurchasesPage() {
                 {pendingTicket ? "Continuar consulta" : "Consultar en SUNAT"}
               </Button>
               {progress && <span className="text-xs text-slate-500">{progress}</span>}
+              {result && (
+                <>
+                  <Button type="button" disabled={!result} onClick={reconcile}>Conciliar</Button>
+                  {reconciliation && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{reconciliation}</p>}
+                </>
+              )}
             </div>
+
           </form>
         </Card>
 
