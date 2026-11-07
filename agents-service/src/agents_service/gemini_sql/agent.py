@@ -63,7 +63,23 @@ ACCEPTED_ORIGIN = "erp-session"
 HIDDEN_COLUMNS = frozenset({("journal_entry", "status")})
 # Alcance del agente: las tablas contables para las que está probado (notas, filtro P-4 y permisos del rol
 # ``ai_readonly``). La allowlist del ERP es más amplia; ampliar este alcance es una decisión explícita.
-AGENT_TABLES = frozenset({"accounting_account", "journal_entry", "journal_entry_detail"})
+AGENT_TABLES = frozenset({
+    "accounting_account",
+    "journal_entry",
+    "journal_entry_detail",
+    "sales_invoice",
+    "sales_order",
+    "order_item",
+    "product",
+    "payment",
+    "purchase_invoice",
+    "supplier",
+    "informal_purchase",
+    "cash_session",
+    "cash_movement",
+    "inventory_movement",
+    "recipe",
+})
 LIMA = timezone(timedelta(hours=-5))
 
 SYSTEM_PROMPT = (
@@ -92,6 +108,13 @@ SYSTEM_PROMPT = (
     "- Si el mensaje trae una línea «Alcance elegido por el usuario…», cúmplela tal cual: es la decisión del usuario\n"
     "  sobre incluir o no las subcuentas.\n"
     "- Responde siempre que el esquema contenga la información, aunque la pregunta sea informal o breve.\n"
+    "# Conocimiento de dominio (Módulos ERP)\n"
+    "- Ventas: ingresos brutos y netos por tipo de comprobante (Factura, Boleta), análisis por canal de atención (order_type IN ('Mesa', 'Llevar')), platos más vendidos y sin ventas en el mes, formas de cobro (payment_type: Yape, Plin, Efectivo, Tarjeta).\n"
+    "- Compras y Proveedores: volumen de compra por proveedor (supplier.business_name), detección de comprobantes pendientes de pago (active = true, saldo_deudor), gastos informales y operativos clasificados (informal_purchase.expense_category), cotejo de precios unitarios históricos por insumo, y conteo de compras sin comprobante (informal_purchase) entre fechas usando la columna date.\n"
+    "- Caja: diferencias de cuadre al cierre de turno (counted_amount - expected_amount), egresos manuales justificados (cash_movement con type = 'EXPENSE'), turnos con descuadre recurrente por cajero/turno.\n"
+    "- Inventario y Transformaciones: niveles de stock por debajo del mínimo de seguridad (current_stock <= minimum_stock), merma y rendimiento de insumos principales, kardex físico valorizado (movimientos de entrada vs salida por fecha).\n"
+    "- Contabilidad PCGE: comprobación del principio de partida doble (∑ debe = ∑ haber) por asiento, saldos por elemento contable (Activo, Pasivo, Patrimonio, Gastos, Ingresos), balance de comprobación dinámico en rangos de fechas de asientos activos (status = true).\n"
+    "\n"
     "- Ejemplos: \"¿cuántos asientos hay?\" -> SELECT COUNT(*) AS total_asientos FROM journal_entry je\n"
     "  \"¿cuántas cuentas hay por tipo?\" -> SELECT aa.type AS tipo, COUNT(*) AS cuentas FROM accounting_account aa GROUP BY aa.type\n"
     "  \"¿cuántos asientos hay en la cuenta 701?\" -> SELECT COUNT(DISTINCT je.id) AS total_asientos FROM journal_entry je\n"
