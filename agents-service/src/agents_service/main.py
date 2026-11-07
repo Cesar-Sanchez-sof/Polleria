@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from agents_service.config.settings import ServiceConfigError, load_service_settings
-from agents_service.gemini_sql.config import GeminiSqlConfigError
+from agents_service.sql_agent.config import GeminiSqlConfigError
 
 # agents-service/.env (ignorado por Git): solo para desarrollo local; en Render se usan variables de entorno.
 DOTENV_PATH = Path(__file__).resolve().parents[2] / ".env"
@@ -35,7 +35,7 @@ def main() -> int:
 
     import uvicorn
 
-    from agents_service.gemini_sql.assembly import build_gemini_sql_agent, build_groq_sql_agent
+    from agents_service.agent_sql.assembly import build_gemini_sql_agent, build_groq_sql_agent
     from agents_service.http.app import create_app
 
     agent = build_gemini_sql_agent(settings.gemini) if settings.gemini is not None else None

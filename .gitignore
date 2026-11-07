@@ -72,3 +72,7 @@ playwright/.cache/
 
 #
 .venv/
+..venv/
+install/
+pip/
+psycopg2-binary/

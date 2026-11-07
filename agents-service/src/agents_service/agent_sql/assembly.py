@@ -8,9 +8,9 @@ from pathlib import Path
 import httpx
 
 from agents_service.execution.postgres_readonly import PostgresReadOnlyExecutor, psycopg_connection_factory
-from agents_service.gemini_sql.agent import ACCEPTED_ORIGIN, GeminiSqlAgent, SqlTextClient
-from agents_service.gemini_sql.client import GeminiHttpClient, GroqHttpClient
-from agents_service.gemini_sql.config import GeminiSqlSettings, GroqSqlSettings
+from agents_service.agent_sql.agent import ACCEPTED_ORIGIN, LocalSqlAgent, SqlTextClient
+from agents_service.sql_agent.client import GeminiHttpClient, GroqHttpClient
+from agents_service.sql_agent.config import GeminiSqlSettings, GroqSqlSettings
 from agents_service.sqlgen.modules import load_erp_modules
 from agents_service.validation.allowlist import load_allowlist
 from agents_service.validation.validator import SqlValidator
@@ -22,7 +22,7 @@ ERP_MODULES_FILE = "erp_modules_v1.json"  # módulos del ERP: permisos por usuar
 
 def _assemble(
     client: SqlTextClient, readonly_dsn: str, provider: str, root: Path, connection_factory: Callable[[], object] | None
-) -> GeminiSqlAgent:
+) -> LocalSqlAgent:
     allowlist = load_allowlist(root / "knowledge" / ALLOWLIST_FILE)
     validator = SqlValidator(allowlist)
     executor = PostgresReadOnlyExecutor(
@@ -31,7 +31,7 @@ def _assemble(
         accepted_origins=frozenset({ACCEPTED_ORIGIN}),
     )
     modules = load_erp_modules(root / "knowledge" / ERP_MODULES_FILE)
-    return GeminiSqlAgent(client, allowlist, validator, executor, provider=provider, modules=modules)
+    return LocalSqlAgent(client, allowlist, validator, executor, provider=provider, modules=modules)
 
 
 def build_gemini_sql_agent(
