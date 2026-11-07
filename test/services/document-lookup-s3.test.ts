@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { lookupIdentityDocument } from "../lib/services/document-lookup.service";
+import { lookupIdentityDocument } from "@/lib/services/document-lookup.service";
 import {
   buildVoucherS3Key,
   uploadVoucherToS3,
   uploadPaymentProofToS3,
   uploadVouchersBatch,
   getBucketName,
-} from "../lib/services/s3-storage.service";
+} from "@/lib/services/s3-storage.service";
 
 describe("Módulo de Consulta json.pe y Almacenamiento S3 - Pruebas Unitarias", () => {
   describe("1. Consulta de Documentos con json.pe", () => {

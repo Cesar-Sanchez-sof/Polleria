@@ -108,7 +108,7 @@ import {
   deleteDiningArea,
   DEFAULT_CONFIG,
   type DiningArea,
-} from "../lib/services/restaurant-config.service";
+} from "@/lib/services/restaurant-config.service";
 
 describe("Test Suite: Módulos de Configuración con Prisma (Salones, Datos Restaurante, Comprobantes e Impresión)", () => {
   beforeEach(() => {

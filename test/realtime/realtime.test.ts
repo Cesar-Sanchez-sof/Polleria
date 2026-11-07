@@ -4,8 +4,8 @@ import {
   broadcastRealtimeEvent,
   subscribeToRealtimeEvents,
   RealtimeEvent,
-} from "../lib/realtime/event-emitter";
-import { GET as realtimeGET, POST as realtimePOST } from "../app/api/realtime/route";
+} from "@/lib/realtime/event-emitter";
+import { GET as realtimeGET, POST as realtimePOST } from "@/app/api/realtime/route";
 import { NextRequest } from "next/server";
 
 describe("Módulo Realtime (WebSockets / SSE) - Pruebas Unitarias", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { toPeruDateOnly } from "../lib/services/accounting-posting.service";
-import { formatDateTimePeru, formatTimePeru } from "../lib/services/journal-entries.service";
+import { toPeruDateOnly } from "@/lib/services/accounting-posting.service";
+import { formatDateTimePeru, formatTimePeru } from "@/lib/services/journal-entries.service";
 
 describe("Verificación de Fechas de Cobro y Asientos Contables (Huso Horario Perú America/Lima)", () => {
   it("debe calcular la fecha exacta de Perú para ventas en horario de tarde/noche (ej: 21:00 Perú)", () => {

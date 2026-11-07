@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy } from "../proxy";
-import { hasRolePermission } from "../lib/auth/guard";
-import { SESSION_COOKIE, signSession } from "../lib/auth/session";
+import { proxy } from "@/proxy";
+import { hasRolePermission } from "@/lib/auth/guard";
+import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
 
 describe("Seguridad ISO/IEC 27001:2022 - Control de Acceso y Perímetro (A.5.15, A.8.3, A.8.20)", () => {
   beforeEach(() => {

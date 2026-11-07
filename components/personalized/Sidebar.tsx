@@ -166,7 +166,12 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: SidebarProps = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { can, canAny } = usePermissions();
+  const { can, canAny, loading } = usePermissions();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [internalOpen, setInternalOpen] = useState(false);
   const [user, setUser] = useState<{ username: string; role: string } | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -395,7 +400,7 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
           <ThemeToggle />
 
           {/* Autoservicio: todo usuario con sesión ve su horario, marca asistencia y pide vacaciones. */}
-          {user && (
+          {mounted && user && (
             <Link
               href="/hr/me"
               target="_top"
@@ -409,7 +414,15 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
 
           {/* Navigation */}
           <nav className="flex flex-col gap-1 px-space-xs">
-            {NAV_SECTIONS.map((section) => {
+            {!mounted || loading ? (
+              <div className="flex flex-col gap-1.5 px-space-xs py-1" aria-hidden="true">
+                <div className="h-8 rounded-lg bg-surface-container-high/40 animate-pulse" />
+                <div className="h-8 rounded-lg bg-surface-container-high/40 animate-pulse" />
+                <div className="h-8 rounded-lg bg-surface-container-high/40 animate-pulse" />
+                <div className="h-8 rounded-lg bg-surface-container-high/40 animate-pulse" />
+              </div>
+            ) : (
+              NAV_SECTIONS.map((section) => {
               if (section.permissions && !canAny(SECTIONS[section.permissions])) return null;
               const Icon = section.icon;
               const open = isSectionOpen(section.key);
@@ -496,7 +509,8 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
                   )}
                 </div>
               );
-            })}
+            })
+          )}
           </nav>
         </div>
 
