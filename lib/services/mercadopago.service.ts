@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { getRestaurantGlobalConfig } from "@/lib/services/restaurant-config.service";
+import { ValidationError, NotFoundError } from "@/lib/http/route-handler";
 import { prisma } from "@/lib/prisma";
 import { postSaleJournalEntries } from "@/lib/services/accounting-posting.service";
 import { uploadVoucherToS3 } from "@/lib/services/s3-storage.service";
@@ -873,5 +875,242 @@ export async function processMercadoPagoPaymentApproval(
       totalAmount: roundedTotal,
     },
     message: `Pago de Mercado Pago aprobado. Pedido ${order.code} cerrado y mesa liberada con éxito.`,
+  };
+}
+
+
+/**
+ * Genera la preferencia oficial de Checkout Pro / QR para una orden activa.
+ */
+export async function createOrderPreference(
+  orderId: number,
+  payerEmail?: string
+): Promise<{
+  success: boolean;
+  orderId: number;
+  orderCode: string;
+  total: number;
+  preferenceId: string;
+  initPoint: string;
+  sandboxInitPoint: string;
+}> {
+  if (!orderId || Number.isNaN(orderId)) {
+    throw new ValidationError("Debe proporcionar un ID de pedido válido.");
+  }
+
+  const order = await prisma.salesOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { include: { product: true } },
+    },
+  });
+
+  if (!order) {
+    throw new NotFoundError(`Pedido ${orderId} no encontrado.`);
+  }
+
+  if (order.status === "Closed") {
+    throw new ValidationError("El pedido ya fue pagado y cerrado anteriormente.");
+  }
+
+  const total = order.items.reduce((acc, it) => acc + Number(it.subtotal), 0);
+  const roundedTotal = Math.round(total * 100) / 100;
+
+  const items = order.items.map((it) => ({
+    title: it.product.name,
+    quantity: it.quantity,
+    unitPrice: Number(it.unitPrice),
+  }));
+
+  const result = await createMercadoPagoPreference({
+    orderId: order.id,
+    kitchenOrderCode: order.code,
+    amount: roundedTotal,
+    items,
+    payerEmail,
+  });
+
+  return {
+    success: true,
+    orderId: order.id,
+    orderCode: order.code,
+    total: roundedTotal,
+    ...result,
+  };
+}
+
+/**
+ * Consulta y sincroniza el estado de cobro de un pedido en Mercado Pago.
+ */
+export async function syncOrderPaymentStatus(
+  orderId: number,
+  options?: { paymentId?: string | null; simulate?: boolean }
+): Promise<any> {
+  if (!orderId || Number.isNaN(orderId)) {
+    throw new ValidationError("Debe ingresar un orderId válido.");
+  }
+
+  const order = await prisma.salesOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      tables: { include: { table: true } },
+      items: true,
+    },
+  });
+
+  if (!order) {
+    throw new NotFoundError(`Pedido ${orderId} no encontrado.`);
+  }
+
+  if (order.status === "Closed") {
+    const invoice = await prisma.salesInvoice.findFirst({
+      where: { orderId: order.id },
+      orderBy: { id: "desc" },
+    });
+
+    return {
+      success: true,
+      orderId: order.id,
+      status: "approved",
+      alreadyProcessed: true,
+      invoice: invoice
+        ? {
+            id: invoice.id,
+            voucherType: invoice.voucherType,
+            series: invoice.series,
+            number: invoice.number,
+            fullCode: `${invoice.series}-${String(invoice.number).padStart(6, "0")}`,
+            totalAmount: Number(invoice.totalAmount),
+          }
+        : null,
+      message: "El pedido ya se encuentra cobrado y cerrado.",
+    };
+  }
+
+  if (options?.simulate) {
+    const simPaymentId = `MP-SIM-${Date.now()}`;
+    const approval = await processMercadoPagoPaymentApproval(simPaymentId, order.id, {
+      paymentMethodName: "Mercado Pago (Simulado)",
+      voucherType: "Boleta",
+    });
+
+    return {
+      simulated: true,
+      status: "approved",
+      ...approval,
+      orderId: order.id,
+      success: approval.success,
+    };
+  }
+
+  let paymentRecord: any = null;
+  if (options?.paymentId) {
+    paymentRecord = await getMercadoPagoPayment(options.paymentId);
+  } else {
+    const payments = await searchMercadoPagoPaymentsByOrder(order.id);
+    paymentRecord = payments.find(
+      (p: any) => p.status === "approved" || p.status_detail === "simulated_without_token"
+    ) || payments[0] || null;
+  }
+
+  if (!paymentRecord) {
+    return {
+      success: true,
+      orderId: order.id,
+      status: "pending",
+      message: "Aún no se registra ningún pago en Mercado Pago para esta comanda.",
+    };
+  }
+
+  if (paymentRecord.status === "approved" || paymentRecord.status_detail === "simulated_without_token") {
+    const approval = await processMercadoPagoPaymentApproval(
+      paymentRecord.id || `MP-${Date.now()}`,
+      order.id,
+      {
+        paymentMethodName: "Mercado Pago",
+        voucherType: "Boleta",
+      }
+    );
+
+    return {
+      success: approval.success,
+      orderId: order.id,
+      status: "approved",
+      paymentId: paymentRecord.id,
+      invoice: approval.invoice,
+      message: approval.message,
+    };
+  }
+
+  return {
+    success: true,
+    orderId: order.id,
+    status: paymentRecord.status || "pending",
+    statusDetail: paymentRecord.status_detail,
+    message: `El pago se encuentra en estado: ${paymentRecord.status}.`,
+  };
+}
+
+/**
+ * Genera el cobro dinámico con código QR de Yape integrado a Mercado Pago.
+ */
+export async function createOrderYapePayment(
+  orderId: number,
+  options?: {
+    payerEmail?: string;
+    otp?: string;
+    customerPhone?: string;
+    phone?: string;
+  }
+): Promise<any> {
+  if (!orderId || Number.isNaN(orderId)) {
+    throw new ValidationError("Debe proporcionar un ID de pedido válido.");
+  }
+
+  const order = await prisma.salesOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { include: { product: true } },
+    },
+  });
+
+  if (!order) {
+    throw new NotFoundError(`Pedido ${orderId} no encontrado.`);
+  }
+
+  if (order.status === "Closed") {
+    throw new ValidationError("El pedido ya fue pagado y cerrado anteriormente.");
+  }
+
+  const total = order.items.reduce((acc, it) => acc + Number(it.subtotal), 0);
+  const roundedTotal = Math.round(total * 100) / 100;
+
+  const globalConfig = await getRestaurantGlobalConfig();
+  const phone =
+    globalConfig.restaurant.yapePhone || globalConfig.restaurant.phone || "987654321";
+  const merchantName =
+    globalConfig.restaurant.yapeName ||
+    globalConfig.restaurant.commercialName ||
+    globalConfig.restaurant.name ||
+    "POLLERIA REST";
+
+  const result = await createMercadoPagoYapePayment({
+    orderId: order.id,
+    kitchenOrderCode: order.code,
+    amount: roundedTotal,
+    payerEmail: options?.payerEmail,
+    phone,
+    merchantName,
+    city: globalConfig.restaurant.city || "Lima",
+    otp: options?.otp,
+    customerPhone: options?.customerPhone || options?.phone,
+  });
+
+  return {
+    success: true,
+    orderId: order.id,
+    orderCode: order.code,
+    total: roundedTotal,
+    ...result,
   };
 }
