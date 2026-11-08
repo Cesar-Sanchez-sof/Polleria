@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   postPurchaseJournalEntries,
   postPurchasePaymentJournalEntry,
-} from "@/lib/services/accounting-posting.service";
+} from "@/lib/services/accounting/accounting-posting.service";
 import { requirePermission } from "@/lib/auth/permissions";
 import { auditPurchase, plain } from "./purchase-audit";
 

@@ -3,7 +3,7 @@ import { createApiHandler } from "@/lib/http/route-handler";
 import {
   closeCashSession,
   type CloseCashSessionInput,
-} from "@/lib/services/cash-sessions.service";
+} from "@/lib/services/sales/cash-sessions.service";
 
 export const dynamic = "force-dynamic";
 

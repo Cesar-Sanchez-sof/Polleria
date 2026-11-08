@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, DomainError } from "@/lib/http/route-handler";
-import { getDailyBookEntriesDomain } from "@/lib/services/accounting-ledgers.service";
+import { getDailyBookEntriesDomain } from "@/lib/services/accounting/accounting-ledgers.service";
 
 export const dynamic = "force-dynamic";
 

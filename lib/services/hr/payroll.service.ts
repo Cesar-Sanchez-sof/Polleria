@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import {
   BOOK_PAYROLL,
@@ -9,7 +9,7 @@ import {
   postJournalEntryLines,
   voidJournalEntries,
   type JournalLineInput,
-} from "@/lib/services/accounting-posting.service";
+} from "@/lib/services/accounting/accounting-posting.service";
 import { fullName, money, text, todayLimaIso } from "./common";
 import { CONTRACT_TYPE_LABEL, installmentAmount, type ContractTypeCode } from "./labor-rules";
 import { calculatePayroll, contractDaysInMonth, type PayrollResult } from "./payroll-rules";

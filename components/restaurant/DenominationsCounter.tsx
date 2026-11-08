@@ -7,7 +7,7 @@ import { Banknote, Coins } from "lucide-react";
 import {
   type CashDenominations,
   calculateDenominationsTotal,
-} from "@/lib/services/cash-register.service";
+} from "@/lib/services/sales/cash-register.service";
 
 interface DenominationsCounterProps {
   value: CashDenominations;

@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
-import { postSalaryAdvanceJournalEntry } from "@/lib/services/accounting-posting.service";
+import { postSalaryAdvanceJournalEntry } from "@/lib/services/accounting/accounting-posting.service";
 import { contractCovering, dateOrNull, enumValue, fullName, isoDate, money, text, todayLimaIso } from "./common";
 import {
   ADVANCE_STATUS_LABEL,

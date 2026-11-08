@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/document-lookup/route";
-import * as docLookupService from "@/lib/services/document-lookup.service";
+import * as docLookupService from "@/lib/services/integrations/document-lookup.service";
 
 describe("Document Lookup API Handler (app/api/document-lookup)", () => {
   beforeEach(() => {

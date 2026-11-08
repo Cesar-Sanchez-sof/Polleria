@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { requireServerSession } from "@/lib/auth/guard";
-import { getBranding } from "@/lib/services/branding.service";
+import { getBranding } from "@/lib/services/settings/branding.service";
 import type { UpdateEntry } from "@/lib/branding/defaults";
 import { ArrowRight, Flame, Megaphone } from "lucide-react";
 

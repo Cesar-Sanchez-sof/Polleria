@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import type {
   ReportInterpretationRequest,
   ReportInterpretationResult,
-} from "@/lib/services/accounting-interpreter.service";
+} from "@/lib/services/accounting/accounting-interpreter.service";
 
 interface ReportInterpreterButtonProps {
   reportType: ReportInterpretationRequest["reportType"];

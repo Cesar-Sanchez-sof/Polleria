@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { getRestaurantInfo } from "@/lib/services/restaurant-config.service";
-import { getVoucherPresignedUrl } from "@/lib/services/s3-storage.service";
+import { getRestaurantInfo } from "@/lib/services/settings/restaurant-config.service";
+import { getVoucherPresignedUrl } from "@/lib/services/integrations/s3-storage.service";
 import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";

@@ -8,7 +8,7 @@ import {
   formatYear,
   type ExecutiveSummary,
   type ExecutiveMetric,
-} from "@/lib/services/executive-summary.service";
+} from "@/lib/services/accounting/executive-summary.service";
 import { cn } from "@/lib/utils";
 
 interface Props {

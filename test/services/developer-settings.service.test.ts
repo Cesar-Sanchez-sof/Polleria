@@ -10,7 +10,7 @@ const m = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: { developerSetting: { findMany: m.findMany, findUnique: m.findUnique, upsert: m.upsert } },
 }));
-vi.mock("@/lib/services/audit.service", () => ({ logAudit: m.logAudit }));
+vi.mock("@/lib/services/security/audit.service", () => ({ logAudit: m.logAudit }));
 
 import { ALL_FLAGS_OFF, DEVELOPER_SETTING_KEYS, DEVELOPER_SETTINGS, isDeveloperSettingKey } from "@/lib/developer-settings/catalog";
 import {
@@ -19,7 +19,7 @@ import {
   getDeveloperFlags,
   listDeveloperSettings,
   setDeveloperSetting,
-} from "@/lib/services/developer-settings.service";
+} from "@/lib/services/settings/developer-settings.service";
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -19,7 +19,7 @@ import {
   type BrandingContent,
   type UpdateEntry,
 } from "@/lib/branding/defaults";
-import type { BrandingDto } from "@/lib/services/branding.service";
+import type { BrandingDto } from "@/lib/services/settings/branding.service";
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback);
 

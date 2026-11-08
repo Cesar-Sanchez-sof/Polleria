@@ -105,7 +105,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/services/s3-storage.service", () => ({
+vi.mock("@/lib/services/integrations/s3-storage.service", () => ({
   uploadYapeQrToS3: s3Mock.uploadYapeQrToS3,
   getS3Config: vi.fn(() => ({ endpoint: "https://s3.neon.tech", bucket: "comprobantes" })),
 }));
@@ -115,9 +115,9 @@ import {
   updateRestaurantInfo,
   migrateRestaurantConfigFromJson,
   getRestaurantGlobalConfig,
-} from "@/lib/services/restaurant-config.service";
+} from "@/lib/services/settings/restaurant-config.service";
 import { GET as getRestaurantRoute, PUT as putRestaurantRoute } from "@/app/api/settings/restaurant/route";
-import { loadPleSnapshot } from "@/lib/services/ple.service";
+import { loadPleSnapshot } from "@/lib/services/accounting/ple.service";
 import { generatePleBook } from "@/lib/ple/generate";
 
 function makeJsonRequest(url: string, method: string, body?: any): NextRequest {

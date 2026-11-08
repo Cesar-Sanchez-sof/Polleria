@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, DomainError } from "@/lib/http/route-handler";
-import { getJournalAccountsDomain } from "@/lib/services/journal-entries-domain.service";
+import { getJournalAccountsDomain } from "@/lib/services/accounting/journal-entries-domain.service";
 
 export const dynamic = "force-dynamic";
 

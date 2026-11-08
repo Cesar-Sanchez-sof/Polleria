@@ -8,12 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
-import { getPurchasesWithoutVoucher } from "@/lib/services/purchases-client.service";
+import { getPurchasesWithoutVoucher } from "@/lib/services/integrations/purchases-client.service";
 import {
   consultSirePurchases,
   type SireOutcome,
   type SirePurchaseDocument,
-} from "@/lib/services/sire-purchases-client.service";
+} from "@/lib/services/integrations/sire-purchases-client.service";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

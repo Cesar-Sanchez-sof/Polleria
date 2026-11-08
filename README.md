@@ -160,7 +160,15 @@ Polleria/
 │   ├── auth/                   # Sesión, permisos y RBAC
 │   ├── http/                   # createApiHandler y definición de errores de dominio
 │   ├── prisma/                 # Instancia global de Prisma Client (Singleton)
-│   ├── services/               # SERVICIOS DE DOMINIO (Orders, Sales, CashSessions, Products, etc.)
+│   ├── services/               # SERVICIOS DE DOMINIO POR CONTEXTO DEL NEGOCIO (DDD)
+│   │   ├── accounting/         # Contabilidad, Libros, Balances, Asientos y PLE
+│   │   ├── sales/              # Ventas, Pedidos, Comandas, Pagos, Caja y Mesas
+│   │   ├── inventory/          # Productos, Recetas, Stock y Kardex
+│   │   ├── purchases/          # Compras, Proveedores, Comprobantes e Insumos
+│   │   ├── security/           # Autenticación, Auditoría, Roles y Usuarios
+│   │   ├── hr/                 # RRHH, Empleados, Asistencia, Planilla y Contratos
+│   │   ├── settings/           # Configuración del Negocio, Branding y Dashboards
+│   │   └── integrations/       # Mercado Pago, AWS S3, Document Lookup SUNAT
 │   ├── sunat/                  # Generación y firma de XML UBL 2.1 y clientes SOAP
 │   └── utils/                  # Cálculos de IGV, redondeo, formateadores
 ├── prisma/                     # Esquema de base de datos y migraciones

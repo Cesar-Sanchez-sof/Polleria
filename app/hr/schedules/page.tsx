@@ -17,7 +17,7 @@ import { AssignEmployeesDialog, DeleteScheduleDialog, ScheduleDetailDialog, Sche
 import { WeekGrid } from "./WeekGrid";
 import { TemplatesDialog } from "./TemplatesDialog";
 import { api } from "../_lib/hr-client";
-import type { GenerateWeekResult } from "@/lib/services/schedules.service";
+import type { GenerateWeekResult } from "@/lib/services/hr/schedules.service";
 
 type View = "week" | "list";
 

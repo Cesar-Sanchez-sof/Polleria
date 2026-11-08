@@ -5,7 +5,7 @@ import {
   setProductActiveService,
   deleteProductService,
   type UpdateProductInput,
-} from "@/lib/services/products.service";
+} from "@/lib/services/inventory/products.service";
 
 export const dynamic = "force-dynamic";
 

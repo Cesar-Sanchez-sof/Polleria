@@ -3,9 +3,9 @@ import {
   loginWithCredentials,
   logoutUser,
   getCurrentUserProfile,
-} from "@/lib/services/auth.service";
-import * as usersService from "@/lib/services/users.service";
-import * as auditService from "@/lib/services/audit.service";
+} from "@/lib/services/security/auth.service";
+import * as usersService from "@/lib/services/security/users.service";
+import * as auditService from "@/lib/services/security/audit.service";
 import * as permissionsModule from "@/lib/auth/permissions";
 import { ValidationError, UnauthorizedError } from "@/lib/http/route-handler";
 

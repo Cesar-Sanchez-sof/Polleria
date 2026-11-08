@@ -27,7 +27,7 @@ import {
   formatPen,
   formatCutOffDate,
   type CashFlowStatementResult,
-} from "@/lib/services/cash-flow-statement.service";
+} from "@/lib/services/accounting/cash-flow-statement.service";
 
 function todayIso(): string {
   const now = new Date();

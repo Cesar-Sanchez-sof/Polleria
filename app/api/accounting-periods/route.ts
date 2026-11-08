@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/http/route-handler";
-import { requestIp } from "@/lib/services/audit.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 import { PeriodClosingError } from "@/lib/accounting/closing";
 import {
   listAccountingPeriodsService,
   createAccountingPeriodService,
   patchAccountingPeriodService,
-} from "@/lib/services/accounting-periods.service";
+} from "@/lib/services/accounting/accounting-periods.service";
 
 export const dynamic = "force-dynamic";
 

@@ -29,7 +29,7 @@ import {
   type JournalEntrySummary,
   type AccountingAccount,
   type JournalBookOption,
-} from "@/lib/services/journal-entries.service";
+} from "@/lib/services/accounting/journal-entries.service";
 
 const DEFAULT_BOOK = "Operaciones varias";
 const INITIAL_LINE_COUNT = 2;

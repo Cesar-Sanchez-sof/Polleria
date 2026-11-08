@@ -29,7 +29,7 @@ import {
   totalsByProduct,
   adjustProductStockService,
   InsufficientStockError,
-} from "@/lib/services/inventory.service";
+} from "@/lib/services/inventory/inventory.service";
 import { ValidationError, NotFoundError } from "@/lib/http/errors";
 
 describe("Inventory Service (lib/services/inventory.service)", () => {

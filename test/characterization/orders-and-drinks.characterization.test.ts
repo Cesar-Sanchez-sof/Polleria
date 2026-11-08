@@ -54,7 +54,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/services/product-stock.service", () => ({
+vi.mock("@/lib/services/inventory/product-stock.service", () => ({
   deductProductStock: m.deductProductStock,
   restoreProductStock: m.restoreProductStock,
   InsufficientStockError: class InsufficientStockError extends Error {},

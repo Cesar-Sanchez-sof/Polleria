@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -66,5 +66,35 @@ describe("Arquitectura por Dominio - Cierre y Reforzamiento (6/6)", () => {
       violations,
       `Se encontraron archivos en app/ que importan @/lib/prisma: ${violations.join(", ")}`
     ).toEqual([]);
+  });
+
+  it("Organización modular de lib/services: debe estructurarse en subdirectorios temáticos por dominio (DDD)", () => {
+    const REQUIRED_DOMAINS = [
+      "accounting",
+      "sales",
+      "inventory",
+      "purchases",
+      "security",
+      "hr",
+      "settings",
+      "integrations",
+    ];
+
+    const servicesDir = join(ROOT, "lib", "services");
+    expect(existsSync(servicesDir)).toBe(true);
+
+    for (const domain of REQUIRED_DOMAINS) {
+      const domainPath = join(servicesDir, domain);
+      expect(
+        existsSync(domainPath),
+        `El subdirectorio de dominio '${domain}' debe existir en lib/services/`
+      ).toBe(true);
+
+      const files = readdirSync(domainPath);
+      expect(
+        files.length,
+        `El subdirectorio '${domain}' debe contener servicios de negocio`
+      ).toBeGreaterThan(0);
+    }
   });
 });

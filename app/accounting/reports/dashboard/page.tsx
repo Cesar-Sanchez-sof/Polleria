@@ -25,7 +25,7 @@ import {
   getDashboard,
   formatCutOffDate,
   type DashboardPayload,
-} from "@/lib/services/dashboard.service";
+} from "@/lib/services/settings/dashboard.service";
 import { formatDateToIso } from "@/lib/dates";
 import { formatRangeLabel, resolveDefaultRange } from "@/lib/accounting/dashboard";
 

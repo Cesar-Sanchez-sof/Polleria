@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { listActivePaymentMethods } from "@/lib/services/payment-methods.service";
+import { listActivePaymentMethods } from "@/lib/services/sales/payment-methods.service";
 
 const m = vi.hoisted(() => ({
   paymentTypeFindMany: vi.fn(),

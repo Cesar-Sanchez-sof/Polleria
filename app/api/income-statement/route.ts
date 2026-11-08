@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import {
   ErrorIncomeStatement,
   getIncomeStatement,
-} from "@/lib/services/income-statement.service";
+} from "@/lib/services/accounting/income-statement.service";
 import { authorize } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";

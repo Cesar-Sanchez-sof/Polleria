@@ -4,7 +4,7 @@ import { FunnelX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Typeahead } from "@/components/shared/Typeahead";
-import type { AccountingAccount } from "@/lib/services/general-ledger.service";
+import type { AccountingAccount } from "@/lib/services/accounting/general-ledger.service";
 
 interface Props {
   accounts: AccountingAccount[];

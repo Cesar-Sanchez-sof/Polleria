@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import type { DeveloperSettingDto } from "@/lib/services/developer-settings.service";
+import type { DeveloperSettingDto } from "@/lib/services/settings/developer-settings.service";
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback);
 

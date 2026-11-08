@@ -4,7 +4,7 @@ import {
   saveDiningArea,
   deleteDiningArea,
   type DiningArea,
-} from "@/lib/services/restaurant-config.service";
+} from "@/lib/services/settings/restaurant-config.service";
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 
 export const dynamic = "force-dynamic";

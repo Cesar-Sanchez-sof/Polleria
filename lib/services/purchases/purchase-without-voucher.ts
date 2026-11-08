@@ -12,7 +12,7 @@ import { auditPurchase, plain, sessionEmployeeId } from "./purchase-audit";
 import {
   postInformalPurchaseJournalEntry,
   annulInformalPurchaseJournalEntry,
-} from "@/lib/services/accounting-posting.service";
+} from "@/lib/services/accounting/accounting-posting.service";
 
 export interface PurchaseWithoutVoucherInput {
   purchaseType?: InformalPurchaseType | "InventoryItem" | "OperatingExpense";

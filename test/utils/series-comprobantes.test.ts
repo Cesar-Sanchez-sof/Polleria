@@ -171,11 +171,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/services/accounting-posting.service", () => ({
+vi.mock("@/lib/services/accounting/accounting-posting.service", () => ({
   postSaleJournalEntries: vi.fn(async () => [101, 102]),
 }));
 
-vi.mock("@/lib/services/s3-storage.service", () => ({
+vi.mock("@/lib/services/integrations/s3-storage.service", () => ({
   uploadVoucherToS3: vi.fn(async () => ({ publicUrl: "/storage/voucher.pdf" })),
   uploadPaymentProofToS3: vi.fn(async () => ({ publicUrl: "/storage/yape.jpg" })),
   buildVoucherS3Key: vi.fn(() => "boletas/2026/10/27/voucher.pdf"),

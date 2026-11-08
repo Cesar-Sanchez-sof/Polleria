@@ -68,11 +68,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/services/accounting-posting.service", () => ({
+vi.mock("@/lib/services/accounting/accounting-posting.service", () => ({
   postSaleJournalEntries: m.postSaleJournalEntries,
 }));
 
-vi.mock("@/lib/services/s3-storage.service", () => ({
+vi.mock("@/lib/services/integrations/s3-storage.service", () => ({
   uploadVoucherToS3: vi.fn().mockResolvedValue("https://s3.amazonaws.com/voucher.pdf"),
   uploadPaymentProofToS3: vi.fn().mockResolvedValue(null),
   buildVoucherS3Key: vi.fn().mockReturnValue("2026/11/B001-000001.pdf"),
@@ -89,12 +89,12 @@ vi.mock("@/lib/realtime/event-emitter", () => ({
   },
 }));
 
-vi.mock("@/lib/services/restaurant-config.service", () => ({
+vi.mock("@/lib/services/settings/restaurant-config.service", () => ({
   getPrinterConfig: m.getPrinterConfig,
 }));
 
-vi.mock("@/lib/services/mercadopago.service", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/services/mercadopago.service")>();
+vi.mock("@/lib/services/integrations/mercadopago.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/integrations/mercadopago.service")>();
   return {
     ...actual,
     getMercadoPagoPayment: m.getMercadoPagoPayment,

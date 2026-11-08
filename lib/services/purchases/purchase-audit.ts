@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import type { AuditAction } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/auth/session";
-import { logAudit } from "@/lib/services/audit.service";
+import { logAudit } from "@/lib/services/security/audit.service";
 
 /**
  * Auditoría de las operaciones de compras (server actions): quién hizo qué, cuándo, desde

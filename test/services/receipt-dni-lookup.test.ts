@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
-import { lookupIdentityDocument } from "@/lib/services/document-lookup.service";
+import { lookupIdentityDocument } from "@/lib/services/integrations/document-lookup.service";
 
 describe("Módulo de Boleta con DNI, Consulta RENIEC y Fallback a Clientes Varios", () => {
   describe("1. Reglas de Validación de Documento de Cliente", () => {

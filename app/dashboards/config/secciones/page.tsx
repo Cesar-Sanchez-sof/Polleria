@@ -1,5 +1,5 @@
 import React from "react";
-import { getSections } from "@/lib/services/dashboard.service";
+import { getSections } from "@/lib/services/settings/dashboard.service";
 import { SectionsTable } from "@/components/dashboards/config/SectionsTable";
 import { ConfigNavHeader } from "@/components/dashboards/config/ConfigNavHeader";
 

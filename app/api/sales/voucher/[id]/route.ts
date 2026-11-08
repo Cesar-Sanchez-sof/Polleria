@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/http/route-handler";
-import { getVoucherDetailsById } from "@/lib/services/sales.service";
+import { getVoucherDetailsById } from "@/lib/services/sales/sales.service";
 
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@ import {
   getMercadoPagoPayment,
   verifyMercadoPagoWebhookSignature,
   processMercadoPagoPaymentApproval,
-} from "@/lib/services/mercadopago.service";
+} from "@/lib/services/integrations/mercadopago.service";
 
 export const dynamic = "force-dynamic";
 

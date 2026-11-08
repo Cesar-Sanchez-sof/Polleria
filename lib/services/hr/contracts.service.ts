@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import {
   contractCovering,
@@ -37,7 +37,7 @@ import {
   type TemplateTimes,
 } from "./labor-rules";
 import { templateMap } from "./shift-templates.service";
-import { scheduleEmployeeAhead } from "@/lib/services/schedules.service";
+import { scheduleEmployeeAhead } from "@/lib/services/hr/schedules.service";
 
 const CONTRACT_TYPES = Object.keys(CONTRACT_TYPE_LABEL) as ContractTypeCode[];
 const LABOR_REGIMES = Object.keys(LABOR_REGIME_LABEL) as LaborRegimeCode[];

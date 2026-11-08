@@ -18,7 +18,7 @@ import {
   type CreateDashboardData,
   type UpdateDashboardData,
   type DashboardWidgetInput,
-} from "@/lib/services/dashboard.service";
+} from "@/lib/services/settings/dashboard.service";
 
 // ============================================================================
 // Server Actions para Secciones

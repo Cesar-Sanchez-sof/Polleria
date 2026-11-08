@@ -71,6 +71,19 @@ Este repositorio implementa una **Arquitectura por Dominio en 3 Capas Unidirecci
 - Ninguna prueba debe ubicarse dentro de `app/` ni `lib/`.
 - Ante refactorizaciones de handlers existentes, primero deben crearse pruebas de caracterización para congelar los contratos de API y asegurar cero regresiones.
 
+
+
+### Regla 6: Organización Modular de Servicios por Dominio (DDD)
+- Los servicios de negocio en lib/services/ deben ubicarse organizados estrictamente en sus subcarpetas temáticas por contexto acotado (Bounded Context):
+  - lib/services/accounting/: Contabilidad, balances, libros contables, asientos y PLE.
+  - lib/services/sales/: Ventas, pedidos, sesiones de caja, arqueos, mesas y clientes.
+  - lib/services/inventory/: Productos, recetas, stock e inventario.
+  - lib/services/purchases/: Compras, órdenes de compra y proveedores.
+  - lib/services/security/: Autenticación, sesiones, auditoría, usuarios y roles.
+  - lib/services/hr/: Recursos humanos, empleados, turnos, asistencia y planilla.
+  - lib/services/settings/: Configuración del restaurante, branding y tableros.
+  - lib/services/integrations/: Mercado Pago, AWS S3 y validaciones externas.
+
 ---
 
 ## 2. Plantilla de Referencia para Nuevos Endpoints

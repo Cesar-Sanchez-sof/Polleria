@@ -4,7 +4,7 @@ import {
   registerSale,
   listSalesVouchers,
   type RegisterSaleInput,
-} from "@/lib/services/sales.service";
+} from "@/lib/services/sales/sales.service";
 
 export const dynamic = "force-dynamic";
 

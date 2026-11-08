@@ -5,7 +5,7 @@ import {
   formatCutOffDate,
   formatPen,
   type BalanceSheetStatement,
-} from "@/lib/services/balance-sheet.service";
+} from "@/lib/services/accounting/balance-sheet.service";
 import { cn } from "@/lib/utils";
 
 interface Props {

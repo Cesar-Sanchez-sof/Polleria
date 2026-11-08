@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { deleteSchedule, getSchedule, updateSchedule, type ScheduleData } from "@/lib/services/schedules.service";
+import { logAudit, requestIp } from "@/lib/services/security/audit.service";
+import { deleteSchedule, getSchedule, updateSchedule, type ScheduleData } from "@/lib/services/hr/schedules.service";
 
 export const dynamic = "force-dynamic";
 

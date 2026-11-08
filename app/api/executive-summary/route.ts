@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, DomainError } from "@/lib/http/route-handler";
-import { generateExecutiveSummaryReport } from "@/lib/services/accounting-reports.service";
+import { generateExecutiveSummaryReport } from "@/lib/services/accounting/accounting-reports.service";
 
 export const dynamic = "force-dynamic";
 

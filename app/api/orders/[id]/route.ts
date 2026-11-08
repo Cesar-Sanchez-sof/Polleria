@@ -5,7 +5,7 @@ import {
   updateOrder,
   cancelOrder,
   type UpdateOrderInput,
-} from "@/lib/services/orders.service";
+} from "@/lib/services/sales/orders.service";
 
 export const dynamic = "force-dynamic";
 

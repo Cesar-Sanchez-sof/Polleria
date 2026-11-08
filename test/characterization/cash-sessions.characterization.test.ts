@@ -49,7 +49,7 @@ vi.mock("@/lib/auth/current-session", () => ({
   currentSession: m.currentSession,
 }));
 
-vi.mock("@/lib/services/accounting-posting.service", () => ({
+vi.mock("@/lib/services/accounting/accounting-posting.service", () => ({
   postCashSessionOpeningJournalEntry: m.postCashSessionOpeningJournalEntry,
   postCashMovementExpenseJournalEntry: m.postCashMovementExpenseJournalEntry,
   postCashSessionClosingJournalEntries: m.postCashSessionClosingJournalEntries,

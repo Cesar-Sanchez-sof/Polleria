@@ -5,7 +5,7 @@ import {
   formatPeriodLabel,
   formatPen,
   type IncomeStatementResult,
-} from "@/lib/services/income-statement-api.service";
+} from "@/lib/services/accounting/income-statement-api.service";
 import { cn } from "@/lib/utils";
 
 interface Props {

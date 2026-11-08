@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, DomainError } from "@/lib/http/route-handler";
-import { requestIp } from "@/lib/services/audit.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 import {
   listJournalEntriesDomain,
   createJournalEntryDomain,
   JournalEntryValidationError,
-} from "@/lib/services/journal-entries-domain.service";
+} from "@/lib/services/accounting/journal-entries-domain.service";
 
 export const dynamic = "force-dynamic";
 

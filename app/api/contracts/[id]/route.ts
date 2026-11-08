@@ -10,7 +10,7 @@ import {
   type ContractDto,
   type TerminationData,
 } from "@/lib/services/hr/contracts.service";
-import { employeeIdOfUser, verifyModifiableEmployee } from "@/lib/services/employees.service";
+import { employeeIdOfUser, verifyModifiableEmployee } from "@/lib/services/hr/employees.service";
 import { auditHr, badRequest, routeId, type IdContext } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";

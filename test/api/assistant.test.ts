@@ -6,7 +6,7 @@ vi.mock("@/lib/auth/current-session", () => ({ currentSession: () => currentSess
 
 // Los interruptores viven en la BD (`developer_setting`), no en el entorno: aquí se simulan en memoria.
 const flags: Record<string, boolean> = {};
-vi.mock("@/lib/services/developer-settings.service", () => ({ getDeveloperFlags: async () => ({ ...flags }) }));
+vi.mock("@/lib/services/settings/developer-settings.service", () => ({ getDeveloperFlags: async () => ({ ...flags }) }));
 
 const FLAG_BY_NAME: Readonly<Record<string, string>> = {
   AI_ASSISTANT_DEMO: "assistant.demo",

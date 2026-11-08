@@ -24,7 +24,7 @@ import {
   formatCurrency,
   formatDateTimePeru,
   type JournalEntryDetail,
-} from "@/lib/services/journal-entries.service";
+} from "@/lib/services/accounting/journal-entries.service";
 
 interface JournalEntryDetailProps {
   open: boolean;

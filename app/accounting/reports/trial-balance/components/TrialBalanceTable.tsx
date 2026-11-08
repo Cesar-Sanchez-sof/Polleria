@@ -6,7 +6,7 @@ import {
   formatPen,
   type TrialBalanceStatement,
   type TrialBalanceLine,
-} from "@/lib/services/trial-balance.service";
+} from "@/lib/services/accounting/trial-balance.service";
 import { cn } from "@/lib/utils";
 
 interface Props {

@@ -15,7 +15,7 @@ import {
   type JournalEntryDetail as EntryDetailData,
   type AccountingAccount,
   type GeneralLedger,
-} from "@/lib/services/general-ledger.service";
+} from "@/lib/services/accounting/general-ledger.service";
 
 /**
  * Pantalla del Libro mayor: movimientos de una cuenta contable en orden

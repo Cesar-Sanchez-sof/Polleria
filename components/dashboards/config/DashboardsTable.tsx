@@ -38,7 +38,7 @@ import {
   duplicateDashboardAction,
 } from "@/app/dashboards/config/actions";
 import type { DashboardSection } from "@prisma/client";
-import type { DashboardWithDetails } from "@/lib/services/dashboard.service";
+import type { DashboardWithDetails } from "@/lib/services/settings/dashboard.service";
 import { toast } from "sonner";
 
 interface DashboardsTableProps {

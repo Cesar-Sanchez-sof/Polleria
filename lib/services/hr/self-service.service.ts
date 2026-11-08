@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { parseUtcDate } from "@/lib/dates";
-import { getEmployee } from "@/lib/services/employees.service";
+import { getEmployee } from "@/lib/services/hr/employees.service";
 import { listContracts } from "@/lib/services/hr/contracts.service";
 import { employeeAttendance } from "@/lib/services/hr/attendance.service";
 import { listLeaves, vacationBalanceOf } from "@/lib/services/hr/leaves.service";
 import { advanceLimitOf, listAdvances, listInsurances } from "@/lib/services/hr/benefits.service";
 import { todayLimaIso } from "@/lib/services/hr/common";
 import { addDaysIso, weekdayOf } from "@/lib/services/hr/labor-rules";
-import { SCHEDULE_AHEAD_DAYS, syncScheduleFromContracts } from "@/lib/services/schedules.service";
+import { SCHEDULE_AHEAD_DAYS, syncScheduleFromContracts } from "@/lib/services/hr/schedules.service";
 
 /**
  * Obtiene el perfil de autoservicio de un trabajador (contrato, horario semanal, saldo vacaciones, etc.)

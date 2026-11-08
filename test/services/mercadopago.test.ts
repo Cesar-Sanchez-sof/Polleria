@@ -9,7 +9,7 @@ import {
   searchMercadoPagoPaymentsByOrder,
   verifyMercadoPagoWebhookSignature,
   processMercadoPagoPaymentApproval,
-} from "@/lib/services/mercadopago.service";
+} from "@/lib/services/integrations/mercadopago.service";
 import { prisma } from "@/lib/prisma";
 import { realtimeHub } from "@/lib/realtime/event-emitter";
 import { GET as statusGET } from "@/app/api/payments/mercadopago/status/route";

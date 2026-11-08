@@ -20,7 +20,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
-import type { PayableInvoice } from "@/lib/services/accounting-payables.service";
+import type { PayableInvoice } from "@/lib/services/accounting/accounting-payables.service";
 
 interface PayableDetailDialogProps {
   open: boolean;

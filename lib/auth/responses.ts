@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 
 export function errorResponse(e: unknown): NextResponse {
   if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: e.status });
