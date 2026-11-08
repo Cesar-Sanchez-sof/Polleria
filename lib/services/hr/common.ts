@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 
 /** Hoy en Lima (UTC-5) como "YYYY-MM-DD". */

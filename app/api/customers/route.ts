@@ -4,7 +4,7 @@ import {
   searchCustomers,
   createCustomer,
   type CreateCustomerInput,
-} from "@/lib/services/customers.service";
+} from "@/lib/services/sales/customers.service";
 
 export const dynamic = "force-dynamic";
 

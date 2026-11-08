@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
 import { createContract, listContracts, type ContractData } from "@/lib/services/hr/contracts.service";
-import { verifyModifiableEmployee } from "@/lib/services/employees.service";
+import { verifyModifiableEmployee } from "@/lib/services/hr/employees.service";
 import { auditHr, badRequest, optionalInt } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";

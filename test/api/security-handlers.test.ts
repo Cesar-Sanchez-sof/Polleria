@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import * as authService from "@/lib/services/auth.service";
-import * as usersService from "@/lib/services/users.service";
-import * as auditService from "@/lib/services/audit.service";
+import * as authService from "@/lib/services/security/auth.service";
+import * as usersService from "@/lib/services/security/users.service";
+import * as auditService from "@/lib/services/security/audit.service";
 import * as authPermissions from "@/lib/auth/permissions";
 import * as authCurrentSession from "@/lib/auth/current-session";
 

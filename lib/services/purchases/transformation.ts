@@ -8,7 +8,7 @@ import {
   inventoryAccountCode,
   postTransformationJournalEntries,
   reverseTransformationJournalEntries,
-} from "@/lib/services/accounting-posting.service";
+} from "@/lib/services/accounting/accounting-posting.service";
 
 export interface TransformationLineInput {
   productId: number;

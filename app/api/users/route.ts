@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
-import { requestIp } from "@/lib/services/audit.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 import {
   listUsers,
   createUserWithAudit,
   type UserData,
-} from "@/lib/services/users.service";
+} from "@/lib/services/security/users.service";
 
 export const dynamic = "force-dynamic";
 

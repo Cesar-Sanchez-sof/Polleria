@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
 import { listLeaves, requestLeave, vacationBalanceOf, type LeaveData } from "@/lib/services/hr/leaves.service";
-import { prisma } from "@/lib/prisma";
 import { auditHr, badRequest, optionalInt } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (!auth.ok) return auth.response;
     const sp = new URL(request.url).searchParams;
     const balanceOf = optionalInt(sp.get("balance_of"));
-    if (balanceOf) return NextResponse.json(await vacationBalanceOf(prisma, balanceOf));
+    if (balanceOf) return NextResponse.json(await vacationBalanceOf(balanceOf));
     return NextResponse.json(
       await listLeaves({
         employee_id: optionalInt(sp.get("employee_id")),

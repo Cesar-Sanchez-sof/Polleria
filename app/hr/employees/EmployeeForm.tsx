@@ -6,7 +6,7 @@ import { AppButton } from "@/components/shared/AppButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { EmployeeDto } from "@/lib/services/employees.service";
+import type { EmployeeDto } from "@/lib/services/hr/employees.service";
 import { api } from "../_lib/hr-client";
 
 export type EmployeeRow = EmployeeDto;

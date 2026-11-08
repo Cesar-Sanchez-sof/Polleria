@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { getEmployee, updateEmployee, verifyModifiableEmployee, type EmployeeData } from "@/lib/services/employees.service";
+import { getEmployee, updateEmployee, verifyModifiableEmployee, type EmployeeData } from "@/lib/services/hr/employees.service";
 import { auditHr, badRequest, routeId, type IdContext } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";

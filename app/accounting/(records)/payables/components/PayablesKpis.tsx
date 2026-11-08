@@ -2,7 +2,7 @@
 
 import { CreditCard, Building2, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/shared/StatCard";
-import type { PayablesSummary } from "@/lib/services/accounting-payables.service";
+import type { PayablesSummary } from "@/lib/services/accounting/accounting-payables.service";
 
 interface PayablesKpisProps {
   summary: PayablesSummary;

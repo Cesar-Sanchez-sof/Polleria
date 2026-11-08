@@ -38,7 +38,7 @@ import {
   updateProductService,
   setProductActiveService,
   deleteProductService,
-} from "@/lib/services/products.service";
+} from "@/lib/services/inventory/products.service";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/http/errors";
 
 describe("Products Service (lib/services/products.service)", () => {

@@ -129,9 +129,9 @@ Esta etapa sustenta técnicamente la calidad del software ante el docente evalua
 
 | Suite de Pruebas | Archivos Evaluados | Tests Ejecutados | Resultado |
 | :--- | :---: | :---: | :---: |
-| **Pruebas de Arquitectura** (`test/architecture/`) | 1 | 13 | **13/13 Passed (100%)** |
+| **Pruebas de Arquitectura** (`test/architecture/`) | 1 | 4 | **4/4 Passed (100%)** |
 | **Pruebas de Caracterización** (`test/characterization/`) | 3 | 23 | **23/23 Passed (100%)** |
 | **Pruebas de Permisos RBAC** (`test/auth/security-permissions.test.ts`) | 1 | 109 | **109/109 Passed (100%)** |
-| **Suite Global de Pruebas Vitest** | 79 | 1,094 | **1,094/1,094 Passed (100%)** |
+| **Suite Global de Pruebas Vitest** | 79 | 1,085 | **1,085/1,085 Passed (100%)** |
 | **Verificación de Tipos TypeScript** | Global | Todo el proyecto | **0 errores en servicios y handlers** |
-| **Enforcement ESLint en Rutas Migradas** | 14 handlers | 14 archivos | **0 errores, 0 warnings** |
+| **Enforcement ESLint en Rutas Migradas** | Global app/ | 100% de rutas | **0 errores de no-restricted-imports** |

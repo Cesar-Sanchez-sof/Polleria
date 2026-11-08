@@ -1,8 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/password";
-import { UserError, validatePassword } from "@/lib/services/users.service";
-import { verifyAssignableRole } from "@/lib/services/roles.service";
+import { UserError, validatePassword } from "@/lib/services/security/users.service";
+import { verifyAssignableRole } from "@/lib/services/security/roles.service";
 
 /**
  * Acceso al sistema de un trabajador: su usuario se crea al contratarlo (o después, desde su

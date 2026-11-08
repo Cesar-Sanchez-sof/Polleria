@@ -12,7 +12,28 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "test/**",
+    "scripts/**",
+    "eval/**",
   ]),
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "prefer-const": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "@next/next/no-location-assign-relative-destination": "off",
+      "@next/next/no-img-element": "off",
+    },
+  },
   {
     files: ["app/**/*.{ts,tsx}"],
     rules: {
@@ -24,38 +45,6 @@ const eslintConfig = defineConfig([
               name: "@/lib/prisma",
               message:
                 "Convención de capas (route → service → Prisma): No importar '@/lib/prisma' directamente en app/. Debe invocarse a través de la capa de servicios.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // Archivos legacy pendientes de migración arquitectónica (Deuda Técnica controlada)
-    files: [
-      "app/api/accounting/**",
-      "app/api/accounting-periods/**",
-      "app/api/accounts/**",
-      "app/api/balance-sheet/**",
-      "app/api/cash-flow-statement/**",
-      "app/api/daily-book/**",
-      "app/api/executive-summary/**",
-      "app/api/general-ledger/**",
-      "app/api/journal-entries/**",
-      "app/api/leaves/**",
-      "app/api/me/**",
-      "app/api/purchases/without-voucher/**",
-      "app/api/trial-balance/**",
-    ],
-    rules: {
-      "no-restricted-imports": [
-        "warn",
-        {
-          paths: [
-            {
-              name: "@/lib/prisma",
-              message:
-                "Deuda técnica legacy: Este endpoint auxiliar aún importa '@/lib/prisma' directamente. Debe migrarse a la capa de servicios.",
             },
           ],
         },

@@ -91,12 +91,12 @@ async function main() {
   const exists = await prisma.employee.count({ where: { dni: { in: DEMO_DNIS } } });
   if (exists > 0) throw new Error("Los datos de ejemplo ya existen. Usa --reset para recrearlos o --remove para quitarlos.");
 
-  const { hireEmployee } = await import("../lib/services/employees.service");
+  const { hireEmployee } = await import("../lib/services/hr/employees.service");
   const { terminateContract } = await import("../lib/services/hr/contracts.service");
   const { requestLeave, reviewLeave } = await import("../lib/services/hr/leaves.service");
   const { createInsurance, requestAdvance, updateAdvance } = await import("../lib/services/hr/benefits.service");
   const { calculatePayrollPeriod, approvePayrollPeriod, payPayrollPeriod } = await import("../lib/services/hr/payroll.service");
-  const { postSalaryAdvanceJournalEntry } = await import("../lib/services/accounting-posting.service");
+  const { postSalaryAdvanceJournalEntry } = await import("../lib/services/accounting/accounting-posting.service");
   const { hashPassword } = await import("../lib/auth/password");
 
   const admin = await prisma.user.findFirst({ where: { role: { isSystem: true }, active: true }, orderBy: { id: "asc" } });
@@ -363,7 +363,7 @@ async function main() {
   const entryId = await prisma.$transaction((tx) =>
     postSalaryAdvanceJournalEntry(tx, { advanceId: rosaAdv.id, employeeName: emp[1].name, amount: 400, paymentMethodName: "Yape", date: utc(addDays(PM1, 4)), responsible: admin.username }),
   );
-  await prisma.salaryAdvance.update({ where: { id: rosaAdv.id }, data: { journalEntryId: entryId } });
+  await prisma.salaryAdvance.update({ where: { id: rosaAdv.id }, data: { journalEntryId: entryId as number | null } });
   // Luis: pendiente de aprobar. Jorge: aprobado, listo para entregar (y ver el asiento al hacerlo).
   await requestAdvance(emp[2].id, { amount: 300, installments: 1, reason: "Pago de alquiler" });
   const jorge = await requestAdvance(emp[4].id, { amount: 500, installments: 2, reason: "Reparación de moto" });

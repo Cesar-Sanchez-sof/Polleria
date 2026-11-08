@@ -1,5 +1,5 @@
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
-import { lookupIdentityDocument } from "@/lib/services/document-lookup.service";
+import { lookupIdentityDocument } from "@/lib/services/integrations/document-lookup.service";
 import { validateCustomerDocument } from "@/lib/utils/sales-helpers";
 
 export const dynamic = "force-dynamic";

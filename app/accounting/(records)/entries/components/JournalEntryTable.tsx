@@ -12,7 +12,7 @@ import {
   type JournalEntrySummary,
   type JournalEntrySort,
   type SortDirection,
-} from "@/lib/services/journal-entries.service";
+} from "@/lib/services/accounting/journal-entries.service";
 
 interface Props {
   rows: JournalEntrySummary[];

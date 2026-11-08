@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { createSectionAction } from "@/app/dashboards/config/actions";
 import type { DashboardSection } from "@prisma/client";
-import type { DashboardWithSection } from "@/lib/services/dashboard.service";
+import type { DashboardWithSection } from "@/lib/services/settings/dashboard.service";
 import { toast } from "sonner";
 
 interface DashboardSidebarProps {

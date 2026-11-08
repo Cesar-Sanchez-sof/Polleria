@@ -14,8 +14,8 @@ import {
   getJournalEntry,
   type JournalEntryDetail as EntryDetailData,
   type DailyBookPage as DailyBookPageData,
-} from "@/lib/services/daily-book.service";
-import { exportJournalEntriesToExcel } from "@/lib/services/accounting-export.service";
+} from "@/lib/services/accounting/daily-book.service";
+import { exportJournalEntriesToExcel } from "@/lib/services/accounting/accounting-export.service";
 
 /**
  * Pantalla del Libro Diario: asientos contables ordenados cronológicamente

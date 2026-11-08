@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { PrinterConfig } from "@/lib/services/restaurant-config.service";
+import type { PrinterConfig } from "@/lib/services/settings/restaurant-config.service";
 import { isValidVoucherSeries } from "@/lib/utils/series-validation";
 
 export default function RestaurantPrintersSettingsPage() {

@@ -26,7 +26,7 @@ import {
   updateAccount,
   ACCOUNT_TYPES,
   type AccountingAccount,
-} from "@/lib/services/accounts.service";
+} from "@/lib/services/accounting/accounts.service";
 
 /** Format validated on server (`AccountingAccount.code` ≤ 10). */
 const ACCOUNT_CODE_REGEX = /^[A-Za-z0-9.-]{1,10}$/;

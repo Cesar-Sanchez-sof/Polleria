@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
-import { syncOrderPaymentStatus } from "@/lib/services/mercadopago.service";
+import { syncOrderPaymentStatus } from "@/lib/services/integrations/mercadopago.service";
 
 export const dynamic = "force-dynamic";
 

@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
 
-function getRouteFiles(dir: string): string[] {
+function getAllAppTsFiles(dir: string): string[] {
   let results: string[] = [];
   try {
     const list = readdirSync(dir);
@@ -12,8 +12,8 @@ function getRouteFiles(dir: string): string[] {
       const fullPath = join(dir, file);
       const stat = statSync(fullPath);
       if (stat.isDirectory()) {
-        results = results.concat(getRouteFiles(fullPath));
-      } else if (file === "route.ts") {
+        results = results.concat(getAllAppTsFiles(fullPath));
+      } else if (file.endsWith(".ts") || file.endsWith(".tsx")) {
         results.push(fullPath);
       }
     }
@@ -29,6 +29,8 @@ describe("Arquitectura por Dominio - Cierre y Reforzamiento (6/6)", () => {
     expect(eslintConfig).toContain('"no-restricted-imports"');
     expect(eslintConfig).toContain('"error"');
     expect(eslintConfig).toContain('"@/lib/prisma"');
+    // Verificamos que NO queden bloques de excepción 'warn' legacy
+    expect(eslintConfig).not.toContain('"warn"');
   });
 
   it("AGENTS.md debe documentar las reglas de capas e impedir importaciones de Prisma en app/", () => {
@@ -45,36 +47,54 @@ describe("Arquitectura por Dominio - Cierre y Reforzamiento (6/6)", () => {
     expect(readme).toContain("no-restricted-imports");
   });
 
-  describe("Cero importaciones de @/lib/prisma en rutas de dominios migrados", () => {
-    const MIGRATED_DOMAINS = [
-      "app/api/orders",
-      "app/api/sales",
-      "app/api/cash-sessions",
-      "app/api/customers",
-      "app/api/payments",
-      "app/api/tables",
-      "app/api/settings",
-      "app/api/products",
-      "app/api/webhooks",
-      "app/api/realtime",
+  it("Erradicación total del monolito legacy: Cero importaciones directas de @/lib/prisma en todo el directorio app/", () => {
+    const allAppFiles = getAllAppTsFiles(join(ROOT, "app"));
+    expect(allAppFiles.length).toBeGreaterThan(50);
+
+    const violations: string[] = [];
+    for (const filePath of allAppFiles) {
+      const content = readFileSync(filePath, "utf-8");
+      const hasDirectPrisma =
+        /import\s+.*\s+from\s+["']@\/lib\/prisma["']/.test(content) ||
+        /require\(["']@\/lib\/prisma["']\)/.test(content);
+      if (hasDirectPrisma) {
+        violations.push(filePath);
+      }
+    }
+
+    expect(
+      violations,
+      `Se encontraron archivos en app/ que importan @/lib/prisma: ${violations.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("Organización modular de lib/services: debe estructurarse en subdirectorios temáticos por dominio (DDD)", () => {
+    const REQUIRED_DOMAINS = [
+      "accounting",
+      "sales",
+      "inventory",
+      "purchases",
+      "security",
+      "hr",
+      "settings",
+      "integrations",
     ];
 
-    for (const domain of MIGRATED_DOMAINS) {
-      const routeFiles = getRouteFiles(join(ROOT, domain));
+    const servicesDir = join(ROOT, "lib", "services");
+    expect(existsSync(servicesDir)).toBe(true);
 
-      it(`Dominio '${domain}' debe tener handlers desacoplados y 0 importaciones de @/lib/prisma`, () => {
-        expect(routeFiles.length).toBeGreaterThan(0);
-        for (const filePath of routeFiles) {
-          const content = readFileSync(filePath, "utf-8");
-          const hasDirectPrisma =
-            /import\s+.*\s+from\s+["']@\/lib\/prisma["']/.test(content) ||
-            /require\(["']@\/lib\/prisma["']\)/.test(content);
-          expect(
-            hasDirectPrisma,
-            `El archivo ${filePath} no debe importar @/lib/prisma directamente`
-          ).toBe(false);
-        }
-      });
+    for (const domain of REQUIRED_DOMAINS) {
+      const domainPath = join(servicesDir, domain);
+      expect(
+        existsSync(domainPath),
+        `El subdirectorio de dominio '${domain}' debe existir en lib/services/`
+      ).toBe(true);
+
+      const files = readdirSync(domainPath);
+      expect(
+        files.length,
+        `El subdirectorio '${domain}' debe contener servicios de negocio`
+      ).toBeGreaterThan(0);
     }
   });
 });

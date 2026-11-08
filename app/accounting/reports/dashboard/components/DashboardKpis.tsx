@@ -16,8 +16,8 @@ import {
   ArrowRight,
   HelpCircle,
 } from "lucide-react";
-import type { Kpi, KpiKey } from "@/lib/services/dashboard.service";
-import { formatPen } from "@/lib/services/dashboard.service";
+import type { Kpi, KpiKey } from "@/lib/services/settings/dashboard.service";
+import { formatPen } from "@/lib/services/settings/dashboard.service";
 
 function formatValue(kpi: Kpi): string {
   if (kpi.kind === "count") return new Intl.NumberFormat("es-PE").format(kpi.value);

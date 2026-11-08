@@ -25,7 +25,7 @@ import { ImageCropperModal } from "@/components/shared/ImageCropperModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { RestaurantInfo } from "@/lib/services/restaurant-config.service";
+import type { RestaurantInfo } from "@/lib/services/settings/restaurant-config.service";
 
 export default function RestaurantBusinessSettingsPage() {
   const [loading, setLoading] = useState(true);

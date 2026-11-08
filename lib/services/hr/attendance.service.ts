@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import {
   RE_TIME,
@@ -12,7 +12,7 @@ import {
   text,
   todayLimaIso,
 } from "./common";
-import { ensureDayScheduled } from "@/lib/services/schedules.service";
+import { ensureDayScheduled } from "@/lib/services/hr/schedules.service";
 import {
   LATE_TOLERANCE_MINUTES,
   LEAVE_TYPE_LABEL,

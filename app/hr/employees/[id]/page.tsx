@@ -27,7 +27,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
-import type { EmployeeDto } from "@/lib/services/employees.service";
+import type { EmployeeDto } from "@/lib/services/hr/employees.service";
 import type { ContractDto } from "@/lib/services/hr/contracts.service";
 import type { AttendanceRowDto, AttendanceTotals } from "@/lib/services/hr/attendance.service";
 import type { LeaveDto } from "@/lib/services/hr/leaves.service";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorize, hasPermission, permissionsForUser } from "@/lib/auth/permissions";
-import { getBranding, saveBrandingContent } from "@/lib/services/branding.service";
-import { requestIp } from "@/lib/services/audit.service";
+import { getBranding, saveBrandingContent } from "@/lib/services/settings/branding.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 
 export const dynamic = "force-dynamic";
 

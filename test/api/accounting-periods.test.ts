@@ -35,7 +35,7 @@ vi.mock("@/lib/auth/permissions", () => ({
   authorize: authorizeMock,
 }));
 
-vi.mock("@/lib/services/audit.service", () => ({
+vi.mock("@/lib/services/security/audit.service", () => ({
   logAudit: logAuditMock,
   requestIp: () => "127.0.0.1",
 }));

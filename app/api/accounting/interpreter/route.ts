@@ -3,7 +3,7 @@ import { authorize } from "@/lib/auth/permissions";
 import {
   interpretAccountingReport,
   type ReportInterpretationRequest,
-} from "@/lib/services/accounting-interpreter.service";
+} from "@/lib/services/accounting/accounting-interpreter.service";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

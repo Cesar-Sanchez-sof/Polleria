@@ -4,7 +4,7 @@ import type { PleSnapshot } from "@/lib/ple/snapshot";
 
 const { loadMock } = vi.hoisted(() => ({ loadMock: vi.fn() }));
 
-vi.mock("@/lib/services/ple.service", () => ({ loadPleSnapshot: loadMock }));
+vi.mock("@/lib/services/accounting/ple.service", () => ({ loadPleSnapshot: loadMock }));
 
 import { GET } from "@/app/api/ple/[book]/route";
 

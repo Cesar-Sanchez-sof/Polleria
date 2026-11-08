@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { authorize } from "@/lib/auth/permissions";
 import { isSireTestBook, simulateSireSubmission } from "@/lib/sire/local-simulator";
-import { loadPleSnapshot } from "@/lib/services/ple.service";
+import { loadPleSnapshot } from "@/lib/services/accounting/ple.service";
 
 export const dynamic = "force-dynamic";
 

@@ -34,11 +34,11 @@ vi.mock("@/lib/prisma", () => {
 });
 
 const scheduleAhead = vi.hoisted(() => vi.fn().mockResolvedValue({ assignments: 12 }));
-vi.mock("@/lib/services/schedules.service", () => ({ scheduleEmployeeAhead: scheduleAhead }));
+vi.mock("@/lib/services/hr/schedules.service", () => ({ scheduleEmployeeAhead: scheduleAhead }));
 
-import { hireEmployee, normalizeEmployee, updateEmployee, verifyModifiableEmployee, type EmployeeData } from "@/lib/services/employees.service";
+import { hireEmployee, normalizeEmployee, updateEmployee, verifyModifiableEmployee, type EmployeeData } from "@/lib/services/hr/employees.service";
 import type { ContractData } from "@/lib/services/hr/contracts.service";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 
 const valid: EmployeeData = {
   dni: "12345678",

@@ -3,7 +3,7 @@ import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 import {
   updateDiningTable,
   deactivateDiningTable,
-} from "@/lib/services/dining-tables.service";
+} from "@/lib/services/sales/dining-tables.service";
 
 export const dynamic = "force-dynamic";
 

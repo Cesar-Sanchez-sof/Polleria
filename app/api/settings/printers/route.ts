@@ -3,7 +3,7 @@ import {
   getPrinterConfig,
   updatePrinterConfig,
   type PrinterConfig,
-} from "@/lib/services/restaurant-config.service";
+} from "@/lib/services/settings/restaurant-config.service";
 import { isValidVoucherSeries } from "@/lib/utils/series-validation";
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 

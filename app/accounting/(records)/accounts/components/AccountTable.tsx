@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AccountingAccount } from "@/lib/services/accounts.service";
+import type { AccountingAccount } from "@/lib/services/accounting/accounts.service";
 
 /** Tree row representing an account with depth and branch expansion state. */
 export interface AccountTableRow {

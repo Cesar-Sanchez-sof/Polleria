@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { generateWeekFromContracts } from "@/lib/services/schedules.service";
+import { generateWeekFromContracts } from "@/lib/services/hr/schedules.service";
 import { auditHr, badRequest } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { CreditCard, Loader2, AlertCircle, ArrowDownCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { payPayableInvoiceAction, type PayableInvoice } from "@/lib/services/accounting-payables.service";
+import { payPayableInvoiceAction, type PayableInvoice } from "@/lib/services/accounting/accounting-payables.service";
 
 interface PayablePaymentDialogProps {
   open: boolean;

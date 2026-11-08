@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
+import { logAudit, requestIp } from "@/lib/services/security/audit.service";
 import { grantAccess, type AccessData } from "@/lib/services/hr/access.service";
 import { badRequest, routeId, type IdContext } from "@/lib/services/hr/route-helpers";
 

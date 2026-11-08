@@ -27,7 +27,7 @@ import {
   toggleShareLinkActiveAction,
   deleteShareLinksAction,
 } from "@/app/dashboards/config/actions";
-import type { DashboardShareWithDetails } from "@/lib/services/dashboard.service";
+import type { DashboardShareWithDetails } from "@/lib/services/settings/dashboard.service";
 import { toast } from "sonner";
 
 interface ShareLinksTableProps {

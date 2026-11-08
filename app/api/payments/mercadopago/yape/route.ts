@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
-import { createOrderYapePayment } from "@/lib/services/mercadopago.service";
+import { createOrderYapePayment } from "@/lib/services/integrations/mercadopago.service";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/http/route-handler";
-import { createOrderPreference } from "@/lib/services/mercadopago.service";
+import { createOrderPreference } from "@/lib/services/integrations/mercadopago.service";
 
 export const dynamic = "force-dynamic";
 

@@ -14,7 +14,7 @@ import {
   ApiError,
   listAccounts,
   type AccountingAccount,
-} from "@/lib/services/accounts.service";
+} from "@/lib/services/accounting/accounts.service";
 
 /**
  * Chart of accounts overview and creation page.

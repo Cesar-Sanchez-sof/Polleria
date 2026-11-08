@@ -4,7 +4,7 @@ import {
   getCashSessionState,
   openCashSession,
   type OpenCashSessionInput,
-} from "@/lib/services/cash-sessions.service";
+} from "@/lib/services/sales/cash-sessions.service";
 
 export const dynamic = "force-dynamic";
 

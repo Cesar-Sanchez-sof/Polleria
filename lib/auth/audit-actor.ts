@@ -1,5 +1,5 @@
 import { currentSession } from "@/lib/auth/current-session";
-import type { AuditActor } from "@/lib/services/audit.service";
+import type { AuditActor } from "@/lib/services/security/audit.service";
 
 /** Usuario de la petición para la bitácora; `null` si no hay sesión (nunca lanza). */
 export async function currentActor(): Promise<AuditActor | null> {

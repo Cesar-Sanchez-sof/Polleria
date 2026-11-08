@@ -23,7 +23,7 @@ import {
   listOrders,
   updateOrderStatus,
   type OrderSummary,
-} from "@/lib/services/tables.service";
+} from "@/lib/services/sales/tables.service";
 import { isBeverage } from "@/lib/utils/product-category";
 
 type KitchenFilter = "todos" | "Received" | "Preparing" | "Ready" | "Served";

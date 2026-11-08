@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/http/route-handler";
 import { currentActor } from "@/lib/auth/audit-actor";
-import { requestIp } from "@/lib/services/audit.service";
-import { logoutUser } from "@/lib/services/auth.service";
+import { requestIp } from "@/lib/services/security/audit.service";
+import { logoutUser } from "@/lib/services/security/auth.service";
 
 export const dynamic = "force-dynamic";
 

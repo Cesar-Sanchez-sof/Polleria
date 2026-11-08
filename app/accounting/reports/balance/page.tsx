@@ -11,7 +11,7 @@ import {
   formatCutOffDate,
   getBalanceSheet,
   type BalanceSheetStatement,
-} from "@/lib/services/balance-sheet.service";
+} from "@/lib/services/accounting/balance-sheet.service";
 import { formatDateToIso } from "@/lib/dates";
 
 function todayIso(): string {

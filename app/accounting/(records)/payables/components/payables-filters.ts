@@ -1,4 +1,4 @@
-import type { PayableInvoice } from "@/lib/services/accounting-payables.service";
+import type { PayableInvoice } from "@/lib/services/accounting/accounting-payables.service";
 
 export type PayableStatusFilter = "todos" | "Pendiente" | "Parcial" | "Pagado";
 

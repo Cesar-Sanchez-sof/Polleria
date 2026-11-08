@@ -11,7 +11,7 @@ import {
   getExecutiveSummary,
   formatYear,
   type ExecutiveSummary,
-} from "@/lib/services/executive-summary.service";
+} from "@/lib/services/accounting/executive-summary.service";
 
 /** Años ofrecidos en el selector: 5 atrás, el actual y el siguiente. */
 function yearOptions(current: number): number[] {

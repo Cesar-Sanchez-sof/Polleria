@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ContractDto } from "@/lib/services/hr/contracts.service";
-import type { EmployeeDto } from "@/lib/services/employees.service";
+import type { EmployeeDto } from "@/lib/services/hr/employees.service";
 import { CONTRACT_TYPE_LABEL, LABOR_REGIME_LABEL, addDaysIso } from "@/lib/services/hr/labor-rules";
 import { api, fmtDate, money } from "../_lib/hr-client";
 import { PersonalFields, emptyPersonal, type PersonalData } from "../employees/EmployeeForm";

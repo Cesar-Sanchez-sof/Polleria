@@ -3,9 +3,9 @@ import {
   getRestaurantInfo,
   updateRestaurantInfo,
   type RestaurantInfo,
-} from "@/lib/services/restaurant-config.service";
-import { getVoucherPresignedUrl } from "@/lib/services/s3-storage.service";
-import { requestIp } from "@/lib/services/audit.service";
+} from "@/lib/services/settings/restaurant-config.service";
+import { getVoucherPresignedUrl } from "@/lib/services/integrations/s3-storage.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 import { createApiHandler, ValidationError } from "@/lib/http/route-handler";
 
 export const dynamic = "force-dynamic";

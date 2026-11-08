@@ -4,7 +4,7 @@ import {
   listDrinksDispatch,
   updateDrinkItemStatus,
   type UpdateDrinkStatusInput,
-} from "@/lib/services/orders.service";
+} from "@/lib/services/sales/orders.service";
 
 export const dynamic = "force-dynamic";
 
