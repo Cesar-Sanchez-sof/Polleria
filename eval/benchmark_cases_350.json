@@ -1,0 +1,3808 @@
+{
+  "version": "benchmark-v1-350",
+  "total_casos": 350,
+  "distribucion_dificultad": {
+    "facil": 82,
+    "medio": 174,
+    "dificil": 78,
+    "extra_dificil": 16
+  },
+  "distribucion_modulo": {
+    "ventas": 99,
+    "compras": 76,
+    "caja": 53,
+    "inventario": 47,
+    "contabilidad": 75
+  },
+  "casos": [
+    {
+      "id": "TEST-001",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántas mesas registradas están activas en el salón?",
+      "sql_gold": "SELECT COUNT(*) FROM dining_table WHERE is_active = true;",
+      "tablas_esperadas": [
+        "dining_table"
+      ]
+    },
+    {
+      "id": "TEST-002",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "Listar todos los pedidos de tipo Llevar.",
+      "sql_gold": "SELECT * FROM sales_order WHERE order_type = 'Llevar';",
+      "tablas_esperadas": [
+        "sales_order"
+      ]
+    },
+    {
+      "id": "TEST-003",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "Total facturado de boletas emitidas con estado Issued.",
+      "sql_gold": "SELECT COALESCE(SUM(total_amount), 0.00) FROM sales_invoice WHERE voucher_type = 'Boleta' AND status = 'Issued';",
+      "tablas_esperadas": [
+        "sales_invoice"
+      ]
+    },
+    {
+      "id": "TEST-004",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántos comprobantes de venta de tipo Factura se han emitido?",
+      "sql_gold": "SELECT COUNT(*) FROM sales_invoice WHERE voucher_type = 'Factura' AND status = 'Issued';",
+      "tablas_esperadas": [
+        "sales_invoice"
+      ]
+    },
+    {
+      "id": "TEST-005",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "Total vendido agrupado por tipo de comprobante en facturas emitidas.",
+      "sql_gold": "SELECT voucher_type, SUM(total_amount) AS total FROM sales_invoice WHERE status = 'Issued' GROUP BY voucher_type;",
+      "tablas_esperadas": [
+        "sales_invoice"
+      ]
+    },
+    {
+      "id": "TEST-006",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "Monto total vendido por cada método de pago registrado en ventas.",
+      "sql_gold": "SELECT pt.name AS metodo, SUM(sp.amount) AS total_cobrado FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id GROUP BY pt.id, pt.name ORDER BY total_cobrado DESC;",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-007",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "Top 5 productos con mayor cantidad vendida en ítems de pedidos.",
+      "sql_gold": "SELECT p.name, SUM(oi.quantity) AS unidades_vendidas FROM order_item oi JOIN product p ON oi.product_id = p.id GROUP BY p.id, p.name ORDER BY unidades_vendidas DESC LIMIT 5;",
+      "tablas_esperadas": [
+        "order_item",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-008",
+      "modulo": "ventas",
+      "dificultad": "dificil",
+      "pregunta": "Total de ventas por cliente que superen los 1000 soles acumulados.",
+      "sql_gold": "SELECT c.id, c.business_name, SUM(si.total_amount) AS total_cliente FROM sales_invoice si JOIN customer c ON si.customer_id = c.id WHERE si.status = 'Issued' GROUP BY c.id, c.business_name HAVING SUM(si.total_amount) > 1000.00 ORDER BY total_cliente DESC;",
+      "tablas_esperadas": [
+        "sales_invoice",
+        "customer"
+      ]
+    },
+    {
+      "id": "TEST-009",
+      "modulo": "ventas",
+      "dificultad": "dificil",
+      "pregunta": "Pedidos de mesa cerrados con tiempo de atención y monto total de ítems.",
+      "sql_gold": "SELECT so.id, so.order_number, dt.number AS mesa, SUM(oi.subtotal) AS total_pedido FROM sales_order so JOIN order_table ot ON so.id = ot.order_id JOIN dining_table dt ON ot.table_id = dt.id JOIN order_item oi ON so.id = oi.order_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' GROUP BY so.id, so.order_number, dt.number;",
+      "tablas_esperadas": [
+        "sales_order",
+        "order_table",
+        "dining_table",
+        "order_item"
+      ]
+    },
+    {
+      "id": "TEST-010",
+      "modulo": "ventas",
+      "dificultad": "extra_dificil",
+      "pregunta": "Ranking de ventas mensuales con función de ventana por producto y porcentaje sobre el total del mes.",
+      "sql_gold": "WITH ventas_prod AS (SELECT DATE_TRUNC('month', so.ordered_at) AS mes, p.id AS prod_id, p.name AS producto, SUM(oi.subtotal) AS total_prod FROM sales_order so JOIN order_item oi ON so.id = oi.order_id JOIN product p ON oi.product_id = p.id WHERE so.status = 'Closed' GROUP BY DATE_TRUNC('month', so.ordered_at), p.id, p.name) SELECT mes, producto, total_prod, DENSE_RANK() OVER (PARTITION BY mes ORDER BY total_prod DESC) AS ranking, ROUND((total_prod / SUM(total_prod) OVER (PARTITION BY mes)) * 100, 2) AS pct_mes FROM ventas_prod ORDER BY mes DESC, ranking ASC;",
+      "tablas_esperadas": [
+        "sales_order",
+        "order_item",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-011",
+      "modulo": "compras",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántos proveedores registrados están activos?",
+      "sql_gold": "SELECT COUNT(*) FROM supplier WHERE active = true;",
+      "tablas_esperadas": [
+        "supplier"
+      ]
+    },
+    {
+      "id": "TEST-012",
+      "modulo": "compras",
+      "dificultad": "facil",
+      "pregunta": "Listar las órdenes de compra con estado Pending.",
+      "sql_gold": "SELECT * FROM purchase_order WHERE status = 'Pending';",
+      "tablas_esperadas": [
+        "purchase_order"
+      ]
+    },
+    {
+      "id": "TEST-013",
+      "modulo": "compras",
+      "dificultad": "facil",
+      "pregunta": "Suma total de gastos operativos en compras sin comprobante no anuladas.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) FROM informal_purchase WHERE purchase_type = 'OperatingExpense' AND annulled = false;",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-014",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Total comprado agrupado por proveedor en facturas de compra activas.",
+      "sql_gold": "SELECT s.business_name, SUM(pi.total_amount) AS total_comprado FROM purchase_invoice pi JOIN supplier s ON pi.supplier_id = s.id WHERE pi.active = true GROUP BY s.id, s.business_name ORDER BY total_comprado DESC;",
+      "tablas_esperadas": [
+        "purchase_invoice",
+        "supplier"
+      ]
+    },
+    {
+      "id": "TEST-015",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Desglose de gastos en compras sin comprobante por categoría de gasto.",
+      "sql_gold": "SELECT expense_category, COUNT(*) AS operaciones, SUM(amount_paid) AS total FROM informal_purchase WHERE annulled = false GROUP BY expense_category ORDER BY total DESC;",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-016",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Proveedores con saldo pendiente de pago por comprobantes no cancelados en su totalidad.",
+      "sql_gold": "SELECT s.business_name, pi.series, pi.number, pi.total_amount, COALESCE(SUM(pp.amount), 0.00) AS total_pagado, (pi.total_amount - COALESCE(SUM(pp.amount), 0.00)) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON pi.supplier_id = s.id LEFT JOIN purchase_payment pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = true GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0.00)) > 0 ORDER BY saldo_pendiente DESC;",
+      "tablas_esperadas": [
+        "purchase_invoice",
+        "supplier",
+        "purchase_payment"
+      ]
+    },
+    {
+      "id": "TEST-017",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántas sesiones de caja tienen estado OPEN actualmente?",
+      "sql_gold": "SELECT COUNT(*) FROM cash_session WHERE status = 'OPEN';",
+      "tablas_esperadas": [
+        "cash_session"
+      ]
+    },
+    {
+      "id": "TEST-018",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de dinero en movimientos manuales de egreso (EXPENSE).",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) FROM cash_movement WHERE type = 'EXPENSE';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-019",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Suma de ventas en efectivo vs ventas con otros medios por sesión cerrada.",
+      "sql_gold": "SELECT id, opened_at, closed_at, sales_cash, sales_other, (sales_cash + sales_other) AS total_ventas FROM cash_session WHERE status = 'CLOSED' ORDER BY closed_at DESC;",
+      "tablas_esperadas": [
+        "cash_session"
+      ]
+    },
+    {
+      "id": "TEST-020",
+      "modulo": "inventario",
+      "dificultad": "facil",
+      "pregunta": "Insumos cuyo stock actual está en o por debajo del stock mínimo.",
+      "sql_gold": "SELECT id, name, current_stock, minimum_stock FROM product WHERE current_stock <= minimum_stock AND active = true;",
+      "tablas_esperadas": [
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-021",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Total de movimientos de inventario agrupados por tipo de movimiento.",
+      "sql_gold": "SELECT movement_type, COUNT(*) AS total_movimientos, SUM(quantity) AS cantidad_total FROM inventory_movement GROUP BY movement_type;",
+      "tablas_esperadas": [
+        "inventory_movement"
+      ]
+    },
+    {
+      "id": "TEST-022",
+      "modulo": "contabilidad",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántos periodos contables están en estado OPEN?",
+      "sql_gold": "SELECT COUNT(*) FROM accounting_period WHERE status = 'OPEN';",
+      "tablas_esperadas": [
+        "accounting_period"
+      ]
+    },
+    {
+      "id": "TEST-023",
+      "modulo": "contabilidad",
+      "dificultad": "facil",
+      "pregunta": "Listar cuentas contables del elemento 1 (Activo disponible y exigible).",
+      "sql_gold": "SELECT code, name, type FROM accounting_account WHERE code LIKE '1%' ORDER BY code ASC;",
+      "tablas_esperadas": [
+        "accounting_account"
+      ]
+    },
+    {
+      "id": "TEST-024",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Total de cargos (debe) y abonos (haber) registrados en asientos del libro Diario.",
+      "sql_gold": "SELECT COALESCE(SUM(jed.debit), 0.00) AS total_debe, COALESCE(SUM(jed.credit), 0.00) AS total_haber FROM journal_entry_detail jed JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND je.book = '05';",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-025",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Balance de comprobación por cuenta mayor (2 dígitos) para asientos contables válidos.",
+      "sql_gold": "SELECT SUBSTRING(aa.code, 1, 2) AS cuenta_mayor, SUM(jed.debit) AS suma_debe, SUM(jed.credit) AS suma_haber, (SUM(jed.debit) - SUM(jed.credit)) AS saldo_deudor FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true GROUP BY SUBSTRING(aa.code, 1, 2) ORDER BY cuenta_mayor ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-026",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Detección de asientos descuadrados con diferencia mayor a un céntimo entre debe y haber.",
+      "sql_gold": "SELECT je.id, je.entry_code, je.entry_date, je.glosa, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber, ABS(SUM(jed.debit) - SUM(jed.credit)) AS descuadre FROM journal_entry je JOIN journal_entry_detail jed ON je.id = jed.entry_id WHERE je.status = true GROUP BY je.id, je.entry_code, je.entry_date, je.glosa HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY descuadre DESC;",
+      "tablas_esperadas": [
+        "journal_entry",
+        "journal_entry_detail"
+      ]
+    },
+    {
+      "id": "TEST-027",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-028",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-029",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-030",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-031",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-032",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-033",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-034",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-035",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-036",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-037",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-038",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-039",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-040",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-041",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-042",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-043",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-044",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-045",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-046",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-047",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-048",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-049",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-050",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-051",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-052",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-053",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-054",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-055",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-056",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-057",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-058",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-059",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-060",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-061",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-062",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-063",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-064",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-065",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-066",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-067",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-068",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-069",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-070",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-071",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-072",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-073",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-074",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-075",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-076",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-077",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-078",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-079",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-080",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-081",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-082",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-083",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-084",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-085",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-086",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-087",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-088",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-089",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-090",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-091",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-092",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-093",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-094",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-095",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-096",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-097",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-098",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-099",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-100",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-101",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-102",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-103",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-104",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de septiembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-105",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de octubre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-106",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de noviembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-107",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de diciembre de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-108",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de enero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-109",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de febrero de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-110",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de marzo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-111",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Yape en el periodo de abril de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-112",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Plin en el periodo de mayo de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-113",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de junio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-114",
+      "modulo": "ventas",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de julio de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-115",
+      "modulo": "ventas",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de agosto de 2026?",
+      "sql_gold": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "sales_payment",
+        "payment_type"
+      ]
+    },
+    {
+      "id": "TEST-116",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-117",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-118",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-119",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-120",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-121",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-122",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-123",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-124",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-125",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-126",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-127",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-128",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-129",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-130",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-131",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-132",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-133",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-134",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-135",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-136",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-137",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-138",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-139",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-140",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-141",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-142",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-143",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-144",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-145",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-146",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-147",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-148",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-149",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-150",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-151",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-152",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-153",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-154",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-155",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-156",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-157",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-158",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-159",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-160",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-161",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-162",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-163",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-164",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-165",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-166",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-167",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-168",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-169",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-170",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-171",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-172",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-173",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-174",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-175",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-176",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-177",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-178",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-179",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-180",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-181",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-182",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-183",
+      "modulo": "compras",
+      "dificultad": "dificil",
+      "pregunta": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-184",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-185",
+      "modulo": "compras",
+      "dificultad": "medio",
+      "pregunta": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+      "tablas_esperadas": [
+        "informal_purchase"
+      ]
+    },
+    {
+      "id": "TEST-186",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-187",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-188",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-189",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-190",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-191",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-192",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-193",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-194",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-195",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-196",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-197",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-198",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-199",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-200",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-201",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-202",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-203",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-204",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-205",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-206",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-207",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-208",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-209",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-210",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-211",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-212",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-213",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-214",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-215",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-216",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-217",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-218",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-219",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-220",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-221",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-222",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-223",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-224",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-225",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-226",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-227",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-228",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-229",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-230",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-231",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-232",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-233",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-234",
+      "modulo": "caja",
+      "dificultad": "medio",
+      "pregunta": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-235",
+      "modulo": "caja",
+      "dificultad": "facil",
+      "pregunta": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+      "sql_gold": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+      "tablas_esperadas": [
+        "cash_movement"
+      ]
+    },
+    {
+      "id": "TEST-236",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-237",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-238",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-239",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-240",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-241",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-242",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-243",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-244",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-245",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en junio de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-06-01' AND im.created_at <= '2026-06-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-246",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en julio de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-07-01' AND im.created_at <= '2026-07-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-247",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en agosto de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-08-01' AND im.created_at <= '2026-08-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-248",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-249",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-250",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-251",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-252",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-253",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-254",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-255",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-256",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-257",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en junio de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-06-01' AND im.created_at <= '2026-06-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-258",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en julio de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-07-01' AND im.created_at <= '2026-07-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-259",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en agosto de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-08-01' AND im.created_at <= '2026-08-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-260",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-261",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-262",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-263",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-264",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-265",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-266",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-267",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-268",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-269",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en junio de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-06-01' AND im.created_at <= '2026-06-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-270",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en julio de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-07-01' AND im.created_at <= '2026-07-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-271",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en agosto de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-08-01' AND im.created_at <= '2026-08-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-272",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-273",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-274",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-275",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-276",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-277",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-278",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-279",
+      "modulo": "inventario",
+      "dificultad": "medio",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-280",
+      "modulo": "inventario",
+      "dificultad": "dificil",
+      "pregunta": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+      "sql_gold": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+      "tablas_esperadas": [
+        "inventory_movement",
+        "product"
+      ]
+    },
+    {
+      "id": "TEST-281",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de junio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-282",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de julio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-283",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de agosto de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-284",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de septiembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-285",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de octubre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-286",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de noviembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-287",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de diciembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-288",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de enero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-289",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de febrero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-290",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de marzo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-291",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de abril de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-292",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de mayo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-293",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de junio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-294",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de julio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-295",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de agosto de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-296",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de septiembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-297",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de octubre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-298",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de noviembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-299",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de diciembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-300",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de enero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-301",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de febrero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-302",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de marzo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-303",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de abril de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-304",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de mayo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-305",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de junio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-306",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de julio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-307",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de agosto de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-308",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de septiembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-309",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de octubre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-310",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de noviembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-311",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de diciembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-312",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de enero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-313",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de febrero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-314",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de marzo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-315",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de abril de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-316",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de mayo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-317",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de junio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-318",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de julio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-319",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de agosto de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-320",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de septiembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-321",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de octubre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-322",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de noviembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-323",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de diciembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-324",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de enero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-325",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de febrero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-326",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de marzo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-327",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de abril de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-328",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de mayo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-329",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de junio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-330",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de julio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-331",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de agosto de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-332",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de septiembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-333",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de octubre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-334",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de noviembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-335",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de diciembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-336",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de enero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-337",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de febrero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-338",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de marzo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-339",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de abril de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-340",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de mayo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-341",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de junio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-342",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de julio de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-343",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de agosto de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-344",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de septiembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-345",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de octubre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-346",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de noviembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-347",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de diciembre de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-348",
+      "modulo": "contabilidad",
+      "dificultad": "dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de enero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-349",
+      "modulo": "contabilidad",
+      "dificultad": "medio",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de febrero de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    },
+    {
+      "id": "TEST-350",
+      "modulo": "contabilidad",
+      "dificultad": "extra_dificil",
+      "pregunta": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de marzo de 2026.",
+      "sql_gold": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+      "tablas_esperadas": [
+        "journal_entry_detail",
+        "accounting_account",
+        "journal_entry"
+      ]
+    }
+  ]
+}

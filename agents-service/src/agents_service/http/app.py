@@ -20,7 +20,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from agents_service.config.settings import AgentsServiceSettings
-from agents_service.gemini_sql.agent import GeminiSqlAgent
+from agents_service.agent_sql.agent import LocalSqlAgent
 from agents_service.http.routes import SECURITY_HEADERS, build_router, error_response
 
 ERROR_NOT_FOUND = "Recurso no encontrado."
@@ -51,8 +51,8 @@ class SecurityHeadersMiddleware:
 
 def create_app(
     settings: AgentsServiceSettings,
-    agent: GeminiSqlAgent | None = None,
-    groq_agent: GeminiSqlAgent | None = None,
+    agent: LocalSqlAgent | None = None,
+    groq_agent: LocalSqlAgent | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="agents-service",
