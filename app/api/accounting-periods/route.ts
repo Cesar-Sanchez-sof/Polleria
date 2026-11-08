@@ -1,241 +1,88 @@
-import type { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { authorize } from "@/lib/auth/permissions";
+import { NextResponse } from "next/server";
+import { createApiHandler } from "@/lib/http/route-handler";
+import { requestIp } from "@/lib/services/audit.service";
 import { PeriodClosingError } from "@/lib/accounting/closing";
-import { closeAccountingPeriod, reopenAccountingPeriod } from "@/lib/services/accounting-period-closing.service";
+import {
+  listAccountingPeriodsService,
+  createAccountingPeriodService,
+  patchAccountingPeriodService,
+} from "@/lib/services/accounting-periods.service";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/accounting-periods
- * Returns a list of accounting periods. Accepts optional query parameters:
- *   ?status=open|closed – filter by status
  */
-/**
- * @openapi
- * /api/accounting-periods:
- *   get:
- *     tags:
- *       - AccountingPeriods
- *     summary: Listar periodos contables
- *     description: Obtiene una lista de periodos contables, opcionalmente filtrados por estado, mes y año.
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [open, closed]
- *         description: Filtrar por estado del periodo.
- *       - in: query
- *         name: month
- *         schema:
- *           type: integer
- *         description: Mes (1-12) para filtrar por rango de fechas.
- *       - in: query
- *         name: year
- *         schema:
- *           type: integer
- *         description: Año para filtrar por rango de fechas.
- *     responses:
- *       200:
- *         description: Lista de periodos contables.
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/AccountingPeriod'
- *       500:
- *         description: Error interno.
- */
-export async function GET(request: NextRequest) {
-  const auth = await authorize("periodos.ver");
-  if (!auth.ok) return auth.response;
-  try {
-    const status = request.nextUrl.searchParams.get("status");
-    const monthParam = request.nextUrl.searchParams.get("month");
-    const yearParam = request.nextUrl.searchParams.get("year");
+export const GET = createApiHandler({
+  permission: "periodos.ver",
+  handler: async ({ searchParams }) => {
+    const status = searchParams.get("status");
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
 
-    const where: Prisma.AccountingPeriodWhereInput = {};
-    if (status) {
-      if (status === "open") where.status = "OPEN";
-      else if (status === "closed") where.status = "CLOSED";
-    }
-    const month = monthParam ? Number(monthParam) : NaN;
-    const year = yearParam ? Number(yearParam) : new Date().getFullYear();
-    if (!isNaN(month) && month >= 1 && month <= 12) {
-      const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
-      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-      where.startDate = { gte: startOfMonth, lte: endOfMonth };
-    }
-
-    const periods = await prisma.accountingPeriod.findMany({ where });
-    return Response.json(periods);
-  } catch (error) {
-    console.error("[api/accounting-periods] GET error:", error);
-    return Response.json({ error: "Error retrieving periods" }, { status: 500 });
-  }
-}
+    const periods = await listAccountingPeriodsService({
+      status,
+      month: monthParam,
+      year: yearParam,
+    });
+    return NextResponse.json(periods);
+  },
+});
 
 /**
- * @openapi
- * /api/accounting-periods:
- *   post:
- *     tags:
- *       - AccountingPeriods
- *     summary: Crear nuevo período contable
- *     description: Crea un nuevo período contable especificando mes y año.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               month:
- *                 type: integer
- *               year:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Período creado
- *       400:
- *         description: Error de validación
- *       500:
- *         description: Error del servidor
+ * POST /api/accounting-periods
  */
-export async function POST(request: NextRequest) {
-  const auth = await authorize("periodos.crear");
-  if (!auth.ok) return auth.response;
-  try {
-    const userId = auth.session.userId;
-
-    const body = await request.json();
-    const { month, year } = body as { month?: number; year?: number };
-    const errors: string[] = [];
-    if (typeof month !== 'number' || month < 1 || month > 12) errors.push('El mes debe ser un número entero entre 1 y 12');
-    if (typeof year !== 'number' || year < 1970) errors.push('year must be a valid integer');
-    if (errors.length) return Response.json({ errors }, { status: 400 });
-
-    // Ensure month and year are defined
-    if (month === undefined || year === undefined) {
-      return Response.json({ error: 'month and year are required' }, { status: 400 });
+export const POST = createApiHandler({
+  permission: "periodos.crear",
+  handler: async ({ req, session, body }) => {
+    try {
+      const data = (body !== undefined ? body : await req.json().catch(() => ({}))) as {
+        month?: number;
+        year?: number;
+      };
+      const period = await createAccountingPeriodService(
+        data,
+        { userId: session!.userId, username: session!.username },
+        requestIp(req) ?? undefined
+      );
+      return NextResponse.json(period, { status: 201 });
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "rawErrors" in err) {
+        return NextResponse.json(
+          { errors: (err as { rawErrors: string[] }).rawErrors },
+          { status: 400 }
+        );
+      }
+      throw err;
     }
-    // Compute start and end of the selected month (UTC)
-    const start = new Date(Date.UTC(year, month - 1, 1));
-    const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // last day of month
-
-    // Uniqueness: only one period per month/year
-    const existing = await prisma.accountingPeriod.findFirst({
-      where: {
-        startDate: { gte: start, lte: end },
-        endDate: { gte: start, lte: end },
-      },
-    });
-    if (existing) errors.push('Ya existe un período para el mes y año seleccionados');
-
-    if (errors.length) return Response.json({ errors }, { status: 400 });
-
-    const period = await prisma.accountingPeriod.create({
-      data: {
-        startDate: start,
-        endDate: end,
-        status: "OPEN",
-        userId: userId,
-      },
-    });
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
-      action: "CREATE",
-      module: "Contabilidad",
-      entity: "Período contable",
-      entityId: period.id,
-      description: `Creó el período contable ${month}/${year}`,
-      details: { after: { start: start, end: end, status: "OPEN" } },
-      ipAddress: requestIp(request),
-    });
-    return Response.json(period, { status: 201 });
-  } catch (error) {
-    console.error("[api/accounting-periods] POST error:", error);
-    const msg = error instanceof Error ? error.message : "Error creating period";
-    return Response.json({ error: msg }, { status: 500 });
-  }
-}
+  },
+});
 
 /**
- * @openapi
- * /api/accounting-periods:
- *   patch:
- *     tags:
- *       - AccountingPeriods
- *     summary: Cerrar o reabrir un período contable
- *     description: Cierra o reabre un período contable según el cuerpo de la solicitud.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               periodId:
- *                 type: integer
- *               reopen:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: Período actualizado
- *       400:
- *         description: Error de validación
- *       404:
- *         description: Período no encontrado
- *       500:
- *         description: Error del servidor
+ * PATCH /api/accounting-periods
  */
-export async function PATCH(request: NextRequest) {
-  const auth = await authorize("periodos.editar");
-  if (!auth.ok) return auth.response;
-  try {
-    const userId = auth.session.userId;
-    const body = await request.json();
-    const { periodId, reopen } = body as { periodId?: number; reopen?: boolean };
-    if (!periodId) {
-      return Response.json({ error: "periodId is required" }, { status: 400 });
+export const PATCH = createApiHandler({
+  permission: "periodos.editar",
+  handler: async ({ req, session, body }) => {
+    try {
+      const data = (body !== undefined ? body : await req.json().catch(() => ({}))) as {
+        periodId?: number;
+        reopen?: boolean;
+      };
+      const updated = await patchAccountingPeriodService(
+        data,
+        { userId: session!.userId, username: session!.username },
+        requestIp(req) ?? undefined
+      );
+      return NextResponse.json(updated);
+    } catch (err: unknown) {
+      if (err instanceof PeriodClosingError) {
+        return NextResponse.json(
+          { error: err.message, issues: err.issues },
+          { status: 409 }
+        );
+      }
+      throw err;
     }
-    const period = await prisma.accountingPeriod.findUnique({ where: { id: periodId } });
-    if (!period) {
-      return Response.json({ error: "Period not found" }, { status: 404 });
-    }
-    if (period.status === "CLOSED" && !reopen) {
-      return Response.json({ error: "Period already closed" }, { status: 400 });
-    }
-    const result = await prisma.$transaction(async (tx) =>
-      reopen
-        ? reopenAccountingPeriod(tx, period)
-        : closeAccountingPeriod(tx, period, { userId, username: auth.session.username }),
-    );
-    const updated = result.period;
-    const closingEntry = "closingEntry" in result ? result.closingEntry : null;
-    await logAudit({
-      actor: { userId: auth.session.userId, username: auth.session.username },
-      action: "STATUS_CHANGE",
-      module: "Contabilidad",
-      entity: "Período contable",
-      entityId: periodId,
-      description: `${reopen ? "Reabrió" : "Cerró"} el período contable #${periodId}${
-        closingEntry ? ` y registró el asiento de cierre ${closingEntry.code}` : ""
-      }`,
-      details: { before: { status: period.status }, after: { status: updated.status } },
-      ipAddress: requestIp(request),
-    });
-    return Response.json(closingEntry ? { ...updated, closingEntry } : updated);
-  } catch (error) {
-    if (error instanceof PeriodClosingError) {
-      return Response.json({ error: error.message, issues: error.issues }, { status: 409 });
-    }
-    console.error("[api/accounting-periods] PATCH error:", error);
-    const msg = error instanceof Error ? error.message : "Error closing period";
-    return Response.json({ error: msg }, { status: 500 });
-  }
-}
+  },
+});

@@ -1,246 +1,31 @@
-import type { NextRequest } from "next/server";
-import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { parseUtcDate } from "@/lib/dates";
-import {
-  buildDashboard,
-  resolvePreviousRange,
-  validateRange,
-  type AccountMovement,
-  type MonthlyRow,
-  type PreviousAggregates,
-} from "@/lib/accounting/dashboard";
-import { authorize } from "@/lib/auth/permissions";
-import { CLOSING_BOOK } from "@/lib/accounting/closing";
+import { NextResponse } from "next/server";
+import { createApiHandler, DomainError } from "@/lib/http/route-handler";
+import { generateAccountingDashboardReport } from "@/lib/services/accounting-reports.service";
 
 export const dynamic = "force-dynamic";
-
-/** Convierte los agregados `groupBy` de Prisma a `AccountMovement` usando el catálogo. */
-function toMovements(
-  aggregates: Array<{ accountId: number; _sum: { debit: unknown; credit: unknown } }>,
-  accountsById: Map<number, AccountMovement>
-): AccountMovement[] {
-  return aggregates.flatMap((row) => {
-    const account = accountsById.get(row.accountId);
-    if (!account) return [];
-    return [
-      {
-        ...account,
-        debit: Number(row._sum.debit ?? 0),
-        credit: Number(row._sum.credit ?? 0),
-      },
-    ];
-  });
-}
-
-const PNL_TYPES = new Set(["Ingreso", "Gasto", "Costo"]);
-const isPnl = (a: AccountMovement): boolean => PNL_TYPES.has(a.type);
-const isBalance = (a: AccountMovement): boolean => !PNL_TYPES.has(a.type);
 
 /**
  * GET /api/accounting/dashboard?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
  *
  * Dashboard contable: KPIs del período con variación vs el período anterior,
  * serie mensual (12 meses), distribución de gastos por categoría PCGE y
- * cuentas con mayor movimiento. Usa los mismos criterios que
- * `/api/balance-sheet` (cuentas activas, asientos vigentes, `signedBalance`,
- * redondeo a 2 decimales) para coincidir exactamente con los reportes
- * oficiales (SC-002/FR-009).
+ * cuentas con mayor movimiento.
  */
-/**
- * @openapi
- * /api/accounting/dashboard:
- *   get:
- *     tags:
- *       - Accounting Dashboard
- *     summary: Obtener el dashboard contable de un rango de fechas
- *     description: >
- *       Devuelve los KPIs del período (ingresos, gastos, utilidad neta, caja y
- *       bancos, cuentas por cobrar y por pagar, nº de asientos) con su variación
- *       respecto del período anterior de igual duración.
- *     parameters:
- *       - in: query
- *         name: desde
- *         schema:
- *           type: string
- *           format: date
- *         required: true
- *         description: Inicio del rango (YYYY-MM-DD).
- *       - in: query
- *         name: hasta
- *         schema:
- *           type: string
- *           format: date
- *         required: true
- *         description: Fin del rango inclusive (YYYY-MM-DD).
- *     responses:
- *       200:
- *         description: Dashboard generado.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/DashboardPayload'
- *       400:
- *         description: Parámetros de fecha inválidos o rango invertido.
- *       404:
- *         description: No hay cuentas contables activas.
- *       500:
- *         description: Error interno al generar el dashboard.
- */
-export async function GET(request: NextRequest) {
-  const auth = await authorize("reportes.ver");
-  if (!auth.ok) return auth.response;
-  try {
-    const from = (request.nextUrl.searchParams.get("desde") ?? "").trim();
-    const to = (request.nextUrl.searchParams.get("hasta") ?? "").trim();
-
-    const rangeError = validateRange(from, to);
-    if (rangeError) {
-      return Response.json({ error: rangeError }, { status: 400 });
-    }
-
-    const fromDate = parseUtcDate(from);
-    const toDate = parseUtcDate(to);
-
-    const accounts = await prisma.accountingAccount.findMany({
-      where: { active: true },
-      select: { id: true, code: true, name: true, type: true },
-      orderBy: { code: "asc" },
-    });
-
-    if (accounts.length === 0) {
-      return Response.json(
-        { error: "No hay cuentas contables activas para elaborar el dashboard." },
-        { status: 404 }
+export const GET = createApiHandler({
+  permission: "reportes.ver",
+  handler: async ({ searchParams }) => {
+    try {
+      const from = searchParams.get("desde");
+      const to = searchParams.get("hasta");
+      const result = await generateAccountingDashboardReport(from, to);
+      return NextResponse.json(result);
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
+      console.error("[api/accounting/dashboard] error:", error);
+      return NextResponse.json(
+        { error: "No se pudo generar el Dashboard Contable." },
+        { status: 500 }
       );
     }
-
-    const accountsById = new Map<number, AccountMovement>(
-      accounts.map((a) => [a.id, { code: a.code, name: a.name, type: a.type, debit: 0, credit: 0 }])
-    );
-    const accountIds = accounts.map((a) => a.id);
-
-    const previous = resolvePreviousRange(from, to);
-
-    const [
-      periodAgg,
-      balanceAgg,
-      entryCount,
-      prevPeriodAgg,
-      prevBalanceAgg,
-      prevEntryCount,
-      monthlyAgg,
-    ] = await Promise.all([
-        prisma.journalEntryDetail.groupBy({
-          by: ["accountId"],
-          where: {
-            accountId: { in: accountIds },
-            entry: { status: true, book: { not: CLOSING_BOOK }, entryDate: { gte: fromDate, lte: toDate } },
-          },
-          _sum: { debit: true, credit: true },
-        }),
-        prisma.journalEntryDetail.groupBy({
-          by: ["accountId"],
-          where: {
-            accountId: { in: accountIds },
-            entry: { status: true, entryDate: { lte: toDate } },
-          },
-          _sum: { debit: true, credit: true },
-        }),
-        prisma.journalEntry.count({
-          where: { status: true, entryDate: { gte: fromDate, lte: toDate } },
-        }),
-        previous
-          ? prisma.journalEntryDetail.groupBy({
-              by: ["accountId"],
-              where: {
-                accountId: { in: accountIds },
-                entry: {
-                  status: true,
-                  book: { not: CLOSING_BOOK },
-                  entryDate: { gte: parseUtcDate(previous.from), lte: parseUtcDate(previous.to) },
-                },
-              },
-              _sum: { debit: true, credit: true },
-            })
-          : Promise.resolve([]),
-        previous
-          ? prisma.journalEntryDetail.groupBy({
-              by: ["accountId"],
-              where: {
-                accountId: { in: accountIds },
-                entry: { status: true, entryDate: { lte: parseUtcDate(previous.to) } },
-              },
-              _sum: { debit: true, credit: true },
-            })
-          : Promise.resolve([]),
-        previous
-          ? prisma.journalEntry.count({
-              where: {
-                status: true,
-                entryDate: { gte: parseUtcDate(previous.from), lte: parseUtcDate(previous.to) },
-              },
-            })
-          : Promise.resolve(0),
-        // Serie mensual P&L (research R3): una sola consulta con date_trunc.
-        prisma.$queryRaw<Array<{ month: Date; type: string; debit: unknown; credit: unknown }>>`
-          SELECT date_trunc('month', e.entry_date) AS month,
-                 a.type AS type,
-                 COALESCE(SUM(d.debit), 0)  AS debit,
-                 COALESCE(SUM(d.credit), 0) AS credit
-          FROM journal_entry_detail d
-          JOIN journal_entry e ON e.id = d.entry_id AND e.status = TRUE
-          JOIN accounting_account a ON a.id = d.account_id AND a.active = TRUE
-          WHERE e.entry_date BETWEEN ${fromDate} AND ${toDate}
-            AND e.book <> ${CLOSING_BOOK}
-            AND a.type IN ('Ingreso','Gasto','Costo')
-          GROUP BY 1, 2
-          ORDER BY 1
-        `,
-      ]);
-
-    // `month` llega como timestamp UTC a medianoche (date_trunc sobre @db.Date).
-    const monthlyRows: MonthlyRow[] = monthlyAgg.map((row) => ({
-      month: `${row.month.getUTCFullYear()}-${String(row.month.getUTCMonth() + 1).padStart(2, "0")}`,
-      type: row.type,
-      debit: Number(row.debit ?? 0),
-      credit: Number(row.credit ?? 0),
-    }));
-
-    const periodMovements = toMovements(periodAgg, accountsById);
-    const balanceMovements = toMovements(balanceAgg, accountsById);
-
-    const previousAggregates: PreviousAggregates | null = previous
-      ? {
-          from: previous.from,
-          to: previous.to,
-          periodAccounts: toMovements(prevPeriodAgg, accountsById).filter(isPnl),
-          balanceAccounts: toMovements(prevBalanceAgg, accountsById).filter(isBalance),
-          entryCount: prevEntryCount,
-        }
-      : null;
-
-    const payload = buildDashboard({
-      from,
-      to,
-      periodAccounts: periodMovements.filter(isPnl),
-      balanceAccounts: balanceMovements.filter(isBalance),
-      previous: previousAggregates,
-      monthlyRows,
-      accountMovement: periodMovements,
-      entryCount,
-    });
-
-    return Response.json(payload);
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      console.error("[api/accounting/dashboard] prisma:", error.code, error.message);
-    } else {
-      console.error("[api/accounting/dashboard] error:", error);
-    }
-    return Response.json(
-      { error: "No se pudo generar el Dashboard Contable." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

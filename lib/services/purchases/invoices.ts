@@ -300,3 +300,38 @@ export async function getPaymentTypes() {
     return [];
   }
 }
+
+
+/** Devuelve los comprobantes de compra locales formateados para cotejo/conciliación SIRE. */
+export async function listLocalPurchasesForReconciliation() {
+  await requirePermission("compras.ver");
+  const invoices = await prisma.purchaseInvoice.findMany({
+    where: { active: true },
+    select: {
+      id: true,
+      voucherType: true,
+      series: true,
+      number: true,
+      issuedAt: true,
+      totalAmount: true,
+      supplier: {
+        select: {
+          ruc: true,
+          businessName: true,
+        },
+      },
+    },
+    orderBy: { issuedAt: "desc" },
+  });
+
+  return invoices.map((inv) => ({
+    id: inv.id,
+    voucherType: inv.voucherType,
+    series: inv.series,
+    number: String(inv.number),
+    issuedAt: inv.issuedAt ? inv.issuedAt.toISOString().slice(0, 10) : "",
+    totalAmount: Number(inv.totalAmount),
+    supplierDocument: inv.supplier?.ruc ?? "",
+    supplierName: inv.supplier?.businessName ?? "",
+  }));
+}

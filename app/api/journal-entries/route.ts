@@ -1,541 +1,62 @@
-import type { NextRequest } from "next/server";
-import { Prisma, type JournalEntry } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { currentActor } from "@/lib/auth/audit-actor";
-import { formatDateToIso, parseUtcDate } from "@/lib/dates";
-import { generateJournalEntryCode } from "@/lib/journal-entry-code";
-import { vi } from "vitest";
-import { authorize } from "@/lib/auth/permissions";
-
+import { NextResponse } from "next/server";
+import { createApiHandler, DomainError } from "@/lib/http/route-handler";
+import { requestIp } from "@/lib/services/audit.service";
+import {
+  listJournalEntriesDomain,
+  createJournalEntryDomain,
+  JournalEntryValidationError,
+} from "@/lib/services/journal-entries-domain.service";
 
 export const dynamic = "force-dynamic";
 
-export type JournalEntrySort = "fecha" | "numero" | "concepto" | "diario" | "estado" | "total";
-export type SortDirection = "asc" | "desc";
-
-const VALID_SORTS: JournalEntrySort[] = ["fecha", "numero", "concepto", "diario", "estado", "total"];
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-function parseInteger(value: string | null, defaultValue: number, min: number, max: number): number {
-  if (!value) return defaultValue;
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed)) return defaultValue;
-  return Math.min(Math.max(parsed, min), max);
-}
-
 /**
- * Builds Prisma where filter shared by count and listing queries.
- * Conditions are combined with AND.
+ * GET /api/journal-entries
+ * Obtiene una lista paginada de asientos con filtros de fecha, diario, estado y búsqueda.
  */
-function buildFilter(searchParams: URLSearchParams): Prisma.JournalEntryWhereInput {
-  const filter: Prisma.JournalEntryWhereInput = {};
-
-  const fromDate = searchParams.get("desde");
-  const toDate = searchParams.get("hasta");
-  const book = searchParams.get("diario");
-  const status = searchParams.get("estado");
-  const search = (searchParams.get("q") ?? "").trim();
-
-  const dateRange: Prisma.DateTimeFilter<"JournalEntry"> = {};
-  if (fromDate && DATE_REGEX.test(fromDate)) dateRange.gte = parseUtcDate(fromDate);
-  if (toDate && DATE_REGEX.test(toDate)) dateRange.lte = parseUtcDate(toDate);
-  if (Object.keys(dateRange).length > 0) filter.entryDate = dateRange;
-
-  if (book) filter.book = book;
-  if (status === "registrado") filter.status = true;
-  if (status === "anulado") filter.status = false;
-
-  if (search) {
-    filter.OR = [
-      { code: { contains: search, mode: "insensitive" } },
-      { description: { contains: search, mode: "insensitive" } },
-      {
-        entryDetails: {
-          some: {
-            account: {
-              OR: [
-                { code: { contains: search, mode: "insensitive" } },
-                { name: { contains: search, mode: "insensitive" } },
-              ],
-            },
-          },
-        },
-      },
-    ];
-  }
-
-  return filter;
-}
-
-/** Prisma order input corresponding to sort criteria. */
-function getOrderBy(
-  sortField: JournalEntrySort,
-  direction: SortDirection
-): Prisma.JournalEntryOrderByWithRelationInput {
-  switch (sortField) {
-    case "numero":
-      return { code: direction };
-    case "concepto":
-      return { description: direction };
-    case "diario":
-      return { book: direction };
-    case "estado":
-      return { status: direction };
-    case "total":
-      return {};
-    case "fecha":
-    default:
-      return { entryDate: direction };
-  }
-}
-
-/** Sum of debit per journal entry ID. */
-async function getTotalsByEntryId(entryIds: number[]): Promise<Map<number, number>> {
-  const sums = await prisma.journalEntryDetail.groupBy({
-    by: ["entryId"],
-    where: { entryId: { in: entryIds } },
-    _sum: { debit: true },
-  });
-
-  return new Map(sums.map((s) => [s.entryId, Number(s._sum.debit ?? 0)]));
-}
-
-/**
- * @openapi
- * /api/journal-entries:
- *   get:
- *     tags:
- *       - JournalEntries
- *     summary: Listar asientos contables
- *     description: Obtiene una lista paginada de asientos con filtros de fecha, diario, estado y búsqueda.
- *     parameters:
- *       - in: query
- *         name: desde
- *         schema:
- *           type: string
- *           format: date
- *         description: Fecha inicial (AAAA-MM-DD).
- *       - in: query
- *         name: hasta
- *         schema:
- *           type: string
- *           format: date
- *         description: Fecha final (AAAA-MM-DD).
- *       - in: query
- *         name: diario
- *         schema:
- *           type: string
- *         description: Diario (libro) a filtrar.
- *       - in: query
- *         name: estado
- *         schema:
- *           type: string
- *           enum: [registrado, anulado]
- *         description: Estado del asiento.
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *         description: Texto de búsqueda.
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: Número de página.
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *         description: Tamaño de página.
- *       - in: query
- *         name: orden
- *         schema:
- *           type: string
- *         description: Campo de ordenación.
- *       - in: query
- *         name: dir
- *         schema:
- *           type: string
- *           enum: [asc, desc]
- *         description: Dirección de ordenación.
- *     responses:
- *       200:
- *         description: Lista de asientos.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/JournalEntry'
- *                 meta:
- *                   type: object
- *       500:
- *         description: Error interno del servidor.
- */
-export async function GET(request: NextRequest) {
-  const auth = await authorize("asientos.ver");
-  if (!auth.ok) return auth.response;
-  try {
-    const searchParams = request.nextUrl.searchParams;
-
-    const page = parseInteger(searchParams.get("page"), 1, 1, Number.MAX_SAFE_INTEGER);
-    const pageSize = parseInteger(searchParams.get("pageSize"), 10, 1, 100);
-    const sortParam = (searchParams.get("orden") ?? "fecha") as JournalEntrySort;
-    const sort: JournalEntrySort = VALID_SORTS.includes(sortParam) ? sortParam : "fecha";
-    const dir: SortDirection = searchParams.get("dir") === "asc" ? "asc" : "desc";
-
-    const filter = buildFilter(searchParams);
-
-    const [total, registered, annulled] = await Promise.all([
-      prisma.journalEntry.count({ where: filter }),
-      prisma.journalEntry.count({ where: { AND: [filter, { status: true }] } }),
-      prisma.journalEntry.count({ where: { AND: [filter, { status: false }] } }),
-    ]);
-
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const effectivePage = Math.min(page, totalPages);
-    const offset = (effectivePage - 1) * pageSize;
-
-    let pageEntryIds: number[] | null = null;
-    if (sort === "total") {
-      const rows = await prisma.journalEntry.findMany({
-        where: filter,
-        select: { id: true },
-      });
-      const totalsMap = await getTotalsByEntryId(rows.map((r) => r.id));
-      const sortedRows = rows
-        .map((r) => ({ id: r.id, total: totalsMap.get(r.id) ?? 0 }))
-        .sort((a, b) => (dir === "asc" ? a.total - b.total : b.total - a.total) || b.id - a.id);
-      pageEntryIds = sortedRows.slice(offset, offset + pageSize).map((r) => r.id);
-    }
-
-    const pageFilter: Prisma.JournalEntryWhereInput = pageEntryIds
-      ? { AND: [filter, { id: { in: pageEntryIds } }] }
-      : filter;
-
-    const records = await prisma.journalEntry.findMany({
-      where: pageFilter,
-      orderBy: pageEntryIds ? undefined : [getOrderBy(sort, dir), { id: "desc" }],
-      skip: pageEntryIds ? undefined : offset,
-      take: pageEntryIds ? undefined : pageSize,
-      select: {
-        id: true,
-        code: true,
-        entryDate: true,
-        book: true,
-        description: true,
-        responsible: true,
-        status: true,
-        createdAt: true,
-        entryDetails: { select: { debit: true } },
-      },
-    });
-
-    const data = records.map((entry) => ({
-      id: entry.id,
-      number: entry.code,
-      date: formatDateToIso(entry.entryDate),
-      daily: entry.book,
-      concept: entry.description,
-      responsible: entry.responsible,
-      status: entry.status ? ("Registrado" as const) : ("Anulado" as const),
-      total: entry.entryDetails.reduce((sum, line) => sum + Number(line.debit), 0),
-      ...(entry.createdAt ? { createdAt: entry.createdAt.toISOString() } : {}),
-    }));
-
-    if (pageEntryIds) {
-      const positionMap = new Map(pageEntryIds.map((id, index) => [id, index]));
-      data.sort((a, b) => (positionMap.get(a.id) ?? 0) - (positionMap.get(b.id) ?? 0));
-    }
-
-    return Response.json({
-      data,
-      meta: {
-        total,
-        registered: registered,
-        annulled: annulled,
-        page: effectivePage,
-        pageSize,
-        totalPages: totalPages,
-        order: sort,
-        dir,
-      },
-    });
-  } catch (error) {
-    console.error("[api/journal-entries] error al listar asientos:", error);
-    return Response.json(
-      { error: "No se pudo obtener el listado de asientos contables." },
-      { status: 500 }
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Manual registration of a journal entry
-// ---------------------------------------------------------------------------
-
-interface ValidatedLine {
-  accountId: number;
-  description: string | null;
-  debit: number;
-  credit: number;
-}
-
-function roundToTwo(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function trimString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function parseAmount(value: unknown): number | null {
-  if (value === undefined || value === null || value === "") return 0;
-  const num = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(num) ? num : null;
-}
-
-function isDuplicateCode(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-}
-
-/**
- * @openapi
- * /api/journal-entries:
- *   post:
- *     tags:
- *       - JournalEntries
- *     summary: Registrar un nuevo asiento contable
- *     description: Crea un asiento con sus líneas, valida la integridad y asigna número de asiento.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/NewJournalEntry'
- *     responses:
- *       201:
- *         description: Asiento creado exitosamente.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/JournalEntry'
- *       400:
- *         description: Datos de solicitud inválidos o validación fallida.
- *       500:
- *         description: Error interno al registrar el asiento.
- */
-export async function POST(request: NextRequest) {
-  const auth = await authorize("asientos.crear");
-  if (!auth.ok) return auth.response;
-  try {
-    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return Response.json(
-        { error: "El cuerpo de la petición no es un JSON válido." },
-        { status: 400 }
-      );
-    }
-
-    const errors: string[] = [];
-
-    const dateStr = trimString(body.date);
-    if (!DATE_REGEX.test(dateStr)) {
-      errors.push("La fecha contable es obligatoria y debe tener el formato AAAA-MM-DD.");
-    }
-
-    const description = trimString(body.description);
-    if (!description) errors.push("El concepto (glosa) del asiento es obligatorio.");
-    else if (description.length > 200) errors.push("El concepto no puede superar los 200 caracteres.");
-
-    const book = trimString(body.daily) || "Operaciones varias";
-    if (book.length > 60) errors.push("El diario no puede superar los 60 caracteres.");
-
-    const responsible = trimString(body.responsible);
-    if (responsible.length > 100) {
-      errors.push("El responsable no puede superar los 100 caracteres.");
-    }
-
-    const observation = trimString(body.observation);
-    if (observation.length > 200) {
-      errors.push("La observación no puede superar los 200 caracteres.");
-    }
-
-    const status = typeof body.status === "boolean" ? body.status : true;
-
-    const rawLines = Array.isArray(body.lines) ? body.lines : [];
-    if (rawLines.length < 2) {
-      errors.push("El asiento debe registrar al menos dos líneas (debe y haber).");
-    } else if (rawLines.length > 100) {
-      errors.push("El asiento no puede superar las 100 líneas.");
-    }
-
-    const validatedLines: ValidatedLine[] = [];
-    rawLines.forEach((rawLine, index) => {
-      const lineLabel = `Línea ${index + 1}:`;
-
-      if (!rawLine || typeof rawLine !== "object") {
-        errors.push(`${lineLabel} el formato de la línea no es válido.`);
-        return;
-      }
-
-      const lineObj = rawLine as Record<string, unknown>;
-
-      const accountId = Number(lineObj.accountId);
-      if (!Number.isInteger(accountId) || accountId <= 0) {
-        errors.push(`${lineLabel} falta la cuenta contable.`);
-        return;
-      }
-
-      const lineDescription = trimString(lineObj.description);
-      if (lineDescription.length > 200) {
-        errors.push(`${lineLabel} la descripción no puede superar los 200 caracteres.`);
-      }
-
-      const debit = parseAmount(lineObj.debit);
-      const credit = parseAmount(lineObj.credit);
-      if (debit === null || credit === null) {
-        errors.push(`${lineLabel} los importes deben ser números válidos.`);
-        return;
-      }
-      if (debit < 0 || credit < 0) {
-        errors.push(`${lineLabel} los importes no pueden ser negativos.`);
-        return;
-      }
-      if (debit > 0 && credit > 0) {
-        errors.push(`${lineLabel} no puede tener importe en debe y en haber al mismo tiempo.`);
-        return;
-      }
-      if (debit === 0 && credit === 0) {
-        errors.push(`${lineLabel} debe tener un importe en debe o en haber.`);
-        return;
-      }
-
-      validatedLines.push({
-        accountId,
-        description: lineDescription || null,
-        debit: roundToTwo(debit),
-        credit: roundToTwo(credit),
-      });
-    });
-
-    const totalDebit = roundToTwo(validatedLines.reduce((sum, line) => sum + line.debit, 0));
-    const totalCredit = roundToTwo(validatedLines.reduce((sum, line) => sum + line.credit, 0));
-    if (validatedLines.length >= 2 && Math.abs(totalDebit - totalCredit) >= 0.005) {
-      errors.push(
-        `El asiento no cuadra: el debe (${totalDebit.toFixed(2)}) no coincide con el haber (${totalCredit.toFixed(2)}).`
-      );
-    }
-
-    if (errors.length > 0) {
-      return Response.json({ error: errors[0], errors: errors }, { status: 400 });
-    }
-
-    const uniqueAccountIds = [...new Set(validatedLines.map((line) => line.accountId))];
-    const existingAccounts = await prisma.accountingAccount.findMany({
-      where: { id: { in: uniqueAccountIds } },
-      select: { id: true },
-    });
-    const foundAccountIds = new Set(existingAccounts.map((acc) => acc.id));
-    if (uniqueAccountIds.some((id) => !foundAccountIds.has(id))) {
-      return Response.json(
-        { error: "Una o más cuentas contables del asiento no existen en el plan contable." },
-        { status: 400 }
-      );
-    }
-
-    // Determine the accounting period for the entry date
-    const accountingDate = parseUtcDate(dateStr);
-    const period = await prisma.accountingPeriod.findFirst({
-      where: {
-        startDate: { lte: accountingDate },
-        endDate: { gte: accountingDate },
-      },
-    });
-    if (!period) {
-      return Response.json({ error: "No accounting period found for the given date." }, { status: 400 });
-    }
-    if (period.status === "CLOSED") {
-      return Response.json({ error: "Cannot register entries in a closed accounting period." }, { status: 400 });
-    }
-
-    let createdEntry: JournalEntry | null = null;
-    for (let attempt = 0; attempt < 3 && !createdEntry; attempt++) {
-      try {
-        createdEntry = await prisma.journalEntry.create({
-          data: {
-            code: await generateJournalEntryCode(accountingDate),
-            entryDate: accountingDate,
-            description,
-            book,
-            responsible: responsible || null,
-            observation: observation || null,
-            status,
-            periodId: period.id,
-            entryDetails: {
-              create: validatedLines.map((line) => ({
-                accountId: line.accountId,
-                description: line.description,
-                debit: line.debit,
-                credit: line.credit,
-              })),
-            },
-          },
-        });
-      } catch (err) {
-        if (!isDuplicateCode(err)) {
-          console.error("[api/journal-entries] error al crear el asiento:", err);
-
-          return Response.json(
-            { error: "No se pudo asignar un número de asiento, intente nuevamente." },
-            { status: 500 }
-          );
-        }
-      }
-    }
-
-       if (!createdEntry) {
-      return Response.json(
-        { error: "No se pudo asignar un número de asiento, intente nuevamente." },
+export const GET = createApiHandler({
+  permission: "asientos.ver",
+  handler: async ({ searchParams }) => {
+    try {
+      const result = await listJournalEntriesDomain(searchParams);
+      return NextResponse.json(result);
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
+      console.error("[api/journal-entries] error al listar asientos:", error);
+      return NextResponse.json(
+        { error: "No se pudo obtener el listado de asientos contables." },
         { status: 500 }
       );
     }
+  },
+});
 
-    // ▼▼▼ NUEVO: registro de auditoría ▼▼▼
-    await logAudit({
-      actor: await currentActor(),
-      action: "CREATE",
-      module: "Contabilidad",
-      entity: "Asiento contable",
-      entityId: createdEntry.id,
-      description: `Registró el asiento ${createdEntry.code}`,
-      details: { after: { code: createdEntry.code, daily: createdEntry.book, concept: createdEntry.description } },
-      ipAddress: requestIp(request),
-    });
-    // ▲▲▲ FIN NUEVO ▲▲▲
-
-    return Response.json(
-      {
-        id: createdEntry.id,
-        number: createdEntry.code,
-        date: dateStr,
-        daily: createdEntry.book,
-        concept: createdEntry.description,
-        responsible: createdEntry.responsible,
-        status: createdEntry.status ? "Registrado" : "Anulado",
-        total: totalDebit,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("[api/journal-entries] error al registrar el asiento:", error);
-    return Response.json(
-      { error: "No se pudo registrar el asiento contable." },
-      { status: 500 }
-    );
-  }
-}
+/**
+ * POST /api/journal-entries
+ * Registrar un nuevo asiento contable manual.
+ */
+export const POST = createApiHandler({
+  permission: "asientos.crear",
+  handler: async ({ req, body }) => {
+    try {
+      const rawBody = body !== undefined ? body : await req.json().catch(() => null);
+      const result = await createJournalEntryDomain(rawBody, requestIp(req) ?? undefined);
+      return NextResponse.json(result, { status: 201 });
+    } catch (error) {
+      if (error instanceof JournalEntryValidationError) {
+        return NextResponse.json(
+          { error: error.message, errors: error.errors },
+          { status: 400 }
+        );
+      }
+      if (error instanceof DomainError) throw error;
+      if (error instanceof Error && error.message === "No se pudo asignar un número de asiento, intente nuevamente.") {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      console.error("[api/journal-entries] error al registrar el asiento:", error);
+      return NextResponse.json(
+        { error: "No se pudo registrar el asiento contable." },
+        { status: 500 }
+      );
+    }
+  },
+});

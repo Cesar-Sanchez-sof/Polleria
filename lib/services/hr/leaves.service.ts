@@ -85,11 +85,13 @@ function mapLeave(l: LeaveRow): LeaveDto {
 
 /** Saldo de vacaciones a la fecha, según el contrato vigente y la fecha de ingreso. */
 export async function vacationBalanceOf(
-  db: Tx | typeof prisma,
-  employeeId: number,
+  dbOrEmployeeId: Tx | typeof prisma | number,
+  maybeEmployeeId?: number,
   today = todayLimaIso(),
   excludeLeaveId?: number,
 ): Promise<VacationBalance & { contract_type: string | null }> {
+  const db = typeof dbOrEmployeeId === 'number' ? prisma : dbOrEmployeeId;
+  const employeeId = typeof dbOrEmployeeId === 'number' ? dbOrEmployeeId : maybeEmployeeId!;
   const employee = await db.employee.findUnique({ where: { id: employeeId }, select: { id: true, hireDate: true } });
   if (!employee) throw new UserError("Empleado no encontrado", 404);
   const contract = await db.employmentContract.findFirst({

@@ -30,38 +30,6 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  {
-    // Archivos legacy pendientes de migración arquitectónica (Deuda Técnica controlada)
-    files: [
-      "app/api/accounting/**",
-      "app/api/accounting-periods/**",
-      "app/api/accounts/**",
-      "app/api/balance-sheet/**",
-      "app/api/cash-flow-statement/**",
-      "app/api/daily-book/**",
-      "app/api/executive-summary/**",
-      "app/api/general-ledger/**",
-      "app/api/journal-entries/**",
-      "app/api/leaves/**",
-      "app/api/me/**",
-      "app/api/purchases/without-voucher/**",
-      "app/api/trial-balance/**",
-    ],
-    rules: {
-      "no-restricted-imports": [
-        "warn",
-        {
-          paths: [
-            {
-              name: "@/lib/prisma",
-              message:
-                "Deuda técnica legacy: Este endpoint auxiliar aún importa '@/lib/prisma' directamente. Debe migrarse a la capa de servicios.",
-            },
-          ],
-        },
-      ],
-    },
-  },
 ]);
 
 export default eslintConfig;
