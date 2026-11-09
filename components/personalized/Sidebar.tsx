@@ -142,6 +142,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Endpoints", href: "/docs/swagger", path: "endpoints" },
       { label: "Diagrama DB", href: "/docs/db-diagram", path: "db-diagram" },
+      { label: "Arquitectura", href: "/docs/architecture", path: "architecture" },
       { label: "Guía de Estilos", href: "/docs/style-guide", path: "style-guide" },
     ],
   },

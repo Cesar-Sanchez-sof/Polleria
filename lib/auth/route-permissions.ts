@@ -80,6 +80,7 @@ const LINK_PERMISSION: Record<string, string> = {
   "/security/audit": "auditoria.ver",
   "/docs/swagger": "endpoints.ver",
   "/docs/db-diagram": "diagrama.ver",
+  "/docs/architecture": "diagrama.ver",
   "/docs/style-guide": "estilos.ver",
 };
 
