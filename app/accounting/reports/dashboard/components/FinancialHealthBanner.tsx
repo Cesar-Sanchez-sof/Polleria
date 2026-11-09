@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { Scale, TrendingUp, FileText, BookOpen } from "lucide-react";
-import { formatPen } from "@/lib/services/dashboard.service";
-import type { DashboardPayload } from "@/lib/services/dashboard.service";
+import { formatPen } from "@/lib/services/settings/dashboard.service";
+import type { DashboardPayload } from "@/lib/services/settings/dashboard.service";
 import { calculateFinancialHealth } from "./dashboard-utils";
 
 interface FinancialHealthBannerProps {

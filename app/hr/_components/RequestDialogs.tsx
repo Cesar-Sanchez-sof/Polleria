@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { EmployeeDto } from "@/lib/services/employees.service";
+import type { EmployeeDto } from "@/lib/services/hr/employees.service";
 import type { InsuranceDto } from "@/lib/services/hr/benefits.service";
 import {
   INSURANCE_TYPE_LABEL,

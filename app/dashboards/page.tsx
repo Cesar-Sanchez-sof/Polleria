@@ -9,7 +9,7 @@ import {
 import {
   getSections,
   getDashboards,
-} from "@/lib/services/dashboard.service";
+} from "@/lib/services/settings/dashboard.service";
 import { DashboardSidebar } from "@/components/dashboards/DashboardSidebar";
 
 export const dynamic = "force-dynamic";

@@ -5,7 +5,7 @@ import { PurchaseOrderStatus, InventoryMovementType, AffectationIgv } from "@pri
 import { getOrCreateActiveEmployee } from "./employee-helper";
 import { requirePermission } from "@/lib/auth/permissions";
 import { auditPurchase, plain, sessionEmployeeId } from "./purchase-audit";
-import { postPurchaseJournalEntries } from "@/lib/services/accounting-posting.service";
+import { postPurchaseJournalEntries } from "@/lib/services/accounting/accounting-posting.service";
 
 export interface PurchaseOrderLineInput {
   productId: number;

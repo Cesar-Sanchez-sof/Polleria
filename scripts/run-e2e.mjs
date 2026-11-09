@@ -6,8 +6,14 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cargar variables de entorno de .env.test
+// Cargar variables de entorno de .env.test si existe
 dotenv.config({ path: path.resolve(__dirname, "../.env.test"), override: true });
+
+// Asegurar zona horaria de Trujillo, La Libertad (America/Lima) en DATABASE_URL
+if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("timezone=")) {
+  const separator = process.env.DATABASE_URL.includes("?") ? "&" : "?";
+  process.env.DATABASE_URL = `${process.env.DATABASE_URL}${separator}options=-c%20timezone=America/Lima`;
+}
 
 try {
   console.log("🔄 Sincronizando esquema en base de datos de pruebas (.env.test)...");

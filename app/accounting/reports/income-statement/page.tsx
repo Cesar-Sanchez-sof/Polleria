@@ -11,7 +11,7 @@ import {
   formatPeriodLabel,
   getIncomeStatement,
   type IncomeStatementResult,
-} from "@/lib/services/income-statement-api.service";
+} from "@/lib/services/accounting/income-statement-api.service";
 import { formatDateToIso } from "@/lib/dates";
 
 function todayIso(): string {

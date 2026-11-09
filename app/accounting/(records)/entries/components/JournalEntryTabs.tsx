@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { JournalBookOption } from "@/lib/services/journal-entries.service";
+import type { JournalBookOption } from "@/lib/services/accounting/journal-entries.service";
 
 interface Props {
   journals: JournalBookOption[];

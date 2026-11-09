@@ -10,7 +10,7 @@ import {
   type JournalEntriesFilter,
   type JournalEntrySort,
   type JournalEntriesPage,
-} from "@/lib/services/journal-entries.service";
+} from "@/lib/services/accounting/journal-entries.service";
 
 const PAGE_DATA: JournalEntriesPage = {
   data: [

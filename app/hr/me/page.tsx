@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { StatCard } from "@/components/shared/StatCard";
-import type { EmployeeDto } from "@/lib/services/employees.service";
+import type { EmployeeDto } from "@/lib/services/hr/employees.service";
 import type { ContractDto } from "@/lib/services/hr/contracts.service";
 import type { AttendanceRowDto, AttendanceTotals } from "@/lib/services/hr/attendance.service";
 import type { LeaveDto } from "@/lib/services/hr/leaves.service";

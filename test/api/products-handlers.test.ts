@@ -7,7 +7,7 @@ import {
   PATCH as patchProduct,
   DELETE as deleteProduct,
 } from "@/app/api/products/[id]/route";
-import * as productsService from "@/lib/services/products.service";
+import * as productsService from "@/lib/services/inventory/products.service";
 
 type SingleProduct = Awaited<ReturnType<typeof productsService.getProductByIdService>>;
 type CreatedProduct = Awaited<ReturnType<typeof productsService.createProductService>>;

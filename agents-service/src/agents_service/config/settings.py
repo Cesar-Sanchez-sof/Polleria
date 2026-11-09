@@ -25,7 +25,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agents_service.gemini_sql.config import (
+from agents_service.agent_sql.config import (
     GeminiSqlSettings,
     GroqSqlSettings,
     load_gemini_sql_settings,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorize } from "@/lib/auth/permissions";
 import { isAssetSlot, MAX_ASSET_BYTES } from "@/lib/branding/defaults";
-import { BrandingInputError, resetBrandingAsset, saveBrandingAsset } from "@/lib/services/branding.service";
-import { requestIp } from "@/lib/services/audit.service";
+import { BrandingInputError, resetBrandingAsset, saveBrandingAsset } from "@/lib/services/settings/branding.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 
 export const dynamic = "force-dynamic";
 

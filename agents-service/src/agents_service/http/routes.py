@@ -29,7 +29,7 @@ from starlette.concurrency import run_in_threadpool
 
 from agents_service.auth.identity import IDENTITY_HEADER, IdentityError, verify_identity_assertion
 from agents_service.config.settings import AgentsServiceSettings
-from agents_service.gemini_sql.agent import AgentRefusal, AgentUnavailable, GeminiSqlAgent, RateLimited
+from agents_service.agent_sql.agent import AgentRefusal, AgentUnavailable, LocalSqlAgent, RateLimited
 from agents_service.http.schemas import QueryRequest
 from agents_service.orchestrator.ports import AuthorizationContext
 

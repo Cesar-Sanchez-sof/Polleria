@@ -6,7 +6,7 @@ import {
   updateDiningTable,
   deactivateDiningTable,
   listBasicDiningTables,
-} from "@/lib/services/dining-tables.service";
+} from "@/lib/services/sales/dining-tables.service";
 import {
   NotFoundError,
   ConflictError,

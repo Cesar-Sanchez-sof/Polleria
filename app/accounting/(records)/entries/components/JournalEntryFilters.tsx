@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   formatDate,
   type JournalEntriesOptions,
-} from "@/lib/services/journal-entries.service";
+} from "@/lib/services/accounting/journal-entries.service";
 
 /** Identifier for each active filter chip. */
 export type FilterChip = "from" | "to" | "journal" | "status" | "q";

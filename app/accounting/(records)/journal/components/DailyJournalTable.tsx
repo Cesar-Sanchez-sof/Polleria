@@ -13,7 +13,7 @@ import {
   formatTimePeru,
   type DailyBookEntry,
   type DailyBookLine,
-} from "@/lib/services/daily-book.service";
+} from "@/lib/services/accounting/daily-book.service";
 
 interface Props {
   rows: DailyBookEntry[];

@@ -4,7 +4,7 @@ import {
   InsufficientStockError,
   restoreProductStock,
   totalsByProduct,
-} from "@/lib/services/product-stock.service";
+} from "@/lib/services/inventory/product-stock.service";
 
 function fakeTx(overrides: {
   updatedRows?: Array<{ average_cost: number }>;

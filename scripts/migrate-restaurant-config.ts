@@ -7,9 +7,9 @@
  * Garantiza:
  * - No borra ninguna información previa en la base de datos.
  * - Si el registro 'default' ya existe en PostgreSQL, lo mantiene sin alterar.
- * - Si no existe, migra los datos de data/restaurant-config.json incluyendo la carga segura del QR de Yape a S3.
+ * - Si no existe, migra los datos de la configuraci�n por defecto incluyendo la carga segura del QR de Yape a S3.
  */
-import { migrateRestaurantConfigFromJson } from "../lib/services/restaurant-config.service";
+import { migrateRestaurantConfigFromJson } from "../lib/services/settings/restaurant-config.service";
 import { prisma } from "../lib/prisma";
 
 async function main() {

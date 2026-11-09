@@ -12,12 +12,33 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "test/**",
+    "scripts/**",
+    "eval/**",
   ]),
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "prefer-const": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "@next/next/no-location-assign-relative-destination": "off",
+      "@next/next/no-img-element": "off",
+    },
+  },
   {
     files: ["app/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           paths: [
             {

@@ -69,3 +69,12 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+
+#
+.venv/
+..venv/
+install/
+pip/
+psycopg2-binary/
+eval/__pycache__/*
+*.py[cod]

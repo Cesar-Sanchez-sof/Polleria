@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getBranding } from "@/lib/services/branding.service";
+import { getBranding } from "@/lib/services/settings/branding.service";
 import { LoginForm } from "./login-form";
 
 // La marca puede cambiarse desde Configuración → Personalización: no se prerenderiza.

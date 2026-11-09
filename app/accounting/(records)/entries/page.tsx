@@ -23,8 +23,8 @@ import {
   type JournalEntriesOptions,
   type JournalEntriesPage,
   type JournalEntrySort,
-} from "@/lib/services/journal-entries.service";
-import { exportJournalEntriesToExcel } from "@/lib/services/accounting-export.service";
+} from "@/lib/services/accounting/journal-entries.service";
+import { exportJournalEntriesToExcel } from "@/lib/services/accounting/accounting-export.service";
 
 /**
  * Journal entries consultation screen.

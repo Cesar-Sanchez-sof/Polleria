@@ -10,7 +10,7 @@ import {
   BookOpen,
   Building2,
 } from "lucide-react";
-import type { PayableInvoice } from "@/lib/services/accounting-payables.service";
+import type { PayableInvoice } from "@/lib/services/accounting/accounting-payables.service";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";

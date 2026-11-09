@@ -15,7 +15,7 @@ vi.mock("@/lib/prisma", () => {
   };
   return { prisma: db };
 });
-vi.mock("@/lib/services/roles.service", () => ({ verifyAssignableRole: m.verifyRole }));
+vi.mock("@/lib/services/security/roles.service", () => ({ verifyAssignableRole: m.verifyRole }));
 vi.mock("@/lib/auth/password", () => ({ hashPassword: async (p: string) => `hash(${p})` }));
 
 import { grantAccess, prepareAccess } from "@/lib/services/hr/access.service";

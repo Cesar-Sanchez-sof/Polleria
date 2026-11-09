@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { updateRole, deleteRole, getRole, type RoleData } from "@/lib/services/roles.service";
+import { logAudit, requestIp } from "@/lib/services/security/audit.service";
+import { updateRole, deleteRole, getRole, type RoleData } from "@/lib/services/security/roles.service";
 
 export const dynamic = "force-dynamic";
 

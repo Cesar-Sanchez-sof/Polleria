@@ -4,7 +4,7 @@ import { isPleBookId } from "@/lib/ple/constants";
 import { buildCsv } from "@/lib/ple/csv";
 import { encodeWindows1252 } from "@/lib/ple/encoding";
 import { generatePleBook } from "@/lib/ple/generate";
-import { loadPleSnapshot } from "@/lib/services/ple.service";
+import { loadPleSnapshot } from "@/lib/services/accounting/ple.service";
 
 export const dynamic = "force-dynamic";
 

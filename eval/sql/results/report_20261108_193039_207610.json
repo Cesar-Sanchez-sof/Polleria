@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-11-08T19:30:39.207610-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 0,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 0,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 0,
+      "execution_accuracy_rate": null,
+      "ves": null,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": []
+    }
+  ]
+}

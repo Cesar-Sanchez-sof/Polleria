@@ -41,7 +41,7 @@ import {
   setScheduleEmployees,
   shiftHours,
   updateSchedule,
-} from "@/lib/services/schedules.service";
+} from "@/lib/services/hr/schedules.service";
 
 const valid = { name: " Turno  mañana ", date: "2026-11-02", start_time: "08:00", end_time: "16:30" };
 

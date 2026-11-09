@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ASSET_FALLBACKS, isAssetSlot } from "@/lib/branding/defaults";
-import { findBrandingAsset } from "@/lib/services/branding.service";
+import { findBrandingAsset } from "@/lib/services/settings/branding.service";
 
 export const dynamic = "force-dynamic";
 

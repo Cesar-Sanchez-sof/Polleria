@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { readJson, unauthorized, errorResponse } from "@/lib/auth/responses";
 import { currentSession } from "@/lib/auth/current-session";
 import { authorize } from "@/lib/auth/permissions";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { listRoles } from "@/lib/services/users.service";
-import { createRole, listManagementRoles, type RoleData } from "@/lib/services/roles.service";
+import { logAudit, requestIp } from "@/lib/services/security/audit.service";
+import { listRoles } from "@/lib/services/security/users.service";
+import { createRole, listManagementRoles, type RoleData } from "@/lib/services/security/roles.service";
 
 export const dynamic = "force-dynamic";
 

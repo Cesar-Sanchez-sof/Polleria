@@ -17,7 +17,7 @@ import {
   getAccountingPayables,
   type PayableInvoice,
   type PayablesSummary,
-} from "@/lib/services/accounting-payables.service";
+} from "@/lib/services/accounting/accounting-payables.service";
 
 /**
  * Cuentas por Pagar (Cta. 42 - Acreedores comerciales).

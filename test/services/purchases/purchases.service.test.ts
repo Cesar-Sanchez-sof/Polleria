@@ -16,14 +16,14 @@ import {
 import {
   postTransformationJournalEntries,
   reverseTransformationJournalEntries,
-} from "@/lib/services/accounting-posting.service";
+} from "@/lib/services/accounting/accounting-posting.service";
 import {
   registerPurchaseWithoutVoucher,
   annulInformalPurchase,
 } from "@/lib/services/purchases/purchase-without-voucher";
 import { InformalPurchaseType, ExpenseCategory, AffectationIgv } from "@prisma/client";
 
-vi.mock("@/lib/services/accounting-posting.service", () => ({
+vi.mock("@/lib/services/accounting/accounting-posting.service", () => ({
   postPurchaseJournalEntries: vi.fn().mockResolvedValue([1, 2, 3, 4]),
   postPurchasePaymentJournalEntry: vi.fn().mockResolvedValue(10),
   postInformalPurchaseJournalEntry: vi.fn().mockResolvedValue(101),
@@ -1189,7 +1189,7 @@ describe("Modulo Compras Services", () => {
     });
 
     it("debe pasar items diferenciados con productType y cuadre a postPurchaseJournalEntries", async () => {
-      const { postPurchaseJournalEntries } = await import("@/lib/services/accounting-posting.service");
+      const { postPurchaseJournalEntries } = await import("@/lib/services/accounting/accounting-posting.service");
       (prisma.purchaseInvoice.findUnique as any).mockResolvedValue(null);
       (prisma.purchaseOrder.create as any).mockResolvedValue({
         id: 4,

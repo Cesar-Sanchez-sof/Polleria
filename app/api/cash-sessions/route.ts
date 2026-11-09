@@ -1,9 +1,10 @@
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { currentSession } from "@/lib/auth/current-session";
-import { postCashSessionOpeningJournalEntry } from "@/lib/services/accounting-posting.service";
-import { formatDenominationsSummary } from "@/lib/services/cash-register.service";
-import { authorize } from "@/lib/auth/permissions";
+import { NextResponse } from "next/server";
+import { createApiHandler } from "@/lib/http/route-handler";
+import {
+  getCashSessionState,
+  openCashSession,
+  type OpenCashSessionInput,
+} from "@/lib/services/sales/cash-sessions.service";
 
 export const dynamic = "force-dynamic";
 
@@ -20,259 +21,22 @@ export const dynamic = "force-dynamic";
  *     summary: Abrir una nueva sesión de caja con arqueo inicial y asiento contable
  */
 
-export async function GET(_request: NextRequest) {
-  const auth = await authorize("caja.ver");
-  if (!auth.ok) return auth.response;
-  try {
-    // 1. Asegurar que existe al menos una caja física registrada en el sistema
-    let register = await (prisma as any).cashRegister.findFirst({
-      where: { active: true },
-    }).catch(() => null);
+export const GET = createApiHandler({
+  permission: "caja.ver",
+  handler: async () => {
+    const state = await getCashSessionState();
+    return NextResponse.json(state);
+  },
+});
 
-    if (!register) {
-      try {
-        register = await (prisma as any).cashRegister.create({
-          data: {
-            name: "Caja Principal - Salón",
-            code: "CAJA-01",
-            description: "Caja registradora principal del salón",
-            active: true,
-          },
-        });
-      } catch {
-        return Response.json({
-          activeSession: null,
-          register: null,
-          message: "Módulo de caja en preparación o migración pendiente.",
-        });
-      }
-    }
-
-    // 2. Buscar si hay una sesión abierta actualmente
-    const activeSession = await (prisma as any).cashSession.findFirst({
-      where: {
-        cashRegisterId: register.id,
-        status: "OPEN",
-      },
-      include: {
-        openedBy: {
-          select: { id: true, username: true },
-        },
-        movements: {
-          orderBy: { createdAt: "desc" },
-        },
-      },
-      orderBy: { id: "desc" },
-    }).catch(() => null);
-
-    if (!activeSession) {
-      return Response.json({
-        activeSession: null,
-        register,
-        isOpened: false,
-      });
-    }
-
-    const initialAmount = Number(activeSession.initialAmount) || 0;
-    const salesCash = Number(activeSession.salesCash) || 0;
-    const salesOther = Number(activeSession.salesOther) || 0;
-    const totalSales = Number(activeSession.totalSales) || (salesCash + salesOther);
-
-    // Calcular egresos e ingresos de caja (movimientos de emergencia)
-    const rawMovements = activeSession.movements || [];
-    const totalExpenses = rawMovements
-      .filter((m: any) => m.type === "EXPENSE")
-      .reduce((sum: number, m: any) => sum + (Number(m.amount) || 0), 0);
-    const totalIncomes = rawMovements
-      .filter((m: any) => m.type === "INCOME")
-      .reduce((sum: number, m: any) => sum + (Number(m.amount) || 0), 0);
-
-    // Efectivo real esperado en gaveta: Fondo Inicial + Ventas Efectivo + Ingresos extra - Salidas de emergencia
-    const expectedAmount = Math.round((initialAmount + salesCash + totalIncomes - totalExpenses) * 100) / 100;
-
-    const formattedMovements = rawMovements.map((m: any) => ({
-      id: m.id,
-      sessionId: m.sessionId,
-      type: m.type,
-      amount: Number(m.amount),
-      reason: m.reason,
-      createdAt: m.createdAt.toISOString(),
-    }));
-
-    return Response.json({
-      isOpened: true,
-      register,
-      activeSession: {
-        id: activeSession.id,
-        cashRegisterId: activeSession.cashRegisterId,
-        openedAt: activeSession.openedAt.toISOString(),
-        openedBy: activeSession.openedBy?.username || "Cajero",
-        initialAmount,
-        salesCash,
-        salesOther,
-        totalSales,
-        totalExpenses: Math.round(totalExpenses * 100) / 100,
-        totalIncomes: Math.round(totalIncomes * 100) / 100,
-        expectedAmount,
-        notesOpening: activeSession.notesOpening || "",
-        status: activeSession.status,
-        movements: formattedMovements,
-      },
+export const POST = createApiHandler<OpenCashSessionInput>({
+  permission: "caja.crear",
+  handler: async ({ body, session, req }) => {
+    const rawBody = body !== undefined ? body : await req.json().catch(() => ({}));
+    const result = await openCashSession({
+      ...rawBody,
+      userId: session?.userId,
     });
-  } catch (error: any) {
-    console.error("[api/cash-sessions] Error al consultar sesión:", error);
-    return Response.json(
-      { error: "No se pudo obtener el estado de la caja." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  const auth = await authorize("caja.crear");
-  if (!auth.ok) return auth.response;
-  try {
-    const session = await currentSession().catch(() => null);
-    let userId = session?.userId;
-
-    if (userId) {
-      const userExists = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true },
-      });
-      if (!userExists) {
-        userId = undefined;
-      }
-    }
-
-    if (!userId) {
-      const fallbackUser =
-        (await prisma.user.findFirst({
-          where: { active: true },
-          select: { id: true },
-        })) ||
-        (await prisma.user.findFirst({
-          select: { id: true },
-        }));
-      userId = fallbackUser?.id;
-    }
-
-    if (!userId) {
-      return Response.json(
-        { error: "No se encontró ningún usuario registrado en el sistema para asociar la apertura de caja." },
-        { status: 400 }
-      );
-    }
-
-    const body = await request.json().catch(() => ({}));
-    const initialAmount = Math.max(0, Number(body.initialAmount ?? 0));
-    let notesOpening = (body.notesOpening ?? body.observations ?? "").trim();
-    const denominations = body.denominations;
-
-    let denominationsSummary = "";
-    if (denominations && typeof denominations === "object") {
-      denominationsSummary = formatDenominationsSummary(denominations);
-      if (denominationsSummary && denominationsSummary !== "Sin desglose") {
-        notesOpening = notesOpening
-          ? `${notesOpening} | Arqueo: ${denominationsSummary}`
-          : `Arqueo Inicial: ${denominationsSummary}`;
-      }
-    }
-
-    // 1. Obtener o crear la caja principal
-    let register = await (prisma as any).cashRegister.findFirst({
-      where: { active: true },
-    });
-
-    if (!register) {
-      register = await (prisma as any).cashRegister.create({
-        data: {
-          name: "Caja Principal - Salón",
-          code: "CAJA-01",
-          description: "Caja registradora principal del salón",
-          active: true,
-        },
-      });
-    }
-
-    // 2. Validar que la caja no tenga ya una sesión abierta
-    const existingOpenSession = await (prisma as any).cashSession.findFirst({
-      where: {
-        cashRegisterId: register.id,
-        status: "OPEN",
-      },
-    });
-
-    if (existingOpenSession) {
-      return Response.json(
-        {
-          error: `La caja '${register.name}' ya tiene una sesión abierta activa (Sesión #${existingOpenSession.id}). Debe cerrarse antes de iniciar una nueva.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // 3. Crear la nueva sesión de caja
-    const newSession = await (prisma as any).cashSession.create({
-      data: {
-        cashRegisterId: register.id,
-        openedById: userId,
-        initialAmount,
-        salesCash: 0,
-        salesOther: 0,
-        totalSales: 0,
-        status: "OPEN",
-        notesOpening: notesOpening || null,
-        openedAt: new Date(),
-      },
-      include: {
-        openedBy: {
-          select: { id: true, username: true },
-        },
-      },
-    });
-
-    // 4. Asiento Contable Automático de Apertura de Caja para el Contador
-    let journalEntryId: number | null = null;
-    try {
-      if (initialAmount > 0) {
-        journalEntryId = await postCashSessionOpeningJournalEntry(prisma as any, {
-          sessionId: newSession.id,
-          initialAmount,
-          entryDate: newSession.openedAt,
-          responsible: newSession.openedBy?.username || "Cajero",
-          denominationsSummary: denominationsSummary || undefined,
-        });
-      }
-    } catch (journalErr) {
-      console.warn("[api/cash-sessions] Aviso al generar asiento contable de apertura:", journalErr);
-    }
-
-    return Response.json(
-      {
-        message: "Caja abierta exitosamente y comunicada a contabilidad.",
-        journalEntryId,
-        session: {
-          id: newSession.id,
-          cashRegisterId: newSession.cashRegisterId,
-          openedAt: newSession.openedAt.toISOString(),
-          openedBy: newSession.openedBy?.username || "Cajero",
-          initialAmount: Number(newSession.initialAmount),
-          status: newSession.status,
-          notesOpening: newSession.notesOpening || "",
-          movements: [],
-          totalExpenses: 0,
-          totalIncomes: 0,
-          expectedAmount: Number(newSession.initialAmount),
-        },
-      },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("[api/cash-sessions] Error al abrir caja:", error);
-    return Response.json(
-      { error: error.message || "Error al abrir la caja registradora." },
-      { status: 500 }
-    );
-  }
-}
+    return NextResponse.json(result, { status: 201 });
+  },
+});

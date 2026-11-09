@@ -15,7 +15,7 @@ import {
   type PleDownloadFormat,
   type PlePreview,
   type SireTestResult,
-} from "@/lib/services/ple-client.service";
+} from "@/lib/services/accounting/ple-client.service";
 
 interface BookEntry {
   id?: PleBookId;

@@ -1,201 +1,36 @@
-import type { NextRequest } from "next/server";
-import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { formatDateToIso, parseUtcDate } from "@/lib/dates";
-import { authorize } from "@/lib/auth/permissions";
+import { NextResponse } from "next/server";
+import { createApiHandler, DomainError } from "@/lib/http/route-handler";
+import { getGeneralLedgerReportDomain } from "@/lib/services/accounting/accounting-ledgers.service";
 
 export const dynamic = "force-dynamic";
-/**
- * @openapi
- * /api/general-ledger:
- *   get:
- *     tags:
- *       - Reports
- *     summary: Obtener libro mayor (General Ledger)
- */
-
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Reference of the originating operation, if registered. */
-function getEntryReference(entry: {
-  salesInvoice: { voucherType: string; series: string; number: number } | null;
-  purchaseInvoice: { voucherType: string; series: string; number: number } | null;
-  payroll: { month: number; year: number } | null;
-}): string | null {
-  const sale = entry.salesInvoice;
-  if (sale) return `${sale.voucherType} ${sale.series}-${sale.number}`;
-  const purchase = entry.purchaseInvoice;
-  if (purchase) return `${purchase.voucherType} ${purchase.series}-${purchase.number}`;
-  const payroll = entry.payroll;
-  if (payroll) return `Planilla ${payroll.month}/${payroll.year}`;
-  return null;
-}
-
-function roundToTwo(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 /**
+ * GET /api/general-ledger
  * General Ledger (Libro Mayor): account movements in chronological order
  * with running balance and period totals.
  */
-export async function GET(request: NextRequest) {
-  const auth = await authorize("reportes.ver");
-  if (!auth.ok) return auth.response;
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const code = (searchParams.get("codigo") ?? "").trim();
-    const fromDate = (searchParams.get("desde") ?? "").trim();
-    const toDate = (searchParams.get("hasta") ?? "").trim();
+export const GET = createApiHandler({
+  permission: "reportes.ver",
+  handler: async ({ searchParams }) => {
+    try {
+      const code = searchParams.get("codigo");
+      const fromDate = searchParams.get("desde");
+      const toDate = searchParams.get("hasta");
 
-    if (!code) {
-      return Response.json(
-        { error: "Debe indicar la cuenta contable a consultar." },
-        { status: 400 }
-      );
-    }
-    if (fromDate && !DATE_REGEX.test(fromDate)) {
-      return Response.json(
-        { error: "La fecha inicial debe tener el formato AAAA-MM-DD." },
-        { status: 400 }
-      );
-    }
-    if (toDate && !DATE_REGEX.test(toDate)) {
-      return Response.json(
-        { error: "La fecha final debe tener el formato AAAA-MM-DD." },
-        { status: 400 }
-      );
-    }
-    if (fromDate && toDate && fromDate > toDate) {
-      return Response.json(
-        { error: "La fecha inicial no puede ser posterior a la fecha final." },
-        { status: 400 }
-      );
-    }
-
-    const account = await prisma.accountingAccount.findUnique({ where: { code } });
-    if (!account) {
-      return Response.json({ error: "Cuenta contable no encontrada." }, { status: 404 });
-    }
-
-    // Una cuenta padre incluye los movimientos de todas sus cuentas descendientes.
-    const allAccounts =
-      (await prisma.accountingAccount.findMany({ select: { id: true, parentId: true } })) ?? [];
-    const childrenByParent = new Map<number, number[]>();
-    for (const item of allAccounts) {
-      if (item.parentId === null) continue;
-      const siblings = childrenByParent.get(item.parentId) ?? [];
-      siblings.push(item.id);
-      childrenByParent.set(item.parentId, siblings);
-    }
-    const accountIds = [account.id];
-    for (let i = 0; i < accountIds.length; i++) {
-      accountIds.push(...(childrenByParent.get(accountIds[i]) ?? []));
-    }
-    const accountFilter: Prisma.JournalEntryDetailWhereInput["accountId"] =
-      accountIds.length === 1 ? account.id : { in: accountIds };
-
-    const dateRange: Prisma.DateTimeFilter<"JournalEntry"> = {};
-    if (fromDate) dateRange.gte = parseUtcDate(fromDate);
-    if (toDate) dateRange.lte = parseUtcDate(toDate);
-
-    let priorBalance = 0;
-    if (fromDate) {
-      const priorAgg = await prisma.journalEntryDetail.aggregate({
-        _sum: { debit: true, credit: true },
-        where: {
-          accountId: accountFilter,
-          entry: { entryDate: { lt: parseUtcDate(fromDate) } },
-        },
+      const result = await getGeneralLedgerReportDomain({
+        code,
+        fromDate,
+        toDate,
       });
-      priorBalance =
-        Number(priorAgg._sum.debit ?? 0) - Number(priorAgg._sum.credit ?? 0);
+
+      return NextResponse.json(result);
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
+      console.error("[api/general-ledger] error al obtener el libro mayor:", error);
+      return NextResponse.json(
+        { error: "No se pudo obtener el libro mayor." },
+        { status: 500 }
+      );
     }
-
-    const whereFilter: Prisma.JournalEntryDetailWhereInput = {
-      accountId: accountFilter,
-    };
-    if (fromDate || toDate) whereFilter.entry = { entryDate: dateRange };
-
-    const details = await prisma.journalEntryDetail.findMany({
-      where: whereFilter,
-      orderBy: [
-        { entry: { entryDate: "asc" } },
-        { entry: { id: "asc" } },
-        { id: "asc" },
-      ],
-      select: {
-        id: true,
-        description: true,
-        debit: true,
-        credit: true,
-        account: { select: { code: true, name: true } },
-        entry: {
-          select: {
-            id: true,
-            code: true,
-            entryDate: true,
-            description: true,
-            book: true,
-            status: true,
-            salesInvoice: {
-              select: { voucherType: true, series: true, number: true },
-            },
-            purchaseInvoice: {
-              select: { voucherType: true, series: true, number: true },
-            },
-            payroll: { select: { month: true, year: true } },
-          },
-        },
-      },
-    });
-
-    let currentBalance = priorBalance;
-    const movements = details.map((detail) => {
-      const debit = Number(detail.debit);
-      const credit = Number(detail.credit);
-      currentBalance = roundToTwo(currentBalance + debit - credit);
-      const entry = detail.entry;
-
-      return {
-        id: detail.id,
-        entryId: entry.id,
-        number: entry.code,
-        date: formatDateToIso(entry.entryDate),
-        entryDescription: entry.description,
-        description: detail.description ?? "",
-        accountCode: detail.account?.code ?? account.code,
-        accountName: detail.account?.name ?? account.name,
-        module: entry.book,
-        reference: getEntryReference(entry),
-        status: entry.status ? ("Registrado" as const) : ("Anulado" as const),
-        debit: debit,
-        credit: credit,
-        balance: currentBalance,
-        balanceType: currentBalance > 0.004 ? ("deudor" as const) : currentBalance < -0.004 ? ("acreedor" as const) : null,
-      };
-    });
-
-    const totalDebit = roundToTwo(movements.reduce((sum, m) => sum + m.debit, 0));
-    const totalCredit = roundToTwo(movements.reduce((sum, m) => sum + m.credit, 0));
-    const finalBalance = roundToTwo(priorBalance + totalDebit - totalCredit);
-
-    return Response.json({
-      account: {
-        code: account.code,
-        name: account.name,
-        type: account.type,
-      },
-      previousBalance: roundToTwo(priorBalance),
-      finalBalance: finalBalance,
-      totals: { debit: totalDebit, credit: totalCredit, movements: movements.length },
-      movements: movements,
-    });
-  } catch (error) {
-    console.error("[api/general-ledger] error al obtener el libro mayor:", error);
-    return Response.json(
-      { error: "No se pudo obtener el libro mayor." },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

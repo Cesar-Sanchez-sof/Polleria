@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/auth/current-session";
 import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { authorize } from "@/lib/auth/permissions";
-import { getDeveloperFlags } from "@/lib/services/developer-settings.service";
+import { getDeveloperFlags } from "@/lib/services/settings/developer-settings.service";
 import {
   createRateLimiter,
   handleTranscribe,

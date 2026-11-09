@@ -1,5 +1,5 @@
 import React from "react";
-import { getShareLinks, getDashboards } from "@/lib/services/dashboard.service";
+import { getShareLinks, getDashboards } from "@/lib/services/settings/dashboard.service";
 import { ShareLinksTable } from "@/components/dashboards/config/ShareLinksTable";
 import { ConfigNavHeader } from "@/components/dashboards/config/ConfigNavHeader";
 

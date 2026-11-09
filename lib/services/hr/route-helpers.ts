@@ -3,8 +3,8 @@ import type { AuditAction } from "@prisma/client";
 import { unauthorized } from "@/lib/auth/responses";
 import { currentSession } from "@/lib/auth/current-session";
 import type { SessionPayload } from "@/lib/auth/session";
-import { logAudit, requestIp } from "@/lib/services/audit.service";
-import { employeeIdOfUser } from "@/lib/services/employees.service";
+import { logAudit, requestIp } from "@/lib/services/security/audit.service";
+import { employeeIdOfUser } from "@/lib/services/hr/employees.service";
 
 export type IdContext = { params: Promise<{ id: string }> };
 

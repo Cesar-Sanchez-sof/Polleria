@@ -4,7 +4,7 @@ import { readAssistantConfig } from "@/lib/ai-assistant/config";
 import { handleQuery, handleStatus, MAX_BODY_BYTES, type ProxyDeps, type ProxyResult } from "@/lib/ai-assistant/proxy";
 import { readVoiceConfig } from "@/lib/ai-assistant/transcribe";
 import { authorize, permissionsForUser } from "@/lib/auth/permissions";
-import { getDeveloperFlags } from "@/lib/services/developer-settings.service";
+import { getDeveloperFlags } from "@/lib/services/settings/developer-settings.service";
 
 export const dynamic = "force-dynamic";
 // Vercel: límite de la función (60 s cabe en todos los planes). El proxy corta antes (55 s en evaluación)

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { UserError } from "@/lib/services/users.service";
+import { UserError } from "@/lib/services/security/users.service";
 import { RE_TIME, formatTime, text, toTimeColumn, type Tx } from "./common";
 import { shiftWindow, type TemplateTimes } from "./labor-rules";
 

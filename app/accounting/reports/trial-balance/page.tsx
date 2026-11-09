@@ -10,7 +10,7 @@ import { ReportInterpreterButton } from "@/components/accounting/ReportInterpret
 import {
   getTrialBalance,
   type TrialBalanceStatement,
-} from "@/lib/services/trial-balance.service";
+} from "@/lib/services/accounting/trial-balance.service";
 import { formatDateToIso } from "@/lib/dates";
 
 function todayIso(): string {

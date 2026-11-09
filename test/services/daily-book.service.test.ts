@@ -4,7 +4,7 @@ import {
   ApiError,
   listDailyBookEntries,
   type DailyBookPage,
-} from "@/lib/services/daily-book.service";
+} from "@/lib/services/accounting/daily-book.service";
 
 const PAGE_DATA: DailyBookPage = {
   data: [

@@ -40,12 +40,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatPen } from "@/lib/services/dashboard.service";
+import { formatPen } from "@/lib/services/settings/dashboard.service";
 import type {
   ExpenseCategory,
   MonthlyPoint,
   TopAccount,
-} from "@/lib/services/dashboard.service";
+} from "@/lib/services/settings/dashboard.service";
 
 const trendConfig = {
   income: { label: "Ingresos", color: "#10b981" },

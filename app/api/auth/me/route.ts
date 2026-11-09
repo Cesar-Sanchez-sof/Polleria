@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/http/route-handler";
-import { getCurrentUserProfile } from "@/lib/services/auth.service";
+import { getCurrentUserProfile } from "@/lib/services/security/auth.service";
 
 export const dynamic = "force-dynamic";
 

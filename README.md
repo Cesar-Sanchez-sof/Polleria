@@ -20,11 +20,26 @@ flowchart TD
     Persistence -->|REST| Reniec["Consulta DNI / RUC (RENIEC / SUNAT)"]
 ```
 
-### Reglas de Arquitectura
-1. **Convención de Capas**: `Route Handlers / Server Actions (Presentación) -> Domain Services (Reglas de Negocio) -> Prisma ORM / Integraciones Externas`.
-2. **Handlers Tipados y Seguros**: Todos los endpoints consumen `createApiHandler`, el cual gestiona de forma centralizada la autenticación de sesión, validación de permisos RBAC, parseo de body/parámetros y serialización de errores (`ValidationError`, `NotFoundError`, `ConflictError`, `ForbiddenError`).
-3. **Control de Acceso Granular (RBAC)**: Más de 80 permisos configurables asignados dinámicamente a roles (Superadministrador, Administrador, Mozo, Cajero, Cocinero, Contador, etc.).
-4. **Testing Centralizado**: 100% de las suites de prueba unitarias y de integración residen en la carpeta raíz `test/`, superando 1,050 pruebas automatizadas sin dependencias en código de producción.
+### Reglas de Arquitectura y Gobernanza del Código
+
+1. **Convención de Capas Unidireccional**: 
+   $$\text{Route Handlers / Server Actions (Presentación)} \longrightarrow \text{Domain Services (Reglas de Negocio)} \longrightarrow \text{Prisma ORM / Persistencia}$$
+2. **Enforcement Automatizado en ESLint (Nivel `error`)**:
+   La regla `no-restricted-imports` en `eslint.config.mjs` bloquea a nivel de compilación y CI cualquier intento de importar `@/lib/prisma` directamente en la capa de presentación (`app/**/*.{ts,tsx}`). La persistencia está restringida exclusivamente a `lib/services/**`.
+3. **Handlers Tipados y Seguros con `createApiHandler`**:
+   Todos los endpoints de la API delegan a `createApiHandler` (`@/lib/http/route-handler`), el cual centraliza:
+   - Verificación de sesión y permisos RBAC (`permission: "modulo.accion"`).
+   - Parseo y validación de esquemas Zod o validadores funcionales.
+   - Captura y traducción de excepciones de dominio (`ValidationError` 400, `NotFoundError` 404, `ConflictError` 409, etc.).
+4. **Ciclo de Migración a Arquitectura por Dominio Completado (6/6)**:
+   - **(1/6) Andamiaje y Convención**: Introducción de `createApiHandler`, jerarquía de excepciones y regla ESLint inicial.
+   - **(2/6) Ajustes y Mesas (Piloto)**: Migración de `settings`, `tables`, `payment-methods` y `roles`.
+   - **(3/6) Seguridad**: Migración de `users`, `audit`, autenticación y control de accesos RBAC.
+   - **(4/6) Compras e Inventario**: Migración de `products`, `suppliers`, órdenes de compra y kardex valorizado.
+   - **(5/6) Ventas, Caja y Pagos**: Migración de los 14 handlers críticos (`orders`, `sales`, `cash-sessions`, `customers`, `payments`, `webhooks`, `realtime`) con pruebas de caracterización previas.
+   - **(6/6) Cierre y Reforzamiento**: Elevación de la regla ESLint a `error`, documentación formal en `AGENTS.md` y suite de validación arquitectónica.
+5. **Control de Acceso Granular (RBAC)**: Más de 80 permisos configurables asignados dinámicamente a roles (Superadministrador, Administrador, Mozo, Cajero, Cocinero, Contador, etc.).
+6. **Testing Centralizado**: 100% de las suites de prueba residen en la carpeta raíz `test/`, superando 1,080 pruebas automatizadas sin dependencias en código de producción.
 
 ---
 
@@ -122,7 +137,7 @@ flowchart TD
 | **Pasarelas de Pago** | Mercado Pago SDK Node.js, Billetera Digital Yape (QR Dinámico) |
 | **Caché & Rendimiento** | Redis / Upstash Redis |
 | **Facturación & SUNAT** | SOAP XML, XMLDSIG, UBL 2.1, Archivos PLE/SIRE |
-| **Testing & Calidad** | [Vitest](https://vitest.dev/) (1,054 pruebas), ESLint v9, Prettier |
+| **Testing & Calidad** | [Vitest](https://vitest.dev/) (1,080+ pruebas), ESLint v9, Prettier |
 
 ---
 
@@ -134,24 +149,33 @@ Polleria/
 │   ├── (auth)/                 # Rutas públicas (Login, logout)
 │   ├── (dashboard)/            # Rutas protegidas (Salón, Cocina, Caja, Compras, RRHH, Contabilidad)
 │   └── api/                    # API Route Handlers desacoplados mediante createApiHandler
-│       ├── products/           # Endpoints de platos y recetas
-│       ├── document-lookup/    # Endpoints de consulta de DNI/RUC
-│       ├── payments/           # Webhooks y cobros con Mercado Pago / Yape
-│       ├── journal-entries/    # Endpoints contables (asientos, balance, libros)
+│       ├── orders/             # Comandas, pedidos y bebidas (desacoplado de Prisma)
+│       ├── sales/              # Ventas, comprobantes y arqueos (desacoplado de Prisma)
+│       ├── cash-sessions/      # Sesiones de caja y movimientos (desacoplado de Prisma)
+│       ├── customers/          # Clientes y validación SUNAT (desacoplado de Prisma)
+│       ├── payments/           # Pasarelas de Mercado Pago y QR Yape
 │       └── ...
 ├── components/                 # Componentes de UI reutilizables (Botones, Modales, Tablas, Layouts)
-├── data/                       # Archivos de configuración estática y semillas locales
 ├── lib/                        # Núcleo de Lógica de Negocio y Utilidades
 │   ├── auth/                   # Sesión, permisos y RBAC
 │   ├── http/                   # createApiHandler y definición de errores de dominio
-│   ├── prisma/                 # Instancia global de Prisma Client
-│   ├── services/               # SERVICIOS DE DOMINIO (Products, Inventory, Sales, Accounting, etc.)
+│   ├── prisma/                 # Instancia global de Prisma Client (Singleton)
+│   ├── services/               # SERVICIOS DE DOMINIO POR CONTEXTO DEL NEGOCIO (DDD)
+│   │   ├── accounting/         # Contabilidad, Libros, Balances, Asientos y PLE
+│   │   ├── sales/              # Ventas, Pedidos, Comandas, Pagos, Caja y Mesas
+│   │   ├── inventory/          # Productos, Recetas, Stock y Kardex
+│   │   ├── purchases/          # Compras, Proveedores, Comprobantes e Insumos
+│   │   ├── security/           # Autenticación, Auditoría, Roles y Usuarios
+│   │   ├── hr/                 # RRHH, Empleados, Asistencia, Planilla y Contratos
+│   │   ├── settings/           # Configuración del Negocio, Branding y Dashboards
+│   │   └── integrations/       # Mercado Pago, AWS S3, Document Lookup SUNAT
 │   ├── sunat/                  # Generación y firma de XML UBL 2.1 y clientes SOAP
 │   └── utils/                  # Cálculos de IGV, redondeo, formateadores
 ├── prisma/                     # Esquema de base de datos y migraciones
 │   └── schema.prisma
-├── specs/                      # Especificaciones funcionales y técnicas numeradas (001 a 049)
+├── specs/                      # Especificaciones funcionales y técnicas numeradas (001 a 058)
 └── test/                       # SUITE COMPLETA DE PRUEBAS (Unitarias, Integración y API)
+    ├── characterization/       # Tests de caracterización para refactorizaciones seguras
     ├── accounting/             # Pruebas de estados financieros y balances
     ├── ai-assistant/           # Pruebas del asistente contable
     ├── api/                    # Pruebas de Route Handlers
@@ -221,7 +245,7 @@ Polleria/
 
 ## 🧪 Pruebas Automatizadas y Calidad de Código
 
-El proyecto cuenta con una cobertura integral de más de 1,050 pruebas automatizadas con Vitest:
+El proyecto cuenta con una cobertura integral de más de 1,080 pruebas automatizadas con Vitest:
 
 ```bash
 # Ejecutar todas las pruebas unitarias y de integración
@@ -231,7 +255,7 @@ npx vitest run
 npx vitest
 
 # Ejecutar linter de código
-npx eslint app/ lib/ test/
+npm run lint
 
 # Compilación de producción (build check)
 npm run build

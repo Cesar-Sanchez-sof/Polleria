@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/http/route-handler";
-import { listAuditLogsService } from "@/lib/services/audit.service";
+import { listAuditLogsService } from "@/lib/services/security/audit.service";
 
 export const dynamic = "force-dynamic";
 

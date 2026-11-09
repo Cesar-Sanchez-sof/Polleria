@@ -13,7 +13,7 @@ import {
   type GeneralLedger,
   type GeneralLedgerMovement,
   type BalanceType,
-} from "@/lib/services/general-ledger.service";
+} from "@/lib/services/accounting/general-ledger.service";
 
 interface Props {
   ledger: GeneralLedger | null;

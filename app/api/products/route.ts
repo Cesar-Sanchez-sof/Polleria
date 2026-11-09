@@ -3,7 +3,7 @@ import {
   listProductsService,
   createProductService,
   type CreateProductInput,
-} from "@/lib/services/products.service";
+} from "@/lib/services/inventory/products.service";
 
 export const dynamic = "force-dynamic";
 

@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ACCOUNT_TYPES } from "@/lib/services/accounts.service";
+import { ACCOUNT_TYPES } from "@/lib/services/accounting/accounts.service";
 
 interface AccountsToolbarProps {
   q: string;

@@ -10,7 +10,7 @@ import {
   type MarkAction,
 } from "@/lib/services/hr/attendance.service";
 import { todayLimaIso } from "@/lib/services/hr/common";
-import { requestIp } from "@/lib/services/audit.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 import { auditHr, badRequest, optionalInt } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";

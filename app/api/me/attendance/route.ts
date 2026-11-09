@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson, errorResponse } from "@/lib/auth/responses";
 import { markAttendance, openAttendanceOf, type MarkAction } from "@/lib/services/hr/attendance.service";
-import { requestIp } from "@/lib/services/audit.service";
+import { requestIp } from "@/lib/services/security/audit.service";
 import { auditHr, badRequest, requireSelf } from "@/lib/services/hr/route-helpers";
 
 export const dynamic = "force-dynamic";

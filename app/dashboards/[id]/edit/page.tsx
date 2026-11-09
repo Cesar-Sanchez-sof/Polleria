@@ -1,6 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { getDashboardById } from "@/lib/services/dashboard.service";
+import { getDashboardById } from "@/lib/services/settings/dashboard.service";
 import { DashboardCanvas } from "@/components/dashboards/DashboardCanvas";
 
 export const dynamic = "force-dynamic";

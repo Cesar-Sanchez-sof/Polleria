@@ -93,7 +93,7 @@ import {
   type IssuedVoucher,
   type CustomerItem,
   type DailySalesSummary,
-} from "@/lib/services/tables.service";
+} from "@/lib/services/sales/tables.service";
 import {
   calculateTotals,
   calculateChangeAmount,
@@ -115,7 +115,7 @@ import {
   INITIAL_DENOMINATIONS,
   calculateDenominationsTotal,
   formatDenominationsSummary,
-} from "@/lib/services/cash-register.service";
+} from "@/lib/services/sales/cash-register.service";
 import { DenominationsCounter } from "@/components/restaurant/DenominationsCounter";
 import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
 import { generateDynamicYapeQR } from "@/lib/utils/yape-qr";

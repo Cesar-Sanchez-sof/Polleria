@@ -4,7 +4,7 @@ import {
   getSections,
   getRolesForAccess,
   getUsersForAccess,
-} from "@/lib/services/dashboard.service";
+} from "@/lib/services/settings/dashboard.service";
 import { DashboardsTable } from "@/components/dashboards/config/DashboardsTable";
 import { ConfigNavHeader } from "@/components/dashboards/config/ConfigNavHeader";
 

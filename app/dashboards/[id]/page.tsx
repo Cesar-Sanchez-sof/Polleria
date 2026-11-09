@@ -12,7 +12,7 @@ import {
   getSections,
   getDashboards,
   getDashboardById,
-} from "@/lib/services/dashboard.service";
+} from "@/lib/services/settings/dashboard.service";
 import { DashboardSidebar } from "@/components/dashboards/DashboardSidebar";
 import { WidgetRenderer } from "@/components/dashboards/WidgetRenderer";
 import { Badge } from "@/components/ui/badge";
