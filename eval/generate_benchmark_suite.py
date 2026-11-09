@@ -1,332 +1,444 @@
-"""Generador exhaustivo del banco de 350 casos de prueba Text-to-SQL para el ERP.
-
-Cubre 4 niveles de dificultad (L1 Fácil, L2 Medio, L3 Difícil, L4 Extra Difícil)
-en los 5 módulos principales: Ventas, Compras, Caja, Inventario y Contabilidad.
-"""
+"""Generate a balanced 350-case SQL benchmark within the agent's supported SQL scope."""
 
 from __future__ import annotations
 
 import json
+import sys
+from calendar import monthrange
+from datetime import date
 from pathlib import Path
+from typing import Any
 
-MODULES = ["ventas", "compras", "caja", "inventario", "contabilidad"]
+OUTPUT_FILE = Path(__file__).resolve().with_name("benchmark_cases_350.json")
+MONTH_NAMES = (
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
 
-BASE_TEMPLATES = [
-    # --- VENTAS (L1, L2, L3, L4) ---
-    {
-        "id": "VEN-001", "modulo": "ventas", "dificultad": "facil",
-        "pregunta": "¿Cuántas mesas registradas están activas en el salón?",
-        "sql": "SELECT COUNT(*) FROM dining_table WHERE is_active = true;",
-        "tablas": ["dining_table"]
-    },
-    {
-        "id": "VEN-002", "modulo": "ventas", "dificultad": "facil",
-        "pregunta": "Listar todos los pedidos de tipo Llevar.",
-        "sql": "SELECT * FROM sales_order WHERE order_type = 'Llevar';",
-        "tablas": ["sales_order"]
-    },
-    {
-        "id": "VEN-003", "modulo": "ventas", "dificultad": "facil",
-        "pregunta": "Total facturado de boletas emitidas con estado Issued.",
-        "sql": "SELECT COALESCE(SUM(total_amount), 0.00) FROM sales_invoice WHERE voucher_type = 'Boleta' AND status = 'Issued';",
-        "tablas": ["sales_invoice"]
-    },
-    {
-        "id": "VEN-004", "modulo": "ventas", "dificultad": "facil",
-        "pregunta": "¿Cuántos comprobantes de venta de tipo Factura se han emitido?",
-        "sql": "SELECT COUNT(*) FROM sales_invoice WHERE voucher_type = 'Factura' AND status = 'Issued';",
-        "tablas": ["sales_invoice"]
-    },
-    {
-        "id": "VEN-005", "modulo": "ventas", "dificultad": "medio",
-        "pregunta": "Total vendido agrupado por tipo de comprobante en facturas emitidas.",
-        "sql": "SELECT voucher_type, SUM(total_amount) AS total FROM sales_invoice WHERE status = 'Issued' GROUP BY voucher_type;",
-        "tablas": ["sales_invoice"]
-    },
-    {
-        "id": "VEN-006", "modulo": "ventas", "dificultad": "medio",
-        "pregunta": "Monto total vendido por cada método de pago registrado en ventas.",
-        "sql": "SELECT pt.name AS metodo, SUM(sp.amount) AS total_cobrado FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id GROUP BY pt.id, pt.name ORDER BY total_cobrado DESC;",
-        "tablas": ["sales_payment", "payment_type"]
-    },
-    {
-        "id": "VEN-007", "modulo": "ventas", "dificultad": "medio",
-        "pregunta": "Top 5 productos con mayor cantidad vendida en ítems de pedidos.",
-        "sql": "SELECT p.name, SUM(oi.quantity) AS unidades_vendidas FROM order_item oi JOIN product p ON oi.product_id = p.id GROUP BY p.id, p.name ORDER BY unidades_vendidas DESC LIMIT 5;",
-        "tablas": ["order_item", "product"]
-    },
-    {
-        "id": "VEN-008", "modulo": "ventas", "dificultad": "dificil",
-        "pregunta": "Total de ventas por cliente que superen los 1000 soles acumulados.",
-        "sql": "SELECT c.id, c.business_name, SUM(si.total_amount) AS total_cliente FROM sales_invoice si JOIN customer c ON si.customer_id = c.id WHERE si.status = 'Issued' GROUP BY c.id, c.business_name HAVING SUM(si.total_amount) > 1000.00 ORDER BY total_cliente DESC;",
-        "tablas": ["sales_invoice", "customer"]
-    },
-    {
-        "id": "VEN-009", "modulo": "ventas", "dificultad": "dificil",
-        "pregunta": "Pedidos de mesa cerrados con tiempo de atención y monto total de ítems.",
-        "sql": "SELECT so.id, so.order_number, dt.number AS mesa, SUM(oi.subtotal) AS total_pedido FROM sales_order so JOIN order_table ot ON so.id = ot.order_id JOIN dining_table dt ON ot.table_id = dt.id JOIN order_item oi ON so.id = oi.order_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' GROUP BY so.id, so.order_number, dt.number;",
-        "tablas": ["sales_order", "order_table", "dining_table", "order_item"]
-    },
-    {
-        "id": "VEN-010", "modulo": "ventas", "dificultad": "extra_dificil",
-        "pregunta": "Ranking de ventas mensuales con función de ventana por producto y porcentaje sobre el total del mes.",
-        "sql": "WITH ventas_prod AS (SELECT DATE_TRUNC('month', so.ordered_at) AS mes, p.id AS prod_id, p.name AS producto, SUM(oi.subtotal) AS total_prod FROM sales_order so JOIN order_item oi ON so.id = oi.order_id JOIN product p ON oi.product_id = p.id WHERE so.status = 'Closed' GROUP BY DATE_TRUNC('month', so.ordered_at), p.id, p.name) SELECT mes, producto, total_prod, DENSE_RANK() OVER (PARTITION BY mes ORDER BY total_prod DESC) AS ranking, ROUND((total_prod / SUM(total_prod) OVER (PARTITION BY mes)) * 100, 2) AS pct_mes FROM ventas_prod ORDER BY mes DESC, ranking ASC;",
-        "tablas": ["sales_order", "order_item", "product"]
-    },
 
-    # --- COMPRAS (L1, L2, L3, L4) ---
-    {
-        "id": "COM-001", "modulo": "compras", "dificultad": "facil",
-        "pregunta": "¿Cuántos proveedores registrados están activos?",
-        "sql": "SELECT COUNT(*) FROM supplier WHERE active = true;",
-        "tablas": ["supplier"]
-    },
-    {
-        "id": "COM-002", "modulo": "compras", "dificultad": "facil",
-        "pregunta": "Listar las órdenes de compra con estado Pending.",
-        "sql": "SELECT * FROM purchase_order WHERE status = 'Pending';",
-        "tablas": ["purchase_order"]
-    },
-    {
-        "id": "COM-003", "modulo": "compras", "dificultad": "facil",
-        "pregunta": "Suma total de gastos operativos en compras sin comprobante no anuladas.",
-        "sql": "SELECT COALESCE(SUM(amount_paid), 0.00) FROM informal_purchase WHERE purchase_type = 'OperatingExpense' AND annulled = false;",
-        "tablas": ["informal_purchase"]
-    },
-    {
-        "id": "COM-004", "modulo": "compras", "dificultad": "medio",
-        "pregunta": "Total comprado agrupado por proveedor en facturas de compra activas.",
-        "sql": "SELECT s.business_name, SUM(pi.total_amount) AS total_comprado FROM purchase_invoice pi JOIN supplier s ON pi.supplier_id = s.id WHERE pi.active = true GROUP BY s.id, s.business_name ORDER BY total_comprado DESC;",
-        "tablas": ["purchase_invoice", "supplier"]
-    },
-    {
-        "id": "COM-005", "modulo": "compras", "dificultad": "medio",
-        "pregunta": "Desglose de gastos en compras sin comprobante por categoría de gasto.",
-        "sql": "SELECT expense_category, COUNT(*) AS operaciones, SUM(amount_paid) AS total FROM informal_purchase WHERE annulled = false GROUP BY expense_category ORDER BY total DESC;",
-        "tablas": ["informal_purchase"]
-    },
-    {
-        "id": "COM-006", "modulo": "compras", "dificultad": "dificil",
-        "pregunta": "Proveedores con saldo pendiente de pago por comprobantes no cancelados en su totalidad.",
-        "sql": "SELECT s.business_name, pi.series, pi.number, pi.total_amount, COALESCE(SUM(pp.amount), 0.00) AS total_pagado, (pi.total_amount - COALESCE(SUM(pp.amount), 0.00)) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON pi.supplier_id = s.id LEFT JOIN purchase_payment pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = true GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0.00)) > 0 ORDER BY saldo_pendiente DESC;",
-        "tablas": ["purchase_invoice", "supplier", "purchase_payment"]
-    },
-    {
-        "id": "COM-007", "modulo": "compras", "dificultad": "extra_dificil",
-        "pregunta": "Variación porcentual de costo unitario promedio de insumos comprados entre los dos últimos meses.",
-        "sql": "WITH costos_mes AS (SELECT poi.product_id, p.name AS insumo, DATE_TRUNC('month', po.issued_at) AS mes, AVG(poi.unit_price) AS precio_promedio FROM purchase_order_item poi JOIN purchase_order po ON poi.purchase_order_id = po.id JOIN product p ON poi.product_id = p.id WHERE po.status != 'Cancelled' GROUP BY poi.product_id, p.name, DATE_TRUNC('month', po.issued_at)) SELECT c1.insumo, c1.mes AS mes_actual, c1.precio_promedio AS precio_actual, c2.precio_promedio AS precio_anterior, ROUND(((c1.precio_promedio - c2.precio_promedio) / NULLIF(c2.precio_promedio, 0)) * 100, 2) AS variacion_pct FROM costos_mes c1 JOIN costos_mes c2 ON c1.product_id = c2.product_id AND c1.mes = c2.mes + INTERVAL '1 month' ORDER BY ABS(c1.precio_promedio - c2.precio_promedio) DESC;",
-        "tablas": ["purchase_order_item", "purchase_order", "product"]
-    },
+def _last_complete_months(today: date, count: int = 10) -> list[tuple[str, str, str]]:
+    months = []
+    year, month = today.year, today.month
+    for _ in range(count):
+        month -= 1
+        if month == 0:
+            year -= 1
+            month = 12
+        start = date(year, month, 1)
+        next_month = date(year + (month == 12), 1 if month == 12 else month + 1, 1)
+        months.append(
+            (
+                f"{MONTH_NAMES[month - 1]} de {year}",
+                start.isoformat(),
+                next_month.isoformat(),
+            )
+        )
+    return list(reversed(months))
 
-    # --- CAJA (L1, L2, L3) ---
-    {
-        "id": "CAJ-001", "modulo": "caja", "dificultad": "facil",
-        "pregunta": "¿Cuántas sesiones de caja tienen estado OPEN actualmente?",
-        "sql": "SELECT COUNT(*) FROM cash_session WHERE status = 'OPEN';",
-        "tablas": ["cash_session"]
-    },
-    {
-        "id": "CAJ-002", "modulo": "caja", "dificultad": "facil",
-        "pregunta": "Total de dinero en movimientos manuales de egreso (EXPENSE).",
-        "sql": "SELECT COALESCE(SUM(amount), 0.00) FROM cash_movement WHERE type = 'EXPENSE';",
-        "tablas": ["cash_movement"]
-    },
-    {
-        "id": "CAJ-003", "modulo": "caja", "dificultad": "medio",
-        "pregunta": "Suma de ventas en efectivo vs ventas con otros medios por sesión cerrada.",
-        "sql": "SELECT id, opened_at, closed_at, sales_cash, sales_other, (sales_cash + sales_other) AS total_ventas FROM cash_session WHERE status = 'CLOSED' ORDER BY closed_at DESC;",
-        "tablas": ["cash_session"]
-    },
-    {
-        "id": "CAJ-004", "modulo": "caja", "dificultad": "dificil",
-        "pregunta": "Sesiones de caja con faltante (diferencia negativa) junto con el total de egresos registrados en dicha sesión.",
-        "sql": "SELECT cs.id AS sesion_id, cs.closed_at, cs.difference, COALESCE(SUM(cm.amount), 0.00) AS total_egresos_manuales FROM cash_session cs LEFT JOIN cash_movement cm ON cs.id = cm.cash_session_id AND cm.type = 'EXPENSE' WHERE cs.status = 'CLOSED' AND cs.difference < 0 GROUP BY cs.id, cs.closed_at, cs.difference ORDER BY cs.difference ASC;",
-        "tablas": ["cash_session", "cash_movement"]
-    },
 
-    # --- INVENTARIO (L1, L2, L3) ---
-    {
-        "id": "INV-001", "modulo": "inventario", "dificultad": "facil",
-        "pregunta": "Insumos cuyo stock actual está en o por debajo del stock mínimo.",
-        "sql": "SELECT id, name, current_stock, minimum_stock FROM product WHERE current_stock <= minimum_stock AND active = true;",
-        "tablas": ["product"]
-    },
-    {
-        "id": "INV-002", "modulo": "inventario", "dificultad": "medio",
-        "pregunta": "Total de movimientos de inventario agrupados por tipo de movimiento.",
-        "sql": "SELECT movement_type, COUNT(*) AS total_movimientos, SUM(quantity) AS cantidad_total FROM inventory_movement GROUP BY movement_type;",
-        "tablas": ["inventory_movement"]
-    },
-    {
-        "id": "INV-003", "modulo": "inventario", "dificultad": "dificil",
-        "pregunta": "Receta y costo teórico de insumos para el plato Pollo a la Brasa Entero.",
-        "sql": "SELECT p_plato.name AS plato, p_insumo.name AS insumo, pr.quantity AS cantidad_requerida, p_insumo.cost_price, (pr.quantity * p_insumo.cost_price) AS costo_parcial FROM product_recipe pr JOIN product p_plato ON pr.product_id = p_plato.id JOIN product p_insumo ON pr.ingredient_id = p_insumo.id WHERE p_plato.name ILIKE '%Pollo a la Brasa Entero%';",
-        "tablas": ["product_recipe", "product"]
-    },
-
-    # --- CONTABILIDAD PCGE (L1, L2, L3, L4) ---
-    {
-        "id": "CON-001", "modulo": "contabilidad", "dificultad": "facil",
-        "pregunta": "¿Cuántos periodos contables están en estado OPEN?",
-        "sql": "SELECT COUNT(*) FROM accounting_period WHERE status = 'OPEN';",
-        "tablas": ["accounting_period"]
-    },
-    {
-        "id": "CON-002", "modulo": "contabilidad", "dificultad": "facil",
-        "pregunta": "Listar cuentas contables del elemento 1 (Activo disponible y exigible).",
-        "sql": "SELECT code, name, type FROM accounting_account WHERE code LIKE '1%' ORDER BY code ASC;",
-        "tablas": ["accounting_account"]
-    },
-    {
-        "id": "CON-003", "modulo": "contabilidad", "dificultad": "medio",
-        "pregunta": "Total de cargos (debe) y abonos (haber) registrados en asientos del libro Diario.",
-        "sql": "SELECT COALESCE(SUM(jed.debit), 0.00) AS total_debe, COALESCE(SUM(jed.credit), 0.00) AS total_haber FROM journal_entry_detail jed JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND je.book = '05';",
-        "tablas": ["journal_entry_detail", "journal_entry"]
-    },
-    {
-        "id": "CON-004", "modulo": "contabilidad", "dificultad": "dificil",
-        "pregunta": "Balance de comprobación por cuenta mayor (2 dígitos) para asientos contables válidos.",
-        "sql": "SELECT SUBSTRING(aa.code, 1, 2) AS cuenta_mayor, SUM(jed.debit) AS suma_debe, SUM(jed.credit) AS suma_haber, (SUM(jed.debit) - SUM(jed.credit)) AS saldo_deudor FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true GROUP BY SUBSTRING(aa.code, 1, 2) ORDER BY cuenta_mayor ASC;",
-        "tablas": ["journal_entry_detail", "accounting_account", "journal_entry"]
-    },
-    {
-        "id": "CON-005", "modulo": "contabilidad", "dificultad": "extra_dificil",
-        "pregunta": "Detección de asientos descuadrados con diferencia mayor a un céntimo entre debe y haber.",
-        "sql": "SELECT je.id, je.entry_code, je.entry_date, je.glosa, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber, ABS(SUM(jed.debit) - SUM(jed.credit)) AS descuadre FROM journal_entry je JOIN journal_entry_detail jed ON je.id = jed.entry_id WHERE je.status = true GROUP BY je.id, je.entry_code, je.entry_date, je.glosa HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY descuadre DESC;",
-        "tablas": ["journal_entry", "journal_entry_detail"]
+def _case(
+    modulo: str,
+    difficulty: str,
+    question: str,
+    sql: str,
+    tables: tuple[str, ...],
+) -> dict[str, Any]:
+    return {
+        "modulo": modulo,
+        "dificultad": difficulty,
+        "pregunta": question,
+        "sql_gold": sql,
+        "tablas_esperadas": list(tables),
     }
-]
 
-def generate_350_test_suite() -> list[dict]:
-    """Genera los 350 casos de prueba combinando plantillas y variaciones sistemáticas."""
-    items = []
-    case_idx = 1
 
-    # Multiplicadores para generar 350 variantes realistas cubriendo rangos de fechas,
-    # filtros por estado, métodos de pago, insumos, clientes, cuentas contables y condiciones.
-    periods = [
-        ("enero de 2026", "2026-01-01", "2026-01-31"),
-        ("febrero de 2026", "2026-02-01", "2026-02-28"),
-        ("marzo de 2026", "2026-03-01", "2026-03-31"),
-        ("abril de 2026", "2026-04-01", "2026-04-30"),
-        ("mayo de 2026", "2026-05-01", "2026-05-31"),
-        ("junio de 2026", "2026-06-01", "2026-06-30"),
-        ("julio de 2026", "2026-07-01", "2026-07-31"),
-        ("agosto de 2026", "2026-08-01", "2026-08-31"),
-        ("septiembre de 2026", "2026-09-01", "2026-09-30"),
-        ("octubre de 2026", "2026-10-01", "2026-10-31"),
-        ("noviembre de 2026", "2026-11-01", "2026-11-30"),
-        ("diciembre de 2026", "2026-12-01", "2026-12-31"),
+def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
+    month_name, start, end = period
+    date_range = lambda column: f"{column} >= DATE '{start}' AND {column} < DATE '{end}'"
+    limit = " LIMIT 50"
+
+    sales = [
+        _case(
+            "ventas", "facil",
+            f"¿Cuál fue el total de comprobantes emitidos en {month_name}?",
+            f"SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si "
+            f"WHERE si.status = 'Issued' AND {date_range('si.issued_at')}{limit}",
+            ("sales_invoice",),
+        ),
+        _case(
+            "ventas", "medio",
+            f"¿Cuánto se facturó por cada tipo de comprobante en {month_name}?",
+            f"SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si "
+            f"WHERE si.status = 'Issued' AND {date_range('si.issued_at')} "
+            f"GROUP BY si.voucher_type ORDER BY total DESC{limit}",
+            ("sales_invoice",),
+        ),
+        _case(
+            "ventas", "medio",
+            f"¿Cuánto se cobró por cada medio de pago en {month_name}?",
+            f"SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp "
+            f"JOIN payment_type pt ON pt.id = sp.payment_type_id "
+            f"WHERE {date_range('sp.paid_at')} GROUP BY pt.id, pt.name ORDER BY total DESC{limit}",
+            ("sales_payment", "payment_type"),
+        ),
+        _case(
+            "ventas", "facil",
+            f"¿Cuántos pedidos cerrados para llevar hubo en {month_name}?",
+            f"SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' "
+            f"AND so.status = 'Closed' AND {date_range('so.ordered_at')}{limit}",
+            ("sales_order",),
+        ),
+        _case(
+            "ventas", "dificil",
+            f"¿Qué productos vendieron más unidades en pedidos cerrados durante {month_name}?",
+            f"SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so "
+            f"JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id "
+            f"WHERE so.status = 'Closed' AND p.sellable = TRUE AND {date_range('so.ordered_at')} "
+            f"GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+            ("sales_order", "order_item", "product"),
+        ),
+        _case(
+            "ventas", "medio",
+            f"¿Cuál fue el total vendido por canal de pedido en {month_name}?",
+            f"SELECT so.order_type, SUM(oi.subtotal) AS total FROM sales_order so "
+            f"JOIN order_item oi ON oi.order_id = so.id WHERE so.status = 'Closed' "
+            f"AND {date_range('so.ordered_at')} GROUP BY so.order_type ORDER BY total DESC{limit}",
+            ("sales_order", "order_item"),
+        ),
+        _case(
+            "ventas", "dificil",
+            f"¿Cuántos pedidos cerrados se atendieron en cada mesa durante {month_name}?",
+            f"SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so "
+            f"JOIN order_table ot ON ot.order_id = so.id JOIN dining_table dt ON dt.id = ot.table_id "
+            f"WHERE so.status = 'Closed' AND so.order_type = 'Mesa' "
+            f"AND {date_range('so.ordered_at')} GROUP BY dt.id, dt.number ORDER BY dt.number{limit}",
+            ("sales_order", "order_table", "dining_table"),
+        ),
     ]
 
-    elements_pcge = [
-        ("1", "Activo disponible y exigible (Caja y Bancos, Clientes)"),
-        ("2", "Activo realizable (Mercaderías, Materias primas)"),
-        ("3", "Activo inmovilizado (Inmuebles, maquinaria y equipo)"),
-        ("4", "Pasivo (Proveedores, Tributos por pagar, Remuneraciones)"),
-        ("5", "Patrimonio neto (Capital social, Resultados acumulados)"),
-        ("6", "Gastos por naturaleza (Compras, Cargas de personal, Servicios)"),
-        ("7", "Ingresos (Ventas de bienes y servicios)"),
+    purchases = [
+        _case(
+            "compras", "facil",
+            f"¿Cuál fue el total de facturas de compra activas en {month_name}?",
+            f"SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi "
+            f"WHERE pi.active = TRUE AND {date_range('pi.issued_at')}{limit}",
+            ("purchase_invoice",),
+        ),
+        _case(
+            "compras", "medio",
+            f"¿Cuánto se compró a cada proveedor en {month_name}?",
+            f"SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total "
+            f"FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id "
+            f"WHERE pi.active = TRUE AND {date_range('pi.issued_at')} "
+            f"GROUP BY s.id, s.business_name ORDER BY total DESC{limit}",
+            ("purchase_invoice", "supplier"),
+        ),
+        _case(
+            "compras", "medio",
+            f"¿Cuánto se pagó por cada medio de pago a proveedores en {month_name}?",
+            f"SELECT pt.name AS medio, SUM(pp.amount) AS total FROM purchase_payment pp "
+            f"JOIN payment_type pt ON pt.id = pp.payment_type_id "
+            f"WHERE {date_range('pp.paid_at')} GROUP BY pt.id, pt.name ORDER BY total DESC{limit}",
+            ("purchase_payment", "payment_type"),
+        ),
+        _case(
+            "compras", "medio",
+            f"¿Cuánto se gastó por categoría en compras informales durante {month_name}?",
+            f"SELECT ip.expense_category, SUM(ip.amount_paid) AS total FROM informal_purchase ip "
+            f"WHERE ip.annulled = FALSE AND {date_range('ip.date')} "
+            f"GROUP BY ip.expense_category ORDER BY total DESC{limit}",
+            ("informal_purchase",),
+        ),
+        _case(
+            "compras", "facil",
+            f"¿Cuántas órdenes de compra hubo por estado en {month_name}?",
+            f"SELECT po.status, COUNT(*) AS total FROM purchase_order po "
+            f"WHERE {date_range('po.issued_at')} GROUP BY po.status ORDER BY total DESC{limit}",
+            ("purchase_order",),
+        ),
+        _case(
+            "compras", "dificil",
+            f"¿Cuántas unidades recibidas hubo por producto en órdenes de compra de {month_name}?",
+            f"SELECT p.name, SUM(poi.quantity_received) AS unidades FROM purchase_order po "
+            f"JOIN purchase_order_item poi ON poi.purchase_order_id = po.id "
+            f"JOIN product p ON p.id = poi.product_id WHERE {date_range('po.issued_at')} "
+            f"GROUP BY p.id, p.name ORDER BY unidades DESC{limit}",
+            ("purchase_order", "purchase_order_item", "product"),
+        ),
+        _case(
+            "compras", "dificil",
+            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}?",
+            f"SELECT s.business_name AS proveedor, pi.series, pi.number, "
+            f"pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente "
+            f"FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id "
+            f"LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id "
+            f"WHERE pi.active = TRUE AND {date_range('pi.issued_at')} "
+            f"GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount "
+            f"HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 "
+            f"ORDER BY saldo_pendiente DESC{limit}",
+            ("purchase_invoice", "supplier", "purchase_payment"),
+        ),
     ]
 
-    payment_methods = ["Efectivo", "Yape", "Plin", "Tarjeta de Crédito", "Transferencia Bancaria"]
-    expense_categories = ["TransportAndDelivery", "CasualStaff", "CleaningSupplies", "OtherMinorExpenses"]
+    cash = [
+        _case(
+            "caja", "facil",
+            f"¿Cuál fue el total de egresos de caja en {month_name}?",
+            f"SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm "
+            f"WHERE cm.type = 'EXPENSE' AND {date_range('cm.created_at')}{limit}",
+            ("cash_movement",),
+        ),
+        _case(
+            "caja", "facil",
+            f"¿Cuál fue el total de ingresos registrados en caja en {month_name}?",
+            f"SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm "
+            f"WHERE cm.type = 'INCOME' AND {date_range('cm.created_at')}{limit}",
+            ("cash_movement",),
+        ),
+        _case(
+            "caja", "medio",
+            f"¿Cuántas sesiones cerradas tuvo cada caja en {month_name}?",
+            f"SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs "
+            f"JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' "
+            f"AND {date_range('cs.closed_at')} GROUP BY cr.id, cr.name ORDER BY sesiones DESC{limit}",
+            ("cash_session", "cash_register"),
+        ),
+        _case(
+            "caja", "medio",
+            f"¿Cuánto se registró en ventas en efectivo y otros medios por caja en {month_name}?",
+            f"SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, "
+            f"SUM(cs.sales_other) AS ventas_otros FROM cash_session cs "
+            f"JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' "
+            f"AND {date_range('cs.closed_at')} GROUP BY cr.id, cr.name ORDER BY caja{limit}",
+            ("cash_session", "cash_register"),
+        ),
+        _case(
+            "caja", "facil",
+            f"¿Cuál fue la diferencia total de las sesiones cerradas de caja en {month_name}?",
+            f"SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs "
+            f"WHERE cs.status = 'CLOSED' AND {date_range('cs.closed_at')}{limit}",
+            ("cash_session",),
+        ),
+        _case(
+            "caja", "medio",
+            f"¿Cuánto dinero se movió por tipo de movimiento de caja en {month_name}?",
+            f"SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm "
+            f"WHERE {date_range('cm.created_at')} GROUP BY cm.type ORDER BY total DESC{limit}",
+            ("cash_movement",),
+        ),
+        _case(
+            "caja", "dificil",
+            f"¿Cuánto se egresó por caja registradora en {month_name}?",
+            f"SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm "
+            f"JOIN cash_session cs ON cs.id = cm.session_id "
+            f"JOIN cash_register cr ON cr.id = cs.cash_register_id "
+            f"WHERE cm.type = 'EXPENSE' AND {date_range('cm.created_at')} "
+            f"GROUP BY cr.id, cr.name ORDER BY egresos DESC{limit}",
+            ("cash_movement", "cash_session", "cash_register"),
+        ),
+    ]
 
-    # 1. Agregar los casos base primero
-    for base in BASE_TEMPLATES:
-        items.append({
-            "id": f"TEST-{case_idx:03d}",
-            "modulo": base["modulo"],
-            "dificultad": base["dificultad"],
-            "pregunta": base["pregunta"],
-            "sql_gold": base["sql"],
-            "tablas_esperadas": base["tablas"]
-        })
-        case_idx += 1
+    inventory = [
+        _case(
+            "inventario", "medio",
+            f"¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en {month_name}?",
+            f"SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad "
+            f"FROM inventory_movement im WHERE {date_range('im.moved_at')} "
+            f"GROUP BY im.movement_type ORDER BY movimientos DESC{limit}",
+            ("inventory_movement",),
+        ),
+        _case(
+            "inventario", "medio",
+            f"¿Qué productos tuvieron salidas por venta y cuántas unidades en {month_name}?",
+            f"SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im "
+            f"JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' "
+            f"AND {date_range('im.moved_at')} GROUP BY p.id, p.name ORDER BY cantidad DESC{limit}",
+            ("inventory_movement", "product"),
+        ),
+        _case(
+            "inventario", "medio",
+            f"¿Qué productos tuvieron mermas y qué cantidad en {month_name}?",
+            f"SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im "
+            f"JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Shrinkage' "
+            f"AND {date_range('im.moved_at')} GROUP BY p.id, p.name ORDER BY cantidad DESC{limit}",
+            ("inventory_movement", "product"),
+        ),
+        _case(
+            "inventario", "medio",
+            f"¿Qué insumos ingresaron por compras y en qué cantidad durante {month_name}?",
+            f"SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im "
+            f"JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Purchase' "
+            f"AND {date_range('im.moved_at')} GROUP BY p.id, p.name ORDER BY cantidad DESC{limit}",
+            ("inventory_movement", "product"),
+        ),
+        _case(
+            "inventario", "facil",
+            f"¿Cuántas transformaciones no anuladas hubo en {month_name}?",
+            f"SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE "
+            f"AND {date_range('t.date')}{limit}",
+            ("transformation",),
+        ),
+        _case(
+            "inventario", "medio",
+            f"¿Qué cantidades se consumieron y produjeron en transformaciones durante {month_name}?",
+            f"SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t "
+            f"JOIN transformation_item ti ON ti.transformation_id = t.id "
+            f"WHERE t.annulled = FALSE AND {date_range('t.date')} "
+            f"GROUP BY ti.item_type ORDER BY ti.item_type{limit}",
+            ("transformation", "transformation_item"),
+        ),
+        _case(
+            "inventario", "medio",
+            f"¿Qué productos tuvieron ajustes de inventario y en qué cantidad en {month_name}?",
+            f"SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im "
+            f"JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' "
+            f"AND {date_range('im.moved_at')} GROUP BY p.id, p.name ORDER BY cantidad DESC{limit}",
+            ("inventory_movement", "product"),
+        ),
+    ]
 
-    # 2. Generación estratificada para alcanzar exactamente 350 casos
-    while len(items) < 350:
-        p_name, p_start, p_end = periods[(case_idx) % len(periods)]
-        
-        # Estrato Ventas
-        if len(items) < 120:
-            pm = payment_methods[case_idx % len(payment_methods)]
-            items.append({
-                "id": f"TEST-{case_idx:03d}",
-                "modulo": "ventas",
-                "dificultad": "medio" if case_idx % 2 == 0 else "facil",
-                "pregunta": f"¿Cuál fue el total cobrado mediante {pm} en el periodo de {p_name}?",
-                "sql_gold": f"SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%{pm}%' AND sp.paid_at >= '{p_start}' AND sp.paid_at <= '{p_end} 23:59:59';",
-                "tablas_esperadas": ["sales_payment", "payment_type"]
-            })
-            case_idx += 1
-            continue
+    accounting = [
+        _case(
+            "contabilidad", "medio",
+            f"¿Cuánto sumaron el debe y el haber de los asientos registrados en {month_name}?",
+            f"SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, "
+            f"COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je "
+            f"JOIN journal_entry_detail jed ON jed.entry_id = je.id "
+            f"WHERE je.status = TRUE AND {date_range('je.entry_date')}{limit}",
+            ("journal_entry", "journal_entry_detail"),
+        ),
+        _case(
+            "contabilidad", "dificil",
+            f"¿Cuál fue el saldo neto por cuenta contable en {month_name}?",
+            f"SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo "
+            f"FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id "
+            f"JOIN accounting_account aa ON aa.id = jed.account_id "
+            f"WHERE je.status = TRUE AND {date_range('je.entry_date')} "
+            f"GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code{limit}",
+            ("journal_entry", "journal_entry_detail", "accounting_account"),
+        ),
+        _case(
+            "contabilidad", "facil",
+            f"¿Cuántos asientos registrados hubo por diario en {month_name}?",
+            f"SELECT je.book, COUNT(*) AS total FROM journal_entry je "
+            f"WHERE je.status = TRUE AND {date_range('je.entry_date')} "
+            f"GROUP BY je.book ORDER BY total DESC{limit}",
+            ("journal_entry",),
+        ),
+        _case(
+            "contabilidad", "dificil",
+            f"¿Qué asientos registrados no cuadraron entre debe y haber en {month_name}?",
+            f"SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, "
+            f"SUM(jed.credit) AS total_haber FROM journal_entry je "
+            f"JOIN journal_entry_detail jed ON jed.entry_id = je.id "
+            f"WHERE je.status = TRUE AND {date_range('je.entry_date')} "
+            f"GROUP BY je.id, je.code, je.entry_date "
+            f"HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 "
+            f"ORDER BY je.entry_date DESC{limit}",
+            ("journal_entry", "journal_entry_detail"),
+        ),
+        _case(
+            "contabilidad", "medio",
+            f"¿Cuál fue el saldo neto del elemento contable {1 + (int(start[5:7]) - 1) % 7} en {month_name}?",
+            f"SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo "
+            f"FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id "
+            f"JOIN accounting_account aa ON aa.id = jed.account_id "
+            f"WHERE je.status = TRUE AND aa.code LIKE '{1 + (int(start[5:7]) - 1) % 7}%' "
+            f"AND {date_range('je.entry_date')}{limit}",
+            ("journal_entry", "journal_entry_detail", "accounting_account"),
+        ),
+        _case(
+            "contabilidad", "medio",
+            f"¿Cuánto sumaron el debe y el haber por tipo de cuenta en {month_name}?",
+            f"SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber "
+            f"FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id "
+            f"JOIN accounting_account aa ON aa.id = jed.account_id "
+            f"WHERE je.status = TRUE AND {date_range('je.entry_date')} "
+            f"GROUP BY aa.type ORDER BY aa.type{limit}",
+            ("journal_entry", "journal_entry_detail", "accounting_account"),
+        ),
+        _case(
+            "contabilidad", "medio",
+            f"¿Cuántos periodos contables abiertos abarcan {month_name}?",
+            f"SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' "
+            f"AND ap.start_date < DATE '{end}' AND ap.end_date >= DATE '{start}'{limit}",
+            ("accounting_period",),
+        ),
+    ]
 
-        # Estrato Compras
-        if len(items) < 190:
-            ec = expense_categories[case_idx % len(expense_categories)]
-            items.append({
-                "id": f"TEST-{case_idx:03d}",
-                "modulo": "compras",
-                "dificultad": "dificil" if case_idx % 3 == 0 else "medio",
-                "pregunta": f"Monto de gastos no comprobados en la categoría {ec} durante {p_name}.",
-                "sql_gold": f"SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = '{ec}' AND annulled = false AND date >= '{p_start}' AND date <= '{p_end}';",
-                "tablas_esperadas": ["informal_purchase"]
-            })
-            case_idx += 1
-            continue
+    return sales + purchases + cash + inventory + accounting
 
-        # Estrato Caja
-        if len(items) < 240:
-            items.append({
-                "id": f"TEST-{case_idx:03d}",
-                "modulo": "caja",
-                "dificultad": "medio" if case_idx % 2 == 0 else "facil",
-                "pregunta": f"Total de egresos registrados en movimientos de caja en {p_name}.",
-                "sql_gold": f"SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '{p_start}' AND created_at <= '{p_end} 23:59:59';",
-                "tablas_esperadas": ["cash_movement"]
-            })
-            case_idx += 1
-            continue
 
-        # Estrato Inventario
-        if len(items) < 280:
-            items.append({
-                "id": f"TEST-{case_idx:03d}",
-                "modulo": "inventario",
-                "dificultad": "dificil" if case_idx % 2 == 0 else "medio",
-                "pregunta": f"Insumos con salidas de almacén por venta registradas en {p_name}.",
-                "sql_gold": f"SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '{p_start}' AND im.created_at <= '{p_end} 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
-                "tablas_esperadas": ["inventory_movement", "product"]
-            })
-            case_idx += 1
-            continue
+def generate_350_test_suite(today: date | None = None) -> list[dict[str, Any]]:
+    """Create 35 supported query shapes across 10 complete historical months."""
+    reference_date = today or date.today()
+    cases = []
+    for period in _last_complete_months(reference_date):
+        cases.extend(_monthly_templates(period))
 
-        # Estrato Contabilidad PCGE
-        el_code, el_desc = elements_pcge[case_idx % len(elements_pcge)]
-        diff = "extra_dificil" if case_idx % 5 == 0 else "dificil" if case_idx % 2 == 0 else "medio"
-        items.append({
-            "id": f"TEST-{case_idx:03d}",
-            "modulo": "contabilidad",
-            "dificultad": diff,
-            "pregunta": f"Saldo neto (Debe - Haber) del elemento {el_code} ({el_desc}) en asientos de {p_name}.",
-            "sql_gold": f"SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '{el_code}%' AND je.entry_date >= '{p_start}' AND je.entry_date <= '{p_end}' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
-            "tablas_esperadas": ["journal_entry_detail", "accounting_account", "journal_entry"]
-        })
-        case_idx += 1
+    if len(cases) != 350:
+        raise ValueError(f"Se esperaban 350 casos, se generaron {len(cases)}.")
 
-    return items[:350]
+    for index, case in enumerate(cases, start=1):
+        case["id"] = f"TEST-{index:03d}"
+    return cases
+
+
+def suite_document(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the JSON envelope and distributions from the generated cases."""
+    return {
+        "version": "benchmark-v2-supported-sql",
+        "total_casos": len(cases),
+        "descripcion": (
+            "350 casos balanceados sobre 5 módulos, 35 formas de consulta compatibles con el agente "
+            "y 10 meses completos. No usa clientes ni sintaxis que el validador rechaza."
+        ),
+        "distribucion_dificultad": {
+            level: sum(case["dificultad"] == level for case in cases)
+            for level in ("facil", "medio", "dificil")
+        },
+        "distribucion_modulo": {
+            module: sum(case["modulo"] == module for case in cases)
+            for module in ("ventas", "compras", "caja", "inventario", "contabilidad")
+        },
+        "casos": cases,
+    }
+
+
+def validate_cases(cases: list[dict[str, Any]]) -> None:
+    """Reject generated SQL that is outside the actual read-only role/validator scope."""
+    project_root = Path(__file__).resolve().parents[1]
+    service_src = project_root / "agents-service" / "src"
+    if str(service_src) not in sys.path:
+        sys.path.insert(0, str(service_src))
+
+    from agents_service.validation.allowlist import load_allowlist
+    from agents_service.validation.validator import SqlValidator
+
+    allowlist = load_allowlist(
+        project_root / "agents-service" / "knowledge" / "allowlist.readonly_erp.json"
+    )
+    validator = SqlValidator(allowlist)
+    for case in cases:
+        verdict = validator.validate(case["sql_gold"], "contador_demo")
+        if not verdict.approved:
+            reasons = ", ".join(verdict.reasons)
+            raise ValueError(f"{case['id']} no pasa SqlValidator: {reasons}")
+
+        used_tables = {table.rsplit(".", 1)[-1] for table in verdict.tables}
+        expected_tables = set(case["tablas_esperadas"])
+        if used_tables != expected_tables:
+            raise ValueError(
+                f"{case['id']} declara tablas {sorted(expected_tables)}, "
+                f"pero el SQL usa {sorted(used_tables)}."
+            )
+
 
 if __name__ == "__main__":
-    out_dir = Path("eval")
-    out_dir.mkdir(parents=True, exist_ok=True)
     suite = generate_350_test_suite()
-    out_path = out_dir / "benchmark_cases_350.json"
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "version": "benchmark-v1-350",
-            "total_casos": len(suite),
-            "descripcion": "Banco riguroso de 350 casos de prueba para medir EM, EX, VES y TS en LoRA y Agentes",
-            "casos": suite
-        }, f, indent=2, ensure_ascii=False)
-    print(f"Generados exitosamente {len(suite)} casos en {out_path}")
+    validate_cases(suite)
+    OUTPUT_FILE.write_text(
+        json.dumps(suite_document(suite), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Generados {len(suite)} casos en {OUTPUT_FILE}")

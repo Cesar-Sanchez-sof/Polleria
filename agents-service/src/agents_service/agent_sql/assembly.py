@@ -9,8 +9,8 @@ import httpx
 
 from agents_service.execution.postgres_readonly import PostgresReadOnlyExecutor, psycopg_connection_factory
 from agents_service.agent_sql.agent import ACCEPTED_ORIGIN, LocalSqlAgent, SqlTextClient
-from agents_service.sql_agent.client import GeminiHttpClient, GroqHttpClient
-from agents_service.sql_agent.config import GeminiSqlSettings, GroqSqlSettings
+from agents_service.agent_sql.client import GeminiHttpClient, GroqHttpClient
+from agents_service.agent_sql.config import GeminiSqlSettings, GroqSqlSettings
 from agents_service.sqlgen.modules import load_erp_modules
 from agents_service.validation.allowlist import load_allowlist
 from agents_service.validation.validator import SqlValidator

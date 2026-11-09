@@ -8,6 +8,6 @@ pydantic==2.6.4
 # Cloud model clients (optional – install if you use Gemini/Groq APIs)
 # gemini-api-client==0.1.0
 # groq-api-client==0.1.0
-# LoRA local model dependencies (optional – needed only if you load the QLoRA checkpoint)
-# transformers==4.42.0
-# peft==0.9.0
+httpx==0.27.0
+sqlglot==23.13.0
+sqlglot==23.13.0

@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from agents_service.config.settings import ServiceConfigError, load_service_settings
-from agents_service.sql_agent.config import GeminiSqlConfigError
+from agents_service.agent_sql.config import GeminiSqlConfigError
 
 # agents-service/.env (ignorado por Git): solo para desarrollo local; en Render se usan variables de entorno.
 DOTENV_PATH = Path(__file__).resolve().parents[2] / ".env"

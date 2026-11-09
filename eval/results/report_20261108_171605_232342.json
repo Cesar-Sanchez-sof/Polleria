@@ -1,0 +1,2813 @@
+{
+  "generated_at": "2026-11-08T17:16:05.232342-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 350,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "cases": [
+        {
+          "id": "TEST-001",
+          "question": "¿Cuántas mesas registradas están activas en el salón?",
+          "expected_sql": "SELECT COUNT(*) FROM dining_table WHERE is_active = true;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-002",
+          "question": "Listar todos los pedidos de tipo Llevar.",
+          "expected_sql": "SELECT * FROM sales_order WHERE order_type = 'Llevar';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-003",
+          "question": "Total facturado de boletas emitidas con estado Issued.",
+          "expected_sql": "SELECT COALESCE(SUM(total_amount), 0.00) FROM sales_invoice WHERE voucher_type = 'Boleta' AND status = 'Issued';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-004",
+          "question": "¿Cuántos comprobantes de venta de tipo Factura se han emitido?",
+          "expected_sql": "SELECT COUNT(*) FROM sales_invoice WHERE voucher_type = 'Factura' AND status = 'Issued';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-005",
+          "question": "Total vendido agrupado por tipo de comprobante en facturas emitidas.",
+          "expected_sql": "SELECT voucher_type, SUM(total_amount) AS total FROM sales_invoice WHERE status = 'Issued' GROUP BY voucher_type;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-006",
+          "question": "Monto total vendido por cada método de pago registrado en ventas.",
+          "expected_sql": "SELECT pt.name AS metodo, SUM(sp.amount) AS total_cobrado FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id GROUP BY pt.id, pt.name ORDER BY total_cobrado DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-007",
+          "question": "Top 5 productos con mayor cantidad vendida en ítems de pedidos.",
+          "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades_vendidas FROM order_item oi JOIN product p ON oi.product_id = p.id GROUP BY p.id, p.name ORDER BY unidades_vendidas DESC LIMIT 5;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-008",
+          "question": "Total de ventas por cliente que superen los 1000 soles acumulados.",
+          "expected_sql": "SELECT c.id, c.business_name, SUM(si.total_amount) AS total_cliente FROM sales_invoice si JOIN customer c ON si.customer_id = c.id WHERE si.status = 'Issued' GROUP BY c.id, c.business_name HAVING SUM(si.total_amount) > 1000.00 ORDER BY total_cliente DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-009",
+          "question": "Pedidos de mesa cerrados con tiempo de atención y monto total de ítems.",
+          "expected_sql": "SELECT so.id, so.order_number, dt.number AS mesa, SUM(oi.subtotal) AS total_pedido FROM sales_order so JOIN order_table ot ON so.id = ot.order_id JOIN dining_table dt ON ot.table_id = dt.id JOIN order_item oi ON so.id = oi.order_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' GROUP BY so.id, so.order_number, dt.number;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-010",
+          "question": "Ranking de ventas mensuales con función de ventana por producto y porcentaje sobre el total del mes.",
+          "expected_sql": "WITH ventas_prod AS (SELECT DATE_TRUNC('month', so.ordered_at) AS mes, p.id AS prod_id, p.name AS producto, SUM(oi.subtotal) AS total_prod FROM sales_order so JOIN order_item oi ON so.id = oi.order_id JOIN product p ON oi.product_id = p.id WHERE so.status = 'Closed' GROUP BY DATE_TRUNC('month', so.ordered_at), p.id, p.name) SELECT mes, producto, total_prod, DENSE_RANK() OVER (PARTITION BY mes ORDER BY total_prod DESC) AS ranking, ROUND((total_prod / SUM(total_prod) OVER (PARTITION BY mes)) * 100, 2) AS pct_mes FROM ventas_prod ORDER BY mes DESC, ranking ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-011",
+          "question": "¿Cuántos proveedores registrados están activos?",
+          "expected_sql": "SELECT COUNT(*) FROM supplier WHERE active = true;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-012",
+          "question": "Listar las órdenes de compra con estado Pending.",
+          "expected_sql": "SELECT * FROM purchase_order WHERE status = 'Pending';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-013",
+          "question": "Suma total de gastos operativos en compras sin comprobante no anuladas.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) FROM informal_purchase WHERE purchase_type = 'OperatingExpense' AND annulled = false;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-014",
+          "question": "Total comprado agrupado por proveedor en facturas de compra activas.",
+          "expected_sql": "SELECT s.business_name, SUM(pi.total_amount) AS total_comprado FROM purchase_invoice pi JOIN supplier s ON pi.supplier_id = s.id WHERE pi.active = true GROUP BY s.id, s.business_name ORDER BY total_comprado DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-015",
+          "question": "Desglose de gastos en compras sin comprobante por categoría de gasto.",
+          "expected_sql": "SELECT expense_category, COUNT(*) AS operaciones, SUM(amount_paid) AS total FROM informal_purchase WHERE annulled = false GROUP BY expense_category ORDER BY total DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-016",
+          "question": "Proveedores con saldo pendiente de pago por comprobantes no cancelados en su totalidad.",
+          "expected_sql": "SELECT s.business_name, pi.series, pi.number, pi.total_amount, COALESCE(SUM(pp.amount), 0.00) AS total_pagado, (pi.total_amount - COALESCE(SUM(pp.amount), 0.00)) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON pi.supplier_id = s.id LEFT JOIN purchase_payment pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = true GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0.00)) > 0 ORDER BY saldo_pendiente DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-017",
+          "question": "¿Cuántas sesiones de caja tienen estado OPEN actualmente?",
+          "expected_sql": "SELECT COUNT(*) FROM cash_session WHERE status = 'OPEN';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-018",
+          "question": "Total de dinero en movimientos manuales de egreso (EXPENSE).",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) FROM cash_movement WHERE type = 'EXPENSE';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-019",
+          "question": "Suma de ventas en efectivo vs ventas con otros medios por sesión cerrada.",
+          "expected_sql": "SELECT id, opened_at, closed_at, sales_cash, sales_other, (sales_cash + sales_other) AS total_ventas FROM cash_session WHERE status = 'CLOSED' ORDER BY closed_at DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-020",
+          "question": "Insumos cuyo stock actual está en o por debajo del stock mínimo.",
+          "expected_sql": "SELECT id, name, current_stock, minimum_stock FROM product WHERE current_stock <= minimum_stock AND active = true;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-021",
+          "question": "Total de movimientos de inventario agrupados por tipo de movimiento.",
+          "expected_sql": "SELECT movement_type, COUNT(*) AS total_movimientos, SUM(quantity) AS cantidad_total FROM inventory_movement GROUP BY movement_type;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-022",
+          "question": "¿Cuántos periodos contables están en estado OPEN?",
+          "expected_sql": "SELECT COUNT(*) FROM accounting_period WHERE status = 'OPEN';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-023",
+          "question": "Listar cuentas contables del elemento 1 (Activo disponible y exigible).",
+          "expected_sql": "SELECT code, name, type FROM accounting_account WHERE code LIKE '1%' ORDER BY code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-024",
+          "question": "Total de cargos (debe) y abonos (haber) registrados en asientos del libro Diario.",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0.00) AS total_debe, COALESCE(SUM(jed.credit), 0.00) AS total_haber FROM journal_entry_detail jed JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND je.book = '05';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-025",
+          "question": "Balance de comprobación por cuenta mayor (2 dígitos) para asientos contables válidos.",
+          "expected_sql": "SELECT SUBSTRING(aa.code, 1, 2) AS cuenta_mayor, SUM(jed.debit) AS suma_debe, SUM(jed.credit) AS suma_haber, (SUM(jed.debit) - SUM(jed.credit)) AS saldo_deudor FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true GROUP BY SUBSTRING(aa.code, 1, 2) ORDER BY cuenta_mayor ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-026",
+          "question": "Detección de asientos descuadrados con diferencia mayor a un céntimo entre debe y haber.",
+          "expected_sql": "SELECT je.id, je.entry_code, je.entry_date, je.glosa, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber, ABS(SUM(jed.debit) - SUM(jed.credit)) AS descuadre FROM journal_entry je JOIN journal_entry_detail jed ON je.id = jed.entry_id WHERE je.status = true GROUP BY je.id, je.entry_code, je.entry_date, je.glosa HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY descuadre DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-027",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-028",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-029",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-030",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-031",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-032",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-033",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-034",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-035",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-036",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-037",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-038",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-039",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-040",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-041",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-042",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-043",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-044",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-045",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-046",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-047",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-048",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-049",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-050",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-051",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-052",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-053",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-054",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-055",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-056",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-057",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-058",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-059",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-060",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-061",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-062",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-063",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-064",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-065",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-066",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-067",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-068",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-069",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-070",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-071",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-072",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-073",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-074",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-075",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-076",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-077",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-078",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-079",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-080",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-081",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-082",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-083",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-084",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-085",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-086",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-087",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-088",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-089",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-090",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-091",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-092",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-093",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-094",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-095",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-096",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-097",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-098",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-099",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-100",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-101",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-102",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-103",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-104",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de septiembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-09-01' AND sp.paid_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-105",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-10-01' AND sp.paid_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-106",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de noviembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-11-01' AND sp.paid_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-107",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de diciembre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-12-01' AND sp.paid_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-108",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-01-01' AND sp.paid_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-109",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-02-01' AND sp.paid_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-110",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-03-01' AND sp.paid_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-111",
+          "question": "¿Cuál fue el total cobrado mediante Yape en el periodo de abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Yape%' AND sp.paid_at >= '2026-04-01' AND sp.paid_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-112",
+          "question": "¿Cuál fue el total cobrado mediante Plin en el periodo de mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Plin%' AND sp.paid_at >= '2026-05-01' AND sp.paid_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-113",
+          "question": "¿Cuál fue el total cobrado mediante Tarjeta de Crédito en el periodo de junio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Tarjeta de Crédito%' AND sp.paid_at >= '2026-06-01' AND sp.paid_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-114",
+          "question": "¿Cuál fue el total cobrado mediante Transferencia Bancaria en el periodo de julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Transferencia Bancaria%' AND sp.paid_at >= '2026-07-01' AND sp.paid_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-115",
+          "question": "¿Cuál fue el total cobrado mediante Efectivo en el periodo de agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(sp.amount), 0.00) AS total FROM sales_payment sp JOIN payment_type pt ON sp.payment_type_id = pt.id WHERE pt.name ILIKE '%Efectivo%' AND sp.paid_at >= '2026-08-01' AND sp.paid_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-116",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-117",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-118",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-119",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-120",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-121",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-122",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-123",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-124",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-125",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-126",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-127",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-128",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-129",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-130",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-131",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-132",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-133",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-134",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-135",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-136",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-137",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-138",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-139",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-140",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-141",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-142",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-143",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-144",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-145",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-146",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-147",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-148",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-149",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-150",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-151",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-152",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-153",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-154",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-155",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-156",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-157",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-158",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-159",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-160",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-161",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-162",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-163",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-164",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-165",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-166",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-167",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-168",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-169",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-170",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-171",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-172",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-173",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-174",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-07-01' AND date <= '2026-07-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-175",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-08-01' AND date <= '2026-08-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-176",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-09-01' AND date <= '2026-09-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-177",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-10-01' AND date <= '2026-10-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-178",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-11-01' AND date <= '2026-11-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-179",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-12-01' AND date <= '2026-12-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-180",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-01-01' AND date <= '2026-01-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-181",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-02-01' AND date <= '2026-02-28';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-182",
+          "question": "Monto de gastos no comprobados en la categoría CleaningSupplies durante marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CleaningSupplies' AND annulled = false AND date >= '2026-03-01' AND date <= '2026-03-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-183",
+          "question": "Monto de gastos no comprobados en la categoría OtherMinorExpenses durante abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'OtherMinorExpenses' AND annulled = false AND date >= '2026-04-01' AND date <= '2026-04-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-184",
+          "question": "Monto de gastos no comprobados en la categoría TransportAndDelivery durante mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'TransportAndDelivery' AND annulled = false AND date >= '2026-05-01' AND date <= '2026-05-31';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-185",
+          "question": "Monto de gastos no comprobados en la categoría CasualStaff durante junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount_paid), 0.00) AS total FROM informal_purchase WHERE expense_category = 'CasualStaff' AND annulled = false AND date >= '2026-06-01' AND date <= '2026-06-30';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-186",
+          "question": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-187",
+          "question": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-188",
+          "question": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-189",
+          "question": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-190",
+          "question": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-191",
+          "question": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-192",
+          "question": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-193",
+          "question": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-194",
+          "question": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-195",
+          "question": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-196",
+          "question": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-197",
+          "question": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-198",
+          "question": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-199",
+          "question": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-200",
+          "question": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-201",
+          "question": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-202",
+          "question": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-203",
+          "question": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-204",
+          "question": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-205",
+          "question": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-206",
+          "question": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-207",
+          "question": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-208",
+          "question": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-209",
+          "question": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-210",
+          "question": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-211",
+          "question": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-212",
+          "question": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-213",
+          "question": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-214",
+          "question": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-215",
+          "question": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-216",
+          "question": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-217",
+          "question": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-218",
+          "question": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-219",
+          "question": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-220",
+          "question": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-221",
+          "question": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-222",
+          "question": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-223",
+          "question": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-224",
+          "question": "Total de egresos registrados en movimientos de caja en septiembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-09-01' AND created_at <= '2026-09-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-225",
+          "question": "Total de egresos registrados en movimientos de caja en octubre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-10-01' AND created_at <= '2026-10-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-226",
+          "question": "Total de egresos registrados en movimientos de caja en noviembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-11-01' AND created_at <= '2026-11-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-227",
+          "question": "Total de egresos registrados en movimientos de caja en diciembre de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-12-01' AND created_at <= '2026-12-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-228",
+          "question": "Total de egresos registrados en movimientos de caja en enero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-01-01' AND created_at <= '2026-01-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-229",
+          "question": "Total de egresos registrados en movimientos de caja en febrero de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-02-01' AND created_at <= '2026-02-28 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-230",
+          "question": "Total de egresos registrados en movimientos de caja en marzo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-03-01' AND created_at <= '2026-03-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-231",
+          "question": "Total de egresos registrados en movimientos de caja en abril de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-04-01' AND created_at <= '2026-04-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-232",
+          "question": "Total de egresos registrados en movimientos de caja en mayo de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-05-01' AND created_at <= '2026-05-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-233",
+          "question": "Total de egresos registrados en movimientos de caja en junio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-06-01' AND created_at <= '2026-06-30 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-234",
+          "question": "Total de egresos registrados en movimientos de caja en julio de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-07-01' AND created_at <= '2026-07-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-235",
+          "question": "Total de egresos registrados en movimientos de caja en agosto de 2026.",
+          "expected_sql": "SELECT COALESCE(SUM(amount), 0.00) AS total_egresos FROM cash_movement WHERE type = 'EXPENSE' AND created_at >= '2026-08-01' AND created_at <= '2026-08-31 23:59:59';",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-236",
+          "question": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-237",
+          "question": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-238",
+          "question": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-239",
+          "question": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-240",
+          "question": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-241",
+          "question": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-242",
+          "question": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-243",
+          "question": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-244",
+          "question": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-245",
+          "question": "Insumos con salidas de almacén por venta registradas en junio de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-06-01' AND im.created_at <= '2026-06-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-246",
+          "question": "Insumos con salidas de almacén por venta registradas en julio de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-07-01' AND im.created_at <= '2026-07-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-247",
+          "question": "Insumos con salidas de almacén por venta registradas en agosto de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-08-01' AND im.created_at <= '2026-08-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-248",
+          "question": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-249",
+          "question": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-250",
+          "question": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-251",
+          "question": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-252",
+          "question": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-253",
+          "question": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-254",
+          "question": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-255",
+          "question": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-256",
+          "question": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-257",
+          "question": "Insumos con salidas de almacén por venta registradas en junio de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-06-01' AND im.created_at <= '2026-06-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-258",
+          "question": "Insumos con salidas de almacén por venta registradas en julio de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-07-01' AND im.created_at <= '2026-07-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-259",
+          "question": "Insumos con salidas de almacén por venta registradas en agosto de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-08-01' AND im.created_at <= '2026-08-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-260",
+          "question": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-261",
+          "question": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-262",
+          "question": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-263",
+          "question": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-264",
+          "question": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-265",
+          "question": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-266",
+          "question": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-267",
+          "question": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-268",
+          "question": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-269",
+          "question": "Insumos con salidas de almacén por venta registradas en junio de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-06-01' AND im.created_at <= '2026-06-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-270",
+          "question": "Insumos con salidas de almacén por venta registradas en julio de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-07-01' AND im.created_at <= '2026-07-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-271",
+          "question": "Insumos con salidas de almacén por venta registradas en agosto de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-08-01' AND im.created_at <= '2026-08-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-272",
+          "question": "Insumos con salidas de almacén por venta registradas en septiembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-09-01' AND im.created_at <= '2026-09-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-273",
+          "question": "Insumos con salidas de almacén por venta registradas en octubre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-10-01' AND im.created_at <= '2026-10-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-274",
+          "question": "Insumos con salidas de almacén por venta registradas en noviembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-11-01' AND im.created_at <= '2026-11-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-275",
+          "question": "Insumos con salidas de almacén por venta registradas en diciembre de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-12-01' AND im.created_at <= '2026-12-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-276",
+          "question": "Insumos con salidas de almacén por venta registradas en enero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-01-01' AND im.created_at <= '2026-01-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-277",
+          "question": "Insumos con salidas de almacén por venta registradas en febrero de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-02-01' AND im.created_at <= '2026-02-28 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-278",
+          "question": "Insumos con salidas de almacén por venta registradas en marzo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-03-01' AND im.created_at <= '2026-03-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-279",
+          "question": "Insumos con salidas de almacén por venta registradas en abril de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-04-01' AND im.created_at <= '2026-04-30 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-280",
+          "question": "Insumos con salidas de almacén por venta registradas en mayo de 2026.",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS total_salida FROM inventory_movement im JOIN product p ON im.product_id = p.id WHERE im.movement_type = 'OUT_SALE' AND im.created_at >= '2026-05-01' AND im.created_at <= '2026-05-31 23:59:59' GROUP BY p.id, p.name ORDER BY total_salida DESC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-281",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de junio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-282",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de julio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-283",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de agosto de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-284",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de septiembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-285",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de octubre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-286",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de noviembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-287",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de diciembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-288",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de enero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-289",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de febrero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-290",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de marzo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-291",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de abril de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-292",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de mayo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-293",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de junio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-294",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de julio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-295",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de agosto de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-296",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de septiembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-297",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de octubre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-298",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de noviembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-299",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de diciembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-300",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de enero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-301",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de febrero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-302",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de marzo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-303",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de abril de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-304",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de mayo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-305",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de junio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-306",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de julio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-307",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de agosto de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-308",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de septiembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-309",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de octubre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-310",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de noviembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-311",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de diciembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-312",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de enero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-313",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de febrero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-314",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de marzo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-315",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de abril de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-316",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de mayo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-317",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de junio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-318",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de julio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-319",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de agosto de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-320",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de septiembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-321",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de octubre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-322",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de noviembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-323",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de diciembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-324",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de enero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-325",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de febrero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-326",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de marzo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-327",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de abril de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-328",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de mayo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-329",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de junio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-330",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de julio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-331",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de agosto de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-332",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de septiembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-333",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de octubre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-334",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de noviembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-335",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de diciembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-336",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de enero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-337",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de febrero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-338",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de marzo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-339",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de abril de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-04-01' AND je.entry_date <= '2026-04-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-340",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de mayo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-05-01' AND je.entry_date <= '2026-05-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-341",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de junio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-06-01' AND je.entry_date <= '2026-06-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-342",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de julio de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-07-01' AND je.entry_date <= '2026-07-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-343",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de agosto de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-08-01' AND je.entry_date <= '2026-08-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-344",
+          "question": "Saldo neto (Debe - Haber) del elemento 2 (Activo realizable) en asientos de septiembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '2%' AND je.entry_date >= '2026-09-01' AND je.entry_date <= '2026-09-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-345",
+          "question": "Saldo neto (Debe - Haber) del elemento 3 (Activo inmovilizado) en asientos de octubre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '3%' AND je.entry_date >= '2026-10-01' AND je.entry_date <= '2026-10-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-346",
+          "question": "Saldo neto (Debe - Haber) del elemento 4 (Pasivo corriente y no corriente) en asientos de noviembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '4%' AND je.entry_date >= '2026-11-01' AND je.entry_date <= '2026-11-30' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-347",
+          "question": "Saldo neto (Debe - Haber) del elemento 5 (Patrimonio neto) en asientos de diciembre de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '5%' AND je.entry_date >= '2026-12-01' AND je.entry_date <= '2026-12-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-348",
+          "question": "Saldo neto (Debe - Haber) del elemento 6 (Gastos por naturaleza) en asientos de enero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '6%' AND je.entry_date >= '2026-01-01' AND je.entry_date <= '2026-01-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-349",
+          "question": "Saldo neto (Debe - Haber) del elemento 7 (Ingresos por ventas y servicios) en asientos de febrero de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '7%' AND je.entry_date >= '2026-02-01' AND je.entry_date <= '2026-02-28' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        },
+        {
+          "id": "TEST-350",
+          "question": "Saldo neto (Debe - Haber) del elemento 1 (Activo disponible y exigible) en asientos de marzo de 2026.",
+          "expected_sql": "SELECT aa.code, aa.name, COALESCE(SUM(jed.debit), 0.00) - COALESCE(SUM(jed.credit), 0.00) AS saldo FROM journal_entry_detail jed JOIN accounting_account aa ON jed.account_id = aa.id JOIN journal_entry je ON jed.entry_id = je.id WHERE je.status = true AND aa.code LIKE '1%' AND je.entry_date >= '2026-03-01' AND je.entry_date <= '2026-03-31' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code ASC;",
+          "generated_sql": null,
+          "exact_match": false,
+          "error": "UNTRUSTED_AUTHORIZATION"
+        }
+      ]
+    }
+  ]
+}

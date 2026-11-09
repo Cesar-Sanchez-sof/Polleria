@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from agents_service.sql_agent.config import GeminiSqlSettings, GroqSqlSettings
+from agents_service.agent_sql.config import GeminiSqlSettings, GroqSqlSettings
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -82,11 +82,17 @@ def _post_with_retry(
 class GeminiHttpClient:
     def __init__(self, settings: GeminiSqlSettings, *, transport: httpx.BaseTransport | None = None) -> None:
         self._settings = settings
+        self._last_token_usage: dict[str, int] | None = None
         self._client = httpx.Client(
             transport=transport, trust_env=False, follow_redirects=False, timeout=float(settings.timeout_s)
         )
 
+    @property
+    def last_token_usage(self) -> dict[str, int] | None:
+        return self._last_token_usage.copy() if self._last_token_usage is not None else None
+
     def generate(self, system: str, user: str) -> str:
+        self._last_token_usage = None
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -103,7 +109,19 @@ class GeminiHttpClient:
             self._client, url, headers={"x-goog-api-key": self._settings.api_key}, body=body, prefix="GEMINI", error=GeminiError
         )
         try:
-            candidate = response.json()["candidates"][0]
+            payload = response.json()
+            usage = payload.get("usageMetadata")
+            if isinstance(usage, dict):
+                self._last_token_usage = {
+                    key: usage[source]
+                    for key, source in (
+                        ("prompt_tokens", "promptTokenCount"),
+                        ("completion_tokens", "candidatesTokenCount"),
+                        ("total_tokens", "totalTokenCount"),
+                    )
+                    if isinstance(usage.get(source), int)
+                }
+            candidate = payload["candidates"][0]
             text = "".join(part.get("text", "") for part in candidate["content"]["parts"])
             finish = candidate.get("finishReason")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
@@ -118,11 +136,17 @@ class GroqHttpClient:
 
     def __init__(self, settings: GroqSqlSettings, *, transport: httpx.BaseTransport | None = None) -> None:
         self._settings = settings
+        self._last_token_usage: dict[str, int] | None = None
         self._client = httpx.Client(
             transport=transport, trust_env=False, follow_redirects=False, timeout=float(settings.timeout_s)
         )
 
+    @property
+    def last_token_usage(self) -> dict[str, int] | None:
+        return self._last_token_usage.copy() if self._last_token_usage is not None else None
+
     def generate(self, system: str, user: str) -> str:
+        self._last_token_usage = None
         body = {
             "model": self._settings.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -141,7 +165,19 @@ class GroqHttpClient:
             error=GroqError,
         )
         try:
-            choice = response.json()["choices"][0]
+            payload = response.json()
+            usage = payload.get("usage")
+            if isinstance(usage, dict):
+                self._last_token_usage = {
+                    key: usage[source]
+                    for key, source in (
+                        ("prompt_tokens", "prompt_tokens"),
+                        ("completion_tokens", "completion_tokens"),
+                        ("total_tokens", "total_tokens"),
+                    )
+                    if isinstance(usage.get(source), int)
+                }
+            choice = payload["choices"][0]
             text = choice["message"]["content"]
             finish = choice.get("finish_reason")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):

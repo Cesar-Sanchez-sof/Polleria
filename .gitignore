@@ -76,3 +76,5 @@ playwright/.cache/
 install/
 pip/
 psycopg2-binary/
+eval/__pycache__/*
+*.py[cod]

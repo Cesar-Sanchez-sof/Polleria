@@ -1,96 +1,44 @@
-# 📂 Carpeta `eval`
+# Evaluación de agentes SQL
 
-Esta carpeta contiene todo lo necesario para **ejecutar y revisar la evaluación de los agentes SQL** (LoRA, Gemini‑API y Groq‑API).  El objetivo es que, con un solo comando, obtengas un informe en Markdown y su versión JSON sin tener que modificar `PYTHONPATH` ni mover archivos.
+Esta carpeta contiene los casos de evaluación, el evaluador y los reportes:
 
----
+- `evaluate_agents.py`: evalúa Gemini y/o Groq con los proveedores habilitados.
+- `benchmark_cases_350.json`: suite de 350 casos, con su lista en `casos`.
+- `generate_benchmark_suite.py`: generador canónico, que valida cada caso contra la allowlist y el validador SQL del agente antes de guardar.
+- `generate_suite.js`: lanzador de Node.js del generador canónico.
+- `test_generate_benchmark_suite.py`: pruebas offline de alcance, balance y validez de los casos generados.
+- `test_evaluate_agents.py`: pruebas offline de EM, comparación de resultados y VES.
+- `reports/report.md`: resumen de la última corrida.
+- `results/report_*.json`: resultados detallados por corrida.
 
-## 📂 Estructura de la carpeta
+## Ejecución rápida
+
+Desde la raíz del proyecto y con el entorno virtual activado:
+
+```powershell
+python -m eval.evaluate_agents
 ```
-/Polleria
-└─ eval/
-   ├─ README.md                # <-- este archivo (instrucciones)
-   ├─ evaluate_agents.py       # script de evaluación (ejecutable con `python -m eval.evaluate_agents`)
-   ├─ benchmark_cases_350.json               # opcional: lista de hasta 350 casos de prueba
-   ├─ report.md                # último informe generado (Markdown)
-   └─ report_*.json            # últimos datos de ejecución (JSON, nombre con timestamp)
+
+También se puede seleccionar un solo proveedor:
+
+```powershell
+python -m eval.evaluate_agents --provider groq
+python -m eval.evaluate_agents --provider gemini
+
+# Ejecutar una tanda (para continuar, cambia --start-at al siguiente caso)
+python -m eval.evaluate_agents --provider groq --start-at 1 --limit 60
 ```
 
-- **`evaluate_agents.py`** – Copia del evaluador original que se sitúa en `agents-service/src/evaluation`.  Añade automáticamente la ruta `agents-service/src` al `sys.path` para poder importar los módulos internos.
-- **`benchmark_cases_350.json`** – *(opcional)* Archivo JSON con los casos de prueba.  Cada elemento debe ser un objeto con al menos:
-  ```json
-  {
-    "query": "texto en lenguaje natural",
-    "expected_sql": "SELECT …"
-  }
-  ```
-  Si no existe, el script usa una única consulta de prueba integrada.
-- **`report.md`** – Informe legible con una tabla de resultados (✅/❌) que se sobrescribe en cada ejecución.
-- **`report_*.json`** – Archivo JSON con la salida completa (incluye timestamps y respuestas de cada agente).  El nombre incluye la fecha/hora de generación, por ejemplo `report_20231107_173500.json`.
+Configura las credenciales en `agents-service/.env` o en el entorno: `GROQ_API_KEY` y/o `GEMINI_API_KEY`, `DATABASE_URL_READONLY`, `AGENTS_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY`. El evaluador usa la configuración del servicio y no carga la `DATABASE_URL` de escritura del ERP. Asegúrate de que `DATABASE_URL_READONLY` use un rol PostgreSQL de solo lectura. No introduzcas claves API en la consola; revoca cualquier clave que se haya expuesto y actualízala en `agents-service/.env`.
 
----
+El benchmark reporta **EM** (coincidencia exacta de SQL), **EX** (comparación de resultados ejecutados) y **VES** (eficiencia relativa de ejecución). Muestra la SQL gold y la generada en consola y en ambos informes. **TS** se informa como `N/D` porque la configuración actual no contiene bases o estados alternativos para una suite de pruebas. Para definiciones, configuración y regeneración de casos, consulta [Ejecucion.md](Ejecucion.md).
 
-## 🚀 Cómo ejecutar la evaluación
-1. **Activar el entorno virtual** (si aún no lo está):
-   ```powershell
-   .\.venv\Scripts\Activate.ps1   # PowerShell
-   # o
-   source .venv/bin/activate       # Git Bash / WSL
-   ```
-2. **Ejecutar el script** desde la raíz del proyecto (`Polleria`):
-   ```powershell
-   python -m eval.evaluate_agents
-   ```
-   - El script buscará `benchmark_cases_350.json` en la carpeta `eval`.
-   - Si lo encuentra, ejecutará **todos** los casos; si no, usará la consulta de prueba integrada.
-   - Al finalizar generará `report.md` y un archivo `report_*.json` en la misma carpeta.
-3. **Revisar el informe**:
-   ```powershell
-   notepad .\eval\report.md   # o cualquier editor de tu preferencia
-   ```
-   La tabla mostrará una fila por agente con ✅ si todas las consultas pasaron y ❌ si alguna falló.
+La suite se distribuye por igual entre ventas, compras, caja, inventario y contabilidad. Generarla o probarla no hace llamadas a Groq/Gemini ni a PostgreSQL.
 
----
+El límite de Groq de 200.000 tokens/día no permite correr los 350 casos de una vez: el consumo observado es de aproximadamente 2.700 tokens por consulta. Usa `--start-at` y `--limit` para ejecutar tandas de hasta 60 casos por día; por ejemplo, después de los casos 1–60, continúa con `--start-at 61 --limit 60`.
 
-## 📄 Crear o actualizar `benchmark_cases_350.json`
-Ejemplo mínimo (3 casos):
-```json
-[
-  {
-    "query": "¿Cuántas filas hay en journal_entry?",
-    "expected_sql": "SELECT COUNT(*) FROM journal_entry"
-  },
-  {
-    "query": "¿Cuál es el total de ventas del mes actual?",
-    "expected_sql": "SELECT SUM(total) FROM sales WHERE date_part('month', sale_date) = date_part('month', CURRENT_DATE)"
-  },
-  {
-    "query": "Lista los clientes con más de 5 órdenes",
-    "expected_sql": "SELECT client_id FROM orders GROUP BY client_id HAVING COUNT(*) > 5"
-  }
-]
+Las métricas pueden probarse sin credenciales ni conexión a la base:
+
+```powershell
+python -m unittest eval.test_evaluate_agents eval.test_generate_benchmark_suite
 ```
-Guarda este contenido en `eval/benchmark_cases_350.json`.  El script lo leerá automáticamente la próxima vez que lo ejecutes.
-
----
-
-## 🛠️ Depuración rápida
-- **Error de configuración**: si el script muestra *“Error al cargar la configuración”*, revisa que el archivo `.env` exista en `agents-service/src/agents_service/.env` y contenga las variables `GEMINI_API_KEY`, `GROQ_API_KEY` y, opcionalmente, `QLORA_CHECKPOINT_PATH` (para el agente LoRA).
-- **Falta el checkpoint LoRA**: si no dispones del modelo LoRA y deseas ejecutar solo los agentes en la nube, comenta la línea correspondiente en `evaluate_agents.py` dentro de la lista `AGENTS`:
-  ```python
-  # ("LoRA", build_gemini_sql_agent, {"settings": None}),
-  ```
-- **Problemas de importación**: el script añade la ruta `agents-service/src` al `sys.path`.  Si cambias la ubicación del proyecto, verifica que la línea `AGENTS_SRC = PROJECT_ROOT / "agents-service" / "src"` siga apuntando al directorio correcto.
-
----
-
-## 📦 Limpieza
-- Para borrar los informes anteriores, simplemente elimina los archivos `report.md` y `report_*.json`:
-  ```powershell
-  Remove-Item .\eval\report.md
-  Remove-Item .\eval\report_*.json
-  ```
-- Si deseas volver al evaluador original dentro de `agents-service/src/evaluation`, puedes mantener ambos archivos; ninguno interfiere con el otro.
-
----
-
-Con este `README.md` deberías poder **entender la estructura**, **añadir casos de prueba**, **ejecutar la evaluación** y **consultar los resultados** sin complicaciones.  Si necesitas cualquier ajuste adicional (por ejemplo, cambiar la consulta de prueba predeterminada), edita `eval/evaluate_agents.py` directamente.

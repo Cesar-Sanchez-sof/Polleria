@@ -1,0 +1,366 @@
+{
+  "generated_at": "2026-11-08T19:27:55.471487-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 19,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 16,
+      "execution_error_count": 3,
+      "execution_accuracy_count": 16,
+      "execution_accuracy_denominator": 19,
+      "execution_accuracy_rate": 0.8421,
+      "ves": 0.809526,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-001",
+          "question": "¿Cuál fue el total de comprobantes emitidos en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at <= CAST('2026-01-31' AS DATE) LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.801628,
+          "elapsed_seconds": 3.953,
+          "sql_execution_seconds": 2.883804,
+          "gold_execution_seconds": 1.853153,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 157,
+            "total_tokens": 2646
+          }
+        },
+        {
+          "id": "TEST-002",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en enero de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.449,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 1.834521,
+          "token_usage": {
+            "prompt_tokens": 5020,
+            "completion_tokens": 579,
+            "total_tokens": 5599
+          },
+          "error": "VALIDATOR:SET_OPERATION"
+        },
+        {
+          "id": "TEST-003",
+          "question": "¿Cuánto se cobró por cada medio de pago en enero de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-01-01' AND sp.paid_at < DATE '2026-02-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT pt.name AS medio_pago, COALESCE(SUM(sp.amount), 0) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name ORDER BY total_cobrado DESC LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.991034,
+          "elapsed_seconds": 3.044,
+          "sql_execution_seconds": 1.874288,
+          "gold_execution_seconds": 1.84083,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 187,
+            "total_tokens": 2676
+          }
+        },
+        {
+          "id": "TEST-004",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en enero de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.status ILIKE '%cerrado%' AND so.order_type ILIKE '%para llevar%' AND EXTRACT(YEAR FROM so.ordered_at) = 2026 AND EXTRACT(MONTH FROM so.ordered_at) = 1 LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.976104,
+          "elapsed_seconds": 2.778,
+          "sql_execution_seconds": 1.933675,
+          "gold_execution_seconds": 1.842365,
+          "token_usage": {
+            "prompt_tokens": 2488,
+            "completion_tokens": 147,
+            "total_tokens": 2635
+          }
+        },
+        {
+          "id": "TEST-005",
+          "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante enero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+          "generated_sql": "SELECT p.id AS id, p.name AS name, SUM(oi.quantity) AS total_units FROM public.sales_order AS so JOIN public.order_item AS oi ON oi.order_id = so.id JOIN public.product AS p ON p.id = oi.product_id WHERE so.status ILIKE '%closed%' AND so.ordered_at >= CAST('2026-01-01' AS DATE) AND so.ordered_at < CAST('2026-02-01' AS DATE) GROUP BY p.id, p.name ORDER BY total_units DESC LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.991551,
+          "elapsed_seconds": 3.493,
+          "sql_execution_seconds": 1.90898,
+          "gold_execution_seconds": 1.876859,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 376,
+            "total_tokens": 2865
+          }
+        },
+        {
+          "id": "TEST-006",
+          "question": "¿Cuál fue el total vendido por canal de pedido en enero de 2026?",
+          "expected_sql": "SELECT so.order_type, SUM(oi.subtotal) AS total FROM sales_order so JOIN order_item oi ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY so.order_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT so.order_type AS canal_pedido, SUM(si.total_amount) AS total_vendido FROM public.sales_invoice AS si JOIN public.sales_order AS so ON si.order_id = so.id WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) GROUP BY so.order_type LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.773,
+          "sql_execution_seconds": 1.884652,
+          "gold_execution_seconds": 1.918694,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 165,
+            "total_tokens": 2654
+          }
+        },
+        {
+          "id": "TEST-007",
+          "question": "¿Cuántos pedidos cerrados se atendieron en cada mesa durante enero de 2026?",
+          "expected_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so JOIN order_table ot ON ot.order_id = so.id JOIN dining_table dt ON dt.id = ot.table_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY dt.id, dt.number ORDER BY dt.number LIMIT 50",
+          "generated_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos_cerrados FROM public.sales_order AS so JOIN public.order_table AS ot ON ot.order_id = so.id JOIN public.dining_table AS dt ON dt.id = ot.table_id WHERE so.status ILIKE '%closed%' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number ORDER BY mesa LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.859417,
+          "elapsed_seconds": 3.774,
+          "sql_execution_seconds": 2.553298,
+          "gold_execution_seconds": 1.885861,
+          "token_usage": {
+            "prompt_tokens": 2491,
+            "completion_tokens": 239,
+            "total_tokens": 2730
+          }
+        },
+        {
+          "id": "TEST-008",
+          "question": "¿Cuál fue el total de facturas de compra activas en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-01-01' AND pi.issued_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total_facturas FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at <= CAST('2026-01-31' AS DATE) LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.983194,
+          "elapsed_seconds": 3.075,
+          "sql_execution_seconds": 1.892217,
+          "gold_execution_seconds": 1.829152,
+          "token_usage": {
+            "prompt_tokens": 2491,
+            "completion_tokens": 200,
+            "total_tokens": 2691
+          }
+        },
+        {
+          "id": "TEST-009",
+          "question": "¿Cuánto se compró a cada proveedor en enero de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-01-01' AND pi.issued_at < DATE '2026-02-01' GROUP BY s.id, s.business_name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT s.business_name AS proveedor, COALESCE(SUM(pi.total_amount), 0) AS total_comprado FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE DATE_TRUNC('MONTH', pi.issued_at) = CAST('2026-01-01' AS DATE) GROUP BY s.business_name LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.964557,
+          "elapsed_seconds": 2.905,
+          "sql_execution_seconds": 1.942437,
+          "gold_execution_seconds": 1.807186,
+          "token_usage": {
+            "prompt_tokens": 2487,
+            "completion_tokens": 173,
+            "total_tokens": 2660
+          }
+        },
+        {
+          "id": "TEST-010",
+          "question": "¿Cuánto se pagó por cada medio de pago a proveedores en enero de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(pp.amount) AS total FROM purchase_payment pp JOIN payment_type pt ON pt.id = pp.payment_type_id WHERE pp.paid_at >= DATE '2026-01-01' AND pp.paid_at < DATE '2026-02-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT pt.name AS medio_pago, COALESCE(SUM(pp.amount), 0) AS total_pagado FROM public.purchase_payment AS pp JOIN public.purchase_invoice AS pi ON pp.purchase_invoice_id = pi.id JOIN public.payment_type AS pt ON pp.payment_type_id = pt.id WHERE pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at < CAST('2026-02-01' AS DATE) GROUP BY pt.name LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.958381,
+          "elapsed_seconds": 3.251,
+          "sql_execution_seconds": 1.990349,
+          "gold_execution_seconds": 1.828122,
+          "token_usage": {
+            "prompt_tokens": 2491,
+            "completion_tokens": 232,
+            "total_tokens": 2723
+          }
+        },
+        {
+          "id": "TEST-011",
+          "question": "¿Cuánto se gastó por categoría en compras informales durante enero de 2026?",
+          "expected_sql": "SELECT ip.expense_category, SUM(ip.amount_paid) AS total FROM informal_purchase ip WHERE ip.annulled = FALSE AND ip.date >= DATE '2026-01-01' AND ip.date < DATE '2026-02-01' GROUP BY ip.expense_category ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT ip.expense_category AS expense_category, SUM(ip.amount_paid) AS total_gasto FROM public.informal_purchase AS ip WHERE ip.date >= CAST('2026-01-01' AS DATE) AND ip.date <= CAST('2026-01-31' AS DATE) GROUP BY ip.expense_category LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.998362,
+          "elapsed_seconds": 3.059,
+          "sql_execution_seconds": 1.859306,
+          "gold_execution_seconds": 1.853219,
+          "token_usage": {
+            "prompt_tokens": 2490,
+            "completion_tokens": 194,
+            "total_tokens": 2684
+          }
+        },
+        {
+          "id": "TEST-012",
+          "question": "¿Cuántas órdenes de compra hubo por estado en enero de 2026?",
+          "expected_sql": "SELECT po.status, COUNT(*) AS total FROM purchase_order po WHERE po.issued_at >= DATE '2026-01-01' AND po.issued_at < DATE '2026-02-01' GROUP BY po.status ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT po.status AS status, COUNT(*) AS total FROM public.purchase_order AS po WHERE po.issued_at >= CAST('2026-01-01' AS DATE) AND po.issued_at <= CAST('2026-01-31' AS DATE) GROUP BY po.status LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.891,
+          "sql_execution_seconds": 1.888249,
+          "gold_execution_seconds": 1.979458,
+          "token_usage": {
+            "prompt_tokens": 2488,
+            "completion_tokens": 162,
+            "total_tokens": 2650
+          }
+        },
+        {
+          "id": "TEST-013",
+          "question": "¿Cuántas unidades recibidas hubo por producto en órdenes de compra de enero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(poi.quantity_received) AS unidades FROM purchase_order po JOIN purchase_order_item poi ON poi.purchase_order_id = po.id JOIN product p ON p.id = poi.product_id WHERE po.issued_at >= DATE '2026-01-01' AND po.issued_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 50",
+          "generated_sql": "SELECT p.id AS product_id, p.name AS product_name, COALESCE(SUM(poi.quantity_received), 0) AS total_received FROM public.purchase_order AS po JOIN public.purchase_order_item AS poi ON poi.purchase_order_id = po.id JOIN public.product AS p ON p.id = poi.product_id WHERE po.issued_at >= CAST('2026-01-01' AS DATE) AND po.issued_at < CAST('2026-02-01' AS DATE) GROUP BY p.id, p.name LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.986249,
+          "elapsed_seconds": 2.937,
+          "sql_execution_seconds": 1.872578,
+          "gold_execution_seconds": 1.821432,
+          "token_usage": {
+            "prompt_tokens": 2492,
+            "completion_tokens": 184,
+            "total_tokens": 2676
+          }
+        },
+        {
+          "id": "TEST-014",
+          "question": "¿Qué facturas de compra activas tienen saldo pendiente en enero de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-01-01' AND pi.issued_at < DATE '2026-02-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+          "generated_sql": "SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount AS total_amount, COALESCE(SUM(pp.amount), 0) AS paid, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS pending FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at <= CAST('2026-01-31' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING COALESCE(SUM(pp.amount), 0) < pi.total_amount LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.368,
+          "sql_execution_seconds": 1.84257,
+          "gold_execution_seconds": 1.860721,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 305,
+            "total_tokens": 2794
+          }
+        },
+        {
+          "id": "TEST-015",
+          "question": "¿Cuál fue el total de egresos de caja en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.969,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 1.997976,
+          "token_usage": {
+            "prompt_tokens": 2490,
+            "completion_tokens": 138,
+            "total_tokens": 2628
+          },
+          "error": "NOT_ANSWERABLE"
+        },
+        {
+          "id": "TEST-016",
+          "question": "¿Cuál fue el total de ingresos registrados en caja en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'INCOME' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.credit), 0) AS total_ingresos FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.book ILIKE '%caja%' AND aa.type = 'Ingreso' AND je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date <= CAST('2026-01-31' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.973041,
+          "elapsed_seconds": 3.347,
+          "sql_execution_seconds": 1.934631,
+          "gold_execution_seconds": 1.831724,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 320,
+            "total_tokens": 2809
+          }
+        },
+        {
+          "id": "TEST-017",
+          "question": "¿Cuántas sesiones cerradas tuvo cada caja en enero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS name, COUNT(cs.id) AS closed_sessions FROM public.cash_register AS cr JOIN public.cash_session AS cs ON cs.cash_register_id = cr.id WHERE cs.closed_at IS NOT NULL AND cs.closed_at >= CAST('2026-01-01' AS DATE) AND cs.closed_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.985207,
+          "elapsed_seconds": 3.243,
+          "sql_execution_seconds": 1.949294,
+          "gold_execution_seconds": 1.892047,
+          "token_usage": {
+            "prompt_tokens": 2488,
+            "completion_tokens": 253,
+            "total_tokens": 2741
+          }
+        },
+        {
+          "id": "TEST-018",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en enero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT cs.cash_register_id AS caja_id, cr.name AS caja_nombre, COALESCE(SUM(cs.sales_cash), 0) AS total_efectivo, COALESCE(SUM(cs.sales_other), 0) AS total_otros FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.opened_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY cs.cash_register_id, cr.name LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.912274,
+          "elapsed_seconds": 3.683,
+          "sql_execution_seconds": 2.180253,
+          "gold_execution_seconds": 1.814501,
+          "token_usage": {
+            "prompt_tokens": 2493,
+            "completion_tokens": 377,
+            "total_tokens": 2870
+          }
+        },
+        {
+          "id": "TEST-019",
+          "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.924,
+          "sql_execution_seconds": 1.878829,
+          "gold_execution_seconds": 1.873922,
+          "token_usage": {
+            "prompt_tokens": 2492,
+            "completion_tokens": 242,
+            "total_tokens": 2734
+          },
+          "error": "SQLEXEC_FAILED/UNDEFINED_FUNCTION"
+        }
+      ]
+    }
+  ]
+}

@@ -1,85 +1,82 @@
-# 📚 Guía de ejecución paso a paso
+# Guía de ejecución de la evaluación SQL
 
-Esta hoja describe el flujo completo para preparar el entorno, generar los casos de prueba y ejecutar el benchmark de los agentes SQL.
+Ejecuta estos comandos desde la raíz del proyecto (`Polleria`) en PowerShell.
 
----
+## 1. Preparar el entorno
 
-## 1️⃣ Crear y activar el entorno virtual (solo la primera vez)
 ```powershell
-# Crear el entorno virtual en la raíz del proyecto
 python -m venv .venv
-
-# Activarlo (PowerShell) – en *bash* usar `source .venv/bin/activate`
-.\.venv\Scripts\activate
-```
-> **Nota:** Si ya tienes el entorno creado, solo ejecuta la línea de activación.
-
----
-
-## 2️⃣ Instalar dependencias del proyecto
-```powershell
-# Instalar todo lo necesario (incluye psycopg2‑binary y demás libs)
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-> Si el proyecto no dispone de `requirements.txt`, instala al menos la librería de PostgreSQL:
-```powershell
-pip install psycopg2-binary
+pip install -r agents-service\requirements.txt
 ```
 
----
+Si `.venv` ya existe, solo actívalo e instala las dependencias si aún no lo hiciste.
 
-## 3️⃣ Generar o actualizar los casos de prueba (opcional)
-- El archivo **`benchmark_cases_350.json`** ya está incluido en la carpeta `eval` y contiene los 350 casos que se usarán por defecto.
-- Si necesitas **regenerarlos** o crear nuevos casos, puedes ejecutar uno de los scripts siguientes:
+## 2. Revisar la configuración
+
+El evaluador lee las variables admitidas desde `agents-service\.env` o desde el entorno de PowerShell (el entorno tiene prioridad). Configura:
+
+- `AGENTS_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY`: secretos hexadecimales válidos y distintos.
+- `DATABASE_URL_READONLY`: conexión PostgreSQL con permisos de solo lectura, configurada para el servicio en `agents-service\.env`.
+- `GROQ_API_KEY` para evaluar Groq, `GEMINI_API_KEY` para Gemini, o ambas para comparar los dos proveedores.
+
+No pegues claves API en la consola ni en el chat. Si una clave ya fue expuesta, revócala y reemplázala en `.env`.
+
+El proyecto ofrece Gemini y Groq; no hay proveedor OpenAI/GPT configurado en este evaluador. Una clave de Groq debe guardarse como `GROQ_API_KEY`, no como `OPENAI_API_KEY`. El modelo de Groq se puede cambiar con `GROQ_MODEL`.
+
+El evaluador no carga ni compara la `DATABASE_URL` de escritura del ERP: usa la configuración propia de `agents-service` para evitar mezclar las conexiones de ambos componentes. Mantén `DATABASE_URL_READONLY` asociada a un usuario PostgreSQL de solo lectura; la validación del servicio sigue rechazando una `DATABASE_URL` de escritura si se proporciona al propio servicio.
+
+## 3. Verificar los casos
+
+El archivo incluido `eval/benchmark_cases_350.json` tiene 350 casos bajo la clave `casos`. El evaluador también acepta los campos de pregunta `pregunta`, `question` o `query`, y los campos SQL de referencia `sql_gold`, `gold_sql` o `expected_sql`.
+
+El generador produce 35 formas de consulta × 10 meses completos recientes, equilibradas entre ventas, compras, caja, inventario y contabilidad. Antes de guardar, valida las 350 consultas con el `SqlValidator` y la allowlist efectiva del rol `contador_demo`; si una consulta no pasa, detiene la generación sin reemplazar el archivo.
+
+Para validar el generador sin llamar a un proveedor ni a PostgreSQL y regenerar el conjunto desde la raíz:
+
 ```powershell
-# Generar los casos con Python (recrea benchmark_cases_350.json)
-python generate_benchmark_suite.py
-
-# O con Node.js (equivalente)
+python -m unittest eval.test_generate_benchmark_suite
+python eval\generate_benchmark_suite.py
+# Alternativamente, si Node.js está instalado:
 node eval\generate_suite.js
 ```
-> Puedes editar `benchmark_cases_350.json` manualmente si deseas añadir o eliminar casos específicos.
 
----
+La regeneración sobrescribe el JSON existente.
 
-## 4️⃣ Ejecutar el benchmark (evaluación)
+## 4. Ejecutar
+
 ```powershell
-# Se ejecuta el script que evalúa los tres agentes (LoRA, Gemini‑API y Groq‑API)
+# Ejecutar todos los proveedores que tengan credenciales configuradas
 python -m eval.evaluate_agents
+
+# Ejecutar solo Groq o solo Gemini
+python -m eval.evaluate_agents --provider groq
+python -m eval.evaluate_agents --provider gemini
+
+# Groq: dividir la suite en tandas para no exceder el límite diario de tokens
+python -m eval.evaluate_agents --provider groq --start-at 1 --limit 60
+python -m eval.evaluate_agents --provider groq --start-at 61 --limit 60
 ```
-- El reporte en **Markdown** se guardará automáticamente en `eval/reports/report.md`.
-- Los resultados en formato **JSON** se guardarán en `eval/results/` con un nombre que incluye la fecha y hora, por ejemplo `report_20231107_182300.json`.
 
----
+El programa compara cada SQL generada con la SQL gold y ejecuta ambas en la misma base PostgreSQL de solo lectura. Por cada caso imprime:
 
-## 5️⃣ Visualizar el informe
+- **EM (Exact Match):** SQL idéntica tras normalizar espacios y quitar el punto y coma final.
+- **EX (Execution Accuracy):** resultados de ambas consultas iguales, sin importar el orden de filas ni los alias de columnas; se preservan duplicados.
+- **VES (Valid Efficiency Score):** promedio de `sqrt(tiempo_gold / tiempo_generado)`, limitado a 1. Los casos con resultado incorrecto cuentan como 0.
+- **TS (Test Suite Accuracy):** aparece como `N/D`. Se necesitan bases de prueba o estados alternativos; la configuración actual solo dispone de una base.
+
+La SQL gold y la generada se muestran en la terminal y se incluyen en el JSON y el informe Markdown. En la terminal las métricas correctas salen en verde y las incorrectas en rojo, `[groq]` en amarillo y los tiempos en azul; `N/D` aparece en amarillo. Cada caso también informa tokens del proveedor, duración total de la respuesta y duración de ejecución SQL. El tiempo de EX/VES corresponde a la consulta autorizada que ejecutó el agente; la gold se valida con el mismo `SqlValidator` y se ejecuta usando la conexión de solo lectura. Como cada consulta se ejecuta en una transacción independiente, evita escrituras concurrentes durante la evaluación para que EX compare el mismo estado de datos.
+
+Al pulsar Ctrl+C, los casos completados se guardan en ambos informes y el proceso termina con código 130. Se puede reanudar usando `--start-at` y `--limit`, teniendo en cuenta que el evaluador no salta casos previamente completados automáticamente.
+
+Groq aplica un limitador móvil de hasta 30 solicitudes y 8.000 tokens por minuto: estima el costo del prompt y ajusta la estimación con el uso real informado por la API. No hay pausas fijas de dos en dos. Según el uso observado de unos 2.700 tokens por consulta, el límite diario de 200.000 tokens permite alrededor de 70 consultas como máximo teórico; conviene dejar margen para variaciones y otros consumos. Gemini no usa este limitador.
+
+## 5. Consultar resultados
+
+- Informe Markdown, actualizado en cada corrida: `eval\reports\report.md`
+- Resultados completos JSON, uno por corrida: `eval\results\report_YYYYMMDD_HHMMSS.json`
+
 ```powershell
-# Mostrar el reporte generado en la consola (Windows)
-type eval\reports\report.md
+Get-Content .\eval\reports\report.md
 ```
-En otros sistemas operativos usa `cat` o abre el archivo con tu editor favorito.
-
----
-
-## 📂 Estructura resultante en `eval/`
-```
-/eval
-├─ README.md                # Instrucciones de uso (este archivo)
-├─ evaluate_agents.py       # Script de evaluación (usa benchmark_cases_350.json)
-├─ benchmark_cases_350.json # Casos de prueba predefinidos
-├─ reports/
-│   └─ report.md            # Último reporte en Markdown
-└─ results/
-    └─ report_YYYYMMDD_HHMMSS.json   # Resultado crudo por ejecución
-```
-
----
-
-### 💡 Tips rápidos
-- **Re‑ejecutar** el benchmark sin cambiar nada simplemente vuelve a lanzar `python -m eval.evaluate_agents`.
-- **Depurar** un agente específico puedes comentar temporalmente los demás en la lista `AGENTS` dentro de `evaluate_agents.py`.
-- **Mantener el historial**: los archivos en `results/` no se sobrescriben; cada ejecución crea uno nuevo con timestamp.
-
----
-
-¡Listo! Con estos pasos tienes todo lo necesario para ejecutar y revisar los benchmarks de los agentes SQL de forma ordenada y reproducible.
