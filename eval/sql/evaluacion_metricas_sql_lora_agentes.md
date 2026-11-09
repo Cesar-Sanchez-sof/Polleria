@@ -214,7 +214,7 @@ A continuación se detallan ejemplos representativos de cada estrato integrados 
 ## 5. Arquitectura del Evaluador y Pipeline Automatizado
 
 El script ejecutor `eval/benchmark_sql_suite.py` automatiza la evaluación continua:
-1. Lee el banco estructurado de casos `eval/benchmark_cases_350.json`.
+1. Lee el banco estructurado de casos `eval/sql/benchmark_cases_350.json`.
 2. Invoca el motor Text-to-SQL objetivo:
    - **Modelo LoRA (XiYanSQL / LoRA local)**
    - **Agente Gemini (GeminiSqlAgent)**
@@ -230,7 +230,7 @@ A continuación se provee un script **stand‑alone** en Python 3.11 que crea el
 #!/usr/bin/env python
 """generate_suite.py – Genera 350 casos de prueba stratificados.
 
-Salida: eval/benchmark_cases_350.json
+Salida: eval/sql/benchmark_cases_350.json
 
 Requisitos: Python≥3.10, pip install psycopg2‑binary (opcional para test de conexión).
 """
@@ -334,7 +334,7 @@ print(f"✅ {len(cases)} casos generados → {output_path}")
    ```bash
    python eval/generate_suite.py
    ```
-   Se producirá `eval/benchmark_cases_350.json`.
+   Se producirá `eval/sql/benchmark_cases_350.json`.
 3. **Ejecutar la evaluación** (script de ejemplo incluido en `eval/benchmark_sql_suite.py`).
    ```bash
    python eval/benchmark_sql_suite.py
