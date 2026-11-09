@@ -7,12 +7,15 @@ from unittest.mock import patch
 
 from eval.sql.evaluate_agents import (
     ANSI_BLUE,
+    ANSI_CYAN,
     ANSI_GREEN,
+    ANSI_PURPLE,
     ANSI_RED,
     ANSI_RESET,
     ANSI_YELLOW,
     canonical_rows,
     evaluate_agent,
+    format_result_rows,
     normalize_sql,
     valid_efficiency_score,
 )
@@ -86,8 +89,12 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertEqual(case_result["ves"], 1.0)
         self.assertIsNone(result["test_suite_accuracy"])
         printed = "\n".join(str(call.args[0]) for call in print_mock.call_args_list)
-        self.assertIn(f"SQL gold:      {expected_sql}", printed)
-        self.assertIn(f"SQL generada:  {expected_sql}", printed)
+        self.assertIn(f"SQL gold:\n{expected_sql}", printed)
+        self.assertIn(f"SQL generada:\n{expected_sql}", printed)
+        self.assertIn(f"{ANSI_PURPLE}  Respuesta SQL gold:\n", printed)
+        self.assertIn('"gold_total": "1.0"', printed)
+        self.assertIn(f"{ANSI_CYAN}  Respuesta SQL generada:\n", printed)
+        self.assertIn('"total": "1"', printed)
         case_line = print_mock.call_args_list[0].args[0]
         self.assertIn(f"{ANSI_GREEN}EM=OK{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_GREEN}EX=OK{ANSI_RESET}", case_line)
@@ -130,6 +137,10 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertIn(f"{ANSI_RED}EM=X{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_RED}EX=X{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_BLUE}tiempo=", case_line)
+
+    def test_format_result_rows_distinguishes_empty_from_unexecuted(self) -> None:
+        self.assertEqual(format_result_rows([]), "[]")
+        self.assertEqual(format_result_rows(None), "[NO EJECUTADA]")
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ python -m eval.sql.evaluate_agents --provider groq --start-at 1 --limit 60
 
 Configura las credenciales en `agents-service/.env` o en el entorno: `GROQ_API_KEY` y/o `GEMINI_API_KEY`, `DATABASE_URL_READONLY`, `AGENTS_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY`. El evaluador usa la configuración del servicio y no carga la `DATABASE_URL` de escritura del ERP. Asegúrate de que `DATABASE_URL_READONLY` use un rol PostgreSQL de solo lectura. No introduzcas claves API en la consola; revoca cualquier clave que se haya expuesto y actualízala en `agents-service/.env`.
 
-El benchmark reporta **EM** (coincidencia exacta de SQL), **EX** (comparación de resultados ejecutados) y **VES** (eficiencia relativa de ejecución). Muestra la SQL gold y la generada en consola y en ambos informes. **TS** se informa como `N/D` porque la configuración actual no contiene bases o estados alternativos para una suite de pruebas. Para definiciones, configuración y regeneración de casos, consulta [Ejecucion.md](Ejecucion.md).
+El benchmark reporta **EM** (coincidencia exacta de SQL), **EX** (comparación de resultados ejecutados) y **VES** (eficiencia relativa de ejecución). Muestra la SQL gold y la generada en consola y en ambos informes; en consola también imprime las filas devueltas por cada consulta, gold en morado y generada en cyan. **TS** se informa como `N/D` porque la configuración actual no contiene bases o estados alternativos para una suite de pruebas. Para definiciones, configuración y regeneración de casos, consulta [Ejecucion.md](Ejecucion.md).
 
 La suite se distribuye por igual entre ventas, compras, caja, inventario y contabilidad. Generarla o probarla no hace llamadas a Groq/Gemini ni a PostgreSQL.
 

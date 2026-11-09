@@ -52,6 +52,8 @@ ANSI_GREEN = "\033[32m"
 ANSI_RED = "\033[31m"
 ANSI_YELLOW = "\033[33m"
 ANSI_BLUE = "\033[34m"
+ANSI_PURPLE = "\033[35m"
+ANSI_CYAN = "\033[36m"
 ANSI_RESET = "\033[0m"
 
 
@@ -63,6 +65,12 @@ def metric_color(is_correct: bool | None) -> str:
     if is_correct is None:
         return ANSI_YELLOW
     return ANSI_GREEN if is_correct else ANSI_RED
+
+
+def format_result_rows(rows: list[dict[str, Any]] | None) -> str:
+    if rows is None:
+        return "[NO EJECUTADA]"
+    return json.dumps(rows, ensure_ascii=False, indent=2, default=str)
 
 
 class GroqQuotaLimiter:
@@ -362,8 +370,13 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
                 f"{ves_metric} {ts_metric} tokens={tokens_text} {timing}",
                 flush=True,
             )
-            print(f"  SQL gold:      {case['expected_sql']}", flush=True)
-            print(f"  SQL generada:  {generated_sql or '[SIN SQL]'}", flush=True)
+            print(colorize(f"  SQL gold:\n{case['expected_sql']}", ANSI_PURPLE), flush=True)
+            print(colorize(f"  Respuesta SQL gold:\n{format_result_rows(gold_rows)}", ANSI_PURPLE), flush=True)
+            print(colorize(f"  SQL generada:\n{generated_sql or '[SIN SQL]'}", ANSI_CYAN), flush=True)
+            print(
+                colorize(f"  Respuesta SQL generada:\n{format_result_rows(generated_rows)}", ANSI_CYAN),
+                flush=True,
+            )
     except KeyboardInterrupt:
         interrupted = True
         print(f"\n[{name}] Interrumpido; se guardarán los {len(case_results)} casos completados.", flush=True)
