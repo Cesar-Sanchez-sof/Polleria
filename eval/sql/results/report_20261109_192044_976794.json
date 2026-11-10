@@ -1,0 +1,112 @@
+{
+  "generated_at": "2026-11-09T19:20:44.976794-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 5,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 4,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 4,
+      "execution_accuracy_denominator": 5,
+      "execution_accuracy_rate": 0.8,
+      "ves": 0.790722,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-019",
+          "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.235,
+          "sql_execution_seconds": 2.97999,
+          "gold_execution_seconds": 1.690927,
+          "token_usage": {
+            "prompt_tokens": 2492,
+            "completion_tokens": 228,
+            "total_tokens": 2720
+          },
+          "error": "SQLEXEC_FAILED/UNDEFINED_FUNCTION"
+        },
+        {
+          "id": "TEST-020",
+          "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en enero de 2026?",
+          "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT cm.type AS tipo_movimiento, COALESCE(SUM(cm.amount), 0) AS total_movido FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id WHERE cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cm.type LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.689,
+          "sql_execution_seconds": 1.674384,
+          "gold_execution_seconds": 1.70032,
+          "token_usage": {
+            "prompt_tokens": 2491,
+            "completion_tokens": 199,
+            "total_tokens": 2690
+          }
+        },
+        {
+          "id": "TEST-021",
+          "question": "¿Cuánto se egresó por caja registradora en enero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE DATE_TRUNC('MONTH', cm.created_at) = CAST('2026-01-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.972325,
+          "elapsed_seconds": 2.988,
+          "sql_execution_seconds": 1.81044,
+          "gold_execution_seconds": 1.711619,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 256,
+            "total_tokens": 2745
+          }
+        },
+        {
+          "id": "TEST-022",
+          "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en enero de 2026?",
+          "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+          "generated_sql": "SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, COALESCE(SUM(im.quantity), 0) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY im.movement_type LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.988473,
+          "elapsed_seconds": 2.727,
+          "sql_execution_seconds": 1.85986,
+          "gold_execution_seconds": 1.817229,
+          "token_usage": {
+            "prompt_tokens": 2494,
+            "completion_tokens": 173,
+            "total_tokens": 2667
+          }
+        },
+        {
+          "id": "TEST-023",
+          "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en enero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, COALESCE(SUM(im.quantity), 0) AS unidades_vendidas FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50",
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.992811,
+          "elapsed_seconds": 2.937,
+          "sql_execution_seconds": 1.704816,
+          "gold_execution_seconds": 1.680393,
+          "token_usage": {
+            "prompt_tokens": 2491,
+            "completion_tokens": 136,
+            "total_tokens": 2627
+          }
+        }
+      ]
+    }
+  ]
+}

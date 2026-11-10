@@ -1,0 +1,157 @@
+{
+  "generated_at": "2026-11-09T19:32:32.805142-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 6,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 6,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 5,
+      "execution_accuracy_denominator": 6,
+      "execution_accuracy_rate": 0.8333,
+      "ves": 0.819217,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-001",
+          "question": "¿Cuál fue el total de comprobantes emitidos en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT SUM(si.total_amount) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at <= CAST('2026-01-31' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "0"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_comprobantes": null
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.259,
+          "sql_execution_seconds": 3.133005,
+          "gold_execution_seconds": 1.714482,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 178,
+            "total_tokens": 2667
+          }
+        },
+        {
+          "id": "TEST-002",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en enero de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at <= CAST('2026-01-31' AS DATE) GROUP BY si.voucher_type LIMIT 50",
+          "gold_rows": [],
+          "generated_rows": [],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.863,
+          "sql_execution_seconds": 1.657938,
+          "gold_execution_seconds": 1.749696,
+          "token_usage": {
+            "prompt_tokens": 2491,
+            "completion_tokens": 259,
+            "total_tokens": 2750
+          }
+        },
+        {
+          "id": "TEST-003",
+          "question": "¿Cuánto se cobró por cada medio de pago en enero de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-01-01' AND sp.paid_at < DATE '2026-02-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT pt.name AS medio_pago, SUM(sp.amount) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name LIMIT 50",
+          "gold_rows": [],
+          "generated_rows": [],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.927553,
+          "elapsed_seconds": 3.138,
+          "sql_execution_seconds": 1.922445,
+          "gold_execution_seconds": 1.653986,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 281,
+            "total_tokens": 2770
+          }
+        },
+        {
+          "id": "TEST-004",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en enero de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.status ILIKE '%closed%' AND so.order_type ILIKE '%para llevar%' AND EXTRACT(YEAR FROM so.ordered_at) = 2026 AND EXTRACT(MONTH FROM so.ordered_at) = 1 LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 0
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_pedidos": "0"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.987751,
+          "elapsed_seconds": 2.647,
+          "sql_execution_seconds": 1.687131,
+          "gold_execution_seconds": 1.646051,
+          "token_usage": {
+            "prompt_tokens": 2488,
+            "completion_tokens": 196,
+            "total_tokens": 2684
+          }
+        },
+        {
+          "id": "TEST-005",
+          "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante enero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+          "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS unidades_vendidas FROM public.sales_order AS so JOIN public.order_item AS oi ON oi.order_id = so.id JOIN public.product AS p ON p.id = oi.product_id WHERE so.status ILIKE '%closed%' AND EXTRACT(YEAR FROM so.ordered_at) = 2026 AND EXTRACT(MONTH FROM so.ordered_at) = 1 GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50",
+          "gold_rows": [],
+          "generated_rows": [],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.888,
+          "sql_execution_seconds": 1.663876,
+          "gold_execution_seconds": 1.692896,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 261,
+            "total_tokens": 2750
+          }
+        },
+        {
+          "id": "TEST-006",
+          "question": "¿Cuál fue el total vendido por canal de pedido en enero de 2026?",
+          "expected_sql": "SELECT so.order_type, SUM(oi.subtotal) AS total FROM sales_order so JOIN order_item oi ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY so.order_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT so.order_type AS order_type, SUM(si.total_amount) AS total_vendido FROM public.sales_invoice AS si JOIN public.sales_order AS so ON si.order_id = so.id WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at <= CAST('2026-01-31' AS DATE) GROUP BY so.order_type LIMIT 50",
+          "gold_rows": [],
+          "generated_rows": [],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.68,
+          "sql_execution_seconds": 1.645925,
+          "gold_execution_seconds": 1.679152,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 249,
+            "total_tokens": 2738
+          }
+        }
+      ]
+    }
+  ]
+}
