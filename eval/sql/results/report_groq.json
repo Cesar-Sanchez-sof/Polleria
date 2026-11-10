@@ -13,187 +13,6 @@
   "interrupted": false,
   "cases": [
     {
-      "id": "TEST-019",
-      "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
-      "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
-      "generated_sql": null,
-      "gold_rows": [
-        {
-          "diferencia": "-5.00"
-        }
-      ],
-      "generated_rows": null,
-      "exact_match": false,
-      "execution_succeeded": false,
-      "execution_accuracy": false,
-      "ves": 0.0,
-      "elapsed_seconds": 3.043,
-      "sql_execution_seconds": 1.645302,
-      "gold_execution_seconds": 1.624601,
-      "token_usage": {
-        "prompt_tokens": 2492,
-        "completion_tokens": 228,
-        "total_tokens": 2720
-      },
-      "error": "SQLEXEC_FAILED/UNDEFINED_FUNCTION"
-    },
-    {
-      "id": "TEST-020",
-      "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en enero de 2026?",
-      "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
-      "generated_sql": "SELECT cm.type AS tipo_movimiento, COALESCE(SUM(cm.amount), 0) AS total_movido FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id WHERE cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cm.type LIMIT 50",
-      "gold_rows": [
-        {
-          "type": "INCOME",
-          "total": "120.00"
-        },
-        {
-          "type": "EXPENSE",
-          "total": "45.00"
-        }
-      ],
-      "generated_rows": [
-        {
-          "tipo_movimiento": "INCOME",
-          "total_movido": "120.00"
-        },
-        {
-          "tipo_movimiento": "EXPENSE",
-          "total_movido": "45.00"
-        }
-      ],
-      "exact_match": false,
-      "execution_succeeded": true,
-      "execution_accuracy": true,
-      "ves": 0.987753,
-      "elapsed_seconds": 2.482,
-      "sql_execution_seconds": 1.697031,
-      "gold_execution_seconds": 1.655719,
-      "token_usage": {
-        "prompt_tokens": 2491,
-        "completion_tokens": 199,
-        "total_tokens": 2690
-      }
-    },
-    {
-      "id": "TEST-021",
-      "question": "¿Cuánto se egresó por caja registradora en enero de 2026?",
-      "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
-      "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_register AS cr ON cm.session_id = (SELECT cs.id AS id FROM public.cash_session AS cs WHERE cs.cash_register_id = cr.id LIMIT 1) WHERE cm.amount < 0 AND cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50",
-      "gold_rows": [
-        {
-          "caja": "Caja de Prueba",
-          "egresos": "45.00"
-        }
-      ],
-      "generated_rows": [],
-      "exact_match": false,
-      "execution_succeeded": true,
-      "execution_accuracy": false,
-      "ves": 0.0,
-      "elapsed_seconds": 4.288,
-      "sql_execution_seconds": 2.647424,
-      "gold_execution_seconds": 1.714268,
-      "token_usage": {
-        "prompt_tokens": 2489,
-        "completion_tokens": 258,
-        "total_tokens": 2747
-      }
-    },
-    {
-      "id": "TEST-022",
-      "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en enero de 2026?",
-      "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
-      "generated_sql": "SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY im.movement_type LIMIT 50",
-      "gold_rows": [
-        {
-          "movement_type": "Purchase",
-          "movimientos": 1,
-          "cantidad": "20.00"
-        },
-        {
-          "movement_type": "Sale",
-          "movimientos": 1,
-          "cantidad": "2.00"
-        },
-        {
-          "movement_type": "Shrinkage",
-          "movimientos": 1,
-          "cantidad": "1.00"
-        },
-        {
-          "movement_type": "Adjustment",
-          "movimientos": 1,
-          "cantidad": "3.00"
-        }
-      ],
-      "generated_rows": [
-        {
-          "tipo_movimiento": "Purchase",
-          "total_movimientos": "1",
-          "cantidad_total": "20.00"
-        },
-        {
-          "tipo_movimiento": "Sale",
-          "total_movimientos": "1",
-          "cantidad_total": "2.00"
-        },
-        {
-          "tipo_movimiento": "Shrinkage",
-          "total_movimientos": "1",
-          "cantidad_total": "1.00"
-        },
-        {
-          "tipo_movimiento": "Adjustment",
-          "total_movimientos": "1",
-          "cantidad_total": "3.00"
-        }
-      ],
-      "exact_match": false,
-      "execution_succeeded": true,
-      "execution_accuracy": true,
-      "ves": 1.0,
-      "elapsed_seconds": 2.669,
-      "sql_execution_seconds": 1.665411,
-      "gold_execution_seconds": 1.681727,
-      "token_usage": {
-        "prompt_tokens": 2494,
-        "completion_tokens": 216,
-        "total_tokens": 2710
-      }
-    },
-    {
-      "id": "TEST-023",
-      "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en enero de 2026?",
-      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
-      "generated_sql": "SELECT p.id AS product_id, p.name AS product_name, COALESCE(SUM(im.quantity), 0) AS total_units FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY p.id, p.name LIMIT 50",
-      "gold_rows": [
-        {
-          "name": "Pollo a la brasa de prueba",
-          "cantidad": "2.00"
-        }
-      ],
-      "generated_rows": [
-        {
-          "product_id": "22",
-          "product_name": "Pollo a la brasa de prueba",
-          "total_units": "2.00"
-        }
-      ],
-      "exact_match": false,
-      "execution_succeeded": true,
-      "execution_accuracy": false,
-      "ves": 0.0,
-      "elapsed_seconds": 2.992,
-      "sql_execution_seconds": 1.626392,
-      "gold_execution_seconds": 1.625287,
-      "token_usage": {
-        "prompt_tokens": 2491,
-        "completion_tokens": 219,
-        "total_tokens": 2710
-      }
-    },
-    {
       "id": "TEST-001",
       "question": "¿Cuál fue el total de comprobantes emitidos en enero de 2026?",
       "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
@@ -761,6 +580,187 @@
         "prompt_tokens": 2493,
         "completion_tokens": 342,
         "total_tokens": 2835
+      }
+    },
+    {
+      "id": "TEST-019",
+      "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "diferencia": "-5.00"
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 3.043,
+      "sql_execution_seconds": 1.645302,
+      "gold_execution_seconds": 1.624601,
+      "token_usage": {
+        "prompt_tokens": 2492,
+        "completion_tokens": 228,
+        "total_tokens": 2720
+      },
+      "error": "SQLEXEC_FAILED/UNDEFINED_FUNCTION"
+    },
+    {
+      "id": "TEST-020",
+      "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en enero de 2026?",
+      "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT cm.type AS tipo_movimiento, COALESCE(SUM(cm.amount), 0) AS total_movido FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id WHERE cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cm.type LIMIT 50",
+      "gold_rows": [
+        {
+          "type": "INCOME",
+          "total": "120.00"
+        },
+        {
+          "type": "EXPENSE",
+          "total": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_movimiento": "INCOME",
+          "total_movido": "120.00"
+        },
+        {
+          "tipo_movimiento": "EXPENSE",
+          "total_movido": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.987753,
+      "elapsed_seconds": 2.482,
+      "sql_execution_seconds": 1.697031,
+      "gold_execution_seconds": 1.655719,
+      "token_usage": {
+        "prompt_tokens": 2491,
+        "completion_tokens": 199,
+        "total_tokens": 2690
+      }
+    },
+    {
+      "id": "TEST-021",
+      "question": "¿Cuánto se egresó por caja registradora en enero de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+      "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_register AS cr ON cm.session_id = (SELECT cs.id AS id FROM public.cash_session AS cs WHERE cs.cash_register_id = cr.id LIMIT 1) WHERE cm.amount < 0 AND cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50",
+      "gold_rows": [
+        {
+          "caja": "Caja de Prueba",
+          "egresos": "45.00"
+        }
+      ],
+      "generated_rows": [],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 4.288,
+      "sql_execution_seconds": 2.647424,
+      "gold_execution_seconds": 1.714268,
+      "token_usage": {
+        "prompt_tokens": 2489,
+        "completion_tokens": 258,
+        "total_tokens": 2747
+      }
+    },
+    {
+      "id": "TEST-022",
+      "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en enero de 2026?",
+      "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+      "generated_sql": "SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY im.movement_type LIMIT 50",
+      "gold_rows": [
+        {
+          "movement_type": "Purchase",
+          "movimientos": 1,
+          "cantidad": "20.00"
+        },
+        {
+          "movement_type": "Sale",
+          "movimientos": 1,
+          "cantidad": "2.00"
+        },
+        {
+          "movement_type": "Shrinkage",
+          "movimientos": 1,
+          "cantidad": "1.00"
+        },
+        {
+          "movement_type": "Adjustment",
+          "movimientos": 1,
+          "cantidad": "3.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_movimiento": "Purchase",
+          "total_movimientos": "1",
+          "cantidad_total": "20.00"
+        },
+        {
+          "tipo_movimiento": "Sale",
+          "total_movimientos": "1",
+          "cantidad_total": "2.00"
+        },
+        {
+          "tipo_movimiento": "Shrinkage",
+          "total_movimientos": "1",
+          "cantidad_total": "1.00"
+        },
+        {
+          "tipo_movimiento": "Adjustment",
+          "total_movimientos": "1",
+          "cantidad_total": "3.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 2.669,
+      "sql_execution_seconds": 1.665411,
+      "gold_execution_seconds": 1.681727,
+      "token_usage": {
+        "prompt_tokens": 2494,
+        "completion_tokens": 216,
+        "total_tokens": 2710
+      }
+    },
+    {
+      "id": "TEST-023",
+      "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en enero de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.id AS product_id, p.name AS product_name, COALESCE(SUM(im.quantity), 0) AS total_units FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY p.id, p.name LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo a la brasa de prueba",
+          "cantidad": "2.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "product_id": "22",
+          "product_name": "Pollo a la brasa de prueba",
+          "total_units": "2.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 2.992,
+      "sql_execution_seconds": 1.626392,
+      "gold_execution_seconds": 1.625287,
+      "token_usage": {
+        "prompt_tokens": 2491,
+        "completion_tokens": 219,
+        "total_tokens": 2710
       }
     },
     {

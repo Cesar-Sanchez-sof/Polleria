@@ -489,15 +489,12 @@ def _merge_agent_results(
     incoming: dict[str, Any],
 ) -> dict[str, Any]:
     cases_by_id = {case["id"]: case for case in existing["cases"]} if existing else {}
-    case_order = list(cases_by_id)
     for case in incoming["cases"]:
-        if case["id"] not in cases_by_id:
-            case_order.append(case["id"])
         cases_by_id[case["id"]] = case
 
     merged = _aggregate_agent_result(
         incoming["agent"],
-        [cases_by_id[case_id] for case_id in case_order],
+        [cases_by_id[case_id] for case_id in sorted(cases_by_id)],
     )
     merged["interrupted"] = incoming["interrupted"]
     return merged

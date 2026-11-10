@@ -8,226 +8,6 @@
 
 TS = N/D: no se configuraron bases/estados alternativos para ejecutar una suite de pruebas.
 
-<details><summary>TEST-019 — EM=X, EX=False, VES=0.0</summary>
-
-**SQL gold**
-
-```sql
-SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50
-```
-
-**Respuesta SQL gold**
-
-```json
-[
-  {
-    "diferencia": "-5.00"
-  }
-]
-```
-
-**SQL generada**
-
-```sql
-[SIN SQL]
-```
-
-**Respuesta SQL generada**
-
-```json
-[NO EJECUTADA]
-```
-
-</details>
-
-<details><summary>TEST-020 — EM=X, EX=True, VES=0.987753</summary>
-
-**SQL gold**
-
-```sql
-SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50
-```
-
-**Respuesta SQL gold**
-
-```json
-[
-  {
-    "type": "INCOME",
-    "total": "120.00"
-  },
-  {
-    "type": "EXPENSE",
-    "total": "45.00"
-  }
-]
-```
-
-**SQL generada**
-
-```sql
-SELECT cm.type AS tipo_movimiento, COALESCE(SUM(cm.amount), 0) AS total_movido FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id WHERE cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cm.type LIMIT 50
-```
-
-**Respuesta SQL generada**
-
-```json
-[
-  {
-    "tipo_movimiento": "INCOME",
-    "total_movido": "120.00"
-  },
-  {
-    "tipo_movimiento": "EXPENSE",
-    "total_movido": "45.00"
-  }
-]
-```
-
-</details>
-
-<details><summary>TEST-021 — EM=X, EX=False, VES=0.0</summary>
-
-**SQL gold**
-
-```sql
-SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50
-```
-
-**Respuesta SQL gold**
-
-```json
-[
-  {
-    "caja": "Caja de Prueba",
-    "egresos": "45.00"
-  }
-]
-```
-
-**SQL generada**
-
-```sql
-SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_register AS cr ON cm.session_id = (SELECT cs.id AS id FROM public.cash_session AS cs WHERE cs.cash_register_id = cr.id LIMIT 1) WHERE cm.amount < 0 AND cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50
-```
-
-**Respuesta SQL generada**
-
-```json
-[]
-```
-
-</details>
-
-<details><summary>TEST-022 — EM=X, EX=True, VES=1.0</summary>
-
-**SQL gold**
-
-```sql
-SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50
-```
-
-**Respuesta SQL gold**
-
-```json
-[
-  {
-    "movement_type": "Purchase",
-    "movimientos": 1,
-    "cantidad": "20.00"
-  },
-  {
-    "movement_type": "Sale",
-    "movimientos": 1,
-    "cantidad": "2.00"
-  },
-  {
-    "movement_type": "Shrinkage",
-    "movimientos": 1,
-    "cantidad": "1.00"
-  },
-  {
-    "movement_type": "Adjustment",
-    "movimientos": 1,
-    "cantidad": "3.00"
-  }
-]
-```
-
-**SQL generada**
-
-```sql
-SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY im.movement_type LIMIT 50
-```
-
-**Respuesta SQL generada**
-
-```json
-[
-  {
-    "tipo_movimiento": "Purchase",
-    "total_movimientos": "1",
-    "cantidad_total": "20.00"
-  },
-  {
-    "tipo_movimiento": "Sale",
-    "total_movimientos": "1",
-    "cantidad_total": "2.00"
-  },
-  {
-    "tipo_movimiento": "Shrinkage",
-    "total_movimientos": "1",
-    "cantidad_total": "1.00"
-  },
-  {
-    "tipo_movimiento": "Adjustment",
-    "total_movimientos": "1",
-    "cantidad_total": "3.00"
-  }
-]
-```
-
-</details>
-
-<details><summary>TEST-023 — EM=X, EX=False, VES=0.0</summary>
-
-**SQL gold**
-
-```sql
-SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50
-```
-
-**Respuesta SQL gold**
-
-```json
-[
-  {
-    "name": "Pollo a la brasa de prueba",
-    "cantidad": "2.00"
-  }
-]
-```
-
-**SQL generada**
-
-```sql
-SELECT p.id AS product_id, p.name AS product_name, COALESCE(SUM(im.quantity), 0) AS total_units FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY p.id, p.name LIMIT 50
-```
-
-**Respuesta SQL generada**
-
-```json
-[
-  {
-    "product_id": "22",
-    "product_name": "Pollo a la brasa de prueba",
-    "total_units": "2.00"
-  }
-]
-```
-
-</details>
-
 <details><summary>TEST-001 — EM=X, EX=True, VES=0.966358</summary>
 
 **SQL gold**
@@ -936,6 +716,226 @@ SELECT cr.name AS caja, COALESCE(SUM(sp.amount), 0) AS total_registrado FROM pub
   {
     "caja": "Caja de Prueba",
     "total_registrado": "165.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-019 — EM=X, EX=False, VES=0.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "diferencia": "-5.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+[SIN SQL]
+```
+
+**Respuesta SQL generada**
+
+```json
+[NO EJECUTADA]
+```
+
+</details>
+
+<details><summary>TEST-020 — EM=X, EX=True, VES=0.987753</summary>
+
+**SQL gold**
+
+```sql
+SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "type": "INCOME",
+    "total": "120.00"
+  },
+  {
+    "type": "EXPENSE",
+    "total": "45.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT cm.type AS tipo_movimiento, COALESCE(SUM(cm.amount), 0) AS total_movido FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id WHERE cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cm.type LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "tipo_movimiento": "INCOME",
+    "total_movido": "120.00"
+  },
+  {
+    "tipo_movimiento": "EXPENSE",
+    "total_movido": "45.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-021 — EM=X, EX=False, VES=0.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "caja": "Caja de Prueba",
+    "egresos": "45.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_register AS cr ON cm.session_id = (SELECT cs.id AS id FROM public.cash_session AS cs WHERE cs.cash_register_id = cr.id LIMIT 1) WHERE cm.amount < 0 AND cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[]
+```
+
+</details>
+
+<details><summary>TEST-022 — EM=X, EX=True, VES=1.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "movement_type": "Purchase",
+    "movimientos": 1,
+    "cantidad": "20.00"
+  },
+  {
+    "movement_type": "Sale",
+    "movimientos": 1,
+    "cantidad": "2.00"
+  },
+  {
+    "movement_type": "Shrinkage",
+    "movimientos": 1,
+    "cantidad": "1.00"
+  },
+  {
+    "movement_type": "Adjustment",
+    "movimientos": 1,
+    "cantidad": "3.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY im.movement_type LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "tipo_movimiento": "Purchase",
+    "total_movimientos": "1",
+    "cantidad_total": "20.00"
+  },
+  {
+    "tipo_movimiento": "Sale",
+    "total_movimientos": "1",
+    "cantidad_total": "2.00"
+  },
+  {
+    "tipo_movimiento": "Shrinkage",
+    "total_movimientos": "1",
+    "cantidad_total": "1.00"
+  },
+  {
+    "tipo_movimiento": "Adjustment",
+    "total_movimientos": "1",
+    "cantidad_total": "3.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-023 — EM=X, EX=False, VES=0.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-01-01' AND im.moved_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "name": "Pollo a la brasa de prueba",
+    "cantidad": "2.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT p.id AS product_id, p.name AS product_name, COALESCE(SUM(im.quantity), 0) AS total_units FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01' AS DATE) AND im.moved_at < CAST('2026-02-01' AS DATE) GROUP BY p.id, p.name LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "product_id": "22",
+    "product_name": "Pollo a la brasa de prueba",
+    "total_units": "2.00"
   }
 ]
 ```

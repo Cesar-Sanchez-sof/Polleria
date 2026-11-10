@@ -173,7 +173,8 @@ class EvaluationMetricTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             reports_dir = Path(temp_dir) / "reports"
             results_dir = Path(temp_dir) / "results"
-            initial_result = result("TEST-001", "SELECT old")
+            initial_result = result("TEST-003", "SELECT 3")
+            initial_result["cases"].append(result("TEST-001", "SELECT old")["cases"][0])
             initial_result["cases"].append(result("TEST-002", "SELECT 2")["cases"][0])
             write_reports(
                 [initial_result],
@@ -206,6 +207,8 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertIn('"total": "SELECT updated"', report)
         self.assertIn("TEST-002", report)
         self.assertIn("TEST-003", report)
+        self.assertLess(report.index("<summary>TEST-001"), report.index("<summary>TEST-002"))
+        self.assertLess(report.index("<summary>TEST-002"), report.index("<summary>TEST-003"))
 
 
 if __name__ == "__main__":
