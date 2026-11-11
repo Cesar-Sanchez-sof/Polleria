@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-11-10T20:58:41.433450-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.963839,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-126",
+          "question": "¿Cuánto se egresó por caja registradora en abril de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-04-01' AND cm.created_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-04-01' AS DATE) AND cm.created_at < CAST('2026-05-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "egresos": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja_registradora": "Caja de Prueba",
+              "total_egresado": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.963839,
+          "elapsed_seconds": 3.518,
+          "sql_execution_seconds": 2.613762,
+          "gold_execution_seconds": 2.428146,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 181,
+            "total_tokens": 3046
+          }
+        }
+      ]
+    }
+  ]
+}

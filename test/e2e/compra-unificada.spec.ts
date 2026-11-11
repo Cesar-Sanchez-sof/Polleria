@@ -73,11 +73,10 @@ test.describe("Escenario 2: Flujo de Compra Unificada", () => {
     // 7. Ir a Kardex e Inventario -> Verificar que el stock aumentó
     await page.goto("/purchases/inventory");
 
-    // Buscar el insumo en el buscador si está presente
-    const searchInput = page.getByPlaceholder(/Buscar insumo|Buscar producto/i);
-    if (await searchInput.isVisible()) {
-      await searchInput.fill("Pollo entero");
-    }
+    // Buscar el insumo en el buscador (placeholder actual: "Buscar por código, insumo o tipo...")
+    const searchInput = page.getByPlaceholder(/Buscar por código, insumo|Buscar insumo|Buscar producto/i);
+    await expect(searchInput).toBeVisible({ timeout: 15000 });
+    await searchInput.fill("Pollo entero");
 
     // Verificar que la fila de "Pollo entero" figure en la tabla con stock disponible
     const productRow = page

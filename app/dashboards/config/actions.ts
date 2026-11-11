@@ -179,15 +179,38 @@ export async function updateDashboardWidgetsAction(
   widgetsData: DashboardWidgetInput[]
 ) {
   try {
-    const updated = await updateDashboardWidgets(dashboardId, widgetsData);
+    const { z } = await import("zod");
+    const { widgetConfigSchema } = await import("@/lib/dashboards/widget-schema");
+
+    const serverWidgetInputSchema = z.object({
+      id: z.string().optional(),
+      title: z.string(),
+      type: z.string(),
+      metricKey: z.string(),
+      x: z.number().int().nonnegative().optional().default(0),
+      y: z.number().int().nonnegative().optional().default(0),
+      w: z.number().int().positive().optional().default(4),
+      h: z.number().int().positive().optional().default(2),
+      config: widgetConfigSchema.optional(),
+    });
+
+    const validated = z.array(serverWidgetInputSchema).parse(widgetsData);
+    const updated = await updateDashboardWidgets(
+      dashboardId,
+      validated as unknown as DashboardWidgetInput[]
+    );
     revalidatePath("/dashboards");
     revalidatePath(`/dashboards/${dashboardId}`);
     revalidatePath(`/dashboards/${dashboardId}/edit`);
     return { success: true, data: updated };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error al actualizar los widgets del tablero";
     return {
       success: false,
-      error: error.message || "Error al actualizar los widgets del tablero",
+      error: message,
     };
   }
 }

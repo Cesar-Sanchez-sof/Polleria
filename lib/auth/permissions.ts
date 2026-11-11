@@ -4,6 +4,7 @@ import { unauthorized } from "@/lib/auth/responses";
 import { currentSession } from "@/lib/auth/current-session";
 import { satisfiesPermission } from "@/lib/auth/permissions-catalog";
 import type { SessionPayload } from "@/lib/auth/session";
+import { resolveWithAuthCache, primeAuthCache } from "@/lib/auth/auth-cache";
 
 export interface AccessUser {
   /** Rol de sistema (ADMIN): tiene todos los permisos. */
@@ -11,26 +12,30 @@ export interface AccessUser {
   codes: string[];
 }
 
-/** Permisos vigentes del usuario, leídos de la BD (un cambio de rol aplica de inmediato). */
+/** Permisos vigentes del usuario, leídos de la BD con caché corto en memoria + singleflight. */
 export async function permissionsForUser(userId: number): Promise<AccessUser> {
-  const u = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      active: true,
-      role: {
-        select: {
-          active: true,
-          isSystem: true,
-          permissions: { select: { permission: { select: { code: true } } } },
+  return resolveWithAuthCache("permissions", userId, async () => {
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        active: true,
+        role: {
+          select: {
+            active: true,
+            isSystem: true,
+            permissions: { select: { permission: { select: { code: true } } } },
+          },
         },
       },
-    },
+    });
+    const isActive = Boolean(u?.active);
+    primeAuthCache("activeUser", userId, isActive);
+    if (!u || !isActive || !u.role.active) return { superuser: false, codes: [] };
+    return {
+      superuser: u.role.isSystem,
+      codes: u.role.permissions.map((rp) => rp.permission.code),
+    };
   });
-  if (!u || !u.active || !u.role.active) return { superuser: false, codes: [] };
-  return {
-    superuser: u.role.isSystem,
-    codes: u.role.permissions.map((rp) => rp.permission.code),
-  };
 }
 
 export function hasPermission(access: AccessUser, code: string): boolean {

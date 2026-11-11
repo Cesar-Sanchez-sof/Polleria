@@ -9,7 +9,7 @@ import os
 import re
 import sys
 import time
-from collections import deque
+from collections import Counter, deque
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
@@ -52,6 +52,8 @@ ANSI_GREEN = "\033[32m"
 ANSI_RED = "\033[31m"
 ANSI_YELLOW = "\033[33m"
 ANSI_BLUE = "\033[34m"
+ANSI_PURPLE = "\033[35m"
+ANSI_CYAN = "\033[36m"
 ANSI_RESET = "\033[0m"
 
 
@@ -63,6 +65,12 @@ def metric_color(is_correct: bool | None) -> str:
     if is_correct is None:
         return ANSI_YELLOW
     return ANSI_GREEN if is_correct else ANSI_RED
+
+
+def format_result_rows(rows: list[dict[str, Any]] | None) -> str:
+    if rows is None:
+        return "[NO EJECUTADA]"
+    return json.dumps(rows, ensure_ascii=False, indent=2, default=str)
 
 
 class GroqQuotaLimiter:
@@ -179,6 +187,48 @@ def canonical_rows(rows: list[dict[str, Any]]) -> tuple[tuple[str, ...], ...]:
     for row in rows:
         normalized.append(tuple(_canonical_value(value) for value in row.values()))
     return tuple(sorted(normalized, key=repr))
+
+
+def execution_results_match(
+    gold_rows: list[dict[str, Any]],
+    generated_rows: list[dict[str, Any]],
+) -> bool:
+    """Compare denotations while allowing extra projected columns in generated rows."""
+    if len(gold_rows) != len(generated_rows):
+        return False
+
+    gold_values = [Counter(_canonical_value(value) for value in row.values()) for row in gold_rows]
+    generated_values = [
+        Counter(_canonical_value(value) for value in row.values()) for row in generated_rows
+    ]
+    candidates = [
+        [
+            generated_index
+            for generated_index, generated_row in enumerate(generated_values)
+            if not (gold_row - generated_row)
+        ]
+        for gold_row in gold_values
+    ]
+    if any(not matches for matches in candidates):
+        return False
+
+    assigned_gold: dict[int, int] = {}
+
+    def assign(gold_index: int, visited: set[int]) -> bool:
+        for generated_index in candidates[gold_index]:
+            if generated_index in visited:
+                continue
+            visited.add(generated_index)
+            previous_gold = assigned_gold.get(generated_index)
+            if previous_gold is None or assign(previous_gold, visited):
+                assigned_gold[generated_index] = gold_index
+                return True
+        return False
+
+    for gold_index in sorted(range(len(gold_rows)), key=lambda index: len(candidates[index])):
+        if not assign(gold_index, set()):
+            return False
+    return True
 
 
 def _canonical_value(value: Any) -> str | None:
@@ -298,7 +348,7 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
                 and normalize_sql(generated_sql) == normalize_sql(case["expected_sql"])
             )
             execution_accuracy = (
-                canonical_rows(generated_rows) == canonical_rows(gold_rows)
+                execution_results_match(gold_rows, generated_rows)
                 if gold_rows is not None and generated_rows is not None
                 else False if gold_rows is not None else None
             )
@@ -313,6 +363,8 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
             result = {
                 **case,
                 "generated_sql": generated_sql,
+                "gold_rows": gold_rows,
+                "generated_rows": generated_rows,
                 "exact_match": exact_match,
                 "execution_succeeded": generated_rows is not None,
                 "execution_accuracy": execution_accuracy,
@@ -362,8 +414,13 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
                 f"{ves_metric} {ts_metric} tokens={tokens_text} {timing}",
                 flush=True,
             )
-            print(f"  SQL gold:      {case['expected_sql']}", flush=True)
-            print(f"  SQL generada:  {generated_sql or '[SIN SQL]'}", flush=True)
+            print(colorize(f"  SQL gold:\n{case['expected_sql']}", ANSI_PURPLE), flush=True)
+            print(colorize(f"  Respuesta SQL gold:\n{format_result_rows(gold_rows)}", ANSI_PURPLE), flush=True)
+            print(colorize(f"  SQL generada:\n{generated_sql or '[SIN SQL]'}", ANSI_CYAN), flush=True)
+            print(
+                colorize(f"  Respuesta SQL generada:\n{format_result_rows(generated_rows)}", ANSI_CYAN),
+                flush=True,
+            )
     except KeyboardInterrupt:
         interrupted = True
         print(f"\n[{name}] Interrumpido; se guardarán los {len(case_results)} casos completados.", flush=True)
@@ -412,71 +469,224 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
     }
 
 
-def write_reports(results: list[dict[str, Any]]) -> tuple[Path, Path]:
-    reports_dir = Path(__file__).parent / "reports"
-    results_dir = Path(__file__).parent / "results"
+def _parse_report_cases(markdown: str) -> list[dict[str, Any]]:
+    case_pattern = re.compile(
+        r"<details><summary>(?P<id>.*?) — EM=(?P<em>OK|X), "
+        r"EX=(?P<ex>True|False|N/D), VES=(?P<ves>[^<]+)</summary>\s*"
+        r".*?\*\*SQL gold\*\*\s*```sql\n(?P<expected>.*?)\n```\s*"
+        r".*?\*\*SQL generada\*\*\s*```sql\n(?P<generated>.*?)\n```",
+        re.DOTALL,
+    )
+    cases = []
+    for match in case_pattern.finditer(markdown):
+        ves = match.group("ves")
+        generated_sql = match.group("generated")
+        cases.append(
+            {
+                "id": match.group("id"),
+                "expected_sql": match.group("expected"),
+                "generated_sql": None if generated_sql == "[SIN SQL]" else generated_sql,
+                "exact_match": match.group("em") == "OK",
+                "execution_accuracy": {
+                    "True": True,
+                    "False": False,
+                    "N/D": None,
+                }[match.group("ex")],
+                "ves": float(ves) if ves != "N/D" else None,
+            }
+        )
+    return cases
+
+
+def _aggregate_agent_result(agent: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
+    exact_match_count = sum(case["exact_match"] for case in cases)
+    accuracy_cases = [case for case in cases if case["execution_accuracy"] is not None]
+    execution_accuracy_count = sum(case["execution_accuracy"] is True for case in accuracy_cases)
+    ves_values = [case["ves"] for case in cases if case["ves"] is not None]
+    execution_known = all("execution_succeeded" in case for case in cases)
+    execution_success_count = (
+        sum(case["execution_succeeded"] for case in cases) if execution_known else None
+    )
+    return {
+        "agent": agent,
+        "total_cases": len(cases),
+        "exact_match_count": exact_match_count,
+        "exact_match_rate": exact_match_count / len(cases) if cases else 0.0,
+        "execution_success_count": execution_success_count,
+        "execution_error_count": len(cases) - execution_success_count if execution_known else None,
+        "execution_accuracy_count": execution_accuracy_count,
+        "execution_accuracy_denominator": len(accuracy_cases),
+        "execution_accuracy_rate": (
+            execution_accuracy_count / len(accuracy_cases) if accuracy_cases else None
+        ),
+        "ves": sum(ves_values) / len(ves_values) if ves_values else None,
+        "test_suite_accuracy": None,
+        "interrupted": False,
+        "cases": cases,
+    }
+
+
+def _merge_agent_results(
+    existing: dict[str, Any] | None,
+    incoming: dict[str, Any],
+) -> dict[str, Any]:
+    cases_by_id = {case["id"]: case for case in existing["cases"]} if existing else {}
+    for case in incoming["cases"]:
+        cases_by_id[case["id"]] = case
+
+    merged = _aggregate_agent_result(
+        incoming["agent"],
+        [cases_by_id[case_id] for case_id in sorted(cases_by_id)],
+    )
+    merged["interrupted"] = incoming["interrupted"]
+    return merged
+
+
+def _load_existing_agent_result(
+    agent: str,
+    reports_dir: Path,
+    results_dir: Path,
+) -> dict[str, Any] | None:
+    cumulative_path = results_dir / f"report_{agent}.json"
+    if cumulative_path.exists():
+        data = json.loads(cumulative_path.read_text(encoding="utf-8"))
+        return data
+
+    markdown_path = reports_dir / f"report_{agent}.md"
+    if not markdown_path.exists():
+        legacy_path = reports_dir / "report.md"
+        if legacy_path.exists():
+            legacy_markdown = legacy_path.read_text(encoding="utf-8")
+            if f"| {agent} |" in legacy_markdown:
+                markdown_path = legacy_path
+
+    if markdown_path.exists():
+        cases = _parse_report_cases(markdown_path.read_text(encoding="utf-8"))
+        return _aggregate_agent_result(agent, cases) if cases else None
+
+    run_paths = sorted(results_dir.glob("report_*.json"), reverse=True)
+    for run_path in run_paths:
+        if run_path == cumulative_path:
+            continue
+        data = json.loads(run_path.read_text(encoding="utf-8"))
+        for result in data.get("agents", []):
+            if result.get("agent") == agent:
+                return result
+    return None
+
+
+def write_reports(
+    results: list[dict[str, Any]],
+    reports_dir: Path | None = None,
+    results_dir: Path | None = None,
+) -> tuple[list[Path], Path]:
+    reports_dir = reports_dir or Path(__file__).parent / "reports"
+    results_dir = results_dir or Path(__file__).parent / "results"
     reports_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     json_path = results_dir / f"report_{timestamp}.json"
-    markdown_path = reports_dir / "report.md"
+    markdown_paths = []
+    for result in results:
+        existing = _load_existing_agent_result(result["agent"], reports_dir, results_dir)
+        cumulative = _merge_agent_results(existing, result)
+        (results_dir / f"report_{result['agent']}.json").write_text(
+            json.dumps(cumulative, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+
+        markdown_path = reports_dir / f"report_{result['agent']}.md"
+        markdown_paths.append(markdown_path)
+        _write_agent_markdown(markdown_path, cumulative)
+
     json_path.write_text(
-        json.dumps({"generated_at": datetime.now().astimezone().isoformat(), "agents": results}, indent=2, ensure_ascii=False),
+        json.dumps(
+            {"generated_at": datetime.now().astimezone().isoformat(), "agents": results},
+            indent=2,
+            ensure_ascii=False,
+            default=str,
+        ),
         encoding="utf-8",
     )
+    return markdown_paths, json_path
 
+
+def _write_agent_markdown(markdown_path: Path, result: dict[str, Any]) -> None:
     lines = [
         "# Reporte de evaluación Text-to-SQL",
         "",
         "| Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for result in results:
-        ex_rate = result["execution_accuracy_rate"]
-        ves = result["ves"]
-        ex_text = f"{ex_rate:.2%}" if ex_rate is not None else "N/D"
-        ves_text = f"{ves:.4f}" if ves is not None else "N/D"
-        lines.append(
-            f"| {result['agent']} | {result['total_cases']} | {result['exact_match_rate']:.2%} | "
-            f"{ex_text} | {ves_text} | N/D | {result['execution_success_count']} | "
-            f"{result['execution_error_count']} |"
+    ex_rate = result["execution_accuracy_rate"]
+    ves = result["ves"]
+    ex_text = f"{ex_rate:.2%}" if ex_rate is not None else "N/D"
+    ves_text = f"{ves:.4f}" if ves is not None else "N/D"
+    execution_success_count = result["execution_success_count"]
+    execution_error_count = result["execution_error_count"]
+    executed_text = str(execution_success_count) if execution_success_count is not None else "N/D"
+    errors_text = str(execution_error_count) if execution_error_count is not None else "N/D"
+    lines.append(
+        f"| {result['agent']} | {result['total_cases']} | {result['exact_match_rate']:.2%} | "
+        f"{ex_text} | {ves_text} | N/D | {executed_text} | {errors_text} |"
+    )
+    lines.extend(
+        [
+            "",
+            f"**{result['agent']}**: EM compara SQL normalizado. EX compara los resultados gold/generado "
+            "ignorando el orden de filas y las etiquetas de columnas. VES es la media de "
+            "`sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.",
+            "",
+            "TS = N/D: no se configuraron bases/estados alternativos para ejecutar una suite de pruebas.",
+        ]
+    )
+    for case in result["cases"]:
+        gold_rows = (
+            format_result_rows(case["gold_rows"])
+            if "gold_rows" in case
+            else "[RESPUESTA NO GUARDADA EN ESTA EJECUCIÓN ANTERIOR]"
+        )
+        generated_rows = (
+            format_result_rows(case["generated_rows"])
+            if "generated_rows" in case
+            else "[RESPUESTA NO GUARDADA EN ESTA EJECUCIÓN ANTERIOR]"
         )
         lines.extend(
             [
                 "",
-                f"**{result['agent']}**: EM compara SQL normalizado. EX compara los resultados gold/generado "
-                "ignorando el orden de filas y las etiquetas de columnas. VES es la media de "
-                "`sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.",
+                f"<details><summary>{case['id']} — EM={'OK' if case['exact_match'] else 'X'}, "
+                f"EX={case['execution_accuracy'] if case['execution_accuracy'] is not None else 'N/D'}, "
+                f"VES={case['ves'] if case['ves'] is not None else 'N/D'}</summary>",
                 "",
-                "TS = N/D: no se configuraron bases/estados alternativos para ejecutar una suite de pruebas.",
+                "**SQL gold**",
+                "",
+                "```sql",
+                case["expected_sql"],
+                "```",
+                "",
+                "**Respuesta SQL gold**",
+                "",
+                "```json",
+                gold_rows,
+                "```",
+                "",
+                "**SQL generada**",
+                "",
+                "```sql",
+                case["generated_sql"] or "[SIN SQL]",
+                "```",
+                "",
+                "**Respuesta SQL generada**",
+                "",
+                "```json",
+                generated_rows,
+                "```",
+                "",
+                "</details>",
             ]
         )
-        for case in result["cases"]:
-            lines.extend(
-                [
-                    "",
-                    f"<details><summary>{case['id']} — EM={'OK' if case['exact_match'] else 'X'}, "
-                    f"EX={case['execution_accuracy'] if case['execution_accuracy'] is not None else 'N/D'}, "
-                    f"VES={case['ves'] if case['ves'] is not None else 'N/D'}</summary>",
-                    "",
-                    "**SQL gold**",
-                    "",
-                    "```sql",
-                    case["expected_sql"],
-                    "```",
-                    "",
-                    "**SQL generada**",
-                    "",
-                    "```sql",
-                    case["generated_sql"] or "[SIN SQL]",
-                    "```",
-                    "",
-                    "</details>",
-                ]
-            )
     markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return markdown_path, json_path
 
 
 def main() -> int:
@@ -563,8 +773,9 @@ def main() -> int:
         if result["interrupted"]:
             interrupted = True
             break
-    markdown_path, json_path = write_reports(results)
-    print(f"Reporte Markdown: {markdown_path}")
+    markdown_paths, json_path = write_reports(results)
+    for markdown_path in markdown_paths:
+        print(f"Reporte Markdown: {markdown_path}")
     print(f"Resultados JSON: {json_path}")
     return 130 if interrupted else 0
 

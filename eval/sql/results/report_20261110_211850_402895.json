@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-11-10T21:18:50.409484-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 0,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-001",
+          "question": "¿Cuál fue el total de comprobantes emitidos en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 1.512,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 4.72915,
+          "token_usage": null,
+          "error": "GEMINI_REJECTED:HTTP_400"
+        }
+      ]
+    }
+  ]
+}

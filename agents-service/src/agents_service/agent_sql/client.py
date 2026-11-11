@@ -93,16 +93,20 @@ class GeminiHttpClient:
 
     def generate(self, system: str, user: str) -> str:
         self._last_token_usage = None
+        generation_config: dict[str, Any] = {
+            "maxOutputTokens": MAX_OUTPUT_TOKENS,
+            "responseMimeType": "application/json",
+            "responseSchema": RESPONSE_SCHEMA,
+        }
+        if self._settings.model.startswith("gemini-3."):
+            generation_config["thinkingConfig"] = {"thinkingLevel": "MINIMAL"}
+        else:
+            generation_config["temperature"] = 0
+            generation_config["thinkingConfig"] = {"thinkingBudget": 0}
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": user}]}],
-            "generationConfig": {
-                "temperature": 0,
-                "maxOutputTokens": MAX_OUTPUT_TOKENS,
-                "thinkingConfig": {"thinkingBudget": 0},
-                "responseMimeType": "application/json",
-                "responseSchema": RESPONSE_SCHEMA,
-            },
+            "generationConfig": generation_config,
         }
         url = f"{BASE_URL}/{self._settings.model}:generateContent"
         response = _post_with_retry(

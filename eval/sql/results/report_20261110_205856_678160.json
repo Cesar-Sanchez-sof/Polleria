@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-11-10T20:58:56.700968-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.978574,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-109",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en abril de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-04-01' AND so.ordered_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-04-01' AS TIMESTAMP) AND so.ordered_at < CAST('2026-05-01' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.978574,
+          "elapsed_seconds": 3.551,
+          "sql_execution_seconds": 2.500835,
+          "gold_execution_seconds": 2.394817,
+          "token_usage": {
+            "prompt_tokens": 2864,
+            "completion_tokens": 155,
+            "total_tokens": 3019
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactGridLayout, { useContainerWidth } from "react-grid-layout";
@@ -13,26 +13,16 @@ import {
   Plus,
   X,
   GripHorizontal,
-  LayoutDashboard,
-  BarChart3,
-  TrendingUp,
-  DollarSign,
-  Table as TableIcon,
-  ShoppingBag,
   Sliders,
-  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { WidgetRenderer, type WidgetData } from "./WidgetRenderer";
+import { DynamicVisual } from "./visuals/DynamicVisual";
+import { PropertiesPanel } from "./editor/PropertiesPanel";
 import { updateDashboardWidgetsAction } from "@/app/dashboards/config/actions";
+import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
+import { widgetConfigSchema } from "@/lib/dashboards/widget-schema";
+import { adaptLegacyWidget } from "@/lib/dashboards/legacy-adapter";
 import { toast } from "sonner";
 
 interface DashboardCanvasProps {
@@ -41,85 +31,19 @@ interface DashboardCanvasProps {
     name: string;
     section?: { name: string } | null;
     isPublished: boolean;
-    widgets: any[];
+    widgets: Array<{
+      id?: string;
+      title: string;
+      type: string;
+      metricKey: string;
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      config?: unknown;
+    }>;
   };
 }
-
-interface WidgetTemplate {
-  title: string;
-  type: "kpi" | "bar" | "line" | "table";
-  metricKey: string;
-  w: number;
-  h: number;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const WIDGET_TEMPLATES: WidgetTemplate[] = [
-  {
-    title: "Ventas Totales del Día",
-    type: "kpi",
-    metricKey: "sales_total",
-    w: 3,
-    h: 2,
-    description: "Ingresos monetarios totales registrados hoy",
-    icon: DollarSign,
-  },
-  {
-    title: "Pedidos Realizados",
-    type: "kpi",
-    metricKey: "orders_count",
-    w: 3,
-    h: 2,
-    description: "Conteo total de pedidos atendidos en la jornada",
-    icon: ShoppingBag,
-  },
-  {
-    title: "Ticket Promedio",
-    type: "kpi",
-    metricKey: "avg_ticket",
-    w: 3,
-    h: 2,
-    description: "Promedio facturado por cada mesa o delivery",
-    icon: TrendingUp,
-  },
-  {
-    title: "Ocupación de Mesas",
-    type: "kpi",
-    metricKey: "active_tables",
-    w: 3,
-    h: 2,
-    description: "Mesas ocupadas actualmente en el salón",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Top Platos Más Vendidos",
-    type: "bar",
-    metricKey: "top_products",
-    w: 6,
-    h: 4,
-    description: "Gráfico de barras comparativo de platos líderes",
-    icon: BarChart3,
-  },
-  {
-    title: "Flujo de Ingresos por Hora",
-    type: "line",
-    metricKey: "hourly_sales",
-    w: 6,
-    h: 4,
-    description: "Curva horaria de ventas para analizar horas punta",
-    icon: TrendingUp,
-  },
-  {
-    title: "Últimos Pedidos en Vivo",
-    type: "table",
-    metricKey: "recent_orders",
-    w: 6,
-    h: 4,
-    description: "Tabla con los pedidos más recientes y sus estados",
-    icon: TableIcon,
-  },
-];
 
 export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
   const router = useRouter();
@@ -128,91 +52,76 @@ export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
   // Medición dinámica de ancho para react-grid-layout
   const { width, containerRef, mounted } = useContainerWidth();
 
-  // Estado local de widgets
-  const [widgets, setWidgets] = useState<WidgetData[]>(() => {
-    return (dashboard.widgets || []).map((w) => ({
-      id: w.id || `w-${Math.random().toString(36).substring(2, 9)}`,
-      title: w.title,
-      type: w.type,
-      metricKey: w.metricKey,
-      x: w.x ?? 0,
-      y: w.y ?? 0,
-      w: w.w ?? 4,
-      h: w.h ?? 2,
-      config: w.config,
-    }));
-  });
+  // Store global de Zustand estilo Power BI
+  const {
+    widgets,
+    selectedWidgetId,
+    setWidgets,
+    addWidget,
+    removeWidget,
+    selectWidget,
+    updateWidgetLayout,
+  } = useDashboardEditorStore();
 
-  // Estado del Sheet lateral de añadir widget
-  const [sheetOpen, setSheetOpen] = useState(false);
+  // Inicializar widgets en el store al montar
+  useEffect(() => {
+    setWidgets(dashboard.widgets || []);
+  }, [dashboard.widgets, setWidgets]);
 
-  // Agregar widget desde plantilla
-  const handleAddWidget = (template: WidgetTemplate) => {
-    // Calcular posición debajo del último widget o a la derecha
-    const maxY = widgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 2)), 0);
-
-    const newWidget: WidgetData = {
-      id: `w-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      title: template.title,
-      type: template.type,
-      metricKey: template.metricKey,
-      x: 0,
-      y: maxY,
-      w: template.w,
-      h: template.h,
-    };
-
-    setWidgets((prev) => [...prev, newWidget]);
-    toast.success(`Widget "${template.title}" agregado al lienzo`);
-    setSheetOpen(false);
-  };
-
-  // Eliminar widget
-  const handleDeleteWidget = (id: string) => {
-    setWidgets((prev) => prev.filter((w) => w.id !== id));
-    toast.info("Widget removido");
+  // Añadir visual vacío
+  const handleAddEmptyVisual = () => {
+    addWidget();
+    toast.success("Nuevo visual añadido. Selecciona un tipo de visual y arrastra campos.");
   };
 
   // Sincronizar cambios de posición y tamaño desde react-grid-layout
-  const handleLayoutChange = (newLayout: readonly any[]) => {
-    setWidgets((prev) =>
-      prev.map((widget) => {
-        const match = newLayout.find((item) => item.i === widget.id);
-        if (match) {
-          return {
-            ...widget,
-            x: match.x,
-            y: match.y,
-            w: match.w,
-            h: match.h,
-          };
-        }
-        return widget;
-      })
-    );
+  const handleLayoutChange = (newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => {
+    newLayout.forEach((item) => {
+      updateWidgetLayout(item.i, {
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+      });
+    });
   };
 
-  // Guardar diseño
+  // Guardar diseño persistiendo layout y config completo validado con Zod
   const handleSaveLayout = () => {
     startTransition(async () => {
-      const payload = widgets.map((w) => ({
-        title: w.title,
-        type: w.type,
-        metricKey: w.metricKey,
-        x: w.x ?? 0,
-        y: w.y ?? 0,
-        w: w.w ?? 4,
-        h: w.h ?? 2,
-        config: w.config,
-      }));
+      try {
+        const payload = widgets.map((w) => {
+          // Asegurar que el config esté 100% validado con el esquema Zod
+          const validConfig = widgetConfigSchema.parse(
+            w.config || adaptLegacyWidget(w)
+          );
 
-      const res = await updateDashboardWidgetsAction(dashboard.id, payload);
-      if (res.success) {
-        toast.success("Diseño del tablero guardado exitosamente");
-        router.push(`/dashboards/${dashboard.id}`);
-        router.refresh();
-      } else {
-        toast.error(res.error || "Error al guardar el diseño");
+          return {
+            title: w.title || validConfig.format.title.text,
+            type: validConfig.visualType,
+            metricKey: validConfig.data.dataset || "",
+            x: w.x ?? 0,
+            y: w.y ?? 0,
+            w: w.w ?? 4,
+            h: w.h ?? 2,
+            config: validConfig as unknown as Record<string, unknown>,
+          };
+        });
+
+        const res = await updateDashboardWidgetsAction(
+          dashboard.id,
+          payload as unknown as Parameters<typeof updateDashboardWidgetsAction>[1]
+        );
+        if (res.success) {
+          toast.success("Diseño del tablero guardado exitosamente");
+          router.push(`/dashboards/${dashboard.id}`);
+          router.refresh();
+        } else {
+          toast.error(res.error || "Error al guardar el diseño");
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error al validar la configuración del visual";
+        toast.error(`Error de validación: ${msg}`);
       }
     });
   };
@@ -224,16 +133,22 @@ export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
     y: w.y ?? 0,
     w: w.w ?? 4,
     h: w.h ?? 2,
-    minW: w.type === "kpi" ? 2 : 3,
-    minH: w.type === "kpi" ? 2 : 2,
+    minW: 2,
+    minH: 2,
   }));
 
   return (
-    <div className="flex flex-col h-full bg-muted/15 select-none">
+    <div
+      onClick={() => selectWidget(null)}
+      className="flex flex-col h-full bg-muted/15 select-none"
+    >
       {/* ==================================================================== */}
-      {/* Header Superior del Constructor */}
+      {/* Header Superior del Constructor                                     */}
       {/* ==================================================================== */}
-      <header className="h-14 border-b border-border/80 bg-background/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
+      <header
+        onClick={(e) => e.stopPropagation()}
+        className="h-14 border-b border-border/80 bg-background/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 sticky top-0 z-20"
+      >
         <div className="flex items-center gap-3">
           <Link href={`/dashboards/${dashboard.id}`}>
             <Button
@@ -264,16 +179,15 @@ export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
           </div>
         </div>
 
-        {/* Acciones del Constructor */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setSheetOpen(true)}
-            className="h-8 gap-1.5 text-xs font-medium cursor-pointer shadow-2xs"
+            onClick={handleAddEmptyVisual}
+            className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
           >
-            <Plus className="size-3.5 text-primary" />
-            <span>Añadir Widget</span>
+            <Plus className="size-3.5" />
+            <span>Añadir visual</span>
           </Button>
 
           <Button
@@ -289,137 +203,121 @@ export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
       </header>
 
       {/* ==================================================================== */}
-      {/* Área del Lienzo Interactivo (Grid con react-grid-layout) */}
+      {/* Contenedor Principal: Lienzo Interactivo + Panel de Propiedades        */}
       {/* ==================================================================== */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div ref={containerRef} className="w-full min-h-[500px]">
-          {widgets.length === 0 ? (
-            <div className="border-2 border-dashed border-border/80 rounded-2xl p-12 flex flex-col items-center justify-center text-center bg-card/40 my-8">
-              <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
-                <Sliders className="size-7" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground mb-1">
-                Lienzo de edición vacío
-              </h3>
-              <p className="text-xs text-muted-foreground max-w-md mb-4">
-                Comienza a construir este tablero agregando widgets de métricas (KPIs),
-                gráficos estadísticos de barras o líneas, y tablas de pedidos.
-              </p>
-              <Button
-                size="sm"
-                onClick={() => setSheetOpen(true)}
-                className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
-              >
-                <Plus className="size-3.5" />
-                <span>Añadir Primer Widget</span>
-              </Button>
-            </div>
-          ) : mounted ? (
-            <ReactGridLayout
-              layout={layoutItems}
-              width={width}
-              gridConfig={{
-                cols: 12,
-                rowHeight: 80,
-                margin: [16, 16],
-              }}
-              dragConfig={{
-                enabled: true,
-                handle: ".drag-handle",
-              }}
-              resizeConfig={{
-                enabled: true,
-              }}
-              onLayoutChange={handleLayoutChange}
-            >
-              {widgets.map((widget) => (
-                <div
-                  key={widget.id}
-                  className="rounded-xl border border-border bg-card shadow-xs overflow-hidden flex flex-col group transition-shadow hover:shadow-md hover:border-primary/40"
-                >
-                  {/* Barra de título del Widget con manija de arrastre y botón X */}
-                  <div className="h-8 px-3 border-b border-border/60 bg-muted/40 flex items-center justify-between shrink-0">
-                    <div className="drag-handle flex items-center gap-1.5 cursor-grab active:cursor-grabbing text-xs font-semibold text-foreground truncate flex-1 mr-2">
-                      <GripHorizontal className="size-3.5 text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
-                      <span className="truncate text-[11px] uppercase tracking-wider text-muted-foreground">
-                        {widget.type}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteWidget(widget.id)}
-                      className="size-5 rounded hover:bg-destructive/10 hover:text-destructive flex items-center justify-center text-muted-foreground transition-colors cursor-pointer"
-                      title="Eliminar widget"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-
-                  {/* Cuerpo del widget (previsualización del componente visual) */}
-                  <div className="flex-1 overflow-hidden pointer-events-none">
-                    <WidgetRenderer widget={widget} />
-                  </div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Lienzo de Cuadrícula con scroll propio */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div ref={containerRef} className="w-full min-h-[500px]">
+            {widgets.length === 0 ? (
+              <div className="border-2 border-dashed border-border/80 rounded-2xl p-12 flex flex-col items-center justify-center text-center bg-card/40 my-8">
+                <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
+                  <Sliders className="size-7" />
                 </div>
-              ))}
-            </ReactGridLayout>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-xs text-muted-foreground">
-              Cargando cuadrícula...
-            </div>
-          )}
+                <h3 className="text-base font-semibold text-foreground mb-1">
+                  Lienzo de edición vacío
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-md mb-4">
+                  Comienza a construir este tablero agregando visuales interactivos estilo Power BI
+                  (tarjetas KPI, barras, líneas, tablas y donas).
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleAddEmptyVisual}
+                  className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Añadir Primer Visual</span>
+                </Button>
+              </div>
+            ) : mounted ? (
+              <ReactGridLayout
+                layout={layoutItems}
+                width={width}
+                gridConfig={{
+                  cols: 12,
+                  rowHeight: 80,
+                  margin: [16, 16],
+                }}
+                dragConfig={{
+                  enabled: true,
+                  handle: ".drag-handle",
+                }}
+                resizeConfig={{
+                  enabled: true,
+                }}
+                onLayoutChange={handleLayoutChange}
+              >
+                {widgets.map((widget) => {
+                  const isSelected = selectedWidgetId === widget.id;
+
+                  return (
+                    <div
+                      key={widget.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectWidget(widget.id);
+                      }}
+                      className={`group rounded-xl border bg-card shadow-xs transition-all flex flex-col overflow-hidden ${
+                        isSelected
+                          ? "border-primary ring-2 ring-primary/20 shadow-md"
+                          : "border-border hover:border-border/80"
+                      }`}
+                    >
+                      {/* Cabecera del Widget con Drag Handle y Botón de Borrar */}
+                      <div className="h-7 px-2.5 bg-muted/40 border-b border-border/60 flex items-center justify-between shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                        <div className="drag-handle flex items-center gap-1.5 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing text-xs py-1">
+                          <GripHorizontal className="size-3.5" />
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] uppercase font-mono px-1 py-0 h-4 font-semibold text-muted-foreground bg-background/50"
+                          >
+                            {widget.config.visualType || widget.type}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeWidget(widget.id);
+                            }}
+                            className="size-5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                            title="Eliminar visual"
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Contenido Visual Dinámico */}
+                      <div className="flex-1 min-h-0 overflow-hidden">
+                        <DynamicVisual
+                          config={widget.config}
+                          isSelected={isSelected}
+                          onSelect={() => selectWidget(widget.id)}
+                          isEditMode={true}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </ReactGridLayout>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-xs text-muted-foreground">
+                Cargando cuadrícula...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Panel Fijo Derecho de Propiedades estilo Power BI */}
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0 h-full">
+          <PropertiesPanel />
         </div>
       </div>
-
-      {/* ==================================================================== */}
-      {/* Panel Lateral (Sheet) para Añadir Widgets */}
-      {/* ==================================================================== */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-          <SheetHeader className="p-6 border-b border-border/80">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Plus className="size-4.5 text-primary" />
-              <span>Añadir Widget</span>
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              Selecciona el tipo de widget que deseas incorporar al diseño de este tablero.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
-            {WIDGET_TEMPLATES.map((tmpl, idx) => {
-              const Icon = tmpl.icon;
-              return (
-                <div
-                  key={idx}
-                  onClick={() => handleAddWidget(tmpl)}
-                  className="p-3.5 rounded-xl border border-border/80 bg-card hover:bg-muted/40 hover:border-primary/40 transition-all cursor-pointer group flex items-start gap-3 shadow-2xs"
-                >
-                  <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
-                    <Icon className="size-4.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {tmpl.title}
-                      </span>
-                      <Badge variant="outline" className="text-[9px] uppercase px-1 py-0">
-                        {tmpl.type}
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
-                      {tmpl.description}
-                    </p>
-                    <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>Tamaño sugerido: {tmpl.w}x{tmpl.h}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

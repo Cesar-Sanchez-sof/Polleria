@@ -1,0 +1,89 @@
+{
+  "generated_at": "2026-11-10T21:06:00.914294-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 0,
+      "execution_error_count": 3,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-105",
+          "question": "¿Cuántos periodos contables abiertos abarcan marzo de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-04-01' AND ap.end_date >= DATE '2026-03-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 1.931,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.498406,
+          "token_usage": null,
+          "error": "GROQ_UNAVAILABLE:HTTP_429"
+        },
+        {
+          "id": "TEST-106",
+          "question": "¿Cuál fue el total de comprobantes emitidos en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 1.73,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.409401,
+          "token_usage": null,
+          "error": "GROQ_UNAVAILABLE:HTTP_429"
+        },
+        {
+          "id": "TEST-107",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en abril de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "voucher_type": "Boleta",
+              "total": "110.00"
+            },
+            {
+              "voucher_type": "Factura",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 1.843,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.411185,
+          "token_usage": null,
+          "error": "GROQ_UNAVAILABLE:HTTP_429"
+        }
+      ]
+    }
+  ]
+}

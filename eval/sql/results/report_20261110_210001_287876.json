@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-11-10T21:00:01.305018-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-106",
+          "question": "¿Cuál fue el total de comprobantes emitidos en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-04-01' AS DATE) AND si.issued_at < CAST('2026-05-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_comprobantes": "2"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.525,
+          "sql_execution_seconds": 2.608002,
+          "gold_execution_seconds": 2.403742,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 121,
+            "total_tokens": 2986
+          }
+        }
+      ]
+    }
+  ]
+}

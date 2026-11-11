@@ -63,6 +63,7 @@ backups/
 
 # Resultados locales del benchmark de latencia
 ai-service/perf_results/
+/reports/
 
 # Playwright
 test-results/

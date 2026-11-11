@@ -42,7 +42,7 @@ export async function interpretAccountingReport(
     throw new Error("GEMINI_API_KEY no está configurada en las variables de entorno.");
   }
 
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const prompt = `Por favor interpreta el siguiente reporte contable:

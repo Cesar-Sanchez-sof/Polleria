@@ -211,21 +211,21 @@ A continuación se detallan ejemplos representativos de cada estrato integrados 
 
 ---
 
-## 5. Arquitectura del Evaluador y Pipeline Automatizado
+## 5. Evaluador SQL implementado
 
-El script ejecutor `eval/benchmark_sql_suite.py` automatiza la evaluación continua:
-1. Lee el banco estructurado de casos `eval/sql/benchmark_cases_350.json`.
-2. Invoca el motor Text-to-SQL objetivo:
-   - **Modelo LoRA (XiYanSQL / LoRA local)**
-   - **Agente Gemini (GeminiSqlAgent)**
-   - **Agente Groq (GroqSqlAgent)**
-3. Ejecuta la consulta generada frente a la base de datos de prueba en modo **transacción de solo lectura** (`READ ONLY`, con `ROLLBACK` forzado para evitar cualquier mutación).
-4. Compara AST (Exact Match), conjunto de resultados (Execution Accuracy), costos del planificador con `EXPLAIN ANALYZE` (Valid Efficiency Score) y suites de mutación (Test Suite Accuracy).
-5. Emite un informe consolidado en JSON y tabla Markdown con desglose por nivel de dificultad y por módulo de negocio.
+La implementación mantenida está en `eval/sql/`; el ejecutor heredado ya no forma parte del proyecto.
 
-## 6. Generación del Banco de Casos (Python)
+1. `eval/sql/evaluate_agents.py` carga `eval/sql/benchmark_cases_350.json`.
+2. Evalúa los proveedores configurados Gemini y/o Groq, uno por uno.
+3. Usa el agente y su conexión PostgreSQL de solo lectura para generar y ejecutar el SQL. Después valida y ejecuta el SQL gold con el mismo `SqlValidator` y el mismo ejecutor read-only.
+4. Calcula EM por comparación textual normalizada; EX por igualdad de resultados; y VES con la fórmula descrita en `eval/sql/Ejecucion.md`. TS se reporta `N/D`: no se configura una suite de bases mutadas.
+5. Escribe `eval/sql/reports/report.md` y un resultado JSON nuevo bajo `eval/sql/results/` en cada corrida. Muestra SQL gold y generada en la terminal y los informes.
 
-A continuación se provee un script **stand‑alone** en Python 3.11 que crea el archivo `benchmark_cases_350.json` con la estructura requerida por el pipeline descrito en la sección 5. El script se ejecuta sin dependencias externas salvo la biblioteca estándar y `psycopg2‑binary` para validar consultas contra una base de datos PostgreSQL vacía (opcional).
+El diseño metodológico de EM por AST, VES basado en `EXPLAIN ANALYZE` y TS sobre bases mutadas que se describe más abajo es una propuesta de evaluación más amplia, no el comportamiento actual del script.
+
+## 6. Generación del Banco de Casos (referencia histórica)
+
+A continuación se conserva un ejemplo ilustrativo antiguo; no es el generador del benchmark mantenido, no debe ejecutarse ni usarse para reemplazar la suite actual. El generador canónico es `eval/sql/generate_benchmark_suite.py`: produce los casos con alcance y SQL compatibles con el agente y los valida con el `SqlValidator` y la allowlist efectiva.
 ```python
 #!/usr/bin/env python
 """generate_suite.py – Genera 350 casos de prueba stratificados.
@@ -327,19 +327,22 @@ print(f"✅ {len(cases)} casos generados → {output_path}")
 1. **Instalar dependencias**
    ```bash
    python -m venv .venv
-   source .venv/Scripts/activate   # Windows PowerShell
+   .\.venv\Scripts\Activate.ps1   # Windows PowerShell
    pip install psycopg2-binary      # sólo si desea validar contra PostgreSQL
    ```
-2. **Generar el banco de casos**
+2. **Generar o validar el banco canónico de casos**
    ```bash
-   python eval/generate_suite.py
+   python eval/sql/generate_benchmark_suite.py
    ```
-   Se producirá `eval/sql/benchmark_cases_350.json`.
-3. **Ejecutar la evaluación** (script de ejemplo incluido en `eval/benchmark_sql_suite.py`).
+   Se actualizará `eval/sql/benchmark_cases_350.json`. Para validar la suite sin regenerarla ni llamar a proveedores:
    ```bash
-   python eval/benchmark_sql_suite.py
+   python -m unittest eval.sql.test_generate_benchmark_suite
    ```
-   El script leerá el JSON, invocará el modelo/agent a través de la función `run_text_to_sql`, ejecutará `EXPLAIN ANALYZE` y calculará EM, EX, VES y TS. El informe final aparecerá en `eval/report_$(date +%s).json` y en `eval/report.md`.
+3. **Ejecutar la evaluación**.
+   ```bash
+   python -m eval.sql.evaluate_agents --provider groq
+   ```
+   Para Gemini, use `--provider gemini`; sin `--provider` se evalúan los proveedores configurados. Consulte `eval/sql/Ejecucion.md` para configuración, tandas, métricas e informes.
 
 ---
 
