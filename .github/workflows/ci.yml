@@ -33,10 +33,10 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Configurar Entorno Node.js 20
+      - name: Configurar Entorno Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - name: Instalar dependencias
@@ -90,7 +90,7 @@ jobs:
 
       - name: Ejecutar linter
         run: npm run lint
-        continue-on-error: true
+        continue-on-error: false
 
       ## Pruebas E2E con Playwright
     

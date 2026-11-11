@@ -13,7 +13,7 @@ Validar de forma automatizada, reproducible y medible el comportamiento del ERP 
 
 | ID | Criterio de Aceptación | Implementación Automatizada | Evidencia / Artefacto |
 | :--- | :--- | :--- | :--- |
-| **CA-01** | **Concurrencia de peticiones HTTP a todas las APIs.** | Inventario integral de los **91 Route Handlers** (`app/api/**/route.ts`), ráfagas multiusuario sobre `createApiHandler`, pruebas SSE (`/api/realtime`) y escalado progresivo de Usuarios Virtuales (`local-stress-suite.mjs` / `k6-full-stress.js`). | `test/concurrency/http-apis-concurrency.test.ts` + `scripts/load-tests/api-catalog.mjs` + `reports/load-evaluation-latest.md` |
+| **CA-01** | **Concurrencia de peticiones HTTP a todas las APIs.** | Inventario integral de los **93 Route Handlers** (`app/api/**/route.ts`), ráfagas multiusuario sobre `createApiHandler`, pruebas SSE (`/api/realtime`) y escalado progresivo de Usuarios Virtuales (`local-stress-suite.mjs` / `k6-full-stress.js`). | `test/concurrency/http-apis-concurrency.test.ts` + `scripts/load-tests/api-catalog.mjs` + `reports/load-evaluation-latest.md` |
 | **CA-02** | **Concurrencia de operaciones asíncronas dentro del código TypeScript (`Promise`, `async/await`).** | Medición de Event Loop Lag (`monitorEventLoopDelay`), firma concurrente XML UBL 2.1 + XMLDSIG (`Promise.all`), control de concurrencia acotada (*backpressure*) con `PromiseSettledResult` y serialización de stock por llave para evitar *Race Conditions*. | `test/concurrency/typescript-async-concurrency.test.ts` + sonda *Auth Burst* en `local-stress-suite.mjs` |
 | **CA-03** | **Concurrencia de accesos a base de datos y recursos externos (Neon, S3, Redis, RENIEC).** | Contención de pool Prisma (`P2024`) y recuperación, carga por lotes S3 (`uploadVouchersBatch`, `maxConcurrency = 20`), ráfaga RENIEC (`json.pe` con degradación controlada ante HTTP `429`), atomicidad/locks distribuidos en `@upstash/redis` y sondas reales contra credenciales `.env`. | `test/concurrency/external-resources-concurrency.test.ts` + sondas reales en `scripts/load-tests/local-stress-suite.mjs` |
 
@@ -21,7 +21,7 @@ Validar de forma automatizada, reproducible y medible el comportamiento del ERP 
 
 ## 2. Inventario Integral de Endpoints HTTP (`app/api/**`)
 
-El catálogo maestro [`scripts/load-tests/api-catalog.mjs`](../../scripts/load-tests/api-catalog.mjs) mantiene indexadas las **91 rutas activas** en `app/api/**/route.ts` agrupadas por Bounded Context DDD (verificado automáticamente en CI contra el sistema de archivos mediante `http-apis-concurrency.test.ts`):
+El catálogo maestro [`scripts/load-tests/api-catalog.mjs`](../../scripts/load-tests/api-catalog.mjs) mantiene indexadas las **93 rutas activas** en `app/api/**/route.ts` agrupadas por Bounded Context DDD (verificado automáticamente en CI contra el sistema de archivos mediante `http-apis-concurrency.test.ts`):
 
 | Bounded Context (DDD) | Rutas | Perfil principal | Ejemplos críticos bajo carga |
 | :--- | :---: | :--- | :--- |
@@ -31,10 +31,10 @@ El catálogo maestro [`scripts/load-tests/api-catalog.mjs`](../../scripts/load-t
 | **Purchases** (`purchases`) | 1 | `read` | `/api/purchases/without-voucher` |
 | **HR** (`hr`) | 28 | `read` / `write` | `/api/employees`, `/api/attendance`, `/api/payroll`, `/api/schedules`, `/api/contracts` |
 | **Security** (`security`) | 8 | `auth` / `read` / `write` | `/api/auth/login`, `/api/auth/me`, `/api/users`, `/api/roles`, `/api/audit-logs` |
-| **Settings** (`settings`) | 9 | `read` / `write` | `/api/settings/restaurant`, `/api/settings/printers`, `/api/openapi`, `/api/branding/assets/[slot]` |
+| **Settings** (`settings`) | 11 | `read` / `write` | `/api/settings/restaurant`, `/api/settings/printers`, `/api/dashboards/catalog`, `/api/dashboards/query`, `/api/openapi`, `/api/branding/assets/[slot]` |
 | **Integrations** (`integrations`) | 6 | `external-read` / `external-heavy` | `/api/document-lookup`, `/api/sunat/boleta`, `/api/sunat/liquidacion-compra`, `/api/sire/*` |
 | **AI Assistant** (`ai`) | 2 | `read` / `external-heavy` | `/api/assistant`, `/api/assistant/transcribe` |
-| **TOTAL** | **91** | — | **100% inventariadas y verificadas por test** |
+| **TOTAL** | **93** | — | **100% inventariadas y verificadas por test** |
 
 ### Clasificación de Seguridad para Carga Local Real
 
