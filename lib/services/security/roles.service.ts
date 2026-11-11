@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { UserError } from "@/lib/services/security/users.service";
 import { VALID_CODES, PERMISSION_MODULES } from "@/lib/auth/permissions-catalog";
+import { invalidateAuthCache } from "@/lib/auth/auth-cache";
 
 export interface RoleManagementDto {
   role_id: number;
@@ -102,6 +103,7 @@ export async function createRole(data: RoleData): Promise<RoleManagementDto> {
       await assignPermissions(tx, role.id, n.permissions);
       return role.id;
     });
+    invalidateAuthCache();
     return await getRole(id);
   } catch (e) {
     return translateError(e);
@@ -135,6 +137,7 @@ export async function updateRole(id: number, data: RoleData): Promise<RoleManage
       await tx.role.update({ where: { id }, data: { name: n.name, description: n.description, active: n.active } });
       await assignPermissions(tx, id, n.permissions);
     });
+    invalidateAuthCache();
     return await getRole(id);
   } catch (e) {
     return translateError(e);
@@ -152,6 +155,7 @@ export async function deleteRole(id: number): Promise<RoleManagementDto> {
     );
   }
   await prisma.role.delete({ where: { id } }); // role_permission se borra en cascada
+  invalidateAuthCache();
   return map(role);
 }
 

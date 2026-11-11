@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { DomainError } from "@/lib/http/errors";
 import { verifyAssignableRole, verifyModifiableUser } from "@/lib/services/security/roles.service";
 import { logAudit, type AuditActor } from "@/lib/services/security/audit.service";
+import { resolveWithAuthCache, invalidateAuthCache } from "@/lib/auth/auth-cache";
 
 /** Error de negocio con el código HTTP que debe devolver la API. */
 export class UserError extends DomainError {
@@ -228,6 +229,7 @@ export async function createUser(data: UserData): Promise<UserRowDto> {
         },
         include: { employee: true, role: true },
       });
+      invalidateAuthCache(user.id);
       return mapUserToDto(user);
     });
   } catch (e) {
@@ -278,6 +280,7 @@ export async function updateUser(userId: number, data: UserData): Promise<UserRo
         },
         include: { employee: true, role: true },
       });
+      invalidateAuthCache(user.id);
       return mapUserToDto(user);
     });
   } catch (e) {
@@ -292,6 +295,7 @@ export async function setUserActive(userId: number, active: boolean): Promise<Us
       data: { active },
       include: { employee: true, role: true },
     });
+    invalidateAuthCache(user.id);
     return mapUserToDto(user);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
@@ -329,8 +333,10 @@ export async function authenticate(identifier: string, password: string) {
 
 /** ¿Sigue activo el usuario de la sesión? Permite que desactivar corte accesos ya abiertos. */
 export async function activeUser(userId: number): Promise<boolean> {
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { active: true } });
-  return u?.active === true;
+  return resolveWithAuthCache("activeUser", userId, async () => {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { active: true } });
+    return u?.active === true;
+  });
 }
 
 export async function createUserWithAudit(params: {
