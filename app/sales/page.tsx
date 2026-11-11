@@ -5872,11 +5872,11 @@ function SalesManagementContent() {
               </div>
               <div className="flex justify-between">
                 <span>CLIENTE:</span>
-                <span className="font-bold">{issuedVoucher?.customer.firstName}</span>
+                <span className="font-bold">{issuedVoucher?.customer?.firstName || "CLIENTE GENERAL"}</span>
               </div>
               <div className="flex justify-between">
                 <span>DOC:</span>
-                <span>{issuedVoucher?.customer.documentNumber}</span>
+                <span>{issuedVoucher?.customer?.documentNumber || "00000000"}</span>
               </div>
               <div className="flex justify-between">
                 <span>ORIGEN:</span>
@@ -5886,12 +5886,12 @@ function SalesManagementContent() {
 
             {/* Ítems */}
             <div className="flex flex-col gap-1 pb-2 border-b border-dashed border-slate-300">
-              {issuedVoucher?.items.map((it, idx) => (
+              {(issuedVoucher?.items ?? []).map((it, idx) => (
                 <div key={idx} className="flex justify-between text-[10px]">
                   <span className="line-clamp-1">
                     {it.quantity}x {it.name}
                   </span>
-                  <span className="font-semibold">S/ {it.subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">S/ {Number(it.subtotal ?? 0).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -5900,15 +5900,15 @@ function SalesManagementContent() {
             <div className="flex flex-col gap-0.5 text-[10px] pb-2 border-b border-dashed border-slate-300">
               <div className="flex justify-between">
                 <span>OP. GRAVADA:</span>
-                <span>S/ {issuedVoucher?.subtotal.toFixed(2)}</span>
+                <span>S/ {(issuedVoucher?.subtotal ?? 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>I.G.V. (18%):</span>
-                <span>S/ {issuedVoucher?.igv.toFixed(2)}</span>
+                <span>S/ {(issuedVoucher?.igv ?? 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-extrabold text-xs text-slate-900 pt-1">
                 <span>TOTAL A PAGAR:</span>
-                <span>S/ {issuedVoucher?.total.toFixed(2)}</span>
+                <span>S/ {(issuedVoucher?.total ?? 0).toFixed(2)}</span>
               </div>
             </div>
 
