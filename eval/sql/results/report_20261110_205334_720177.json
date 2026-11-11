@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-11-10T20:53:34.740561-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 2,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 2,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 0.6667,
+      "ves": 0.649998,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-121",
+          "question": "¿Cuál fue el total de ingresos registrados en caja en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'INCOME' AND cm.created_at >= DATE '2026-04-01' AND cm.created_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement AS cm WHERE cm.type = 'INCOME' AND cm.created_at >= CAST('2026-04-01' AS DATE) AND cm.created_at < CAST('2026-05-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "120.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_ingresos": "120.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.949994,
+          "elapsed_seconds": 3.817,
+          "sql_execution_seconds": 2.63581,
+          "gold_execution_seconds": 2.37879,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 214,
+            "total_tokens": 3079
+          }
+        },
+        {
+          "id": "TEST-122",
+          "question": "¿Cuántas sesiones cerradas tuvo cada caja en abril de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "sesiones": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.526,
+          "sql_execution_seconds": 2.406769,
+          "gold_execution_seconds": 2.410463,
+          "token_usage": {
+            "prompt_tokens": 2864,
+            "completion_tokens": 173,
+            "total_tokens": 3037
+          },
+          "error": "SQLEXEC_FAILED/UNDEFINED_FUNCTION"
+        },
+        {
+          "id": "TEST-123",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en abril de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, COALESCE(SUM(cs.sales_cash), 0) AS total_efectivo, COALESCE(SUM(cs.sales_other), 0) AS total_otros_medios FROM public.cash_register AS cr JOIN public.cash_session AS cs ON cs.cash_register_id = cr.id WHERE DATE_TRUNC('MONTH', cs.opened_at) = CAST('2026-04-01' AS DATE) GROUP BY cr.name ORDER BY caja LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros": "420.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "total_efectivo": "850.00",
+              "total_otros_medios": "420.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.602,
+          "sql_execution_seconds": 2.402772,
+          "gold_execution_seconds": 2.411271,
+          "token_usage": {
+            "prompt_tokens": 2869,
+            "completion_tokens": 332,
+            "total_tokens": 3201
+          }
+        }
+      ]
+    }
+  ]
+}

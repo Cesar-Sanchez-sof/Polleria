@@ -18,6 +18,7 @@ from eval.sql.evaluate_agents import (
     ANSI_YELLOW,
     canonical_rows,
     evaluate_agent,
+    execution_results_match,
     format_result_rows,
     normalize_sql,
     valid_efficiency_score,
@@ -42,6 +43,43 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertNotEqual(
             canonical_rows([{"value": "A"}, {"value": "A"}]),
             canonical_rows([{"value": "A"}]),
+        )
+
+    def test_execution_comparison_allows_extra_projected_columns(self) -> None:
+        gold = [{"name": "Pollo entero de prueba", "unidades": "20.00"}]
+        generated = [
+            {
+                "producto_id": "21",
+                "producto": "Pollo entero de prueba",
+                "unidades_recibidas": "20.00",
+            }
+        ]
+
+        self.assertTrue(execution_results_match(gold, generated))
+
+    def test_execution_comparison_requires_matching_values_and_row_counts(self) -> None:
+        gold = [{"name": "Pollo", "unidades": "20.00"}]
+
+        self.assertFalse(
+            execution_results_match(
+                gold,
+                [{"producto": "Pollo", "unidades_recibidas": "19.00"}],
+            )
+        )
+        self.assertFalse(
+            execution_results_match(
+                gold,
+                [
+                    {"producto": "Pollo", "unidades_recibidas": "20.00"},
+                    {"producto": "Extra", "unidades_recibidas": "1.00"},
+                ],
+            )
+        )
+        self.assertFalse(
+            execution_results_match(
+                [{"value": "A"}, {"value": "A"}],
+                [{"value": "A"}, {"value": "B"}],
+            )
         )
 
     def test_valid_efficiency_score_requires_correct_result_and_timing(self) -> None:
@@ -173,7 +211,8 @@ class EvaluationMetricTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             reports_dir = Path(temp_dir) / "reports"
             results_dir = Path(temp_dir) / "results"
-            initial_result = result("TEST-001", "SELECT old")
+            initial_result = result("TEST-003", "SELECT 3")
+            initial_result["cases"].append(result("TEST-001", "SELECT old")["cases"][0])
             initial_result["cases"].append(result("TEST-002", "SELECT 2")["cases"][0])
             write_reports(
                 [initial_result],
@@ -206,6 +245,8 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertIn('"total": "SELECT updated"', report)
         self.assertIn("TEST-002", report)
         self.assertIn("TEST-003", report)
+        self.assertLess(report.index("<summary>TEST-001"), report.index("<summary>TEST-002"))
+        self.assertLess(report.index("<summary>TEST-002"), report.index("<summary>TEST-003"))
 
 
 if __name__ == "__main__":

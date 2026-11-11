@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-11-10T19:46:28.978590-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 2,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 2,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 2,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-049",
+          "question": "¿Qué facturas de compra activas tienen saldo pendiente en febrero de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-02-01' AND pi.issued_at < DATE '2026-03-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+          "generated_sql": "SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount AS total_amount, COALESCE(SUM(pp.amount), 0) AS paid, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS pending FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at <= CAST('2026-02-28' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50",
+          "gold_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "series": "F026",
+              "number": 990002,
+              "saldo_pendiente": "136.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "id": "33",
+              "series": "F026",
+              "number": "990002",
+              "total_amount": "236.00",
+              "paid": "100.00",
+              "pending": "136.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.782,
+          "sql_execution_seconds": 2.45424,
+          "gold_execution_seconds": 2.417698,
+          "token_usage": {
+            "prompt_tokens": 2489,
+            "completion_tokens": 288,
+            "total_tokens": 2777
+          }
+        },
+        {
+          "id": "TEST-050",
+          "question": "¿Cuál fue el total de egresos de caja en febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-02-01' AND cm.created_at < DATE '2026-03-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE EXTRACT(YEAR FROM cm.created_at) = 2026 AND EXTRACT(MONTH FROM cm.created_at) = 2 LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_egresos": "165.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.486,
+          "sql_execution_seconds": 2.473716,
+          "gold_execution_seconds": 2.475173,
+          "token_usage": {
+            "prompt_tokens": 2490,
+            "completion_tokens": 179,
+            "total_tokens": 2669
+          }
+        }
+      ]
+    }
+  ]
+}

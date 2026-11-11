@@ -4,7 +4,7 @@ Variables (del entorno o, si faltan, de ``agents-service/.env``; nunca ``DATABAS
 
 - ``GEMINI_API_KEY``: clave de la API de Gemini. **Activa el agente**: sin ella no se lee ninguna otra variable y la
   ruta no existe; con ella, el resto de la configuración es obligatoria y una clave mal formada impide arrancar.
-  ``GEMINI_MODEL`` (opcional, por defecto ``gemini-3.5-flash``).
+  ``GEMINI_MODEL`` (opcional, por defecto ``gemini-3.5-flash-lite``).
 - ``DATABASE_URL_READONLY``: conexión del rol ``ai_readonly`` (solo ``SELECT``); distinta de ``DATABASE_URL``.
 - ``AI_ASSISTANT_IDENTITY_KEY`` (P-9) es obligatoria: sin identidad firmada del ERP no hay agente.
 - ``AI_GEMINI_SQL_TIMEOUT_S`` (1–40, por defecto 20): espera máxima a Gemini.
@@ -30,7 +30,7 @@ IDENTITY_KEY_VAR = "AI_ASSISTANT_IDENTITY_KEY"
 GROQ_KEY_VAR = "GROQ_API_KEY"
 GROQ_MODEL_VAR = "GROQ_MODEL"
 GROQ_TIMEOUT_VAR = "AI_GROQ_SQL_TIMEOUT_S"
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 DEFAULT_TIMEOUT_S = 20
 MAX_TIMEOUT_S = 40

@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-11-10T21:00:32.183063-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.993083,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-086",
+          "question": "¿Cuál fue el total de ingresos registrados en caja en marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'INCOME' AND cm.created_at >= DATE '2026-03-01' AND cm.created_at < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement AS cm WHERE cm.type = 'INCOME' AND cm.created_at >= CAST('2026-03-01' AS DATE) AND cm.created_at < CAST('2026-04-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "120.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_ingresos": "120.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.993083,
+          "elapsed_seconds": 3.575,
+          "sql_execution_seconds": 2.456336,
+          "gold_execution_seconds": 2.422471,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 216,
+            "total_tokens": 3081
+          }
+        }
+      ]
+    }
+  ]
+}

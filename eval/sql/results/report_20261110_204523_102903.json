@@ -1,0 +1,114 @@
+{
+  "generated_at": "2026-11-10T20:45:23.116681-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 2,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 2,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 0.6667,
+      "ves": 0.666667,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-019",
+          "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "diferencia": "-5.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.551,
+          "sql_execution_seconds": 2.497975,
+          "gold_execution_seconds": 2.341227,
+          "token_usage": {
+            "prompt_tokens": 2868,
+            "completion_tokens": 196,
+            "total_tokens": 3064
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        },
+        {
+          "id": "TEST-020",
+          "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en enero de 2026?",
+          "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT cm.type AS tipo_movimiento, COALESCE(SUM(cm.amount), 0) AS total_movido FROM public.cash_movement AS cm WHERE cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cm.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "INCOME",
+              "total": "120.00"
+            },
+            {
+              "type": "EXPENSE",
+              "total": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_movimiento": "INCOME",
+              "total_movido": "120.00"
+            },
+            {
+              "tipo_movimiento": "EXPENSE",
+              "total_movido": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.132,
+          "sql_execution_seconds": 2.39502,
+          "gold_execution_seconds": 2.410659,
+          "token_usage": {
+            "prompt_tokens": 2867,
+            "completion_tokens": 147,
+            "total_tokens": 3014
+          }
+        },
+        {
+          "id": "TEST-021",
+          "question": "¿Cuánto se egresó por caja registradora en enero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-01-01' AS DATE) AND cm.created_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "egresos": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja_registradora": "Caja de Prueba",
+              "total_egresado": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.599,
+          "sql_execution_seconds": 2.349835,
+          "gold_execution_seconds": 2.418069,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 203,
+            "total_tokens": 3068
+          }
+        }
+      ]
+    }
+  ]
+}

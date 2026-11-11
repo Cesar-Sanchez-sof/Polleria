@@ -1,0 +1,115 @@
+{
+  "generated_at": "2026-11-10T20:48:10.618892-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 3,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 2,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 0.6667,
+      "ves": 0.648122,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-083",
+          "question": "¿Cuántas unidades recibidas hubo por producto en órdenes de compra de marzo de 2026?",
+          "expected_sql": "SELECT p.name, SUM(poi.quantity_received) AS unidades FROM purchase_order po JOIN purchase_order_item poi ON poi.purchase_order_id = po.id JOIN product p ON p.id = poi.product_id WHERE po.issued_at >= DATE '2026-03-01' AND po.issued_at < DATE '2026-04-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, COALESCE(SUM(poi.quantity_received), 0) AS unidades_recibidas FROM public.purchase_order AS po JOIN public.purchase_order_item AS poi ON poi.purchase_order_id = po.id JOIN public.product AS p ON p.id = poi.product_id WHERE po.issued_at >= CAST('2026-03-01' AS DATE) AND po.issued_at < CAST('2026-04-01' AS DATE) GROUP BY p.name ORDER BY unidades_recibidas DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "unidades": "20.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo entero de prueba",
+              "unidades_recibidas": "20.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.947764,
+          "elapsed_seconds": 3.887,
+          "sql_execution_seconds": 2.659401,
+          "gold_execution_seconds": 2.388826,
+          "token_usage": {
+            "prompt_tokens": 2868,
+            "completion_tokens": 215,
+            "total_tokens": 3083
+          }
+        },
+        {
+          "id": "TEST-084",
+          "question": "¿Qué facturas de compra activas tienen saldo pendiente en marzo de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-03-01' AND pi.issued_at < DATE '2026-04-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+          "generated_sql": "SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount AS total_amount, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS pending_balance FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.issued_at, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50",
+          "gold_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "series": "F026",
+              "number": 990003,
+              "saldo_pendiente": "136.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "id": "34",
+              "series": "F026",
+              "number": "990003",
+              "issued_at": "2026-03-04",
+              "total_amount": "236.00",
+              "pending_balance": "136.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.741,
+          "sql_execution_seconds": 2.374256,
+          "gold_execution_seconds": 2.410608,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 277,
+            "total_tokens": 3142
+          }
+        },
+        {
+          "id": "TEST-085",
+          "question": "¿Cuál fue el total de egresos de caja en marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-03-01' AND cm.created_at < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-03-01' AS TIMESTAMP) AND cm.created_at < CAST('2026-04-01' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_egresos": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.996602,
+          "elapsed_seconds": 3.457,
+          "sql_execution_seconds": 2.394202,
+          "gold_execution_seconds": 2.37796,
+          "token_usage": {
+            "prompt_tokens": 2866,
+            "completion_tokens": 157,
+            "total_tokens": 3023
+          }
+        }
+      ]
+    }
+  ]
+}
