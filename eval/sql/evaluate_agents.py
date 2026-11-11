@@ -9,7 +9,7 @@ import os
 import re
 import sys
 import time
-from collections import deque
+from collections import Counter, deque
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
@@ -189,6 +189,48 @@ def canonical_rows(rows: list[dict[str, Any]]) -> tuple[tuple[str, ...], ...]:
     return tuple(sorted(normalized, key=repr))
 
 
+def execution_results_match(
+    gold_rows: list[dict[str, Any]],
+    generated_rows: list[dict[str, Any]],
+) -> bool:
+    """Compare denotations while allowing extra projected columns in generated rows."""
+    if len(gold_rows) != len(generated_rows):
+        return False
+
+    gold_values = [Counter(_canonical_value(value) for value in row.values()) for row in gold_rows]
+    generated_values = [
+        Counter(_canonical_value(value) for value in row.values()) for row in generated_rows
+    ]
+    candidates = [
+        [
+            generated_index
+            for generated_index, generated_row in enumerate(generated_values)
+            if not (gold_row - generated_row)
+        ]
+        for gold_row in gold_values
+    ]
+    if any(not matches for matches in candidates):
+        return False
+
+    assigned_gold: dict[int, int] = {}
+
+    def assign(gold_index: int, visited: set[int]) -> bool:
+        for generated_index in candidates[gold_index]:
+            if generated_index in visited:
+                continue
+            visited.add(generated_index)
+            previous_gold = assigned_gold.get(generated_index)
+            if previous_gold is None or assign(previous_gold, visited):
+                assigned_gold[generated_index] = gold_index
+                return True
+        return False
+
+    for gold_index in sorted(range(len(gold_rows)), key=lambda index: len(candidates[index])):
+        if not assign(gold_index, set()):
+            return False
+    return True
+
+
 def _canonical_value(value: Any) -> str | None:
     if value is None:
         return None
@@ -306,7 +348,7 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
                 and normalize_sql(generated_sql) == normalize_sql(case["expected_sql"])
             )
             execution_accuracy = (
-                canonical_rows(generated_rows) == canonical_rows(gold_rows)
+                execution_results_match(gold_rows, generated_rows)
                 if gold_rows is not None and generated_rows is not None
                 else False if gold_rows is not None else None
             )

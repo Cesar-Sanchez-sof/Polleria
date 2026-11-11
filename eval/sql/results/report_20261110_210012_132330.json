@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-11-10T21:00:12.152940-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-102",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en marzo de 2026?",
+          "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS code, je.entry_date AS entry_date, COALESCE(SUM(jed.debit), 0) AS total_debit, COALESCE(SUM(jed.credit), 0) AS total_credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING COALESCE(SUM(jed.debit), 0) <> COALESCE(SUM(jed.credit), 0) LIMIT 50",
+          "gold_rows": [
+            {
+              "id": 196,
+              "code": "BENCH26-03-02",
+              "entry_date": "2026-03-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "code": "BENCH26-03-02",
+              "entry_date": "2026-03-23",
+              "total_debit": "100.00",
+              "total_credit": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.351,
+          "sql_execution_seconds": 2.519707,
+          "gold_execution_seconds": 2.445705,
+          "token_usage": {
+            "prompt_tokens": 2866,
+            "completion_tokens": 338,
+            "total_tokens": 3204
+          }
+        }
+      ]
+    }
+  ]
+}

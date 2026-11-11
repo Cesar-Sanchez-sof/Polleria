@@ -1,0 +1,143 @@
+{
+  "generated_at": "2026-11-10T20:49:39.212502-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 3,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 3,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.995032,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-091",
+          "question": "¿Cuánto se egresó por caja registradora en marzo de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-03-01' AND cm.created_at < DATE '2026-04-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresado FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-03-01' AS DATE) AND cm.created_at < CAST('2026-04-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "egresos": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja_registradora": "Caja de Prueba",
+              "total_egresado": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.994129,
+          "elapsed_seconds": 3.543,
+          "sql_execution_seconds": 2.448016,
+          "gold_execution_seconds": 2.419358,
+          "token_usage": {
+            "prompt_tokens": 2865,
+            "completion_tokens": 217,
+            "total_tokens": 3082
+          }
+        },
+        {
+          "id": "TEST-092",
+          "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en marzo de 2026?",
+          "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-03-01' AND im.moved_at < DATE '2026-04-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+          "generated_sql": "SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-03-01' AS DATE) AND im.moved_at < CAST('2026-04-01' AS DATE) GROUP BY im.movement_type LIMIT 50",
+          "gold_rows": [
+            {
+              "movement_type": "Sale",
+              "movimientos": 1,
+              "cantidad": "2.00"
+            },
+            {
+              "movement_type": "Shrinkage",
+              "movimientos": 1,
+              "cantidad": "1.00"
+            },
+            {
+              "movement_type": "Adjustment",
+              "movimientos": 1,
+              "cantidad": "3.00"
+            },
+            {
+              "movement_type": "Purchase",
+              "movimientos": 1,
+              "cantidad": "20.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_movimiento": "Sale",
+              "movimientos": "1",
+              "cantidad_total": "2.00"
+            },
+            {
+              "tipo_movimiento": "Shrinkage",
+              "movimientos": "1",
+              "cantidad_total": "1.00"
+            },
+            {
+              "tipo_movimiento": "Adjustment",
+              "movimientos": "1",
+              "cantidad_total": "3.00"
+            },
+            {
+              "tipo_movimiento": "Purchase",
+              "movimientos": "1",
+              "cantidad_total": "20.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.287,
+          "sql_execution_seconds": 2.392247,
+          "gold_execution_seconds": 2.418474,
+          "token_usage": {
+            "prompt_tokens": 2870,
+            "completion_tokens": 148,
+            "total_tokens": 3018
+          }
+        },
+        {
+          "id": "TEST-093",
+          "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en marzo de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-03-01' AND im.moved_at < DATE '2026-04-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, COALESCE(SUM(im.quantity), 0) AS unidades_vendidas FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-03-01' AS DATE) AND im.moved_at < CAST('2026-04-01' AS DATE) GROUP BY p.id, p.name ORDER BY unidades_vendidas DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo a la brasa de prueba",
+              "cantidad": "2.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "unidades_vendidas": "2.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.990967,
+          "elapsed_seconds": 3.378,
+          "sql_execution_seconds": 2.412229,
+          "gold_execution_seconds": 2.368845,
+          "token_usage": {
+            "prompt_tokens": 2867,
+            "completion_tokens": 181,
+            "total_tokens": 3048
+          }
+        }
+      ]
+    }
+  ]
+}

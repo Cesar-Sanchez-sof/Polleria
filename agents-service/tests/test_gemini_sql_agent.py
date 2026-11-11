@@ -531,7 +531,7 @@ class ConfigTests(GuardedTestCase):
 
     def test_valid_configuration_hides_secrets(self) -> None:
         settings = load_gemini_sql_settings(self.env(), {}, identity_key_configured=True)
-        self.assertEqual(settings.model, "gemini-3.5-flash")
+        self.assertEqual(settings.model, "gemini-3.5-flash-lite")
         for secret in (self.KEY, "clave_ficticia", "db-ficticia"):
             self.assertNotIn(secret, repr(settings))
 
@@ -553,7 +553,7 @@ class ConfigTests(GuardedTestCase):
 
 
 class ClientTests(GuardedTestCase):
-    SETTINGS = GeminiSqlSettings(api_key="AIza" + "x" * 35, readonly_dsn="postgresql://x", model="gemini-3.5-flash", timeout_s=5)
+    SETTINGS = GeminiSqlSettings(api_key="AIza" + "x" * 35, readonly_dsn="postgresql://x", model="gemini-3.5-flash-lite", timeout_s=5)
 
     def client(self, handler) -> GeminiHttpClient:
         return GeminiHttpClient(self.SETTINGS, transport=httpx.MockTransport(handler))
@@ -567,11 +567,13 @@ class ClientTests(GuardedTestCase):
 
         text = self.client(handler).generate("sistema", "usuario")
         self.assertEqual(text, '{"sql":"SELECT 1"}')
-        self.assertEqual(seen["url"], "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent")
+        self.assertEqual(seen["url"], "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent")
         self.assertEqual(seen["key"], self.SETTINGS.api_key)
         self.assertNotIn(self.SETTINGS.api_key, json.dumps(seen["body"]))
         config = seen["body"]["generationConfig"]
-        self.assertEqual((config["temperature"], config["responseMimeType"]), (0, "application/json"))
+        self.assertNotIn("temperature", config)
+        self.assertEqual(config["thinkingConfig"], {"thinkingLevel": "MINIMAL"})
+        self.assertEqual(config["responseMimeType"], "application/json")
 
     def test_errors_are_classified_without_messages(self) -> None:
         def reply(status: int, body=None):
