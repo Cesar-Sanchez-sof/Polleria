@@ -148,7 +148,7 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
                       gridRow: `${rowStart} / span ${rowSpan}`,
                     }}
                   >
-                    <WidgetRenderer widget={widget} />
+                    <WidgetRenderer widget={widget} isEditMode={false} />
                   </div>
                 );
               })}
