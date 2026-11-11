@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-11-10T23:17:52.237642-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 0,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-350",
+          "question": "¿Cuántos periodos contables abiertos abarcan octubre de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-11-01' AND ap.end_date >= DATE '2026-10-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": 2
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 6.174,
+          "sql_execution_seconds": 2.493327,
+          "gold_execution_seconds": 2.374659,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 70,
+            "total_tokens": 3196
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        }
+      ]
+    }
+  ]
+}

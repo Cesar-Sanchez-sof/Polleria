@@ -1,16 +1,16 @@
 {
   "agent": "gemini",
-  "total_cases": 291,
+  "total_cases": 350,
   "exact_match_count": 0,
   "exact_match_rate": 0.0,
-  "execution_success_count": 264,
-  "execution_error_count": 27,
-  "execution_accuracy_count": 217,
-  "execution_accuracy_denominator": 291,
-  "execution_accuracy_rate": 0.7457044673539519,
-  "ves": 0.7392644536082472,
+  "execution_success_count": 316,
+  "execution_error_count": 34,
+  "execution_accuracy_count": 260,
+  "execution_accuracy_denominator": 350,
+  "execution_accuracy_rate": 0.7428571428571429,
+  "ves": 0.7364844085714284,
   "test_suite_accuracy": null,
-  "interrupted": true,
+  "interrupted": false,
   "cases": [
     {
       "id": "TEST-001",
@@ -9585,6 +9585,2510 @@
         "completion_tokens": 84,
         "total_tokens": 3212
       }
+    },
+    {
+      "id": "TEST-292",
+      "question": "¿Cuántas órdenes de compra hubo por estado en septiembre de 2026?",
+      "expected_sql": "SELECT po.status, COUNT(*) AS total FROM purchase_order po WHERE po.issued_at >= DATE '2026-09-01' AND po.issued_at < DATE '2026-10-01' GROUP BY po.status ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order AS po WHERE po.issued_at >= CAST('2026-09-01' AS DATE) AND po.issued_at < CAST('2026-10-01' AS DATE) GROUP BY po.status LIMIT 50",
+      "gold_rows": [
+        {
+          "status": "Pending",
+          "total": 1
+        },
+        {
+          "status": "FullyReceived",
+          "total": 1
+        }
+      ],
+      "generated_rows": [
+        {
+          "estado": "Pending",
+          "total_ordenes": "1"
+        },
+        {
+          "estado": "FullyReceived",
+          "total_ordenes": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.973998,
+      "elapsed_seconds": 4.613,
+      "sql_execution_seconds": 2.52205,
+      "gold_execution_seconds": 2.392597,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 78,
+        "total_tokens": 3204
+      }
+    },
+    {
+      "id": "TEST-293",
+      "question": "¿Cuántas unidades recibidas hubo por producto en órdenes de compra de septiembre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(poi.quantity_received) AS unidades FROM purchase_order po JOIN purchase_order_item poi ON poi.purchase_order_id = po.id JOIN product p ON p.id = poi.product_id WHERE po.issued_at >= DATE '2026-09-01' AND po.issued_at < DATE '2026-10-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(poi.quantity_received) AS total_unidades_recibidas FROM public.purchase_order_item AS poi JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id JOIN public.product AS p ON poi.product_id = p.id WHERE po.issued_at >= CAST('2026-09-01' AS DATE) AND po.issued_at < CAST('2026-10-01' AS DATE) GROUP BY p.name LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero de prueba",
+          "unidades": "20.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo entero de prueba",
+          "total_unidades_recibidas": "20.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.997934,
+      "elapsed_seconds": 3.915,
+      "sql_execution_seconds": 2.410557,
+      "gold_execution_seconds": 2.400605,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 120,
+        "total_tokens": 3250
+      }
+    },
+    {
+      "id": "TEST-294",
+      "question": "¿Qué facturas de compra activas tienen saldo pendiente en septiembre de 2026?",
+      "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-09-01' AND pi.issued_at < DATE '2026-10-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+      "generated_sql": "SELECT pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, s.business_name AS business_name, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-09-01' AS DATE) AND pi.issued_at < CAST('2026-10-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.issued_at, s.business_name, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50",
+      "gold_rows": [
+        {
+          "proveedor": "Avícola Buen Sabor de Prueba",
+          "series": "F026",
+          "number": 990009,
+          "saldo_pendiente": "136.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "series": "F026",
+          "number": "990009",
+          "issued_at": "2026-09-04",
+          "business_name": "Avícola Buen Sabor de Prueba",
+          "saldo_pendiente": "136.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.997935,
+      "elapsed_seconds": 6.579,
+      "sql_execution_seconds": 2.39844,
+      "gold_execution_seconds": 2.388543,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 196,
+        "total_tokens": 3324
+      }
+    },
+    {
+      "id": "TEST-295",
+      "question": "¿Cuál fue el total de egresos de caja en septiembre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-09-01' AND cm.created_at < DATE '2026-10-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_egresos": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 6.803,
+      "sql_execution_seconds": 2.385448,
+      "gold_execution_seconds": 2.91817,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 100,
+        "total_tokens": 3227
+      }
+    },
+    {
+      "id": "TEST-296",
+      "question": "¿Cuál fue el total de ingresos registrados en caja en septiembre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'INCOME' AND cm.created_at >= DATE '2026-09-01' AND cm.created_at < DATE '2026-10-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement AS cm WHERE cm.type = 'INCOME' AND cm.created_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": "120.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_ingresos": "120.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 10.532,
+      "sql_execution_seconds": 2.360487,
+      "gold_execution_seconds": 2.398827,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 100,
+        "total_tokens": 3227
+      }
+    },
+    {
+      "id": "TEST-297",
+      "question": "¿Cuántas sesiones cerradas tuvo cada caja en septiembre de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-09-01' AND cs.closed_at < DATE '2026-10-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "caja": "Caja de Prueba",
+          "sesiones": 1
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 12.182,
+      "sql_execution_seconds": 2.418712,
+      "gold_execution_seconds": 2.408038,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 120,
+        "total_tokens": 3246
+      },
+      "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+    },
+    {
+      "id": "TEST-298",
+      "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en septiembre de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-09-01' AND cs.closed_at < DATE '2026-10-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(cs.sales_cash), 0) AS ventas_efectivo, COALESCE(SUM(cs.sales_other), 0) AS ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "caja": "Caja de Prueba",
+          "ventas_efectivo": "850.00",
+          "ventas_otros": "420.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "ventas_efectivo": "850.00",
+          "ventas_otros": "420.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 5.13,
+      "sql_execution_seconds": 2.339563,
+      "gold_execution_seconds": 2.408172,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 114,
+        "total_tokens": 3244
+      }
+    },
+    {
+      "id": "TEST-299",
+      "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en septiembre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-09-01' AND cs.closed_at < DATE '2026-10-01' LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "diferencia": "-5.00"
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 3.457,
+      "sql_execution_seconds": 2.415691,
+      "gold_execution_seconds": 2.338753,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 97,
+        "total_tokens": 3227
+      },
+      "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+    },
+    {
+      "id": "TEST-300",
+      "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en septiembre de 2026?",
+      "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-09-01' AND cm.created_at < DATE '2026-10-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.cash_movement AS cm WHERE cm.created_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY cm.type LIMIT 50",
+      "gold_rows": [
+        {
+          "type": "INCOME",
+          "total": "120.00"
+        },
+        {
+          "type": "EXPENSE",
+          "total": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_movimiento": "INCOME",
+          "total_movido": "120.00"
+        },
+        {
+          "tipo_movimiento": "EXPENSE",
+          "total_movido": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.311,
+      "sql_execution_seconds": 2.330226,
+      "gold_execution_seconds": 2.34643,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 103,
+        "total_tokens": 3232
+      }
+    },
+    {
+      "id": "TEST-301",
+      "question": "¿Cuánto se egresó por caja registradora en septiembre de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-09-01' AND cm.created_at < DATE '2026-10-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "caja": "Caja de Prueba",
+          "egresos": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_egresos": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 3.396,
+      "sql_execution_seconds": 2.393313,
+      "gold_execution_seconds": 2.374953,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 100,
+        "total_tokens": 3228
+      }
+    },
+    {
+      "id": "TEST-302",
+      "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en septiembre de 2026?",
+      "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-09-01' AND im.moved_at < DATE '2026-10-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+      "generated_sql": "SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY im.movement_type LIMIT 50",
+      "gold_rows": [
+        {
+          "movement_type": "Purchase",
+          "movimientos": 1,
+          "cantidad": "20.00"
+        },
+        {
+          "movement_type": "Sale",
+          "movimientos": 1,
+          "cantidad": "2.00"
+        },
+        {
+          "movement_type": "Shrinkage",
+          "movimientos": 1,
+          "cantidad": "1.00"
+        },
+        {
+          "movement_type": "Adjustment",
+          "movimientos": 1,
+          "cantidad": "3.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_movimiento": "Purchase",
+          "total_movimientos": "1",
+          "cantidad_total": "20.00"
+        },
+        {
+          "tipo_movimiento": "Sale",
+          "total_movimientos": "1",
+          "cantidad_total": "2.00"
+        },
+        {
+          "tipo_movimiento": "Shrinkage",
+          "total_movimientos": "1",
+          "cantidad_total": "1.00"
+        },
+        {
+          "tipo_movimiento": "Adjustment",
+          "total_movimientos": "1",
+          "cantidad_total": "3.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.433,
+      "sql_execution_seconds": 2.383126,
+      "gold_execution_seconds": 2.500874,
+      "token_usage": {
+        "prompt_tokens": 3132,
+        "completion_tokens": 114,
+        "total_tokens": 3246
+      }
+    },
+    {
+      "id": "TEST-303",
+      "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en septiembre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-09-01' AND im.moved_at < DATE '2026-10-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades DESC LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo a la brasa de prueba",
+          "cantidad": "2.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo a la brasa de prueba",
+          "unidades": "2.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.402,
+      "sql_execution_seconds": 2.411511,
+      "gold_execution_seconds": 2.480607,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 124,
+        "total_tokens": 3252
+      }
+    },
+    {
+      "id": "TEST-304",
+      "question": "¿Qué productos tuvieron mermas y qué cantidad en septiembre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= DATE '2026-09-01' AND im.moved_at < DATE '2026-10-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero de prueba",
+          "cantidad": "1.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo entero de prueba",
+          "cantidad": "1.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.988238,
+      "elapsed_seconds": 3.763,
+      "sql_execution_seconds": 2.476607,
+      "gold_execution_seconds": 2.418688,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 122,
+        "total_tokens": 3249
+      }
+    },
+    {
+      "id": "TEST-305",
+      "question": "¿Qué insumos ingresaron por compras y en qué cantidad durante septiembre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Purchase' AND im.moved_at >= DATE '2026-09-01' AND im.moved_at < DATE '2026-10-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS insumo, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Purchase' AND im.moved_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY cantidad DESC LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero de prueba",
+          "cantidad": "20.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "insumo": "Pollo entero de prueba",
+          "cantidad": "20.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.998613,
+      "elapsed_seconds": 3.642,
+      "sql_execution_seconds": 2.411726,
+      "gold_execution_seconds": 2.40504,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 125,
+        "total_tokens": 3254
+      }
+    },
+    {
+      "id": "TEST-306",
+      "question": "¿Cuántas transformaciones no anuladas hubo en septiembre de 2026?",
+      "expected_sql": "SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE AND t.date >= DATE '2026-09-01' AND t.date < DATE '2026-10-01' LIMIT 50",
+      "generated_sql": "SELECT COUNT(*) AS total_transformations FROM public.transformation AS t WHERE t.annulled = FALSE AND t.date >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": 1
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_transformations": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.426,
+      "sql_execution_seconds": 2.390514,
+      "gold_execution_seconds": 2.398959,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 78,
+        "total_tokens": 3204
+      }
+    },
+    {
+      "id": "TEST-307",
+      "question": "¿Qué cantidades se consumieron y produjeron en transformaciones durante septiembre de 2026?",
+      "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-09-01' AND t.date < DATE '2026-10-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, ti.item_type AS tipo_item, SUM(ti.quantity) AS cantidad_total FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id JOIN public.product AS p ON ti.product_id = p.id WHERE t.date >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY p.name, ti.item_type LIMIT 50",
+      "gold_rows": [
+        {
+          "item_type": "Consumo",
+          "cantidad": "5.00"
+        },
+        {
+          "item_type": "Producido",
+          "cantidad": "2.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo a la brasa de prueba",
+          "tipo_item": "Producido",
+          "cantidad_total": "2.00"
+        },
+        {
+          "producto": "Pollo entero de prueba",
+          "tipo_item": "Consumo",
+          "cantidad_total": "5.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.991951,
+      "elapsed_seconds": 3.527,
+      "sql_execution_seconds": 2.435204,
+      "gold_execution_seconds": 2.396158,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 137,
+        "total_tokens": 3266
+      }
+    },
+    {
+      "id": "TEST-308",
+      "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en septiembre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-09-01' AND im.moved_at < DATE '2026-10-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, im.quantity AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero de prueba",
+          "cantidad": "3.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo entero de prueba",
+          "cantidad": "3.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.984394,
+      "elapsed_seconds": 3.61,
+      "sql_execution_seconds": 2.4417,
+      "gold_execution_seconds": 2.366083,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 112,
+        "total_tokens": 3241
+      }
+    },
+    {
+      "id": "TEST-309",
+      "question": "¿Cuánto sumaron el debe y el haber de los asientos registrados en septiembre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+      "gold_rows": [
+        {
+          "total_debe": "200.00",
+          "total_haber": "180.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_debe": "200.00",
+          "total_haber": "180.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.996989,
+      "elapsed_seconds": 3.524,
+      "sql_execution_seconds": 2.417903,
+      "gold_execution_seconds": 2.403365,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 109,
+        "total_tokens": 3239
+      }
+    },
+    {
+      "id": "TEST-310",
+      "question": "¿Cuál fue el saldo neto por cuenta contable en septiembre de 2026?",
+      "expected_sql": "SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code LIMIT 50",
+      "generated_sql": "SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.accounting_account AS aa JOIN public.journal_entry_detail AS jed ON aa.id = jed.account_id JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY codigo_cuenta LIMIT 50",
+      "gold_rows": [
+        {
+          "code": "201001",
+          "name": "Obligaciones de prueba",
+          "saldo": "-80.00"
+        },
+        {
+          "code": "401001",
+          "name": "Ventas de prueba",
+          "saldo": "-100.00"
+        },
+        {
+          "code": "909001",
+          "name": "Cuenta de activo de prueba del mes 9",
+          "saldo": "200.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "codigo_cuenta": "201001",
+          "nombre_cuenta": "Obligaciones de prueba",
+          "saldo_neto": "-80.00"
+        },
+        {
+          "codigo_cuenta": "401001",
+          "nombre_cuenta": "Ventas de prueba",
+          "saldo_neto": "-100.00"
+        },
+        {
+          "codigo_cuenta": "909001",
+          "nombre_cuenta": "Cuenta de activo de prueba del mes 9",
+          "saldo_neto": "200.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.599,
+      "sql_execution_seconds": 2.414399,
+      "gold_execution_seconds": 2.482323,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 155,
+        "total_tokens": 3282
+      }
+    },
+    {
+      "id": "TEST-311",
+      "question": "¿Cuántos asientos registrados hubo por diario en septiembre de 2026?",
+      "expected_sql": "SELECT je.book, COUNT(*) AS total FROM journal_entry je WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.book ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50",
+      "gold_rows": [
+        {
+          "book": "Diario de prueba",
+          "total": 2
+        }
+      ],
+      "generated_rows": [
+        {
+          "diario": "Diario de prueba",
+          "total_asientos": "2"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.993451,
+      "elapsed_seconds": 3.907,
+      "sql_execution_seconds": 2.414983,
+      "gold_execution_seconds": 2.383456,
+      "token_usage": {
+        "prompt_tokens": 3125,
+        "completion_tokens": 82,
+        "total_tokens": 3207
+      }
+    },
+    {
+      "id": "TEST-312",
+      "question": "¿Qué asientos registrados no cuadraron entre debe y haber en septiembre de 2026?",
+      "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "generated_sql": "SELECT je.code AS codigo_asiento, je.entry_date AS fecha, je.description AS descripcion FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING COALESCE(SUM(jed.debit), 0) <> COALESCE(SUM(jed.credit), 0) LIMIT 50",
+      "gold_rows": [
+        {
+          "id": 208,
+          "code": "BENCH26-09-02",
+          "entry_date": "2026-09-23",
+          "total_debe": "100.00",
+          "total_haber": "80.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "codigo_asiento": "BENCH26-09-02",
+          "fecha": "2026-09-23",
+          "descripcion": "Asiento descuadrado ficticio de prueba"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 4.899,
+      "sql_execution_seconds": 2.650517,
+      "gold_execution_seconds": 2.398484,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 147,
+        "total_tokens": 3275
+      }
+    },
+    {
+      "id": "TEST-313",
+      "question": "¿Cuál fue el saldo neto del elemento contable 2 en septiembre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '2%' AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '2%' AND je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+      "gold_rows": [
+        {
+          "saldo": "-80.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "saldo_neto": "-80.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 10.818,
+      "sql_execution_seconds": 2.398554,
+      "gold_execution_seconds": 2.421563,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 128,
+        "total_tokens": 3257
+      }
+    },
+    {
+      "id": "TEST-314",
+      "question": "¿Cuánto sumaron el debe y el haber por tipo de cuenta en septiembre de 2026?",
+      "expected_sql": "SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY aa.type ORDER BY aa.type LIMIT 50",
+      "generated_sql": "SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50",
+      "gold_rows": [
+        {
+          "type": "Activo",
+          "total_debe": "200.00",
+          "total_haber": "0.00"
+        },
+        {
+          "type": "Ingreso",
+          "total_debe": "0.00",
+          "total_haber": "100.00"
+        },
+        {
+          "type": "Pasivo",
+          "total_debe": "0.00",
+          "total_haber": "80.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_cuenta": "Activo",
+          "total_debe": "200.00",
+          "total_haber": "0.00"
+        },
+        {
+          "tipo_cuenta": "Ingreso",
+          "total_debe": "0.00",
+          "total_haber": "100.00"
+        },
+        {
+          "tipo_cuenta": "Pasivo",
+          "total_debe": "0.00",
+          "total_haber": "80.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 5.284,
+      "sql_execution_seconds": 2.426383,
+      "gold_execution_seconds": 2.528308,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 128,
+        "total_tokens": 3258
+      }
+    },
+    {
+      "id": "TEST-315",
+      "question": "¿Cuántos periodos contables abiertos abarcan septiembre de 2026?",
+      "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-10-01' AND ap.end_date >= DATE '2026-09-01' LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "total": 1
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 15.746,
+      "sql_execution_seconds": 2.492696,
+      "gold_execution_seconds": 2.38193,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 70,
+        "total_tokens": 3196
+      },
+      "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+    },
+    {
+      "id": "TEST-316",
+      "question": "¿Cuál fue el total de comprobantes emitidos en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-10-01' AND si.issued_at < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-10-01' AS DATE) AND si.issued_at < CAST('2026-11-01' AS DATE) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": "571.20"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_comprobantes": "11"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 5.317,
+      "sql_execution_seconds": 2.341738,
+      "gold_execution_seconds": 2.410727,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 63,
+        "total_tokens": 3190
+      }
+    },
+    {
+      "id": "TEST-317",
+      "question": "¿Cuánto se facturó por cada tipo de comprobante en octubre de 2026?",
+      "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-10-01' AND si.issued_at < DATE '2026-11-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-10-01' AS DATE) AND si.issued_at < CAST('2026-11-01' AS DATE) GROUP BY si.voucher_type LIMIT 50",
+      "gold_rows": [
+        {
+          "voucher_type": "Boleta",
+          "total": "486.30"
+        },
+        {
+          "voucher_type": "Factura",
+          "total": "84.90"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_comprobante": "Factura",
+          "total_facturado": "84.90"
+        },
+        {
+          "tipo_comprobante": "Boleta",
+          "total_facturado": "486.30"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.997133,
+      "elapsed_seconds": 6.253,
+      "sql_execution_seconds": 2.394445,
+      "gold_execution_seconds": 2.380737,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 92,
+        "total_tokens": 3221
+      }
+    },
+    {
+      "id": "TEST-318",
+      "question": "¿Cuánto se cobró por cada medio de pago en octubre de 2026?",
+      "expected_sql": "SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-10-01' AND sp.paid_at < DATE '2026-11-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name LIMIT 50",
+      "gold_rows": [
+        {
+          "medio": "Efectivo",
+          "total": "249.20"
+        },
+        {
+          "medio": "Tarjeta / POS",
+          "total": "217.10"
+        },
+        {
+          "medio": "Tarjeta",
+          "total": "95.00"
+        },
+        {
+          "medio": "Yape",
+          "total": "9.90"
+        }
+      ],
+      "generated_rows": [
+        {
+          "payment_type": "Tarjeta / POS",
+          "total_collected": "217.10"
+        },
+        {
+          "payment_type": "Yape",
+          "total_collected": "9.90"
+        },
+        {
+          "payment_type": "Tarjeta",
+          "total_collected": "95.00"
+        },
+        {
+          "payment_type": "Efectivo",
+          "total_collected": "249.20"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.992137,
+      "elapsed_seconds": 5.625,
+      "sql_execution_seconds": 2.447318,
+      "gold_execution_seconds": 2.408982,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 118,
+        "total_tokens": 3245
+      }
+    },
+    {
+      "id": "TEST-319",
+      "question": "¿Cuántos pedidos cerrados para llevar hubo en octubre de 2026?",
+      "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-10-01' AND so.ordered_at < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS a WHERE a.order_type = 'Llevar' AND a.status = 'Closed' AND a.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND a.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": 1
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_pedidos": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.983038,
+      "elapsed_seconds": 6.965,
+      "sql_execution_seconds": 2.466519,
+      "gold_execution_seconds": 2.383556,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 100,
+        "total_tokens": 3226
+      }
+    },
+    {
+      "id": "TEST-320",
+      "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante octubre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-10-01' AND so.ordered_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+      "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "1/4 Pollo a la Brasa",
+          "unidades": 11
+        },
+        {
+          "name": "Agua Mineral 600ml",
+          "unidades": 4
+        },
+        {
+          "name": "Pollo a la brasa de prueba",
+          "unidades": 3
+        },
+        {
+          "name": "Coca Cola 1.5L",
+          "unidades": 2
+        },
+        {
+          "name": "1/2 Pollo a la Brasa",
+          "unidades": 2
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "1/4 Pollo a la Brasa",
+          "total_unidades": "11"
+        },
+        {
+          "producto": "Agua Mineral 600ml",
+          "total_unidades": "4"
+        },
+        {
+          "producto": "Pollo a la brasa de prueba",
+          "total_unidades": "3"
+        },
+        {
+          "producto": "1/2 Pollo a la Brasa",
+          "total_unidades": "2"
+        },
+        {
+          "producto": "Coca Cola 1.5L",
+          "total_unidades": "2"
+        },
+        {
+          "producto": "Jarra de Maracuyá 1L",
+          "total_unidades": "1"
+        },
+        {
+          "producto": "Inca Kola 1.5L",
+          "total_unidades": "1"
+        },
+        {
+          "producto": "Mostrito Especial",
+          "total_unidades": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 4.843,
+      "sql_execution_seconds": 2.423555,
+      "gold_execution_seconds": 2.4055,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 138,
+        "total_tokens": 3266
+      }
+    },
+    {
+      "id": "TEST-321",
+      "question": "¿Cuál fue el total vendido por canal de pedido en octubre de 2026?",
+      "expected_sql": "SELECT so.order_type, SUM(oi.subtotal) AS total FROM sales_order so JOIN order_item oi ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= DATE '2026-10-01' AND so.ordered_at < DATE '2026-11-01' GROUP BY so.order_type ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public.sales_invoice AS si JOIN public.sales_order AS so ON si.order_id = so.id WHERE si.issued_at >= '2026-10-01' AND si.issued_at < '2026-11-01' GROUP BY so.order_type LIMIT 50",
+      "gold_rows": [
+        {
+          "order_type": "Mesa",
+          "total": "516.20"
+        },
+        {
+          "order_type": "Llevar",
+          "total": "55.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "canal": "Llevar",
+          "total_vendido": "55.00"
+        },
+        {
+          "canal": "Mesa",
+          "total_vendido": "516.20"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 8.281,
+      "sql_execution_seconds": 2.399665,
+      "gold_execution_seconds": 2.406888,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 97,
+        "total_tokens": 3224
+      }
+    },
+    {
+      "id": "TEST-322",
+      "question": "¿Cuántos pedidos cerrados se atendieron en cada mesa durante octubre de 2026?",
+      "expected_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so JOIN order_table ot ON ot.order_id = so.id JOIN dining_table dt ON dt.id = ot.table_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' AND so.ordered_at >= DATE '2026-10-01' AND so.ordered_at < DATE '2026-11-01' GROUP BY dt.id, dt.number ORDER BY dt.number LIMIT 50",
+      "generated_sql": "SELECT t.number AS numero_mesa, COUNT(o.id) AS total_pedidos FROM public.dining_table AS t JOIN public.order_table AS ot ON ot.table_id = t.id JOIN public.sales_order AS o ON ot.order_id = o.id WHERE o.status = 'Closed' AND o.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND o.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY t.number LIMIT 50",
+      "gold_rows": [
+        {
+          "mesa": 1,
+          "pedidos": 5
+        },
+        {
+          "mesa": 2,
+          "pedidos": 3
+        },
+        {
+          "mesa": 3,
+          "pedidos": 1
+        },
+        {
+          "mesa": 4,
+          "pedidos": 1
+        },
+        {
+          "mesa": 99,
+          "pedidos": 1
+        }
+      ],
+      "generated_rows": [
+        {
+          "numero_mesa": "1",
+          "total_pedidos": "5"
+        },
+        {
+          "numero_mesa": "99",
+          "total_pedidos": "1"
+        },
+        {
+          "numero_mesa": "2",
+          "total_pedidos": "3"
+        },
+        {
+          "numero_mesa": "4",
+          "total_pedidos": "1"
+        },
+        {
+          "numero_mesa": "3",
+          "total_pedidos": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.998234,
+      "elapsed_seconds": 3.572,
+      "sql_execution_seconds": 2.387222,
+      "gold_execution_seconds": 2.378799,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 135,
+        "total_tokens": 3264
+      }
+    },
+    {
+      "id": "TEST-323",
+      "question": "¿Cuál fue el total de facturas de compra activas en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-10-01' AND pi.issued_at < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= '2026-10-01' AND pi.issued_at < '2026-11-01' LIMIT 50",
+      "gold_rows": [
+        {
+          "total": "2129.01"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_facturas_compra": "2129.01"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.998513,
+      "elapsed_seconds": 3.472,
+      "sql_execution_seconds": 2.368681,
+      "gold_execution_seconds": 2.36164,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 75,
+        "total_tokens": 3204
+      }
+    },
+    {
+      "id": "TEST-324",
+      "question": "¿Cuánto se compró a cada proveedor en octubre de 2026?",
+      "expected_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-10-01' AND pi.issued_at < DATE '2026-11-01' GROUP BY s.id, s.business_name ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-10-01' AS DATE) AND pi.issued_at < CAST('2026-11-01' AS DATE) GROUP BY s.business_name LIMIT 50",
+      "gold_rows": [
+        {
+          "proveedor": "COMPAÑIA FOOD RETAIL S.A.C.",
+          "total": "1356.17"
+        },
+        {
+          "proveedor": "PONCE EVANGELISTA, RENZO DANIEL",
+          "total": "285.00"
+        },
+        {
+          "proveedor": "Avícola Buen Sabor de Prueba",
+          "total": "236.00"
+        },
+        {
+          "proveedor": "AGRICOLA CERRO PRIETO S.A.",
+          "total": "225.88"
+        },
+        {
+          "proveedor": "PUESCAS PINGO, MANUEL ARMANDO",
+          "total": "25.96"
+        }
+      ],
+      "generated_rows": [
+        {
+          "proveedor": "AGRICOLA CERRO PRIETO S.A.",
+          "total_compras": "225.88"
+        },
+        {
+          "proveedor": "Avícola Buen Sabor de Prueba",
+          "total_compras": "236.00"
+        },
+        {
+          "proveedor": "COMPAÑIA FOOD RETAIL S.A.C.",
+          "total_compras": "1356.17"
+        },
+        {
+          "proveedor": "PONCE EVANGELISTA, RENZO DANIEL",
+          "total_compras": "285.00"
+        },
+        {
+          "proveedor": "PUESCAS PINGO, MANUEL ARMANDO",
+          "total_compras": "25.96"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.996772,
+      "elapsed_seconds": 12.877,
+      "sql_execution_seconds": 2.419681,
+      "gold_execution_seconds": 2.404085,
+      "token_usage": {
+        "prompt_tokens": 3125,
+        "completion_tokens": 107,
+        "total_tokens": 3232
+      }
+    },
+    {
+      "id": "TEST-325",
+      "question": "¿Cuánto se pagó por cada medio de pago a proveedores en octubre de 2026?",
+      "expected_sql": "SELECT pt.name AS medio, SUM(pp.amount) AS total FROM purchase_payment pp JOIN payment_type pt ON pt.id = pp.payment_type_id WHERE pp.paid_at >= DATE '2026-10-01' AND pp.paid_at < DATE '2026-11-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchase_payment AS pp JOIN public.payment_type AS pt ON pp.payment_type_id = pt.id WHERE pp.paid_at >= '2026-10-01' AND pp.paid_at < '2026-11-01' GROUP BY pt.name LIMIT 50",
+      "gold_rows": [
+        {
+          "medio": "Efectivo",
+          "total": "1759.91"
+        },
+        {
+          "medio": "Transferencia",
+          "total": "150.00"
+        },
+        {
+          "medio": "Yape",
+          "total": "64.00"
+        },
+        {
+          "medio": "Plin",
+          "total": "5.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "payment_type": "Efectivo",
+          "total_paid": "1759.91"
+        },
+        {
+          "payment_type": "Yape",
+          "total_paid": "64.00"
+        },
+        {
+          "payment_type": "Plin",
+          "total_paid": "5.00"
+        },
+        {
+          "payment_type": "Transferencia",
+          "total_paid": "150.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 4.823,
+      "sql_execution_seconds": 2.392032,
+      "gold_execution_seconds": 2.432975,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 93,
+        "total_tokens": 3222
+      }
+    },
+    {
+      "id": "TEST-326",
+      "question": "¿Cuánto se gastó por categoría en compras informales durante octubre de 2026?",
+      "expected_sql": "SELECT ip.expense_category, SUM(ip.amount_paid) AS total FROM informal_purchase ip WHERE ip.annulled = FALSE AND ip.date >= DATE '2026-10-01' AND ip.date < DATE '2026-11-01' GROUP BY ip.expense_category ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT i.expense_category AS categoria, SUM(i.amount_paid) AS total_gastado FROM public.informal_purchase AS i WHERE i.annulled = FALSE AND i.date >= '2026-10-01' AND i.date < '2026-11-01' GROUP BY i.expense_category LIMIT 50",
+      "gold_rows": [
+        {
+          "expense_category": "EventServices",
+          "total": "300.00"
+        },
+        {
+          "expense_category": "CleaningSupplies",
+          "total": "38.00"
+        },
+        {
+          "expense_category": null,
+          "total": "5.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "categoria": "EventServices",
+          "total_gastado": "300.00"
+        },
+        {
+          "categoria": "CleaningSupplies",
+          "total_gastado": "38.00"
+        },
+        {
+          "categoria": null,
+          "total_gastado": "5.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.996631,
+      "elapsed_seconds": 5.785,
+      "sql_execution_seconds": 2.390255,
+      "gold_execution_seconds": 2.374176,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 90,
+        "total_tokens": 3218
+      }
+    },
+    {
+      "id": "TEST-327",
+      "question": "¿Cuántas órdenes de compra hubo por estado en octubre de 2026?",
+      "expected_sql": "SELECT po.status, COUNT(*) AS total FROM purchase_order po WHERE po.issued_at >= DATE '2026-10-01' AND po.issued_at < DATE '2026-11-01' GROUP BY po.status ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order AS po WHERE po.issued_at >= CAST('2026-10-01' AS DATE) AND po.issued_at < CAST('2026-11-01' AS DATE) GROUP BY po.status LIMIT 50",
+      "gold_rows": [
+        {
+          "status": "FullyReceived",
+          "total": 15
+        },
+        {
+          "status": "Pending",
+          "total": 1
+        }
+      ],
+      "generated_rows": [
+        {
+          "estado": "FullyReceived",
+          "total_ordenes": "15"
+        },
+        {
+          "estado": "Pending",
+          "total_ordenes": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.394,
+      "sql_execution_seconds": 2.366279,
+      "gold_execution_seconds": 2.490392,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 73,
+        "total_tokens": 3199
+      }
+    },
+    {
+      "id": "TEST-328",
+      "question": "¿Cuántas unidades recibidas hubo por producto en órdenes de compra de octubre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(poi.quantity_received) AS unidades FROM purchase_order po JOIN purchase_order_item poi ON poi.purchase_order_id = po.id JOIN product p ON p.id = poi.product_id WHERE po.issued_at >= DATE '2026-10-01' AND po.issued_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM public.purchase_order_item AS poi JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id JOIN public.product AS p ON poi.product_id = p.id WHERE po.issued_at >= CAST('2026-10-01' AS DATE) AND po.issued_at < CAST('2026-11-01' AS DATE) GROUP BY p.name LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero",
+          "unidades": "72.00"
+        },
+        {
+          "name": "Presas de pollo",
+          "unidades": "22.00"
+        },
+        {
+          "name": "Pollo entero de prueba",
+          "unidades": "20.00"
+        },
+        {
+          "name": "Papa",
+          "unidades": "20.00"
+        },
+        {
+          "name": "1 Pollo a la Brasa Entero",
+          "unidades": "1.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo entero",
+          "unidades_recibidas": "72.00"
+        },
+        {
+          "producto": "Presas de pollo",
+          "unidades_recibidas": "22.00"
+        },
+        {
+          "producto": "1 Pollo a la Brasa Entero",
+          "unidades_recibidas": "1.00"
+        },
+        {
+          "producto": "Pollo entero de prueba",
+          "unidades_recibidas": "20.00"
+        },
+        {
+          "producto": "Papa",
+          "unidades_recibidas": "20.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.979055,
+      "elapsed_seconds": 3.757,
+      "sql_execution_seconds": 2.486604,
+      "gold_execution_seconds": 2.383529,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 117,
+        "total_tokens": 3247
+      }
+    },
+    {
+      "id": "TEST-329",
+      "question": "¿Qué facturas de compra activas tienen saldo pendiente en octubre de 2026?",
+      "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-10-01' AND pi.issued_at < DATE '2026-11-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+      "generated_sql": "SELECT pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-10-01' AS DATE) AND pi.issued_at < CAST('2026-11-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.issued_at, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50",
+      "gold_rows": [
+        {
+          "proveedor": "Avícola Buen Sabor de Prueba",
+          "series": "F026",
+          "number": 990010,
+          "saldo_pendiente": "136.00"
+        },
+        {
+          "proveedor": "COMPAÑIA FOOD RETAIL S.A.C.",
+          "series": "F002",
+          "number": 34123423,
+          "saldo_pendiente": "11.10"
+        },
+        {
+          "proveedor": "PONCE EVANGELISTA, RENZO DANIEL",
+          "series": "F003",
+          "number": 42345234,
+          "saldo_pendiente": "3.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "series": "F002",
+          "number": "34123423",
+          "issued_at": "2026-10-13",
+          "saldo_pendiente": "11.10"
+        },
+        {
+          "series": "F003",
+          "number": "42345234",
+          "issued_at": "2026-10-15",
+          "saldo_pendiente": "3.00"
+        },
+        {
+          "series": "F026",
+          "number": "990010",
+          "issued_at": "2026-10-04",
+          "saldo_pendiente": "136.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 8.18,
+      "sql_execution_seconds": 2.422629,
+      "gold_execution_seconds": 2.368725,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 169,
+        "total_tokens": 3297
+      }
+    },
+    {
+      "id": "TEST-330",
+      "question": "¿Cuál fue el total de egresos de caja en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_egresos": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.99917,
+      "elapsed_seconds": 8.832,
+      "sql_execution_seconds": 2.382804,
+      "gold_execution_seconds": 2.378851,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 100,
+        "total_tokens": 3227
+      }
+    },
+    {
+      "id": "TEST-331",
+      "question": "¿Cuál fue el total de ingresos registrados en caja en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cm.amount), 0) AS total FROM cash_movement cm WHERE cm.type = 'INCOME' AND cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT SUM(cm.amount) AS total_ingresos FROM public.cash_movement AS cm WHERE cm.type = 'INCOME' AND cm.created_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": "120.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_ingresos": "120.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 3.815,
+      "sql_execution_seconds": 2.384014,
+      "gold_execution_seconds": 2.392971,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 93,
+        "total_tokens": 3220
+      }
+    },
+    {
+      "id": "TEST-332",
+      "question": "¿Cuántas sesiones cerradas tuvo cada caja en octubre de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "caja": "Caja Principal - Salón",
+          "sesiones": 1
+        },
+        {
+          "caja": "Caja de Prueba",
+          "sesiones": 1
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 6.759,
+      "sql_execution_seconds": 2.500639,
+      "gold_execution_seconds": 2.392412,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 125,
+        "total_tokens": 3251
+      },
+      "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+    },
+    {
+      "id": "TEST-333",
+      "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en octubre de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+      "generated_sql": "SELECT SUM(COALESCE(cs.sales_cash, 0)) AS ventas_efectivo, SUM(COALESCE(cs.sales_other, 0)) AS ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "caja": "Caja Principal - Salón",
+          "ventas_efectivo": "50.00",
+          "ventas_otros": "9.90"
+        },
+        {
+          "caja": "Caja de Prueba",
+          "ventas_efectivo": "850.00",
+          "ventas_otros": "420.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "ventas_efectivo": "1029.20",
+          "ventas_otros": "647.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 4.615,
+      "sql_execution_seconds": 2.365829,
+      "gold_execution_seconds": 2.408394,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 114,
+        "total_tokens": 3244
+      }
+    },
+    {
+      "id": "TEST-334",
+      "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "diferencia": "-5.00"
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 5.011,
+      "sql_execution_seconds": 2.497643,
+      "gold_execution_seconds": 2.398458,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 93,
+        "total_tokens": 3223
+      },
+      "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+    },
+    {
+      "id": "TEST-335",
+      "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en octubre de 2026?",
+      "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.cash_movement AS cm WHERE cm.created_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY cm.type LIMIT 50",
+      "gold_rows": [
+        {
+          "type": "INCOME",
+          "total": "120.00"
+        },
+        {
+          "type": "EXPENSE",
+          "total": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_movimiento": "INCOME",
+          "total_movido": "120.00"
+        },
+        {
+          "tipo_movimiento": "EXPENSE",
+          "total_movido": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.994427,
+      "elapsed_seconds": 8.172,
+      "sql_execution_seconds": 2.408793,
+      "gold_execution_seconds": 2.382018,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 103,
+        "total_tokens": 3232
+      }
+    },
+    {
+      "id": "TEST-336",
+      "question": "¿Cuánto se egresó por caja registradora en octubre de 2026?",
+      "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+      "generated_sql": "SELECT SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "caja": "Caja de Prueba",
+          "egresos": "45.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_egresos": "45.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 4.719,
+      "sql_execution_seconds": 2.429537,
+      "gold_execution_seconds": 2.391064,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 89,
+        "total_tokens": 3217
+      }
+    },
+    {
+      "id": "TEST-337",
+      "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en octubre de 2026?",
+      "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+      "generated_sql": "SELECT im.movement_type AS movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY im.movement_type LIMIT 50",
+      "gold_rows": [
+        {
+          "movement_type": "Purchase",
+          "movimientos": 17,
+          "cantidad": "135.00"
+        },
+        {
+          "movement_type": "InformalPurchase",
+          "movimientos": 7,
+          "cantidad": "1.00"
+        },
+        {
+          "movement_type": "Sale",
+          "movimientos": 6,
+          "cantidad": "7.00"
+        },
+        {
+          "movement_type": "TransformationIn",
+          "movimientos": 4,
+          "cantidad": "65.00"
+        },
+        {
+          "movement_type": "TransformationOut",
+          "movimientos": 4,
+          "cantidad": "16.00"
+        },
+        {
+          "movement_type": "Adjustment",
+          "movimientos": 3,
+          "cantidad": "-42.00"
+        },
+        {
+          "movement_type": "Shrinkage",
+          "movimientos": 1,
+          "cantidad": "1.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "movimiento": "Sale",
+          "total_movimientos": "6",
+          "cantidad_total": "7.00"
+        },
+        {
+          "movimiento": "InformalPurchase",
+          "total_movimientos": "7",
+          "cantidad_total": "1.00"
+        },
+        {
+          "movimiento": "Shrinkage",
+          "total_movimientos": "1",
+          "cantidad_total": "1.00"
+        },
+        {
+          "movimiento": "TransformationIn",
+          "total_movimientos": "4",
+          "cantidad_total": "65.00"
+        },
+        {
+          "movimiento": "Adjustment",
+          "total_movimientos": "3",
+          "cantidad_total": "-42.00"
+        },
+        {
+          "movimiento": "TransformationOut",
+          "total_movimientos": "4",
+          "cantidad_total": "16.00"
+        },
+        {
+          "movimiento": "Purchase",
+          "total_movimientos": "17",
+          "cantidad_total": "135.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.996492,
+      "elapsed_seconds": 6.501,
+      "sql_execution_seconds": 2.404708,
+      "gold_execution_seconds": 2.387864,
+      "token_usage": {
+        "prompt_tokens": 3132,
+        "completion_tokens": 111,
+        "total_tokens": 3243
+      }
+    },
+    {
+      "id": "TEST-338",
+      "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en octubre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades DESC LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Agua Mineral 600ml",
+          "cantidad": "4.00"
+        },
+        {
+          "name": "Pollo a la brasa de prueba",
+          "cantidad": "2.00"
+        },
+        {
+          "name": "1 Pollo a la Brasa Entero",
+          "cantidad": "1.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Agua Mineral 600ml",
+          "unidades": "4.00"
+        },
+        {
+          "producto": "Pollo a la brasa de prueba",
+          "unidades": "2.00"
+        },
+        {
+          "producto": "1 Pollo a la Brasa Entero",
+          "unidades": "1.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.99382,
+      "elapsed_seconds": 5.3,
+      "sql_execution_seconds": 2.414747,
+      "gold_execution_seconds": 2.384994,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 124,
+        "total_tokens": 3252
+      }
+    },
+    {
+      "id": "TEST-339",
+      "question": "¿Qué productos tuvieron mermas y qué cantidad en octubre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero de prueba",
+          "cantidad": "1.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Pollo entero de prueba",
+          "cantidad": "1.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.983419,
+      "elapsed_seconds": 8.414,
+      "sql_execution_seconds": 2.492049,
+      "gold_execution_seconds": 2.410091,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 122,
+        "total_tokens": 3249
+      }
+    },
+    {
+      "id": "TEST-340",
+      "question": "¿Qué insumos ingresaron por compras y en qué cantidad durante octubre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Purchase' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad_ingresada FROM public.purchase_order_item AS poi JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id JOIN public.product AS p ON poi.product_id = p.id WHERE po.received_at >= '2026-10-01' AND po.received_at < '2026-11-01' GROUP BY p.name ORDER BY cantidad_ingresada DESC LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Pollo entero",
+          "cantidad": "72.00"
+        },
+        {
+          "name": "Presas de pollo",
+          "cantidad": "22.00"
+        },
+        {
+          "name": "Pollo entero de prueba",
+          "cantidad": "20.00"
+        },
+        {
+          "name": "Papa",
+          "cantidad": "20.00"
+        },
+        {
+          "name": "1 Pollo a la Brasa Entero",
+          "cantidad": "1.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "insumo": "Pollo entero",
+          "cantidad_ingresada": "72.00"
+        },
+        {
+          "insumo": "Presas de pollo",
+          "cantidad_ingresada": "22.00"
+        },
+        {
+          "insumo": "Pollo entero de prueba",
+          "cantidad_ingresada": "20.00"
+        },
+        {
+          "insumo": "Papa",
+          "cantidad_ingresada": "20.00"
+        },
+        {
+          "insumo": "1 Pollo a la Brasa Entero",
+          "cantidad_ingresada": "1.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 6.591,
+      "sql_execution_seconds": 2.382213,
+      "gold_execution_seconds": 2.401856,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 124,
+        "total_tokens": 3253
+      }
+    },
+    {
+      "id": "TEST-341",
+      "question": "¿Cuántas transformaciones no anuladas hubo en octubre de 2026?",
+      "expected_sql": "SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE AND t.date >= DATE '2026-10-01' AND t.date < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE t.annulled = FALSE AND t.date >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "gold_rows": [
+        {
+          "total": 3
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_transformaciones": "3"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.983237,
+      "elapsed_seconds": 3.712,
+      "sql_execution_seconds": 2.402245,
+      "gold_execution_seconds": 2.322382,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 83,
+        "total_tokens": 3209
+      }
+    },
+    {
+      "id": "TEST-342",
+      "question": "¿Qué cantidades se consumieron y produjeron en transformaciones durante octubre de 2026?",
+      "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-10-01' AND t.date < DATE '2026-11-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "item_type": "Consumo",
+          "cantidad": "12.00"
+        },
+        {
+          "item_type": "Producido",
+          "cantidad": "58.00"
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 20.002,
+      "sql_execution_seconds": 0.0,
+      "gold_execution_seconds": 2.479318,
+      "token_usage": null,
+      "error": "GEMINI_TIMEOUT"
+    },
+    {
+      "id": "TEST-343",
+      "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en octubre de 2026?",
+      "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY cantidad DESC LIMIT 50",
+      "gold_rows": [
+        {
+          "name": "Agua Mineral 600ml",
+          "cantidad": "5.00"
+        },
+        {
+          "name": "Pollo entero de prueba",
+          "cantidad": "3.00"
+        },
+        {
+          "name": "Presas de pollo",
+          "cantidad": "-50.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "producto": "Agua Mineral 600ml",
+          "cantidad": "5.00"
+        },
+        {
+          "producto": "Pollo entero de prueba",
+          "cantidad": "3.00"
+        },
+        {
+          "producto": "Presas de pollo",
+          "cantidad": "-50.00"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 4.428,
+      "sql_execution_seconds": 2.376258,
+      "gold_execution_seconds": 2.384157,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 124,
+        "total_tokens": 3253
+      }
+    },
+    {
+      "id": "TEST-344",
+      "question": "¿Cuánto sumaron el debe y el haber de los asientos registrados en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+      "gold_rows": [
+        {
+          "total_debe": "5593.45",
+          "total_haber": "5573.45"
+        }
+      ],
+      "generated_rows": [
+        {
+          "total_debe": "5593.45",
+          "total_haber": "5573.45"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.998946,
+      "elapsed_seconds": 5.955,
+      "sql_execution_seconds": 2.371906,
+      "gold_execution_seconds": 2.366909,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 109,
+        "total_tokens": 3239
+      }
+    },
+    {
+      "id": "TEST-345",
+      "question": "¿Cuál fue el saldo neto por cuenta contable en octubre de 2026?",
+      "expected_sql": "SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code LIMIT 50",
+      "generated_sql": "SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.accounting_account AS aa JOIN public.journal_entry_detail AS jed ON aa.id = jed.account_id JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY codigo_cuenta LIMIT 50",
+      "gold_rows": [
+        {
+          "code": "1",
+          "name": "Activo",
+          "saldo": "20.00"
+        },
+        {
+          "code": "10",
+          "name": "Efectivo y equivalentes de efectivo",
+          "saldo": "-20.00"
+        },
+        {
+          "code": "1009001",
+          "name": "Cuenta de activo de prueba del mes 10",
+          "saldo": "200.00"
+        },
+        {
+          "code": "101",
+          "name": "Caja",
+          "saldo": "-852.69"
+        },
+        {
+          "code": "1011",
+          "name": "CajaPrincipal",
+          "saldo": "10.00"
+        },
+        {
+          "code": "104",
+          "name": "Bancos - Cuentas Corrientes",
+          "saldo": "39.90"
+        },
+        {
+          "code": "121",
+          "name": "Cuentas por Cobrar Comerciales - Terceros",
+          "saldo": "0.00"
+        },
+        {
+          "code": "167",
+          "name": "Tributos por Acreditar - IGV",
+          "saldo": "66.67"
+        },
+        {
+          "code": "201",
+          "name": "Mercaderías",
+          "saldo": "232.09"
+        },
+        {
+          "code": "201001",
+          "name": "Obligaciones de prueba",
+          "saldo": "-80.00"
+        },
+        {
+          "code": "211",
+          "name": "Productos Terminados",
+          "saldo": "-3.46"
+        },
+        {
+          "code": "241",
+          "name": "Materias Primas",
+          "saldo": "245.54"
+        },
+        {
+          "code": "401",
+          "name": "Tributos por Pagar - IGV",
+          "saldo": "-61.97"
+        },
+        {
+          "code": "401001",
+          "name": "Ventas de prueba",
+          "saldo": "-100.00"
+        },
+        {
+          "code": "40111",
+          "name": "IGV - Cuenta Fiscal",
+          "saldo": "43.45"
+        },
+        {
+          "code": "421",
+          "name": "Cuentas por Pagar Comerciales - Terceros",
+          "saldo": "287.00"
+        },
+        {
+          "code": "611",
+          "name": "Mercaderías - Variación de inventarios",
+          "saldo": "-611.87"
+        },
+        {
+          "code": "659",
+          "name": "Otros Gastos de Gestión",
+          "saldo": "300.00"
+        },
+        {
+          "code": "691",
+          "name": "Costo de Ventas de Mercaderías",
+          "saldo": "749.57"
+        },
+        {
+          "code": "701",
+          "name": "Ventas de Mercaderías",
+          "saldo": "-444.23"
+        }
+      ],
+      "generated_rows": [
+        {
+          "codigo_cuenta": "1",
+          "nombre_cuenta": "Activo",
+          "saldo_neto": "20.00"
+        },
+        {
+          "codigo_cuenta": "10",
+          "nombre_cuenta": "Efectivo y equivalentes de efectivo",
+          "saldo_neto": "-20.00"
+        },
+        {
+          "codigo_cuenta": "1009001",
+          "nombre_cuenta": "Cuenta de activo de prueba del mes 10",
+          "saldo_neto": "200.00"
+        },
+        {
+          "codigo_cuenta": "101",
+          "nombre_cuenta": "Caja",
+          "saldo_neto": "-852.69"
+        },
+        {
+          "codigo_cuenta": "1011",
+          "nombre_cuenta": "CajaPrincipal",
+          "saldo_neto": "10.00"
+        },
+        {
+          "codigo_cuenta": "104",
+          "nombre_cuenta": "Bancos - Cuentas Corrientes",
+          "saldo_neto": "39.90"
+        },
+        {
+          "codigo_cuenta": "121",
+          "nombre_cuenta": "Cuentas por Cobrar Comerciales - Terceros",
+          "saldo_neto": "0.00"
+        },
+        {
+          "codigo_cuenta": "167",
+          "nombre_cuenta": "Tributos por Acreditar - IGV",
+          "saldo_neto": "66.67"
+        },
+        {
+          "codigo_cuenta": "201",
+          "nombre_cuenta": "Mercaderías",
+          "saldo_neto": "232.09"
+        },
+        {
+          "codigo_cuenta": "201001",
+          "nombre_cuenta": "Obligaciones de prueba",
+          "saldo_neto": "-80.00"
+        },
+        {
+          "codigo_cuenta": "211",
+          "nombre_cuenta": "Productos Terminados",
+          "saldo_neto": "-3.46"
+        },
+        {
+          "codigo_cuenta": "241",
+          "nombre_cuenta": "Materias Primas",
+          "saldo_neto": "245.54"
+        },
+        {
+          "codigo_cuenta": "401",
+          "nombre_cuenta": "Tributos por Pagar - IGV",
+          "saldo_neto": "-61.97"
+        },
+        {
+          "codigo_cuenta": "401001",
+          "nombre_cuenta": "Ventas de prueba",
+          "saldo_neto": "-100.00"
+        },
+        {
+          "codigo_cuenta": "40111",
+          "nombre_cuenta": "IGV - Cuenta Fiscal",
+          "saldo_neto": "43.45"
+        },
+        {
+          "codigo_cuenta": "421",
+          "nombre_cuenta": "Cuentas por Pagar Comerciales - Terceros",
+          "saldo_neto": "287.00"
+        },
+        {
+          "codigo_cuenta": "611",
+          "nombre_cuenta": "Mercaderías - Variación de inventarios",
+          "saldo_neto": "-611.87"
+        },
+        {
+          "codigo_cuenta": "659",
+          "nombre_cuenta": "Otros Gastos de Gestión",
+          "saldo_neto": "300.00"
+        },
+        {
+          "codigo_cuenta": "691",
+          "nombre_cuenta": "Costo de Ventas de Mercaderías",
+          "saldo_neto": "749.57"
+        },
+        {
+          "codigo_cuenta": "701",
+          "nombre_cuenta": "Ventas de Mercaderías",
+          "saldo_neto": "-444.23"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.963312,
+      "elapsed_seconds": 3.728,
+      "sql_execution_seconds": 2.569245,
+      "gold_execution_seconds": 2.384182,
+      "token_usage": {
+        "prompt_tokens": 3127,
+        "completion_tokens": 155,
+        "total_tokens": 3282
+      }
+    },
+    {
+      "id": "TEST-346",
+      "question": "¿Cuántos asientos registrados hubo por diario en octubre de 2026?",
+      "expected_sql": "SELECT je.book, COUNT(*) AS total FROM journal_entry je WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.book ORDER BY total DESC LIMIT 50",
+      "generated_sql": "SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50",
+      "gold_rows": [
+        {
+          "book": "Caja y bancos",
+          "total": 33
+        },
+        {
+          "book": "Ventas",
+          "total": 27
+        },
+        {
+          "book": "Compras",
+          "total": 19
+        },
+        {
+          "book": "Operaciones varias",
+          "total": 2
+        },
+        {
+          "book": "Diario de prueba",
+          "total": 2
+        },
+        {
+          "book": "Verificacion",
+          "total": 1
+        }
+      ],
+      "generated_rows": [
+        {
+          "diario": "Ventas",
+          "total_asientos": "27"
+        },
+        {
+          "diario": "Compras",
+          "total_asientos": "19"
+        },
+        {
+          "diario": "Operaciones varias",
+          "total_asientos": "2"
+        },
+        {
+          "diario": "Diario de prueba",
+          "total_asientos": "2"
+        },
+        {
+          "diario": "Caja y bancos",
+          "total_asientos": "33"
+        },
+        {
+          "diario": "Verificacion",
+          "total_asientos": "1"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.888597,
+      "elapsed_seconds": 8.206,
+      "sql_execution_seconds": 3.027238,
+      "gold_execution_seconds": 2.390322,
+      "token_usage": {
+        "prompt_tokens": 3125,
+        "completion_tokens": 82,
+        "total_tokens": 3207
+      }
+    },
+    {
+      "id": "TEST-347",
+      "question": "¿Qué asientos registrados no cuadraron entre debe y haber en octubre de 2026?",
+      "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "generated_sql": "SELECT je.code AS code, je.entry_date AS entry_date, je.description AS description FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50",
+      "gold_rows": [
+        {
+          "id": 210,
+          "code": "BENCH26-10-02",
+          "entry_date": "2026-10-23",
+          "total_debe": "100.00",
+          "total_haber": "80.00"
+        }
+      ],
+      "generated_rows": [
+        {
+          "code": "BENCH26-10-02",
+          "entry_date": "2026-10-23",
+          "description": "Asiento descuadrado ficticio de prueba"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 6.999,
+      "sql_execution_seconds": 2.404101,
+      "gold_execution_seconds": 2.435448,
+      "token_usage": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 124,
+        "total_tokens": 3252
+      }
+    },
+    {
+      "id": "TEST-348",
+      "question": "¿Cuál fue el saldo neto del elemento contable 3 en octubre de 2026?",
+      "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '3%' AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '3%' AND je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+      "gold_rows": [
+        {
+          "saldo": "0"
+        }
+      ],
+      "generated_rows": [
+        {
+          "saldo": "0"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 0.977151,
+      "elapsed_seconds": 7.704,
+      "sql_execution_seconds": 2.489688,
+      "gold_execution_seconds": 2.377215,
+      "token_usage": {
+        "prompt_tokens": 3129,
+        "completion_tokens": 125,
+        "total_tokens": 3254
+      }
+    },
+    {
+      "id": "TEST-349",
+      "question": "¿Cuánto sumaron el debe y el haber por tipo de cuenta en octubre de 2026?",
+      "expected_sql": "SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY aa.type ORDER BY aa.type LIMIT 50",
+      "generated_sql": "SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50",
+      "gold_rows": [
+        {
+          "type": "Activo",
+          "total_debe": "3491.44",
+          "total_haber": "3553.39"
+        },
+        {
+          "type": "Costo",
+          "total_debe": "749.57",
+          "total_haber": "0.00"
+        },
+        {
+          "type": "Gasto",
+          "total_debe": "300.00",
+          "total_haber": "611.87"
+        },
+        {
+          "type": "Ingreso",
+          "total_debe": "0.00",
+          "total_haber": "544.23"
+        },
+        {
+          "type": "Pasivo",
+          "total_debe": "1052.44",
+          "total_haber": "863.96"
+        }
+      ],
+      "generated_rows": [
+        {
+          "tipo_cuenta": "Ingreso",
+          "total_debe": "0.00",
+          "total_haber": "544.23"
+        },
+        {
+          "tipo_cuenta": "Activo",
+          "total_debe": "3491.44",
+          "total_haber": "3553.39"
+        },
+        {
+          "tipo_cuenta": "Costo",
+          "total_debe": "749.57",
+          "total_haber": "0.00"
+        },
+        {
+          "tipo_cuenta": "Pasivo",
+          "total_debe": "1052.44",
+          "total_haber": "863.96"
+        },
+        {
+          "tipo_cuenta": "Gasto",
+          "total_debe": "300.00",
+          "total_haber": "611.87"
+        }
+      ],
+      "exact_match": false,
+      "execution_succeeded": true,
+      "execution_accuracy": true,
+      "ves": 1.0,
+      "elapsed_seconds": 4.227,
+      "sql_execution_seconds": 2.432465,
+      "gold_execution_seconds": 2.491003,
+      "token_usage": {
+        "prompt_tokens": 3130,
+        "completion_tokens": 142,
+        "total_tokens": 3272
+      }
+    },
+    {
+      "id": "TEST-350",
+      "question": "¿Cuántos periodos contables abiertos abarcan octubre de 2026?",
+      "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-11-01' AND ap.end_date >= DATE '2026-10-01' LIMIT 50",
+      "generated_sql": null,
+      "gold_rows": [
+        {
+          "total": 2
+        }
+      ],
+      "generated_rows": null,
+      "exact_match": false,
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 6.174,
+      "sql_execution_seconds": 2.493327,
+      "gold_execution_seconds": 2.374659,
+      "token_usage": {
+        "prompt_tokens": 3126,
+        "completion_tokens": 70,
+        "total_tokens": 3196
+      },
+      "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
     }
   ]
 }
