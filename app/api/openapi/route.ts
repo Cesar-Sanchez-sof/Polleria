@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import swaggerJSDoc from 'swagger-jsdoc';
+import type { OpenAPIV3 } from 'openapi-types';
 import { swaggerOptions } from './swaggerConfig';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -9,7 +10,7 @@ import path from 'path';
  * objects for any file that exports a HTTP handler (GET, POST, PUT, PATCH, DELETE).
  * Guarantees Swagger UI shows **all** endpoints even without JSDoc comments.
  */
-async function addDiscoveredPaths(spec: any) {
+async function addDiscoveredPaths(spec: OpenAPIV3.Document) {
   const apiRoot = path.resolve(process.cwd(), 'app', 'api');
 
   async function walk(dir: string) {
@@ -35,14 +36,15 @@ async function addDiscoveredPaths(spec: any) {
         if (/export\s+(?:const|async\s+function|function)\s+DELETE\b/.test(content)) methods.push('delete');
         if (methods.length === 0) continue;
         spec.paths = spec.paths ?? {};
-        spec.paths[urlPath] = spec.paths[urlPath] ?? {};
+        const pathItem = (spec.paths[urlPath] ?? {}) as Record<string, unknown>;
+        spec.paths[urlPath] = pathItem as OpenAPIV3.PathItemObject;
         const operationBase = urlPath
           .replace(/[^A-Za-z0-9]+(.)/g, (_, c: string) => c.toUpperCase())
           .replace(/[^A-Za-z0-9]/g, '');
         for (const m of methods) {
-          if (!spec.paths[urlPath][m]) {
-            spec.paths[urlPath][m] = {
-              summary: "Auto-generated endpoint",
+          if (!pathItem[m]) {
+            pathItem[m] = {
+              summary: 'Auto-generated endpoint',
               operationId: `${m}${operationBase}`,
               responses: { '200': { description: 'Successful response' } },
             };
@@ -55,9 +57,9 @@ async function addDiscoveredPaths(spec: any) {
   await walk(apiRoot);
 }
 
-import type { OpenAPIV3 } from 'openapi-types';
+let cachedSpecPromise: Promise<OpenAPIV3.Document> | null = null;
 
-export const GET = async () => {
+async function buildOpenApiSpec(): Promise<OpenAPIV3.Document> {
   const spec = swaggerJSDoc(swaggerOptions) as OpenAPIV3.Document;
   spec.components = spec.components ?? {};
   spec.components.schemas = {
@@ -82,5 +84,18 @@ export const GET = async () => {
     },
   };
   await addDiscoveredPaths(spec);
-  return NextResponse.json(spec);
+  return spec;
+}
+
+export const GET = async () => {
+  if (process.env.NODE_ENV !== 'production') {
+    return NextResponse.json(await buildOpenApiSpec());
+  }
+  if (!cachedSpecPromise) {
+    cachedSpecPromise = buildOpenApiSpec().catch((err) => {
+      cachedSpecPromise = null;
+      throw err;
+    });
+  }
+  return NextResponse.json(await cachedSpecPromise);
 };
