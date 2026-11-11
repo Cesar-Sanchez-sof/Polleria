@@ -4,6 +4,9 @@ import type { OpenAPIV3 } from 'openapi-types';
 import { swaggerOptions } from './swaggerConfig';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { enrichOperations, extractPermissions } from './enrich';
+
+const permissionsByOperation = new Map<string, string[]>();
 
 /**
  * Scan the app/api directory (excluding openapi) and add minimal OpenAPI path
@@ -41,6 +44,9 @@ async function addDiscoveredPaths(spec: OpenAPIV3.Document) {
         const operationBase = urlPath
           .replace(/[^A-Za-z0-9]+(.)/g, (_, c: string) => c.toUpperCase())
           .replace(/[^A-Za-z0-9]/g, '');
+        for (const [method, perms] of Object.entries(extractPermissions(content))) {
+          permissionsByOperation.set(method + ' ' + urlPath, perms);
+        }
         for (const m of methods) {
           if (!pathItem[m]) {
             pathItem[m] = {
@@ -83,7 +89,9 @@ async function buildOpenApiSpec(): Promise<OpenAPIV3.Document> {
       required: ['startDate', 'endDate'],
     },
   };
+  permissionsByOperation.clear();
   await addDiscoveredPaths(spec);
+  enrichOperations(spec, permissionsByOperation);
   return spec;
 }
 

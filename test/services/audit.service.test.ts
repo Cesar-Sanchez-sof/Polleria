@@ -40,6 +40,19 @@ describe("registrarAuditoria", () => {
     });
   });
 
+  it("guarda la hora como instante UTC explícito (no la del default de la BD en Lima)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-11T15:30:00.000Z")); // 10:30 en Lima
+    try {
+      await logAudit({ actor: null, action: "LOGIN", module: "Seguridad", entity: "Sesión", description: "x" });
+    } finally {
+      vi.useRealTimers();
+    }
+    const { createdAt } = m.create.mock.calls[0][0].data;
+    expect(createdAt).toEqual(new Date("2026-11-11T15:30:00.000Z"));
+    expect(createdAt.toLocaleTimeString("es-PE", { timeZone: "America/Lima", hour12: false })).toBe("10:30:00");
+  });
+
   it("usa 'sistema' sin actor y no lanza si la BD falla", async () => {
     m.create.mockRejectedValueOnce(new Error("db caída"));
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -65,9 +78,17 @@ describe("construirFiltro", () => {
   it("incluye el día 'hasta' completo", () => {
     const w = buildFilter({ from: "2026-10-01", to: "2026-10-02" });
     expect(w.createdAt).toEqual({
-      gte: new Date("2026-10-01T00:00:00.000Z"),
-      lt: new Date("2026-10-03T00:00:00.000Z"),
+      gte: new Date("2026-10-01T05:00:00.000Z"),
+      lt: new Date("2026-10-03T05:00:00.000Z"),
     });
+  });
+
+  it("los días del filtro son días de Lima: 'hasta' 11-nov incluye las 23:30 de Lima", () => {
+    const w = buildFilter({ from: "2026-11-11", to: "2026-11-11" });
+    const range = w.createdAt as { gte: Date; lt: Date };
+    const lateNightLima = new Date("2026-11-12T04:30:00.000Z"); // 23:30 del 11-nov en Lima
+    expect(lateNightLima >= range.gte && lateNightLima < range.lt).toBe(true);
+    expect(new Date("2026-11-12T05:00:00.000Z") < range.lt).toBe(false);
   });
 
   it("ignora acciones inválidas y filtra por usuario y módulo", () => {

@@ -35,6 +35,7 @@ export const API_CATALOG = [
   // --- SALES (Ventas, Pedidos, Caja, Clientes, Pagos, Realtime) ---
   { route: "/api/cash-sessions", domain: "sales", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/cash-sessions" },
   { route: "/api/cash-sessions/[id]/close", domain: "sales", methods: ["POST"], safety: "write" },
+  { route: "/api/cash-sessions/drawer", domain: "sales", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/cash-sessions/drawer" },
   { route: "/api/cash-sessions/movements", domain: "sales", methods: ["GET", "POST"], safety: "read", samplePath: ({ ids }) => `/api/cash-sessions/movements?sessionId=${ids.cashSession ?? 1}` },
   { route: "/api/customers", domain: "sales", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/customers" },
   { route: "/api/orders", domain: "sales", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/orders" },
@@ -63,6 +64,7 @@ export const API_CATALOG = [
   { route: "/api/attendance/marks", domain: "hr", methods: ["GET"], safety: "read", samplePath: ({ today }) => `/api/attendance/marks?date=${today}` },
   { route: "/api/contracts", domain: "hr", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/contracts" },
   { route: "/api/contracts/[id]", domain: "hr", methods: ["GET", "POST", "PUT"], safety: "read", samplePath: ({ ids }) => `/api/contracts/${ids.contract ?? 1}` },
+  { route: "/api/contracts/[id]/settlement", domain: "hr", methods: ["GET", "POST"], safety: "read", samplePath: ({ ids }) => `/api/contracts/${ids.contract ?? 1}/settlement` },
   { route: "/api/contracts/alerts", domain: "hr", methods: ["GET"], safety: "read", samplePath: () => "/api/contracts/alerts" },
   { route: "/api/employees", domain: "hr", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/employees" },
   { route: "/api/employees/[id]", domain: "hr", methods: ["GET", "PUT"], safety: "read", samplePath: ({ ids }) => `/api/employees/${ids.employee ?? 1}` },
@@ -78,6 +80,7 @@ export const API_CATALOG = [
   { route: "/api/me/payslips", domain: "hr", methods: ["GET"], safety: "read", samplePath: () => "/api/me/payslips" },
   { route: "/api/payroll", domain: "hr", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/payroll" },
   { route: "/api/payroll/[id]", domain: "hr", methods: ["GET", "PATCH"], safety: "read", samplePath: ({ ids }) => `/api/payroll/${ids.payroll ?? 1}` },
+  { route: "/api/payroll/social-benefits", domain: "hr", methods: ["GET"], safety: "read", samplePath: ({ year }) => `/api/payroll/social-benefits?type=cts&year=${year}&half=2` },
   { route: "/api/payroll/lines/[id]", domain: "hr", methods: ["PUT"], safety: "write" },
   { route: "/api/schedules", domain: "hr", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/schedules" },
   { route: "/api/schedules/[id]", domain: "hr", methods: ["GET", "PUT", "DELETE"], safety: "read", samplePath: ({ ids }) => `/api/schedules/${ids.schedule ?? 1}` },

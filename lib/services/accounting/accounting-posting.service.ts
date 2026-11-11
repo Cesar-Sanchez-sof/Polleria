@@ -137,6 +137,9 @@ async function resolveAccountIds(tx: Tx, codes: string[]): Promise<Map<string, n
         code === "407" ? "Administradoras de Fondos de Pensiones por Pagar" :
         code === "411" ? "Remuneraciones por Pagar" :
         code === "621" ? "Gastos de Personal" :
+        code === "6214" ? "Gratificaciones y Bonificación Extraordinaria" :
+        code === "6215" ? "Vacaciones" :
+        code === "6251" ? "Compensación por Tiempo de Servicios (CTS)" :
         `Cuenta ${code}`;
       const defaultType =
         code.startsWith("1") || code.startsWith("2") ? "Activo" :
@@ -1319,6 +1322,10 @@ export const PAYROLL_ACCOUNTS = {
   salariesPayable: "411", // Remuneraciones por pagar
   insurersPayable: "461", // Primas por pagar a aseguradoras
   advances: "141", // Adelantos de remuneraciones al personal
+  gratifications: "6214", // Gratificaciones (Ley 27735) y bonificación extraordinaria 9 %
+  vacations: "6215", // Vacaciones (gozadas, truncas y no gozadas)
+  cts: "6251", // Compensación por tiempo de servicios
+  severance: "659", // Indemnización por despido arbitrario (Otros gastos de gestión)
 } as const;
 
 export interface JournalLineInput {
