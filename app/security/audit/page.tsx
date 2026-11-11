@@ -92,8 +92,8 @@ export default function AuditPage() {
   }
 
   const columns: DataTableColumn<AuditRow>[] = [
-    { key: "date", header: "Fecha", width: "w-28", cell: (r) => new Date(r.date).toLocaleDateString("es-PE") },
-    { key: "time", header: "Hora", width: "w-28", cell: (r) => new Date(r.date).toLocaleTimeString("es-PE") },
+    { key: "date", header: "Fecha", width: "w-28", cell: (r) => new Date(r.date).toLocaleDateString("es-PE", { timeZone: "America/Lima" }) },
+    { key: "time", header: "Hora", width: "w-28", cell: (r) => new Date(r.date).toLocaleTimeString("es-PE", { timeZone: "America/Lima" }) },
     { key: "user", header: "Usuario", cell: (r) => r.user },
     {
       key: "action",

@@ -98,6 +98,9 @@ export async function logAudit(data: AuditData, db: Db = prisma): Promise<void> 
   try {
     await db.auditLog.create({
       data: {
+        // Instante explícito (UTC): la columna es `timestamp` sin zona y el default `now()` de la BD
+        // usa la zona de la sesión (America/Lima), lo que guardaría la hora local como si fuera UTC.
+        createdAt: new Date(),
         userId: data.actor?.userId ?? null,
         username: (data.actor?.username || "sistema").slice(0, 50),
         action: data.action,
@@ -120,8 +123,9 @@ export function requestIp(request: Request): string | null {
   return resent || request.headers.get("x-real-ip");
 }
 
+/** Inicio del día `YYYY-MM-DD` en hora de Lima (UTC-5), como instante UTC para comparar con `createdAt`. */
 function startDate(value: string): Date | null {
-  const d = new Date(`${value}T00:00:00.000Z`);
+  const d = new Date(`${value}T00:00:00-05:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
