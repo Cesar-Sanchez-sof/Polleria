@@ -101,59 +101,149 @@ export const widgetSortSchema = z.object({
 export type WidgetSort = z.infer<typeof widgetSortSchema>;
 
 /**
+ * Presets de rango de fecha relativa calculados en America/Lima
+ */
+export const datePresetSchema = z.enum([
+  "today",
+  "yesterday",
+  "last7",
+  "last30",
+  "thisMonth",
+  "lastMonth",
+  "thisYear",
+  "custom",
+]);
+
+export type DatePreset = z.infer<typeof datePresetSchema>;
+
+export const widgetDateRangeSchema = z.object({
+  field: z.string(),
+  preset: datePresetSchema,
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export type WidgetDateRange = z.infer<typeof widgetDateRangeSchema>;
+
+/**
  * Capa de Datos del Widget (independiente de la visualización)
  */
 export const widgetDataConfigSchema = z.object({
   dataset: z.string(),
   axis: z.string().optional(), // Eje X (Dimensión)
+  category: z.string().optional(), // Alias para Categoría en gráficos circulares/donas
   legend: z.string().optional(), // Leyenda / Desglose
   values: z.array(widgetValueFieldSchema),
-  filters: z.array(filterRuleSchema).optional().default([]),
+  filters: z.array(filterRuleSchema).optional(),
+  dateRange: widgetDateRangeSchema.optional(),
   sort: widgetSortSchema.optional(),
   granularity: dateGranularitySchema.optional(),
-  limit: z.number().int().positive().optional().default(200),
+  limit: z.number().int().positive().optional(),
 });
 
-export type WidgetDataConfig = z.input<typeof widgetDataConfigSchema>;
-export type WidgetDataConfigOutput = z.output<typeof widgetDataConfigSchema>;
+export type WidgetDataConfig = z.infer<typeof widgetDataConfigSchema>;
+export type WidgetDataConfigOutput = z.infer<typeof widgetDataConfigSchema>;
+
+
+export const DEFAULT_PALETTES: Record<string, string[]> = {
+  modern: ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"],
+  warm: ["#dc2626", "#ea580c", "#d97706", "#ca8a04", "#65a30d", "#059669"],
+  cool: ["#0284c7", "#2563eb", "#4f46e5", "#7c3aed", "#9333ea", "#c026d3"],
+  polleria: ["#b91c1c", "#f97316", "#eab308", "#15803d", "#0369a1", "#6d28d9"],
+};
 
 /**
  * Formato y Estilos visuales del Widget
  */
 export const widgetFormatConfigSchema = z.object({
-  title: z.object({
-    show: z.boolean(),
-    text: z.string(),
-    fontSize: z.number(),
-    color: z.string(),
-    align: z.enum(["left", "center", "right"]).or(z.string()),
-  }),
-  colors: z.object({
-    palette: z.string(),
-    series: z.array(z.string()),
-  }),
-  dataLabels: z.object({
-    show: z.boolean(),
-    color: z.string(),
-    fontSize: z.number(),
-  }),
-  legend: z.object({
-    show: z.boolean(),
-    position: z.enum(["top", "bottom", "left", "right"]),
-  }),
-  axes: z.object({
-    xTitle: z.string().optional(),
-    yTitle: z.string().optional(),
-    showGrid: z.boolean(),
-  }),
-  background: z.object({
-    color: z.string(),
-  }),
-  border: z.object({
-    show: z.boolean(),
-    color: z.string(),
-    radius: z.number(),
-  }),
+  title: z
+    .object({
+      show: z.boolean().default(true),
+      text: z.string().default("Visual"),
+      fontSize: z.number().default(14),
+      color: z.string().default("#1e293b"),
+      align: z.enum(["left", "center", "right"]).or(z.string()).default("left"),
+    })
+    .default({
+      show: true,
+      text: "Visual",
+      fontSize: 14,
+      color: "#1e293b",
+      align: "left",
+    }),
+  colors: z
+    .object({
+      palette: z.string().default("polleria"),
+      series: z.array(z.string()).default(DEFAULT_PALETTES.polleria),
+      custom: z.array(z.string()).optional(),
+    })
+    .default({
+      palette: "polleria",
+      series: DEFAULT_PALETTES.polleria,
+    }),
+  dataLabels: z
+    .object({
+      show: z.boolean().default(false),
+      color: z.string().default("#64748b"),
+      fontSize: z.number().default(11),
+      position: z.string().optional(),
+    })
+    .default({
+      show: false,
+      color: "#64748b",
+      fontSize: 11,
+    }),
+  legend: z
+    .object({
+      show: z.boolean().default(true),
+      position: z.enum(["top", "bottom", "left", "right"]).default("top"),
+    })
+    .default({
+      show: true,
+      position: "top",
+    }),
+  axes: z
+    .object({
+      xTitle: z.string().optional().default(""),
+      yTitle: z.string().optional().default(""),
+      showGrid: z.boolean().default(true),
+    })
+    .default({
+      xTitle: "",
+      yTitle: "",
+      showGrid: true,
+    }),
+  background: z
+    .object({
+      color: z.string().default("#ffffff"),
+    })
+    .default({
+      color: "#ffffff",
+    }),
+  border: z
+    .object({
+      show: z.boolean().default(false),
+      color: z.string().default("#e2e8f0"),
+      radius: z.number().default(12),
+      width: z.number().default(1),
+    })
+    .default({
+      show: false,
+      color: "#e2e8f0",
+      radius: 12,
+      width: 1,
+    }),
+  numberFormat: z
+    .object({
+      decimals: z.number().int().min(0).max(4).default(2),
+      prefix: z.string().default("S/ "),
+      compact: z.boolean().default(false),
+    })
+    .default({
+      decimals: 2,
+      prefix: "S/ ",
+      compact: false,
+    }),
 });
 
 export type WidgetFormatConfig = z.infer<typeof widgetFormatConfigSchema>;
@@ -169,15 +259,6 @@ export const widgetConfigSchema = z.object({
 
 export type WidgetConfig = z.infer<typeof widgetConfigSchema>;
 
-/**
- * Paletas por defecto
- */
-export const DEFAULT_PALETTES: Record<string, string[]> = {
-  modern: ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"],
-  warm: ["#dc2626", "#ea580c", "#d97706", "#ca8a04", "#65a30d", "#059669"],
-  cool: ["#0284c7", "#2563eb", "#4f46e5", "#7c3aed", "#9333ea", "#c026d3"],
-  polleria: ["#b91c1c", "#f97316", "#eab308", "#15803d", "#0369a1", "#6d28d9"],
-};
 
 /**
  * Constructor de configuración por defecto para un nuevo widget
@@ -231,6 +312,12 @@ export function createDefaultWidgetConfig(
         show: true,
         color: "#e2e8f0",
         radius: 12,
+        width: 1,
+      },
+      numberFormat: {
+        decimals: 2,
+        prefix: "S/ ",
+        compact: false,
       },
     },
   };

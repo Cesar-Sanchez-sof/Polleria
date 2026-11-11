@@ -4,8 +4,28 @@ import type {
   VisualType,
   WidgetDataConfig,
   WidgetFormatConfig,
+  MeasureAggregation,
+  WidgetDateRange,
+  WidgetSort,
+  DateGranularity,
 } from "@/lib/dashboards/widget-schema";
-import { createDefaultWidgetConfig } from "@/lib/dashboards/widget-schema";
+import {
+  adaptLegacyWidget,
+  createUnconfiguredWidgetConfig,
+} from "@/lib/dashboards/legacy-adapter";
+import { migrateWidgetConfigOnVisualTypeChange } from "@/lib/dashboards/compatibility";
+
+export interface RawWidgetInput {
+  id?: string;
+  title?: string;
+  type?: string;
+  metricKey?: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  config?: unknown;
+}
 
 export interface CanvasWidget {
   id: string;
@@ -28,7 +48,7 @@ export interface DashboardEditorState {
   isDirty: boolean;
 
   // Acciones de Gestión de Widgets
-  setWidgets: (widgets: CanvasWidget[]) => void;
+  setWidgets: (widgets: RawWidgetInput[]) => void;
   addWidget: (widgetPartial?: Partial<CanvasWidget>) => string;
   removeWidget: (widgetId: string) => void;
   selectWidget: (widgetId: string | null) => void;
@@ -44,6 +64,36 @@ export interface DashboardEditorState {
   updateWidgetFormat: (widgetId: string, partialFormat: Partial<WidgetFormatConfig>) => void;
   updateWidgetTitle: (widgetId: string, title: string) => void;
 
+  // Acciones granulares de Pozos y Dataset (UI B1)
+  changeWidgetDataset: (
+    widgetId: string,
+    dataset: string,
+    options?: { defaultDateField?: string; isTransactional?: boolean }
+  ) => void;
+  assignFieldToWell: (
+    widgetId: string,
+    well: "axis" | "legend" | "values",
+    fieldId: string,
+    agg?: MeasureAggregation
+  ) => void;
+  removeFieldFromWell: (
+    widgetId: string,
+    well: "axis" | "legend" | "values",
+    indexOrField?: number | string
+  ) => void;
+  updateMeasureAggregation: (
+    widgetId: string,
+    index: number,
+    agg: MeasureAggregation
+  ) => void;
+  updateWidgetDateRange: (
+    widgetId: string,
+    dateRange?: WidgetDateRange
+  ) => void;
+  updateWidgetSort: (widgetId: string, sort?: WidgetSort) => void;
+  updateWidgetLimit: (widgetId: string, limit?: number) => void;
+  updateWidgetGranularity: (widgetId: string, granularity?: DateGranularity) => void;
+
   // Selector / Helper
   getSelectedWidget: () => CanvasWidget | null;
   resetStore: () => void;
@@ -54,30 +104,47 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
   selectedWidgetId: null,
   isDirty: false,
 
-  setWidgets: (widgets) => {
+  setWidgets: (rawWidgets) => {
+    const adaptedWidgets: CanvasWidget[] = (rawWidgets || []).map((w) => {
+      const config = adaptLegacyWidget(w);
+      return {
+        id: w.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title: w.title || config.format.title.text,
+        type: config.visualType,
+        metricKey: config.data.dataset || w.metricKey || "",
+        x: w.x ?? 0,
+        y: w.y ?? 0,
+        w: w.w ?? 4,
+        h: w.h ?? 2,
+        config,
+      };
+    });
+
     set({
-      widgets,
-      selectedWidgetId: widgets.length > 0 ? widgets[0].id : null,
+      widgets: adaptedWidgets,
+      selectedWidgetId: adaptedWidgets.length > 0 ? adaptedWidgets[0].id : null,
       isDirty: false,
     });
   },
 
   addWidget: (widgetPartial) => {
     const id = widgetPartial?.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const visualType: VisualType = widgetPartial?.config?.visualType || "column";
-    const dataset = widgetPartial?.config?.data?.dataset || "ventas";
-    const defaultConfig = createDefaultWidgetConfig(visualType, widgetPartial?.title || "Nuevo Visual", dataset);
+    const title = widgetPartial?.title || "Visual sin configurar";
+    const config = widgetPartial?.config || createUnconfiguredWidgetConfig(title);
+
+    const currentWidgets = get().widgets;
+    const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 4)), 0);
 
     const newWidget: CanvasWidget = {
       id,
-      title: widgetPartial?.title || defaultConfig.format.title.text,
-      type: visualType,
-      metricKey: dataset,
+      title: widgetPartial?.title || config.format.title.text,
+      type: config.visualType,
+      metricKey: config.data.dataset || "",
       x: widgetPartial?.x ?? 0,
-      y: widgetPartial?.y ?? 0,
+      y: widgetPartial?.y ?? maxY,
       w: widgetPartial?.w ?? 6,
       h: widgetPartial?.h ?? 4,
-      config: widgetPartial?.config ? { ...defaultConfig, ...widgetPartial.config } : defaultConfig,
+      config,
     };
 
     set((state) => ({
@@ -148,13 +215,11 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
     set((state) => ({
       widgets: state.widgets.map((w) => {
         if (w.id !== widgetId) return w;
+        const migratedConfig = migrateWidgetConfigOnVisualTypeChange(w.config, visualType);
         return {
           ...w,
           type: visualType,
-          config: {
-            ...w.config,
-            visualType,
-          },
+          config: migratedConfig,
         };
       }),
       isDirty: true,
@@ -217,6 +282,262 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
                 ...w.config.format.title,
                 text: title,
               },
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  changeWidgetDataset: (widgetId, dataset, options) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        const isTransactional = Boolean(options?.isTransactional);
+        const defaultDateField = options?.defaultDateField;
+
+        return {
+          ...w,
+          metricKey: dataset,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              dataset,
+              axis: undefined,
+              legend: undefined,
+              granularity: undefined,
+              values: [],
+              filters: [],
+              dateRange:
+                isTransactional && defaultDateField
+                  ? { field: defaultDateField, preset: "thisMonth" }
+                  : undefined,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  assignFieldToWell: (widgetId, well, fieldId, agg = "sum") => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        const visualType = w.config.visualType;
+        const currentData = w.config.data;
+
+        if (well === "axis") {
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                axis: fieldId,
+              },
+            },
+          };
+        }
+
+        if (well === "legend") {
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                legend: fieldId,
+              },
+            },
+          };
+        }
+
+        if (well === "values") {
+          const singleValueTypes: VisualType[] = ["card", "pie", "donut"];
+          let nextValues = [...currentData.values];
+
+          if (singleValueTypes.includes(visualType)) {
+            nextValues = [{ field: fieldId, agg }];
+          } else {
+            // Si ya existe la medida exacta, no duplicar; sino agregar
+            const exists = nextValues.some((v) => v.field === fieldId);
+            if (!exists) {
+              nextValues.push({ field: fieldId, agg });
+            }
+          }
+
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                values: nextValues,
+              },
+            },
+          };
+        }
+
+        return w;
+      }),
+      isDirty: true,
+    }));
+  },
+
+  removeFieldFromWell: (widgetId, well, indexOrField) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        const currentData = w.config.data;
+
+        if (well === "axis") {
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                axis: undefined,
+                granularity: undefined,
+              },
+            },
+          };
+        }
+
+        if (well === "legend") {
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                legend: undefined,
+              },
+            },
+          };
+        }
+
+        if (well === "values") {
+          let nextValues = [...currentData.values];
+          if (typeof indexOrField === "number") {
+            nextValues = nextValues.filter((_, idx) => idx !== indexOrField);
+          } else if (typeof indexOrField === "string") {
+            nextValues = nextValues.filter((v) => v.field !== indexOrField);
+          } else {
+            nextValues = [];
+          }
+
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                values: nextValues,
+              },
+            },
+          };
+        }
+
+        return w;
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateMeasureAggregation: (widgetId, index, agg) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        const nextValues = w.config.data.values.map((v, idx) =>
+          idx === index ? { ...v, agg } : v
+        );
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              values: nextValues,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateWidgetDateRange: (widgetId, dateRange) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              dateRange,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateWidgetSort: (widgetId, sort) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              sort,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateWidgetLimit: (widgetId, limit) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              limit,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateWidgetGranularity: (widgetId, granularity) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              granularity,
             },
           },
         };
