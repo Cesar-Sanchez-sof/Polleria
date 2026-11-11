@@ -65,13 +65,15 @@ export function adaptLegacyWidget(
   const todayRange = getLimaTodayRange(refDate);
   const monthRange = getLimaCurrentMonthRange(refDate);
 
-  // 1. Ventas Totales del Día -> card, ventas, total sum, dateRange thisMonth en 'fecha'
+  // 1. Ventas -> card, ventas, total sum, dateRange thisMonth en 'fecha'
   if (
     metricKey === "sales_total" ||
     (metricKey === "ventas" && (!widget.type || widget.type === "card")) ||
     /ventas\s+totales/i.test(title)
   ) {
-    const base = createDefaultWidgetConfig("card", title || "Ventas Totales del Día", "ventas");
+    const isCustomTitle = title && !/ventas\s+totales(\s+del\s+d[ií]a)?/i.test(title);
+    const finalTitle = isCustomTitle ? title : "Ventas del mes";
+    const base = createDefaultWidgetConfig("card", finalTitle, "ventas");
     const result: WidgetConfig = {
       ...base,
       visualType: "card",
@@ -83,7 +85,7 @@ export function adaptLegacyWidget(
       },
       format: {
         ...base.format,
-        title: { ...base.format.title, text: title || "Ventas Totales del Día" },
+        title: { ...base.format.title, text: finalTitle },
         axes: { ...base.format.axes, yTitle: "Soles (S/)" },
       },
     };
@@ -100,7 +102,9 @@ export function adaptLegacyWidget(
     (metricKey === "pedidos" && /pedidos/i.test(title)) ||
     /pedidos\s+realizados/i.test(title)
   ) {
-    const base = createDefaultWidgetConfig("card", title || "Pedidos Realizados", "pedidos");
+    const isCustomTitle = title && !/pedidos\s+realizados/i.test(title);
+    const finalTitle = isCustomTitle ? title : "Pedidos del mes";
+    const base = createDefaultWidgetConfig("card", finalTitle, "pedidos");
     const result: WidgetConfig = {
       ...base,
       visualType: "card",
@@ -112,7 +116,7 @@ export function adaptLegacyWidget(
       },
       format: {
         ...base.format,
-        title: { ...base.format.title, text: title || "Pedidos Realizados" },
+        title: { ...base.format.title, text: finalTitle },
         axes: { ...base.format.axes, yTitle: "Nº Comandas" },
       },
     };
@@ -129,7 +133,9 @@ export function adaptLegacyWidget(
     (metricKey === "pedidos" && /ticket/i.test(title)) ||
     /ticket\s+promedio/i.test(title)
   ) {
-    const base = createDefaultWidgetConfig("card", title || "Ticket Promedio", "pedidos");
+    const isCustomTitle = title && !/ticket\s+promedio/i.test(title);
+    const finalTitle = isCustomTitle ? title : "Ticket promedio del mes";
+    const base = createDefaultWidgetConfig("card", finalTitle, "pedidos");
     const result: WidgetConfig = {
       ...base,
       visualType: "card",
@@ -141,7 +147,7 @@ export function adaptLegacyWidget(
       },
       format: {
         ...base.format,
-        title: { ...base.format.title, text: title || "Ticket Promedio" },
+        title: { ...base.format.title, text: finalTitle },
         axes: { ...base.format.axes, yTitle: "Soles (S/)" },
       },
     };

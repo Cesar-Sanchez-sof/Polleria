@@ -83,7 +83,7 @@ describe("UI: Validación al soltar un campo según el registro (wells.accepts y
   });
 
   describe("2. Validación de 'max' (límite máximo de campos en el pozo)", () => {
-    it("pozo con max: 1 acepta el primer campo (count 0) y rechaza el segundo (count >= 1)", () => {
+    it("pozo con max: 1 permite soltar otro campo del mismo tipo para REEMPLAZARLO", () => {
       const wellSingleAxis: VisualWellDefinition = {
         role: "axis",
         label: "Eje",
@@ -96,10 +96,30 @@ describe("UI: Validación al soltar un campo según el registro (wells.accepts y
       const res1 = validateFieldForWell(wellSingleAxis, dimTexto, 0);
       expect(res1.valid).toBe(true);
 
-      // Segundo campo: count = 1 -> Inválido por max: 1
+      // Segundo campo: count = 1 -> Válido porque max: 1 reemplaza al existente
       const res2 = validateFieldForWell(wellSingleAxis, dimFecha, 1);
-      expect(res2.valid).toBe(false);
-      expect(res2.error).toContain("solo admite un máximo de 1 campo(s)");
+      expect(res2.valid).toBe(true);
+
+      // Pero rechaza si el tipo es incompatible (medida en pozo de dimensión)
+      const res3 = validateFieldForWell(wellSingleAxis, medidaTotal, 1);
+      expect(res3.valid).toBe(false);
+      expect(res3.error).toContain("solo acepta dimensiones");
+    });
+
+    it("pozo con max > 1 (ej: max: 2) rechaza al superar el límite", () => {
+      const wellMax2: VisualWellDefinition = {
+        role: "values",
+        label: "Valores",
+        accepts: "measure",
+        min: 1,
+        max: 2,
+      };
+
+      expect(validateFieldForWell(wellMax2, medidaTotal, 0).valid).toBe(true);
+      expect(validateFieldForWell(wellMax2, medidaCantidad, 1).valid).toBe(true);
+      const res = validateFieldForWell(wellMax2, medidaTotal, 2);
+      expect(res.valid).toBe(false);
+      expect(res.error).toContain("solo admite un máximo de 2 campo(s)");
     });
 
     it("pozo sin max (unlimited) permite agregar 1, 2, 3 o más medidas", () => {
@@ -118,7 +138,7 @@ describe("UI: Validación al soltar un campo según el registro (wells.accepts y
   });
 
   describe("3. Validación aplicada a los tipos del VISUAL_REGISTRY", () => {
-    it("pie: values tiene max: 1 y rechaza una segunda medida", () => {
+    it("pie: values tiene max: 1 y permite reemplazar la medida existente", () => {
       const pieEntry = getVisualRegistryEntry("pie");
       const pieValuesWell = pieEntry.wells.find((w) => w.role === "values")!;
       expect(pieValuesWell.max).toBe(1);
@@ -126,36 +146,40 @@ describe("UI: Validación al soltar un campo según el registro (wells.accepts y
       // 1er campo permitido
       expect(validateFieldForWell(pieValuesWell, medidaTotal, 0).valid).toBe(true);
 
-      // 2do campo rechazado
+      // 2do campo también permitido (reemplazo al soltar)
       const res = validateFieldForWell(pieValuesWell, medidaCantidad, 1);
-      expect(res.valid).toBe(false);
-      expect(res.error).toContain("solo admite un máximo de 1 campo(s)");
+      expect(res.valid).toBe(true);
+
+      // Pero rechaza dimensión
+      expect(validateFieldForWell(pieValuesWell, dimTexto, 1).valid).toBe(false);
     });
 
-    it("donut: values tiene max: 1 y rechaza una segunda medida", () => {
+    it("donut: values tiene max: 1 y permite reemplazo por otra medida", () => {
       const donutEntry = getVisualRegistryEntry("donut");
       const donutValuesWell = donutEntry.wells.find((w) => w.role === "values")!;
       expect(donutValuesWell.max).toBe(1);
 
-      expect(validateFieldForWell(donutValuesWell, medidaTotal, 1).valid).toBe(false);
+      expect(validateFieldForWell(donutValuesWell, medidaTotal, 1).valid).toBe(true);
+      expect(validateFieldForWell(donutValuesWell, dimTexto, 0).valid).toBe(false);
     });
 
-    it("card y gauge: values tiene max: 1 y rechaza dimensiones o medidas extras", () => {
+    it("card y gauge: values tiene max: 1 y permite reemplazo, pero rechaza dimensiones", () => {
       const cardEntry = getVisualRegistryEntry("card");
       const cardValuesWell = cardEntry.wells.find((w) => w.role === "values")!;
       expect(cardValuesWell.max).toBe(1);
 
       // Rechaza dimensión
       expect(validateFieldForWell(cardValuesWell, dimTexto, 0).valid).toBe(false);
-      // Acepta 1 medida
+      // Acepta 1 medida inicial
       expect(validateFieldForWell(cardValuesWell, medidaTotal, 0).valid).toBe(true);
-      // Rechaza 2da medida
-      expect(validateFieldForWell(cardValuesWell, medidaCantidad, 1).valid).toBe(false);
+      // Permite reemplazo al soltar otra medida
+      expect(validateFieldForWell(cardValuesWell, medidaCantidad, 1).valid).toBe(true);
 
       const gaugeEntry = getVisualRegistryEntry("gauge");
       const gaugeValuesWell = gaugeEntry.wells.find((w) => w.role === "values")!;
       expect(gaugeValuesWell.max).toBe(1);
-      expect(validateFieldForWell(gaugeValuesWell, medidaCantidad, 1).valid).toBe(false);
+      expect(validateFieldForWell(gaugeValuesWell, medidaCantidad, 1).valid).toBe(true);
+      expect(validateFieldForWell(gaugeValuesWell, dimFecha, 0).valid).toBe(false);
     });
 
     it("column y bar: values no tiene max y permite múltiples medidas", () => {

@@ -20,7 +20,7 @@ export interface LimaDateParts {
 /**
  * Formatea una fecha UTC base a string 'YYYY-MM-DD'.
  */
-function formatUtcYmd(d: Date): string {
+export function formatUtcYmd(d: Date): string {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
@@ -141,6 +141,97 @@ export function resolveDateRange(
     }
     default: {
       return [todayStr, todayStr];
+    }
+  }
+}
+
+/**
+ * Resuelve el período inmediatamente anterior según el preset analítico
+ * en zona horaria America/Lima (UTC-5):
+ * - today / yesterday / last7 / last30: conservan exactamente el mismo largo en días.
+ * - thisMonth: compara "mes hasta hoy" vs "mismo tramo de días del mes anterior" (clamp al largo del mes).
+ * - lastMonth: el mes anterior al mes pasado completo.
+ * - thisYear: año hasta hoy vs mismo tramo del año previo.
+ */
+export function resolvePreviousRange(
+  dateRange: WidgetDateRange,
+  refDate: Date = new Date()
+): [string, string] {
+  const parts = getLimaDateParts(refDate);
+  const todayUtc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  const todayStr = formatUtcYmd(todayUtc);
+
+  switch (dateRange.preset) {
+    case "today": {
+      const yesterdayUtc = new Date(todayUtc.getTime() - 86400000);
+      const yStr = formatUtcYmd(yesterdayUtc);
+      return [yStr, yStr];
+    }
+    case "yesterday": {
+      const dayBeforeYesterdayUtc = new Date(todayUtc.getTime() - 2 * 86400000);
+      const dyStr = formatUtcYmd(dayBeforeYesterdayUtc);
+      return [dyStr, dyStr];
+    }
+    case "last7": {
+      const prevEndUtc = new Date(todayUtc.getTime() - 7 * 86400000);
+      const prevStartUtc = new Date(todayUtc.getTime() - 13 * 86400000);
+      return [formatUtcYmd(prevStartUtc), formatUtcYmd(prevEndUtc)];
+    }
+    case "last30": {
+      const prevEndUtc = new Date(todayUtc.getTime() - 30 * 86400000);
+      const prevStartUtc = new Date(todayUtc.getTime() - 59 * 86400000);
+      return [formatUtcYmd(prevStartUtc), formatUtcYmd(prevEndUtc)];
+    }
+    case "thisMonth": {
+      let prevYear = parts.year;
+      let prevMonth = parts.month - 1;
+      if (prevMonth === 0) {
+        prevMonth = 12;
+        prevYear -= 1;
+      }
+      const lastDayOfPrevMonth = new Date(Date.UTC(prevYear, prevMonth, 0)).getUTCDate();
+      const clampedDay = Math.min(parts.day, lastDayOfPrevMonth);
+
+      const yStr = String(prevYear);
+      const mStr = String(prevMonth).padStart(2, "0");
+      const dStr = String(clampedDay).padStart(2, "0");
+      return [`${yStr}-${mStr}-01`, `${yStr}-${mStr}-${dStr}`];
+    }
+    case "lastMonth": {
+      let prevYear = parts.year;
+      let targetMonth = parts.month - 2;
+      while (targetMonth <= 0) {
+        targetMonth += 12;
+        prevYear -= 1;
+      }
+      const yStr = String(prevYear);
+      const mStr = String(targetMonth).padStart(2, "0");
+      const lastDayNum = new Date(Date.UTC(prevYear, targetMonth, 0)).getUTCDate();
+      return [`${yStr}-${mStr}-01`, `${yStr}-${mStr}-${String(lastDayNum).padStart(2, "0")}`];
+    }
+    case "thisYear": {
+      const prevYear = parts.year - 1;
+      const lastDayOfPrevMonth = new Date(Date.UTC(prevYear, parts.month, 0)).getUTCDate();
+      const clampedDay = Math.min(parts.day, lastDayOfPrevMonth);
+      const yStr = String(prevYear);
+      const mStr = String(parts.month).padStart(2, "0");
+      const dStr = String(clampedDay).padStart(2, "0");
+      return [`${yStr}-01-01`, `${yStr}-${mStr}-${dStr}`];
+    }
+    case "custom": {
+      const from = dateRange.from?.trim() || todayStr;
+      const to = dateRange.to?.trim() || todayStr;
+      const fromUtc = new Date(`${from}T00:00:00Z`);
+      const toUtc = new Date(`${to}T00:00:00Z`);
+      const dayCount = Math.round((toUtc.getTime() - fromUtc.getTime()) / 86400000) + 1;
+      const prevToUtc = new Date(fromUtc.getTime() - 86400000);
+      const prevFromUtc = new Date(prevToUtc.getTime() - (dayCount - 1) * 86400000);
+      return [formatUtcYmd(prevFromUtc), formatUtcYmd(prevToUtc)];
+    }
+    default: {
+      const yesterdayUtc = new Date(todayUtc.getTime() - 86400000);
+      const yStr = formatUtcYmd(yesterdayUtc);
+      return [yStr, yStr];
     }
   }
 }

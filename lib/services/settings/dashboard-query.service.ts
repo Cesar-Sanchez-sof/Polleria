@@ -353,6 +353,78 @@ function extractDimensionValue(
 }
 
 /**
+ * Valida la configuración de la consulta contra la whitelist semántica del dataset (sin tocar la base de datos).
+ */
+export function validateQueryConfigWhitelist(queryData: WidgetDataConfig): void {
+  const dataset: SemanticDataset | undefined = SEMANTIC_DATASETS[queryData.dataset];
+  if (!dataset) {
+    throw new ValidationError(`Dataset no soportado: '${queryData.dataset}'.`);
+  }
+
+  const fieldMap = new Map<string, SemanticField>();
+  for (const f of dataset.fields) {
+    fieldMap.set(f.id, f);
+  }
+
+  if (queryData.axis) {
+    const axisField = fieldMap.get(queryData.axis);
+    if (!axisField) {
+      throw new ValidationError(
+        `El campo de eje '${queryData.axis}' no existe en la whitelist del dataset '${dataset.id}'.`
+      );
+    }
+  }
+
+  if (queryData.legend) {
+    const legendField = fieldMap.get(queryData.legend);
+    if (!legendField) {
+      throw new ValidationError(
+        `El campo de leyenda '${queryData.legend}' no existe en la whitelist del dataset '${dataset.id}'.`
+      );
+    }
+  }
+
+  if (!queryData.values || queryData.values.length === 0) {
+    throw new ValidationError("Debe especificar al menos un valor de medida para el gráfico.");
+  }
+
+  for (const v of queryData.values) {
+    const f = fieldMap.get(v.field);
+    if (!f) {
+      throw new ValidationError(`Campo de valor no permitido en la whitelist: '${v.field}'.`);
+    }
+    if (f.kind !== "measure" && f.dataType !== "number") {
+      throw new ValidationError(`El campo '${v.field}' no puede ser agregado como medida.`);
+    }
+    if (f.allowedAggregations && !f.allowedAggregations.includes(v.agg)) {
+      throw new ValidationError(
+        `La agregación '${v.agg}' no está permitida para el campo '${v.field}'.`
+      );
+    }
+  }
+
+  if (queryData.filters && queryData.filters.length > 0) {
+    for (const filter of queryData.filters) {
+      if (!fieldMap.has(filter.field)) {
+        throw new ValidationError(`Campo de filtro no permitido en la whitelist: '${filter.field}'.`);
+      }
+    }
+  }
+
+  if (queryData.sort) {
+    const metricKeys = queryData.values.map((v) => `${v.field}_${v.agg}`);
+    const allowedSort = new Set<string>([
+      ...Array.from(fieldMap.keys()),
+      ...metricKeys,
+      ...queryData.values.map((v) => v.field),
+    ]);
+    if (!allowedSort.has(queryData.sort.by)) {
+      throw new ValidationError(`Campo de ordenamiento no permitido en la whitelist: '${queryData.sort.by}'.`);
+    }
+  }
+}
+
+/**
  * Motor Analítico estilo Power BI para Dashboards.
  */
 export async function executeDashboardQueryService(
@@ -375,78 +447,28 @@ export async function executeDashboardQueryService(
   }
 
   // 2. Validación de campos contra Whitelist del dataset
+  validateQueryConfigWhitelist(queryData);
+
+  const metricKeys = queryData.values.map((v) => `${v.field}_${v.agg}`);
+
   const fieldMap = new Map<string, SemanticField>();
   for (const f of dataset.fields) {
     fieldMap.set(f.id, f);
   }
 
-  let axisField: SemanticField | undefined;
-  if (queryData.axis) {
-    axisField = fieldMap.get(queryData.axis);
-    if (!axisField) {
-      throw new ValidationError(
-        `El campo de eje '${queryData.axis}' no existe en la whitelist del dataset '${dataset.id}'.`
-      );
-    }
-  }
-
-  let legendField: SemanticField | undefined;
-  if (queryData.legend) {
-    legendField = fieldMap.get(queryData.legend);
-    if (!legendField) {
-      throw new ValidationError(
-        `El campo de leyenda '${queryData.legend}' no existe en la whitelist del dataset '${dataset.id}'.`
-      );
-    }
-  }
-
-  if (!queryData.values || queryData.values.length === 0) {
-    throw new ValidationError("Debe especificar al menos un valor de medida para el gráfico.");
-  }
+  const axisField = queryData.axis ? fieldMap.get(queryData.axis) : undefined;
+  const legendField = queryData.legend ? fieldMap.get(queryData.legend) : undefined;
 
   let hasCalculatedMeasures = false;
   let hasCountDistinct = false;
 
   for (const v of queryData.values) {
-    const f = fieldMap.get(v.field);
-    if (!f) {
-      throw new ValidationError(`Campo de valor no permitido en la whitelist: '${v.field}'.`);
-    }
-    if (f.kind !== "measure" && f.dataType !== "number") {
-      throw new ValidationError(`El campo '${v.field}' no puede ser agregado como medida.`);
-    }
+    const f = fieldMap.get(v.field)!;
     if (f.isCalculated) {
       hasCalculatedMeasures = true;
     }
     if (v.agg === "countDistinct") {
       hasCountDistinct = true;
-    }
-    if (f.allowedAggregations && !f.allowedAggregations.includes(v.agg)) {
-      throw new ValidationError(
-        `La agregación '${v.agg}' no está permitida para el campo '${v.field}'.`
-      );
-    }
-  }
-
-  // Validar campos de filters contra whitelist
-  if (queryData.filters && queryData.filters.length > 0) {
-    for (const filter of queryData.filters) {
-      if (!fieldMap.has(filter.field)) {
-        throw new ValidationError(`Campo de filtro no permitido en la whitelist: '${filter.field}'.`);
-      }
-    }
-  }
-
-  // Validar sort contra whitelist
-  const metricKeys = queryData.values.map((v) => `${v.field}_${v.agg}`);
-  if (queryData.sort) {
-    const allowedSort = new Set<string>([
-      ...Array.from(fieldMap.keys()),
-      ...metricKeys,
-      ...queryData.values.map((v) => v.field),
-    ]);
-    if (!allowedSort.has(queryData.sort.by)) {
-      throw new ValidationError(`Campo de ordenamiento no permitido en la whitelist: '${queryData.sort.by}'.`);
     }
   }
 
@@ -519,11 +541,20 @@ export async function executeDashboardQueryService(
       queryData.granularity === "quarter" ||
       axisField.hasTime === true);
 
+  const isComplexLegendDateGranularity =
+    legendField?.dataType === "date" &&
+    (queryData.legendGranularity === "weekday" ||
+      queryData.legendGranularity === "hour" ||
+      queryData.legendGranularity === "hourOfDay" ||
+      queryData.legendGranularity === "quarter" ||
+      legendField.hasTime === true);
+
   const requiresInMemory =
     hasRelations ||
     hasCalculatedMeasures ||
     hasCountDistinct ||
     isComplexDateGranularity ||
+    isComplexLegendDateGranularity ||
     !modelDelegate.groupBy;
 
   const isTimeSeries = axisField?.dataType === "date";
@@ -627,18 +658,27 @@ export async function executeDashboardQueryService(
       if (legendField) {
         const legendKey = legendField.prismaField || legendField.id;
         const rawLegendVal = g[legendKey];
-        const rawStr = rawLegendVal !== null && rawLegendVal !== undefined ? String(rawLegendVal) : "(Vacío)";
-        legendLabel = legendField.valueLabels?.[rawStr] || rawStr;
+        if (legendField.dataType === "date" && (rawLegendVal instanceof Date || typeof rawLegendVal === "string")) {
+          legendLabel = formatSemanticDate(rawLegendVal, legendField.hasTime === true, queryData.legendGranularity);
+        } else {
+          const rawStr = rawLegendVal !== null && rawLegendVal !== undefined ? String(rawLegendVal) : "(Vacío)";
+          legendLabel = legendField.valueLabels?.[rawStr] || rawStr;
+        }
       }
 
       const groupKey = legendLabel ? `${axisLabel}__${legendLabel}` : axisLabel;
+
+      const legendKey =
+        axisField && legendField && legendField.id === axisField.id
+          ? `${legendField.id}_legend`
+          : legendField?.id;
 
       if (!mapGrouped.has(groupKey)) {
         const newRow: Record<string, string | number | boolean | null> = {
           [axisField.id]: axisLabel,
         };
-        if (legendField && legendLabel !== undefined) {
-          newRow[legendField.id] = legendLabel;
+        if (legendKey && legendLabel !== undefined) {
+          newRow[legendKey] = legendLabel;
         }
         for (const v of queryData.values) {
           newRow[`${v.field}_${v.agg}`] = 0;
@@ -700,7 +740,10 @@ export async function executeDashboardQueryService(
       rows: normalizedRows,
       meta: {
         axis: axisField.id,
-        legend: legendField?.id,
+        legend:
+          axisField && legendField && legendField.id === axisField.id
+            ? `${legendField.id}_legend`
+            : legendField?.id,
         metrics: metricKeys,
         totalRows: normalizedRows.length,
         truncated: isTruncated,
@@ -780,7 +823,7 @@ export async function executeDashboardQueryService(
       ? extractDimensionValue(row, axisField, queryData.granularity)
       : "Total";
     const legendLabel = legendField
-      ? extractDimensionValue(row, legendField)
+      ? extractDimensionValue(row, legendField, queryData.legendGranularity)
       : undefined;
 
     const groupKey = legendLabel ? `${axisLabel}__${legendLabel}` : axisLabel;
@@ -832,6 +875,10 @@ export async function executeDashboardQueryService(
   }
 
   const normalizedRows: Record<string, string | number | boolean | null>[] = [];
+  const resolvedLegendKey =
+    axisField && legendField && legendField.id === axisField.id
+      ? `${legendField.id}_legend`
+      : legendField?.id;
 
   for (const acc of Array.from(groups.values())) {
     const rowRecord: Record<string, string | number | boolean | null> = {};
@@ -839,8 +886,8 @@ export async function executeDashboardQueryService(
     if (axisField) {
       rowRecord[axisField.id] = acc.axisLabel;
     }
-    if (legendField && acc.legendLabel !== undefined) {
-      rowRecord[legendField.id] = acc.legendLabel;
+    if (resolvedLegendKey && acc.legendLabel !== undefined) {
+      rowRecord[resolvedLegendKey] = acc.legendLabel;
     }
 
     const groupMetrics: Record<string, number> = {};
@@ -1007,7 +1054,7 @@ export async function executeDashboardQueryService(
     rows: normalizedRows,
     meta: {
       axis: axisField?.id,
-      legend: legendField?.id,
+      legend: resolvedLegendKey,
       metrics: metricKeys,
       totalRows: normalizedRows.length,
       truncated: isTruncated,

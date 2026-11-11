@@ -5,6 +5,7 @@ import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import {
   createDefaultWidgetConfig,
   widgetConfigSchema,
+  type WidgetConfig,
 } from "@/lib/dashboards/widget-schema";
 import {
   adaptLegacyWidget,
@@ -261,14 +262,23 @@ describe("UI Parte B1.1: Correcciones Críticas (Compatibilidad, Adaptador Real,
     expect(parsed.success).toBe(true);
   });
 
-  it("Punto 8: KPIs adaptados (Ventas Totales, Pedidos y Ticket) usan preset thisMonth", () => {
+  it("Punto 8: KPIs adaptados (Ventas Totales, Pedidos y Ticket) usan preset thisMonth y se titulan 'del mes'", () => {
     const ventas = adaptLegacyWidget({
       title: "Ventas Totales del Día",
       type: "card",
       metricKey: "ventas",
     });
     expect(ventas.data.dateRange).toEqual({ field: "fecha", preset: "thisMonth" });
+    expect(ventas.format.title.text).toBe("Ventas del mes");
     expect(widgetConfigSchema.safeParse(ventas).success).toBe(true);
+
+    // Si el título fue editado por el usuario, no se sobrescribe
+    const ventasEditadas = adaptLegacyWidget({
+      title: "Mis Ventas Especiales",
+      type: "card",
+      metricKey: "ventas",
+    });
+    expect(ventasEditadas.format.title.text).toBe("Mis Ventas Especiales");
 
     const pedidos = adaptLegacyWidget({
       title: "Pedidos Realizados",
@@ -276,6 +286,7 @@ describe("UI Parte B1.1: Correcciones Críticas (Compatibilidad, Adaptador Real,
       metricKey: "pedidos",
     });
     expect(pedidos.data.dateRange).toEqual({ field: "fechaHora", preset: "thisMonth" });
+    expect(pedidos.format.title.text).toBe("Pedidos del mes");
     expect(widgetConfigSchema.safeParse(pedidos).success).toBe(true);
 
     const ticket = adaptLegacyWidget({
@@ -284,7 +295,31 @@ describe("UI Parte B1.1: Correcciones Críticas (Compatibilidad, Adaptador Real,
       metricKey: "pedidos",
     });
     expect(ticket.data.dateRange).toEqual({ field: "fechaHora", preset: "thisMonth" });
+    expect(ticket.format.title.text).toBe("Ticket promedio del mes");
     expect(widgetConfigSchema.safeParse(ticket).success).toBe(true);
+  });
+
+  it("Punto 8: El adaptador solo actúa si el widget no tiene config válido (widget line/ventas con config guardado NO se readapta)", () => {
+    const configGuardado: WidgetConfig = createDefaultWidgetConfig("line", "Tendencia de Ventas Guardada", "ventas");
+    configGuardado.data.axis = "fecha";
+    configGuardado.data.granularity = "day";
+    configGuardado.data.values = [{ field: "total", agg: "sum" }];
+    configGuardado.data.dateRange = { field: "fecha", preset: "last7" };
+
+    // Widget que viene con config válido pero título/type legacy
+    const widgetConConfig = {
+      id: "w-line-1",
+      title: "Ventas Totales del Día", // legacy title que en un widget sin config adaptaría a card
+      type: "kpi",
+      config: configGuardado,
+    };
+
+    const resultado = adaptLegacyWidget(widgetConConfig);
+    // Debe devolver exactamente el config guardado sin readaptar a card
+    expect(resultado).toEqual(configGuardado);
+    expect(resultado.visualType).toBe("line");
+    expect(resultado.format.title.text).toBe("Tendencia de Ventas Guardada");
+    expect(resultado.data.dateRange?.preset).toBe("last7");
   });
 
   it("Punto 7: Guardado de diseño con visuales sin configurar es 100% válido en Zod y persistible", () => {

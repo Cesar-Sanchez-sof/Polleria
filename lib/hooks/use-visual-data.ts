@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { WidgetDataConfig } from "@/lib/dashboards/widget-schema";
-import { resolveDateRange } from "@/lib/dashboards/date-utils";
+import { resolveDateRange, resolvePreviousRange } from "@/lib/dashboards/date-utils";
 
 export interface CatalogField {
   id: string;
@@ -42,6 +42,7 @@ export interface NormalizedQueryResult {
 
 export interface VisualDataResult {
   data: NormalizedQueryResult | null;
+  previousData?: NormalizedQueryResult | null;
   isLoading: boolean;
   isValidating: boolean;
   error: string | null;
@@ -125,8 +126,41 @@ export function useVisualData(dataConfig?: WidgetDataConfig | null): VisualDataR
     }
   );
 
+  // Configuración para el período anterior si se especificó compare: 'previousPeriod'
+  const previousConfig = useMemo(() => {
+    if (!dataConfig || dataConfig.compare !== "previousPeriod" || !dataConfig.dateRange) {
+      return null;
+    }
+    const previousRange = resolvePreviousRange(dataConfig.dateRange);
+    let filters = [...(dataConfig.filters || [])];
+    filters = filters.filter((f) => f.field !== dataConfig.dateRange?.field);
+    filters.push({
+      field: dataConfig.dateRange.field,
+      operator: "between",
+      value: previousRange,
+    });
+    return {
+      ...dataConfig,
+      dateRange: undefined,
+      filters,
+    };
+  }, [dataConfig]);
+
+  const prevKey = previousConfig && isValid ? (["/api/dashboards/query", previousConfig] as [string, WidgetDataConfig]) : null;
+
+  const { data: previousData } = useSWR<NormalizedQueryResult, Error>(
+    prevKey,
+    queryFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+      shouldRetryOnError: false,
+    }
+  );
+
   return {
     data: data || null,
+    previousData: previousData || null,
     isLoading: isValid ? isLoading : false,
     isValidating,
     error: error ? error.message : null,

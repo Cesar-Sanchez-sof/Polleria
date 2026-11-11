@@ -24,6 +24,14 @@ export const visualTypeSchema = z.enum([
   "funnel",
   "treemap",
   "gauge",
+  // 7 nuevos visualTypes C2:
+  "kpiTrend",
+  "multiCard",
+  "scatter",
+  "waterfall",
+  "pareto",
+  "heatmap",
+  "matrix",
 ]);
 
 export type VisualType = z.infer<typeof visualTypeSchema>;
@@ -100,7 +108,7 @@ export type MeasureAggregation = z.infer<typeof measureAggregationSchema>;
 export const widgetValueFieldSchema = z.object({
   field: z.string(),
   agg: measureAggregationSchema,
-  series: z.enum(["column", "line"]).optional(),
+  series: z.enum(["column", "line", "x", "y", "size"]).optional(),
 });
 
 export type WidgetValueField = z.infer<typeof widgetValueFieldSchema>;
@@ -150,6 +158,8 @@ export const widgetDataConfigSchema = z.object({
   dateRange: widgetDateRangeSchema.optional(),
   sort: widgetSortSchema.optional(),
   granularity: dateGranularitySchema.optional(),
+  legendGranularity: dateGranularitySchema.optional(),
+  compare: z.enum(["previousPeriod"]).optional(),
   limit: z.number().int().positive().optional(),
 });
 

@@ -14,7 +14,7 @@ import {
 describe("UI Parte C1: Registro Central de Visualizaciones (visual-registry.ts)", () => {
   it("todos los visualTypes del esquema Zod están registrados, tienen wells válidos, defaultSize y format", () => {
     const allTypes = visualTypeSchema.options;
-    expect(allTypes.length).toBe(19);
+    expect(allTypes.length).toBe(26);
 
     for (const vType of allTypes) {
       const entry = VISUAL_REGISTRY[vType];
@@ -28,7 +28,16 @@ describe("UI Parte C1: Registro Central de Visualizaciones (visual-registry.ts)"
       // Wells
       expect(entry.wells.length).toBeGreaterThan(0);
       for (const w of entry.wells) {
-        expect(["axis", "legend", "values", "values_column", "values_line"]).toContain(w.role);
+        expect([
+          "axis",
+          "legend",
+          "values",
+          "values_column",
+          "values_line",
+          "values_x",
+          "values_y",
+          "values_size",
+        ]).toContain(w.role);
         expect(["dimension", "measure"]).toContain(w.accepts);
         expect(w.label).toBeTruthy();
         expect(w.min).toBeGreaterThanOrEqual(0);

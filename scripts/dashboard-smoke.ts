@@ -326,8 +326,9 @@ async function main() {
   const endDate = `${year}-${month}-${String(lastDayOfMonth).padStart(2, "0")}`;
 
   // 1. Pedidos (sales_order.ordered_at) - Comparación Día a Día y Filas Nocturnas
+  let rawOrderDays: Array<{ dia: string; count: string | number }> = [];
   try {
-    const rawOrderDays = await prisma.$queryRawUnsafe<Array<{ dia: string; count: string | number }>>(
+    rawOrderDays = await prisma.$queryRawUnsafe<Array<{ dia: string; count: string | number }>>(
       `SELECT 
         ((ordered_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Lima')::date::text AS dia,
         count(*)::int AS count
@@ -478,6 +479,95 @@ async function main() {
       dataset: "pagos_venta",
       type: "measure",
       target: "Verificación SQL Nativo Día por Día pagos_venta",
+      success: false,
+      error: msg,
+    });
+  }
+
+  // 3. Verificación de Celdas de 2 Días (hourOfDay × weekday) contra SQL Nativo
+  try {
+    const twoDays = rawOrderDays.slice(0, 2);
+    if (twoDays.length === 0) {
+      console.log("    ⚠️ No hay pedidos en el mes para verificar celdas de 2 días.");
+    } else {
+      const dStart = twoDays[0].dia;
+      const dEnd = twoDays[twoDays.length - 1].dia;
+
+      const rawSqlCells = await prisma.$queryRawUnsafe<
+        Array<{ hora: string; dia_semana: string; count: string | number }>
+      >(
+        `SELECT 
+          TO_CHAR(((ordered_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Lima'), 'HH24:00') AS hora,
+          CASE EXTRACT(DOW FROM ((ordered_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Lima'))
+            WHEN 0 THEN 'Domingo'
+            WHEN 1 THEN 'Lunes'
+            WHEN 2 THEN 'Martes'
+            WHEN 3 THEN 'Miércoles'
+            WHEN 4 THEN 'Jueves'
+            WHEN 5 THEN 'Viernes'
+            WHEN 6 THEN 'Sábado'
+          END AS dia_semana,
+          count(*)::int AS count
+        FROM sales_order
+        WHERE status != 'Cancelled'
+          AND ((ordered_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Lima')::date BETWEEN $1::date AND $2::date
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+        dStart,
+        dEnd
+      );
+
+      const serviceCellsRes = await executeDashboardQueryService(
+        {
+          dataset: "pedidos",
+          axis: "fechaHora",
+          granularity: "hourOfDay",
+          legend: "fechaHora",
+          legendGranularity: "weekday",
+          values: [{ field: "numPedidos", agg: "count" }],
+          filters: [{ field: "fechaHora", operator: "between", value: [dStart, dEnd] }],
+        },
+        { superuser: true }
+      );
+
+      const serviceCellsMap = new Map<string, number>();
+      for (const r of serviceCellsRes.rows) {
+        const cellKey = `${r.fechaHora}__${r.fechaHora_legend}`;
+        serviceCellsMap.set(cellKey, Number(r.numPedidos_count || 0));
+      }
+
+      for (const sqlCell of rawSqlCells) {
+        const cellKey = `${sqlCell.hora}__${sqlCell.dia_semana}`;
+        const srvVal = serviceCellsMap.get(cellKey) ?? 0;
+        const sqlVal = Number(sqlCell.count);
+        if (srvVal !== sqlVal) {
+          throw new Error(
+            `Discrepancia en celda [${cellKey}] entre ${dStart} y ${dEnd}: SQL=${sqlVal}, Servicio=${srvVal}`
+          );
+        }
+      }
+
+      const totalCellOrders = rawSqlCells.reduce((sum, c) => sum + Number(c.count), 0);
+      console.log(
+        `    ✔ Celdas 2 días pedidos (hourOfDay × weekday): ${rawSqlCells.length} celdas validadas al 100% contra SQL directo (${totalCellOrders} pedidos entre ${dStart} y ${dEnd}).`
+      );
+
+      results.push({
+        dataset: "pedidos",
+        type: "measure",
+        target: `Verificación Celdas 2 Días SQL (${rawSqlCells.length} celdas hourOfDay × weekday: ${dStart} a ${dEnd})`,
+        success: true,
+        rows: totalCellOrders,
+        engine: serviceCellsRes.meta.engine,
+      });
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`    ❌ Verificación Celdas 2 Días pedidos FALLÓ: ${msg}`);
+    results.push({
+      dataset: "pedidos",
+      type: "measure",
+      target: "Verificación Celdas 2 Días pedidos",
       success: false,
       error: msg,
     });

@@ -18,6 +18,13 @@ import {
   Radar as RadarIcon,
   Funnel,
   LayoutGrid,
+  TrendingUp,
+  Rows3,
+  CircleDot,
+  GitCommitVertical,
+  ArrowDownNarrowWide,
+  Grid3X3,
+  TableProperties,
 } from "lucide-react";
 import type {
   VisualType,
@@ -38,7 +45,10 @@ export type WellRole =
   | "legend"
   | "values"
   | "values_column"
-  | "values_line";
+  | "values_line"
+  | "values_x"
+  | "values_y"
+  | "values_size";
 
 export interface VisualWellDefinition {
   role: WellRole;
@@ -69,6 +79,7 @@ export interface VisualRegistryEntry {
   wells: VisualWellDefinition[];
   defaultSize: { w: number; h: number };
   format: VisualRegistryFormatOptions;
+  hidden?: boolean;
 }
 
 export const VISUAL_CATEGORIES: Array<{ id: VisualCategory; label: string }> = [
@@ -362,8 +373,112 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
     description: "Filtro interactivo visual para segmentar los demás paneles del tablero.",
     icon: Filter,
     defaultSize: { w: 3, h: 3 },
+    hidden: true,
     wells: [
       { role: "axis", label: "Campo de filtro", accepts: "dimension", min: 1, max: 1 },
+    ],
+    format: { axes: false, legend: false, dataLabels: false, gridlines: false },
+  },
+
+  // 7 nuevos tipos de visual C2
+  waterfall: {
+    id: "waterfall",
+    label: "Cascada (Waterfall)",
+    category: "bars_columns",
+    categoryLabel: "Barras y Columnas",
+    description: "Efecto acumulado de variaciones positivas y negativas con total final.",
+    icon: GitCommitVertical,
+    defaultSize: { w: 6, h: 4 },
+    wells: [
+      { role: "axis", label: "Categoría", accepts: "dimension", min: 1, max: 1 },
+      { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
+    ],
+    format: { axes: true, legend: false, dataLabels: true, gridlines: true },
+  },
+  pareto: {
+    id: "pareto",
+    label: "Diagrama de Pareto",
+    category: "bars_columns",
+    categoryLabel: "Barras y Columnas",
+    description: "Regla 80/20: barras ordenadas descendentemente con línea acumulada (0-100%).",
+    icon: ArrowDownNarrowWide,
+    defaultSize: { w: 6, h: 4 },
+    wells: [
+      { role: "axis", label: "Categoría", accepts: "dimension", min: 1, max: 1 },
+      { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
+    ],
+    format: { axes: true, legend: true, dataLabels: true, gridlines: true, secondaryAxis: true },
+  },
+  kpiTrend: {
+    id: "kpiTrend",
+    label: "KPI con Tendencia",
+    category: "cards_kpis",
+    categoryLabel: "Tarjetas y KPIs",
+    description: "Métrica principal con sparkline temporal y delta comparativo vs período anterior.",
+    icon: TrendingUp,
+    defaultSize: { w: 4, h: 3 },
+    wells: [
+      { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
+      { role: "axis", label: "Eje temporal (Sparkline)", accepts: "dimension", min: 0, max: 1 },
+    ],
+    format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+  },
+  multiCard: {
+    id: "multiCard",
+    label: "Tarjeta de varias filas",
+    category: "cards_kpis",
+    categoryLabel: "Tarjetas y KPIs",
+    description: "Muestra múltiples métricas en filas compactas con sus etiquetas.",
+    icon: Rows3,
+    defaultSize: { w: 4, h: 3 },
+    wells: [
+      { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
+    ],
+    format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+  },
+  scatter: {
+    id: "scatter",
+    label: "Dispersión (Scatter)",
+    category: "advanced",
+    categoryLabel: "Avanzados",
+    description: "Correlación de medidas en ejes X e Y con burbujas y tamaño opcional.",
+    icon: CircleDot,
+    defaultSize: { w: 6, h: 4 },
+    wells: [
+      { role: "axis", label: "Detalles (Dimensión)", accepts: "dimension", min: 1, max: 1 },
+      { role: "values_x", label: "Valor X (Medida)", accepts: "measure", min: 1, max: 1 },
+      { role: "values_y", label: "Valor Y (Medida)", accepts: "measure", min: 1, max: 1 },
+      { role: "values_size", label: "Tamaño (Medida opcional)", accepts: "measure", min: 0, max: 1 },
+    ],
+    format: { axes: true, legend: true, dataLabels: false, gridlines: true },
+  },
+  heatmap: {
+    id: "heatmap",
+    label: "Mapa de calor (Heatmap)",
+    category: "advanced",
+    categoryLabel: "Avanzados",
+    description: "Cuadrícula bidimensional (filas × columnas) con escala de color por magnitud.",
+    icon: Grid3X3,
+    defaultSize: { w: 7, h: 5 },
+    wells: [
+      { role: "axis", label: "Filas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
+      { role: "legend", label: "Columnas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
+      { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
+    ],
+    format: { axes: false, legend: true, dataLabels: true, gridlines: false },
+  },
+  matrix: {
+    id: "matrix",
+    label: "Matriz dinámica",
+    category: "tables",
+    categoryLabel: "Tablas y Filtros",
+    description: "Tabla pivote con filas, columnas y totales automáticos (máximo 500 celdas).",
+    icon: TableProperties,
+    defaultSize: { w: 8, h: 4 },
+    wells: [
+      { role: "axis", label: "Filas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
+      { role: "legend", label: "Columnas (Dimensión)", accepts: "dimension", min: 0, max: 1 },
+      { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: false, legend: false, dataLabels: false, gridlines: false },
   },
@@ -378,7 +493,7 @@ export function getVisualRegistryEntry(visualType: VisualType): VisualRegistryEn
 }
 
 export function getVisualsByCategory(category: VisualCategory): VisualRegistryEntry[] {
-  return Object.values(VISUAL_REGISTRY).filter((v) => v.category === category);
+  return Object.values(VISUAL_REGISTRY).filter((v) => v.category === category && !v.hidden);
 }
 
 /**
@@ -430,6 +545,12 @@ export function migrateWidgetConfigByRole(
         series: val.series || (idx === 0 ? "column" : "line"),
       }));
     }
+  } else if (newVisualType === "scatter") {
+    // Target es scatter: mapea hasta 3 medidas a x, y, size
+    finalValues = currentValues.slice(0, 3).map((val, idx) => {
+      const seriesRole = idx === 0 ? "x" : idx === 1 ? "y" : "size";
+      return { ...val, series: (val.series as "x" | "y" | "size") || seriesRole };
+    });
   } else if (newVisualType === "slicer") {
     // Slicer no requiere medidas
     finalValues = [];
@@ -440,7 +561,7 @@ export function migrateWidgetConfigByRole(
     );
     const maxValues = targetValuesWell?.max;
 
-    // Quitar etiqueta de series si el target no es combo
+    // Quitar etiqueta de series si el target no es combo ni scatter
     const cleanedValues = currentValues.map((v) => {
       const copy = { ...v };
       delete copy.series;
@@ -453,6 +574,12 @@ export function migrateWidgetConfigByRole(
       finalValues = cleanedValues;
     }
   }
+
+  // Si es kpiTrend y tiene dateRange, activar compare por defecto
+  const nextCompare =
+    newVisualType === "kpiTrend"
+      ? (currentData.compare || "previousPeriod")
+      : currentData.compare;
 
   // Orden por defecto para funnel: si no tiene sort, ordenar desc por la medida
   let nextSort = currentData.sort;
@@ -479,6 +606,7 @@ export function migrateWidgetConfigByRole(
       granularity: nextGranularity,
       values: finalValues,
       sort: nextSort,
+      compare: nextCompare,
     },
     format: {
       ...currentConfig.format,
@@ -526,7 +654,9 @@ export function validateFieldForWell(
   }
 
   // 3. Validar 'max' (límite máximo del pozo)
-  if (wellDef.max !== undefined && wellDef.max !== null) {
+  // Pozos de max === 1 (Eje, Categoría, Leyenda, Valores de pie/gauge/card) REEMPLAZAN el existente
+  // al soltar, por lo que NO se rechazan por cantidad; solo se rechaza si max > 1 y currentCount >= max.
+  if (wellDef.max !== undefined && wellDef.max !== null && wellDef.max > 1) {
     if (currentCount >= wellDef.max) {
       return {
         valid: false,

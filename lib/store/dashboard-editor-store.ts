@@ -73,13 +73,13 @@ export interface DashboardEditorState {
   ) => void;
   assignFieldToWell: (
     widgetId: string,
-    well: "axis" | "legend" | "values" | "values_column" | "values_line",
+    well: "axis" | "legend" | "values" | "values_column" | "values_line" | "values_x" | "values_y" | "values_size",
     fieldId: string,
     agg?: MeasureAggregation
   ) => void;
   removeFieldFromWell: (
     widgetId: string,
-    well: "axis" | "legend" | "values" | "values_column" | "values_line",
+    well: "axis" | "legend" | "values" | "values_column" | "values_line" | "values_x" | "values_y" | "values_size",
     indexOrField?: number | string
   ) => void;
   updateMeasureAggregation: (
@@ -94,6 +94,8 @@ export interface DashboardEditorState {
   updateWidgetSort: (widgetId: string, sort?: WidgetSort) => void;
   updateWidgetLimit: (widgetId: string, limit?: number) => void;
   updateWidgetGranularity: (widgetId: string, granularity?: DateGranularity) => void;
+  updateWidgetLegendGranularity: (widgetId: string, legendGranularity?: DateGranularity) => void;
+  updateWidgetCompare: (widgetId: string, compare?: "previousPeriod") => void;
 
   // Selector / Helper
   getSelectedWidget: () => CanvasWidget | null;
@@ -379,6 +381,24 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
           };
         }
 
+        if (well === "values_x" || well === "values_y" || well === "values_size") {
+          const series: "x" | "y" | "size" =
+            well === "values_x" ? "x" : well === "values_y" ? "y" : "size";
+          const filtered = currentData.values.filter((v) => v.series !== series);
+          const nextValues = [...filtered, { field: fieldId, agg, series }];
+
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                values: nextValues,
+              },
+            },
+          };
+        }
+
         if (well === "values") {
           const reg = getVisualRegistryEntry(visualType);
           const valWell = reg.wells.find((wl) => wl.role === "values" || wl.role === "values_column");
@@ -464,6 +484,22 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             nextValues = nextValues.filter((v) => (v.series || "column") !== series);
           }
 
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                values: nextValues,
+              },
+            },
+          };
+        }
+
+        if (well === "values_x" || well === "values_y" || well === "values_size") {
+          const series: "x" | "y" | "size" =
+            well === "values_x" ? "x" : well === "values_y" ? "y" : "size";
+          const nextValues = currentData.values.filter((v) => v.series !== series);
           return {
             ...w,
             config: {
@@ -594,6 +630,44 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             data: {
               ...w.config.data,
               granularity,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateWidgetLegendGranularity: (widgetId, legendGranularity) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              legendGranularity,
+            },
+          },
+        };
+      }),
+      isDirty: true,
+    }));
+  },
+
+  updateWidgetCompare: (widgetId, compare) => {
+    set((state) => ({
+      widgets: state.widgets.map((w) => {
+        if (w.id !== widgetId) return w;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            data: {
+              ...w.config.data,
+              compare,
             },
           },
         };

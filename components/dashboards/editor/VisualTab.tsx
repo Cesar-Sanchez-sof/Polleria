@@ -44,6 +44,8 @@ export function VisualTab({
     updateWidgetSort,
     updateWidgetLimit,
     updateWidgetGranularity,
+    updateWidgetLegendGranularity,
+    updateWidgetCompare,
     updateWidgetData,
   } = useDashboardEditorStore();
 
@@ -54,12 +56,17 @@ export function VisualTab({
   const dataConfig = config.data;
   const registryEntry = getVisualRegistryEntry(config.visualType);
   const isCombo = config.visualType === "combo";
+  const isScatter = config.visualType === "scatter";
+  const isKpiTrend = config.visualType === "kpiTrend";
 
   const axisWell = registryEntry.wells.find((w) => w.role === "axis");
   const legendWell = registryEntry.wells.find((w) => w.role === "legend");
   const valuesWell = registryEntry.wells.find((w) => w.role === "values");
   const valuesColumnWell = registryEntry.wells.find((w) => w.role === "values_column");
   const valuesLineWell = registryEntry.wells.find((w) => w.role === "values_line");
+  const valuesXWell = registryEntry.wells.find((w) => w.role === "values_x");
+  const valuesYWell = registryEntry.wells.find((w) => w.role === "values_y");
+  const valuesSizeWell = registryEntry.wells.find((w) => w.role === "values_size");
 
   const handleToggleSeries = (index: number, series: "column" | "line") => {
     const updatedValues = [...dataConfig.values];
@@ -147,7 +154,7 @@ export function VisualTab({
           </WellSection>
         )}
 
-        {/* Pozo de Dimensión secundaria: Leyenda */}
+        {/* Pozo de Dimensión secundaria: Leyenda / Columnas */}
         {legendWell && (
           <WellSection
             title={legendWell.label || "Leyenda (Desglose)"}
@@ -157,11 +164,56 @@ export function VisualTab({
             availableFields={dimensions.filter((d) => d.id !== dataConfig.axis)}
             onSelectField={(fId) => assignFieldToWell(widgetId, "legend", fId)}
             onRemoveField={() => removeFieldFromWell(widgetId, "legend")}
-          />
+          >
+            {dataConfig.legend && (
+              <GranularitySelector
+                axisFieldId={dataConfig.legend}
+                currentGranularity={dataConfig.legendGranularity}
+                datasetFields={currentFields}
+                onSelectGranularity={(g) => updateWidgetLegendGranularity(widgetId, g)}
+              />
+            )}
+          </WellSection>
         )}
 
-        {/* Pozos de Medidas: Normal o Split (Combo) */}
-        {isCombo ? (
+        {/* Pozos de Medidas: Normal, Combo o Scatter */}
+        {isScatter ? (
+          <>
+            {valuesXWell && (
+              <WellSection
+                title={valuesXWell.label}
+                required={(valuesXWell.min ?? 0) > 0}
+                wellDef={valuesXWell}
+                currentValue={dataConfig.values.find((v) => v.series === "x")?.field}
+                availableFields={measures}
+                onSelectField={(fId) => assignFieldToWell(widgetId, "values_x", fId)}
+                onRemoveField={() => removeFieldFromWell(widgetId, "values_x")}
+              />
+            )}
+            {valuesYWell && (
+              <WellSection
+                title={valuesYWell.label}
+                required={(valuesYWell.min ?? 0) > 0}
+                wellDef={valuesYWell}
+                currentValue={dataConfig.values.find((v) => v.series === "y")?.field}
+                availableFields={measures}
+                onSelectField={(fId) => assignFieldToWell(widgetId, "values_y", fId)}
+                onRemoveField={() => removeFieldFromWell(widgetId, "values_y")}
+              />
+            )}
+            {valuesSizeWell && (
+              <WellSection
+                title={valuesSizeWell.label}
+                required={false}
+                wellDef={valuesSizeWell}
+                currentValue={dataConfig.values.find((v) => v.series === "size")?.field}
+                availableFields={measures}
+                onSelectField={(fId) => assignFieldToWell(widgetId, "values_size", fId)}
+                onRemoveField={() => removeFieldFromWell(widgetId, "values_size")}
+              />
+            )}
+          </>
+        ) : isCombo ? (
           <>
             {valuesColumnWell && (
               <MeasuresWellSection
@@ -210,6 +262,22 @@ export function VisualTab({
               onUpdateAggregation={(idx, agg) => updateMeasureAggregation(widgetId, idx, agg)}
             />
           )
+        )}
+
+        {/* Pozo de Comparación para kpiTrend */}
+        {isKpiTrend && (
+          <div className="flex items-center justify-between p-2 rounded-lg border border-border/80 bg-muted/15">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-foreground">Comparar vs período anterior</span>
+              <span className="text-[10px] text-muted-foreground">Calcula delta porcentual (verde/rojo)</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={dataConfig.compare === "previousPeriod"}
+              onChange={(e) => updateWidgetCompare(widgetId, e.target.checked ? "previousPeriod" : undefined)}
+              className="size-4 rounded accent-primary cursor-pointer"
+            />
+          </div>
         )}
 
         {/* Pozo de Filtro de Fechas Relativas */}

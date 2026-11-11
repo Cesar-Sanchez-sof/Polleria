@@ -595,4 +595,52 @@ describe("Motor Analítico y API de Consulta Genérica (Power BI Engine)", () =>
     const hourLabels = result.rows.map((r) => r.fechaHora);
     expect(hourLabels).toEqual(["00:00", "12:00", "23:00"]);
   });
+
+  it("legendGranularity: pedidos por hourOfDay (eje) × weekday (leyenda) agrupa celdas correctamente sin colisión de nombres", async () => {
+    // 2026-05-11T17:00:00Z -> Lima 12:00, Lunes
+    // 2026-05-11T17:30:00Z -> Lima 12:00, Lunes (2do pedido en misma celda)
+    // 2026-05-12T17:00:00Z -> Lima 12:00, Martes
+    // 2026-05-10T04:30:00Z -> Lima 23:00, Sábado
+    findManyMock.mockResolvedValueOnce([
+      { id: 1, orderedAt: new Date("2026-05-11T17:00:00.000Z"), items: [] },
+      { id: 2, orderedAt: new Date("2026-05-11T17:30:00.000Z"), items: [] },
+      { id: 3, orderedAt: new Date("2026-05-12T17:00:00.000Z"), items: [] },
+      { id: 4, orderedAt: new Date("2026-05-10T04:30:00.000Z"), items: [] },
+    ]);
+
+    const result = await executeDashboardQueryService({
+      dataset: "pedidos",
+      axis: "fechaHora",
+      granularity: "hourOfDay",
+      legend: "fechaHora",
+      legendGranularity: "weekday",
+      values: [{ field: "numPedidos", agg: "count" }],
+      filters: [{ field: "fechaHora", operator: "gt", value: "2026-01-01" }],
+    });
+
+    expect(result.meta.engine).toBe("in_memory_hybrid");
+    expect(result.meta.axis).toBe("fechaHora");
+    expect(result.meta.legend).toBe("fechaHora_legend");
+
+    // Debe contener 3 celdas (12:00 Lunes, 12:00 Martes, 23:00 Sábado)
+    expect(result.rows).toHaveLength(3);
+
+    const lunes12 = result.rows.find(
+      (r) => r.fechaHora === "12:00" && r.fechaHora_legend === "Lunes"
+    );
+    expect(lunes12).toBeDefined();
+    expect(lunes12?.numPedidos_count).toBe(2);
+
+    const martes12 = result.rows.find(
+      (r) => r.fechaHora === "12:00" && r.fechaHora_legend === "Martes"
+    );
+    expect(martes12).toBeDefined();
+    expect(martes12?.numPedidos_count).toBe(1);
+
+    const sabado23 = result.rows.find(
+      (r) => r.fechaHora === "23:00" && r.fechaHora_legend === "Sábado"
+    );
+    expect(sabado23).toBeDefined();
+    expect(sabado23?.numPedidos_count).toBe(1);
+  });
 });
