@@ -82,6 +82,31 @@ export interface SaleInvoiceDto {
     personType: string;
   };
   origin: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    notes: string;
+  }>;
+}
+
+function mapOrderItemsToInvoiceItems(
+  items: Array<{
+    quantity: number;
+    unitPrice: any;
+    subtotal: any;
+    notes: string | null;
+    product: { name: string };
+  }> = []
+) {
+  return items.map((d) => ({
+    name: d.product.name,
+    quantity: d.quantity,
+    unitPrice: Number(d.unitPrice),
+    subtotal: Number(d.subtotal),
+    notes: d.notes || "",
+  }));
 }
 
 export interface RegisterSaleResult {
@@ -470,6 +495,7 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
         personType,
       },
       origin: associatedTable ? `Mesa ${associatedTable.number}` : "Llevar",
+      items: mapOrderItemsToInvoiceItems(order.items),
     },
   };
 }
@@ -589,14 +615,7 @@ export async function listSalesVouchers(filters?: {
         description: je.description,
         status: je.status ? "Registrado" : "Anulado",
       })),
-      items:
-        c.order?.items.map((d) => ({
-          name: d.product.name,
-          quantity: d.quantity,
-          unitPrice: Number(d.unitPrice),
-          subtotal: Number(d.subtotal),
-          notes: d.notes || "",
-        })) || [],
+      items: mapOrderItemsToInvoiceItems(c.order?.items || []),
     };
   });
 

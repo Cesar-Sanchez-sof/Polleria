@@ -96,8 +96,10 @@ export const API_CATALOG = [
   { route: "/api/users", domain: "security", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/users" },
   { route: "/api/users/[id]", domain: "security", methods: ["PUT", "PATCH"], safety: "write" },
 
-  // --- SETTINGS (Configuración, Branding, Impresoras, OpenAPI) ---
+  // --- SETTINGS (Configuración, Branding, Impresoras, OpenAPI, Dashboards) ---
   { route: "/api/branding/assets/[slot]", domain: "settings", methods: ["GET"], safety: "read", samplePath: () => "/api/branding/assets/logo" },
+  { route: "/api/dashboards/catalog", domain: "settings", methods: ["GET"], safety: "read", samplePath: () => "/api/dashboards/catalog" },
+  { route: "/api/dashboards/query", domain: "settings", methods: ["POST"], safety: "write" },
   { route: "/api/openapi", domain: "settings", methods: ["GET"], safety: "read", samplePath: () => "/api/openapi" },
   { route: "/api/settings/areas", domain: "settings", methods: ["GET", "POST", "PUT", "DELETE"], safety: "read", samplePath: () => "/api/settings/areas" },
   { route: "/api/settings/branding", domain: "settings", methods: ["GET", "PUT"], safety: "read", samplePath: () => "/api/settings/branding" },

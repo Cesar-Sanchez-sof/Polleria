@@ -789,7 +789,7 @@ export async function executeDashboardQueryService(
     const totalCount = await modelDelegate.count({ where });
     if (totalCount > MAX_MEMORY_ROWS) {
       throw new ValidationError(
-        `La consulta supera el límite de seguridad de ${MAX_MEMORY_ROWS.toLocaleString()} registros (${totalCount.toLocaleString()} filas encontradas). Por favor acote el rango de fechas o aplique más filtros.`
+        `La consulta supera el límite de seguridad de ${MAX_MEMORY_ROWS.toLocaleString("es-PE")} registros (${totalCount.toLocaleString("es-PE")} filas encontradas). Por favor acote el rango de fechas o aplique más filtros.`
       );
     }
   }
@@ -802,7 +802,7 @@ export async function executeDashboardQueryService(
 
   if (rawRows.length > MAX_MEMORY_ROWS) {
     throw new ValidationError(
-      `La consulta superó el tope máximo de ${MAX_MEMORY_ROWS.toLocaleString()} filas para procesamiento en memoria.`
+      `La consulta superó el tope máximo de ${MAX_MEMORY_ROWS.toLocaleString("es-PE")} filas para procesamiento en memoria.`
     );
   }
 
