@@ -1,14 +1,21 @@
 "use client";
 
-import React from "react";
-import { Plus, X, Type } from "lucide-react";
+import React, { useState } from "react";
+import { Plus, X, Type, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { toast } from "sonner";
+import {
+  validateFieldForWell,
+  type VisualWellDefinition,
+} from "@/lib/dashboards/visual-registry";
+import { getDraggedField } from "@/lib/dashboards/drag-state";
 import type { CatalogField } from "@/lib/hooks/use-visual-data";
 
 export function WellSection({
   title,
   required,
+  wellDef,
   currentValue,
   availableFields,
   onSelectField,
@@ -17,6 +24,7 @@ export function WellSection({
 }: {
   title: string;
   required?: boolean;
+  wellDef?: VisualWellDefinition;
   currentValue?: string;
   availableFields: CatalogField[];
   onSelectField: (fieldId: string) => void;
@@ -24,9 +32,90 @@ export function WellSection({
   children?: React.ReactNode;
 }) {
   const currentField = availableFields.find((f) => f.id === currentValue);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragFeedback, setDragFeedback] = useState<{ valid: boolean; message?: string } | null>(null);
+
+  const currentCount = currentValue ? 1 : 0;
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dragged = getDraggedField();
+    if (dragged && wellDef) {
+      const validation = validateFieldForWell(wellDef, dragged, currentCount);
+      setDragFeedback({
+        valid: validation.valid,
+        message: validation.valid ? `Soltar para asignar a ${title}` : validation.error,
+      });
+      e.dataTransfer.dropEffect = validation.valid ? "copy" : "none";
+    } else {
+      setDragFeedback({ valid: true, message: `Soltar para asignar a ${title}` });
+      e.dataTransfer.dropEffect = "copy";
+    }
+
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    setDragFeedback(null);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    setDragFeedback(null);
+
+    let droppedField = getDraggedField();
+    if (!droppedField) {
+      const rawJson = e.dataTransfer.getData("application/json");
+      if (rawJson) {
+        try {
+          droppedField = JSON.parse(rawJson);
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (!droppedField) {
+      const plainId = e.dataTransfer.getData("text/plain");
+      if (plainId) {
+        droppedField = availableFields.find((f) => f.id === plainId) || null;
+      }
+    }
+
+    if (!droppedField) return;
+
+    // Validación estricta con las reglas del registro (wells.accepts y max)
+    if (wellDef) {
+      const validation = validateFieldForWell(wellDef, droppedField, currentCount);
+      if (!validation.valid) {
+        toast.error(validation.error || "No se puede soltar el campo en este pozo.");
+        return;
+      }
+    }
+
+    onSelectField(droppedField.id);
+    toast.success(`Campo "${droppedField.label || droppedField.id}" asignado a ${title}`);
+  };
+
+  const borderClass = isDragOver
+    ? dragFeedback?.valid
+      ? "ring-2 ring-primary border-primary bg-primary/10 shadow-xs"
+      : "ring-2 ring-destructive/80 border-destructive bg-destructive/10 shadow-xs"
+    : "border-border/80 bg-muted/15";
 
   return (
-    <div className="space-y-1.5 p-2.5 rounded-lg border border-border/80 bg-muted/15">
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`space-y-1.5 p-2.5 rounded-lg border transition-colors ${borderClass}`}
+    >
       <div className="flex items-center justify-between">
         <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
           <span>{title}</span>
@@ -36,6 +125,23 @@ export function WellSection({
           <AddFieldPopover fields={availableFields} onSelectField={onSelectField} />
         )}
       </div>
+
+      {isDragOver && dragFeedback && (
+        <div
+          className={`text-[10px] flex items-center gap-1 font-medium py-1 px-2 rounded-md ${
+            dragFeedback.valid
+              ? "text-primary bg-primary/15"
+              : "text-destructive bg-destructive/15"
+          }`}
+        >
+          {dragFeedback.valid ? (
+            <CheckCircle2 className="size-3 shrink-0" />
+          ) : (
+            <AlertCircle className="size-3 shrink-0" />
+          )}
+          <span className="truncate">{dragFeedback.message}</span>
+        </div>
+      )}
 
       {currentValue ? (
         <div className="space-y-1.5">
@@ -58,7 +164,9 @@ export function WellSection({
         </div>
       ) : (
         <p className="text-[11px] text-muted-foreground/80 italic mt-1">
-          {required ? "Campo requerido. Haz clic en '+' para asignar." : "Opcional. Haz clic en '+' para agregar."}
+          {required
+            ? "Campo requerido. Arrastra un campo aquí o haz clic en '+'."
+            : "Opcional. Arrastra un campo aquí o haz clic en '+'."}
         </p>
       )}
     </div>

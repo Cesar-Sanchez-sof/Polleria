@@ -12,6 +12,7 @@ import { GranularitySelector } from "./wells/GranularitySelector";
 import { MeasuresWellSection } from "./wells/MeasuresWellSection";
 import { DateRangeWellSection } from "./wells/DateRangeWellSection";
 import { SortAndLimitSection } from "./wells/SortAndLimitSection";
+import { FieldsTreeSection } from "./FieldsTreeSection";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import type { CatalogField } from "@/lib/hooks/use-visual-data";
 import type { MeasureAggregation, VisualType } from "@/lib/dashboards/widget-schema";
@@ -23,6 +24,7 @@ export function VisualTab({
   currentFields,
   isTransactional,
   defaultDateField,
+  currentDatasetLabel,
 }: {
   widgetId: string;
   dimensions: CatalogField[];
@@ -30,6 +32,7 @@ export function VisualTab({
   currentFields: CatalogField[];
   isTransactional: boolean;
   defaultDateField?: string;
+  currentDatasetLabel?: string;
 }) {
   const {
     widgets,
@@ -51,6 +54,12 @@ export function VisualTab({
   const dataConfig = config.data;
   const registryEntry = getVisualRegistryEntry(config.visualType);
   const isCombo = config.visualType === "combo";
+
+  const axisWell = registryEntry.wells.find((w) => w.role === "axis");
+  const legendWell = registryEntry.wells.find((w) => w.role === "legend");
+  const valuesWell = registryEntry.wells.find((w) => w.role === "values");
+  const valuesColumnWell = registryEntry.wells.find((w) => w.role === "values_column");
+  const valuesLineWell = registryEntry.wells.find((w) => w.role === "values_line");
 
   const handleToggleSeries = (index: number, series: "column" | "line") => {
     const updatedValues = [...dataConfig.values];
@@ -117,13 +126,11 @@ export function VisualTab({
       {/* 2. Pozos de Configuración según el registro */}
       <div className="space-y-3 pt-1 border-t border-border/60">
         {/* Pozos de Dimensión: Eje / Categoría */}
-        {registryEntry.wells.some((w) => w.role === "axis") && (
+        {axisWell && (
           <WellSection
-            title={
-              registryEntry.wells.find((w) => w.role === "axis")?.label ||
-              "Eje (Dimensión)"
-            }
-            required={(registryEntry.wells.find((w) => w.role === "axis")?.min ?? 0) > 0}
+            title={axisWell.label || "Eje (Dimensión)"}
+            required={(axisWell.min ?? 0) > 0}
+            wellDef={axisWell}
             currentValue={dataConfig.axis}
             availableFields={dimensions}
             onSelectField={(fId) => assignFieldToWell(widgetId, "axis", fId)}
@@ -141,10 +148,11 @@ export function VisualTab({
         )}
 
         {/* Pozo de Dimensión secundaria: Leyenda */}
-        {registryEntry.wells.some((w) => w.role === "legend") && (
+        {legendWell && (
           <WellSection
-            title="Leyenda (Desglose)"
-            required={false}
+            title={legendWell.label || "Leyenda (Desglose)"}
+            required={(legendWell.min ?? 0) > 0}
+            wellDef={legendWell}
             currentValue={dataConfig.legend}
             availableFields={dimensions.filter((d) => d.id !== dataConfig.axis)}
             onSelectField={(fId) => assignFieldToWell(widgetId, "legend", fId)}
@@ -155,39 +163,46 @@ export function VisualTab({
         {/* Pozos de Medidas: Normal o Split (Combo) */}
         {isCombo ? (
           <>
-            <MeasuresWellSection
-              title="Valores de columnas"
-              required={true}
-              measures={dataConfig.values}
-              availableMeasures={measures}
-              filterSeries="column"
-              defaultSeries="column"
-              showSeriesToggle={true}
-              onAddMeasure={(fieldId) => assignFieldToWell(widgetId, "values_column", fieldId)}
-              onRemoveMeasure={(idx) => removeFieldFromWell(widgetId, "values", idx)}
-              onUpdateAggregation={(idx, agg) => updateMeasureAggregation(widgetId, idx, agg)}
-              onToggleSeries={handleToggleSeries}
-            />
+            {valuesColumnWell && (
+              <MeasuresWellSection
+                title={valuesColumnWell.label || "Valores de columnas"}
+                required={(valuesColumnWell.min ?? 0) > 0}
+                wellDef={valuesColumnWell}
+                measures={dataConfig.values}
+                availableMeasures={measures}
+                filterSeries="column"
+                defaultSeries="column"
+                showSeriesToggle={true}
+                onAddMeasure={(fieldId) => assignFieldToWell(widgetId, "values_column", fieldId)}
+                onRemoveMeasure={(idx) => removeFieldFromWell(widgetId, "values", idx)}
+                onUpdateAggregation={(idx, agg) => updateMeasureAggregation(widgetId, idx, agg)}
+                onToggleSeries={handleToggleSeries}
+              />
+            )}
 
-            <MeasuresWellSection
-              title="Valores de línea"
-              required={false}
-              measures={dataConfig.values}
-              availableMeasures={measures}
-              filterSeries="line"
-              defaultSeries="line"
-              showSeriesToggle={true}
-              onAddMeasure={(fieldId) => assignFieldToWell(widgetId, "values_line", fieldId)}
-              onRemoveMeasure={(idx) => removeFieldFromWell(widgetId, "values", idx)}
-              onUpdateAggregation={(idx, agg) => updateMeasureAggregation(widgetId, idx, agg)}
-              onToggleSeries={handleToggleSeries}
-            />
+            {valuesLineWell && (
+              <MeasuresWellSection
+                title={valuesLineWell.label || "Valores de línea"}
+                required={(valuesLineWell.min ?? 0) > 0}
+                wellDef={valuesLineWell}
+                measures={dataConfig.values}
+                availableMeasures={measures}
+                filterSeries="line"
+                defaultSeries="line"
+                showSeriesToggle={true}
+                onAddMeasure={(fieldId) => assignFieldToWell(widgetId, "values_line", fieldId)}
+                onRemoveMeasure={(idx) => removeFieldFromWell(widgetId, "values", idx)}
+                onUpdateAggregation={(idx, agg) => updateMeasureAggregation(widgetId, idx, agg)}
+                onToggleSeries={handleToggleSeries}
+              />
+            )}
           </>
         ) : (
-          registryEntry.wells.some((w) => w.role === "values") && (
+          valuesWell && (
             <MeasuresWellSection
-              title={registryEntry.wells.find((w) => w.role === "values")?.label || "Valores (Medidas)"}
-              required={(registryEntry.wells.find((w) => w.role === "values")?.min ?? 0) > 0}
+              title={valuesWell.label || "Valores (Medidas)"}
+              required={(valuesWell.min ?? 0) > 0}
+              wellDef={valuesWell}
               measures={dataConfig.values}
               availableMeasures={measures}
               onAddMeasure={(fieldId) => assignFieldToWell(widgetId, "values", fieldId)}
@@ -214,6 +229,23 @@ export function VisualTab({
           measures={dataConfig.values}
           onUpdateSort={(s) => updateWidgetSort(widgetId, s)}
           onUpdateLimit={(l) => updateWidgetLimit(widgetId, l)}
+        />
+
+        {/* 3. Árbol de Campos integrado directamente debajo de los pozos (Sección Colapsable) */}
+        <FieldsTreeSection
+          datasetLabel={currentDatasetLabel}
+          dimensions={dimensions}
+          measures={measures}
+          axisWellDef={axisWell}
+          legendWellDef={legendWell}
+          valuesWellDef={isCombo ? valuesColumnWell : valuesWell}
+          currentAxis={dataConfig.axis}
+          currentLegend={dataConfig.legend}
+          currentValuesCount={dataConfig.values.length}
+          onAssignDimension={(role, fId) => assignFieldToWell(widgetId, role, fId)}
+          onAssignMeasure={(fId) =>
+            assignFieldToWell(widgetId, isCombo ? "values_column" : "values", fId)
+          }
         />
       </div>
     </div>

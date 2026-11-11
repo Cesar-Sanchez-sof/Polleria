@@ -9,12 +9,11 @@ import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import { useDashboardCatalog, type CatalogField } from "@/lib/hooks/use-visual-data";
 import { VisualTab } from "./VisualTab";
 import { FormatTab } from "./FormatTab";
-import { DataTab } from "./DataTab";
 
 export function PropertiesPanel() {
   const { widgets, selectedWidgetId, changeWidgetDataset } = useDashboardEditorStore();
   const { catalog, isLoading: isCatalogLoading } = useDashboardCatalog();
-  const [activeTab, setActiveTab] = useState<"visual" | "format" | "data">("visual");
+  const [activeTab, setActiveTab] = useState<"visual" | "format">("visual");
 
   const selectedWidget = widgets.find((w) => w.id === selectedWidgetId);
 
@@ -118,27 +117,24 @@ export function PropertiesPanel() {
         </div>
       </div>
 
-      {/* 2. Pestañas de Navegación: Visual, Formato, Datos */}
+      {/* 2. Pestañas de Navegación: Visual y Formato (El árbol de campos se ubica en Visual debajo de los pozos) */}
       <Tabs
         value={activeTab}
-        onValueChange={(val) => setActiveTab(val as "visual" | "format" | "data")}
+        onValueChange={(val) => setActiveTab(val as "visual" | "format")}
         className="flex-1 flex flex-col overflow-hidden"
       >
         <div className="px-3 pt-2 pb-1 border-b border-border/60">
-          <TabsList className="grid grid-cols-3 h-8 w-full p-0.5">
+          <TabsList className="grid grid-cols-2 h-8 w-full p-0.5">
             <TabsTrigger value="visual" className="text-xs font-medium h-7 cursor-pointer">
               Visual
             </TabsTrigger>
             <TabsTrigger value="format" className="text-xs font-medium h-7 cursor-pointer">
               Formato
             </TabsTrigger>
-            <TabsTrigger value="data" className="text-xs font-medium h-7 cursor-pointer">
-              Datos
-            </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* TAB 1: VISUAL & POZOS */}
+        {/* TAB 1: VISUAL, POZOS Y ÁRBOL DE CAMPOS */}
         <TabsContent value="visual" className="flex-1 overflow-hidden p-0 m-0 flex flex-col">
           <VisualTab
             widgetId={widgetId}
@@ -147,22 +143,13 @@ export function PropertiesPanel() {
             currentFields={currentFields}
             isTransactional={isTransactional}
             defaultDateField={defaultDateField}
+            currentDatasetLabel={currentDataset?.label}
           />
         </TabsContent>
 
         {/* TAB 2: FORMATO */}
         <TabsContent value="format" className="flex-1 overflow-hidden p-0 m-0 flex flex-col">
           <FormatTab widgetId={widgetId} />
-        </TabsContent>
-
-        {/* TAB 3: DATOS */}
-        <TabsContent value="data" className="flex-1 overflow-hidden p-0 m-0 flex flex-col">
-          <DataTab
-            widgetId={widgetId}
-            currentDataset={currentDataset}
-            dimensions={dimensions}
-            measures={measures}
-          />
         </TabsContent>
       </Tabs>
     </aside>

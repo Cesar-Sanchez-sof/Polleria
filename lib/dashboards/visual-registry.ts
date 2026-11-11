@@ -486,3 +486,54 @@ export function migrateWidgetConfigByRole(
     },
   };
 }
+
+export interface WellDropValidation {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Valida si un campo puede ser soltado o asignado a un pozo según las reglas del registro:
+ * - wellDef.accepts ('dimension' vs 'measure')
+ * - wellDef.max (límite máximo de campos permitidos en el pozo)
+ */
+export function validateFieldForWell(
+  wellDef: VisualWellDefinition,
+  field: { id: string; kind?: string; dataType?: string; label?: string },
+  currentCount: number
+): WellDropValidation {
+  // 1. Determinar tipo de campo
+  const isExplicitMeasure = field.kind === "measure";
+  const isExplicitDimension = field.kind === "dimension";
+  const isNumericType = field.dataType === "number";
+
+  const isMeasure = isExplicitMeasure || (isNumericType && !isExplicitDimension);
+  const isDimension = isExplicitDimension || (!isMeasure);
+
+  // 2. Validar 'accepts'
+  if (wellDef.accepts === "dimension" && !isDimension) {
+    return {
+      valid: false,
+      error: `El pozo "${wellDef.label}" solo acepta dimensiones, no medidas.`,
+    };
+  }
+
+  if (wellDef.accepts === "measure" && !isMeasure) {
+    return {
+      valid: false,
+      error: `El pozo "${wellDef.label}" solo acepta medidas numéricas, no dimensiones.`,
+    };
+  }
+
+  // 3. Validar 'max' (límite máximo del pozo)
+  if (wellDef.max !== undefined && wellDef.max !== null) {
+    if (currentCount >= wellDef.max) {
+      return {
+        valid: false,
+        error: `El pozo "${wellDef.label}" solo admite un máximo de ${wellDef.max} campo(s).`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
