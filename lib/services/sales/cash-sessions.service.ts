@@ -9,6 +9,8 @@ import {
   formatDenominationsSummary,
   type CashDenominations,
 } from "@/lib/services/sales/cash-register.service";
+import { notifyCashDrawer, type DrawerResult } from "@/lib/services/integrations/cash-drawer.service";
+import { logAudit } from "@/lib/services/security/audit.service";
 import {
   ValidationError,
   ConflictError,
@@ -240,6 +242,7 @@ export async function openCashSession(data: OpenCashSessionInput): Promise<{
   message: string;
   session: any;
   journalEntryId: number | null;
+  device: DrawerResult;
 }> {
   const userId = await resolveCashSessionUserId(data.userId);
   const initialAmount = Math.max(0, Number(data.initialAmount ?? 0));
@@ -304,10 +307,20 @@ export async function openCashSession(data: OpenCashSessionInput): Promise<{
     console.warn("[cash-sessions.service] Aviso al generar asiento contable de apertura:", journalErr);
   }
 
+  // Caja física: abre la gaveta para colocar el fondo inicial e imprime el ticket de apertura.
+  const device = await notifyCashDrawer("OPEN_SESSION", {
+    registerName: register.name,
+    sessionId: newSession.id,
+    cashier: newSession.openedBy?.username || "Cajero",
+    at: newSession.openedAt,
+    initialAmount,
+  });
+
   return {
     message: "Caja abierta exitosamente y comunicada a contabilidad.",
     session: newSession,
     journalEntryId,
+    device,
   };
 }
 
@@ -441,6 +454,7 @@ export async function closeCashSession(
   journalEntryIds: number[];
   session: any;
   audit: any;
+  device: DrawerResult;
 }> {
   if (!sessionId || Number.isNaN(sessionId)) {
     throw new ValidationError("ID de sesión inválido.");
@@ -467,10 +481,6 @@ export async function closeCashSession(
       cashRegister: true,
       openedBy: { select: { id: true, username: true } },
       movements: true,
-      invoices: {
-        where: { status: "Issued" },
-        select: { id: true, totalAmount: true },
-      },
     },
   });
 
@@ -506,7 +516,8 @@ export async function closeCashSession(
       status: "CLOSED",
       closedAt,
       closedById: userId,
-      finalCounted: countedAmount,
+      expectedAmount,
+      countedAmount,
       difference,
       notesClosing: notesClosing || null,
     },
@@ -540,9 +551,25 @@ export async function closeCashSession(
     createdAt: m.createdAt.toISOString(),
   }));
 
+  // Caja física: abre la gaveta para el arqueo físico e imprime el ticket de cierre.
+  const device = await notifyCashDrawer("CLOSE_SESSION", {
+    registerName: existingSession.cashRegister?.name || "Caja Principal",
+    sessionId: closedSession.id,
+    cashier: closedSession.closedBy?.username || "Cajero",
+    at: closedAt,
+    initialAmount,
+    salesCash,
+    incomes: totalIncomes,
+    expenses: totalExpenses,
+    expectedAmount,
+    countedAmount,
+    difference,
+  });
+
   return {
     message: "Cierre y arqueo de caja registrado y enviado a contabilidad exitosamente.",
     journalEntryIds,
+    device,
     session: closedSession,
     audit: {
       sessionId: closedSession.id,
@@ -562,4 +589,37 @@ export async function closeCashSession(
       movements: formattedMovements,
     },
   };
+}
+
+/**
+ * Abre la gaveta sin venta (dar vuelto, cambiar billetes). Exige caja abierta y un motivo, y
+ * queda en la bitácora de auditoría porque es un punto clásico de control interno.
+ */
+export async function openDrawerNoSale(
+  data: { reason?: string },
+  actor: { userId: number | null; username: string },
+): Promise<{ message: string; device: DrawerResult }> {
+  const reason = (data.reason ?? "").trim();
+  if (reason.length < 3) throw new ValidationError("Indica el motivo para abrir la gaveta sin venta.");
+  const register = await getOrCreateDefaultCashRegister();
+  const open = await (prisma as any).cashSession.findFirst({ where: { cashRegisterId: register.id, status: "OPEN" } });
+  if (!open) throw new ValidationError("No hay una sesión de caja abierta: abre la caja antes de usar la gaveta.");
+
+  const device = await notifyCashDrawer("NO_SALE", {
+    registerName: register.name,
+    sessionId: open.id,
+    cashier: actor.username,
+    at: new Date(),
+    reason,
+  });
+  await logAudit({
+    actor,
+    action: "UPDATE",
+    module: "Caja",
+    entity: "Gaveta",
+    entityId: open.id,
+    description: `Abrió la gaveta sin venta: ${reason}`.slice(0, 255),
+    details: { reason, device: { mode: device.mode, ok: device.ok } },
+  });
+  return { message: device.message, device };
 }
