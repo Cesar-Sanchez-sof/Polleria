@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Tipos de visualización soportados en el estilo Power BI
+ * Tipos de visualización soportados en el estilo Power BI (19 tipos)
  */
 export const visualTypeSchema = z.enum([
   "column",
@@ -13,6 +13,17 @@ export const visualTypeSchema = z.enum([
   "card",
   "table",
   "slicer",
+  // 10 nuevos visualTypes C1:
+  "stackedColumn",
+  "percentColumn",
+  "stackedBar",
+  "percentBar",
+  "stackedArea",
+  "combo",
+  "radar",
+  "funnel",
+  "treemap",
+  "gauge",
 ]);
 
 export type VisualType = z.infer<typeof visualTypeSchema>;
@@ -89,6 +100,7 @@ export type MeasureAggregation = z.infer<typeof measureAggregationSchema>;
 export const widgetValueFieldSchema = z.object({
   field: z.string(),
   agg: measureAggregationSchema,
+  series: z.enum(["column", "line"]).optional(),
 });
 
 export type WidgetValueField = z.infer<typeof widgetValueFieldSchema>;
@@ -206,11 +218,15 @@ export const widgetFormatConfigSchema = z.object({
     .object({
       xTitle: z.string().optional().default(""),
       yTitle: z.string().optional().default(""),
+      secondaryYTitle: z.string().optional().default(""),
+      showSecondaryY: z.boolean().default(false),
       showGrid: z.boolean().default(true),
     })
     .default({
       xTitle: "",
       yTitle: "",
+      secondaryYTitle: "",
+      showSecondaryY: false,
       showGrid: true,
     }),
   background: z
@@ -243,6 +259,15 @@ export const widgetFormatConfigSchema = z.object({
       decimals: 2,
       prefix: "S/ ",
       compact: false,
+    }),
+  gauge: z
+    .object({
+      min: z.number().default(0),
+      max: z.number().optional(),
+      target: z.number().optional(),
+    })
+    .default({
+      min: 0,
     }),
 });
 
@@ -303,6 +328,8 @@ export function createDefaultWidgetConfig(
       axes: {
         xTitle: "",
         yTitle: "Monto (S/)",
+        secondaryYTitle: "",
+        showSecondaryY: false,
         showGrid: true,
       },
       background: {
@@ -318,6 +345,9 @@ export function createDefaultWidgetConfig(
         decimals: 2,
         prefix: "S/ ",
         compact: false,
+      },
+      gauge: {
+        min: 0,
       },
     },
   };

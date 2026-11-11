@@ -14,6 +14,7 @@ import {
   createUnconfiguredWidgetConfig,
 } from "@/lib/dashboards/legacy-adapter";
 import { migrateWidgetConfigOnVisualTypeChange } from "@/lib/dashboards/compatibility";
+import { getVisualRegistryEntry } from "@/lib/dashboards/visual-registry";
 
 export interface RawWidgetInput {
   id?: string;
@@ -72,13 +73,13 @@ export interface DashboardEditorState {
   ) => void;
   assignFieldToWell: (
     widgetId: string,
-    well: "axis" | "legend" | "values",
+    well: "axis" | "legend" | "values" | "values_column" | "values_line",
     fieldId: string,
     agg?: MeasureAggregation
   ) => void;
   removeFieldFromWell: (
     widgetId: string,
-    well: "axis" | "legend" | "values",
+    well: "axis" | "legend" | "values" | "values_column" | "values_line",
     indexOrField?: number | string
   ) => void;
   updateMeasureAggregation: (
@@ -135,6 +136,10 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
     const currentWidgets = get().widgets;
     const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 4)), 0);
 
+    const regEntry = getVisualRegistryEntry(config.visualType);
+    const defW = regEntry.defaultSize.w;
+    const defH = regEntry.defaultSize.h;
+
     const newWidget: CanvasWidget = {
       id,
       title: widgetPartial?.title || config.format.title.text,
@@ -142,8 +147,8 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
       metricKey: config.data.dataset || "",
       x: widgetPartial?.x ?? 0,
       y: widgetPartial?.y ?? maxY,
-      w: widgetPartial?.w ?? 6,
-      h: widgetPartial?.h ?? 4,
+      w: widgetPartial?.w ?? defW,
+      h: widgetPartial?.h ?? defH,
       config,
     };
 
@@ -355,11 +360,32 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
           };
         }
 
+        if (well === "values_column" || well === "values_line") {
+          const series: "column" | "line" = well === "values_column" ? "column" : "line";
+          const exists = currentData.values.some((v) => v.field === fieldId && v.series === series);
+          const nextValues = exists
+            ? currentData.values
+            : [...currentData.values, { field: fieldId, agg, series }];
+
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                values: nextValues,
+              },
+            },
+          };
+        }
+
         if (well === "values") {
-          const singleValueTypes: VisualType[] = ["card", "pie", "donut"];
+          const reg = getVisualRegistryEntry(visualType);
+          const valWell = reg.wells.find((wl) => wl.role === "values" || wl.role === "values_column");
+          const isSingleValue = valWell?.max === 1;
           let nextValues = [...currentData.values];
 
-          if (singleValueTypes.includes(visualType)) {
+          if (isSingleValue) {
             nextValues = [{ field: fieldId, agg }];
           } else {
             // Si ya existe la medida exacta, no duplicar; sino agregar
@@ -415,6 +441,36 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
               data: {
                 ...currentData,
                 legend: undefined,
+              },
+            },
+          };
+        }
+
+        if (well === "values_column" || well === "values_line") {
+          const series: "column" | "line" = well === "values_column" ? "column" : "line";
+          let nextValues = [...currentData.values];
+          if (typeof indexOrField === "number") {
+            const matchingIndices: number[] = [];
+            currentData.values.forEach((v, idx) => {
+              if ((v.series || "column") === series) matchingIndices.push(idx);
+            });
+            const actualIndex = matchingIndices[indexOrField];
+            if (actualIndex !== undefined) {
+              nextValues = nextValues.filter((_, idx) => idx !== actualIndex);
+            }
+          } else if (typeof indexOrField === "string") {
+            nextValues = nextValues.filter((v) => !(v.field === indexOrField && (v.series || "column") === series));
+          } else {
+            nextValues = nextValues.filter((v) => (v.series || "column") !== series);
+          }
+
+          return {
+            ...w,
+            config: {
+              ...w.config,
+              data: {
+                ...currentData,
+                values: nextValues,
               },
             },
           };
