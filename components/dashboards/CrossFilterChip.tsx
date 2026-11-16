@@ -25,7 +25,7 @@ export function CrossFilterChip() {
 
         const hasOpenDialog = Boolean(
           document.querySelector(
-            '[role="dialog"], [role="alertdialog"], [data-state="open"][role="dialog"], [data-state="open"][role="alertdialog"]'
+            '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
           )
         );
         if (hasOpenDialog) return;

@@ -138,10 +138,10 @@ export function useVisualData(
               Array.isArray(parsed.data.value) &&
               parsed.data.value.length === 2
             ) {
-              const start1 = String(existing.value[0]);
-              const end1 = String(existing.value[1]);
-              const start2 = String(parsed.data.value[0]);
-              const end2 = String(parsed.data.value[1]);
+              const start1 = String(existing.value[0]).trim().slice(0, 10);
+              const end1 = String(existing.value[1]).trim().slice(0, 10);
+              const start2 = String(parsed.data.value[0]).trim().slice(0, 10);
+              const end2 = String(parsed.data.value[1]).trim().slice(0, 10);
               const maxStart = start1 > start2 ? start1 : start2;
               const minEnd = end1 < end2 ? end1 : end2;
               filters[existingIdx] = {
@@ -166,9 +166,38 @@ export function useVisualData(
     };
   }, [dataConfig, crossFilters, widgetId]);
 
+  // Si el rango resultante de la intersección tiene inicio > fin, la intersección es vacía
+  const hasEmptyDateRange = useMemo(() => {
+    if (!resolvedConfig?.filters) return false;
+    return resolvedConfig.filters.some((f) => {
+      if (f.operator === "between" && Array.isArray(f.value) && f.value.length === 2) {
+        const s = String(f.value[0]).trim().slice(0, 10);
+        const e = String(f.value[1]).trim().slice(0, 10);
+        return s > e;
+      }
+      return false;
+    });
+  }, [resolvedConfig]);
+
+  const emptyDataResult: NormalizedQueryResult = useMemo(
+    () => ({
+      dataset: resolvedConfig?.dataset || "",
+      rows: [],
+      meta: {
+        metrics: (resolvedConfig?.values || []).map((v) => `${v.field}_${v.agg}`),
+        totalRows: 0,
+        truncated: false,
+        engine: "in_memory_hybrid",
+      },
+    }),
+    [resolvedConfig]
+  );
+
   // Un visual está listo para consultar si tiene dataset y al menos una medida configurada
+  // Si la intersección de fechas es vacía (inicio > fin), NO se hace la petición HTTP
   const isValid = Boolean(
-    resolvedConfig &&
+    !hasEmptyDateRange &&
+      resolvedConfig &&
       resolvedConfig.dataset &&
       resolvedConfig.dataset.trim() !== "" &&
       resolvedConfig.values &&
@@ -221,11 +250,11 @@ export function useVisualData(
   );
 
   return {
-    data: data || null,
+    data: hasEmptyDateRange ? emptyDataResult : (data || null),
     previousData: previousData || null,
-    isLoading: isValid ? isLoading : false,
+    isLoading: hasEmptyDateRange ? false : (isValid ? isLoading : false),
     isValidating,
-    error: error ? error.message : null,
+    error: hasEmptyDateRange ? null : (error ? error.message : null),
     isTruncated: Boolean(data?.meta?.truncated),
     mutate,
     hasIncompatibleCrossFilter: false,

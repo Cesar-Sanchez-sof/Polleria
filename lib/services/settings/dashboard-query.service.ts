@@ -262,12 +262,12 @@ function buildCondition(operator: string, parsedVal: unknown): unknown {
 /**
  * Construye la cláusula where combinando el baseFilter del dataset y los filtros de usuario validados
  */
-function buildWhereClause(
+export function buildWhereClause(
   filters: FilterRule[],
   fieldMap: Map<string, SemanticField>,
   baseFilter?: Record<string, unknown>
 ): Record<string, unknown> {
-  const where: Record<string, unknown> = { ...(baseFilter || {}) };
+  const where: Record<string, unknown> = baseFilter ? structuredClone(baseFilter) : {};
 
   for (const filter of filters) {
     const field = fieldMap.get(filter.field);

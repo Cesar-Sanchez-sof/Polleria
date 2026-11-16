@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { usePathname } from "next/navigation";
 import { AlertCircle, AlertTriangle, Loader2, PieChart as PieIcon, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useVisualData, useDashboardCatalog } from "@/lib/hooks/use-visual-data";
@@ -10,6 +9,7 @@ import { getVisualRegistryEntry } from "@/lib/dashboards/visual-registry";
 import { VISUAL_RENDERERS, BarColumnRenderer } from "./renderers";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import { resolveCrossFilterDateRange } from "@/lib/dashboards/date-utils";
+import { useShareMode } from "@/components/dashboards/share-mode-context";
 
 interface DynamicVisualProps {
   config: WidgetConfig;
@@ -28,8 +28,8 @@ export function DynamicVisual({
   isEditMode,
   isShareMode,
 }: DynamicVisualProps) {
-  const pathname = usePathname();
-  const isShare = Boolean(isShareMode || (pathname && pathname.includes("/share")));
+  const ctx = useShareMode();
+  const isShare = isShareMode ?? ctx;
 
   const { data, previousData, isLoading, error, isTruncated, hasCrossFilterApplied } = useVisualData(
     config.data,

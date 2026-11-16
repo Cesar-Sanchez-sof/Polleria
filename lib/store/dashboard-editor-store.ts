@@ -18,6 +18,35 @@ import { getVisualRegistryEntry } from "@/lib/dashboards/visual-registry";
 
 export const MAX_HISTORY = 30;
 
+/**
+ * Mapeo de claves 'rawValue' para Filtro Cruzado (Cross-Filtering) por tipo de visual:
+ *
+ * - Gráficos con Eje X (bar, column, stackedBar, stackedColumn, percentBar, line, area, stackedArea, combo):
+ *   - Al hacer clic en una categoría o barra/punto:
+ *     Usa `axisRawValue` (fallback: `rawValue`) asociado al campo `config.data.axis`.
+ *   - Si el visual contiene serie dividida por leyenda (legend) y se selecciona una serie específica:
+ *     Usa `legendRawValue` asociado al campo `config.data.legend`.
+ *
+ * - Gráficos Radiales y Proporcionales (pie, donut):
+ *   - Al hacer clic en un sector/rebanada:
+ *     Usa `axisRawValue` (fallback: `rawValue`) correspondiente al campo de categoría `config.data.axis`.
+ *
+ * - Gráficos Jerárquicos y de Distribución (treemap):
+ *   - Al hacer clic en un nodo/celda:
+ *     Usa `axisRawValue` (fallback: `rawValue`) sobre el campo `config.data.axis`.
+ *
+ * - Gráficos Bidimensionales Matriciales (heatmap, matrix):
+ *   - Al hacer clic en una celda o fila:
+ *     Gana siempre la dimensión del eje principal (eje Y / filas), despachando `axisRawValue`
+ *     (fallback: `rawValue`) sobre el campo `config.data.axis`.
+ *
+ * - Tablas de Datos (table):
+ *   - Al hacer clic en una fila o celda de dimensión:
+ *     Usa `axisRawValue` (o `rawValue`) de la fila correspondiente sobre el campo de dimensión.
+ *
+ * - Visuales de Tarjeta e Indicadores (card, multiCard, gauge, kpiTrend):
+ *   - No emiten eventos de filtro cruzado (son receptores o consumidores pasivos de filtros cruzados).
+ */
 export interface CrossFilterState {
   datasetId: string;
   field: string;

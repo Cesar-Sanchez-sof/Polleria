@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface DashboardCanvasProps {
+  isShareMode?: boolean;
   dashboard: {
     id: string;
     name: string;
@@ -49,7 +50,7 @@ interface DashboardCanvasProps {
   };
 }
 
-export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
+export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCanvasProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -414,6 +415,7 @@ export function DashboardCanvas({ dashboard }: DashboardCanvasProps) {
                               if (!isPreviewMode) selectWidget(widget.id);
                             }}
                             isEditMode={!isPreviewMode}
+                            isShareMode={isShareMode}
                           />
                         </div>
                       </div>
