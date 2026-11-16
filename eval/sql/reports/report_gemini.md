@@ -2,7 +2,7 @@
 
 | Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini | 350 | 0.00% | 82.86% | 0.8185 | N/D | 329 | 21 |
+| gemini | 350 | 0.00% | 88.00% | 0.8690 | N/D | 338 | 12 |
 
 **gemini**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
 
