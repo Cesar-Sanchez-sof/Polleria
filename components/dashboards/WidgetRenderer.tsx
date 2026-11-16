@@ -22,6 +22,7 @@ interface WidgetRendererProps {
   isSelected?: boolean;
   onSelect?: () => void;
   isEditMode?: boolean;
+  isShareMode?: boolean;
 }
 
 export function WidgetRenderer({
@@ -29,6 +30,7 @@ export function WidgetRenderer({
   isSelected,
   onSelect,
   isEditMode,
+  isShareMode,
 }: WidgetRendererProps) {
   // Convierte widgets antiguos o incompletos en un WidgetConfig válido estilo Power BI
   const validConfig: WidgetConfig = useMemo(() => {
@@ -38,9 +40,11 @@ export function WidgetRenderer({
   return (
     <DynamicVisual
       config={validConfig}
+      widgetId={widget.id}
       isSelected={isSelected}
       onSelect={onSelect}
       isEditMode={isEditMode}
+      isShareMode={isShareMode}
     />
   );
 }

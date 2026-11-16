@@ -1,33 +1,101 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { AlertCircle, AlertTriangle, Loader2, PieChart as PieIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { AlertCircle, AlertTriangle, Loader2, PieChart as PieIcon, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useVisualData, useDashboardCatalog } from "@/lib/hooks/use-visual-data";
-import type { WidgetConfig, VisualType } from "@/lib/dashboards/widget-schema";
+import type { WidgetConfig } from "@/lib/dashboards/widget-schema";
 import { getVisualRegistryEntry } from "@/lib/dashboards/visual-registry";
 import { VISUAL_RENDERERS, BarColumnRenderer } from "./renderers";
+import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
+import { resolveCrossFilterDateRange } from "@/lib/dashboards/date-utils";
 
 interface DynamicVisualProps {
   config: WidgetConfig;
+  widgetId?: string;
   isSelected?: boolean;
   onSelect?: () => void;
   isEditMode?: boolean;
+  isShareMode?: boolean;
 }
 
 export function DynamicVisual({
   config,
+  widgetId,
   isSelected,
   onSelect,
   isEditMode,
+  isShareMode,
 }: DynamicVisualProps) {
-  const { data, previousData, isLoading, error, isTruncated } = useVisualData(config.data);
+  const pathname = usePathname();
+  const isShare = Boolean(isShareMode || (pathname && pathname.includes("/share")));
+
+  const { data, previousData, isLoading, error, isTruncated, hasCrossFilterApplied } = useVisualData(
+    config.data,
+    widgetId
+  );
   const { catalog } = useDashboardCatalog();
+  const crossFilters = useDashboardEditorStore((s) => s.crossFilters);
+  const setCrossFilter = useDashboardEditorStore((s) => s.setCrossFilter);
+  const clearCrossFilters = useDashboardEditorStore((s) => s.clearCrossFilters);
 
   const format = config.format;
   const visualType = config.visualType;
   const isUnconfigured = !config.data.dataset;
   const registryEntry = getVisualRegistryEntry(visualType);
+
+  const handleCrossFilter = (field: string, rawVal: unknown, displayVal?: string) => {
+    const datasetId = config.data.dataset;
+    if (!datasetId) return;
+
+    const dsMeta = catalog.find((ds) => ds.id === datasetId);
+    const fieldMeta = dsMeta?.fields.find((f) => f.id === field);
+
+    // 2. Solo se puede filtrar si es filtrable
+    if (fieldMeta && fieldMeta.filterable === false) {
+      return;
+    }
+
+    let finalValue: string | number | boolean | (string | number)[] =
+      rawVal as string | number | boolean | (string | number)[];
+    let finalGranularity: string | undefined = undefined;
+
+    // 4. Campos de fecha
+    if (fieldMeta?.dataType === "date") {
+      const gran = config.data.granularity || "month";
+      if (gran === "hour" || gran === "hourOfDay" || gran === "weekday") {
+        return;
+      }
+      const range = resolveCrossFilterDateRange(rawVal, gran);
+      if (!range) return;
+      finalValue = range;
+      finalGranularity = gran;
+    }
+
+    const display = displayVal || String(rawVal);
+    const sourceWidgetId = widgetId || "";
+
+    // Toggle
+    if (
+      crossFilters &&
+      crossFilters.datasetId === datasetId &&
+      crossFilters.field === field &&
+      JSON.stringify(crossFilters.value) === JSON.stringify(finalValue)
+    ) {
+      clearCrossFilters();
+      return;
+    }
+
+    setCrossFilter({
+      datasetId,
+      field,
+      granularity: finalGranularity,
+      value: finalValue,
+      display,
+      sourceWidgetId,
+    });
+  };
 
   // Validación de pozos obligatorios según registro
   let incompleteMessage: string | null = null;
@@ -138,6 +206,16 @@ export function DynamicVisual({
             <span>Datos truncados</span>
           </Badge>
         )}
+
+        {/* Indicador: filtro cruzado aplicado */}
+        {hasCrossFilterApplied && (
+          <span
+            className="shrink-0"
+            title="Este gráfico está filtrado por una selección activa"
+          >
+            <Filter className="size-3.5 text-primary" />
+          </span>
+        )}
       </div>
 
       {/* 2. Cuerpo del Visual según estado */}
@@ -197,6 +275,7 @@ export function DynamicVisual({
             format={format}
             palette={palette}
             fieldLabelsMap={fieldLabelsMap}
+            onCrossFilter={isShare ? undefined : handleCrossFilter}
           />
         )}
       </div>

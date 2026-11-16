@@ -15,6 +15,8 @@ import {
 } from "@/lib/services/settings/dashboard.service";
 import { DashboardSidebar } from "@/components/dashboards/DashboardSidebar";
 import { WidgetRenderer } from "@/components/dashboards/WidgetRenderer";
+import { CrossFilterClearButton } from "@/components/dashboards/CrossFilterClearButton";
+import { CrossFilterChip } from "@/components/dashboards/CrossFilterChip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -102,6 +104,7 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
         {/* Vista de Cuadrícula Estática (CSS Grid Puro - Sin react-grid-layout) */}
         {/* ==================================================================== */}
         <div className="flex-1 p-6">
+          <CrossFilterChip />
           {widgets.length === 0 ? (
             /* Estado Vacío cuando aún no tiene widgets */
             <div className="min-h-[420px] border-2 border-dashed border-border/70 rounded-2xl bg-card/30 flex flex-col items-center justify-center text-center p-8 transition-colors">
@@ -156,6 +159,7 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
           )}
         </div>
       </main>
+      <CrossFilterClearButton />
     </div>
   );
 }

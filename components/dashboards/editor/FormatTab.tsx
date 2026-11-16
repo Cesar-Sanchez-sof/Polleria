@@ -5,6 +5,7 @@ import { HexColorPicker } from "react-colorful";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionItem,
@@ -16,7 +17,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DEFAULT_PALETTES } from "@/lib/dashboards/widget-schema";
+import { Plus, Trash2 } from "lucide-react";
+import { DEFAULT_PALETTES, type ConditionalColorRule } from "@/lib/dashboards/widget-schema";
 import { getVisualRegistryEntry } from "@/lib/dashboards/visual-registry";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 
@@ -29,12 +31,24 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
   const formatConfig = config.format;
   const registryEntry = getVisualRegistryEntry(config.visualType);
   const options = registryEntry.format;
+  const caps = registryEntry.formatCaps;
 
   return (
     <div className="flex-1 overflow-y-auto p-3.5 space-y-3 pb-24 m-0">
       <Accordion
         multiple
-        defaultValue={["title", "colors", "labels", "legend", "axes", "numberFormat", "gauge"]}
+        defaultValue={[
+          "title",
+          "colors",
+          "chartSpecific",
+          "labels",
+          "legend",
+          "axes",
+          "referenceLine",
+          "conditionalColors",
+          "numberFormat",
+          "border",
+        ]}
         className="space-y-2"
       >
         {/* SECCIÓN 1: TÍTULO */}
@@ -108,188 +122,309 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
           </AccordionContent>
         </AccordionItem>
 
-        {/* SECCIÓN 2: COLORES & PALETAS */}
+        {/* SECCIÓN 2: PALETA DE COLORES */}
         <AccordionItem value="colors" className="border border-border/80 rounded-lg bg-card/60 px-3">
           <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
-            Colores
+            Colores y Paleta
           </AccordionTrigger>
           <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
             <div className="space-y-1.5">
-              <Label className="text-[11px] text-muted-foreground">Paleta temática</Label>
-              <select
-                value={formatConfig.colors.palette || "polleria"}
-                onChange={(e) => {
-                  const palName = e.target.value;
-                  const series = DEFAULT_PALETTES[palName] || DEFAULT_PALETTES.polleria;
-                  updateWidgetFormat(widgetId, {
-                    colors: {
-                      ...formatConfig.colors,
-                      palette: palName,
-                      series,
-                      custom: undefined,
-                    },
-                  });
-                }}
-                className="w-full h-7 text-xs rounded-md border border-input bg-background px-2 text-foreground"
-              >
-                <option value="polleria">Pollería (Cálida y Fuego)</option>
-                <option value="modern">Moderno (Multicolor)</option>
-                <option value="warm">Cálido (Rojos y Ámbar)</option>
-                <option value="cool">Frío (Azules y Violetas)</option>
-              </select>
+              <Label className="text-[11px] text-muted-foreground">Paleta predefinida</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(DEFAULT_PALETTES).map((pKey) => {
+                  const pal = DEFAULT_PALETTES[pKey];
+                  const isSelected = formatConfig.colors?.palette === pKey;
+                  return (
+                    <button
+                      key={pKey}
+                      type="button"
+                      onClick={() =>
+                        updateWidgetFormat(widgetId, {
+                          colors: {
+                            palette: pKey,
+                            series: pal,
+                          },
+                        })
+                      }
+                      className={`p-2 rounded-lg border text-left flex flex-col gap-1.5 cursor-pointer transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/10 ring-1 ring-primary"
+                          : "border-border hover:bg-muted/40"
+                      }`}
+                    >
+                      <span className="text-[10px] font-semibold capitalize">{pKey}</span>
+                      <div className="flex items-center gap-1">
+                        {pal.slice(0, 5).map((c, i) => (
+                          <div
+                            key={i}
+                            className="size-3.5 rounded-full border border-black/10 shrink-0"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <ColorPickerPopover
-              currentColor={formatConfig.colors.custom?.[0] || formatConfig.colors.series[0] || "#ef4444"}
-              onColorChange={(newColor) =>
+              currentColor={formatConfig.colors?.series?.[0] || "#ef4444"}
+              onColorChange={(newColor) => {
+                const currentSeries = [...(formatConfig.colors?.series || DEFAULT_PALETTES.polleria)];
+                currentSeries[0] = newColor;
                 updateWidgetFormat(widgetId, {
                   colors: {
-                    ...formatConfig.colors,
-                    custom: [newColor],
+                    palette: "custom",
+                    series: currentSeries,
                   },
-                })
-              }
+                });
+              }}
             />
           </AccordionContent>
         </AccordionItem>
 
-        {/* SECCIÓN FORMATO NUMÉRICO (Card y Gauge) */}
-        {options.numberFormat && (
-          <AccordionItem value="numberFormat" className="border border-border/80 rounded-lg bg-card/60 px-3">
+        {/* SECCIÓN 3: CONFIGURACIÓN ESPECÍFICA DE GRÁFICO (formatCaps.chartSpecific) */}
+        {caps.chartSpecific === "bar" && (
+          <AccordionItem value="chartSpecific" className="border border-border/80 rounded-lg bg-card/60 px-3">
             <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
-              Formato Numérico
+              Formato de Barras
             </AccordionTrigger>
             <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Prefijo de moneda / símbolo</Label>
-                <Input
-                  placeholder="Ej. S/ "
-                  value={formatConfig.numberFormat?.prefix ?? "S/ "}
-                  onChange={(e) =>
-                    updateWidgetFormat(widgetId, {
-                      numberFormat: {
-                        decimals: formatConfig.numberFormat?.decimals ?? 2,
-                        prefix: e.target.value,
-                        compact: formatConfig.numberFormat?.compact ?? false,
-                      },
-                    })
-                  }
-                  className="h-7 text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Decimales (0 a 4)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={4}
-                  value={formatConfig.numberFormat?.decimals ?? 2}
-                  onChange={(e) =>
-                    updateWidgetFormat(widgetId, {
-                      numberFormat: {
-                        decimals: Math.max(0, Math.min(4, Number(e.target.value) || 0)),
-                        prefix: formatConfig.numberFormat?.prefix ?? "S/ ",
-                        compact: formatConfig.numberFormat?.compact ?? false,
-                      },
-                    })
-                  }
-                  className="h-7 text-xs"
-                />
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex flex-col">
-                  <Label className="text-xs">Abreviar miles / millones</Label>
-                  <span className="text-[10px] text-muted-foreground">Muestra 14.8K / 1.2M</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-muted-foreground">Ancho de Barra (%)</Label>
+                  <span className="text-[10px] font-mono font-medium">
+                    {formatConfig.chartSpecific?.bar?.barWidth ?? 70}%
+                  </span>
                 </div>
-                <Switch
-                  checked={formatConfig.numberFormat?.compact ?? false}
-                  onCheckedChange={(checked) =>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  value={formatConfig.chartSpecific?.bar?.barWidth ?? 70}
+                  onChange={(e) =>
                     updateWidgetFormat(widgetId, {
-                      numberFormat: {
-                        decimals: formatConfig.numberFormat?.decimals ?? 2,
-                        prefix: formatConfig.numberFormat?.prefix ?? "S/ ",
-                        compact: checked,
+                      chartSpecific: {
+                        ...formatConfig.chartSpecific,
+                        bar: {
+                          borderRadius: formatConfig.chartSpecific?.bar?.borderRadius ?? 0,
+                          barWidth: Number(e.target.value),
+                        },
                       },
                     })
                   }
+                  className="w-full accent-primary h-1.5 bg-muted rounded-lg cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-muted-foreground">Radio de Esquinas (px)</Label>
+                  <span className="text-[10px] font-mono font-medium">
+                    {formatConfig.chartSpecific?.bar?.borderRadius ?? 0} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={20}
+                  value={formatConfig.chartSpecific?.bar?.borderRadius ?? 0}
+                  onChange={(e) =>
+                    updateWidgetFormat(widgetId, {
+                      chartSpecific: {
+                        ...formatConfig.chartSpecific,
+                        bar: {
+                          barWidth: formatConfig.chartSpecific?.bar?.barWidth ?? 70,
+                          borderRadius: Number(e.target.value),
+                        },
+                      },
+                    })
+                  }
+                  className="w-full accent-primary h-1.5 bg-muted rounded-lg cursor-pointer"
                 />
               </div>
             </AccordionContent>
           </AccordionItem>
         )}
 
-        {/* SECCIÓN MEDIDOR (GAUGE) */}
-        {options.gauge && (
-          <AccordionItem value="gauge" className="border border-border/80 rounded-lg bg-card/60 px-3">
+        {caps.chartSpecific === "lineArea" && (
+          <AccordionItem value="chartSpecific" className="border border-border/80 rounded-lg bg-card/60 px-3">
             <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
-              Configuración de Medidor
+              Formato de Línea y Área
             </AccordionTrigger>
             <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-muted-foreground">Grosor de Trazo (px)</Label>
+                  <span className="text-[10px] font-mono font-medium">
+                    {formatConfig.chartSpecific?.lineArea?.strokeWidth ?? 2} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={formatConfig.chartSpecific?.lineArea?.strokeWidth ?? 2}
+                  onChange={(e) =>
+                    updateWidgetFormat(widgetId, {
+                      chartSpecific: {
+                        ...formatConfig.chartSpecific,
+                        lineArea: {
+                          strokeWidth: Number(e.target.value),
+                          curveType: formatConfig.chartSpecific?.lineArea?.curveType ?? "monotone",
+                          showDots: formatConfig.chartSpecific?.lineArea?.showDots ?? true,
+                          fillOpacity: formatConfig.chartSpecific?.lineArea?.fillOpacity ?? 20,
+                        },
+                      },
+                    })
+                  }
+                  className="w-full accent-primary h-1.5 bg-muted rounded-lg cursor-pointer"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Valor Mínimo</Label>
-                  <Input
-                    type="number"
-                    value={formatConfig.gauge?.min ?? 0}
+                  <Label className="text-[11px] text-muted-foreground">Curvatura</Label>
+                  <select
+                    value={formatConfig.chartSpecific?.lineArea?.curveType ?? "monotone"}
                     onChange={(e) =>
                       updateWidgetFormat(widgetId, {
-                        gauge: {
-                          ...formatConfig.gauge,
-                          min: Number(e.target.value) || 0,
+                        chartSpecific: {
+                          ...formatConfig.chartSpecific,
+                          lineArea: {
+                            strokeWidth: formatConfig.chartSpecific?.lineArea?.strokeWidth ?? 2,
+                            curveType: e.target.value as "monotone" | "linear",
+                            showDots: formatConfig.chartSpecific?.lineArea?.showDots ?? true,
+                            fillOpacity: formatConfig.chartSpecific?.lineArea?.fillOpacity ?? 20,
+                          },
                         },
                       })
                     }
-                    className="h-7 text-xs"
-                  />
+                    className="w-full h-7 text-xs rounded-md border border-input bg-background px-2 text-foreground"
+                  >
+                    <option value="monotone">Suave (Monotone)</option>
+                    <option value="linear">Recta (Linear)</option>
+                  </select>
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Valor Máximo</Label>
-                  <Input
-                    type="number"
-                    placeholder="Auto (1.25x)"
-                    value={formatConfig.gauge?.max ?? ""}
-                    onChange={(e) =>
-                      updateWidgetFormat(widgetId, {
-                        gauge: {
-                          ...formatConfig.gauge,
-                          max: e.target.value ? Number(e.target.value) : undefined,
-                        },
-                      })
-                    }
-                    className="h-7 text-xs"
-                  />
+                  <Label className="text-[11px] text-muted-foreground">Puntos clave</Label>
+                  <div className="flex items-center justify-between h-7">
+                    <span className="text-xs text-muted-foreground">Puntos</span>
+                    <Switch
+                      checked={formatConfig.chartSpecific?.lineArea?.showDots ?? true}
+                      onCheckedChange={(checked) =>
+                        updateWidgetFormat(widgetId, {
+                          chartSpecific: {
+                            ...formatConfig.chartSpecific,
+                            lineArea: {
+                              strokeWidth: formatConfig.chartSpecific?.lineArea?.strokeWidth ?? 2,
+                              curveType: formatConfig.chartSpecific?.lineArea?.curveType ?? "monotone",
+                              showDots: checked,
+                              fillOpacity: formatConfig.chartSpecific?.lineArea?.fillOpacity ?? 20,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Meta / Objetivo (Target)</Label>
-                <Input
-                  type="number"
-                  placeholder="Ej. 10000"
-                  value={formatConfig.gauge?.target ?? ""}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-muted-foreground">Opacidad de Relleno (%)</Label>
+                  <span className="text-[10px] font-mono font-medium">
+                    {formatConfig.chartSpecific?.lineArea?.fillOpacity ?? 20}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={formatConfig.chartSpecific?.lineArea?.fillOpacity ?? 20}
                   onChange={(e) =>
                     updateWidgetFormat(widgetId, {
-                      gauge: {
-                        ...formatConfig.gauge,
-                        target: e.target.value ? Number(e.target.value) : undefined,
+                      chartSpecific: {
+                        ...formatConfig.chartSpecific,
+                        lineArea: {
+                          strokeWidth: formatConfig.chartSpecific?.lineArea?.strokeWidth ?? 2,
+                          curveType: formatConfig.chartSpecific?.lineArea?.curveType ?? "monotone",
+                          showDots: formatConfig.chartSpecific?.lineArea?.showDots ?? true,
+                          fillOpacity: Number(e.target.value),
+                        },
+                      },
+                    })
+                  }
+                  className="w-full accent-primary h-1.5 bg-muted rounded-lg cursor-pointer"
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {caps.chartSpecific === "donut" && (
+          <AccordionItem value="chartSpecific" className="border border-border/80 rounded-lg bg-card/60 px-3">
+            <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
+              Formato de Anillo
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-muted-foreground">Radio Interno (%)</Label>
+                  <span className="text-[10px] font-mono font-medium">
+                    {formatConfig.chartSpecific?.donut?.innerRadius ?? 60}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={90}
+                  value={formatConfig.chartSpecific?.donut?.innerRadius ?? 60}
+                  onChange={(e) =>
+                    updateWidgetFormat(widgetId, {
+                      chartSpecific: {
+                        ...formatConfig.chartSpecific,
+                        donut: {
+                          innerRadius: Number(e.target.value),
+                          startAngle: formatConfig.chartSpecific?.donut?.startAngle ?? 90,
+                        },
+                      },
+                    })
+                  }
+                  className="w-full accent-primary h-1.5 bg-muted rounded-lg cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Ángulo Inicial (°)</Label>
+                <Input
+                  type="number"
+                  value={formatConfig.chartSpecific?.donut?.startAngle ?? 90}
+                  onChange={(e) =>
+                    updateWidgetFormat(widgetId, {
+                      chartSpecific: {
+                        ...formatConfig.chartSpecific,
+                        donut: {
+                          innerRadius: formatConfig.chartSpecific?.donut?.innerRadius ?? 60,
+                          startAngle: Number(e.target.value) || 0,
+                        },
                       },
                     })
                   }
                   className="h-7 text-xs"
                 />
                 <span className="text-[10px] text-muted-foreground">
-                  El medidor cambia a verde al superar este valor.
+                  Ajusta automáticamente el ángulo final a 360° desde el inicio.
                 </span>
               </div>
             </AccordionContent>
           </AccordionItem>
         )}
 
-        {/* SECCIÓN 3: ETIQUETAS DE DATOS */}
-        {options.dataLabels && (
+        {/* SECCIÓN 4: ETIQUETAS DE DATOS */}
+        {options.dataLabels && caps.dataLabelPositions.length > 0 && (
           <AccordionItem value="labels" className="border border-border/80 rounded-lg bg-card/60 px-3">
             <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
               Etiquetas de Datos
@@ -312,7 +447,7 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
                   <div className="space-y-1">
                     <Label className="text-[11px] text-muted-foreground">Posición</Label>
                     <select
-                      value={formatConfig.dataLabels?.position || "top"}
+                      value={formatConfig.dataLabels?.position || caps.dataLabelPositions[0]}
                       onChange={(e) =>
                         updateWidgetFormat(widgetId, {
                           dataLabels: { ...formatConfig.dataLabels, position: e.target.value },
@@ -320,17 +455,26 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
                       }
                       className="w-full h-7 text-xs rounded-md border border-input bg-background px-2 text-foreground"
                     >
-                      <option value="top">Superior / Fuera</option>
-                      <option value="inside">Dentro</option>
+                      {caps.dataLabelPositions.map((pos) => (
+                        <option key={pos} value={pos}>
+                          {pos === "top"
+                            ? "Arriba (Top)"
+                            : pos === "center"
+                            ? "Centro (Center)"
+                            : pos === "bottom"
+                            ? "Abajo (Bottom)"
+                            : "Fuera (Outside)"}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Tamaño</Label>
+                    <Label className="text-[11px] text-muted-foreground">Tamaño fuente</Label>
                     <Input
                       type="number"
                       min={9}
-                      max={16}
+                      max={18}
                       value={formatConfig.dataLabels?.fontSize || 11}
                       onChange={(e) =>
                         updateWidgetFormat(widgetId, {
@@ -346,7 +490,7 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
           </AccordionItem>
         )}
 
-        {/* SECCIÓN 4: LEYENDA */}
+        {/* SECCIÓN 5: LEYENDA */}
         {options.legend && (
           <AccordionItem value="legend" className="border border-border/80 rounded-lg bg-card/60 px-3">
             <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
@@ -367,7 +511,7 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
 
               {formatConfig.legend.show && (
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Posición de leyenda</Label>
+                  <Label className="text-[11px] text-muted-foreground">Posición</Label>
                   <select
                     value={formatConfig.legend.position || "top"}
                     onChange={(e) =>
@@ -391,91 +535,456 @@ export function FormatTab({ widgetId }: { widgetId: string }) {
           </AccordionItem>
         )}
 
-        {/* SECCIÓN 5: EJES & CUADRÍCULA */}
-        {options.axes && (
+        {/* SECCIÓN 6: EJES Y ESCALA (formatCaps) */}
+        {(options.axes || caps.yAxisRange || caps.labelRotation) && (
           <AccordionItem value="axes" className="border border-border/80 rounded-lg bg-card/60 px-3">
             <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
-              Ejes y Cuadrícula
+              Ejes y Escala
             </AccordionTrigger>
             <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Título Eje X</Label>
-                <Input
-                  placeholder="Ej. Mes / Plato / Categoría"
-                  value={formatConfig.axes?.xTitle || ""}
-                  onChange={(e) =>
-                    updateWidgetFormat(widgetId, {
-                      axes: { ...formatConfig.axes, xTitle: e.target.value, showGrid: formatConfig.axes?.showGrid ?? true },
-                    })
-                  }
-                  className="h-7 text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Título Eje Y Principal</Label>
-                <Input
-                  placeholder="Ej. Soles (S/) / Cantidad"
-                  value={formatConfig.axes?.yTitle || ""}
-                  onChange={(e) =>
-                    updateWidgetFormat(widgetId, {
-                      axes: { ...formatConfig.axes, yTitle: e.target.value, showGrid: formatConfig.axes?.showGrid ?? true },
-                    })
-                  }
-                  className="h-7 text-xs"
-                />
-              </div>
-
-              {/* Eje Secundario para Combo */}
-              {options.secondaryAxis && (
-                <div className="space-y-2 pt-1 border-t border-border/50">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Activar Eje Y Secundario (Líneas)</Label>
-                    <Switch
-                      checked={formatConfig.axes?.showSecondaryY ?? false}
-                      onCheckedChange={(checked) =>
+              {options.axes && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Título Eje X</Label>
+                    <Input
+                      placeholder="Ej. Mes / Categoría"
+                      value={formatConfig.axes?.xTitle || ""}
+                      onChange={(e) =>
                         updateWidgetFormat(widgetId, {
-                          axes: { ...formatConfig.axes, showSecondaryY: checked },
+                          axes: { ...formatConfig.axes, xTitle: e.target.value },
                         })
                       }
+                      className="h-7 text-xs"
                     />
                   </div>
-                  {formatConfig.axes?.showSecondaryY && (
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Título Eje Y</Label>
+                    <Input
+                      placeholder="Ej. Soles (S/)"
+                      value={formatConfig.axes?.yTitle || ""}
+                      onChange={(e) =>
+                        updateWidgetFormat(widgetId, {
+                          axes: { ...formatConfig.axes, yTitle: e.target.value },
+                        })
+                      }
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Rango Min/Max de Y (si yAxisRange es true) */}
+              {caps.yAxisRange && (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Y Mínimo (Min)</Label>
+                    <Input
+                      type="number"
+                      placeholder="Auto"
+                      value={formatConfig.axes?.yAxisMin ?? ""}
+                      onChange={(e) =>
+                        updateWidgetFormat(widgetId, {
+                          axes: {
+                            ...formatConfig.axes,
+                            yAxisMin: e.target.value !== "" ? Number(e.target.value) : undefined,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Y Máximo (Max)</Label>
+                    <Input
+                      type="number"
+                      placeholder="Auto"
+                      value={formatConfig.axes?.yAxisMax ?? ""}
+                      onChange={(e) =>
+                        updateWidgetFormat(widgetId, {
+                          axes: {
+                            ...formatConfig.axes,
+                            yAxisMax: e.target.value !== "" ? Number(e.target.value) : undefined,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Rotación de etiquetas de eje X */}
+              {caps.labelRotation && (
+                <div className="space-y-1 pt-1">
+                  <Label className="text-[11px] text-muted-foreground">Rotación de etiquetas (Eje X)</Label>
+                  <select
+                    value={formatConfig.axes?.labelRotation ?? 0}
+                    onChange={(e) =>
+                      updateWidgetFormat(widgetId, {
+                        axes: {
+                          ...formatConfig.axes,
+                          labelRotation: Number(e.target.value) as 0 | 45 | -45,
+                        },
+                      })
+                    }
+                    className="w-full h-7 text-xs rounded-md border border-input bg-background px-2 text-foreground"
+                  >
+                    <option value={0}>0° (Horizontal)</option>
+                    <option value={45}>45° (Inclinado)</option>
+                    <option value={-45}>-45° (Inclinado opuesto)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Cuadrículas X e Y */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Cuadrícula Y</Label>
+                  <Switch
+                    checked={formatConfig.axes?.showGridY ?? formatConfig.axes?.showGrid ?? true}
+                    onCheckedChange={(checked) =>
+                      updateWidgetFormat(widgetId, {
+                        axes: {
+                          ...formatConfig.axes,
+                          showGrid: checked,
+                          showGridY: checked,
+                        },
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Cuadrícula X</Label>
+                  <Switch
+                    checked={formatConfig.axes?.showGridX ?? false}
+                    onCheckedChange={(checked) =>
+                      updateWidgetFormat(widgetId, {
+                        axes: {
+                          ...formatConfig.axes,
+                          showGridX: checked,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* SECCIÓN 7: LÍNEA DE REFERENCIA (formatCaps.referenceLine) */}
+        {caps.referenceLine && (
+          <AccordionItem value="referenceLine" className="border border-border/80 rounded-lg bg-card/60 px-3">
+            <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
+              Línea de Referencia
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Mostrar línea objetivo/referencia</Label>
+                <Switch
+                  checked={formatConfig.referenceLine?.show ?? false}
+                  onCheckedChange={(checked) =>
+                    updateWidgetFormat(widgetId, {
+                      referenceLine: {
+                        show: checked,
+                        value: formatConfig.referenceLine?.value ?? 0,
+                        label: formatConfig.referenceLine?.label ?? "Meta",
+                        color: formatConfig.referenceLine?.color ?? "#ef4444",
+                      },
+                    })
+                  }
+                />
+              </div>
+
+              {formatConfig.referenceLine?.show && (
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Título Eje Y Secundario</Label>
+                      <Label className="text-[11px] text-muted-foreground">Valor numérico</Label>
                       <Input
-                        placeholder="Ej. Margen % / Unidades"
-                        value={formatConfig.axes?.secondaryYTitle || ""}
+                        type="number"
+                        value={formatConfig.referenceLine.value}
                         onChange={(e) =>
                           updateWidgetFormat(widgetId, {
-                            axes: { ...formatConfig.axes, secondaryYTitle: e.target.value },
+                            referenceLine: {
+                              ...formatConfig.referenceLine,
+                              show: true,
+                              value: Number(e.target.value) || 0,
+                            },
                           })
                         }
                         className="h-7 text-xs"
                       />
                     </div>
-                  )}
-                </div>
-              )}
 
-              {options.gridlines && (
-                <div className="flex items-center justify-between pt-1">
-                  <Label className="text-xs">Mostrar cuadrícula</Label>
-                  <Switch
-                    checked={formatConfig.axes?.showGrid ?? true}
-                    onCheckedChange={(checked) =>
-                      updateWidgetFormat(widgetId, {
-                        axes: { ...formatConfig.axes, showGrid: checked },
-                      })
-                    }
-                  />
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Etiqueta</Label>
+                      <Input
+                        placeholder="Ej. Meta mensual"
+                        value={formatConfig.referenceLine.label}
+                        onChange={(e) =>
+                          updateWidgetFormat(widgetId, {
+                            referenceLine: {
+                              ...formatConfig.referenceLine,
+                              show: true,
+                              label: e.target.value,
+                            },
+                          })
+                        }
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Color de la línea</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={formatConfig.referenceLine.color}
+                        onChange={(e) =>
+                          updateWidgetFormat(widgetId, {
+                            referenceLine: {
+                              ...formatConfig.referenceLine,
+                              show: true,
+                              color: e.target.value,
+                            },
+                          })
+                        }
+                        className="size-7 rounded border border-input cursor-pointer"
+                      />
+                      <span className="text-xs font-mono">{formatConfig.referenceLine.color}</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </AccordionContent>
           </AccordionItem>
         )}
 
-        {/* SECCIÓN 6: FONDO Y BORDE */}
+        {/* SECCIÓN 8: COLORES CONDICIONALES (formatCaps.conditionalColors) */}
+        {caps.conditionalColors && (
+          <AccordionItem value="conditionalColors" className="border border-border/80 rounded-lg bg-card/60 px-3">
+            <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
+              Colores Condicionales
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  Reglas de formato (máx. 5, orden prioritario)
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(formatConfig.conditionalColors || []).length >= 5}
+                  onClick={() => {
+                    const currentRules = formatConfig.conditionalColors || [];
+                    if (currentRules.length >= 5) return;
+                    const newRule: ConditionalColorRule = {
+                      condition: "greaterThan",
+                      threshold: 1000,
+                      color: "#10b981",
+                    };
+                    updateWidgetFormat(widgetId, {
+                      conditionalColors: [...currentRules, newRule],
+                    });
+                  }}
+                  className="h-6 text-[10px] gap-1 px-2 cursor-pointer"
+                >
+                  <Plus className="size-3" />
+                  <span>Agregar regla</span>
+                </Button>
+              </div>
+
+              {(formatConfig.conditionalColors || []).length === 0 ? (
+                <div className="text-[11px] text-muted-foreground text-center py-2 bg-muted/20 rounded border border-dashed border-border/60">
+                  Sin reglas condicionales activas
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {(formatConfig.conditionalColors || []).map((rule, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 rounded-lg border border-border bg-background/50 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-muted-foreground">
+                          Regla #{idx + 1}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => {
+                            const filtered = (formatConfig.conditionalColors || []).filter(
+                              (_, rIdx) => rIdx !== idx
+                            );
+                            updateWidgetFormat(widgetId, {
+                              conditionalColors: filtered,
+                            });
+                          }}
+                          className="size-5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Condición</Label>
+                          <select
+                            value={rule.condition}
+                            onChange={(e) => {
+                              const updated = [...(formatConfig.conditionalColors || [])];
+                              updated[idx] = {
+                                ...updated[idx],
+                                condition: e.target.value as "greaterThan" | "lessThan" | "between",
+                              };
+                              updateWidgetFormat(widgetId, { conditionalColors: updated });
+                            }}
+                            className="w-full h-7 text-xs rounded-md border border-input bg-background px-1 text-foreground"
+                          >
+                            <option value="greaterThan">Mayor que (&gt;)</option>
+                            <option value="lessThan">Menor que (&lt;)</option>
+                            <option value="between">Entre (rango)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">
+                            {rule.condition === "between" ? "Mínimo" : "Umbral"}
+                          </Label>
+                          <Input
+                            type="number"
+                            value={rule.threshold}
+                            onChange={(e) => {
+                              const updated = [...(formatConfig.conditionalColors || [])];
+                              updated[idx] = {
+                                ...updated[idx],
+                                threshold: Number(e.target.value) || 0,
+                              };
+                              updateWidgetFormat(widgetId, { conditionalColors: updated });
+                            }}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {rule.condition === "between" && (
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Máximo</Label>
+                          <Input
+                            type="number"
+                            value={rule.threshold2 ?? 2000}
+                            onChange={(e) => {
+                              const updated = [...(formatConfig.conditionalColors || [])];
+                              updated[idx] = {
+                                ...updated[idx],
+                                threshold2: Number(e.target.value) || 0,
+                              };
+                              updateWidgetFormat(widgetId, { conditionalColors: updated });
+                            }}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-muted-foreground">Color resultante</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={rule.color}
+                            onChange={(e) => {
+                              const updated = [...(formatConfig.conditionalColors || [])];
+                              updated[idx] = {
+                                ...updated[idx],
+                                color: e.target.value,
+                              };
+                              updateWidgetFormat(widgetId, { conditionalColors: updated });
+                            }}
+                            className="size-6 rounded border border-input cursor-pointer"
+                          />
+                          <span className="text-[10px] font-mono">{rule.color}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* SECCIÓN 9: FORMATO NUMÉRICO */}
+        {options.numberFormat && (
+          <AccordionItem value="numberFormat" className="border border-border/80 rounded-lg bg-card/60 px-3">
+            <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
+              Formato de Números
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pt-1 pb-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Prefijo</Label>
+                  <Input
+                    placeholder="S/ "
+                    value={formatConfig.numberFormat?.prefix || ""}
+                    onChange={(e) =>
+                      updateWidgetFormat(widgetId, {
+                        numberFormat: {
+                          decimals: formatConfig.numberFormat?.decimals ?? 2,
+                          prefix: e.target.value,
+                          compact: formatConfig.numberFormat?.compact ?? false,
+                        },
+                      })
+                    }
+                    className="h-7 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Decimales</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={4}
+                    value={formatConfig.numberFormat?.decimals ?? 2}
+                    onChange={(e) =>
+                      updateWidgetFormat(widgetId, {
+                        numberFormat: {
+                          prefix: formatConfig.numberFormat?.prefix ?? "S/ ",
+                          decimals: Math.max(0, Math.min(4, Number(e.target.value))),
+                          compact: formatConfig.numberFormat?.compact ?? false,
+                        },
+                      })
+                    }
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <Label className="text-xs">Formato compacto (K, M)</Label>
+                <Switch
+                  checked={formatConfig.numberFormat?.compact ?? false}
+                  onCheckedChange={(checked) =>
+                    updateWidgetFormat(widgetId, {
+                      numberFormat: {
+                        prefix: formatConfig.numberFormat?.prefix ?? "S/ ",
+                        decimals: formatConfig.numberFormat?.decimals ?? 2,
+                        compact: checked,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* SECCIÓN 10: FONDO Y BORDE */}
         <AccordionItem value="border" className="border border-border/80 rounded-lg bg-card/60 px-3">
           <AccordionTrigger className="text-xs font-semibold py-2.5 hover:no-underline">
             Fondo y Borde

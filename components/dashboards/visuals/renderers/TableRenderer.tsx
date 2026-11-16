@@ -1,5 +1,6 @@
 import React from "react";
 import { type VisualRendererProps, getMetricFriendlyLabel } from "./renderer-types";
+import { evaluateConditionalColor } from "@/lib/dashboards/format-utils";
 
 export function TableRenderer({
   data,
@@ -9,11 +10,13 @@ export function TableRenderer({
   const rows = data.rows;
   const axisKey = data.meta.axis || "axis";
   const metrics = data.meta.metrics;
-  const headers = [
+  const technicalKeys = new Set(["rawValue", "axisRawValue", "legendRawValue"]);
+  const rawHeaders = [
     ...(data.meta.axis ? [axisKey] : []),
     ...(data.meta.legend ? [data.meta.legend] : []),
     ...metrics,
   ];
+  const headers = rawHeaders.filter((h) => !technicalKeys.has(h));
 
   return (
     <div className="w-full h-full overflow-auto">
@@ -33,12 +36,16 @@ export function TableRenderer({
               {headers.map((h) => {
                 const rawVal = r[h];
                 const isNumeric = typeof rawVal === "number";
+                const cellColor = isNumeric
+                  ? evaluateConditionalColor(rawVal, format.conditionalColors)
+                  : undefined;
                 return (
                   <td
                     key={h}
                     className={`py-2 px-3 whitespace-nowrap ${
                       isNumeric ? "text-right font-medium tabular-nums" : "text-foreground"
                     }`}
+                    style={cellColor ? { color: cellColor, fontWeight: 600 } : undefined}
                   >
                     {isNumeric
                       ? rawVal.toLocaleString("es-PE", {

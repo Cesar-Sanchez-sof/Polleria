@@ -1,0 +1,490 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import { useSWRConfig } from "swr";
+import { toPng } from "html-to-image";
+import { toast } from "sonner";
+import {
+  Undo2,
+  Redo2,
+  Copy,
+  Trash2,
+  Lock,
+  Unlock,
+  Grid3X3,
+  AlignVerticalJustifyStart,
+  Maximize2,
+  RefreshCw,
+  Download,
+  Eye,
+  FilterX,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DynamicVisual } from "../visuals/DynamicVisual";
+import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
+import { cn } from "@/lib/utils";
+
+interface EditorToolbarProps {
+  dashboardId: string;
+  canvasRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+interface ToolbarButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  shortcut?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  className?: string;
+}
+
+function ToolbarButton({
+  icon,
+  label,
+  shortcut,
+  onClick,
+  disabled = false,
+  active = false,
+  className,
+}: ToolbarButtonProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={label}
+            className={cn(
+              "size-7 rounded-md text-foreground transition-colors cursor-pointer",
+              active
+                ? "bg-muted text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+              disabled && "opacity-40 cursor-not-allowed",
+              className
+            )}
+          >
+            {icon}
+          </Button>
+        }
+      />
+      <TooltipContent side="bottom" sideOffset={6} className="text-xs py-1 px-2 flex items-center gap-1.5">
+        <span>{label}</span>
+        {shortcut && (
+          <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-muted/80 text-muted-foreground border border-border">
+            {shortcut}
+          </kbd>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
+  void dashboardId;
+  const { mutate } = useSWRConfig();
+
+  const {
+    selectedWidgetId,
+    getSelectedWidget,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    duplicateWidget,
+    removeWidget,
+    toggleLockWidget,
+    isGridVisible,
+    toggleGrid,
+    autoFitWidgets,
+    isDirty,
+    isRefreshing,
+    setIsRefreshing,
+    togglePreviewMode,
+    crossFilters,
+    clearCrossFilters,
+  } = useDashboardEditorStore();
+
+  const hasCrossFilters = Boolean(crossFilters);
+
+  const selectedWidget = getSelectedWidget();
+  const isSelectedLocked = Boolean(selectedWidget?.config.layout?.locked);
+
+  const [isFocusOpen, setIsFocusOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // =========================================================================
+  // Atajos de teclado: Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z, Supr, Ctrl+D
+  // Ninguno actúa si el foco está en input, textarea o select.
+  // =========================================================================
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          activeEl.isContentEditable);
+
+      if (isInput) return;
+
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // Deshacer: Ctrl+Z
+      if (isCtrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (canUndo) undo();
+        return;
+      }
+
+      // Rehacer: Ctrl+Y o Ctrl+Shift+Z
+      if (
+        (isCtrlOrCmd && e.key.toLowerCase() === "y") ||
+        (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === "z")
+      ) {
+        e.preventDefault();
+        if (canRedo) redo();
+        return;
+      }
+
+      // Supr: Eliminar visual seleccionado (si no está bloqueado)
+      if (e.key === "Delete") {
+        if (selectedWidgetId && !isSelectedLocked) {
+          e.preventDefault();
+          removeWidget(selectedWidgetId);
+        }
+        return;
+      }
+
+      // Duplicar: Ctrl+D
+      if (isCtrlOrCmd && e.key.toLowerCase() === "d") {
+        if (selectedWidgetId) {
+          e.preventDefault();
+          duplicateWidget(selectedWidgetId);
+        }
+        return;
+      }
+    },
+    [canUndo, canRedo, undo, redo, selectedWidgetId, isSelectedLocked, removeWidget, duplicateWidget]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // =========================================================================
+  // Aviso beforeunload cuando isDirty es true
+  // =========================================================================
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  // =========================================================================
+  // Actualizar: Revalida todas las claves de /api/dashboards/query
+  // =========================================================================
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await mutate(
+        (key) => {
+          if (typeof key === "string") return key.includes("/api/dashboards/query");
+          if (Array.isArray(key)) {
+            return key.some(
+              (k) => typeof k === "string" && k.includes("/api/dashboards/query")
+            );
+          }
+          return false;
+        },
+        undefined,
+        { revalidate: true }
+      );
+      toast.success("Consultas de datos revalidadas exitosamente");
+    } catch {
+      toast.error("Error al actualizar consultas de datos");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // =========================================================================
+  // Exportar PNG del visual seleccionado (o del lienzo completo si no hay selección)
+  // =========================================================================
+  const handleExportPNG = async () => {
+    setIsExporting(true);
+    try {
+      // Si hay widget seleccionado → exportar solo ese widget
+      // Si no → exportar el lienzo completo vía canvasRef
+      let node: HTMLElement | null = null;
+      let fileName = "dashboard.png";
+
+      if (selectedWidgetId) {
+        const wrapper = document.getElementById(`widget-card-${selectedWidgetId}`);
+        if (!wrapper) throw new Error("No se encontró el elemento visual en el lienzo");
+        // Preferir el contenedor interno del gráfico (Recharts)
+        node =
+          (wrapper.querySelector(".recharts-wrapper") as HTMLElement | null) ??
+          (wrapper.querySelector('[class*="flex-1"]') as HTMLElement | null) ??
+          wrapper;
+        const title = selectedWidget?.title || "visual";
+        fileName = `${title.toLowerCase().replace(/[^a-z0-9_-]/g, "_")}.png`;
+      } else if (canvasRef?.current) {
+        node = canvasRef.current;
+      } else {
+        // Fallback: buscar el contenedor del grid por id
+        node = document.getElementById("dashboard-canvas-grid");
+      }
+
+      if (!node) {
+        toast.info("Selecciona un visual o asegúrate de que el lienzo esté visible");
+        return;
+      }
+
+      // Esperar a que fuentes y animaciones terminen
+      await new Promise<void>((r) => setTimeout(r, 150));
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+        filter: (el) => {
+          const htmlEl = el as HTMLElement;
+          // Omitir cabeceras de drag en exportación individual
+          if (htmlEl?.classList?.contains("widget-drag-header")) return false;
+          return true;
+        },
+      });
+
+      const link = document.createElement("a");
+      link.download = fileName;
+      link.href = dataUrl;
+      link.click();
+      toast.success("Imagen PNG exportada exitosamente");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error al procesar el visual";
+      toast.error(`Error al exportar PNG: ${msg}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <TooltipProvider delay={250}>
+      <nav
+        aria-label="Barra de herramientas del editor"
+        className="sticky top-0 z-20 w-full border-b border-border bg-card text-foreground px-4 py-1.5 flex items-center justify-between shadow-xs select-none"
+      >
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 1. Grupo Historial */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={<Undo2 className="size-4" />}
+              label="Deshacer"
+              shortcut="Ctrl+Z"
+              onClick={undo}
+              disabled={!canUndo}
+            />
+            <ToolbarButton
+              icon={<Redo2 className="size-4" />}
+              label="Rehacer"
+              shortcut="Ctrl+Y / Ctrl+Shift+Z"
+              onClick={redo}
+              disabled={!canRedo}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-5 mx-1" />
+
+          {/* 2. Grupo Visual */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={<Copy className="size-4" />}
+              label="Duplicar visual"
+              shortcut="Ctrl+D"
+              onClick={() => duplicateWidget()}
+              disabled={!selectedWidgetId}
+            />
+            <ToolbarButton
+              icon={<Trash2 className="size-4" />}
+              label={isSelectedLocked ? "Visual bloqueado" : "Eliminar visual"}
+              shortcut="Supr"
+              onClick={() => selectedWidgetId && removeWidget(selectedWidgetId)}
+              disabled={!selectedWidgetId || isSelectedLocked}
+            />
+            <ToolbarButton
+              icon={
+                isSelectedLocked ? (
+                  <Lock className="size-4 text-amber-500" />
+                ) : (
+                  <Unlock className="size-4" />
+                )
+              }
+              label={isSelectedLocked ? "Desbloquear posición" : "Bloquear posición"}
+              onClick={() => toggleLockWidget()}
+              disabled={!selectedWidgetId}
+              active={isSelectedLocked}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-5 mx-1" />
+
+          {/* 3. Grupo Lienzo */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={<Grid3X3 className="size-4" />}
+              label="Cuadrícula guía"
+              onClick={toggleGrid}
+              active={isGridVisible}
+            />
+            <ToolbarButton
+              icon={<AlignVerticalJustifyStart className="size-4" />}
+              label="Auto-ajustar widgets"
+              shortcut="Compactar vertical"
+              onClick={autoFitWidgets}
+            />
+            <ToolbarButton
+              icon={<Maximize2 className="size-4" />}
+              label="Modo enfoque"
+              shortcut="Esc para cerrar"
+              onClick={() => setIsFocusOpen(true)}
+              disabled={!selectedWidgetId}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-5 mx-1" />
+
+          {/* 4. Grupo Datos */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={
+                <RefreshCw
+                  className={cn(
+                    "size-4 transition-transform",
+                    isRefreshing && "animate-spin text-primary"
+                  )}
+                />
+              }
+              label="Actualizar datos"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            />
+            <ToolbarButton
+              icon={<Download className="size-4" />}
+              label={
+                isExporting
+                  ? "Generando PNG..."
+                  : selectedWidgetId
+                  ? "Exportar visual como PNG"
+                  : "Exportar lienzo completo como PNG"
+              }
+              onClick={handleExportPNG}
+              disabled={isExporting}
+            />
+            {hasCrossFilters && (
+              <ToolbarButton
+                icon={<FilterX className="size-4 text-primary" />}
+                label="Limpiar filtros cruzados"
+                onClick={clearCrossFilters}
+                active
+              />
+            )}
+          </div>
+        </div>
+
+        {/* 5. Grupo Estado */}
+        <div className="flex items-center gap-2.5">
+          {isDirty ? (
+            <Badge
+              variant="outline"
+              className="text-[11px] h-6 px-2 font-medium bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400"
+            >
+              <span className="size-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse" />
+              Sin guardar
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="text-[11px] h-6 px-2 font-medium bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400"
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500 mr-1.5" />
+              Guardado
+            </Badge>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={togglePreviewMode}
+            className="h-7 text-xs gap-1.5 cursor-pointer hover:bg-muted"
+            title="Activar vista previa (Lectura)"
+          >
+            <Eye className="size-3.5" />
+            <span>Lectura</span>
+          </Button>
+        </div>
+      </nav>
+
+      {/* ===================================================================== */}
+      {/* Diálogo de Enfoque a Pantalla Completa                                */}
+      {/* ===================================================================== */}
+      <Dialog open={isFocusOpen} onOpenChange={setIsFocusOpen}>
+        <DialogContent className="max-w-5xl w-[92vw] h-[85vh] flex flex-col p-6 bg-card text-card-foreground">
+          <DialogHeader className="shrink-0 mb-2">
+            <DialogTitle className="text-base font-semibold text-foreground flex items-center justify-between">
+              <span>
+                {selectedWidget?.title ||
+                  selectedWidget?.config.format.title.text ||
+                  "Enfoque del Visual"}
+              </span>
+              <span className="text-xs text-muted-foreground font-normal">
+                Presiona <kbd className="font-mono bg-muted px-1 rounded">Esc</kbd> para cerrar
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 w-full overflow-hidden rounded-xl border border-border bg-background p-4 flex flex-col">
+            {selectedWidget ? (
+              <DynamicVisual
+                config={selectedWidget.config}
+                widgetId={selectedWidget.id}
+                isSelected={false}
+                isEditMode={false}
+              />
+            ) : (
+              <div className="flex items-center justify-center flex-1 text-xs text-muted-foreground">
+                Ningún visual seleccionado
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
+  );
+}

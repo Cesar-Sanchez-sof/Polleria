@@ -285,19 +285,43 @@ function buildWhereClause(
     }
 
     const parts = targetPath.split(".");
-    if (parts.length === 1) {
-      where[parts[0]] = condition;
-    } else {
-      let curr = where;
-      for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-        curr[part] =
-          typeof curr[part] === "object" && curr[part] !== null
-            ? { ...(curr[part] as Record<string, unknown>) }
-            : {};
-        curr = curr[part] as Record<string, unknown>;
+
+    const branch: Record<string, unknown> = {};
+    let currBranch = branch;
+    for (let i = 0; i < parts.length - 1; i++) {
+      currBranch[parts[i]] = {};
+      currBranch = currBranch[parts[i]] as Record<string, unknown>;
+    }
+    currBranch[parts[parts.length - 1]] = condition;
+
+    // Si ya existe una condición previa sobre este MISMO campo exacto, combinamos con Prisma AND:
+    let node: unknown = where;
+    let collision = true;
+    for (const p of parts) {
+      if (node && typeof node === "object" && p in (node as Record<string, unknown>)) {
+        node = (node as Record<string, unknown>)[p];
+      } else {
+        collision = false;
+        break;
       }
-      curr[parts[parts.length - 1]] = condition;
+    }
+
+    if (collision && node !== undefined) {
+      if (!Array.isArray(where.AND)) {
+        where.AND = [];
+      }
+      (where.AND as Array<Record<string, unknown>>).push(branch);
+    } else {
+      // Campos distintos: fusionar en el objeto where
+      let targetNode = where;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const p = parts[i];
+        if (!targetNode[p] || typeof targetNode[p] !== "object") {
+          targetNode[p] = {};
+        }
+        targetNode = targetNode[p] as Record<string, unknown>;
+      }
+      targetNode[parts[parts.length - 1]] = condition;
     }
   }
 
@@ -305,13 +329,12 @@ function buildWhereClause(
 }
 
 /**
- * Extrae el valor de dimensión desde una fila cargada (escalar o relación)
+ * Extrae el valor crudo de dimensión desde una fila cargada (escalar o relación)
  */
-function extractDimensionValue(
+export function extractRawDimensionValue(
   row: Record<string, unknown>,
-  field: SemanticField,
-  granularity?: DateGranularity
-): string {
+  field: SemanticField
+): unknown {
   let rawValue: unknown;
 
   if (field.customExtractor) {
@@ -333,6 +356,18 @@ function extractDimensionValue(
   } else if (field.id in row) {
     rawValue = row[field.id];
   }
+  return rawValue;
+}
+
+/**
+ * Extrae el valor de dimensión desde una fila cargada (escalar o relación)
+ */
+function extractDimensionValue(
+  row: Record<string, unknown>,
+  field: SemanticField,
+  granularity?: DateGranularity
+): string {
+  const rawValue = extractRawDimensionValue(row, field);
 
   if (rawValue === null || rawValue === undefined) {
     return "(Vacío)";
@@ -674,11 +709,24 @@ export async function executeDashboardQueryService(
           : legendField?.id;
 
       if (!mapGrouped.has(groupKey)) {
+        const rawAxisNormalized =
+          rawAxisVal !== undefined && rawAxisVal !== null
+            ? (rawAxisVal instanceof Date ? rawAxisVal.toISOString() : (rawAxisVal as string | number | boolean))
+            : axisLabel;
+
         const newRow: Record<string, string | number | boolean | null> = {
           [axisField.id]: axisLabel,
+          rawValue: rawAxisNormalized,
+          axisRawValue: rawAxisNormalized,
         };
         if (legendKey && legendLabel !== undefined) {
           newRow[legendKey] = legendLabel;
+          const rawLegendVal = legendField ? g[legendField.prismaField || legendField.id] : undefined;
+          const rawLegendNormalized =
+            rawLegendVal !== undefined && rawLegendVal !== null
+              ? (rawLegendVal instanceof Date ? rawLegendVal.toISOString() : (rawLegendVal as string | number | boolean))
+              : legendLabel;
+          newRow.legendRawValue = rawLegendNormalized;
         }
         for (const v of queryData.values) {
           newRow[`${v.field}_${v.agg}`] = 0;
@@ -808,7 +856,9 @@ export async function executeDashboardQueryService(
 
   interface GroupAccumulator {
     axisLabel: string;
+    rawAxisValue?: unknown;
     legendLabel?: string;
+    rawLegendValue?: unknown;
     counts: Record<string, number>;
     sums: Record<string, number>;
     mins: Record<string, number>;
@@ -829,9 +879,13 @@ export async function executeDashboardQueryService(
     const groupKey = legendLabel ? `${axisLabel}__${legendLabel}` : axisLabel;
 
     if (!groups.has(groupKey)) {
+      const rawAxisVal = axisField ? extractRawDimensionValue(row, axisField) : undefined;
+      const rawLegendVal = legendField ? extractRawDimensionValue(row, legendField) : undefined;
       groups.set(groupKey, {
         axisLabel,
+        rawAxisValue: rawAxisVal,
         legendLabel,
+        rawLegendValue: rawLegendVal,
         counts: {},
         sums: {},
         mins: {},
@@ -885,9 +939,20 @@ export async function executeDashboardQueryService(
 
     if (axisField) {
       rowRecord[axisField.id] = acc.axisLabel;
+      const rawAxisNormalized =
+        acc.rawAxisValue !== undefined && acc.rawAxisValue !== null
+          ? (acc.rawAxisValue instanceof Date ? acc.rawAxisValue.toISOString() : (acc.rawAxisValue as string | number | boolean))
+          : acc.axisLabel;
+      rowRecord.rawValue = rawAxisNormalized;
+      rowRecord.axisRawValue = rawAxisNormalized;
     }
     if (resolvedLegendKey && acc.legendLabel !== undefined) {
       rowRecord[resolvedLegendKey] = acc.legendLabel;
+      const rawLegendNormalized =
+        acc.rawLegendValue !== undefined && acc.rawLegendValue !== null
+          ? (acc.rawLegendValue instanceof Date ? acc.rawLegendValue.toISOString() : (acc.rawLegendValue as string | number | boolean))
+          : acc.legendLabel;
+      rowRecord.legendRawValue = rawLegendNormalized;
     }
 
     const groupMetrics: Record<string, number> = {};

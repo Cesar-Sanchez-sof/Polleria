@@ -16,6 +16,17 @@ import {
 import { migrateWidgetConfigOnVisualTypeChange } from "@/lib/dashboards/compatibility";
 import { getVisualRegistryEntry } from "@/lib/dashboards/visual-registry";
 
+export const MAX_HISTORY = 30;
+
+export interface CrossFilterState {
+  datasetId: string;
+  field: string;
+  granularity?: string;
+  value: string | number | boolean | (string | number)[];
+  display: string;
+  sourceWidgetId: string;
+}
+
 export interface RawWidgetInput {
   id?: string;
   title?: string;
@@ -40,6 +51,49 @@ export interface CanvasWidget {
   config: WidgetConfig;
 }
 
+export function cloneWidgets(widgets: CanvasWidget[]): CanvasWidget[] {
+  return JSON.parse(JSON.stringify(widgets));
+}
+
+/**
+ * Compacta verticalmente los widgets sin solapar conservando sus anchos y columnas.
+ */
+export function compactLayoutVertical(widgets: CanvasWidget[]): CanvasWidget[] {
+  const sorted = [...widgets].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  const placed: CanvasWidget[] = [];
+
+  for (const item of sorted) {
+    if (item.config.layout?.locked) {
+      placed.push(item);
+      continue;
+    }
+
+    const xCollisions = placed.filter(
+      (p) => item.x < p.x + p.w && item.x + item.w > p.x
+    );
+
+    const candidateYs = [0, ...xCollisions.map((p) => p.y + p.h)].sort((a, b) => a - b);
+
+    let chosenY = 0;
+    for (const candY of candidateYs) {
+      const collides = xCollisions.some(
+        (p) => candY < p.y + p.h && candY + item.h > p.y
+      );
+      if (!collides) {
+        chosenY = candY;
+        break;
+      }
+    }
+
+    placed.push({
+      ...item,
+      y: chosenY,
+    });
+  }
+
+  return widgets.map((w) => placed.find((p) => p.id === w.id) || w);
+}
+
 export interface DashboardEditorState {
   /** Lista de widgets en el lienzo */
   widgets: CanvasWidget[];
@@ -48,15 +102,53 @@ export interface DashboardEditorState {
   /** Estado de si existen cambios sin guardar en el lienzo */
   isDirty: boolean;
 
+  // Historial de cambios estilo Power BI
+  history: CanvasWidget[][];
+  historyIndex: number;
+  savedSnapshotIndex: number | null;
+  canUndo: boolean;
+  canRedo: boolean;
+
+  // Lienzo & UI
+  isGridVisible: boolean;
+  focusedWidgetId: string | null;
+  isRefreshing: boolean;
+  isPreviewMode: boolean;
+
+  // Filtro Cruzado (Cross-Filter)
+  crossFilters: CrossFilterState | null;
+  setCrossFilter: (filter: CrossFilterState) => void;
+  clearCrossFilters: () => void;
+
   // Acciones de Gestión de Widgets
   setWidgets: (widgets: RawWidgetInput[]) => void;
   addWidget: (widgetPartial?: Partial<CanvasWidget>) => string;
   removeWidget: (widgetId: string) => void;
   selectWidget: (widgetId: string | null) => void;
+  duplicateWidget: (widgetId?: string) => string | null;
+  toggleLockWidget: (widgetId?: string) => void;
+  autoFitWidgets: () => void;
   updateWidgetLayout: (
     widgetId: string,
-    layout: { x: number; y: number; w: number; h: number }
+    layout: { x: number; y: number; w: number; h: number },
+    commitHistory?: boolean
   ) => void;
+  commitLayoutChange: (
+    layouts: readonly { i: string; x: number; y: number; w: number; h: number }[]
+  ) => void;
+
+  // Historial Actions
+  undo: () => void;
+  redo: () => void;
+  markAsSaved: () => void;
+  pushSnapshot: (newWidgets: CanvasWidget[], nextSelectedId?: string | null) => void;
+
+  // Lienzo & UI Actions
+  toggleGrid: () => void;
+  setFocusedWidgetId: (widgetId: string | null) => void;
+  setIsRefreshing: (isRefreshing: boolean) => void;
+  togglePreviewMode: () => void;
+  setIsPreviewMode: (isPreview: boolean) => void;
 
   // Acciones en Tiempo Real sobre el Config estilo Power BI
   updateWidgetConfig: (widgetId: string, partialConfig: Partial<WidgetConfig>) => void;
@@ -102,69 +194,174 @@ export interface DashboardEditorState {
   resetStore: () => void;
 }
 
-export const useDashboardEditorStore = create<DashboardEditorState>((set, get) => ({
-  widgets: [],
-  selectedWidgetId: null,
-  isDirty: false,
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  setWidgets: (rawWidgets) => {
-    const adaptedWidgets: CanvasWidget[] = (rawWidgets || []).map((w) => {
-      const config = adaptLegacyWidget(w);
-      return {
-        id: w.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        title: w.title || config.format.title.text,
-        type: config.visualType,
-        metricKey: config.data.dataset || w.metricKey || "",
-        x: w.x ?? 0,
-        y: w.y ?? 0,
-        w: w.w ?? 4,
-        h: w.h ?? 2,
-        config,
-      };
-    });
+export function flushDebounceHistory(): void {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+    const store = useDashboardEditorStore.getState();
+    store.pushSnapshot(store.widgets, store.selectedWidgetId);
+  }
+}
+
+export const useDashboardEditorStore = create<DashboardEditorState>((set, get) => {
+  const recordSnapshot = (
+    newWidgets: CanvasWidget[],
+    nextSelectedId?: string | null
+  ) => {
+    const state = get();
+    const cloned = cloneWidgets(newWidgets);
+    const newHistory = state.history.slice(0, state.historyIndex + 1);
+    newHistory.push(cloned);
+
+    let newSavedIndex = state.savedSnapshotIndex;
+    if (newHistory.length > MAX_HISTORY) {
+      newHistory.shift();
+      if (newSavedIndex !== null) {
+        newSavedIndex = newSavedIndex - 1;
+        if (newSavedIndex < 0) {
+          newSavedIndex = null;
+        }
+      }
+    }
+
+    const nextIndex = newHistory.length - 1;
+    const isDirty = newSavedIndex === null || nextIndex !== newSavedIndex;
 
     set({
-      widgets: adaptedWidgets,
-      selectedWidgetId: adaptedWidgets.length > 0 ? adaptedWidgets[0].id : null,
-      isDirty: false,
+      widgets: cloned,
+      selectedWidgetId:
+        nextSelectedId !== undefined ? nextSelectedId : state.selectedWidgetId,
+      history: newHistory,
+      historyIndex: nextIndex,
+      savedSnapshotIndex: newSavedIndex,
+      canUndo: nextIndex > 0,
+      canRedo: false,
+      isDirty,
     });
-  },
+  };
 
-  addWidget: (widgetPartial) => {
-    const id = widgetPartial?.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const title = widgetPartial?.title || "Visual sin configurar";
-    const config = widgetPartial?.config || createUnconfiguredWidgetConfig(title);
+  return {
+    widgets: [],
+    selectedWidgetId: null,
+    isDirty: false,
 
-    const currentWidgets = get().widgets;
-    const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 4)), 0);
+    history: [[]],
+    historyIndex: 0,
+    savedSnapshotIndex: 0,
+    canUndo: false,
+    canRedo: false,
 
-    const regEntry = getVisualRegistryEntry(config.visualType);
-    const defW = regEntry.defaultSize.w;
-    const defH = regEntry.defaultSize.h;
+    isGridVisible: false,
+    focusedWidgetId: null,
+    isRefreshing: false,
+    isPreviewMode: false,
+    crossFilters: null,
 
-    const newWidget: CanvasWidget = {
-      id,
-      title: widgetPartial?.title || config.format.title.text,
-      type: config.visualType,
-      metricKey: config.data.dataset || "",
-      x: widgetPartial?.x ?? 0,
-      y: widgetPartial?.y ?? maxY,
-      w: widgetPartial?.w ?? defW,
-      h: widgetPartial?.h ?? defH,
-      config,
-    };
+    setCrossFilter: (filter) => {
+      set((state) => {
+        const current = state.crossFilters;
+        // Toggle: Si el mismo dataset, campo y valor ya está activo → limpiar
+        if (
+          current &&
+          current.datasetId === filter.datasetId &&
+          current.field === filter.field &&
+          JSON.stringify(current.value) === JSON.stringify(filter.value)
+        ) {
+          return { crossFilters: null };
+        }
+        return { crossFilters: filter };
+      });
+    },
 
-    set((state) => ({
-      widgets: [...state.widgets, newWidget],
-      selectedWidgetId: id,
-      isDirty: true,
-    }));
+    clearCrossFilters: () => {
+      set({ crossFilters: null });
+    },
 
-    return id;
-  },
+    togglePreviewMode: () => {
+      set((state) => ({ isPreviewMode: !state.isPreviewMode }));
+    },
 
-  removeWidget: (widgetId) => {
-    set((state) => {
+    setIsPreviewMode: (isPreview) => {
+      set({ isPreviewMode: isPreview });
+    },
+
+    pushSnapshot: (newWidgets, nextSelectedId) => {
+      recordSnapshot(newWidgets, nextSelectedId);
+    },
+
+    setWidgets: (rawWidgets) => {
+      flushDebounceHistory();
+      const adaptedWidgets: CanvasWidget[] = (rawWidgets || []).map((w) => {
+        const config = adaptLegacyWidget(w);
+        return {
+          id: w.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          title: w.title || config.format.title.text,
+          type: config.visualType,
+          metricKey: config.data.dataset || w.metricKey || "",
+          x: w.x ?? 0,
+          y: w.y ?? 0,
+          w: w.w ?? 4,
+          h: w.h ?? 2,
+          config,
+        };
+      });
+
+      const initialHistory = [cloneWidgets(adaptedWidgets)];
+
+      set({
+        widgets: adaptedWidgets,
+        selectedWidgetId: adaptedWidgets.length > 0 ? adaptedWidgets[0].id : null,
+        isDirty: false,
+        history: initialHistory,
+        historyIndex: 0,
+        savedSnapshotIndex: 0,
+        canUndo: false,
+        canRedo: false,
+      });
+    },
+
+    addWidget: (widgetPartial) => {
+      flushDebounceHistory();
+      const id = widgetPartial?.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const title = widgetPartial?.title || "Visual sin configurar";
+      const config = widgetPartial?.config || createUnconfiguredWidgetConfig(title);
+
+      const currentWidgets = get().widgets;
+      const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 4)), 0);
+
+      const regEntry = getVisualRegistryEntry(config.visualType);
+      const defW = regEntry.defaultSize.w;
+      const defH = regEntry.defaultSize.h;
+
+      const newWidget: CanvasWidget = {
+        id,
+        title: widgetPartial?.title || config.format.title.text,
+        type: config.visualType,
+        metricKey: config.data.dataset || "",
+        x: widgetPartial?.x ?? 0,
+        y: widgetPartial?.y ?? maxY,
+        w: widgetPartial?.w ?? defW,
+        h: widgetPartial?.h ?? defH,
+        config,
+      };
+
+      const nextWidgets = [...currentWidgets, newWidget];
+      recordSnapshot(nextWidgets, id);
+      return id;
+    },
+
+    removeWidget: (widgetId) => {
+      flushDebounceHistory();
+      const state = get();
+      const target = state.widgets.find((w) => w.id === widgetId);
+      if (!target) return;
+      // Si está bloqueado, no se elimina
+      if (target.config.layout?.locked) {
+        return;
+      }
+
       const filtered = state.widgets.filter((w) => w.id !== widgetId);
       const nextSelected =
         state.selectedWidgetId === widgetId
@@ -173,38 +370,196 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             : null
           : state.selectedWidgetId;
 
-      return {
-        widgets: filtered,
-        selectedWidgetId: nextSelected,
-        isDirty: true,
+      recordSnapshot(filtered, nextSelected);
+    },
+
+    selectWidget: (widgetId) => {
+      set({ selectedWidgetId: widgetId });
+    },
+
+    duplicateWidget: (widgetId) => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetId } = get();
+      const targetId = widgetId || selectedWidgetId;
+      if (!targetId) return null;
+      const orig = widgets.find((w) => w.id === targetId);
+      if (!orig) return null;
+
+      const clonedConfig = JSON.parse(JSON.stringify(orig.config));
+      const newId = `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newY = (orig.y ?? 0) + (orig.h ?? 2);
+
+      const duplicatedWidget: CanvasWidget = {
+        id: newId,
+        title: orig.title,
+        type: orig.type,
+        metricKey: orig.metricKey,
+        x: orig.x ?? 0,
+        y: newY,
+        w: orig.w ?? 4,
+        h: orig.h ?? 2,
+        config: clonedConfig,
       };
-    });
-  },
 
-  selectWidget: (widgetId) => {
-    set({ selectedWidgetId: widgetId });
-  },
+      const nextWidgets = [...widgets, duplicatedWidget];
+      recordSnapshot(nextWidgets, newId);
+      return newId;
+    },
 
-  updateWidgetLayout: (widgetId, layout) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) =>
-        w.id === widgetId
-          ? {
-              ...w,
-              x: layout.x,
-              y: layout.y,
-              w: layout.w,
-              h: layout.h,
-            }
-          : w
-      ),
-      isDirty: true,
-    }));
-  },
+    toggleLockWidget: (widgetId) => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetId } = get();
+      const targetId = widgetId || selectedWidgetId;
+      if (!targetId) return;
 
-  updateWidgetConfig: (widgetId, partialConfig) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+      const nextWidgets = widgets.map((w) => {
+        if (w.id !== targetId) return w;
+        const currentLocked = Boolean(w.config.layout?.locked);
+        const nextLocked = !currentLocked;
+        return {
+          ...w,
+          config: {
+            ...w.config,
+            layout: {
+              ...w.config.layout,
+              locked: nextLocked,
+            },
+          },
+        };
+      });
+
+      recordSnapshot(nextWidgets, targetId);
+    },
+
+    autoFitWidgets: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetId } = get();
+      const compacted = compactLayoutVertical(widgets);
+      recordSnapshot(compacted, selectedWidgetId);
+    },
+
+    updateWidgetLayout: (widgetId, layout, commitHistory = false) => {
+      if (commitHistory) {
+        flushDebounceHistory();
+        const nextWidgets = get().widgets.map((w) =>
+          w.id === widgetId
+            ? {
+                ...w,
+                x: layout.x,
+                y: layout.y,
+                w: layout.w,
+                h: layout.h,
+              }
+            : w
+        );
+        recordSnapshot(nextWidgets);
+      } else {
+        set((state) => ({
+          widgets: state.widgets.map((w) =>
+            w.id === widgetId
+              ? {
+                  ...w,
+                  x: layout.x,
+                  y: layout.y,
+                  w: layout.w,
+                  h: layout.h,
+                }
+              : w
+          ),
+          isDirty: true,
+        }));
+      }
+    },
+
+    commitLayoutChange: (layouts) => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetId } = get();
+      let changed = false;
+      const nextWidgets = widgets.map((w) => {
+        const item = layouts.find((l) => l.i === w.id);
+        if (!item) return w;
+        if (
+          w.x !== item.x ||
+          w.y !== item.y ||
+          w.w !== item.w ||
+          w.h !== item.h
+        ) {
+          changed = true;
+          return {
+            ...w,
+            x: item.x,
+            y: item.y,
+            w: item.w,
+            h: item.h,
+          };
+        }
+        return w;
+      });
+
+      if (changed) {
+        recordSnapshot(nextWidgets, selectedWidgetId);
+      }
+    },
+
+    undo: () => {
+      flushDebounceHistory();
+      const { history, historyIndex, savedSnapshotIndex } = get();
+      if (historyIndex <= 0) return;
+      const newIndex = historyIndex - 1;
+      const restoredWidgets = cloneWidgets(history[newIndex]);
+      const isDirty =
+        savedSnapshotIndex === null || newIndex !== savedSnapshotIndex;
+
+      set({
+        widgets: restoredWidgets,
+        historyIndex: newIndex,
+        canUndo: newIndex > 0,
+        canRedo: true,
+        isDirty,
+      });
+    },
+
+    redo: () => {
+      flushDebounceHistory();
+      const { history, historyIndex, savedSnapshotIndex } = get();
+      if (historyIndex >= history.length - 1) return;
+      const newIndex = historyIndex + 1;
+      const restoredWidgets = cloneWidgets(history[newIndex]);
+      const isDirty =
+        savedSnapshotIndex === null || newIndex !== savedSnapshotIndex;
+
+      set({
+        widgets: restoredWidgets,
+        historyIndex: newIndex,
+        canUndo: true,
+        canRedo: newIndex < history.length - 1,
+        isDirty,
+      });
+    },
+
+    markAsSaved: () => {
+      flushDebounceHistory();
+      set({
+        savedSnapshotIndex: get().historyIndex,
+        isDirty: false,
+      });
+    },
+
+    toggleGrid: () => {
+      set((state) => ({ isGridVisible: !state.isGridVisible }));
+    },
+
+    setFocusedWidgetId: (widgetId) => {
+      set({ focusedWidgetId: widgetId });
+    },
+
+    setIsRefreshing: (isRefreshing) => {
+      set({ isRefreshing });
+    },
+
+    updateWidgetConfig: (widgetId, partialConfig) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -213,14 +568,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             ...partialConfig,
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetVisualType: (widgetId, visualType) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetVisualType: (widgetId, visualType) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         const migratedConfig = migrateWidgetConfigOnVisualTypeChange(w.config, visualType);
         return {
@@ -228,14 +582,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
           type: visualType,
           config: migratedConfig,
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetData: (widgetId, partialData) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetData: (widgetId, partialData) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         const newDataset = partialData.dataset || w.config.data.dataset;
         return {
@@ -249,61 +602,80 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetFormat: (widgetId, partialFormat) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
-        if (w.id !== widgetId) return w;
-        return {
-          ...w,
-          title: partialFormat.title?.text ?? w.title,
-          config: {
-            ...w.config,
-            format: {
-              ...w.config.format,
-              ...partialFormat,
-            },
-          },
-        };
-      }),
-      isDirty: true,
-    }));
-  },
-
-  updateWidgetTitle: (widgetId, title) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
-        if (w.id !== widgetId) return w;
-        return {
-          ...w,
-          title,
-          config: {
-            ...w.config,
-            format: {
-              ...w.config.format,
-              title: {
-                ...w.config.format.title,
-                text: title,
+    updateWidgetFormat: (widgetId, partialFormat) => {
+      // Modifica widgets en tiempo real y debouncia snapshot 500ms
+      set((state) => ({
+        widgets: state.widgets.map((w) => {
+          if (w.id !== widgetId) return w;
+          return {
+            ...w,
+            title: partialFormat.title?.text ?? w.title,
+            config: {
+              ...w.config,
+              format: {
+                ...w.config.format,
+                ...partialFormat,
               },
             },
-          },
-        };
-      }),
-      isDirty: true,
-    }));
-  },
+          };
+        }),
+        isDirty: true,
+      }));
 
-  changeWidgetDataset: (widgetId, dataset, options) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        const curr = get();
+        curr.pushSnapshot(curr.widgets, curr.selectedWidgetId);
+      }, 500);
+    },
+
+    updateWidgetTitle: (widgetId, title) => {
+      // Modifica widgets en tiempo real y debouncia snapshot 500ms
+      set((state) => ({
+        widgets: state.widgets.map((w) => {
+          if (w.id !== widgetId) return w;
+          return {
+            ...w,
+            title,
+            config: {
+              ...w.config,
+              format: {
+                ...w.config.format,
+                title: {
+                  ...w.config.format.title,
+                  text: title,
+                },
+              },
+            },
+          };
+        }),
+        isDirty: true,
+      }));
+
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        const curr = get();
+        curr.pushSnapshot(curr.widgets, curr.selectedWidgetId);
+      }, 500);
+    },
+
+    changeWidgetDataset: (widgetId, dataset, options) => {
+      flushDebounceHistory();
+      const isTransactional = Boolean(options?.isTransactional);
+      const defaultDateField = options?.defaultDateField;
+
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
-        const isTransactional = Boolean(options?.isTransactional);
-        const defaultDateField = options?.defaultDateField;
-
         return {
           ...w,
           metricKey: dataset,
@@ -319,19 +691,18 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
               filters: [],
               dateRange:
                 isTransactional && defaultDateField
-                  ? { field: defaultDateField, preset: "thisMonth" }
+                  ? { field: defaultDateField, preset: "thisMonth" as const }
                   : undefined,
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  assignFieldToWell: (widgetId, well, fieldId, agg = "sum") => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    assignFieldToWell: (widgetId, well, fieldId, agg = "sum") => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         const visualType = w.config.visualType;
         const currentData = w.config.data;
@@ -408,7 +779,6 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
           if (isSingleValue) {
             nextValues = [{ field: fieldId, agg }];
           } else {
-            // Si ya existe la medida exacta, no duplicar; sino agregar
             const exists = nextValues.some((v) => v.field === fieldId);
             if (!exists) {
               nextValues.push({ field: fieldId, agg });
@@ -428,14 +798,14 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         }
 
         return w;
-      }),
-      isDirty: true,
-    }));
-  },
+      });
 
-  removeFieldFromWell: (widgetId, well, indexOrField) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+      recordSnapshot(nextWidgets);
+    },
+
+    removeFieldFromWell: (widgetId, well, indexOrField) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         const currentData = w.config.data;
 
@@ -535,14 +905,14 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         }
 
         return w;
-      }),
-      isDirty: true,
-    }));
-  },
+      });
 
-  updateMeasureAggregation: (widgetId, index, agg) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+      recordSnapshot(nextWidgets);
+    },
+
+    updateMeasureAggregation: (widgetId, index, agg) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         const nextValues = w.config.data.values.map((v, idx) =>
           idx === index ? { ...v, agg } : v
@@ -557,14 +927,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetDateRange: (widgetId, dateRange) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetDateRange: (widgetId, dateRange) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -576,14 +945,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetSort: (widgetId, sort) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetSort: (widgetId, sort) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -595,14 +963,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetLimit: (widgetId, limit) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetLimit: (widgetId, limit) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -614,14 +981,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetGranularity: (widgetId, granularity) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetGranularity: (widgetId, granularity) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -633,14 +999,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetLegendGranularity: (widgetId, legendGranularity) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetLegendGranularity: (widgetId, legendGranularity) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -652,14 +1017,13 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  updateWidgetCompare: (widgetId, compare) => {
-    set((state) => ({
-      widgets: state.widgets.map((w) => {
+    updateWidgetCompare: (widgetId, compare) => {
+      flushDebounceHistory();
+      const nextWidgets = get().widgets.map((w) => {
         if (w.id !== widgetId) return w;
         return {
           ...w,
@@ -671,22 +1035,33 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
             },
           },
         };
-      }),
-      isDirty: true,
-    }));
-  },
+      });
+      recordSnapshot(nextWidgets);
+    },
 
-  getSelectedWidget: () => {
-    const { widgets, selectedWidgetId } = get();
-    if (!selectedWidgetId) return null;
-    return widgets.find((w) => w.id === selectedWidgetId) || null;
-  },
+    getSelectedWidget: () => {
+      const { widgets, selectedWidgetId } = get();
+      if (!selectedWidgetId) return null;
+      return widgets.find((w) => w.id === selectedWidgetId) || null;
+    },
 
-  resetStore: () => {
-    set({
-      widgets: [],
-      selectedWidgetId: null,
-      isDirty: false,
-    });
-  },
-}));
+    resetStore: () => {
+      flushDebounceHistory();
+      set({
+        widgets: [],
+        selectedWidgetId: null,
+        isDirty: false,
+        history: [[]],
+        historyIndex: 0,
+        savedSnapshotIndex: 0,
+        canUndo: false,
+        canRedo: false,
+        isGridVisible: false,
+        focusedWidgetId: null,
+        isRefreshing: false,
+        isPreviewMode: false,
+        crossFilters: null,
+      });
+    },
+  };
+});

@@ -1,6 +1,7 @@
 import React from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import type { VisualRendererProps } from "./renderer-types";
+import { evaluateConditionalColor } from "@/lib/dashboards/format-utils";
 
 export function GaugeRenderer({
   data,
@@ -29,7 +30,9 @@ export function GaugeRenderer({
     { name: "Progreso", value: clampedVal - minVal },
     { name: "Restante", value: maxVal - clampedVal },
   ];
-  const gaugeColor = palette[0] || "#3b82f6";
+
+  const conditionalColor = evaluateConditionalColor(currentVal, format.conditionalColors);
+  const gaugeColor = conditionalColor || palette[0] || "#3b82f6";
   const trackColor = "#e2e8f0";
 
   return (
@@ -56,8 +59,18 @@ export function GaugeRenderer({
         </ResponsiveContainer>
 
         <div className="absolute top-[52%] flex flex-col items-center pointer-events-none">
-          <div className="text-2xl font-black text-foreground flex items-baseline gap-0.5">
-            {prefix && <span className="text-sm font-semibold text-muted-foreground">{prefix}</span>}
+          <div
+            className="text-2xl font-black text-foreground flex items-baseline gap-0.5"
+            style={conditionalColor ? { color: conditionalColor } : undefined}
+          >
+            {prefix && (
+              <span
+                className="text-sm font-semibold text-muted-foreground"
+                style={conditionalColor ? { color: conditionalColor } : undefined}
+              >
+                {prefix}
+              </span>
+            )}
             <span>{displayVal}</span>
           </div>
           <span className="text-[11px] font-semibold text-muted-foreground">

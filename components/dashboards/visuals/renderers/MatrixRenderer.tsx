@@ -9,7 +9,8 @@ export function MatrixRenderer({
 }: VisualRendererProps) {
   const rows = data.rows;
   const axisKey = data.meta.axis || "axis";
-  const metrics = data.meta.metrics;
+  const technicalKeys = new Set(["rawValue", "axisRawValue", "legendRawValue"]);
+  const metrics = data.meta.metrics.filter((m) => !technicalKeys.has(m));
   const pivot = calculateMatrixPivot(rows, axisKey, data.meta.legend, metrics);
   const decimals = format.numberFormat?.decimals ?? 2;
 

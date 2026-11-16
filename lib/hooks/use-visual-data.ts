@@ -3,7 +3,9 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { WidgetDataConfig } from "@/lib/dashboards/widget-schema";
+import { filterRuleSchema } from "@/lib/dashboards/widget-schema";
 import { resolveDateRange, resolvePreviousRange } from "@/lib/dashboards/date-utils";
+import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 
 export interface CatalogField {
   id: string;
@@ -16,6 +18,7 @@ export interface CatalogField {
   valueLabels?: Record<string, string>;
   isCalculated?: boolean;
   description?: string;
+  filterable?: boolean;
 }
 
 export interface CatalogDataset {
@@ -48,6 +51,10 @@ export interface VisualDataResult {
   error: string | null;
   isTruncated: boolean;
   mutate: () => Promise<unknown>;
+  /** true si crossFilters está activo pero ningún campo del filtro existe en este dataset */
+  hasIncompatibleCrossFilter: boolean;
+  /** true si crossFilters está activo y al menos un campo del filtro existe en este dataset */
+  hasCrossFilterApplied: boolean;
 }
 
 /**
@@ -83,7 +90,13 @@ async function queryFetcher([url, queryData]: [string, WidgetDataConfig]): Promi
 /**
  * Hook cliente para consultar datos analíticos de un visual con caché SWR.
  */
-export function useVisualData(dataConfig?: WidgetDataConfig | null): VisualDataResult {
+export function useVisualData(
+  dataConfig?: WidgetDataConfig | null,
+  widgetId?: string
+): VisualDataResult {
+  const crossFilters = useDashboardEditorStore((s) => s.crossFilters);
+  const { catalog } = useDashboardCatalog();
+
   // Resuelve dateRange relativo a un filtro between concreto antes de llamar a /query
   const resolvedConfig = useMemo(() => {
     if (!dataConfig) return null;
@@ -98,11 +111,60 @@ export function useVisualData(dataConfig?: WidgetDataConfig | null): VisualDataR
         value: resolvedRange,
       });
     }
+
+    // Inyectar crossFilter: SOLO si config.data.dataset === datasetId y el widget no es el origen
+    if (crossFilters && dataConfig.dataset) {
+      const matchesDataset = dataConfig.dataset === crossFilters.datasetId;
+      const isNotSource = !widgetId || widgetId !== crossFilters.sourceWidgetId;
+
+      if (matchesDataset && isNotSource) {
+        const operator = Array.isArray(crossFilters.value) ? "between" : "eq";
+        const candidate = {
+          field: crossFilters.field,
+          operator,
+          value: crossFilters.value,
+        };
+        const parsed = filterRuleSchema.safeParse(candidate);
+        if (parsed.success) {
+          const existingIdx = filters.findIndex((f) => f.field === crossFilters.field);
+          if (existingIdx >= 0) {
+            const existing = filters[existingIdx];
+            // Si ambos son between (rango de fechas) -> intersección de rangos
+            if (
+              existing.operator === "between" &&
+              Array.isArray(existing.value) &&
+              existing.value.length === 2 &&
+              parsed.data.operator === "between" &&
+              Array.isArray(parsed.data.value) &&
+              parsed.data.value.length === 2
+            ) {
+              const start1 = String(existing.value[0]);
+              const end1 = String(existing.value[1]);
+              const start2 = String(parsed.data.value[0]);
+              const end2 = String(parsed.data.value[1]);
+              const maxStart = start1 > start2 ? start1 : start2;
+              const minEnd = end1 < end2 ? end1 : end2;
+              filters[existingIdx] = {
+                field: crossFilters.field,
+                operator: "between",
+                value: [maxStart, minEnd],
+              };
+            } else {
+              // Con otros operadores: no se pisan, se combinan (Prisma AND)
+              filters.push(parsed.data);
+            }
+          } else {
+            filters.push(parsed.data);
+          }
+        }
+      }
+    }
+
     return {
       ...dataConfig,
       filters,
     };
-  }, [dataConfig]);
+  }, [dataConfig, crossFilters, widgetId]);
 
   // Un visual está listo para consultar si tiene dataset y al menos una medida configurada
   const isValid = Boolean(
@@ -166,6 +228,13 @@ export function useVisualData(dataConfig?: WidgetDataConfig | null): VisualDataR
     error: error ? error.message : null,
     isTruncated: Boolean(data?.meta?.truncated),
     mutate,
+    hasIncompatibleCrossFilter: false,
+    hasCrossFilterApplied: (() => {
+      if (!crossFilters || !dataConfig?.dataset) return false;
+      const matchesDataset = dataConfig.dataset === crossFilters.datasetId;
+      const isNotSource = !widgetId || widgetId !== crossFilters.sourceWidgetId;
+      return matchesDataset && isNotSource;
+    })(),
   };
 }
 

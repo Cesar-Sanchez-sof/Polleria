@@ -56,7 +56,7 @@ export function adaptLegacyWidget(
   if (widget.config) {
     const parseResult = widgetConfigSchema.safeParse(widget.config);
     if (parseResult.success) {
-      return parseResult.data;
+      return widget.config as WidgetConfig;
     }
   }
 
