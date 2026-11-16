@@ -1,0 +1,527 @@
+{
+  "generated_at": "2026-11-15T21:59:04.527804-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 17,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 13,
+      "execution_error_count": 4,
+      "execution_accuracy_count": 7,
+      "execution_accuracy_denominator": 17,
+      "execution_accuracy_rate": 0.4118,
+      "ves": 0.410275,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-019",
+          "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "diferencia": "-5.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.041,
+          "sql_execution_seconds": 1.691737,
+          "gold_execution_seconds": 1.533411,
+          "token_usage": {
+            "prompt_tokens": 2880,
+            "completion_tokens": 225,
+            "total_tokens": 3105
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        },
+        {
+          "id": "TEST-033",
+          "question": "¿Cuál fue el saldo neto del elemento contable 1 en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '1%' AND je.entry_date >= DATE '2026-01-01' AND je.entry_date < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.id = 1 AND je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "saldo": "200.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "saldo": "0"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.527,
+          "sql_execution_seconds": 1.541486,
+          "gold_execution_seconds": 1.565948,
+          "token_usage": {
+            "prompt_tokens": 2880,
+            "completion_tokens": 203,
+            "total_tokens": 3083
+          }
+        },
+        {
+          "id": "TEST-039",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en febrero de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-02-01' AND so.ordered_at < DATE '2026-03-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01' AS DATE) AND so.ordered_at < CAST('2026-03-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.799,
+          "sql_execution_seconds": 1.562721,
+          "gold_execution_seconds": 1.577938,
+          "token_usage": {
+            "prompt_tokens": 2876,
+            "completion_tokens": 173,
+            "total_tokens": 3049
+          }
+        },
+        {
+          "id": "TEST-063",
+          "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en febrero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-02-01' AND im.moved_at < DATE '2026-03-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS name, SUM(im.quantity) AS total_adjusted FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-02-01' AS DATE) AND im.moved_at < CAST('2026-03-01' AS DATE) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "total_adjusted": "3.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.644,
+          "sql_execution_seconds": 1.560274,
+          "gold_execution_seconds": 1.692753,
+          "token_usage": {
+            "prompt_tokens": 2878,
+            "completion_tokens": 216,
+            "total_tokens": 3094
+          }
+        },
+        {
+          "id": "TEST-067",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en febrero de 2026?",
+          "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-02-01' AND je.entry_date < DATE '2026-03-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS code, je.entry_date AS entry_date, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS diferencia FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-02-01' AS DATE) AND je.entry_date < CAST('2026-03-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING COALESCE(SUM(jed.debit), 0) <> COALESCE(SUM(jed.credit), 0) LIMIT 50",
+          "gold_rows": [
+            {
+              "id": 194,
+              "code": "BENCH26-02-02",
+              "entry_date": "2026-02-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "code": "BENCH26-02-02",
+              "entry_date": "2026-02-23",
+              "diferencia": "20.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.806,
+          "sql_execution_seconds": 1.574493,
+          "gold_execution_seconds": 1.61549,
+          "token_usage": {
+            "prompt_tokens": 2878,
+            "completion_tokens": 213,
+            "total_tokens": 3091
+          }
+        },
+        {
+          "id": "TEST-074",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en marzo de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-03-01' AND so.ordered_at < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so JOIN public.sales_order AS so2 ON so.id = so2.id WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-03-01' AS DATE) AND so.ordered_at < CAST('2026-04-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.996192,
+          "elapsed_seconds": 2.542,
+          "sql_execution_seconds": 1.544974,
+          "gold_execution_seconds": 1.533229,
+          "token_usage": {
+            "prompt_tokens": 2876,
+            "completion_tokens": 178,
+            "total_tokens": 3054
+          }
+        },
+        {
+          "id": "TEST-088",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en marzo de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-03-01' AND cs.closed_at < DATE '2026-04-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS total_efectivo, SUM(cs.sales_other) AS total_otros FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.opened_at >= CAST('2026-03-01' AS DATE) AND cs.opened_at < CAST('2026-04-01' AS DATE) GROUP BY cr.name ORDER BY caja LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "1700.00",
+              "ventas_otros": "840.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "total_efectivo": "850.00",
+              "total_otros": "420.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.865,
+          "sql_execution_seconds": 1.596072,
+          "gold_execution_seconds": 1.590546,
+          "token_usage": {
+            "prompt_tokens": 2881,
+            "completion_tokens": 182,
+            "total_tokens": 3063
+          }
+        },
+        {
+          "id": "TEST-098",
+          "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en marzo de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-03-01' AND im.moved_at < DATE '2026-04-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS name, SUM(im.quantity) AS total_adjusted FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-03-01' AS DATE) AND im.moved_at < CAST('2026-04-01' AS DATE) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "total_adjusted": "3.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.604,
+          "sql_execution_seconds": 1.566042,
+          "gold_execution_seconds": 1.574453,
+          "token_usage": {
+            "prompt_tokens": 2878,
+            "completion_tokens": 221,
+            "total_tokens": 3099
+          }
+        },
+        {
+          "id": "TEST-106",
+          "question": "¿Cuál fue el importe total de los comprobantes emitidos en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": "SELECT SUM(si.total_amount) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-04-01' AS DATE) AND si.issued_at < CAST('2026-05-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_importe": "165.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.978485,
+          "elapsed_seconds": 2.709,
+          "sql_execution_seconds": 1.626684,
+          "gold_execution_seconds": 1.55744,
+          "token_usage": {
+            "prompt_tokens": 2879,
+            "completion_tokens": 150,
+            "total_tokens": 3029
+          }
+        },
+        {
+          "id": "TEST-107",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en abril de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, COALESCE(SUM(si.total_amount), 0) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-04-01' AS DATE) AND si.issued_at < CAST('2026-05-01' AS DATE) GROUP BY si.voucher_type LIMIT 50",
+          "gold_rows": [
+            {
+              "voucher_type": "Boleta",
+              "total": "110.00"
+            },
+            {
+              "voucher_type": "Factura",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_comprobante": "Boleta",
+              "total_facturado": "110.00"
+            },
+            {
+              "tipo_comprobante": "Factura",
+              "total_facturado": "55.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.361,
+          "sql_execution_seconds": 1.544522,
+          "gold_execution_seconds": 1.623199,
+          "token_usage": {
+            "prompt_tokens": 2879,
+            "completion_tokens": 144,
+            "total_tokens": 3023
+          }
+        },
+        {
+          "id": "TEST-113",
+          "question": "¿Cuál fue el total de facturas de compra activas en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-04-01' AND pi.issued_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_facturas FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-04-01' AS DATE) AND pi.issued_at < CAST('2026-05-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "236.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_facturas": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.537,
+          "sql_execution_seconds": 1.563902,
+          "gold_execution_seconds": 1.597344,
+          "token_usage": {
+            "prompt_tokens": 2879,
+            "completion_tokens": 129,
+            "total_tokens": 3008
+          }
+        },
+        {
+          "id": "TEST-122",
+          "question": "¿Cuántas sesiones cerradas tuvo cada caja en abril de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "sesiones": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.473,
+          "sql_execution_seconds": 1.629756,
+          "gold_execution_seconds": 1.609998,
+          "token_usage": {
+            "prompt_tokens": 2876,
+            "completion_tokens": 185,
+            "total_tokens": 3061
+          },
+          "error": "SQLEXEC_FAILED/UNDEFINED_FUNCTION"
+        },
+        {
+          "id": "TEST-132",
+          "question": "¿Qué cantidades se consumieron y produjeron en transformaciones durante abril de 2026?",
+          "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-04-01' AND t.date < DATE '2026-05-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, SUM(ti.quantity) AS cantidad_total FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id JOIN public.product AS p ON ti.product_id = p.id WHERE t.date >= CAST('2026-04-01' AS DATE) AND t.date < CAST('2026-05-01' AS DATE) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "item_type": "Consumo",
+              "cantidad": "5.00"
+            },
+            {
+              "item_type": "Producido",
+              "cantidad": "2.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "cantidad_total": "2.00"
+            },
+            {
+              "producto": "Pollo entero de prueba",
+              "cantidad_total": "5.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.471,
+          "sql_execution_seconds": 1.546338,
+          "gold_execution_seconds": 1.626613,
+          "token_usage": {
+            "prompt_tokens": 2879,
+            "completion_tokens": 210,
+            "total_tokens": 3089
+          }
+        },
+        {
+          "id": "TEST-137",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en abril de 2026?",
+          "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS code, je.entry_date AS entry_date, COALESCE(SUM(jed.debit), 0) AS total_debit, COALESCE(SUM(jed.credit), 0) AS total_credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-04-01' AS DATE) AND je.entry_date < CAST('2026-05-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING COALESCE(SUM(jed.debit), 0) <> COALESCE(SUM(jed.credit), 0) LIMIT 50",
+          "gold_rows": [
+            {
+              "id": 198,
+              "code": "BENCH26-04-02",
+              "entry_date": "2026-04-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "code": "BENCH26-04-02",
+              "entry_date": "2026-04-23",
+              "total_debit": "100.00",
+              "total_credit": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.645,
+          "sql_execution_seconds": 1.628151,
+          "gold_execution_seconds": 2.185057,
+          "token_usage": {
+            "prompt_tokens": 2878,
+            "completion_tokens": 231,
+            "total_tokens": 3109
+          }
+        },
+        {
+          "id": "TEST-138",
+          "question": "¿Cuál fue el saldo neto del elemento contable 4 en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '4%' AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "saldo": "100.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 1.139,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 1.536813,
+          "token_usage": {
+            "prompt_tokens": 2880,
+            "completion_tokens": 200,
+            "total_tokens": 3080
+          },
+          "error": "ACCOUNT_ID_LITERAL"
+        },
+        {
+          "id": "TEST-140",
+          "question": "¿Cuántos periodos contables abiertos abarcan abril de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-05-01' AND ap.end_date >= DATE '2026-04-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.481,
+          "sql_execution_seconds": 1.560952,
+          "gold_execution_seconds": 1.521341,
+          "token_usage": {
+            "prompt_tokens": 2876,
+            "completion_tokens": 185,
+            "total_tokens": 3061
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        },
+        {
+          "id": "TEST-141",
+          "question": "¿Cuál fue el importe total de los comprobantes emitidos en mayo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-05-01' AND si.issued_at < DATE '2026-06-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-05-01' AS DATE) AND si.issued_at < CAST('2026-06-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_importe": "165.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.601,
+          "sql_execution_seconds": 1.558685,
+          "gold_execution_seconds": 1.581829,
+          "token_usage": {
+            "prompt_tokens": 2879,
+            "completion_tokens": 125,
+            "total_tokens": 3004
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "generated_at": "2026-11-15T23:37:30.642470-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 3,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 3,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.981482,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-347",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en octubre de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+          "expected_sql": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SUM(jed.credit) AS credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50",
+          "gold_rows": [
+            {
+              "code": "BENCH26-10-02",
+              "entry_date": "2026-10-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "code": "BENCH26-10-02",
+              "entry_date": "2026-10-23",
+              "debit": "100.00",
+              "credit": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.965056,
+          "elapsed_seconds": 3.5,
+          "sql_execution_seconds": 1.685064,
+          "gold_execution_seconds": 1.569357,
+          "token_usage": {
+            "prompt_tokens": 3536,
+            "completion_tokens": 149,
+            "total_tokens": 3685
+          }
+        },
+        {
+          "id": "TEST-348",
+          "question": "¿Cuál fue el saldo neto del elemento contable 3 en octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '3%' AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '3%' AND je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "saldo": "0"
+            }
+          ],
+          "generated_rows": [
+            {
+              "saldo": "0"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.979389,
+          "elapsed_seconds": 2.554,
+          "sql_execution_seconds": 1.58574,
+          "gold_execution_seconds": 1.521048,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 125,
+            "total_tokens": 3642
+          }
+        },
+        {
+          "id": "TEST-349",
+          "question": "¿Cuánto sumaron el debe y el haber por tipo de cuenta en octubre de 2026?",
+          "expected_sql": "SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY aa.type ORDER BY aa.type LIMIT 50",
+          "generated_sql": "SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "Activo",
+              "total_debe": "3491.44",
+              "total_haber": "3553.39"
+            },
+            {
+              "type": "Costo",
+              "total_debe": "749.57",
+              "total_haber": "0.00"
+            },
+            {
+              "type": "Gasto",
+              "total_debe": "300.00",
+              "total_haber": "611.87"
+            },
+            {
+              "type": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "544.23"
+            },
+            {
+              "type": "Pasivo",
+              "total_debe": "1052.44",
+              "total_haber": "863.96"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_cuenta": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "544.23"
+            },
+            {
+              "tipo_cuenta": "Activo",
+              "total_debe": "3491.44",
+              "total_haber": "3553.39"
+            },
+            {
+              "tipo_cuenta": "Costo",
+              "total_debe": "749.57",
+              "total_haber": "0.00"
+            },
+            {
+              "tipo_cuenta": "Pasivo",
+              "total_debe": "1052.44",
+              "total_haber": "863.96"
+            },
+            {
+              "tipo_cuenta": "Gasto",
+              "total_debe": "300.00",
+              "total_haber": "611.87"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.701,
+          "sql_execution_seconds": 1.529424,
+          "gold_execution_seconds": 1.551063,
+          "token_usage": {
+            "prompt_tokens": 3518,
+            "completion_tokens": 137,
+            "total_tokens": 3655
+          }
+        }
+      ]
+    }
+  ]
+}

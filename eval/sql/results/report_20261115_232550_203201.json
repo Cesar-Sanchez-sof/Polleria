@@ -1,0 +1,251 @@
+{
+  "generated_at": "2026-11-15T23:25:50.242851-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 7,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 7,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 6,
+      "execution_accuracy_denominator": 7,
+      "execution_accuracy_rate": 0.8571,
+      "ves": 0.84373,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-037",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en febrero de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-02-01' AND si.issued_at < DATE '2026-03-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-02-01' AS DATE) AND si.issued_at < CAST('2026-03-01' AS DATE) GROUP BY si.voucher_type LIMIT 50",
+          "gold_rows": [
+            {
+              "voucher_type": "Boleta",
+              "total": "110.00"
+            },
+            {
+              "voucher_type": "Factura",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_comprobante": "Boleta",
+              "total_facturado": "110.00"
+            },
+            {
+              "tipo_comprobante": "Factura",
+              "total_facturado": "55.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.950866,
+          "elapsed_seconds": 4.023,
+          "sql_execution_seconds": 1.805877,
+          "gold_execution_seconds": 1.632776,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 87,
+            "total_tokens": 3604
+          }
+        },
+        {
+          "id": "TEST-038",
+          "question": "¿Cuánto se cobró por cada medio de pago en febrero de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-02-01' AND sp.paid_at < DATE '2026-03-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT pt.name AS medio_de_pago, SUM(sp.amount) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name LIMIT 50",
+          "gold_rows": [
+            {
+              "medio": "Tarjeta",
+              "total": "95.00"
+            },
+            {
+              "medio": "Efectivo",
+              "total": "70.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "medio_de_pago": "Efectivo",
+              "total_cobrado": "70.00"
+            },
+            {
+              "medio_de_pago": "Tarjeta",
+              "total_cobrado": "95.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.789,
+          "sql_execution_seconds": 1.553914,
+          "gold_execution_seconds": 1.597449,
+          "token_usage": {
+            "prompt_tokens": 3515,
+            "completion_tokens": 117,
+            "total_tokens": 3632
+          }
+        },
+        {
+          "id": "TEST-039",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en febrero de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-02-01' AND so.ordered_at < DATE '2026-03-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so WHERE so.status = 'Closed' AND so.order_type = 'Llevar' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.531,
+          "sql_execution_seconds": 1.54766,
+          "gold_execution_seconds": 1.609573,
+          "token_usage": {
+            "prompt_tokens": 3514,
+            "completion_tokens": 102,
+            "total_tokens": 3616
+          }
+        },
+        {
+          "id": "TEST-040",
+          "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante febrero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-02-01' AND so.ordered_at < DATE '2026-03-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+          "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01' AS DATE) AND so.ordered_at < CAST('2026-03-01' AS DATE) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo a la brasa de prueba",
+              "unidades": 3
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "total_unidades": "3"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.502,
+          "sql_execution_seconds": 1.558668,
+          "gold_execution_seconds": 1.605002,
+          "token_usage": {
+            "prompt_tokens": 3516,
+            "completion_tokens": 125,
+            "total_tokens": 3641
+          }
+        },
+        {
+          "id": "TEST-041",
+          "question": "¿Cuál fue el total vendido por canal de pedido en febrero de 2026?",
+          "expected_sql": "SELECT so.order_type, SUM(oi.subtotal) AS total FROM sales_order so JOIN order_item oi ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= DATE '2026-02-01' AND so.ordered_at < DATE '2026-03-01' GROUP BY so.order_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public.sales_invoice AS si JOIN public.sales_order AS so ON si.order_id = so.id WHERE si.issued_at >= CAST('2026-02-01' AS DATE) AND si.issued_at < CAST('2026-03-01' AS DATE) GROUP BY so.order_type LIMIT 50",
+          "gold_rows": [
+            {
+              "order_type": "Mesa",
+              "total": "110.00"
+            },
+            {
+              "order_type": "Llevar",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "canal": "Llevar",
+              "total_vendido": "55.00"
+            },
+            {
+              "canal": "Mesa",
+              "total_vendido": "110.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.955246,
+          "elapsed_seconds": 2.731,
+          "sql_execution_seconds": 1.656117,
+          "gold_execution_seconds": 1.511197,
+          "token_usage": {
+            "prompt_tokens": 3515,
+            "completion_tokens": 103,
+            "total_tokens": 3618
+          }
+        },
+        {
+          "id": "TEST-042",
+          "question": "¿Cuántos pedidos cerrados se atendieron en cada mesa durante febrero de 2026?",
+          "expected_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so JOIN order_table ot ON ot.order_id = so.id JOIN dining_table dt ON dt.id = ot.table_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' AND so.ordered_at >= DATE '2026-02-01' AND so.ordered_at < DATE '2026-03-01' GROUP BY dt.id, dt.number ORDER BY dt.number LIMIT 50",
+          "generated_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so JOIN public.order_table AS ot ON so.id = ot.order_id JOIN public.dining_table AS dt ON ot.table_id = dt.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number LIMIT 50",
+          "gold_rows": [
+            {
+              "mesa": 99,
+              "pedidos": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "mesa": "99",
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.148,
+          "sql_execution_seconds": 1.528566,
+          "gold_execution_seconds": 1.610837,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 135,
+            "total_tokens": 3652
+          }
+        },
+        {
+          "id": "TEST-043",
+          "question": "¿Cuál fue el total de facturas de compra activas en febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-02-01' AND pi.issued_at < DATE '2026-03-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "236.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_facturas_compra": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 2.43,
+          "sql_execution_seconds": 1.601747,
+          "gold_execution_seconds": 1.552664,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 71,
+            "total_tokens": 3588
+          }
+        }
+      ]
+    }
+  ]
+}

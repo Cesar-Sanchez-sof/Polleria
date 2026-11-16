@@ -1,0 +1,109 @@
+{
+  "generated_at": "2026-11-15T23:17:43.058482-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 3,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 3,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.957869,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-077",
+          "question": "¿Cuántos pedidos cerrados se atendieron en cada mesa durante marzo de 2026?",
+          "expected_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so JOIN order_table ot ON ot.order_id = so.id JOIN dining_table dt ON dt.id = ot.table_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' AND so.ordered_at >= DATE '2026-03-01' AND so.ordered_at < DATE '2026-04-01' GROUP BY dt.id, dt.number ORDER BY dt.number LIMIT 50",
+          "generated_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so JOIN public.order_table AS ot ON so.id = ot.order_id JOIN public.dining_table AS dt ON ot.table_id = dt.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-03-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-04-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number LIMIT 50",
+          "gold_rows": [
+            {
+              "mesa": 99,
+              "pedidos": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "mesa": "99",
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.956066,
+          "elapsed_seconds": 3.58,
+          "sql_execution_seconds": 1.757144,
+          "gold_execution_seconds": 1.60614,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 135,
+            "total_tokens": 3652
+          }
+        },
+        {
+          "id": "TEST-078",
+          "question": "¿Cuál fue el total de facturas de compra activas en marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-03-01' AND pi.issued_at < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "236.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_facturas_compra": "236.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.966697,
+          "elapsed_seconds": 3.448,
+          "sql_execution_seconds": 1.611933,
+          "gold_execution_seconds": 1.506357,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 80,
+            "total_tokens": 3597
+          }
+        },
+        {
+          "id": "TEST-079",
+          "question": "¿Cuánto se compró a cada proveedor en marzo de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-03-01' AND pi.issued_at < DATE '2026-04-01' GROUP BY s.id, s.business_name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_comprado FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY s.business_name LIMIT 50",
+          "gold_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "total": "236.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "total_comprado": "236.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.950845,
+          "elapsed_seconds": 3.305,
+          "sql_execution_seconds": 1.702598,
+          "gold_execution_seconds": 1.53933,
+          "token_usage": {
+            "prompt_tokens": 3513,
+            "completion_tokens": 102,
+            "total_tokens": 3615
+          }
+        }
+      ]
+    }
+  ]
+}

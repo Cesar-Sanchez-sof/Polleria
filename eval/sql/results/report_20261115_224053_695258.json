@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-11-15T22:40:53.708517-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 2,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 2,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 2,
+      "execution_accuracy_denominator": 2,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.860904,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-142",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en mayo de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-05-01' AND si.issued_at < DATE '2026-06-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, COALESCE(SUM(si.total_amount), 0) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-05-01' AS DATE) AND si.issued_at < CAST('2026-06-01' AS DATE) GROUP BY si.voucher_type LIMIT 50",
+          "gold_rows": [
+            {
+              "voucher_type": "Boleta",
+              "total": "110.00"
+            },
+            {
+              "voucher_type": "Factura",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_comprobante": "Boleta",
+              "total_facturado": "110.00"
+            },
+            {
+              "tipo_comprobante": "Factura",
+              "total_facturado": "55.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.813088,
+          "elapsed_seconds": 4.488,
+          "sql_execution_seconds": 2.37895,
+          "gold_execution_seconds": 1.572753,
+          "token_usage": {
+            "prompt_tokens": 6474,
+            "completion_tokens": 520,
+            "total_tokens": 6994
+          }
+        },
+        {
+          "id": "TEST-143",
+          "question": "¿Cuánto se cobró por cada medio de pago en mayo de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-05-01' AND sp.paid_at < DATE '2026-06-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT pt.name AS medio_pago, COALESCE(SUM(sp.amount), 0) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-05-01' AS DATE) AND sp.paid_at < CAST('2026-06-01' AS DATE) GROUP BY pt.name LIMIT 50",
+          "gold_rows": [
+            {
+              "medio": "Tarjeta",
+              "total": "95.00"
+            },
+            {
+              "medio": "Efectivo",
+              "total": "70.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "medio_pago": "Efectivo",
+              "total_cobrado": "70.00"
+            },
+            {
+              "medio_pago": "Tarjeta",
+              "total_cobrado": "95.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.908719,
+          "elapsed_seconds": 3.21,
+          "sql_execution_seconds": 1.950565,
+          "gold_execution_seconds": 1.610717,
+          "token_usage": {
+            "prompt_tokens": 3216,
+            "completion_tokens": 190,
+            "total_tokens": 3406
+          }
+        }
+      ]
+    }
+  ]
+}

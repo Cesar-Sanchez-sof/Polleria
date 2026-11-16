@@ -2,7 +2,7 @@
 
 | Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini | 350 | 0.00% | 82.86% | 0.8185 | N/D | 329 | 21 |
+| gemini | 350 | 0.00% | 94.00% | 0.9273 | N/D | 346 | 4 |
 
 **gemini**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
 
@@ -642,7 +642,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-017 — EM=X, EX=True, VES=0.952903</summary>
+<details><summary>TEST-017 — EM=X, EX=True, VES=0.947009</summary>
 
 **SQL gold**
 
@@ -664,7 +664,7 @@ SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_regi
 **SQL generada**
 
 ```sql
-SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-01-01' AS DATE) AND cs.closed_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50
+SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -680,7 +680,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-018 — EM=X, EX=True, VES=0.968236</summary>
+<details><summary>TEST-018 — EM=X, EX=True, VES=0.997711</summary>
 
 **SQL gold**
 
@@ -720,7 +720,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-019 — EM=X, EX=True, VES=0.974181</summary>
+<details><summary>TEST-019 — EM=X, EX=True, VES=0.978319</summary>
 
 **SQL gold**
 
@@ -741,7 +741,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE 
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT SUM(cs.difference) AS suma_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= '2026-01-01' AND cs.closed_at < '2026-02-01' LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -749,14 +749,14 @@ SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_ses
 ```json
 [
   {
-    "total_diferencias": "-5.00"
+    "suma_diferencias": "-5.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-020 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-020 — EM=X, EX=True, VES=0.996545</summary>
 
 **SQL gold**
 
@@ -782,7 +782,7 @@ SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_a
 **SQL generada**
 
 ```sql
-SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.cash_movement AS cm WHERE cm.created_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY cm.type LIMIT 50
+SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_monto FROM public.cash_movement AS cm WHERE cm.created_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY cm.type LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -791,18 +791,18 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 [
   {
     "tipo_movimiento": "INCOME",
-    "total_movido": "120.00"
+    "total_monto": "120.00"
   },
   {
     "tipo_movimiento": "EXPENSE",
-    "total_movido": "45.00"
+    "total_monto": "45.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-021 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-021 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -824,7 +824,7 @@ SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cas
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cs.closed_at >= CAST('2026-01-01' AS DATE) AND cs.closed_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -832,6 +832,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 ```json
 [
   {
+    "caja_registradora": "Caja de Prueba",
     "total_egresos": "45.00"
   }
 ]
@@ -839,7 +840,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-022 — EM=X, EX=True, VES=0.996005</summary>
+<details><summary>TEST-022 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -909,7 +910,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-023 — EM=X, EX=True, VES=0.981607</summary>
+<details><summary>TEST-023 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -931,7 +932,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades DESC LIMIT 50
+SELECT p.name AS producto, SUM(im.quantity) AS unidades_vendidas FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -940,14 +941,14 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 [
   {
     "producto": "Pollo a la brasa de prueba",
-    "unidades": "2.00"
+    "unidades_vendidas": "2.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-024 — EM=X, EX=True, VES=0.999149</summary>
+<details><summary>TEST-024 — EM=X, EX=True, VES=0.998894</summary>
 
 **SQL gold**
 
@@ -969,7 +970,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= '2026-01-01' AND im.moved_at < '2026-02-01' GROUP BY p.name ORDER BY cantidad DESC LIMIT 50
+SELECT p.name AS producto, im.quantity AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -985,7 +986,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-025 — EM=X, EX=True, VES=0.936651</summary>
+<details><summary>TEST-025 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1007,7 +1008,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad FROM public.purchase_order_item AS poi JOIN public.product AS p ON poi.product_id = p.id JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id WHERE po.received_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND po.received_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50
+SELECT p.name AS insumo, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Purchase' AND im.moved_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1059,7 +1060,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-027 — EM=X, EX=True, VES=0.998551</summary>
+<details><summary>TEST-027 — EM=X, EX=True, VES=0.994137</summary>
 
 **SQL gold**
 
@@ -1085,7 +1086,7 @@ SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN tra
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, tit.item_type AS tipo, SUM(tit.quantity) AS cantidad FROM public.transformation_item AS tit JOIN public.transformation AS t ON tit.transformation_id = t.id JOIN public.product AS p ON tit.product_id = p.id WHERE t.date >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name, tit.item_type LIMIT 50
+SELECT ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= CAST('2026-01-01' AS DATE) AND t.date < CAST('2026-02-01' AS DATE) GROUP BY ti.item_type LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1093,21 +1094,19 @@ SELECT p.name AS producto, tit.item_type AS tipo, SUM(tit.quantity) AS cantidad 
 ```json
 [
   {
-    "producto": "Pollo a la brasa de prueba",
-    "tipo": "Producido",
-    "cantidad": "2.00"
-  },
-  {
-    "producto": "Pollo entero de prueba",
     "tipo": "Consumo",
     "cantidad": "5.00"
+  },
+  {
+    "tipo": "Producido",
+    "cantidad": "2.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-028 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-028 — EM=X, EX=True, VES=0.994079</summary>
 
 **SQL gold**
 
@@ -1129,7 +1128,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50
+SELECT p.name AS product_name, SUM(im.quantity) AS total_quantity FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_quantity DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1137,8 +1136,8 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 ```json
 [
   {
-    "producto": "Pollo entero de prueba",
-    "cantidad": "3.00"
+    "product_name": "Pollo entero de prueba",
+    "total_quantity": "3.00"
   }
 ]
 ```
@@ -1167,7 +1166,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 **SQL generada**
 
 ```sql
-SELECT SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= '2026-01-01' AND je.entry_date < '2026-02-01') AND je.status = TRUE LIMIT 50
+SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1183,7 +1182,7 @@ SELECT SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.
 
 </details>
 
-<details><summary>TEST-030 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-030 — EM=X, EX=True, VES=0.987385</summary>
 
 **SQL gold**
 
@@ -1216,7 +1215,7 @@ SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_
 **SQL generada**
 
 ```sql
-SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY codigo_cuenta LIMIT 50
+SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, (COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0)) AS saldo_neto FROM public.accounting_account AS aa JOIN public.journal_entry_detail AS jed ON aa.id = jed.account_id JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY codigo_cuenta LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1265,7 +1264,7 @@ SELECT je.book, COUNT(*) AS total FROM journal_entry je WHERE je.status = TRUE A
 **SQL generada**
 
 ```sql
-SELECT je.book AS diario, COUNT(*) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50
+SELECT je.book AS diario, COUNT(DISTINCT je.id) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1281,12 +1280,12 @@ SELECT je.book AS diario, COUNT(*) AS total_asientos FROM public.journal_entry A
 
 </details>
 
-<details><summary>TEST-032 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-032 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-01-01' AND je.entry_date < DATE '2026-02-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-01-01' AND je.entry_date < DATE '2026-02-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -1294,7 +1293,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 192,
     "code": "BENCH26-01-02",
     "entry_date": "2026-01-23",
     "total_debe": "100.00",
@@ -1306,7 +1304,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS code, je.entry_date AS entry_date, je.description AS description FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(COALESCE(jed.debit, 0)) <> SUM(COALESCE(jed.credit, 0)) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SUM(jed.credit) AS credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1316,14 +1314,15 @@ SELECT je.code AS code, je.entry_date AS entry_date, je.description AS descripti
   {
     "code": "BENCH26-01-02",
     "entry_date": "2026-01-23",
-    "description": "Asiento descuadrado ficticio de prueba"
+    "debit": "100.00",
+    "credit": "80.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-033 — EM=X, EX=True, VES=0.997441</summary>
+<details><summary>TEST-033 — EM=X, EX=True, VES=0.992693</summary>
 
 **SQL gold**
 
@@ -1344,7 +1343,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '1%' AND je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE LIMIT 50
+SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '1%' AND je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1352,14 +1351,14 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 ```json
 [
   {
-    "saldo": "200.00"
+    "saldo_neto": "200.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-034 — EM=X, EX=True, VES=0.991389</summary>
+<details><summary>TEST-034 — EM=X, EX=True, VES=0.996978</summary>
 
 **SQL gold**
 
@@ -1392,7 +1391,7 @@ SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FRO
 **SQL generada**
 
 ```sql
-SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50
+SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-01-01' AS DATE) AND je.entry_date < CAST('2026-02-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1419,7 +1418,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-035 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-035 — EM=X, EX=True, VES=0.981071</summary>
 
 **SQL gold**
 
@@ -1440,18 +1439,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-02-01' AS DATE) AND ap.end_date >= CAST('2026-01-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-036 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-036 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1472,7 +1475,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= '2026-02-01' AND si.issued_at < '2026-03-01' LIMIT 50
+SELECT SUM(si.total_amount) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-02-01' AS DATE) AND si.issued_at < CAST('2026-03-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1480,14 +1483,14 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 ```json
 [
   {
-    "total_comprobantes": "2"
+    "total_importe": "165.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-037 — EM=X, EX=True, VES=0.990863</summary>
+<details><summary>TEST-037 — EM=X, EX=True, VES=0.950866</summary>
 
 **SQL gold**
 
@@ -1533,7 +1536,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-038 — EM=X, EX=True, VES=0.995226</summary>
+<details><summary>TEST-038 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1559,7 +1562,7 @@ SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN paym
 **SQL generada**
 
 ```sql
-SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name LIMIT 50
+SELECT pt.name AS medio_de_pago, SUM(sp.amount) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1567,19 +1570,19 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 ```json
 [
   {
-    "payment_type": "Efectivo",
-    "total_collected": "70.00"
+    "medio_de_pago": "Efectivo",
+    "total_cobrado": "70.00"
   },
   {
-    "payment_type": "Tarjeta",
-    "total_collected": "95.00"
+    "medio_de_pago": "Tarjeta",
+    "total_cobrado": "95.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-039 — EM=X, EX=True, VES=0.986947</summary>
+<details><summary>TEST-039 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1600,7 +1603,7 @@ SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND 
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so WHERE so.status = 'Closed' AND so.order_type = 'Llevar' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1615,7 +1618,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-040 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-040 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1637,7 +1640,7 @@ SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item 
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(oi.quantity) AS unidades_vendidas FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50
+SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01' AS DATE) AND so.ordered_at < CAST('2026-03-01' AS DATE) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1646,14 +1649,14 @@ SELECT p.name AS producto, SUM(oi.quantity) AS unidades_vendidas FROM public.ord
 [
   {
     "producto": "Pollo a la brasa de prueba",
-    "unidades_vendidas": "1"
+    "total_unidades": "3"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-041 — EM=X, EX=True, VES=0.995485</summary>
+<details><summary>TEST-041 — EM=X, EX=True, VES=0.955246</summary>
 
 **SQL gold**
 
@@ -1721,7 +1724,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so J
 **SQL generada**
 
 ```sql
-SELECT dt.number AS mesa, COUNT(so.id) AS total_pedidos FROM public.sales_order AS so JOIN public.order_table AS ot ON ot.order_id = so.id JOIN public.dining_table AS dt ON ot.table_id = dt.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number LIMIT 50
+SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so JOIN public.order_table AS ot ON so.id = ot.order_id JOIN public.dining_table AS dt ON ot.table_id = dt.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1737,7 +1740,7 @@ SELECT dt.number AS mesa, COUNT(so.id) AS total_pedidos FROM public.sales_order 
 
 </details>
 
-<details><summary>TEST-043 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-043 — EM=X, EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -1758,7 +1761,7 @@ SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE
 **SQL generada**
 
 ```sql
-SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) LIMIT 50
+SELECT COUNT(*) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1766,14 +1769,14 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 ```json
 [
   {
-    "total_facturas_compra": "236.00"
+    "total_facturas_compra": "1"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-044 — EM=X, EX=True, VES=0.999224</summary>
+<details><summary>TEST-044 — EM=X, EX=True, VES=0.9545</summary>
 
 **SQL gold**
 
@@ -1795,7 +1798,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total FROM purchase
 **SQL generada**
 
 ```sql
-SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) GROUP BY s.business_name LIMIT 50
+SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) GROUP BY s.business_name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -1971,7 +1974,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-049 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-049 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1995,7 +1998,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) GROUP BY pi.id, s.business_name, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -2003,9 +2006,9 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount - 
 ```json
 [
   {
-    "id": "33",
-    "series": "F026",
-    "number": "990002",
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "serie": "F026",
+    "número": "990002",
     "saldo_pendiente": "136.00"
   }
 ]
@@ -2085,7 +2088,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-052 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-052 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2102,18 +2105,18 @@ SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_regi
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-02-01' AS DATE) AND cs.closed_at < CAST('2026-03-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[]
 ```
 
 </details>
 
-<details><summary>TEST-053 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-053 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2130,23 +2133,18 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_ventas_efectivo, COALESCE(SUM(cs.sales_other), 0) AS total_ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros_medios FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-02-01' AS DATE) AND cs.closed_at < CAST('2026-03-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[
-  {
-    "total_ventas_efectivo": "850.00",
-    "total_ventas_otros": "420.00"
-  }
-]
+[]
 ```
 
 </details>
 
-<details><summary>TEST-054 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-054 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2167,13 +2165,17 @@ SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-02-01' AS DATE) AND cs.closed_at < CAST('2026-03-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_diferencias": "0"
+  }
+]
 ```
 
 </details>
@@ -2246,17 +2248,13 @@ SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cas
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cs.closed_at >= CAST('2026-02-01' AS DATE) AND cs.closed_at < CAST('2026-03-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[
-  {
-    "total_egresos": "45.00"
-  }
-]
+[]
 ```
 
 </details>
@@ -2703,12 +2701,12 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-067 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-067 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-02-01' AND je.entry_date < DATE '2026-03-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-02-01' AND je.entry_date < DATE '2026-03-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -2716,7 +2714,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 194,
     "code": "BENCH26-02-02",
     "entry_date": "2026-02-23",
     "total_debe": "100.00",
@@ -2728,7 +2725,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS code, je.entry_date AS entry_date, je.description AS description FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-02-01' AS DATE) AND je.entry_date < CAST('2026-03-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_debit, SUM(jed.credit) AS total_credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-02-01' AS DATE) AND je.entry_date < CAST('2026-03-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -2738,7 +2735,8 @@ SELECT je.code AS code, je.entry_date AS entry_date, je.description AS descripti
   {
     "code": "BENCH26-02-02",
     "entry_date": "2026-02-23",
-    "description": "Asiento descuadrado ficticio de prueba"
+    "total_debit": "100.00",
+    "total_credit": "80.00"
   }
 ]
 ```
@@ -2841,7 +2839,7 @@ SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS 
 
 </details>
 
-<details><summary>TEST-070 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-070 — EM=X, EX=True, VES=0.935278</summary>
 
 **SQL gold**
 
@@ -2862,18 +2860,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-03-01' AS DATE) AND ap.end_date >= CAST('2026-02-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-071 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-071 — EM=X, EX=True, VES=0.989261</summary>
 
 **SQL gold**
 
@@ -2894,7 +2896,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-03-01' AS DATE) AND si.issued_at < CAST('2026-04-01' AS DATE) LIMIT 50
+SELECT COALESCE(SUM(si.total_amount), 0) AS importe_total FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-03-01' AS DATE) AND si.issued_at < CAST('2026-04-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -2902,7 +2904,7 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 ```json
 [
   {
-    "total_comprobantes": "2"
+    "importe_total": "165.00"
   }
 ]
 ```
@@ -3121,7 +3123,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-077 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-077 — EM=X, EX=True, VES=0.956066</summary>
 
 **SQL gold**
 
@@ -3143,18 +3145,23 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so J
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so JOIN public.order_table AS ot ON so.id = ot.order_id JOIN public.dining_table AS dt ON ot.table_id = dt.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-03-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-04-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "mesa": "99",
+    "total_pedidos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-078 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-078 — EM=X, EX=True, VES=0.966697</summary>
 
 **SQL gold**
 
@@ -3175,7 +3182,7 @@ SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_facturas FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) LIMIT 50
+SELECT COALESCE(SUM(pi.total_amount), 0) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -3183,14 +3190,14 @@ SELECT COUNT(*) AS total_facturas FROM public.purchase_invoice AS pi WHERE pi.ac
 ```json
 [
   {
-    "total_facturas": "1"
+    "total_facturas_compra": "236.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-079 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-079 — EM=X, EX=True, VES=0.950845</summary>
 
 **SQL gold**
 
@@ -3212,7 +3219,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total FROM purchase
 **SQL generada**
 
 ```sql
-SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY s.business_name LIMIT 50
+SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_comprado FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY s.business_name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -3221,7 +3228,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM 
 [
   {
     "proveedor": "Avícola Buen Sabor de Prueba",
-    "total_compras": "236.00"
+    "total_comprado": "236.00"
   }
 ]
 ```
@@ -3388,7 +3395,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS total_unidades_recibida
 
 </details>
 
-<details><summary>TEST-084 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-084 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3412,7 +3419,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount AS total_amount, s.business_name AS business_name FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) AND pi.total_amount > COALESCE((SELECT SUM(pp.amount) AS _col_0 FROM public.purchase_payment AS pp WHERE pp.purchase_invoice_id = pi.id), 0) LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -3420,12 +3427,10 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS is
 ```json
 [
   {
-    "id": "34",
+    "proveedor": "Avícola Buen Sabor de Prueba",
     "series": "F026",
     "number": "990003",
-    "issued_at": "2026-03-04",
-    "total_amount": "236.00",
-    "business_name": "Avícola Buen Sabor de Prueba"
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
@@ -3686,13 +3691,18 @@ SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cas
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cs.closed_at >= CAST('2026-03-01' AS DATE) AND cs.closed_at < CAST('2026-04-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "caja_registradora": "Caja de Prueba",
+    "total_egresos": "90.00"
+  }
+]
 ```
 
 </details>
@@ -4947,7 +4957,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-122 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-122 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4969,18 +4979,23 @@ SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_regi
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-04-01' AS DATE) AND cs.closed_at < CAST('2026-05-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "caja": "Caja de Prueba",
+    "sesiones_cerradas": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-123 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-123 — EM=X, EX=True, VES=0.977682</summary>
 
 **SQL gold**
 
@@ -5003,7 +5018,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_sales_cash, COALESCE(SUM(cs.sales_other), 0) AS total_sales_other FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros_medios FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-04-01' AS DATE) AND cs.closed_at < CAST('2026-05-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -5011,15 +5026,16 @@ SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_sales_cash, COALESCE(SUM(cs.sale
 ```json
 [
   {
-    "total_sales_cash": "850.00",
-    "total_sales_other": "420.00"
+    "caja": "Caja de Prueba",
+    "ventas_efectivo": "850.00",
+    "ventas_otros_medios": "420.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-124 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-124 — EM=X, EX=True, VES=0.981045</summary>
 
 **SQL gold**
 
@@ -5040,18 +5056,22 @@ SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-04-01' AS DATE) AND cs.closed_at < CAST('2026-05-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_diferencias": "-5.00"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-125 — EM=X, EX=True, VES=0.990651</summary>
+<details><summary>TEST-125 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5097,7 +5117,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_monto FROM public.cas
 
 </details>
 
-<details><summary>TEST-126 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-126 — EM=X, EX=True, VES=0.981907</summary>
 
 **SQL gold**
 
@@ -5119,7 +5139,7 @@ SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cas
 **SQL generada**
 
 ```sql
-SELECT ROUND(SUM(cm.amount), 2) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -5127,6 +5147,7 @@ SELECT ROUND(SUM(cm.amount), 2) AS total_egresos FROM public.cash_movement AS cm
 ```json
 [
   {
+    "caja_registradora": "Caja de Prueba",
     "total_egresos": "45.00"
   }
 ]
@@ -5134,7 +5155,7 @@ SELECT ROUND(SUM(cm.amount), 2) AS total_egresos FROM public.cash_movement AS cm
 
 </details>
 
-<details><summary>TEST-127 — EM=X, EX=True, VES=0.99498</summary>
+<details><summary>TEST-127 — EM=X, EX=True, VES=0.95988</summary>
 
 **SQL gold**
 
@@ -5146,6 +5167,11 @@ SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad F
 
 ```json
 [
+  {
+    "movement_type": "Purchase",
+    "movimientos": 1,
+    "cantidad": "20.00"
+  },
   {
     "movement_type": "Sale",
     "movimientos": 1,
@@ -5160,11 +5186,6 @@ SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad F
     "movement_type": "Adjustment",
     "movimientos": 1,
     "cantidad": "3.00"
-  },
-  {
-    "movement_type": "Purchase",
-    "movimientos": 1,
-    "cantidad": "20.00"
   }
 ]
 ```
@@ -5180,6 +5201,11 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 ```json
 [
   {
+    "tipo_movimiento": "Purchase",
+    "total_movimientos": "1",
+    "cantidad_total": "20.00"
+  },
+  {
     "tipo_movimiento": "Sale",
     "total_movimientos": "1",
     "cantidad_total": "2.00"
@@ -5193,18 +5219,13 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
     "tipo_movimiento": "Adjustment",
     "total_movimientos": "1",
     "cantidad_total": "3.00"
-  },
-  {
-    "tipo_movimiento": "Purchase",
-    "total_movimientos": "1",
-    "cantidad_total": "20.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-128 — EM=X, EX=True, VES=0.999014</summary>
+<details><summary>TEST-128 — EM=X, EX=True, VES=0.975812</summary>
 
 **SQL gold**
 
@@ -5226,7 +5247,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades DESC LIMIT 50
+SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= '2026-04-01' AND im.moved_at < '2026-05-01' GROUP BY p.name ORDER BY unidades DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -5242,7 +5263,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-129 — EM=X, EX=True, VES=0.979064</summary>
+<details><summary>TEST-129 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5264,7 +5285,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(im.quantity) AS cantidad_merma FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50
+SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -5273,7 +5294,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad_merma FROM public.invent
 [
   {
     "producto": "Pollo entero de prueba",
-    "cantidad_merma": "1.00"
+    "cantidad": "1.00"
   }
 ]
 ```
@@ -5354,7 +5375,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-132 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-132 — EM=X, EX=True, VES=0.994587</summary>
 
 **SQL gold**
 
@@ -5380,13 +5401,22 @@ SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN tra
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT ti.item_type AS item_type, SUM(ti.quantity) AS total_quantity FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY ti.item_type LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "item_type": "Consumo",
+    "total_quantity": "5.00"
+  },
+  {
+    "item_type": "Producido",
+    "total_quantity": "2.00"
+  }
+]
 ```
 
 </details>
@@ -5565,12 +5595,12 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-137 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-137 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -5578,7 +5608,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 198,
     "code": "BENCH26-04-02",
     "entry_date": "2026-04-23",
     "total_debe": "100.00",
@@ -5590,7 +5619,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS code, je.entry_date AS entry_date, je.description AS description FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-04-01' AS DATE) AND je.entry_date < CAST('2026-05-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SUM(jed.credit) AS credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-04-01' AS DATE) AND je.entry_date < CAST('2026-05-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -5600,7 +5629,8 @@ SELECT je.code AS code, je.entry_date AS entry_date, je.description AS descripti
   {
     "code": "BENCH26-04-02",
     "entry_date": "2026-04-23",
-    "description": "Asiento descuadrado ficticio de prueba"
+    "debit": "100.00",
+    "credit": "80.00"
   }
 ]
 ```
@@ -5703,7 +5733,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-140 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-140 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5724,18 +5754,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-05-01' AS DATE) AND ap.end_date >= CAST('2026-04-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-141 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-141 — EM=X, EX=True, VES=0.978042</summary>
 
 **SQL gold**
 
@@ -5756,7 +5790,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COUNT(si.id) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-05-01' AS DATE) AND si.issued_at < CAST('2026-06-01' AS DATE) LIMIT 50
+SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-05-01' AS DATE) AND si.issued_at < CAST('2026-06-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -5764,7 +5798,7 @@ SELECT COUNT(si.id) AS total_comprobantes FROM public.sales_invoice AS si WHERE 
 ```json
 [
   {
-    "total_comprobantes": "2"
+    "total_importe": "165.00"
   }
 ]
 ```
@@ -6369,7 +6403,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-157 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-157 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6391,18 +6425,23 @@ SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_regi
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-05-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-06-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "caja": "Caja de Prueba",
+    "sesiones_cerradas": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-158 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-158 — EM=X, EX=True, VES=0.963657</summary>
 
 **SQL gold**
 
@@ -6425,7 +6464,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 **SQL generada**
 
 ```sql
-SELECT SUM(cs.sales_cash) AS total_ventas_efectivo, SUM(cs.sales_other) AS total_ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-05-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-06-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros_medios FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-05-01' AS DATE) AND cs.closed_at < CAST('2026-06-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -6433,15 +6472,16 @@ SELECT SUM(cs.sales_cash) AS total_ventas_efectivo, SUM(cs.sales_other) AS total
 ```json
 [
   {
-    "total_ventas_efectivo": "850.00",
-    "total_ventas_otros": "420.00"
+    "caja": "Caja de Prueba",
+    "ventas_efectivo": "850.00",
+    "ventas_otros_medios": "420.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-159 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-159 — EM=X, EX=True, VES=0.96267</summary>
 
 **SQL gold**
 
@@ -6462,18 +6502,22 @@ SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COALESCE(SUM(cs.difference), 0) AS suma_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-05-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-06-01 00:00:00' AS TIMESTAMP) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "suma_diferencias": "-5.00"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-160 — EM=X, EX=True, VES=0.89849</summary>
+<details><summary>TEST-160 — EM=X, EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6519,7 +6563,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-161 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-161 — EM=X, EX=True, VES=0.993195</summary>
 
 **SQL gold**
 
@@ -6541,7 +6585,7 @@ SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cas
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-05-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-06-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cs.closed_at >= CAST('2026-05-01' AS DATE) AND cs.closed_at < CAST('2026-06-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -6549,6 +6593,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 ```json
 [
   {
+    "caja_registradora": "Caja de Prueba",
     "total_egresos": "45.00"
   }
 ]
@@ -6776,7 +6821,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-167 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-167 — EM=X, EX=True, VES=0.837843</summary>
 
 **SQL gold**
 
@@ -6802,7 +6847,7 @@ SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN tra
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(CASE WHEN tit.item_type = 'Out' THEN tit.quantity ELSE 0 END) AS cantidad_consumida, SUM(CASE WHEN tit.item_type = 'In' THEN tit.quantity ELSE 0 END) AS cantidad_producida FROM public.transformation_item AS tit JOIN public.transformation AS t ON tit.transformation_id = t.id JOIN public.product AS p ON tit.product_id = p.id WHERE t.date >= CAST('2026-05-01' AS DATE) AND t.date < CAST('2026-06-01' AS DATE) GROUP BY p.name LIMIT 50
+SELECT ti.item_type AS item_type, SUM(ti.quantity) AS total_quantity FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= CAST('2026-05-01' AS DATE) AND t.date < CAST('2026-06-01' AS DATE) GROUP BY ti.item_type LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -6810,14 +6855,12 @@ SELECT p.name AS producto, SUM(CASE WHEN tit.item_type = 'Out' THEN tit.quantity
 ```json
 [
   {
-    "producto": "Pollo a la brasa de prueba",
-    "cantidad_consumida": "0",
-    "cantidad_producida": "0"
+    "item_type": "Consumo",
+    "total_quantity": "5.00"
   },
   {
-    "producto": "Pollo entero de prueba",
-    "cantidad_consumida": "0",
-    "cantidad_producida": "0"
+    "item_type": "Producido",
+    "total_quantity": "2.00"
   }
 ]
 ```
@@ -7138,7 +7181,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-175 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-175 — EM=X, EX=True, VES=0.943476</summary>
 
 **SQL gold**
 
@@ -7159,13 +7202,17 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-06-01' AS DATE) AND ap.end_date >= CAST('2026-05-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
@@ -7690,7 +7737,7 @@ SELECT p.name AS product_name, SUM(poi.quantity_received) AS total_quantity_rece
 
 </details>
 
-<details><summary>TEST-189 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-189 — EM=X, EX=True, VES=0.979759</summary>
 
 **SQL gold**
 
@@ -7714,7 +7761,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount AS total_amount, s.business_name AS business_name FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.active = TRUE AND pi.issued_at >= '2026-06-01' AND pi.issued_at < '2026-07-01' LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, (pi.total_amount - COALESCE(pp.pagado, 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN (SELECT purchase_payment.purchase_invoice_id AS purchase_invoice_id, SUM(purchase_payment.amount) AS pagado FROM public.purchase_payment AS purchase_payment GROUP BY purchase_payment.purchase_invoice_id) AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-06-01' AS DATE) AND pi.issued_at < CAST('2026-07-01' AS DATE) AND pi.total_amount > COALESCE(pp.pagado, 0) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -7722,12 +7769,10 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS is
 ```json
 [
   {
-    "id": "37",
-    "series": "F026",
-    "number": "990006",
-    "issued_at": "2026-06-04",
-    "total_amount": "236.00",
-    "business_name": "Avícola Buen Sabor de Prueba"
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "serie": "F026",
+    "número": "990006",
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
@@ -8586,7 +8631,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-210 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-210 — EM=X, EX=True, VES=0.922166</summary>
 
 **SQL gold**
 
@@ -8607,18 +8652,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-07-01' AS DATE) AND ap.end_date >= CAST('2026-06-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-211 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-211 — EM=X, EX=True, VES=0.98425</summary>
 
 **SQL gold**
 
@@ -8639,7 +8688,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-07-01' AS DATE) AND si.issued_at < CAST('2026-08-01' AS DATE) LIMIT 50
+SELECT SUM(si.total_amount) AS importe_total FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-07-01' AS DATE) AND si.issued_at < CAST('2026-08-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -8647,14 +8696,14 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 ```json
 [
   {
-    "total_comprobantes": "2"
+    "importe_total": "165.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-212 — EM=X, EX=True, VES=0.990103</summary>
+<details><summary>TEST-212 — EM=X, EX=True, VES=0.997708</summary>
 
 **SQL gold**
 
@@ -10585,7 +10634,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-259 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-259 — EM=X, EX=True, VES=0.966097</summary>
 
 **SQL gold**
 
@@ -10609,7 +10658,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-08-01' AS DATE) AND pi.issued_at < CAST('2026-09-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-08-01' AS DATE) AND pi.issued_at < CAST('2026-09-01' AS DATE) GROUP BY s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -10617,9 +10666,9 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount - 
 ```json
 [
   {
-    "id": "39",
-    "series": "F026",
-    "number": "990008",
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "serie": "F026",
+    "número": "990008",
     "saldo_pendiente": "136.00"
   }
 ]
@@ -12144,7 +12193,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-297 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-297 — EM=X, EX=True, VES=0.971406</summary>
 
 **SQL gold**
 
@@ -12166,13 +12215,18 @@ SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_regi
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT cr.name AS caja, COUNT(cs.id) AS total_sesiones FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-09-01' AS DATE) AND cs.closed_at < CAST('2026-10-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "caja": "Caja de Prueba",
+    "total_sesiones": "1"
+  }
+]
 ```
 
 </details>
@@ -12773,12 +12827,12 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-312 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-312 — EM=X, EX=True, VES=0.963324</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -12786,7 +12840,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 208,
     "code": "BENCH26-09-02",
     "entry_date": "2026-09-23",
     "total_debe": "100.00",
@@ -12798,7 +12851,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS codigo_asiento, je.entry_date AS fecha, je.description AS descripcion FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING COALESCE(SUM(jed.debit), 0) <> COALESCE(SUM(jed.credit), 0) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -12806,9 +12859,10 @@ SELECT je.code AS codigo_asiento, je.entry_date AS fecha, je.description AS desc
 ```json
 [
   {
-    "codigo_asiento": "BENCH26-09-02",
-    "fecha": "2026-09-23",
-    "descripcion": "Asiento descuadrado ficticio de prueba"
+    "code": "BENCH26-09-02",
+    "entry_date": "2026-09-23",
+    "total_debe": "100.00",
+    "total_haber": "80.00"
   }
 ]
 ```
@@ -12911,7 +12965,7 @@ SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS 
 
 </details>
 
-<details><summary>TEST-315 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-315 — EM=X, EX=True, VES=0.909942</summary>
 
 **SQL gold**
 
@@ -12932,18 +12986,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-10-01' AS DATE) AND ap.end_date >= CAST('2026-09-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-316 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-316 — EM=X, EX=True, VES=0.977873</summary>
 
 **SQL gold**
 
@@ -12964,7 +13022,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-10-01' AS DATE) AND si.issued_at < CAST('2026-11-01' AS DATE) LIMIT 50
+SELECT COALESCE(SUM(si.total_amount), 0) AS importe_total FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-10-01' AS DATE) AND si.issued_at < CAST('2026-11-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -12972,7 +13030,7 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 ```json
 [
   {
-    "total_comprobantes": "11"
+    "importe_total": "571.20"
   }
 ]
 ```
@@ -13161,7 +13219,7 @@ SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item 
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
+SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -13695,32 +13753,13 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-10-01' AS DATE) AND pi.issued_at < CAST('2026-11-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.issued_at, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
+[SIN SQL]
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[
-  {
-    "series": "F002",
-    "number": "34123423",
-    "issued_at": "2026-10-13",
-    "saldo_pendiente": "11.10"
-  },
-  {
-    "series": "F003",
-    "number": "42345234",
-    "issued_at": "2026-10-15",
-    "saldo_pendiente": "3.00"
-  },
-  {
-    "series": "F026",
-    "number": "990010",
-    "issued_at": "2026-10-04",
-    "saldo_pendiente": "136.00"
-  }
-]
+[NO EJECUTADA]
 ```
 
 </details>
@@ -14311,7 +14350,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-342 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-342 — EM=X, EX=True, VES=0.976127</summary>
 
 **SQL gold**
 
@@ -14337,13 +14376,22 @@ SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN tra
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT ti.item_type AS tipo, SUM(ti.quantity) AS cantidad_total FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY ti.item_type LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "tipo": "Consumo",
+    "cantidad_total": "12.00"
+  },
+  {
+    "tipo": "Producido",
+    "cantidad_total": "58.00"
+  }
+]
 ```
 
 </details>
@@ -14748,12 +14796,12 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-347 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-347 — EM=X, EX=True, VES=0.965056</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -14761,7 +14809,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 210,
     "code": "BENCH26-10-02",
     "entry_date": "2026-10-23",
     "total_debe": "100.00",
@@ -14773,7 +14820,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS code, je.entry_date AS entry_date, je.description AS description FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SUM(jed.credit) AS credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -14783,14 +14830,15 @@ SELECT je.code AS code, je.entry_date AS entry_date, je.description AS descripti
   {
     "code": "BENCH26-10-02",
     "entry_date": "2026-10-23",
-    "description": "Asiento descuadrado ficticio de prueba"
+    "debit": "100.00",
+    "credit": "80.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-348 — EM=X, EX=True, VES=0.977151</summary>
+<details><summary>TEST-348 — EM=X, EX=True, VES=0.979389</summary>
 
 **SQL gold**
 
@@ -14906,7 +14954,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-350 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-350 — EM=X, EX=True, VES=0.999304</summary>
 
 **SQL gold**
 
@@ -14927,13 +14975,17 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-11-01' AS DATE) AND ap.end_date >= CAST('2026-10-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "2"
+  }
+]
 ```
 
 </details>
