@@ -1,0 +1,271 @@
+{
+  "generated_at": "2026-11-15T23:26:43.337672-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 7,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 7,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 7,
+      "execution_accuracy_denominator": 7,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.982332,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-123",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante abril de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros_medios FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-04-01' AS DATE) AND cs.closed_at < CAST('2026-05-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros": "420.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros_medios": "420.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.977682,
+          "elapsed_seconds": 3.802,
+          "sql_execution_seconds": 1.684664,
+          "gold_execution_seconds": 1.610306,
+          "token_usage": {
+            "prompt_tokens": 3529,
+            "completion_tokens": 121,
+            "total_tokens": 3650
+          }
+        },
+        {
+          "id": "TEST-124",
+          "question": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en abril de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-04-01' AS DATE) AND cs.closed_at < CAST('2026-05-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "diferencia": "-5.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_diferencias": "-5.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.981045,
+          "elapsed_seconds": 3.509,
+          "sql_execution_seconds": 1.600051,
+          "gold_execution_seconds": 1.539968,
+          "token_usage": {
+            "prompt_tokens": 3520,
+            "completion_tokens": 87,
+            "total_tokens": 3607
+          }
+        },
+        {
+          "id": "TEST-125",
+          "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en abril de 2026?",
+          "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-04-01' AND cm.created_at < DATE '2026-05-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_monto FROM public.cash_movement AS cm WHERE cm.created_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY cm.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "INCOME",
+              "total": "120.00"
+            },
+            {
+              "type": "EXPENSE",
+              "total": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_movimiento": "INCOME",
+              "total_monto": "120.00"
+            },
+            {
+              "tipo_movimiento": "EXPENSE",
+              "total_monto": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.511,
+          "sql_execution_seconds": 1.549059,
+          "gold_execution_seconds": 1.551689,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 98,
+            "total_tokens": 3615
+          }
+        },
+        {
+          "id": "TEST-126",
+          "question": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en abril de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-04-01' AND cm.created_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "egresos": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja_registradora": "Caja de Prueba",
+              "total_egresos": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.981907,
+          "elapsed_seconds": 3.335,
+          "sql_execution_seconds": 1.611835,
+          "gold_execution_seconds": 1.554037,
+          "token_usage": {
+            "prompt_tokens": 3529,
+            "completion_tokens": 145,
+            "total_tokens": 3674
+          }
+        },
+        {
+          "id": "TEST-127",
+          "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en abril de 2026?",
+          "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+          "generated_sql": "SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY im.movement_type LIMIT 50",
+          "gold_rows": [
+            {
+              "movement_type": "Purchase",
+              "movimientos": 1,
+              "cantidad": "20.00"
+            },
+            {
+              "movement_type": "Sale",
+              "movimientos": 1,
+              "cantidad": "2.00"
+            },
+            {
+              "movement_type": "Shrinkage",
+              "movimientos": 1,
+              "cantidad": "1.00"
+            },
+            {
+              "movement_type": "Adjustment",
+              "movimientos": 1,
+              "cantidad": "3.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_movimiento": "Purchase",
+              "total_movimientos": "1",
+              "cantidad_total": "20.00"
+            },
+            {
+              "tipo_movimiento": "Sale",
+              "total_movimientos": "1",
+              "cantidad_total": "2.00"
+            },
+            {
+              "tipo_movimiento": "Shrinkage",
+              "total_movimientos": "1",
+              "cantidad_total": "1.00"
+            },
+            {
+              "tipo_movimiento": "Adjustment",
+              "total_movimientos": "1",
+              "cantidad_total": "3.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.95988,
+          "elapsed_seconds": 2.741,
+          "sql_execution_seconds": 1.681261,
+          "gold_execution_seconds": 1.549064,
+          "token_usage": {
+            "prompt_tokens": 3520,
+            "completion_tokens": 114,
+            "total_tokens": 3634
+          }
+        },
+        {
+          "id": "TEST-128",
+          "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en abril de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= '2026-04-01' AND im.moved_at < '2026-05-01' GROUP BY p.name ORDER BY unidades DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo a la brasa de prueba",
+              "cantidad": "2.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "unidades": "2.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.975812,
+          "elapsed_seconds": 2.634,
+          "sql_execution_seconds": 1.626281,
+          "gold_execution_seconds": 1.548561,
+          "token_usage": {
+            "prompt_tokens": 3516,
+            "completion_tokens": 99,
+            "total_tokens": 3615
+          }
+        },
+        {
+          "id": "TEST-129",
+          "question": "¿Qué productos tuvieron mermas y qué cantidad en abril de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-04-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-05-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "1.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo entero de prueba",
+              "cantidad": "1.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.983,
+          "sql_execution_seconds": 1.567304,
+          "gold_execution_seconds": 1.596427,
+          "token_usage": {
+            "prompt_tokens": 3515,
+            "completion_tokens": 117,
+            "total_tokens": 3632
+          }
+        }
+      ]
+    }
+  ]
+}

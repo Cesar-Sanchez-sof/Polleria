@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-11-15T23:35:14.899070-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.963324,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-312",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en septiembre de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+          "expected_sql": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-09-01' AS DATE) AND je.entry_date < CAST('2026-10-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50",
+          "gold_rows": [
+            {
+              "code": "BENCH26-09-02",
+              "entry_date": "2026-09-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "code": "BENCH26-09-02",
+              "entry_date": "2026-09-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.963324,
+          "elapsed_seconds": 3.38,
+          "sql_execution_seconds": 1.640375,
+          "gold_execution_seconds": 1.522258,
+          "token_usage": {
+            "prompt_tokens": 3536,
+            "completion_tokens": 154,
+            "total_tokens": 3690
+          }
+        }
+      ]
+    }
+  ]
+}

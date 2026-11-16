@@ -2,7 +2,7 @@
 
 | Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| groq | 142 | 0.00% | 92.96% | 0.9125 | N/D | 138 | 4 |
+| groq | 144 | 0.00% | 93.06% | 0.9118 | N/D | 140 | 4 |
 
 **groq**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
 
@@ -5794,6 +5794,98 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invo
 [
   {
     "total_importe": "165.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-142 — EM=X, EX=True, VES=0.813088</summary>
+
+**SQL gold**
+
+```sql
+SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-05-01' AND si.issued_at < DATE '2026-06-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "voucher_type": "Boleta",
+    "total": "110.00"
+  },
+  {
+    "voucher_type": "Factura",
+    "total": "55.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT si.voucher_type AS tipo_comprobante, COALESCE(SUM(si.total_amount), 0) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-05-01' AS DATE) AND si.issued_at < CAST('2026-06-01' AS DATE) GROUP BY si.voucher_type LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "tipo_comprobante": "Boleta",
+    "total_facturado": "110.00"
+  },
+  {
+    "tipo_comprobante": "Factura",
+    "total_facturado": "55.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-143 — EM=X, EX=True, VES=0.908719</summary>
+
+**SQL gold**
+
+```sql
+SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-05-01' AND sp.paid_at < DATE '2026-06-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "medio": "Tarjeta",
+    "total": "95.00"
+  },
+  {
+    "medio": "Efectivo",
+    "total": "70.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT pt.name AS medio_pago, COALESCE(SUM(sp.amount), 0) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-05-01' AS DATE) AND sp.paid_at < CAST('2026-06-01' AS DATE) GROUP BY pt.name LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "medio_pago": "Efectivo",
+    "total_cobrado": "70.00"
+  },
+  {
+    "medio_pago": "Tarjeta",
+    "total_cobrado": "95.00"
   }
 ]
 ```
