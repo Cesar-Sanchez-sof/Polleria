@@ -18,7 +18,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en enero de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en enero de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -158,7 +158,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en enero de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en enero de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-01-01' AND pi.issued_at < DATE '2026-02-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -397,7 +397,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en febrero de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en febrero de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-02-01' AND si.issued_at < DATE '2026-03-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -537,7 +537,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en febrero de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en febrero de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-02-01' AND pi.issued_at < DATE '2026-03-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -776,7 +776,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en marzo de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en marzo de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-03-01' AND si.issued_at < DATE '2026-04-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -916,7 +916,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en marzo de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en marzo de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-03-01' AND pi.issued_at < DATE '2026-04-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -1155,7 +1155,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en abril de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en abril de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -1295,7 +1295,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en abril de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en abril de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-04-01' AND pi.issued_at < DATE '2026-05-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -1534,7 +1534,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en mayo de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en mayo de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-05-01' AND si.issued_at < DATE '2026-06-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -1674,7 +1674,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en mayo de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en mayo de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-05-01' AND pi.issued_at < DATE '2026-06-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -1913,7 +1913,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en junio de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en junio de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-06-01' AND si.issued_at < DATE '2026-07-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -2053,7 +2053,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en junio de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en junio de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-06-01' AND pi.issued_at < DATE '2026-07-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -2292,7 +2292,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en julio de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en julio de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-07-01' AND si.issued_at < DATE '2026-08-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -2432,7 +2432,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en julio de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en julio de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-07-01' AND pi.issued_at < DATE '2026-08-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -2671,7 +2671,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en agosto de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en agosto de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-08-01' AND si.issued_at < DATE '2026-09-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -2811,7 +2811,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en agosto de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en agosto de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-08-01' AND pi.issued_at < DATE '2026-09-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -3050,7 +3050,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en septiembre de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en septiembre de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-09-01' AND si.issued_at < DATE '2026-10-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -3190,7 +3190,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en septiembre de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en septiembre de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-09-01' AND pi.issued_at < DATE '2026-10-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -3429,7 +3429,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en octubre de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en octubre de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-10-01' AND si.issued_at < DATE '2026-11-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -3569,7 +3569,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en octubre de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en octubre de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-10-01' AND pi.issued_at < DATE '2026-11-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",

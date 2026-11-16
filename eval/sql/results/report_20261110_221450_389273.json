@@ -1,0 +1,372 @@
+{
+  "generated_at": "2026-11-10T22:14:50.406532-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 10,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 9,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 8,
+      "execution_accuracy_denominator": 10,
+      "execution_accuracy_rate": 0.8,
+      "ves": 0.796335,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-096",
+          "question": "¿Cuántas transformaciones no anuladas hubo en marzo de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE AND t.date >= DATE '2026-03-01' AND t.date < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE t.annulled = FALSE AND t.date >= CAST('2026-03-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-04-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_transformaciones": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.983191,
+          "elapsed_seconds": 6.143,
+          "sql_execution_seconds": 2.47903,
+          "gold_execution_seconds": 2.396391,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 82,
+            "total_tokens": 3208
+          }
+        },
+        {
+          "id": "TEST-097",
+          "question": "¿Qué cantidades se consumieron y produjeron en transformaciones durante marzo de 2026?",
+          "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-03-01' AND t.date < DATE '2026-04-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id JOIN public.product AS p ON ti.product_id = p.id WHERE t.date >= CAST('2026-03-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-04-01 00:00:00' AS TIMESTAMP) GROUP BY p.name, ti.item_type LIMIT 50",
+          "gold_rows": [
+            {
+              "item_type": "Consumo",
+              "cantidad": "5.00"
+            },
+            {
+              "item_type": "Producido",
+              "cantidad": "2.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "tipo": "Producido",
+              "cantidad": "2.00"
+            },
+            {
+              "producto": "Pollo entero de prueba",
+              "tipo": "Consumo",
+              "cantidad": "5.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 7.175,
+          "sql_execution_seconds": 2.518876,
+          "gold_execution_seconds": 2.528981,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 133,
+            "total_tokens": 3262
+          }
+        },
+        {
+          "id": "TEST-098",
+          "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en marzo de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-03-01' AND im.moved_at < DATE '2026-04-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-03-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-04-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY cantidad DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 10.299,
+          "sql_execution_seconds": 2.410033,
+          "gold_execution_seconds": 2.412182,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 124,
+            "total_tokens": 3253
+          }
+        },
+        {
+          "id": "TEST-099",
+          "question": "¿Cuánto sumaron el debe y el haber de los asientos registrados en marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "total_debe": "200.00",
+              "total_haber": "180.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_debe": "200.00",
+              "total_haber": "180.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.996738,
+          "elapsed_seconds": 4.304,
+          "sql_execution_seconds": 2.418005,
+          "gold_execution_seconds": 2.402256,
+          "token_usage": {
+            "prompt_tokens": 3130,
+            "completion_tokens": 114,
+            "total_tokens": 3244
+          }
+        },
+        {
+          "id": "TEST-100",
+          "question": "¿Cuál fue el saldo neto por cuenta contable en marzo de 2026?",
+          "expected_sql": "SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code LIMIT 50",
+          "generated_sql": "SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.accounting_account AS aa JOIN public.journal_entry_detail AS jed ON jed.account_id = aa.id JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY codigo_cuenta LIMIT 50",
+          "gold_rows": [
+            {
+              "code": "201001",
+              "name": "Obligaciones de prueba",
+              "saldo": "-80.00"
+            },
+            {
+              "code": "309001",
+              "name": "Cuenta de activo de prueba del mes 3",
+              "saldo": "200.00"
+            },
+            {
+              "code": "401001",
+              "name": "Ventas de prueba",
+              "saldo": "-100.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "codigo_cuenta": "201001",
+              "nombre_cuenta": "Obligaciones de prueba",
+              "saldo_neto": "-80.00"
+            },
+            {
+              "codigo_cuenta": "309001",
+              "nombre_cuenta": "Cuenta de activo de prueba del mes 3",
+              "saldo_neto": "200.00"
+            },
+            {
+              "codigo_cuenta": "401001",
+              "nombre_cuenta": "Ventas de prueba",
+              "saldo_neto": "-100.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.998708,
+          "elapsed_seconds": 6.575,
+          "sql_execution_seconds": 2.392415,
+          "gold_execution_seconds": 2.386237,
+          "token_usage": {
+            "prompt_tokens": 3127,
+            "completion_tokens": 155,
+            "total_tokens": 3282
+          }
+        },
+        {
+          "id": "TEST-101",
+          "question": "¿Cuántos asientos registrados hubo por diario en marzo de 2026?",
+          "expected_sql": "SELECT je.book, COUNT(*) AS total FROM journal_entry je WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY je.book ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50",
+          "gold_rows": [
+            {
+              "book": "Diario de prueba",
+              "total": 2
+            }
+          ],
+          "generated_rows": [
+            {
+              "diario": "Diario de prueba",
+              "total_asientos": "2"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 5.214,
+          "sql_execution_seconds": 2.374917,
+          "gold_execution_seconds": 2.421854,
+          "token_usage": {
+            "prompt_tokens": 3125,
+            "completion_tokens": 82,
+            "total_tokens": 3207
+          }
+        },
+        {
+          "id": "TEST-102",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en marzo de 2026?",
+          "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS codigo, je.entry_date AS fecha, je.description AS descripcion, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50",
+          "gold_rows": [
+            {
+              "id": 196,
+              "code": "BENCH26-03-02",
+              "entry_date": "2026-03-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "codigo": "BENCH26-03-02",
+              "fecha": "2026-03-23",
+              "descripcion": "Asiento descuadrado ficticio de prueba",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.817,
+          "sql_execution_seconds": 2.405348,
+          "gold_execution_seconds": 2.379079,
+          "token_usage": {
+            "prompt_tokens": 3128,
+            "completion_tokens": 154,
+            "total_tokens": 3282
+          }
+        },
+        {
+          "id": "TEST-103",
+          "question": "¿Cuál fue el saldo neto del elemento contable 3 en marzo de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '3%' AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '3%' AND je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "saldo": "200.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "saldo": "200.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.988959,
+          "elapsed_seconds": 9.134,
+          "sql_execution_seconds": 2.432081,
+          "gold_execution_seconds": 2.378672,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 125,
+            "total_tokens": 3254
+          }
+        },
+        {
+          "id": "TEST-104",
+          "question": "¿Cuánto sumaron el debe y el haber por tipo de cuenta en marzo de 2026?",
+          "expected_sql": "SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY aa.type ORDER BY aa.type LIMIT 50",
+          "generated_sql": "SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-03-01' AS DATE) AND je.entry_date < CAST('2026-04-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "Activo",
+              "total_debe": "200.00",
+              "total_haber": "0.00"
+            },
+            {
+              "type": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "100.00"
+            },
+            {
+              "type": "Pasivo",
+              "total_debe": "0.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_cuenta": "Activo",
+              "total_debe": "200.00",
+              "total_haber": "0.00"
+            },
+            {
+              "tipo_cuenta": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "100.00"
+            },
+            {
+              "tipo_cuenta": "Pasivo",
+              "total_debe": "0.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.995752,
+          "elapsed_seconds": 3.999,
+          "sql_execution_seconds": 2.4142,
+          "gold_execution_seconds": 2.393734,
+          "token_usage": {
+            "prompt_tokens": 3130,
+            "completion_tokens": 142,
+            "total_tokens": 3272
+          }
+        },
+        {
+          "id": "TEST-105",
+          "question": "¿Cuántos periodos contables abiertos abarcan marzo de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-04-01' AND ap.end_date >= DATE '2026-03-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.158,
+          "sql_execution_seconds": 2.36463,
+          "gold_execution_seconds": 2.396969,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 73,
+            "total_tokens": 3199
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        }
+      ]
+    }
+  ]
+}

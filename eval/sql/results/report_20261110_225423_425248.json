@@ -1,0 +1,801 @@
+{
+  "generated_at": "2026-11-10T22:54:23.454152-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 25,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 19,
+      "execution_error_count": 6,
+      "execution_accuracy_count": 17,
+      "execution_accuracy_denominator": 25,
+      "execution_accuracy_rate": 0.68,
+      "ves": 0.665616,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-235",
+          "question": "¿Qué insumos ingresaron por compras y en qué cantidad durante julio de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Purchase' AND im.moved_at >= DATE '2026-07-01' AND im.moved_at < DATE '2026-08-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad FROM public.purchase_order_item AS poi JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id JOIN public.product AS p ON poi.product_id = p.id WHERE po.received_at >= CAST('2026-07-01 00:00:00' AS TIMESTAMP) AND po.received_at < CAST('2026-08-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "20.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "insumo": "Pollo entero de prueba",
+              "cantidad": "20.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.738952,
+          "elapsed_seconds": 6.258,
+          "sql_execution_seconds": 4.314763,
+          "gold_execution_seconds": 2.356077,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 132,
+            "total_tokens": 3261
+          }
+        },
+        {
+          "id": "TEST-236",
+          "question": "¿Cuántas transformaciones no anuladas hubo en julio de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE AND t.date >= DATE '2026-07-01' AND t.date < DATE '2026-08-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE t.annulled = FALSE AND t.date >= CAST('2026-07-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-08-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_transformaciones": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 4.411,
+          "sql_execution_seconds": 2.360303,
+          "gold_execution_seconds": 2.495421,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 78,
+            "total_tokens": 3204
+          }
+        },
+        {
+          "id": "TEST-237",
+          "question": "¿Qué cantidades se consumieron y produjeron en transformaciones durante julio de 2026?",
+          "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-07-01' AND t.date < DATE '2026-08-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id JOIN public.product AS p ON ti.product_id = p.id WHERE t.date >= CAST('2026-07-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-08-01 00:00:00' AS TIMESTAMP) GROUP BY p.name, ti.item_type LIMIT 50",
+          "gold_rows": [
+            {
+              "item_type": "Consumo",
+              "cantidad": "5.00"
+            },
+            {
+              "item_type": "Producido",
+              "cantidad": "2.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "tipo": "Producido",
+              "cantidad": "2.00"
+            },
+            {
+              "producto": "Pollo entero de prueba",
+              "tipo": "Consumo",
+              "cantidad": "5.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 4.288,
+          "sql_execution_seconds": 2.405331,
+          "gold_execution_seconds": 2.466522,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 133,
+            "total_tokens": 3262
+          }
+        },
+        {
+          "id": "TEST-238",
+          "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en julio de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-07-01' AND im.moved_at < DATE '2026-08-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-07-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-08-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.991302,
+          "elapsed_seconds": 3.637,
+          "sql_execution_seconds": 2.421362,
+          "gold_execution_seconds": 2.379422,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 120,
+            "total_tokens": 3249
+          }
+        },
+        {
+          "id": "TEST-239",
+          "question": "¿Cuánto sumaron el debe y el haber de los asientos registrados en julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "total_debe": "200.00",
+              "total_haber": "180.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_debe": "200.00",
+              "total_haber": "180.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.981332,
+          "elapsed_seconds": 3.835,
+          "sql_execution_seconds": 2.483355,
+          "gold_execution_seconds": 2.391502,
+          "token_usage": {
+            "prompt_tokens": 3130,
+            "completion_tokens": 109,
+            "total_tokens": 3239
+          }
+        },
+        {
+          "id": "TEST-240",
+          "question": "¿Cuál fue el saldo neto por cuenta contable en julio de 2026?",
+          "expected_sql": "SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code LIMIT 50",
+          "generated_sql": "SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY codigo_cuenta LIMIT 50",
+          "gold_rows": [
+            {
+              "code": "201001",
+              "name": "Obligaciones de prueba",
+              "saldo": "-80.00"
+            },
+            {
+              "code": "401001",
+              "name": "Ventas de prueba",
+              "saldo": "-100.00"
+            },
+            {
+              "code": "709001",
+              "name": "Cuenta de activo de prueba del mes 7",
+              "saldo": "200.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "codigo_cuenta": "201001",
+              "nombre_cuenta": "Obligaciones de prueba",
+              "saldo_neto": "-80.00"
+            },
+            {
+              "codigo_cuenta": "401001",
+              "nombre_cuenta": "Ventas de prueba",
+              "saldo_neto": "-100.00"
+            },
+            {
+              "codigo_cuenta": "709001",
+              "nombre_cuenta": "Cuenta de activo de prueba del mes 7",
+              "saldo_neto": "200.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.999061,
+          "elapsed_seconds": 3.359,
+          "sql_execution_seconds": 2.364861,
+          "gold_execution_seconds": 2.360421,
+          "token_usage": {
+            "prompt_tokens": 3127,
+            "completion_tokens": 155,
+            "total_tokens": 3282
+          }
+        },
+        {
+          "id": "TEST-241",
+          "question": "¿Cuántos asientos registrados hubo por diario en julio de 2026?",
+          "expected_sql": "SELECT je.book, COUNT(*) AS total FROM journal_entry je WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY je.book ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50",
+          "gold_rows": [
+            {
+              "book": "Diario de prueba",
+              "total": 2
+            }
+          ],
+          "generated_rows": [
+            {
+              "diario": "Diario de prueba",
+              "total_asientos": "2"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.39,
+          "sql_execution_seconds": 2.348775,
+          "gold_execution_seconds": 2.409806,
+          "token_usage": {
+            "prompt_tokens": 3125,
+            "completion_tokens": 82,
+            "total_tokens": 3207
+          }
+        },
+        {
+          "id": "TEST-242",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en julio de 2026?",
+          "expected_sql": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS codigo_asiento, je.entry_date AS fecha_asiento, je.description AS glosa, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50",
+          "gold_rows": [
+            {
+              "id": 204,
+              "code": "BENCH26-07-02",
+              "entry_date": "2026-07-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "codigo_asiento": "BENCH26-07-02",
+              "fecha_asiento": "2026-07-23",
+              "glosa": "Asiento descuadrado ficticio de prueba",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.595,
+          "sql_execution_seconds": 2.398607,
+          "gold_execution_seconds": 2.40178,
+          "token_usage": {
+            "prompt_tokens": 3128,
+            "completion_tokens": 161,
+            "total_tokens": 3289
+          }
+        },
+        {
+          "id": "TEST-243",
+          "question": "¿Cuál fue el saldo neto del elemento contable 7 en julio de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '7%' AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.code LIKE '7%' AND je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "saldo": "200.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "saldo": "200.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.982552,
+          "elapsed_seconds": 3.374,
+          "sql_execution_seconds": 2.488578,
+          "gold_execution_seconds": 2.402497,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 125,
+            "total_tokens": 3254
+          }
+        },
+        {
+          "id": "TEST-244",
+          "question": "¿Cuánto sumaron el debe y el haber por tipo de cuenta en julio de 2026?",
+          "expected_sql": "SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY aa.type ORDER BY aa.type LIMIT 50",
+          "generated_sql": "SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "Activo",
+              "total_debe": "200.00",
+              "total_haber": "0.00"
+            },
+            {
+              "type": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "100.00"
+            },
+            {
+              "type": "Pasivo",
+              "total_debe": "0.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_cuenta": "Activo",
+              "total_debe": "200.00",
+              "total_haber": "0.00"
+            },
+            {
+              "tipo_cuenta": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "100.00"
+            },
+            {
+              "tipo_cuenta": "Pasivo",
+              "total_debe": "0.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.999694,
+          "elapsed_seconds": 3.781,
+          "sql_execution_seconds": 2.399007,
+          "gold_execution_seconds": 2.397538,
+          "token_usage": {
+            "prompt_tokens": 3130,
+            "completion_tokens": 142,
+            "total_tokens": 3272
+          }
+        },
+        {
+          "id": "TEST-245",
+          "question": "¿Cuántos periodos contables abiertos abarcan julio de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-08-01' AND ap.end_date >= DATE '2026-07-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.822,
+          "sql_execution_seconds": 2.405563,
+          "gold_execution_seconds": 2.378455,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 70,
+            "total_tokens": 3196
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        },
+        {
+          "id": "TEST-246",
+          "question": "¿Cuál fue el total de comprobantes emitidos en agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-08-01' AND si.issued_at < DATE '2026-09-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= '2026-08-01' AND si.issued_at < '2026-09-01' LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_comprobantes": "2"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.269,
+          "sql_execution_seconds": 2.337561,
+          "gold_execution_seconds": 2.479612,
+          "token_usage": {
+            "prompt_tokens": 3127,
+            "completion_tokens": 61,
+            "total_tokens": 3188
+          }
+        },
+        {
+          "id": "TEST-247",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en agosto de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-08-01' AND si.issued_at < DATE '2026-09-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= '2026-08-01' AND si.issued_at < '2026-09-01' GROUP BY si.voucher_type LIMIT 50",
+          "gold_rows": [
+            {
+              "voucher_type": "Boleta",
+              "total": "110.00"
+            },
+            {
+              "voucher_type": "Factura",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_comprobante": "Boleta",
+              "total_facturado": "110.00"
+            },
+            {
+              "tipo_comprobante": "Factura",
+              "total_facturado": "55.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 8.107,
+          "sql_execution_seconds": 2.395287,
+          "gold_execution_seconds": 2.499179,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 90,
+            "total_tokens": 3219
+          }
+        },
+        {
+          "id": "TEST-248",
+          "question": "¿Cuánto se cobró por cada medio de pago en agosto de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(sp.amount) AS total FROM sales_payment sp JOIN payment_type pt ON pt.id = sp.payment_type_id WHERE sp.paid_at >= DATE '2026-08-01' AND sp.paid_at < DATE '2026-09-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT pt.name AS medio_pago, SUM(sp.amount) AS total_cobrado FROM public.sales_payment AS sp JOIN public.payment_type AS pt ON sp.payment_type_id = pt.id WHERE sp.paid_at >= CAST('2026-08-01 00:00:00' AS TIMESTAMP) AND sp.paid_at < CAST('2026-09-01 00:00:00' AS TIMESTAMP) GROUP BY pt.name LIMIT 50",
+          "gold_rows": [
+            {
+              "medio": "Tarjeta",
+              "total": "95.00"
+            },
+            {
+              "medio": "Efectivo",
+              "total": "70.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "medio_pago": "Efectivo",
+              "total_cobrado": "70.00"
+            },
+            {
+              "medio_pago": "Tarjeta",
+              "total_cobrado": "95.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.786,
+          "sql_execution_seconds": 2.383481,
+          "gold_execution_seconds": 2.418683,
+          "token_usage": {
+            "prompt_tokens": 3127,
+            "completion_tokens": 115,
+            "total_tokens": 3242
+          }
+        },
+        {
+          "id": "TEST-249",
+          "question": "¿Cuántos pedidos cerrados para llevar hubo en agosto de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= DATE '2026-08-01' AND so.ordered_at < DATE '2026-09-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-08-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-09-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.503,
+          "sql_execution_seconds": 2.397351,
+          "gold_execution_seconds": 2.399907,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 102,
+            "total_tokens": 3228
+          }
+        },
+        {
+          "id": "TEST-250",
+          "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante agosto de 2026?",
+          "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-08-01' AND so.ordered_at < DATE '2026-09-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+          "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= '2026-08-01' AND so.ordered_at < '2026-09-01' GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo a la brasa de prueba",
+              "unidades": 3
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "total_unidades": "3"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 7.762,
+          "sql_execution_seconds": 2.393381,
+          "gold_execution_seconds": 2.407564,
+          "token_usage": {
+            "prompt_tokens": 3128,
+            "completion_tokens": 123,
+            "total_tokens": 3251
+          }
+        },
+        {
+          "id": "TEST-251",
+          "question": "¿Cuál fue el total vendido por canal de pedido en agosto de 2026?",
+          "expected_sql": "SELECT so.order_type, SUM(oi.subtotal) AS total FROM sales_order so JOIN order_item oi ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= DATE '2026-08-01' AND so.ordered_at < DATE '2026-09-01' GROUP BY so.order_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public.sales_invoice AS si JOIN public.sales_order AS so ON si.order_id = so.id WHERE si.issued_at >= CAST('2026-08-01' AS DATE) AND si.issued_at < CAST('2026-09-01' AS DATE) GROUP BY so.order_type LIMIT 50",
+          "gold_rows": [
+            {
+              "order_type": "Mesa",
+              "total": "110.00"
+            },
+            {
+              "order_type": "Llevar",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "canal": "Llevar",
+              "total_vendido": "55.00"
+            },
+            {
+              "canal": "Mesa",
+              "total_vendido": "110.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.977877,
+          "elapsed_seconds": 11.921,
+          "sql_execution_seconds": 2.503624,
+          "gold_execution_seconds": 2.394076,
+          "token_usage": {
+            "prompt_tokens": 3127,
+            "completion_tokens": 103,
+            "total_tokens": 3230
+          }
+        },
+        {
+          "id": "TEST-252",
+          "question": "¿Cuántos pedidos cerrados se atendieron en cada mesa durante agosto de 2026?",
+          "expected_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS pedidos FROM sales_order so JOIN order_table ot ON ot.order_id = so.id JOIN dining_table dt ON dt.id = ot.table_id WHERE so.status = 'Closed' AND so.order_type = 'Mesa' AND so.ordered_at >= DATE '2026-08-01' AND so.ordered_at < DATE '2026-09-01' GROUP BY dt.id, dt.number ORDER BY dt.number LIMIT 50",
+          "generated_sql": "SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so JOIN public.order_table AS ot ON ot.order_id = so.id JOIN public.dining_table AS dt ON dt.id = ot.table_id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-08-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-09-01 00:00:00' AS TIMESTAMP) GROUP BY dt.number LIMIT 50",
+          "gold_rows": [
+            {
+              "mesa": 99,
+              "pedidos": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "mesa": "99",
+              "total_pedidos": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 5.744,
+          "sql_execution_seconds": 2.36639,
+          "gold_execution_seconds": 2.768879,
+          "token_usage": {
+            "prompt_tokens": 6299,
+            "completion_tokens": 285,
+            "total_tokens": 6584
+          }
+        },
+        {
+          "id": "TEST-253",
+          "question": "¿Cuál fue el total de facturas de compra activas en agosto de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(pi.total_amount), 0) AS total FROM purchase_invoice pi WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-08-01' AND pi.issued_at < DATE '2026-09-01' LIMIT 50",
+          "generated_sql": "SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoice AS pi WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-08-01' AS DATE) AND pi.issued_at < CAST('2026-09-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "236.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_facturas_compra": "236.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.969632,
+          "elapsed_seconds": 10.006,
+          "sql_execution_seconds": 2.533887,
+          "gold_execution_seconds": 2.382328,
+          "token_usage": {
+            "prompt_tokens": 3129,
+            "completion_tokens": 77,
+            "total_tokens": 3206
+          }
+        },
+        {
+          "id": "TEST-254",
+          "question": "¿Cuánto se compró a cada proveedor en agosto de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-08-01' AND pi.issued_at < DATE '2026-09-01' GROUP BY s.id, s.business_name ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id WHERE pi.issued_at >= CAST('2026-08-01' AS DATE) AND pi.issued_at < CAST('2026-09-01' AS DATE) GROUP BY s.business_name ORDER BY total_compras DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "total": "236.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "total_compras": "236.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 6.898,
+          "sql_execution_seconds": 2.369117,
+          "gold_execution_seconds": 2.401987,
+          "token_usage": {
+            "prompt_tokens": 3125,
+            "completion_tokens": 108,
+            "total_tokens": 3233
+          }
+        },
+        {
+          "id": "TEST-255",
+          "question": "¿Cuánto se pagó por cada medio de pago a proveedores en agosto de 2026?",
+          "expected_sql": "SELECT pt.name AS medio, SUM(pp.amount) AS total FROM purchase_payment pp JOIN payment_type pt ON pt.id = pp.payment_type_id WHERE pp.paid_at >= DATE '2026-08-01' AND pp.paid_at < DATE '2026-09-01' GROUP BY pt.id, pt.name ORDER BY total DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "medio": "Efectivo",
+              "total": "100.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.0,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.411633,
+          "token_usage": null
+        },
+        {
+          "id": "TEST-256",
+          "question": "¿Cuánto se gastó por categoría en compras informales durante agosto de 2026?",
+          "expected_sql": "SELECT ip.expense_category, SUM(ip.amount_paid) AS total FROM informal_purchase ip WHERE ip.annulled = FALSE AND ip.date >= DATE '2026-08-01' AND ip.date < DATE '2026-09-01' GROUP BY ip.expense_category ORDER BY total DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "expense_category": "CleaningSupplies",
+              "total": "38.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.0,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.388804,
+          "token_usage": null
+        },
+        {
+          "id": "TEST-257",
+          "question": "¿Cuántas órdenes de compra hubo por estado en agosto de 2026?",
+          "expected_sql": "SELECT po.status, COUNT(*) AS total FROM purchase_order po WHERE po.issued_at >= DATE '2026-08-01' AND po.issued_at < DATE '2026-09-01' GROUP BY po.status ORDER BY total DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "status": "Pending",
+              "total": 1
+            },
+            {
+              "status": "FullyReceived",
+              "total": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.0,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.523806,
+          "token_usage": null
+        },
+        {
+          "id": "TEST-258",
+          "question": "¿Cuántas unidades recibidas hubo por producto en órdenes de compra de agosto de 2026?",
+          "expected_sql": "SELECT p.name, SUM(poi.quantity_received) AS unidades FROM purchase_order po JOIN purchase_order_item poi ON poi.purchase_order_id = po.id JOIN product p ON p.id = poi.product_id WHERE po.issued_at >= DATE '2026-08-01' AND po.issued_at < DATE '2026-09-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "unidades": "20.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.0,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.407121,
+          "token_usage": null
+        },
+        {
+          "id": "TEST-259",
+          "question": "¿Qué facturas de compra activas tienen saldo pendiente en agosto de 2026?",
+          "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-08-01' AND pi.issued_at < DATE '2026-09-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "series": "F026",
+              "number": 990008,
+              "saldo_pendiente": "136.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.0,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.400686,
+          "token_usage": null
+        }
+      ]
+    }
+  ]
+}

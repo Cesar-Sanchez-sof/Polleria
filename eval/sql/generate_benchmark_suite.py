@@ -60,7 +60,7 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
     sales = [
         _case(
             "ventas", "facil",
-            f"¿Cuál fue el total de comprobantes emitidos en {month_name}?",
+            f"¿Cuál fue el importe total de los comprobantes emitidos en {month_name}?",
             f"SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si "
             f"WHERE si.status = 'Issued' AND {date_range('si.issued_at')}{limit}",
             ("sales_invoice",),
@@ -167,7 +167,8 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "compras", "dificil",
-            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}?",
+            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}? "
+            "Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
             f"SELECT s.business_name AS proveedor, pi.series, pi.number, "
             f"pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente "
             f"FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id "
