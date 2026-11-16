@@ -2,7 +2,7 @@
 
 | Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini | 350 | 0.00% | 74.29% | 0.7365 | N/D | 316 | 34 |
+| gemini | 350 | 0.00% | 74.57% | 0.7389 | N/D | 316 | 34 |
 
 **gemini**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
 
@@ -172,7 +172,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-005 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-005 — EM=X, EX=True, VES=0.848817</summary>
 
 **SQL gold**
 
@@ -194,7 +194,7 @@ SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item 
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
+SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -203,7 +203,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 [
   {
     "producto": "Pollo a la brasa de prueba",
-    "total_unidades": "1"
+    "total_unidades": "3"
   }
 ]
 ```
@@ -701,7 +701,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_ventas_efectivo, COALESCE(SUM(cs.sales_other), 0) AS total_ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_sales_cash, COALESCE(SUM(cs.sales_other), 0) AS total_sales_other FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-01-01' AS DATE) AND cs.opened_at < CAST('2026-02-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -709,8 +709,8 @@ SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_ventas_efectivo, COALESCE(SUM(cs
 ```json
 [
   {
-    "total_ventas_efectivo": "850.00",
-    "total_ventas_otros": "420.00"
+    "total_sales_cash": "850.00",
+    "total_sales_other": "420.00"
   }
 ]
 ```

@@ -5,10 +5,10 @@
   "exact_match_rate": 0.0,
   "execution_success_count": 316,
   "execution_error_count": 34,
-  "execution_accuracy_count": 260,
+  "execution_accuracy_count": 261,
   "execution_accuracy_denominator": 350,
-  "execution_accuracy_rate": 0.7428571428571429,
-  "ves": 0.7364844085714284,
+  "execution_accuracy_rate": 0.7457142857142857,
+  "ves": 0.7389095999999996,
   "test_suite_accuracy": null,
   "interrupted": false,
   "cases": [
@@ -31,13 +31,13 @@
       "execution_succeeded": true,
       "execution_accuracy": false,
       "ves": 0.0,
-      "elapsed_seconds": 10.403,
-      "sql_execution_seconds": 3.191222,
-      "gold_execution_seconds": 2.40433,
+      "elapsed_seconds": 3.746,
+      "sql_execution_seconds": 1.647314,
+      "gold_execution_seconds": 1.595913,
       "token_usage": {
-        "prompt_tokens": 3127,
-        "completion_tokens": 64,
-        "total_tokens": 3191
+        "prompt_tokens": 3140,
+        "completion_tokens": 63,
+        "total_tokens": 3203
       }
     },
     {
@@ -148,7 +148,7 @@
       "id": "TEST-005",
       "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante enero de 2026?",
       "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
-      "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.sales_order AS so ON oi.order_id = so.id JOIN public.product AS p ON oi.product_id = p.id WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50",
+      "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50",
       "gold_rows": [
         {
           "name": "Pollo a la brasa de prueba",
@@ -158,20 +158,20 @@
       "generated_rows": [
         {
           "producto": "Pollo a la brasa de prueba",
-          "total_unidades": "1"
+          "total_unidades": "3"
         }
       ],
       "exact_match": false,
       "execution_succeeded": true,
-      "execution_accuracy": false,
-      "ves": 0.0,
-      "elapsed_seconds": 9.106,
-      "sql_execution_seconds": 2.436351,
-      "gold_execution_seconds": 2.497772,
+      "execution_accuracy": true,
+      "ves": 0.848817,
+      "elapsed_seconds": 4.343,
+      "sql_execution_seconds": 2.330562,
+      "gold_execution_seconds": 1.679146,
       "token_usage": {
-        "prompt_tokens": 3128,
-        "completion_tokens": 155,
-        "total_tokens": 3283
+        "prompt_tokens": 3141,
+        "completion_tokens": 143,
+        "total_tokens": 3284
       }
     },
     {
@@ -537,13 +537,13 @@
       "execution_succeeded": false,
       "execution_accuracy": false,
       "ves": 0.0,
-      "elapsed_seconds": 12.315,
-      "sql_execution_seconds": 2.502755,
-      "gold_execution_seconds": 2.391314,
+      "elapsed_seconds": 3.886,
+      "sql_execution_seconds": 1.776732,
+      "gold_execution_seconds": 1.62983,
       "token_usage": {
-        "prompt_tokens": 3126,
+        "prompt_tokens": 3139,
         "completion_tokens": 125,
-        "total_tokens": 3251
+        "total_tokens": 3264
       },
       "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
     },
@@ -551,7 +551,7 @@
       "id": "TEST-018",
       "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en enero de 2026?",
       "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
-      "generated_sql": "SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_ventas_efectivo, COALESCE(SUM(cs.sales_other), 0) AS total_ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+      "generated_sql": "SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_sales_cash, COALESCE(SUM(cs.sales_other), 0) AS total_sales_other FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-01-01' AS DATE) AND cs.opened_at < CAST('2026-02-01' AS DATE) LIMIT 50",
       "gold_rows": [
         {
           "caja": "Caja de Prueba",
@@ -561,21 +561,21 @@
       ],
       "generated_rows": [
         {
-          "total_ventas_efectivo": "850.00",
-          "total_ventas_otros": "420.00"
+          "total_sales_cash": "850.00",
+          "total_sales_other": "420.00"
         }
       ],
       "exact_match": false,
       "execution_succeeded": true,
       "execution_accuracy": false,
       "ves": 0.0,
-      "elapsed_seconds": 4.446,
-      "sql_execution_seconds": 2.418755,
-      "gold_execution_seconds": 2.405899,
+      "elapsed_seconds": 3.784,
+      "sql_execution_seconds": 1.596091,
+      "gold_execution_seconds": 1.603716,
       "token_usage": {
-        "prompt_tokens": 3130,
-        "completion_tokens": 120,
-        "total_tokens": 3250
+        "prompt_tokens": 3143,
+        "completion_tokens": 103,
+        "total_tokens": 3246
       }
     },
     {
@@ -593,13 +593,13 @@
       "execution_succeeded": false,
       "execution_accuracy": false,
       "ves": 0.0,
-      "elapsed_seconds": 3.776,
-      "sql_execution_seconds": 2.36101,
-      "gold_execution_seconds": 2.341704,
+      "elapsed_seconds": 3.434,
+      "sql_execution_seconds": 1.628015,
+      "gold_execution_seconds": 1.616261,
       "token_usage": {
-        "prompt_tokens": 3130,
-        "completion_tokens": 78,
-        "total_tokens": 3208
+        "prompt_tokens": 3143,
+        "completion_tokens": 103,
+        "total_tokens": 3246
       },
       "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
     },
@@ -632,13 +632,13 @@
       "execution_succeeded": true,
       "execution_accuracy": true,
       "ves": 1.0,
-      "elapsed_seconds": 3.482,
-      "sql_execution_seconds": 2.414935,
-      "gold_execution_seconds": 2.522909,
+      "elapsed_seconds": 2.743,
+      "sql_execution_seconds": 1.596377,
+      "gold_execution_seconds": 1.616311,
       "token_usage": {
-        "prompt_tokens": 3129,
+        "prompt_tokens": 3142,
         "completion_tokens": 103,
-        "total_tokens": 3232
+        "total_tokens": 3245
       }
     },
     {
@@ -661,13 +661,13 @@
       "execution_succeeded": true,
       "execution_accuracy": false,
       "ves": 0.0,
-      "elapsed_seconds": 10.537,
-      "sql_execution_seconds": 2.381326,
-      "gold_execution_seconds": 2.522311,
+      "elapsed_seconds": 3.585,
+      "sql_execution_seconds": 1.736383,
+      "gold_execution_seconds": 1.662358,
       "token_usage": {
-        "prompt_tokens": 3128,
-        "completion_tokens": 100,
-        "total_tokens": 3228
+        "prompt_tokens": 3141,
+        "completion_tokens": 97,
+        "total_tokens": 3238
       }
     },
     {

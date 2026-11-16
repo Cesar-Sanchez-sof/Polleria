@@ -167,7 +167,8 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "compras", "dificil",
-            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}?",
+            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}? "
+            "Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
             f"SELECT s.business_name AS proveedor, pi.series, pi.number, "
             f"pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente "
             f"FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id "

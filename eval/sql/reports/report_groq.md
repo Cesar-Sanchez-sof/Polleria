@@ -2,7 +2,7 @@
 
 | Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| groq | 127 | 0.00% | 78.74% | 0.7754 | N/D | 116 | 11 |
+| groq | 136 | 0.00% | 83.09% | 0.8167 | N/D | 125 | 11 |
 
 **groq**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
 
@@ -136,7 +136,7 @@ SELECT pt.name AS medio_pago, SUM(sp.amount) AS total_cobrado FROM public.sales_
 
 </details>
 
-<details><summary>TEST-004 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-004 — EM=X, EX=True, VES=0.95645</summary>
 
 **SQL gold**
 
@@ -157,7 +157,7 @@ SELECT COUNT(*) AS total FROM sales_order so WHERE so.order_type = 'Llevar' AND 
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_pedidos_cerrados_para_llevar FROM public.sales_order AS so WHERE so.status ILIKE '%closed%' AND so.order_type ILIKE '%para llevar%' AND EXTRACT(YEAR FROM so.ordered_at) = 2026 AND EXTRACT(MONTH FROM so.ordered_at) = 1 LIMIT 50
+SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -165,7 +165,7 @@ SELECT COUNT(*) AS total_pedidos_cerrados_para_llevar FROM public.sales_order AS
 ```json
 [
   {
-    "total_pedidos_cerrados_para_llevar": "0"
+    "total_pedidos": "1"
   }
 ]
 ```
@@ -530,7 +530,7 @@ SELECT p.id AS producto_id, p.name AS producto_nombre, COALESCE(SUM(poi.quantity
 
 </details>
 
-<details><summary>TEST-014 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-014 — EM=X, EX=True, VES=0.878089</summary>
 
 **SQL gold**
 
@@ -554,7 +554,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount AS total_amount, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS pending_balance FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at < CAST('2026-02-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at < CAST('2026-02-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -562,11 +562,10 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount AS
 ```json
 [
   {
-    "id": "32",
+    "proveedor": "Avícola Buen Sabor de Prueba",
     "series": "F026",
     "number": "990001",
-    "total_amount": "236.00",
-    "pending_balance": "136.00"
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
@@ -1975,7 +1974,7 @@ SELECT p.id AS producto_id, p.name AS producto, COALESCE(SUM(poi.quantity_receiv
 
 </details>
 
-<details><summary>TEST-049 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-049 — EM=X, EX=True, VES=0.979718</summary>
 
 **SQL gold**
 
@@ -1999,7 +1998,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount AS total_amount, COALESCE(SUM(pp.amount), 0) AS pagos, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-02-01' AS DATE) AND pi.issued_at < CAST('2026-03-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -2007,11 +2006,9 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount AS
 ```json
 [
   {
-    "id": "33",
+    "proveedor": "Avícola Buen Sabor de Prueba",
     "series": "F026",
     "number": "990002",
-    "total_amount": "236.00",
-    "pagos": "100.00",
     "saldo_pendiente": "136.00"
   }
 ]
@@ -3387,7 +3384,7 @@ SELECT p.name AS producto, COALESCE(SUM(poi.quantity_received), 0) AS unidades_r
 
 </details>
 
-<details><summary>TEST-084 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-084 — EM=X, EX=True, VES=0.967956</summary>
 
 **SQL gold**
 
@@ -3411,7 +3408,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount AS total_amount, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS pending_balance FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY pi.id, pi.series, pi.number, pi.issued_at, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-03-01' AS DATE) AND pi.issued_at < CAST('2026-04-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -3419,12 +3416,10 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.issued_at AS is
 ```json
 [
   {
-    "id": "34",
+    "proveedor": "Avícola Buen Sabor de Prueba",
     "series": "F026",
     "number": "990003",
-    "issued_at": "2026-03-04",
-    "total_amount": "236.00",
-    "pending_balance": "136.00"
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
@@ -4820,7 +4815,7 @@ SELECT p.name AS producto, COALESCE(SUM(poi.quantity_received), 0) AS unidades_r
 
 </details>
 
-<details><summary>TEST-119 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-119 — EM=X, EX=True, VES=0.948147</summary>
 
 **SQL gold**
 
@@ -4844,7 +4839,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, COALESCE(pi.total_amount, 0) - COALESCE(SUM(pp.amount), 0) AS pending_balance FROM public.purchase_invoice AS pi JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-04-01' AS DATE) AND pi.issued_at < CAST('2026-05-01' AS DATE) GROUP BY pi.id, pi.series, pi.number HAVING COALESCE(pi.total_amount, 0) - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-04-01' AS DATE) AND pi.issued_at < CAST('2026-05-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -4852,10 +4847,10 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, COALESCE(pi.total_
 ```json
 [
   {
-    "id": "35",
+    "proveedor": "Avícola Buen Sabor de Prueba",
     "series": "F026",
     "number": "990004",
-    "pending_balance": "136.00"
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
@@ -5191,6 +5186,376 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, COALE
     "tipo_movimiento": "Purchase",
     "total_movimientos": "1",
     "cantidad_total": "20.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-128 — EM=X, EX=True, VES=0.983786</summary>
+
+**SQL gold**
+
+```sql
+SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "name": "Pollo a la brasa de prueba",
+    "cantidad": "2.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT p.name AS producto, COALESCE(SUM(im.quantity), 0) AS unidades_vendidas FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-04-01' AS DATE) AND im.moved_at < CAST('2026-05-01' AS DATE) GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "producto": "Pollo a la brasa de prueba",
+    "unidades_vendidas": "2.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-129 — EM=X, EX=True, VES=0.96048</summary>
+
+**SQL gold**
+
+```sql
+SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "name": "Pollo entero de prueba",
+    "cantidad": "1.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT p.name AS producto, COALESCE(SUM(im.quantity), 0) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-04-01' AS DATE) AND im.moved_at < CAST('2026-05-01' AS DATE) GROUP BY p.name LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "producto": "Pollo entero de prueba",
+    "cantidad": "1.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-130 — EM=X, EX=True, VES=1.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Purchase' AND im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "name": "Pollo entero de prueba",
+    "cantidad": "20.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT p.name AS insumo, COALESCE(SUM(im.quantity), 0) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Purchase' AND im.moved_at >= CAST('2026-04-01' AS DATE) AND im.moved_at < CAST('2026-05-01' AS DATE) GROUP BY p.name ORDER BY cantidad DESC LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "insumo": "Pollo entero de prueba",
+    "cantidad": "20.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-131 — EM=X, EX=True, VES=0.993823</summary>
+
+**SQL gold**
+
+```sql
+SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE AND t.date >= DATE '2026-04-01' AND t.date < DATE '2026-05-01' LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "total": 1
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE t.annulled = FALSE AND t.date >= CAST('2026-04-01' AS DATE) AND t.date < CAST('2026-05-01' AS DATE) LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "total_transformaciones": "1"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-132 — EM=X, EX=False, VES=0.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-04-01' AND t.date < DATE '2026-05-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "item_type": "Consumo",
+    "cantidad": "5.00"
+  },
+  {
+    "item_type": "Producido",
+    "cantidad": "2.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT COALESCE(SUM(CASE WHEN ti.item_type = 'OUT' THEN ti.quantity END), 0) AS consumed_quantity, COALESCE(SUM(CASE WHEN ti.item_type = 'IN' THEN ti.quantity END), 0) AS produced_quantity FROM public.transformation AS t JOIN public.transformation_item AS ti ON ti.transformation_id = t.id WHERE t.date >= CAST('2026-04-01' AS DATE) AND t.date < CAST('2026-05-01' AS DATE) LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "consumed_quantity": "0",
+    "produced_quantity": "0"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-133 — EM=X, EX=True, VES=0.995291</summary>
+
+**SQL gold**
+
+```sql
+SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-04-01' AND im.moved_at < DATE '2026-05-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "name": "Pollo entero de prueba",
+    "cantidad": "3.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT p.name AS producto, SUM(im.quantity) AS cantidad_ajustada FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-04-01' AS DATE) AND im.moved_at < CAST('2026-05-01' AS DATE) GROUP BY p.name LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "producto": "Pollo entero de prueba",
+    "cantidad_ajustada": "3.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-134 — EM=X, EX=True, VES=0.982391</summary>
+
+**SQL gold**
+
+```sql
+SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "total_debe": "200.00",
+    "total_haber": "180.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-04-01' AS DATE) AND je.entry_date < CAST('2026-05-01' AS DATE)) AND je.status = TRUE LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "total_debe": "200.00",
+    "total_haber": "180.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-135 — EM=X, EX=True, VES=1.0</summary>
+
+**SQL gold**
+
+```sql
+SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "code": "201001",
+    "name": "Obligaciones de prueba",
+    "saldo": "-80.00"
+  },
+  {
+    "code": "401001",
+    "name": "Ventas de prueba",
+    "saldo": "-100.00"
+  },
+  {
+    "code": "409001",
+    "name": "Cuenta de activo de prueba del mes 4",
+    "saldo": "200.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT aa.code AS cuenta_codigo, aa.name AS cuenta_nombre, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-04-01' AS DATE) AND je.entry_date < CAST('2026-05-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY cuenta_codigo LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "cuenta_codigo": "201001",
+    "cuenta_nombre": "Obligaciones de prueba",
+    "saldo_neto": "-80.00"
+  },
+  {
+    "cuenta_codigo": "401001",
+    "cuenta_nombre": "Ventas de prueba",
+    "saldo_neto": "-100.00"
+  },
+  {
+    "cuenta_codigo": "409001",
+    "cuenta_nombre": "Cuenta de activo de prueba del mes 4",
+    "saldo_neto": "200.00"
+  }
+]
+```
+
+</details>
+
+<details><summary>TEST-154 — EM=X, EX=True, VES=0.945544</summary>
+
+**SQL gold**
+
+```sql
+SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-05-01' AND pi.issued_at < DATE '2026-06-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50
+```
+
+**Respuesta SQL gold**
+
+```json
+[
+  {
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "series": "F026",
+    "number": 990005,
+    "saldo_pendiente": "136.00"
+  }
+]
+```
+
+**SQL generada**
+
+```sql
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, COALESCE(pi.total_amount, 0) - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-05-01' AS DATE) AND pi.issued_at < CAST('2026-06-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount LIMIT 50
+```
+
+**Respuesta SQL generada**
+
+```json
+[
+  {
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "series": "F026",
+    "number": "990005",
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
