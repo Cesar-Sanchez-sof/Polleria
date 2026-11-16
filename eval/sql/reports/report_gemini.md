@@ -2,13 +2,13 @@
 
 | Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini | 350 | 0.00% | 74.57% | 0.7389 | N/D | 316 | 34 |
+| gemini | 350 | 0.00% | 75.14% | 0.7443 | N/D | 316 | 34 |
 
 **gemini**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
 
 TS = N/D: no se configuraron bases/estados alternativos para ejecutar una suite de pruebas.
 
-<details><summary>TEST-001 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-001 — EM=X, EX=True, VES=0.936743</summary>
 
 **SQL gold**
 
@@ -29,7 +29,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) LIMIT 50
+SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -37,7 +37,7 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 ```json
 [
   {
-    "total_comprobantes": "2"
+    "total_importe": "165.00"
   }
 ]
 ```
@@ -528,7 +528,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-014 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-014 — EM=X, EX=True, VES=0.960958</summary>
 
 **SQL gold**
 
@@ -552,7 +552,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.voucher_type AS voucher_type, pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, pi.total_amount AS total_amount, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at < CAST('2026-02-01' AS DATE) GROUP BY pi.id, pi.voucher_type, pi.series, pi.number, pi.issued_at, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS numero, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-01-01' AS DATE) AND pi.issued_at < CAST('2026-02-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -560,12 +560,9 @@ SELECT pi.id AS id, pi.voucher_type AS voucher_type, pi.series AS series, pi.num
 ```json
 [
   {
-    "id": "32",
-    "voucher_type": "Factura",
-    "series": "F026",
-    "number": "990001",
-    "issued_at": "2026-01-04",
-    "total_amount": "236.00",
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "serie": "F026",
+    "numero": "990001",
     "saldo_pendiente": "136.00"
   }
 ]

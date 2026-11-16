@@ -60,7 +60,7 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
     sales = [
         _case(
             "ventas", "facil",
-            f"¿Cuál fue el total de comprobantes emitidos en {month_name}?",
+            f"¿Cuál fue el importe total de los comprobantes emitidos en {month_name}?",
             f"SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si "
             f"WHERE si.status = 'Issued' AND {date_range('si.issued_at')}{limit}",
             ("sales_invoice",),

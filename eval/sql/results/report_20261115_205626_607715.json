@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-11-15T20:56:26.629095-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 2,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 2,
+      "execution_accuracy_rate": 0.5,
+      "ves": 0.5,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-035",
+          "question": "¿Cuántos periodos contables abiertos abarcan enero de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-02-01' AND ap.end_date >= DATE '2026-01-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": 1
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.456,
+          "sql_execution_seconds": 2.211444,
+          "gold_execution_seconds": 1.582095,
+          "token_usage": {
+            "prompt_tokens": 2876,
+            "completion_tokens": 194,
+            "total_tokens": 3070
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        },
+        {
+          "id": "TEST-036",
+          "question": "¿Cuál fue el importe total de los comprobantes emitidos en febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-02-01' AND si.issued_at < DATE '2026-03-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-02-01' AS DATE) AND si.issued_at < CAST('2026-03-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_importe": "165.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.533,
+          "sql_execution_seconds": 1.579455,
+          "gold_execution_seconds": 1.617323,
+          "token_usage": {
+            "prompt_tokens": 2879,
+            "completion_tokens": 164,
+            "total_tokens": 3043
+          }
+        }
+      ]
+    }
+  ]
+}
