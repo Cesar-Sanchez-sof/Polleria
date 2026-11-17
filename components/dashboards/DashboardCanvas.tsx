@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DynamicVisual } from "./visuals/DynamicVisual";
+import { WidgetRenderer } from "./WidgetRenderer";
 import { PropertiesPanel } from "./editor/PropertiesPanel";
 import { EditorToolbar } from "./editor/EditorToolbar";
 import { CrossFilterChip } from "./CrossFilterChip";
@@ -62,6 +62,8 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
   const {
     widgets,
     selectedWidgetId,
+    selectedWidgetIds,
+    zoom,
     setWidgets,
     addWidget,
     removeWidget,
@@ -90,14 +92,50 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
   const handleLayoutChange = (
     newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]
   ) => {
+    // 1. Detectar si un widget con groupId se movió
+    let groupDelta: { groupId: string; dx: number; dy: number; sourceId: string } | null = null;
+    for (const item of newLayout) {
+      const currentWidget = widgets.find((w) => w.id === item.i);
+      if (currentWidget && (currentWidget.config as Record<string, unknown>).groupId) {
+        const dx = item.x - currentWidget.x;
+        const dy = item.y - currentWidget.y;
+        if (dx !== 0 || dy !== 0) {
+          groupDelta = {
+            groupId: (currentWidget.config as Record<string, unknown>).groupId as string,
+            dx,
+            dy,
+            sourceId: item.i,
+          };
+          break;
+        }
+      }
+    }
+
+    // 2. Actualizar posiciones del layout actual
     newLayout.forEach((item) => {
-      updateWidgetLayout(item.i, {
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-      }, false);
+      updateWidgetLayout(
+        item.i,
+        {
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+        },
+        false
+      );
     });
+
+    // 3. Si se movió un widget agrupado, mover a todos los del mismo grupo con el mismo delta
+    if (groupDelta) {
+      const { groupId, dx, dy, sourceId } = groupDelta;
+      widgets.forEach((w) => {
+        if (w.id !== sourceId && (w.config as Record<string, unknown>).groupId === groupId) {
+          const newX = Math.max(0, Math.min(12 - w.w, w.x + dx));
+          const newY = Math.max(0, w.y + dy);
+          updateWidgetLayout(w.id, { x: newX, y: newY, w: w.w, h: w.h }, false);
+        }
+      });
+    }
   };
 
   // Guardar diseño persistiendo layout y config completo validado con Zod
@@ -112,7 +150,7 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
 
           return {
             title: w.title || validConfig.format.title.text,
-            type: validConfig.visualType,
+            type: w.type || validConfig.visualType,
             metricKey: validConfig.data.dataset || "",
             x: w.x ?? 0,
             y: w.y ?? 0,
@@ -268,7 +306,15 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
             }
           >
             <CrossFilterChip />
-            <div ref={containerRef} className="w-full min-h-[500px]" id="dashboard-canvas-grid">
+            <div
+              ref={containerRef}
+              className="w-full min-h-[500px] transition-transform origin-top-left"
+              style={{
+                transform: `scale(${zoom / 100})`,
+                width: zoom < 100 ? `${100 / (zoom / 100)}%` : "100%",
+              }}
+              id="dashboard-canvas-grid"
+            >
               {widgets.length === 0 ? (
                 <div className="border-2 border-dashed border-border/80 rounded-2xl p-12 flex flex-col items-center justify-center text-center bg-card/40 my-8">
                   <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
@@ -307,12 +353,29 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                     enabled: !isPreviewMode,
                   }}
                   onLayoutChange={handleLayoutChange}
-                  onDragStop={(newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => commitLayoutChange(newLayout)}
-                  onResizeStop={(newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => commitLayoutChange(newLayout)}
+                  onDragStop={(newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => {
+                    const currentWidgets = useDashboardEditorStore.getState().widgets;
+                    const mergedLayout = currentWidgets.map((w) => {
+                      const fromNew = newLayout.find((l) => l.i === w.id);
+                      return fromNew || { i: w.id, x: w.x, y: w.y, w: w.w, h: w.h };
+                    });
+                    commitLayoutChange(mergedLayout);
+                  }}
+                  onResizeStop={(newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => {
+                    const currentWidgets = useDashboardEditorStore.getState().widgets;
+                    const mergedLayout = currentWidgets.map((w) => {
+                      const fromNew = newLayout.find((l) => l.i === w.id);
+                      return fromNew || { i: w.id, x: w.x, y: w.y, w: w.w, h: w.h };
+                    });
+                    commitLayoutChange(mergedLayout);
+                  }}
                 >
                   {widgets.map((widget) => {
-                    const isSelected = selectedWidgetId === widget.id && !isPreviewMode;
+                    const isSelected =
+                      (selectedWidgetIds.includes(widget.id) || selectedWidgetId === widget.id) &&
+                      !isPreviewMode;
                     const isLocked = Boolean(widget.config.layout?.locked);
+                    const groupId = (widget.config as Record<string, unknown>).groupId;
 
                     return (
                       <div
@@ -322,7 +385,8 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!isPreviewMode) {
-                            selectWidget(widget.id);
+                            const isMulti = e.ctrlKey || e.metaKey || e.shiftKey;
+                            selectWidget(widget.id, isMulti);
                           }
                         }}
                         className={cn(
@@ -350,6 +414,14 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                               >
                                 {widget.config.visualType || widget.type}
                               </Badge>
+                              {Boolean(groupId) && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[8px] uppercase font-mono px-1 py-0 h-3.5 bg-primary/10 text-primary font-semibold"
+                                >
+                                  Grupo
+                                </Badge>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1">
@@ -407,9 +479,8 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
 
                         {/* Contenido Visual Dinámico */}
                         <div className="flex-1 min-h-0 overflow-hidden">
-                          <DynamicVisual
-                            config={widget.config}
-                            widgetId={widget.id}
+                          <WidgetRenderer
+                            widget={widget}
                             isSelected={isSelected}
                             onSelect={() => {
                               if (!isPreviewMode) selectWidget(widget.id);

@@ -1,14 +1,15 @@
 import { create } from "zustand";
-import type {
-  WidgetConfig,
-  VisualType,
-  WidgetDataConfig,
-  WidgetFormatConfig,
-  MeasureAggregation,
-  WidgetDateRange,
-  WidgetSort,
-  DateGranularity,
-  DatePreset,
+import {
+  type WidgetConfig,
+  type VisualType,
+  type WidgetDataConfig,
+  type WidgetFormatConfig,
+  type MeasureAggregation,
+  type WidgetDateRange,
+  type WidgetSort,
+  type DateGranularity,
+  type DatePreset,
+  createDefaultWidgetConfig,
 } from "@/lib/dashboards/widget-schema";
 import {
   adaptLegacyWidget,
@@ -129,6 +130,12 @@ export interface DashboardEditorState {
   widgets: CanvasWidget[];
   /** ID del widget actualmente seleccionado para edición en el panel lateral */
   selectedWidgetId: string | null;
+  /** IDs de los widgets seleccionados (soporte selección múltiple) */
+  selectedWidgetIds: string[];
+  /** Portapapeles de widgets para copiar y pegar */
+  clipboard: CanvasWidget[];
+  /** Nivel de zoom del lienzo (50% a 150%) */
+  zoom: number;
   /** Estado de si existen cambios sin guardar en el lienzo */
   isDirty: boolean;
 
@@ -157,11 +164,26 @@ export interface DashboardEditorState {
   // Acciones de Gestión de Widgets
   setWidgets: (widgets: RawWidgetInput[]) => void;
   addWidget: (widgetPartial?: Partial<CanvasWidget>) => string;
+  addTextWidget: () => string;
+  addDividerWidget: () => string;
+  addImageWidget: (content: string) => string;
   removeWidget: (widgetId: string) => void;
-  selectWidget: (widgetId: string | null) => void;
+  selectWidget: (widgetId: string | null, multi?: boolean) => void;
+  selectWidgets: (widgetIds: string[]) => void;
   duplicateWidget: (widgetId?: string) => string | null;
   toggleLockWidget: (widgetId?: string) => void;
   autoFitWidgets: () => void;
+  alignLeft: () => void;
+  alignCenter: () => void;
+  alignRight: () => void;
+  distributeHorizontally: () => void;
+  groupSelectedWidgets: () => void;
+  ungroupSelectedWidgets: () => void;
+  copySelectedWidgets: () => void;
+  pasteWidgets: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
   updateWidgetLayout: (
     widgetId: string,
     layout: { x: number; y: number; w: number; h: number },
@@ -267,6 +289,12 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
       widgets: cloned,
       selectedWidgetId:
         nextSelectedId !== undefined ? nextSelectedId : state.selectedWidgetId,
+      selectedWidgetIds:
+        nextSelectedId !== undefined
+          ? nextSelectedId
+            ? [nextSelectedId]
+            : []
+          : state.selectedWidgetIds.filter((id) => cloned.some((w) => w.id === id)),
       history: newHistory,
       historyIndex: nextIndex,
       savedSnapshotIndex: newSavedIndex,
@@ -279,6 +307,9 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
   return {
     widgets: [],
     selectedWidgetId: null,
+    selectedWidgetIds: [],
+    clipboard: [],
+    zoom: 100,
     isDirty: false,
 
     history: [[]],
@@ -337,12 +368,12 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         return {
           id: w.id || `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           title: w.title || config.format.title.text,
-          type: config.visualType,
+          type: w.type || config.visualType,
           metricKey: config.data.dataset || w.metricKey || "",
           x: w.x ?? 0,
           y: w.y ?? 0,
-          w: w.w ?? 4,
-          h: w.h ?? 2,
+          w: w.w ?? (w.type === "divider" ? 12 : 4),
+          h: w.h ?? (w.type === "divider" ? 1 : 2),
           config,
         };
       });
@@ -352,6 +383,7 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
       set({
         widgets: adaptedWidgets,
         selectedWidgetId: adaptedWidgets.length > 0 ? adaptedWidgets[0].id : null,
+        selectedWidgetIds: adaptedWidgets.length > 0 ? [adaptedWidgets[0].id] : [],
         isDirty: false,
         history: initialHistory,
         historyIndex: 0,
@@ -359,6 +391,283 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         canUndo: false,
         canRedo: false,
       });
+    },
+
+    addTextWidget: () => {
+      flushDebounceHistory();
+      const currentWidgets = get().widgets;
+      const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 2)), 0);
+      const newId = `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const baseConfig = createDefaultWidgetConfig("card", "Texto", "");
+      const newWidget: CanvasWidget = {
+        id: newId,
+        title: "Texto",
+        type: "text",
+        metricKey: "",
+        x: 0,
+        y: maxY,
+        w: 4,
+        h: 2,
+        config: {
+          ...baseConfig,
+          visualType: "card",
+          content: "Escribe un texto aquí...",
+          fontSize: 14,
+        },
+      };
+      const nextWidgets = [...currentWidgets, newWidget];
+      recordSnapshot(nextWidgets, newId);
+      return newId;
+    },
+
+    addDividerWidget: () => {
+      flushDebounceHistory();
+      const currentWidgets = get().widgets;
+      const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 2)), 0);
+      const newId = `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const baseConfig = createDefaultWidgetConfig("card", "Separador", "");
+      const newWidget: CanvasWidget = {
+        id: newId,
+        title: "Separador",
+        type: "divider",
+        metricKey: "",
+        x: 0,
+        y: maxY,
+        w: 12,
+        h: 1,
+        config: {
+          ...baseConfig,
+          visualType: "card",
+        },
+      };
+      const nextWidgets = [...currentWidgets, newWidget];
+      recordSnapshot(nextWidgets, newId);
+      return newId;
+    },
+
+    addImageWidget: (content: string) => {
+      flushDebounceHistory();
+      const currentWidgets = get().widgets;
+      const maxY = currentWidgets.reduce((acc, curr) => Math.max(acc, (curr.y || 0) + (curr.h || 2)), 0);
+      const newId = `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const baseConfig = createDefaultWidgetConfig("card", "Imagen", "");
+      const newWidget: CanvasWidget = {
+        id: newId,
+        title: "Imagen",
+        type: "image",
+        metricKey: "",
+        x: 0,
+        y: maxY,
+        w: 4,
+        h: 3,
+        config: {
+          ...baseConfig,
+          visualType: "card",
+          content,
+        },
+      };
+      const nextWidgets = [...currentWidgets, newWidget];
+      recordSnapshot(nextWidgets, newId);
+      return newId;
+    },
+
+    selectWidget: (widgetId, multi = false) => {
+      set((state) => {
+        if (!widgetId) {
+          return { selectedWidgetId: null, selectedWidgetIds: [] };
+        }
+        if (multi) {
+          const exists = state.selectedWidgetIds.includes(widgetId);
+          const nextIds = exists
+            ? state.selectedWidgetIds.filter((id) => id !== widgetId)
+            : [...state.selectedWidgetIds, widgetId];
+          return {
+            selectedWidgetIds: nextIds,
+            selectedWidgetId: nextIds.length > 0 ? nextIds[nextIds.length - 1] : null,
+          };
+        }
+        return {
+          selectedWidgetId: widgetId,
+          selectedWidgetIds: [widgetId],
+        };
+      });
+    },
+
+    selectWidgets: (widgetIds) => {
+      set({
+        selectedWidgetIds: widgetIds,
+        selectedWidgetId: widgetIds.length > 0 ? widgetIds[0] : null,
+      });
+    },
+
+    alignLeft: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetIds } = get();
+      if (selectedWidgetIds.length < 2) return;
+      const selected = widgets.filter((w) => selectedWidgetIds.includes(w.id));
+      const minX = Math.min(...selected.map((w) => w.x));
+      const nextWidgets = widgets.map((w) =>
+        selectedWidgetIds.includes(w.id) ? { ...w, x: minX } : w
+      );
+      recordSnapshot(nextWidgets);
+    },
+
+    alignCenter: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetIds } = get();
+      if (selectedWidgetIds.length < 2) return;
+      const selected = widgets.filter((w) => selectedWidgetIds.includes(w.id));
+      const minX = Math.min(...selected.map((w) => w.x));
+      const maxX = Math.max(...selected.map((w) => w.x + w.w));
+      const centerX = minX + (maxX - minX) / 2;
+      const nextWidgets = widgets.map((w) => {
+        if (!selectedWidgetIds.includes(w.id)) return w;
+        const newX = Math.max(0, Math.min(12 - w.w, Math.round(centerX - w.w / 2)));
+        return { ...w, x: newX };
+      });
+      recordSnapshot(nextWidgets);
+    },
+
+    alignRight: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetIds } = get();
+      if (selectedWidgetIds.length < 2) return;
+      const selected = widgets.filter((w) => selectedWidgetIds.includes(w.id));
+      const maxRight = Math.max(...selected.map((w) => w.x + w.w));
+      const nextWidgets = widgets.map((w) => {
+        if (!selectedWidgetIds.includes(w.id)) return w;
+        const newX = Math.max(0, maxRight - w.w);
+        return { ...w, x: newX };
+      });
+      recordSnapshot(nextWidgets);
+    },
+
+    distributeHorizontally: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetIds } = get();
+      if (selectedWidgetIds.length < 3) return;
+      const selected = widgets.filter((w) => selectedWidgetIds.includes(w.id));
+      const sorted = [...selected].sort((a, b) => a.x - b.x);
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const step = (last.x - first.x) / (sorted.length - 1);
+      const newPositions = new Map<string, number>();
+      sorted.forEach((w, idx) => {
+        newPositions.set(w.id, Math.round(first.x + idx * step));
+      });
+      const nextWidgets = widgets.map((w) => {
+        const newX = newPositions.get(w.id);
+        return newX !== undefined
+          ? { ...w, x: Math.max(0, Math.min(12 - w.w, newX)) }
+          : w;
+      });
+      recordSnapshot(nextWidgets);
+    },
+
+    groupSelectedWidgets: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetIds } = get();
+      if (selectedWidgetIds.length < 2) return;
+      const groupId = `group-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const nextWidgets = widgets.map((w) =>
+        selectedWidgetIds.includes(w.id)
+          ? {
+              ...w,
+              config: {
+                ...w.config,
+                groupId,
+              },
+            }
+          : w
+      );
+      recordSnapshot(nextWidgets);
+    },
+
+    ungroupSelectedWidgets: () => {
+      flushDebounceHistory();
+      const { widgets, selectedWidgetIds } = get();
+      if (selectedWidgetIds.length === 0) return;
+      const selected = widgets.filter((w) => selectedWidgetIds.includes(w.id));
+      const groupIds = new Set(
+        selected.map((w) => (w.config as any)?.groupId).filter(Boolean)
+      );
+      if (groupIds.size === 0) return;
+      const nextWidgets = widgets.map((w) => {
+        const gId = (w.config as any)?.groupId;
+        if (gId && groupIds.has(gId)) {
+          const clonedConfig = { ...w.config };
+          delete (clonedConfig as any).groupId;
+          return {
+            ...w,
+            config: clonedConfig,
+          };
+        }
+        return w;
+      });
+      recordSnapshot(nextWidgets);
+    },
+
+    copySelectedWidgets: () => {
+      const { widgets, selectedWidgetIds, selectedWidgetId } = get();
+      const idsToCopy =
+        selectedWidgetIds.length > 0
+          ? selectedWidgetIds
+          : selectedWidgetId
+            ? [selectedWidgetId]
+            : [];
+      if (idsToCopy.length === 0) return;
+      const toCopy = widgets.filter((w) => idsToCopy.includes(w.id));
+      const cloned = JSON.parse(JSON.stringify(toCopy));
+      set({ clipboard: cloned });
+    },
+
+    pasteWidgets: () => {
+      flushDebounceHistory();
+      const { widgets, clipboard } = get();
+      if (clipboard.length === 0) return;
+
+      const oldToNewGroupMap = new Map<string, string>();
+      const pastedWidgets: CanvasWidget[] = clipboard.map((orig) => {
+        const newId = `widget-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const clonedConfig = JSON.parse(JSON.stringify(orig.config));
+        if (clonedConfig.groupId) {
+          if (!oldToNewGroupMap.has(clonedConfig.groupId)) {
+            oldToNewGroupMap.set(
+              clonedConfig.groupId,
+              `group-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+            );
+          }
+          clonedConfig.groupId = oldToNewGroupMap.get(clonedConfig.groupId);
+        }
+        const newX = Math.min(12 - orig.w, orig.x + 1);
+        const newY = orig.y + 1;
+        return {
+          ...orig,
+          id: newId,
+          x: Math.max(0, newX),
+          y: Math.max(0, newY),
+          config: clonedConfig,
+        };
+      });
+
+      const nextWidgets = [...widgets, ...pastedWidgets];
+      const nextIds = pastedWidgets.map((w) => w.id);
+      const nextSelectedId = nextIds[nextIds.length - 1] || null;
+
+      set({ selectedWidgetIds: nextIds });
+      recordSnapshot(nextWidgets, nextSelectedId);
+    },
+
+    zoomIn: () => {
+      set((state) => ({ zoom: Math.min(150, state.zoom + 10) }));
+    },
+
+    zoomOut: () => {
+      set((state) => ({ zoom: Math.max(50, state.zoom - 10) }));
+    },
+
+    resetZoom: () => {
+      set({ zoom: 100 });
     },
 
     addWidget: (widgetPartial) => {
@@ -410,10 +719,6 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
           : state.selectedWidgetId;
 
       recordSnapshot(filtered, nextSelected);
-    },
-
-    selectWidget: (widgetId) => {
-      set({ selectedWidgetId: widgetId });
     },
 
     duplicateWidget: (widgetId) => {
@@ -1089,6 +1394,9 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
       set({
         widgets: [],
         selectedWidgetId: null,
+        selectedWidgetIds: [],
+        clipboard: [],
+        zoom: 100,
         isDirty: false,
         history: [[]],
         historyIndex: 0,

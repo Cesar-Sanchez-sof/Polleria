@@ -5,13 +5,12 @@ import { Sliders } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
-import { useDashboardCatalog, type CatalogField } from "@/lib/hooks/use-visual-data";
+import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";import { useDashboardCatalog, type CatalogField } from "@/lib/hooks/use-visual-data";
 import { VisualTab } from "./VisualTab";
 import { FormatTab } from "./FormatTab";
 
 export function PropertiesPanel() {
-  const { widgets, selectedWidgetId, changeWidgetDataset } = useDashboardEditorStore();
+  const { widgets, selectedWidgetId, changeWidgetDataset, updateWidgetConfig } = useDashboardEditorStore();
   const { catalog, isLoading: isCatalogLoading } = useDashboardCatalog();
   const [activeTab, setActiveTab] = useState<"visual" | "format">("visual");
 
@@ -35,6 +34,10 @@ export function PropertiesPanel() {
   }
 
   const { config, id: widgetId } = selectedWidget;
+  const isStaticWidget =
+    selectedWidget.type === "text" ||
+    selectedWidget.type === "divider" ||
+    selectedWidget.type === "image";
   const dataConfig = config.data;
   const currentDatasetId = dataConfig.dataset;
 
@@ -85,36 +88,38 @@ export function PropertiesPanel() {
             </h3>
           </div>
           <Badge variant="secondary" className="text-[10px] uppercase font-mono px-1.5 py-0">
-            {config.visualType}
+            {selectedWidget.type || config.visualType}
           </Badge>
         </div>
 
-        {/* Origen de Datos (Selector de Dataset) */}
-        <div className="flex flex-col gap-1">
-          <Label className="text-[11px] font-medium text-muted-foreground flex items-center justify-between">
-            <span>Origen de datos</span>
-            {isTransactional && (
-              <Badge variant="outline" className="text-[9px] h-4 px-1 text-amber-600 border-amber-300">
-                Transaccional
-              </Badge>
-            )}
-          </Label>
-          <select
-            value={currentDatasetId || ""}
-            onChange={(e) => handleDatasetChange(e.target.value)}
-            disabled={isCatalogLoading}
-            className="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 py-1 text-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
-          >
-            <option value="" disabled>
-              {isCatalogLoading ? "Cargando catálogo..." : "Selecciona un dataset..."}
-            </option>
-            {datasets.map((ds) => (
-              <option key={ds.id} value={ds.id}>
-                {ds.label}
+        {/* Origen de Datos (Selector de Dataset) - solo para widgets de datos */}
+        {!isStaticWidget && (
+          <div className="flex flex-col gap-1">
+            <Label className="text-[11px] font-medium text-muted-foreground flex items-center justify-between">
+              <span>Origen de datos</span>
+              {isTransactional && (
+                <Badge variant="outline" className="text-[9px] h-4 px-1 text-amber-600 border-amber-300">
+                  Transaccional
+                </Badge>
+              )}
+            </Label>
+            <select
+              value={currentDatasetId || ""}
+              onChange={(e) => handleDatasetChange(e.target.value)}
+              disabled={isCatalogLoading}
+              className="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 py-1 text-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
+            >
+              <option value="" disabled>
+                {isCatalogLoading ? "Cargando catálogo..." : "Selecciona un dataset..."}
               </option>
-            ))}
-          </select>
-        </div>
+              {datasets.map((ds) => (
+                <option key={ds.id} value={ds.id}>
+                  {ds.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* 2. Pestañas de Navegación: Visual y Formato (El árbol de campos se ubica en Visual debajo de los pozos) */}
@@ -136,15 +141,23 @@ export function PropertiesPanel() {
 
         {/* TAB 1: VISUAL, POZOS Y ÁRBOL DE CAMPOS */}
         <TabsContent value="visual" className="flex-1 overflow-hidden p-0 m-0 flex flex-col">
-          <VisualTab
-            widgetId={widgetId}
-            dimensions={dimensions}
-            measures={measures}
-            currentFields={currentFields}
-            isTransactional={isTransactional}
-            defaultDateField={defaultDateField}
-            currentDatasetLabel={currentDataset?.label}
-          />
+          {isStaticWidget ? (
+            <StaticWidgetEditor
+              widgetId={widgetId}
+              widgetType={selectedWidget.type || String(config.visualType)}
+              config={config as unknown as Record<string, unknown>}
+            />
+          ) : (
+            <VisualTab
+              widgetId={widgetId}
+              dimensions={dimensions}
+              measures={measures}
+              currentFields={currentFields}
+              isTransactional={isTransactional}
+              defaultDateField={defaultDateField}
+              currentDatasetLabel={currentDataset?.label}
+            />
+          )}
         </TabsContent>
 
         {/* TAB 2: FORMATO */}
@@ -153,5 +166,112 @@ export function PropertiesPanel() {
         </TabsContent>
       </Tabs>
     </aside>
+  );
+}
+
+// ─── Editor inline para widgets estáticos ────────────────────────────────────
+function StaticWidgetEditor({
+  widgetId,
+  widgetType,
+  config,
+}: {
+  widgetId: string;
+  widgetType: string;
+  config: Record<string, unknown>;
+}) {
+  const { updateWidgetConfig } = useDashboardEditorStore();
+
+  const content = typeof config.content === "string" ? config.content : "";
+  const fontSize =
+    typeof config.fontSize === "number"
+      ? config.fontSize
+      : typeof config.fontSize === "string"
+        ? parseInt(config.fontSize as string, 10) || 14
+        : 14;
+
+  const handleContentChange = (val: string) => {
+    updateWidgetConfig(widgetId, { content: val } as never);
+  };
+
+  const handleFontSizeChange = (val: number) => {
+    updateWidgetConfig(widgetId, { fontSize: val } as never);
+  };
+
+  if (widgetType === "divider") {
+    return (
+      <div className="p-4 flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">
+          El separador es una línea horizontal. Ajusta su tamaño desde el lienzo.
+        </p>
+      </div>
+    );
+  }
+
+  if (widgetType === "image") {
+    return (
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <Label className="text-[11px] font-medium text-muted-foreground">
+            URL de la imagen
+          </Label>
+          <input
+            type="url"
+            value={content}
+            onChange={(e) => handleContentChange(e.target.value)}
+            placeholder="https://ejemplo.com/imagen.png"
+            className="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Pega una URL pública de imagen (PNG, JPG, SVG…).
+          </p>
+        </div>
+        {content && (
+          <div className="mt-2 rounded-md border border-border/60 overflow-hidden bg-muted/20">
+            <img
+              src={content}
+              alt="Vista previa"
+              className="max-w-full max-h-32 object-contain mx-auto block p-1"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // text widget
+  return (
+    <div className="p-4 flex flex-col gap-3 overflow-y-auto">
+      <div className="flex flex-col gap-1">
+        <Label className="text-[11px] font-medium text-muted-foreground">Contenido</Label>
+        <textarea
+          value={content}
+          onChange={(e) => handleContentChange(e.target.value)}
+          placeholder="Escribe un texto descriptivo..."
+          rows={6}
+          className="text-xs resize-none w-full rounded-md border border-input bg-background px-2.5 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-[11px] font-medium text-muted-foreground">
+          Tamaño de fuente: {fontSize}px
+        </Label>
+        <input
+          type="range"
+          min={10}
+          max={48}
+          step={1}
+          value={fontSize}
+          onChange={(e) => handleFontSizeChange(parseInt(e.target.value, 10))}
+          className="w-full accent-primary"
+        />
+        <div className="flex justify-between text-[10px] text-muted-foreground">
+          <span>10px</span>
+          <span>48px</span>
+        </div>
+      </div>
+    </div>
   );
 }

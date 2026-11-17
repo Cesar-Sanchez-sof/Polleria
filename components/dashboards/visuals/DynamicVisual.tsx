@@ -42,6 +42,54 @@ export function DynamicVisual({
 
   const format = config.format;
   const visualType = config.visualType;
+
+  // Soporte directo para widgets estáticos (text, divider, image)
+  if ((visualType as string) === "text") {
+    const content = (config as Record<string, unknown>).content || "";
+    const rawFontSize = (config as Record<string, unknown>).fontSize;
+    const fontSize =
+      typeof rawFontSize === "number"
+        ? `${rawFontSize}px`
+        : typeof rawFontSize === "string"
+          ? rawFontSize
+          : "14px";
+    return (
+      <div onClick={onSelect} className="w-full h-full p-4 flex flex-col justify-start overflow-auto select-text">
+        {content ? (
+          <div
+            style={{ fontSize }}
+            className="whitespace-pre-wrap break-words text-foreground font-normal leading-relaxed"
+          >
+            {String(content)}
+          </div>
+        ) : (
+          <div className="text-muted-foreground/50 italic text-sm">Escribe un texto aquí...</div>
+        )}
+      </div>
+    );
+  }
+
+  if ((visualType as string) === "divider") {
+    return (
+      <div onClick={onSelect} className="w-full h-full flex items-center px-2 py-1">
+        <div className="w-full border-t border-border/80" />
+      </div>
+    );
+  }
+
+  if ((visualType as string) === "image") {
+    const content = (config as Record<string, unknown>).content || "";
+    return (
+      <div onClick={onSelect} className="w-full h-full p-2 flex items-center justify-center overflow-hidden">
+        {content ? (
+          <img src={String(content)} alt="Imagen" className="max-w-full max-h-full object-contain pointer-events-none rounded-md" />
+        ) : (
+          <div className="text-xs text-muted-foreground/60 border border-dashed border-border rounded p-4">Sin imagen seleccionada</div>
+        )}
+      </div>
+    );
+  }
+
   const isUnconfigured = !config.data.dataset;
   const registryEntry = getVisualRegistryEntry(visualType);
 

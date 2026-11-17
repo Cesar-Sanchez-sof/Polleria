@@ -313,4 +313,168 @@ describe("E1: Historial, Toolbar y Store del Editor de Dashboards", () => {
       expect(c3.w).toBe(6);
     });
   });
+
+  describe("7. Barra Definitiva: Inserción de texto, separador e imagen con historial", () => {
+    it("inserta widgets estáticos (text, divider, image) y permite deshacer con undo()", () => {
+      const store = useDashboardEditorStore.getState();
+      store.setWidgets([]);
+
+      const textId = store.addTextWidget();
+      expect(useDashboardEditorStore.getState().widgets.length).toBe(1);
+      const textWidget = useDashboardEditorStore.getState().widgets[0];
+      expect(textWidget.id).toBe(textId);
+      expect(textWidget.type).toBe("text");
+      expect((textWidget.config as Record<string, unknown>).content).toBe("Escribe un texto aquí...");
+
+      const dividerId = store.addDividerWidget();
+      expect(useDashboardEditorStore.getState().widgets.length).toBe(2);
+      const divWidget = useDashboardEditorStore.getState().widgets[1];
+      expect(divWidget.id).toBe(dividerId);
+      expect(divWidget.type).toBe("divider");
+      expect(divWidget.w).toBe(12);
+      expect(divWidget.h).toBe(1);
+
+      const imgId = store.addImageWidget("https://example.com/logo.png");
+      expect(useDashboardEditorStore.getState().widgets.length).toBe(3);
+      const imgWidget = useDashboardEditorStore.getState().widgets[2];
+      expect(imgWidget.id).toBe(imgId);
+      expect(imgWidget.type).toBe("image");
+      expect((imgWidget.config as Record<string, unknown>).content).toBe("https://example.com/logo.png");
+
+      // Deshacer imagen
+      store.undo();
+      expect(useDashboardEditorStore.getState().widgets.length).toBe(2);
+      // Deshacer separador
+      store.undo();
+      expect(useDashboardEditorStore.getState().widgets.length).toBe(1);
+      // Deshacer texto
+      store.undo();
+      expect(useDashboardEditorStore.getState().widgets.length).toBe(0);
+    });
+  });
+
+  describe("8. Barra Definitiva: Selección múltiple, alineación y distribución", () => {
+    it("soporta selección múltiple con Ctrl/Shift (multi=true)", () => {
+      const store = useDashboardEditorStore.getState();
+      store.setWidgets([
+        { id: "w1", title: "W1", x: 0, y: 0, w: 3, h: 2 },
+        { id: "w2", title: "W2", x: 4, y: 0, w: 3, h: 2 },
+        { id: "w3", title: "W3", x: 8, y: 0, w: 3, h: 2 },
+      ]);
+
+      store.selectWidget("w1", false);
+      expect(useDashboardEditorStore.getState().selectedWidgetIds).toEqual(["w1"]);
+
+      store.selectWidget("w2", true);
+      expect(useDashboardEditorStore.getState().selectedWidgetIds).toEqual(["w1", "w2"]);
+
+      store.selectWidget("w1", true); // deselecciona w1
+      expect(useDashboardEditorStore.getState().selectedWidgetIds).toEqual(["w2"]);
+    });
+
+    it("alinea a la izquierda, centro y derecha los widgets seleccionados", () => {
+      const store = useDashboardEditorStore.getState();
+      store.setWidgets([
+        { id: "w1", title: "W1", x: 2, y: 0, w: 2, h: 2 },
+        { id: "w2", title: "W2", x: 6, y: 0, w: 2, h: 2 },
+      ]);
+
+      store.selectWidgets(["w1", "w2"]);
+
+      // Alinear derecha primero: maxRight = 8, w = 2 -> x = 6
+      store.alignRight();
+      const stateRight = useDashboardEditorStore.getState();
+      expect(stateRight.widgets.find((w) => w.id === "w1")?.x).toBe(6);
+      expect(stateRight.widgets.find((w) => w.id === "w2")?.x).toBe(6);
+
+      // Ahora mover w2 y alinear izquierda -> x = min(2, 6) = 2
+      useDashboardEditorStore.getState().updateWidgetLayout("w1", { x: 2, y: 0, w: 2, h: 2 }, true);
+      useDashboardEditorStore.getState().selectWidgets(["w1", "w2"]);
+      useDashboardEditorStore.getState().alignLeft();
+      const stateLeft = useDashboardEditorStore.getState();
+      expect(stateLeft.widgets.find((w) => w.id === "w1")?.x).toBe(2);
+      expect(stateLeft.widgets.find((w) => w.id === "w2")?.x).toBe(2);
+    });
+
+    it("distribuye horizontalmente 3 widgets seleccionados", () => {
+      const store = useDashboardEditorStore.getState();
+      store.setWidgets([
+        { id: "w1", title: "W1", x: 0, y: 0, w: 2, h: 2 },
+        { id: "w2", title: "W2", x: 1, y: 0, w: 2, h: 2 },
+        { id: "w3", title: "W3", x: 8, y: 0, w: 2, h: 2 },
+      ]);
+
+      store.selectWidgets(["w1", "w2", "w3"]);
+      store.distributeHorizontally();
+
+      const widgets = useDashboardEditorStore.getState().widgets;
+      expect(widgets.find((w) => w.id === "w1")?.x).toBe(0);
+      expect(widgets.find((w) => w.id === "w2")?.x).toBe(4);
+      expect(widgets.find((w) => w.id === "w3")?.x).toBe(8);
+    });
+  });
+
+  describe("9. Barra Definitiva: Agrupación, Copiar/Pegar y Zoom", () => {
+    it("asigna groupId compartido al agrupar y lo elimina al desagrupar", () => {
+      const store = useDashboardEditorStore.getState();
+      store.setWidgets([
+        { id: "w1", title: "W1", x: 0, y: 0, w: 4, h: 2 },
+        { id: "w2", title: "W2", x: 4, y: 0, w: 4, h: 2 },
+      ]);
+
+      store.selectWidgets(["w1", "w2"]);
+      store.groupSelectedWidgets();
+
+      let ws = useDashboardEditorStore.getState().widgets;
+      const g1 = (ws[0].config as Record<string, unknown>).groupId;
+      const g2 = (ws[1].config as Record<string, unknown>).groupId;
+      expect(g1).toBeDefined();
+      expect(g1).toBe(g2);
+
+      store.ungroupSelectedWidgets();
+      ws = useDashboardEditorStore.getState().widgets;
+      expect((ws[0].config as Record<string, unknown>).groupId).toBeUndefined();
+      expect((ws[1].config as Record<string, unknown>).groupId).toBeUndefined();
+    });
+
+    it("copia al portapapeles y pega clones desplazados", () => {
+      const store = useDashboardEditorStore.getState();
+      store.setWidgets([
+        { id: "orig", title: "Original", x: 2, y: 3, w: 4, h: 2 },
+      ]);
+
+      store.selectWidget("orig", false);
+      store.copySelectedWidgets();
+      expect(useDashboardEditorStore.getState().clipboard.length).toBe(1);
+
+      store.pasteWidgets();
+      const ws = useDashboardEditorStore.getState().widgets;
+      expect(ws.length).toBe(2);
+      const pasted = ws.find((w) => w.id !== "orig")!;
+      expect(pasted.title).toBe("Original");
+      expect(pasted.x).toBe(3); // x + 1
+      expect(pasted.y).toBe(4); // y + 1
+    });
+
+    it("controla el zoom dentro del rango 50% a 150%", () => {
+      const store = useDashboardEditorStore.getState();
+      store.resetZoom();
+      expect(useDashboardEditorStore.getState().zoom).toBe(100);
+
+      // Zoom in
+      store.zoomIn();
+      expect(useDashboardEditorStore.getState().zoom).toBe(110);
+
+      // Max limit 150
+      for (let i = 0; i < 10; i++) store.zoomIn();
+      expect(useDashboardEditorStore.getState().zoom).toBe(150);
+
+      // Min limit 50
+      for (let i = 0; i < 20; i++) store.zoomOut();
+      expect(useDashboardEditorStore.getState().zoom).toBe(50);
+
+      store.resetZoom();
+      expect(useDashboardEditorStore.getState().zoom).toBe(100);
+    });
+  });
 });

@@ -60,6 +60,18 @@ export function adaptLegacyWidget(
     }
   }
 
+  // 1.1 Si es un widget estático (text, divider, image)
+  if (widget.type === "text" || widget.type === "divider" || widget.type === "image") {
+    const base = createDefaultWidgetConfig("card", widget.title || widget.type, "");
+    const rawCfg = (typeof widget.config === "object" && widget.config !== null) ? widget.config as Record<string, unknown> : {};
+    return {
+      ...base,
+      content: typeof rawCfg.content === "string" ? rawCfg.content : (widget.type === "text" ? "Texto descriptivo" : ""),
+      groupId: typeof rawCfg.groupId === "string" ? rawCfg.groupId : undefined,
+      fontSize: typeof rawCfg.fontSize === "number" || typeof rawCfg.fontSize === "string" ? rawCfg.fontSize : undefined,
+    };
+  }
+
   const title = (widget.title || "").trim();
   const metricKey = (widget.metricKey || "").trim();
   const todayRange = getLimaTodayRange(refDate);

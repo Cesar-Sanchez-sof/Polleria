@@ -16,6 +16,19 @@ import {
   RefreshCw,
   Eye,
   FilterX,
+  Type,
+  Minus,
+  Image as ImageIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignHorizontalDistributeCenter,
+  Group,
+  Ungroup,
+  ClipboardPaste,
+  ZoomIn,
+  ZoomOut,
+  Table2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +45,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { DynamicVisual } from "../visuals/DynamicVisual";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
+import { useVisualData } from "@/lib/hooks/use-visual-data";
 import { cn } from "@/lib/utils";
 
 interface EditorToolbarProps {
@@ -95,12 +115,161 @@ function ToolbarButton({
   );
 }
 
+// ─── Data Inspector Sheet ─────────────────────────────────────────────────────
+function DataInspectorSheet({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const selectedWidget = useDashboardEditorStore((s) => s.getSelectedWidget());
+  const { data, isLoading } = useVisualData(
+    selectedWidget?.config.data ?? { dataset: "", values: [] }
+  );
+
+  const rows = data?.rows ?? [];
+  const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-[520px] sm:max-w-[520px] flex flex-col gap-0 p-0">
+        <SheetHeader className="px-5 pt-5 pb-3 border-b border-border/60">
+          <SheetTitle className="text-sm font-semibold flex items-center gap-2">
+            <Table2 className="size-4 text-primary" />
+            Inspección de Datos
+            {selectedWidget && (
+              <Badge variant="secondary" className="text-[10px] font-mono ml-1">
+                {selectedWidget.title || selectedWidget.config.visualType}
+              </Badge>
+            )}
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-auto px-4 py-3">
+          {!selectedWidget ? (
+            <p className="text-xs text-muted-foreground text-center py-8">
+              Selecciona un visual en el lienzo para inspeccionar sus datos.
+            </p>
+          ) : isLoading ? (
+            <p className="text-xs text-muted-foreground text-center py-8">Cargando datos…</p>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">
+              Sin datos — configura el widget o comprueba el filtro activo.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr>
+                    {columns.map((col) => (
+                      <th
+                        key={col}
+                        className="border-b border-border/80 bg-muted/40 text-left px-2 py-1.5 font-semibold text-muted-foreground whitespace-nowrap"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, ri) => (
+                    <tr key={ri} className="hover:bg-muted/30 transition-colors">
+                      {columns.map((col) => (
+                        <td
+                          key={col}
+                          className="border-b border-border/40 px-2 py-1 text-foreground/90 whitespace-nowrap"
+                        >
+                          {String((row as Record<string, unknown>)[col] ?? "")}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                {rows.length} filas devueltas por la consulta.
+              </p>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── Insert Image Dialog ──────────────────────────────────────────────────────
+function InsertImageDialog({
+  open,
+  onOpenChange,
+  onInsert,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onInsert: (url: string) => void;
+}) {
+  const [url, setUrl] = useState("");
+
+  const handleInsert = () => {
+    if (!url.trim()) return;
+    onInsert(url.trim());
+    setUrl("");
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+            <ImageIcon className="size-4 text-primary" />
+            Insertar Imagen
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 pt-1">
+          <label className="text-xs font-medium text-muted-foreground">URL de la imagen</label>
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleInsert(); }}
+            placeholder="https://ejemplo.com/imagen.png"
+            className="w-full h-9 text-xs rounded-md border border-input bg-background px-3 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs cursor-pointer"
+              onClick={() => { setUrl(""); onOpenChange(false); }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs cursor-pointer"
+              onClick={handleInsert}
+              disabled={!url.trim()}
+            >
+              Insertar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main Toolbar ─────────────────────────────────────────────────────────────
 export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
   void dashboardId;
+  void canvasRef;
   const { mutate } = useSWRConfig();
 
   const {
     selectedWidgetId,
+    selectedWidgetIds,
     getSelectedWidget,
     canUndo,
     canRedo,
@@ -118,18 +287,35 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
     togglePreviewMode,
     crossFilters,
     clearCrossFilters,
+    addTextWidget,
+    addDividerWidget,
+    addImageWidget,
+    alignLeft,
+    alignCenter,
+    alignRight,
+    distributeHorizontally,
+    groupSelectedWidgets,
+    ungroupSelectedWidgets,
+    copySelectedWidgets,
+    pasteWidgets,
+    clipboard,
+    zoom,
+    zoomIn,
+    zoomOut,
+    resetZoom,
   } = useDashboardEditorStore();
 
   const hasCrossFilters = Boolean(crossFilters);
-
   const selectedWidget = getSelectedWidget();
   const isSelectedLocked = Boolean(selectedWidget?.config.layout?.locked);
+  const multiSelected = selectedWidgetIds.length >= 2;
 
   const [isFocusOpen, setIsFocusOpen] = useState(false);
+  const [isDataOpen, setIsDataOpen] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
 
   // =========================================================================
   // Atajos de teclado: Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z, Supr, Ctrl+D
-  // Ninguno actúa si el foco está en input, textarea o select.
   // =========================================================================
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -145,14 +331,12 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
 
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      // Deshacer: Ctrl+Z
       if (isCtrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (canUndo) undo();
         return;
       }
 
-      // Rehacer: Ctrl+Y o Ctrl+Shift+Z
       if (
         (isCtrlOrCmd && e.key.toLowerCase() === "y") ||
         (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === "z")
@@ -162,7 +346,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
         return;
       }
 
-      // Supr: Eliminar visual seleccionado (si no está bloqueado)
       if (e.key === "Delete") {
         if (selectedWidgetId && !isSelectedLocked) {
           e.preventDefault();
@@ -171,7 +354,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
         return;
       }
 
-      // Duplicar: Ctrl+D
       if (isCtrlOrCmd && e.key.toLowerCase() === "d") {
         if (selectedWidgetId) {
           e.preventDefault();
@@ -179,8 +361,21 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
         }
         return;
       }
+
+      if (isCtrlOrCmd && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        copySelectedWidgets();
+        return;
+      }
+
+      if (isCtrlOrCmd && e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        pasteWidgets();
+        return;
+      }
     },
-    [canUndo, canRedo, undo, redo, selectedWidgetId, isSelectedLocked, removeWidget, duplicateWidget]
+    [canUndo, canRedo, undo, redo, selectedWidgetId, isSelectedLocked, removeWidget,
+      duplicateWidget, copySelectedWidgets, pasteWidgets]
   );
 
   useEffect(() => {
@@ -188,9 +383,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // =========================================================================
-  // Aviso beforeunload cuando isDirty es true
-  // =========================================================================
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -202,9 +394,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
-  // =========================================================================
-  // Actualizar: Revalida todas las claves de /api/dashboards/query
-  // =========================================================================
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -233,10 +422,11 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
     <TooltipProvider delay={250}>
       <nav
         aria-label="Barra de herramientas del editor"
-        className="sticky top-0 z-20 w-full border-b border-border bg-card text-foreground px-4 py-1.5 flex items-center justify-between shadow-xs select-none"
+        className="sticky top-0 z-20 w-full border-b border-border bg-card text-foreground px-4 py-1.5 flex items-center justify-between shadow-xs select-none overflow-x-auto"
       >
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* 1. Grupo Historial */}
+        <div className="flex items-center gap-1 flex-nowrap">
+
+          {/* 1. Historial */}
           <div className="flex items-center gap-0.5">
             <ToolbarButton
               icon={<Undo2 className="size-4" />}
@@ -248,7 +438,7 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
             <ToolbarButton
               icon={<Redo2 className="size-4" />}
               label="Rehacer"
-              shortcut="Ctrl+Y / Ctrl+Shift+Z"
+              shortcut="Ctrl+Y"
               onClick={redo}
               disabled={!canRedo}
             />
@@ -256,7 +446,28 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
 
           <Separator orientation="vertical" className="h-5 mx-1" />
 
-          {/* 2. Grupo Visual */}
+          {/* 2. Insertar */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={<Type className="size-4" />}
+              label="Insertar Texto"
+              onClick={() => { addTextWidget(); toast.success("Widget de texto añadido"); }}
+            />
+            <ToolbarButton
+              icon={<Minus className="size-4" />}
+              label="Insertar Separador"
+              onClick={() => { addDividerWidget(); toast.success("Separador añadido"); }}
+            />
+            <ToolbarButton
+              icon={<ImageIcon className="size-4" />}
+              label="Insertar Imagen"
+              onClick={() => setIsImageDialogOpen(true)}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-5 mx-1" />
+
+          {/* 3. Visual */}
           <div className="flex items-center gap-0.5">
             <ToolbarButton
               icon={<Copy className="size-4" />}
@@ -264,6 +475,20 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
               shortcut="Ctrl+D"
               onClick={() => duplicateWidget()}
               disabled={!selectedWidgetId}
+            />
+            <ToolbarButton
+              icon={<Copy className="size-4 scale-x-[-1]" />}
+              label="Copiar"
+              shortcut="Ctrl+C"
+              onClick={() => { copySelectedWidgets(); toast.success("Copiado al portapapeles"); }}
+              disabled={!selectedWidgetId}
+            />
+            <ToolbarButton
+              icon={<ClipboardPaste className="size-4" />}
+              label="Pegar"
+              shortcut="Ctrl+V"
+              onClick={() => pasteWidgets()}
+              disabled={clipboard.length === 0}
             />
             <ToolbarButton
               icon={<Trash2 className="size-4" />}
@@ -289,7 +514,50 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
 
           <Separator orientation="vertical" className="h-5 mx-1" />
 
-          {/* 3. Grupo Lienzo */}
+          {/* 4. Alinear (sólo con selección múltiple) */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={<AlignLeft className="size-4" />}
+              label="Alinear izquierda"
+              onClick={() => { alignLeft(); }}
+              disabled={!multiSelected}
+            />
+            <ToolbarButton
+              icon={<AlignCenter className="size-4" />}
+              label="Alinear centro"
+              onClick={() => { alignCenter(); }}
+              disabled={!multiSelected}
+            />
+            <ToolbarButton
+              icon={<AlignRight className="size-4" />}
+              label="Alinear derecha"
+              onClick={() => { alignRight(); }}
+              disabled={!multiSelected}
+            />
+            <ToolbarButton
+              icon={<AlignHorizontalDistributeCenter className="size-4" />}
+              label="Distribuir horizontalmente"
+              onClick={() => { distributeHorizontally(); }}
+              disabled={selectedWidgetIds.length < 3}
+            />
+            <Separator orientation="vertical" className="h-4 mx-0.5" />
+            <ToolbarButton
+              icon={<Group className="size-4" />}
+              label="Agrupar selección"
+              onClick={() => { groupSelectedWidgets(); toast.success("Widgets agrupados"); }}
+              disabled={!multiSelected}
+            />
+            <ToolbarButton
+              icon={<Ungroup className="size-4" />}
+              label="Desagrupar"
+              onClick={() => { ungroupSelectedWidgets(); toast.success("Widgets desagrupados"); }}
+              disabled={!selectedWidgetId}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-5 mx-1" />
+
+          {/* 5. Lienzo */}
           <div className="flex items-center gap-0.5">
             <ToolbarButton
               icon={<Grid3X3 className="size-4" />}
@@ -300,7 +568,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
             <ToolbarButton
               icon={<AlignVerticalJustifyStart className="size-4" />}
               label="Auto-ajustar widgets"
-              shortcut="Compactar vertical"
               onClick={autoFitWidgets}
             />
             <ToolbarButton
@@ -314,7 +581,32 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
 
           <Separator orientation="vertical" className="h-5 mx-1" />
 
-          {/* 4. Grupo Datos */}
+          {/* 6. Zoom */}
+          <div className="flex items-center gap-0.5">
+            <ToolbarButton
+              icon={<ZoomOut className="size-4" />}
+              label="Alejar"
+              onClick={zoomOut}
+              disabled={zoom <= 50}
+            />
+            <button
+              onClick={resetZoom}
+              className="text-[11px] font-mono px-1.5 h-7 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-w-[42px] text-center"
+              title="Restablecer zoom al 100%"
+            >
+              {zoom}%
+            </button>
+            <ToolbarButton
+              icon={<ZoomIn className="size-4" />}
+              label="Acercar"
+              onClick={zoomIn}
+              disabled={zoom >= 150}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-5 mx-1" />
+
+          {/* 7. Datos */}
           <div className="flex items-center gap-0.5">
             <ToolbarButton
               icon={
@@ -329,6 +621,12 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
               onClick={handleRefresh}
               disabled={isRefreshing}
             />
+            <ToolbarButton
+              icon={<Table2 className="size-4" />}
+              label="Inspeccionar datos"
+              onClick={() => setIsDataOpen(true)}
+              disabled={!selectedWidgetId}
+            />
             {hasCrossFilters && (
               <ToolbarButton
                 icon={<FilterX className="size-4 text-primary" />}
@@ -340,8 +638,8 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
           </div>
         </div>
 
-        {/* 5. Grupo Estado */}
-        <div className="flex items-center gap-2.5">
+        {/* 8. Estado */}
+        <div className="flex items-center gap-2.5 ml-2 shrink-0">
           {isDirty ? (
             <Badge
               variant="outline"
@@ -373,9 +671,7 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
         </div>
       </nav>
 
-      {/* ===================================================================== */}
-      {/* Diálogo de Enfoque a Pantalla Completa                                */}
-      {/* ===================================================================== */}
+      {/* Dialog Enfoque */}
       <Dialog open={isFocusOpen} onOpenChange={setIsFocusOpen}>
         <DialogContent className="max-w-5xl w-[92vw] h-[85vh] flex flex-col p-6 bg-card text-card-foreground">
           <DialogHeader className="shrink-0 mb-2">
@@ -407,6 +703,19 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Sheet Inspector de Datos */}
+      <DataInspectorSheet open={isDataOpen} onOpenChange={setIsDataOpen} />
+
+      {/* Dialog Insertar Imagen */}
+      <InsertImageDialog
+        open={isImageDialogOpen}
+        onOpenChange={setIsImageDialogOpen}
+        onInsert={(url) => {
+          addImageWidget(url);
+          toast.success("Widget de imagen añadido");
+        }}
+      />
     </TooltipProvider>
   );
 }

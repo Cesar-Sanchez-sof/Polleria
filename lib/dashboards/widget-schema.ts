@@ -404,15 +404,23 @@ export const widgetLayoutConfigSchema = z
 
 export type WidgetLayoutConfig = z.infer<typeof widgetLayoutConfigSchema>;
 
+export const staticWidgetTypeSchema = z.enum(["text", "divider", "image"]);
+export type StaticWidgetType = z.infer<typeof staticWidgetTypeSchema>;
+
 /**
  * Esquema Zod completo y tipos estrictos para el campo config (JSON) de DashboardWidget
  */
-export const widgetConfigSchema = z.object({
-  visualType: visualTypeSchema,
-  data: widgetDataConfigSchema,
-  format: widgetFormatConfigSchema,
-  layout: widgetLayoutConfigSchema.optional(),
-});
+export const widgetConfigSchema = z
+  .object({
+    visualType: visualTypeSchema,
+    data: widgetDataConfigSchema,
+    format: widgetFormatConfigSchema,
+    layout: widgetLayoutConfigSchema.optional(),
+    content: z.string().optional(),
+    fontSize: z.union([z.number(), z.string()]).optional(),
+    groupId: z.string().optional(),
+  })
+  .passthrough();
 
 export type WidgetConfig = z.infer<typeof widgetConfigSchema>;
 
