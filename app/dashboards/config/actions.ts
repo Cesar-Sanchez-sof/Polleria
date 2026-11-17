@@ -19,6 +19,8 @@ import {
   type UpdateDashboardData,
   type DashboardWidgetInput,
 } from "@/lib/services/settings/dashboard.service";
+import { currentSession } from "@/lib/auth/current-session";
+import { getDashboardAccess } from "@/lib/services/dashboards/dashboard-access.service";
 
 // ============================================================================
 // Server Actions para Secciones
@@ -179,6 +181,12 @@ export async function updateDashboardWidgetsAction(
   widgetsData: DashboardWidgetInput[]
 ) {
   try {
+    // Verificar autenticación y permiso de edición
+    const session = await currentSession();
+    if (!session) return { success: false, error: "No autenticado" };
+    const access = await getDashboardAccess(session.userId, dashboardId);
+    if (!access.canEdit) return { success: false, error: "Sin permiso para editar este tablero" };
+
     const { z } = await import("zod");
     const { widgetConfigSchema } = await import("@/lib/dashboards/widget-schema");
 
@@ -208,6 +216,44 @@ export async function updateDashboardWidgetsAction(
       error instanceof Error
         ? error.message
         : "Error al actualizar los widgets del tablero";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+// ============================================================================
+// Server Action para Subida de Imágenes de Dashboards a S3
+// ============================================================================
+
+export async function uploadDashboardImageAction(formData: FormData) {
+  try {
+    const file = formData.get("file") as File | null;
+    if (!file) {
+      return { success: false, error: "No se seleccionó ningún archivo de imagen" };
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const contentType = file.type || "image/png";
+    const filename = file.name || "dashboard-image.png";
+
+    const { uploadDashboardImage } = await import(
+      "@/lib/services/integrations/s3-storage.service"
+    );
+    const result = await uploadDashboardImage(filename, buffer, contentType);
+
+    return {
+      success: true,
+      url: result.publicUrl,
+      s3Key: result.s3Key,
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error al subir la imagen al almacenamiento S3";
     return {
       success: false,
       error: message,

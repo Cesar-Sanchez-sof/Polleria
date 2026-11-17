@@ -13,8 +13,9 @@ interface AppLayoutShellProps {
 export function AppLayoutShell({ children }: AppLayoutShellProps) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
+  const isSharePage = pathname?.startsWith("/share");
 
-  if (isLoginPage) {
+  if (isLoginPage || isSharePage) {
     return (
       <main className="w-full min-w-full min-h-screen flex flex-col bg-background p-0 m-0 overflow-x-hidden">
         {children}

@@ -69,6 +69,19 @@ export interface VisualRegistryFormatOptions {
   numberFormat?: boolean;
 }
 
+export type ChartSpecificGroup = "bar" | "lineArea" | "donut";
+
+export type DataLabelPosition = "top" | "center" | "bottom" | "outside";
+
+export interface VisualFormatCaps {
+  chartSpecific?: ChartSpecificGroup;
+  yAxisRange: boolean;
+  labelRotation: boolean;
+  dataLabelPositions: DataLabelPosition[];
+  referenceLine: boolean;
+  conditionalColors: boolean;
+}
+
 export interface VisualRegistryEntry {
   id: VisualType;
   label: string;
@@ -79,6 +92,7 @@ export interface VisualRegistryEntry {
   wells: VisualWellDefinition[];
   defaultSize: { w: number; h: number };
   format: VisualRegistryFormatOptions;
+  formatCaps: VisualFormatCaps;
   hidden?: boolean;
 }
 
@@ -107,6 +121,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "center", "bottom"],
+      referenceLine: true,
+      conditionalColors: true,
+    },
   },
   stackedColumn: {
     id: "stackedColumn",
@@ -122,6 +144,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["center"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
   percentColumn: {
     id: "percentColumn",
@@ -137,6 +167,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: false,
+      labelRotation: true,
+      dataLabelPositions: ["center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   bar: {
     id: "bar",
@@ -152,6 +190,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "center", "bottom"],
+      referenceLine: true,
+      conditionalColors: true,
+    },
   },
   stackedBar: {
     id: "stackedBar",
@@ -167,6 +213,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["center"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
   percentBar: {
     id: "percentBar",
@@ -182,6 +236,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: false,
+      labelRotation: true,
+      dataLabelPositions: ["center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
 
   // 2. Líneas y Áreas
@@ -199,6 +261,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "lineArea",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "bottom"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
   area: {
     id: "area",
@@ -214,6 +284,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "lineArea",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "bottom"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
   stackedArea: {
     id: "stackedArea",
@@ -229,6 +307,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "lineArea",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["center"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
   combo: {
     id: "combo",
@@ -244,6 +330,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values_line", label: "Valores de línea", accepts: "measure", min: 0 },
     ],
     format: { axes: true, legend: true, dataLabels: true, gridlines: true, secondaryAxis: true },
+    formatCaps: {
+      chartSpecific: "lineArea",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "center", "bottom"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
 
   // 3. Circulares
@@ -260,6 +354,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: true, dataLabels: true, gridlines: false },
+    formatCaps: {
+      chartSpecific: "donut",
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: ["outside", "center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   donut: {
     id: "donut",
@@ -274,6 +376,14 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: true, dataLabels: true, gridlines: false },
+    formatCaps: {
+      chartSpecific: "donut",
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: ["outside", "center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
 
   // 4. Tarjetas y KPIs
@@ -289,6 +399,13 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: true,
+    },
   },
   gauge: {
     id: "gauge",
@@ -302,6 +419,13 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: false, dataLabels: false, gridlines: false, gauge: true, numberFormat: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: true,
+    },
   },
 
   // 5. Avanzados
@@ -319,6 +443,13 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
     format: { axes: false, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: ["top", "center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   funnel: {
     id: "funnel",
@@ -333,6 +464,13 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: true, dataLabels: true, gridlines: false },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: ["center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   treemap: {
     id: "treemap",
@@ -347,163 +485,226 @@ export const VISUAL_REGISTRY: Record<VisualType, VisualRegistryEntry> = {
       { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: true, dataLabels: true, gridlines: false },
-  },
-
-  // 6. Tablas y Filtros
-  table: {
-    id: "table",
-    label: "Tabla de datos",
-    category: "tables",
-    categoryLabel: "Tablas y Filtros",
-    description: "Vista tabular detallada con columnas para todas las dimensiones y medidas.",
-    icon: TableIcon,
-    defaultSize: { w: 8, h: 4 },
-    wells: [
-      { role: "axis", label: "Filas (Dimensión)", accepts: "dimension", min: 0, max: 1 },
-      { role: "legend", label: "Columnas (Dimensión)", accepts: "dimension", min: 0, max: 1 },
-      { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 0 },
-    ],
-    format: { axes: false, legend: false, dataLabels: false, gridlines: false },
-  },
-  slicer: {
-    id: "slicer",
-    label: "Segmentador",
-    category: "tables",
-    categoryLabel: "Tablas y Filtros",
-    description: "Filtro interactivo visual para segmentar los demás paneles del tablero.",
-    icon: Filter,
-    defaultSize: { w: 3, h: 3 },
-    hidden: true,
-    wells: [
-      { role: "axis", label: "Campo de filtro", accepts: "dimension", min: 1, max: 1 },
-    ],
-    format: { axes: false, legend: false, dataLabels: false, gridlines: false },
-  },
-
-  // 7 nuevos tipos de visual C2
-  waterfall: {
-    id: "waterfall",
-    label: "Cascada (Waterfall)",
-    category: "bars_columns",
-    categoryLabel: "Barras y Columnas",
-    description: "Efecto acumulado de variaciones positivas y negativas con total final.",
-    icon: GitCommitVertical,
-    defaultSize: { w: 6, h: 4 },
-    wells: [
-      { role: "axis", label: "Categoría", accepts: "dimension", min: 1, max: 1 },
-      { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
-    ],
-    format: { axes: true, legend: false, dataLabels: true, gridlines: true },
-  },
-  pareto: {
-    id: "pareto",
-    label: "Diagrama de Pareto",
-    category: "bars_columns",
-    categoryLabel: "Barras y Columnas",
-    description: "Regla 80/20: barras ordenadas descendentemente con línea acumulada (0-100%).",
-    icon: ArrowDownNarrowWide,
-    defaultSize: { w: 6, h: 4 },
-    wells: [
-      { role: "axis", label: "Categoría", accepts: "dimension", min: 1, max: 1 },
-      { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
-    ],
-    format: { axes: true, legend: true, dataLabels: true, gridlines: true, secondaryAxis: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: ["center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   kpiTrend: {
     id: "kpiTrend",
     label: "KPI con Tendencia",
     category: "cards_kpis",
     categoryLabel: "Tarjetas y KPIs",
-    description: "Métrica principal con sparkline temporal y delta comparativo vs período anterior.",
+    description: "Muestra valor principal, porcentaje de cambio respecto al período anterior y mini sparkline.",
     icon: TrendingUp,
     defaultSize: { w: 4, h: 3 },
     wells: [
+      { role: "axis", label: "Eje temporal", accepts: "dimension", min: 1, max: 1 },
       { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
-      { role: "axis", label: "Eje temporal (Sparkline)", accepts: "dimension", min: 0, max: 1 },
     ],
     format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: true,
+    },
   },
   multiCard: {
     id: "multiCard",
-    label: "Tarjeta de varias filas",
+    label: "Tarjeta Varias Filas",
     category: "cards_kpis",
     categoryLabel: "Tarjetas y KPIs",
-    description: "Muestra múltiples métricas en filas compactas con sus etiquetas.",
+    description: "Agrupa múltiples indicadores o medidas secundarias en un bloque estructurado.",
     icon: Rows3,
-    defaultSize: { w: 4, h: 3 },
+    defaultSize: { w: 5, h: 3 },
     wells: [
-      { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
+      { role: "values", label: "Medidas a mostrar", accepts: "measure", min: 1 },
     ],
     format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   scatter: {
     id: "scatter",
     label: "Dispersión (Scatter)",
     category: "advanced",
     categoryLabel: "Avanzados",
-    description: "Correlación de medidas en ejes X e Y con burbujas y tamaño opcional.",
+    description: "Muestra la correlación entre 2 o 3 variables (Eje X, Eje Y y Tamaño opcional).",
     icon: CircleDot,
     defaultSize: { w: 6, h: 4 },
     wells: [
-      { role: "axis", label: "Detalles (Dimensión)", accepts: "dimension", min: 1, max: 1 },
-      { role: "values_x", label: "Valor X (Medida)", accepts: "measure", min: 1, max: 1 },
-      { role: "values_y", label: "Valor Y (Medida)", accepts: "measure", min: 1, max: 1 },
+      { role: "axis", label: "Detalle (Dimensión)", accepts: "dimension", min: 1, max: 1 },
+      { role: "values_x", label: "Eje X (Medida)", accepts: "measure", min: 1, max: 1 },
+      { role: "values_y", label: "Eje Y (Medida)", accepts: "measure", min: 1, max: 1 },
       { role: "values_size", label: "Tamaño (Medida opcional)", accepts: "measure", min: 0, max: 1 },
     ],
-    format: { axes: true, legend: true, dataLabels: false, gridlines: true },
+    format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "center"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
+  },
+  waterfall: {
+    id: "waterfall",
+    label: "Cascada (Waterfall)",
+    category: "advanced",
+    categoryLabel: "Avanzados",
+    description: "Muestra el efecto acumulativo de valores positivos y negativos secuenciales.",
+    icon: GitCommitVertical,
+    defaultSize: { w: 6, h: 4 },
+    wells: [
+      { role: "axis", label: "Categoría", accepts: "dimension", min: 1, max: 1 },
+      { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
+    ],
+    format: { axes: true, legend: true, dataLabels: true, gridlines: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "center", "bottom"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
+  },
+  pareto: {
+    id: "pareto",
+    label: "Pareto (80/20)",
+    category: "advanced",
+    categoryLabel: "Avanzados",
+    description: "Barras de mayor a menor con línea de porcentaje acumulado y línea de referencia 80%.",
+    icon: ArrowDownNarrowWide,
+    defaultSize: { w: 6, h: 4 },
+    wells: [
+      { role: "axis", label: "Categoría", accepts: "dimension", min: 1, max: 1 },
+      { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
+    ],
+    format: { axes: true, legend: true, dataLabels: true, gridlines: true, secondaryAxis: true },
+    formatCaps: {
+      chartSpecific: "bar",
+      yAxisRange: true,
+      labelRotation: true,
+      dataLabelPositions: ["top", "center", "bottom"],
+      referenceLine: true,
+      conditionalColors: false,
+    },
   },
   heatmap: {
     id: "heatmap",
-    label: "Mapa de calor (Heatmap)",
+    label: "Mapa de Calor (Heatmap)",
     category: "advanced",
     categoryLabel: "Avanzados",
-    description: "Cuadrícula bidimensional (filas × columnas) con escala de color por magnitud.",
+    description: "Matriz 2D de celdas coloreadas por intensidad según el valor de la medida.",
     icon: Grid3X3,
-    defaultSize: { w: 7, h: 5 },
+    defaultSize: { w: 6, h: 4 },
     wells: [
       { role: "axis", label: "Filas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
       { role: "legend", label: "Columnas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
-      { role: "values", label: "Valores (Medida)", accepts: "measure", min: 1, max: 1 },
+      { role: "values", label: "Valor (Medida)", accepts: "measure", min: 1, max: 1 },
     ],
     format: { axes: false, legend: true, dataLabels: true, gridlines: false },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: true,
+      dataLabelPositions: ["center"],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
   matrix: {
     id: "matrix",
-    label: "Matriz dinámica",
+    label: "Matriz Pivot",
     category: "tables",
     categoryLabel: "Tablas y Filtros",
-    description: "Tabla pivote con filas, columnas y totales automáticos (máximo 500 celdas).",
+    description: "Tabla de doble entrada con filas, columnas y subtotales agregados.",
     icon: TableProperties,
-    defaultSize: { w: 8, h: 4 },
+    defaultSize: { w: 6, h: 4 },
     wells: [
       { role: "axis", label: "Filas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
-      { role: "legend", label: "Columnas (Dimensión)", accepts: "dimension", min: 0, max: 1 },
+      { role: "legend", label: "Columnas (Dimensión)", accepts: "dimension", min: 1, max: 1 },
       { role: "values", label: "Valores (Medidas)", accepts: "measure", min: 1 },
     ],
+    format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: false,
+    },
+  },
+
+  // 6. Tablas y Filtros
+  table: {
+    id: "table",
+    label: "Tabla",
+    category: "tables",
+    categoryLabel: "Tablas y Filtros",
+    description: "Vista tabular detallada con columnas ordenables y paginación.",
+    icon: TableIcon,
+    defaultSize: { w: 6, h: 4 },
+    wells: [
+      { role: "axis", label: "Dimensiones / Agrupador", accepts: "dimension", min: 0, max: 1 },
+      { role: "values", label: "Medidas y Columnas", accepts: "measure", min: 1 },
+    ],
+    format: { axes: false, legend: false, dataLabels: false, gridlines: false, numberFormat: true },
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: true,
+    },
+  },
+  slicer: {
+    id: "slicer",
+    label: "Segmentador (Filtro)",
+    category: "tables",
+    categoryLabel: "Tablas y Filtros",
+    description: "Filtro interactivo en el lienzo para segmentar otros visuales del tablero.",
+    icon: Filter,
+    defaultSize: { w: 4, h: 2 },
+    wells: [
+      { role: "axis", label: "Campo de filtro", accepts: "dimension", min: 1, max: 1 },
+    ],
     format: { axes: false, legend: false, dataLabels: false, gridlines: false },
+    hidden: true,
+    formatCaps: {
+      yAxisRange: false,
+      labelRotation: false,
+      dataLabelPositions: [],
+      referenceLine: false,
+      conditionalColors: false,
+    },
   },
 };
 
 export function getVisualRegistryEntry(visualType: VisualType): VisualRegistryEntry {
-  const entry = VISUAL_REGISTRY[visualType];
-  if (!entry) {
-    return VISUAL_REGISTRY.column;
-  }
-  return entry;
+  return VISUAL_REGISTRY[visualType] || VISUAL_REGISTRY.column;
+}
+
+export function getAllVisualTypes(): VisualType[] {
+  return Object.keys(VISUAL_REGISTRY) as VisualType[];
 }
 
 export function getVisualsByCategory(category: VisualCategory): VisualRegistryEntry[] {
-  return Object.values(VISUAL_REGISTRY).filter((v) => v.category === category && !v.hidden);
+  return Object.values(VISUAL_REGISTRY).filter((entry) => entry.category === category);
 }
 
 /**
  * Migración estricta de WidgetConfig por rol de pozo (WellRole).
- * 
- * Conserva la compatibilidad entre visualTypes preservando:
- * - Dimensiones asignadas al rol 'axis'
- * - Dimensiones asignadas al rol 'legend'
- * - Medidas asignadas a 'values' o separadas en 'values_column' / 'values_line' (combo)
- * - Filtros, sort y limit
  */
 export function migrateWidgetConfigByRole(
   currentConfig: WidgetConfig,
@@ -533,35 +734,29 @@ export function migrateWidgetConfigByRole(
   let finalValues: WidgetValueField[] = [];
 
   if (newVisualType === "combo") {
-    // Target es combo: distribuye valores entre 'column' y 'line'
     if (currentValues.length === 0) {
       finalValues = [];
     } else if (currentValues.length === 1) {
       finalValues = [{ ...currentValues[0], series: "column" }];
     } else {
-      // 2 o más medidas: la primera a columna, las siguientes a línea (o preserva si ya tenían series)
       finalValues = currentValues.map((val, idx) => ({
         ...val,
         series: val.series || (idx === 0 ? "column" : "line"),
       }));
     }
   } else if (newVisualType === "scatter") {
-    // Target es scatter: mapea hasta 3 medidas a x, y, size
     finalValues = currentValues.slice(0, 3).map((val, idx) => {
       const seriesRole = idx === 0 ? "x" : idx === 1 ? "y" : "size";
       return { ...val, series: (val.series as "x" | "y" | "size") || seriesRole };
     });
   } else if (newVisualType === "slicer") {
-    // Slicer no requiere medidas
     finalValues = [];
   } else {
-    // Target normal: comprueba si tiene límite de 1 medida
     const targetValuesWell = targetEntry.wells.find(
       (w) => w.role === "values" || w.role === "values_column"
     );
     const maxValues = targetValuesWell?.max;
 
-    // Quitar etiqueta de series si el target no es combo ni scatter
     const cleanedValues = currentValues.map((v) => {
       const copy = { ...v };
       delete copy.series;
@@ -575,19 +770,16 @@ export function migrateWidgetConfigByRole(
     }
   }
 
-  // Si es kpiTrend y tiene dateRange, activar compare por defecto
   const nextCompare =
     newVisualType === "kpiTrend"
       ? (currentData.compare || "previousPeriod")
       : currentData.compare;
 
-  // Orden por defecto para funnel: si no tiene sort, ordenar desc por la medida
   let nextSort = currentData.sort;
   if (newVisualType === "funnel" && !nextSort && finalValues.length > 0) {
     nextSort = { by: `${finalValues[0].field}_${finalValues[0].agg}`, dir: "desc" };
   }
 
-  // 5. Limpieza de títulos de ejes inconsistentes si el target no usa ejes
   const nextAxes = {
     ...currentConfig.format.axes,
     xTitle: targetEntry.format.axes ? currentConfig.format.axes.xTitle : "",
@@ -620,17 +812,11 @@ export interface WellDropValidation {
   error?: string;
 }
 
-/**
- * Valida si un campo puede ser soltado o asignado a un pozo según las reglas del registro:
- * - wellDef.accepts ('dimension' vs 'measure')
- * - wellDef.max (límite máximo de campos permitidos en el pozo)
- */
 export function validateFieldForWell(
   wellDef: VisualWellDefinition,
   field: { id: string; kind?: string; dataType?: string; label?: string },
   currentCount: number
 ): WellDropValidation {
-  // 1. Determinar tipo de campo
   const isExplicitMeasure = field.kind === "measure";
   const isExplicitDimension = field.kind === "dimension";
   const isNumericType = field.dataType === "number";
@@ -638,7 +824,6 @@ export function validateFieldForWell(
   const isMeasure = isExplicitMeasure || (isNumericType && !isExplicitDimension);
   const isDimension = isExplicitDimension || (!isMeasure);
 
-  // 2. Validar 'accepts'
   if (wellDef.accepts === "dimension" && !isDimension) {
     return {
       valid: false,
@@ -653,9 +838,6 @@ export function validateFieldForWell(
     };
   }
 
-  // 3. Validar 'max' (límite máximo del pozo)
-  // Pozos de max === 1 (Eje, Categoría, Leyenda, Valores de pie/gauge/card) REEMPLAZAN el existente
-  // al soltar, por lo que NO se rechazan por cantidad; solo se rechaza si max > 1 y currentCount >= max.
   if (wellDef.max !== undefined && wellDef.max !== null && wellDef.max > 1) {
     if (currentCount >= wellDef.max) {
       return {
