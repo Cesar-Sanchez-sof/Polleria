@@ -4,6 +4,7 @@ import { ArrowUpRight, ArrowDownRight, Minus, Calendar } from "lucide-react";
 import { calculateDeltaPercentage } from "@/lib/dashboards/client-calculations";
 import { resolveDateRange, resolvePreviousRange, getLimaDateParts, formatUtcYmd } from "@/lib/dashboards/date-utils";
 import { type VisualRendererProps, getMetricFriendlyLabel } from "./renderer-types";
+import { evaluateConditionalColor } from "@/lib/dashboards/format-utils";
 
 export function KpiTrendRenderer({
   config,
@@ -77,8 +78,18 @@ export function KpiTrendRenderer({
           <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
             {getMetricFriendlyLabel(metricKey, fieldLabelsMap)}
           </span>
-          <div className="text-3xl font-black tracking-tight text-foreground flex items-baseline gap-1 mt-0.5">
-            {prefix && <span className="text-xl font-semibold text-muted-foreground">{prefix}</span>}
+          <div
+            className="text-3xl font-black tracking-tight text-foreground flex items-baseline gap-1 mt-0.5"
+            style={evaluateConditionalColor(currentVal, format.conditionalColors) ? { color: evaluateConditionalColor(currentVal, format.conditionalColors) } : undefined}
+          >
+            {prefix && (
+              <span
+                className="text-xl font-semibold text-muted-foreground"
+                style={evaluateConditionalColor(currentVal, format.conditionalColors) ? { color: evaluateConditionalColor(currentVal, format.conditionalColors) } : undefined}
+              >
+                {prefix}
+              </span>
+            )}
             <span>{displayStr}</span>
           </div>
         </div>

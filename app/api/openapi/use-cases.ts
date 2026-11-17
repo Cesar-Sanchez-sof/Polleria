@@ -170,6 +170,11 @@ export const USE_CASES: Record<string, UseCaseEntry> = {
   "POST /api/accounting/interpreter": { uses: ["Interpretar una pregunta contable en lenguaje natural y convertirla a filtros de reporte."] },
   "GET /api/dashboards/catalog": { uses: ["Listar los tableros y métricas disponibles según permisos."] },
   "POST /api/dashboards/query": { uses: ["Consultar los datos de un widget del tablero (ventas por hora, platos más vendidos)."] },
+  "GET /api/dashboards/{id}/share": { uses: ["Listar los enlaces compartidos activos y permisos asignados a un tablero."] },
+  "POST /api/dashboards/{id}/share": { uses: ["Generar o reutilizar el enlace público autenticado para compartir el tablero."] },
+  "PATCH /api/dashboards/{id}/share": { uses: ["Modificar o revocar permisos específicos de usuarios o roles sobre el tablero."] },
+  "DELETE /api/dashboards/{id}/share/{shareId}": { uses: ["Desactivar o revocar un enlace compartido de un tablero."] },
+  "GET /api/dashboards/{id}/widgets/{widgetId}/data": { uses: ["Obtener los datos de un widget individual de forma segura desde el enlace compartido."] },
   "GET /api/ple/{book}": { uses: ["Descargar el libro electrónico PLE (diario, mayor, ventas, compras) para SUNAT."] },
   "POST /api/sire/purchases": { uses: ["Generar la propuesta de compras para conciliar con el SIRE."] },
   "POST /api/sire/test/{book}": { uses: ["Probar la generación de un libro SIRE sin enviarlo a SUNAT."] },
@@ -184,6 +189,9 @@ export const USE_CASES: Record<string, UseCaseEntry> = {
   "GET /api/assistant": { uses: ["Recuperar el historial de la conversación con el asistente financiero."] },
   "POST /api/assistant": { uses: ["Preguntar «¿cuánto vendimos ayer en pollo a la brasa?» y recibir la respuesta con cifras."] },
   "POST /api/assistant/transcribe": { uses: ["El dueño dicta su pregunta por voz y se transcribe a texto."] },
+
+  // ---------------- Almacenamiento (proxy de imágenes S3) ----------------
+  "GET /api/storage/{...key}": { tag: "Settings", uses: ["El editor de tableros carga una imagen subida a S3 (logo del restaurante, imagen de widget) a través del proxy interno, evitando exponer las credenciales de Neon Object Storage al cliente."] },
 };
 
 /** Tags de operaciones sin `@openapi` propio. */

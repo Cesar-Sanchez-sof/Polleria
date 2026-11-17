@@ -18,7 +18,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en enero de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en enero de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -158,7 +158,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en enero de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en enero de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-01-01' AND pi.issued_at < DATE '2026-02-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -190,7 +190,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en enero de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante enero de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -201,7 +201,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en enero de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante enero de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -212,7 +212,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en enero de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en enero de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -232,7 +232,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en enero de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en enero de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-01-01' AND cm.created_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -297,7 +297,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante enero de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante enero de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-01-01' AND t.date < DATE '2026-02-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -352,8 +352,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en enero de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-01-01' AND je.entry_date < DATE '2026-02-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en enero de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-01-01' AND je.entry_date < DATE '2026-02-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -387,7 +387,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan enero de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de enero de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-02-01' AND ap.end_date >= DATE '2026-01-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -397,7 +397,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en febrero de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en febrero de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-02-01' AND si.issued_at < DATE '2026-03-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -537,7 +537,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en febrero de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en febrero de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-02-01' AND pi.issued_at < DATE '2026-03-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -569,7 +569,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en febrero de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante febrero de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-02-01' AND cs.closed_at < DATE '2026-03-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -580,7 +580,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en febrero de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante febrero de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-02-01' AND cs.closed_at < DATE '2026-03-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -591,7 +591,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en febrero de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en febrero de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-02-01' AND cs.closed_at < DATE '2026-03-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -611,7 +611,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en febrero de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en febrero de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-02-01' AND cm.created_at < DATE '2026-03-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -676,7 +676,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante febrero de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante febrero de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-02-01' AND t.date < DATE '2026-03-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -731,8 +731,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en febrero de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-02-01' AND je.entry_date < DATE '2026-03-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en febrero de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-02-01' AND je.entry_date < DATE '2026-03-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -766,7 +766,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan febrero de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de febrero de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-03-01' AND ap.end_date >= DATE '2026-02-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -776,7 +776,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en marzo de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en marzo de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-03-01' AND si.issued_at < DATE '2026-04-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -916,7 +916,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en marzo de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en marzo de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-03-01' AND pi.issued_at < DATE '2026-04-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -948,7 +948,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en marzo de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante marzo de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-03-01' AND cs.closed_at < DATE '2026-04-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -959,7 +959,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en marzo de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante marzo de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-03-01' AND cs.closed_at < DATE '2026-04-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -970,7 +970,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en marzo de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en marzo de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-03-01' AND cs.closed_at < DATE '2026-04-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -990,7 +990,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en marzo de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en marzo de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-03-01' AND cm.created_at < DATE '2026-04-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -1055,7 +1055,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante marzo de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante marzo de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-03-01' AND t.date < DATE '2026-04-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -1110,8 +1110,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en marzo de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en marzo de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-03-01' AND je.entry_date < DATE '2026-04-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -1145,7 +1145,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan marzo de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de marzo de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-04-01' AND ap.end_date >= DATE '2026-03-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -1155,7 +1155,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en abril de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en abril de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-04-01' AND si.issued_at < DATE '2026-05-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -1295,7 +1295,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en abril de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en abril de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-04-01' AND pi.issued_at < DATE '2026-05-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -1327,7 +1327,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en abril de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante abril de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -1338,7 +1338,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en abril de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante abril de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -1349,7 +1349,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en abril de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en abril de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-04-01' AND cs.closed_at < DATE '2026-05-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -1369,7 +1369,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en abril de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en abril de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-04-01' AND cm.created_at < DATE '2026-05-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -1434,7 +1434,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante abril de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante abril de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-04-01' AND t.date < DATE '2026-05-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -1489,8 +1489,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en abril de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en abril de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-04-01' AND je.entry_date < DATE '2026-05-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -1524,7 +1524,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan abril de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de abril de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-05-01' AND ap.end_date >= DATE '2026-04-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -1534,7 +1534,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en mayo de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en mayo de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-05-01' AND si.issued_at < DATE '2026-06-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -1674,7 +1674,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en mayo de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en mayo de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-05-01' AND pi.issued_at < DATE '2026-06-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -1706,7 +1706,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en mayo de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante mayo de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-05-01' AND cs.closed_at < DATE '2026-06-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -1717,7 +1717,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en mayo de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante mayo de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-05-01' AND cs.closed_at < DATE '2026-06-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -1728,7 +1728,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en mayo de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en mayo de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-05-01' AND cs.closed_at < DATE '2026-06-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -1748,7 +1748,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en mayo de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en mayo de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-05-01' AND cm.created_at < DATE '2026-06-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -1813,7 +1813,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante mayo de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante mayo de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-05-01' AND t.date < DATE '2026-06-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -1868,8 +1868,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en mayo de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-05-01' AND je.entry_date < DATE '2026-06-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en mayo de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-05-01' AND je.entry_date < DATE '2026-06-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -1903,7 +1903,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan mayo de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de mayo de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-06-01' AND ap.end_date >= DATE '2026-05-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -1913,7 +1913,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en junio de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en junio de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-06-01' AND si.issued_at < DATE '2026-07-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -2053,7 +2053,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en junio de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en junio de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-06-01' AND pi.issued_at < DATE '2026-07-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -2085,7 +2085,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en junio de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante junio de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-06-01' AND cs.closed_at < DATE '2026-07-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -2096,7 +2096,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en junio de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante junio de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-06-01' AND cs.closed_at < DATE '2026-07-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -2107,7 +2107,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en junio de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en junio de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-06-01' AND cs.closed_at < DATE '2026-07-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -2127,7 +2127,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en junio de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en junio de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-06-01' AND cm.created_at < DATE '2026-07-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -2192,7 +2192,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante junio de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante junio de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-06-01' AND t.date < DATE '2026-07-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -2247,8 +2247,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en junio de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-06-01' AND je.entry_date < DATE '2026-07-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en junio de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-06-01' AND je.entry_date < DATE '2026-07-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -2282,7 +2282,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan junio de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de junio de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-07-01' AND ap.end_date >= DATE '2026-06-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -2292,7 +2292,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en julio de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en julio de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-07-01' AND si.issued_at < DATE '2026-08-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -2432,7 +2432,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en julio de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en julio de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-07-01' AND pi.issued_at < DATE '2026-08-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -2464,7 +2464,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en julio de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante julio de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-07-01' AND cs.closed_at < DATE '2026-08-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -2475,7 +2475,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en julio de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante julio de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-07-01' AND cs.closed_at < DATE '2026-08-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -2486,7 +2486,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en julio de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en julio de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-07-01' AND cs.closed_at < DATE '2026-08-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -2506,7 +2506,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en julio de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en julio de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-07-01' AND cm.created_at < DATE '2026-08-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -2571,7 +2571,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante julio de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante julio de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-07-01' AND t.date < DATE '2026-08-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -2626,8 +2626,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en julio de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en julio de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -2661,7 +2661,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan julio de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de julio de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-08-01' AND ap.end_date >= DATE '2026-07-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -2671,7 +2671,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en agosto de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en agosto de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-08-01' AND si.issued_at < DATE '2026-09-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -2811,7 +2811,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en agosto de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en agosto de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-08-01' AND pi.issued_at < DATE '2026-09-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -2843,7 +2843,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en agosto de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante agosto de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-08-01' AND cs.closed_at < DATE '2026-09-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -2854,7 +2854,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en agosto de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante agosto de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-08-01' AND cs.closed_at < DATE '2026-09-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -2865,7 +2865,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en agosto de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en agosto de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-08-01' AND cs.closed_at < DATE '2026-09-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -2885,7 +2885,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en agosto de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en agosto de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-08-01' AND cm.created_at < DATE '2026-09-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -2950,7 +2950,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante agosto de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante agosto de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-08-01' AND t.date < DATE '2026-09-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -3005,8 +3005,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en agosto de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-08-01' AND je.entry_date < DATE '2026-09-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en agosto de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-08-01' AND je.entry_date < DATE '2026-09-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -3040,7 +3040,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan agosto de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de agosto de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-09-01' AND ap.end_date >= DATE '2026-08-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -3050,7 +3050,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en septiembre de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en septiembre de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-09-01' AND si.issued_at < DATE '2026-10-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -3190,7 +3190,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en septiembre de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en septiembre de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-09-01' AND pi.issued_at < DATE '2026-10-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -3222,7 +3222,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en septiembre de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante septiembre de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-09-01' AND cs.closed_at < DATE '2026-10-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -3233,7 +3233,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en septiembre de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante septiembre de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-09-01' AND cs.closed_at < DATE '2026-10-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -3244,7 +3244,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en septiembre de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en septiembre de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-09-01' AND cs.closed_at < DATE '2026-10-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -3264,7 +3264,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en septiembre de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en septiembre de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-09-01' AND cm.created_at < DATE '2026-10-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -3329,7 +3329,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante septiembre de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante septiembre de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-09-01' AND t.date < DATE '2026-10-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -3384,8 +3384,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en septiembre de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en septiembre de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-09-01' AND je.entry_date < DATE '2026-10-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -3419,7 +3419,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan septiembre de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de septiembre de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-10-01' AND ap.end_date >= DATE '2026-09-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"
@@ -3429,7 +3429,7 @@
     {
       "modulo": "ventas",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue el total de comprobantes emitidos en octubre de 2026?",
+      "pregunta": "¿Cuál fue el importe total de los comprobantes emitidos en octubre de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-10-01' AND si.issued_at < DATE '2026-11-01' LIMIT 50",
       "tablas_esperadas": [
         "sales_invoice"
@@ -3569,7 +3569,7 @@
     {
       "modulo": "compras",
       "dificultad": "dificil",
-      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en octubre de 2026?",
+      "pregunta": "¿Qué facturas de compra activas tienen saldo pendiente en octubre de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
       "sql_gold": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-10-01' AND pi.issued_at < DATE '2026-11-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
       "tablas_esperadas": [
         "purchase_invoice",
@@ -3601,7 +3601,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja en octubre de 2026?",
+      "pregunta": "¿Cuántas sesiones cerradas tuvo cada caja durante octubre de 2026?",
       "sql_gold": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -3612,7 +3612,7 @@
     {
       "modulo": "caja",
       "dificultad": "medio",
-      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en octubre de 2026?",
+      "pregunta": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante octubre de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
       "tablas_esperadas": [
         "cash_session",
@@ -3623,7 +3623,7 @@
     {
       "modulo": "caja",
       "dificultad": "facil",
-      "pregunta": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en octubre de 2026?",
+      "pregunta": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en octubre de 2026?",
       "sql_gold": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' LIMIT 50",
       "tablas_esperadas": [
         "cash_session"
@@ -3643,7 +3643,7 @@
     {
       "modulo": "caja",
       "dificultad": "dificil",
-      "pregunta": "¿Cuánto se egresó por caja registradora en octubre de 2026?",
+      "pregunta": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en octubre de 2026?",
       "sql_gold": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
       "tablas_esperadas": [
         "cash_movement",
@@ -3708,7 +3708,7 @@
     {
       "modulo": "inventario",
       "dificultad": "medio",
-      "pregunta": "¿Qué cantidades se consumieron y produjeron en transformaciones durante octubre de 2026?",
+      "pregunta": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante octubre de 2026?",
       "sql_gold": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-10-01' AND t.date < DATE '2026-11-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
       "tablas_esperadas": [
         "transformation",
@@ -3763,8 +3763,8 @@
     {
       "modulo": "contabilidad",
       "dificultad": "dificil",
-      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en octubre de 2026?",
-      "sql_gold": "SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+      "pregunta": "¿Qué asientos registrados no cuadraron entre debe y haber en octubre de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+      "sql_gold": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
       "tablas_esperadas": [
         "journal_entry",
         "journal_entry_detail"
@@ -3798,7 +3798,7 @@
     {
       "modulo": "contabilidad",
       "dificultad": "medio",
-      "pregunta": "¿Cuántos periodos contables abiertos abarcan octubre de 2026?",
+      "pregunta": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de octubre de 2026?",
       "sql_gold": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-11-01' AND ap.end_date >= DATE '2026-10-01' LIMIT 50",
       "tablas_esperadas": [
         "accounting_period"

@@ -1,0 +1,111 @@
+{
+  "generated_at": "2026-11-15T21:18:38.537807-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 3,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 3,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.965107,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-017",
+          "question": "¿Cuántas sesiones cerradas tuvo cada caja durante enero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-01-01' AS DATE) AND cs.closed_at < CAST('2026-02-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "sesiones": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "sesiones_cerradas": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.952903,
+          "elapsed_seconds": 3.855,
+          "sql_execution_seconds": 1.785887,
+          "gold_execution_seconds": 1.621628,
+          "token_usage": {
+            "prompt_tokens": 3514,
+            "completion_tokens": 102,
+            "total_tokens": 3616
+          }
+        },
+        {
+          "id": "TEST-018",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante enero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros": "420.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros": "420.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.968236,
+          "elapsed_seconds": 3.415,
+          "sql_execution_seconds": 1.67592,
+          "gold_execution_seconds": 1.571143,
+          "token_usage": {
+            "prompt_tokens": 3529,
+            "completion_tokens": 141,
+            "total_tokens": 3670
+          }
+        },
+        {
+          "id": "TEST-019",
+          "question": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-01-01' AND cs.closed_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "diferencia": "-5.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_diferencias": "-5.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.974181,
+          "elapsed_seconds": 2.494,
+          "sql_execution_seconds": 1.625373,
+          "gold_execution_seconds": 1.542525,
+          "token_usage": {
+            "prompt_tokens": 3520,
+            "completion_tokens": 100,
+            "total_tokens": 3620
+          }
+        }
+      ]
+    }
+  ]
+}

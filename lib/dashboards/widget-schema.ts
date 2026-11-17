@@ -175,6 +175,98 @@ export const DEFAULT_PALETTES: Record<string, string[]> = {
 };
 
 /**
+ * Reglas de colores condicionales (E2)
+ */
+export const conditionalColorConditionSchema = z.enum([
+  "greaterThan",
+  "lessThan",
+  "between",
+]);
+
+export type ConditionalColorCondition = z.infer<typeof conditionalColorConditionSchema>;
+
+export const conditionalColorRuleSchema = z.object({
+  condition: conditionalColorConditionSchema,
+  threshold: z.number(),
+  threshold2: z.number().optional(),
+  color: z.string(),
+});
+
+export type ConditionalColorRule = z.infer<typeof conditionalColorRuleSchema>;
+
+/**
+ * Configuraciones específicas por tipo de gráfico (E2)
+ */
+export const chartSpecificBarSchema = z
+  .object({
+    borderRadius: z.number().min(0).max(20).default(0),
+    barWidth: z.number().min(10).max(100).default(70),
+  })
+  .default({
+    borderRadius: 0,
+    barWidth: 70,
+  });
+
+export type ChartSpecificBar = z.infer<typeof chartSpecificBarSchema>;
+
+export const chartSpecificLineAreaSchema = z
+  .object({
+    strokeWidth: z.number().min(1).max(10).default(2),
+    curveType: z.enum(["monotone", "linear"]).default("monotone"),
+    showDots: z.boolean().default(true),
+    fillOpacity: z.number().min(0).max(100).default(20),
+  })
+  .default({
+    strokeWidth: 2,
+    curveType: "monotone",
+    showDots: true,
+    fillOpacity: 20,
+  });
+
+export type ChartSpecificLineArea = z.infer<typeof chartSpecificLineAreaSchema>;
+
+export const chartSpecificDonutSchema = z
+  .object({
+    innerRadius: z.number().min(0).max(90).default(60),
+    startAngle: z.number().default(90),
+  })
+  .default({
+    innerRadius: 60,
+    startAngle: 90,
+  });
+
+export type ChartSpecificDonut = z.infer<typeof chartSpecificDonutSchema>;
+
+export const chartSpecificConfigSchema = z
+  .object({
+    bar: chartSpecificBarSchema.optional(),
+    lineArea: chartSpecificLineAreaSchema.optional(),
+    donut: chartSpecificDonutSchema.optional(),
+  })
+  .default({});
+
+export type ChartSpecificConfig = z.infer<typeof chartSpecificConfigSchema>;
+
+/**
+ * Línea de referencia (E2)
+ */
+export const referenceLineConfigSchema = z
+  .object({
+    show: z.boolean().default(false),
+    value: z.number().default(0),
+    label: z.string().default(""),
+    color: z.string().default("#ef4444"),
+  })
+  .default({
+    show: false,
+    value: 0,
+    label: "",
+    color: "#ef4444",
+  });
+
+export type ReferenceLineConfig = z.infer<typeof referenceLineConfigSchema>;
+
+/**
  * Formato y Estilos visuales del Widget
  */
 export const widgetFormatConfigSchema = z.object({
@@ -208,12 +300,13 @@ export const widgetFormatConfigSchema = z.object({
       show: z.boolean().default(false),
       color: z.string().default("#64748b"),
       fontSize: z.number().default(11),
-      position: z.string().optional(),
+      position: z.enum(["top", "center", "bottom", "outside"]).or(z.string()).default("top"),
     })
     .default({
       show: false,
       color: "#64748b",
       fontSize: 11,
+      position: "top",
     }),
   legend: z
     .object({
@@ -231,6 +324,11 @@ export const widgetFormatConfigSchema = z.object({
       secondaryYTitle: z.string().optional().default(""),
       showSecondaryY: z.boolean().default(false),
       showGrid: z.boolean().default(true),
+      showGridX: z.boolean().optional().default(false),
+      showGridY: z.boolean().optional().default(true),
+      yAxisMin: z.number().optional(),
+      yAxisMax: z.number().optional(),
+      labelRotation: z.union([z.literal(0), z.literal(45), z.literal(-45)]).or(z.number()).default(0),
     })
     .default({
       xTitle: "",
@@ -238,6 +336,9 @@ export const widgetFormatConfigSchema = z.object({
       secondaryYTitle: "",
       showSecondaryY: false,
       showGrid: true,
+      showGridX: false,
+      showGridY: true,
+      labelRotation: 0,
     }),
   background: z
     .object({
@@ -279,18 +380,62 @@ export const widgetFormatConfigSchema = z.object({
     .default({
       min: 0,
     }),
+  // Formato Avanzado E2
+  chartSpecific: chartSpecificConfigSchema.optional().default({}),
+  referenceLine: referenceLineConfigSchema.optional().default({
+    show: false,
+    value: 0,
+    label: "",
+    color: "#ef4444",
+  }),
+  conditionalColors: z.array(conditionalColorRuleSchema).max(5).default([]).optional(),
 });
 
 export type WidgetFormatConfig = z.infer<typeof widgetFormatConfigSchema>;
 
 /**
+ * Configuración de diseño y comportamiento del layout del Widget
+ */
+export const widgetLayoutConfigSchema = z
+  .object({
+    locked: z.boolean().default(false).optional(),
+  })
+  .default({ locked: false });
+
+export type WidgetLayoutConfig = z.infer<typeof widgetLayoutConfigSchema>;
+
+export const staticWidgetTypeSchema = z.enum(["text", "divider", "image"]);
+export type StaticWidgetType = z.infer<typeof staticWidgetTypeSchema>;
+
+/**
  * Esquema Zod completo y tipos estrictos para el campo config (JSON) de DashboardWidget
  */
-export const widgetConfigSchema = z.object({
-  visualType: visualTypeSchema,
-  data: widgetDataConfigSchema,
-  format: widgetFormatConfigSchema,
-});
+export const widgetConfigSchema = z
+  .object({
+    visualType: visualTypeSchema,
+    data: widgetDataConfigSchema,
+    format: widgetFormatConfigSchema,
+    layout: widgetLayoutConfigSchema.optional(),
+    content: z.string().optional(),
+    fontSize: z.union([z.number(), z.string()]).optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    align: z.enum(["left", "center", "right"]).optional(),
+    fontFamily: z.string().optional(),
+    color: z.string().optional(),
+    thickness: z.number().optional(),
+    lineStyle: z.enum(["solid", "dotted", "dashed"]).optional(),
+    objectFit: z.enum(["contain", "cover"]).optional(),
+    borderRadius: z.number().optional(),
+    groupId: z.string().optional(),
+    subtitle: z.string().optional(),
+    letterSpacing: z.enum(["normal", "wide", "wider", "widest"]).optional(),
+    textTransform: z.enum(["none", "uppercase", "lowercase", "capitalize"]).optional(),
+    backgroundVariant: z.enum(["transparent", "card", "accent", "gradient"]).optional(),
+    verticalAlign: z.enum(["top", "center", "bottom"]).optional(),
+  })
+  .passthrough();
 
 export type WidgetConfig = z.infer<typeof widgetConfigSchema>;
 
@@ -328,6 +473,7 @@ export function createDefaultWidgetConfig(
       },
       dataLabels: {
         show: false,
+        position: "top",
         color: "#64748b",
         fontSize: 11,
       },
@@ -341,6 +487,9 @@ export function createDefaultWidgetConfig(
         secondaryYTitle: "",
         showSecondaryY: false,
         showGrid: true,
+        showGridX: false,
+        showGridY: true,
+        labelRotation: 0,
       },
       background: {
         color: "#ffffff",
@@ -359,6 +508,16 @@ export function createDefaultWidgetConfig(
       gauge: {
         min: 0,
       },
+      chartSpecific: {},
+      referenceLine: {
+        show: false,
+        value: 0,
+        label: "",
+        color: "#ef4444",
+      },
+    },
+    layout: {
+      locked: false,
     },
   };
 }

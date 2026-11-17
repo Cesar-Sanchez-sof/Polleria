@@ -23,6 +23,8 @@ export interface VisualRendererProps {
   format: WidgetConfig["format"];
   palette: string[];
   fieldLabelsMap: Map<string, string>;
+  /** Callback para Filtro Cruzado: field = campo de eje/categoría, rawValue = valor crudo, display = etiqueta visual */
+  onCrossFilter?: (field: string, rawValue: unknown, display?: string) => void;
 }
 
 export function getLegendProps(pos?: "top" | "bottom" | "left" | "right") {

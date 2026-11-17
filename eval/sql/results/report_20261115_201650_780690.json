@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-11-15T20:16:50.798812-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 0,
+      "execution_error_count": 1,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-119",
+          "question": "¿Qué facturas de compra activas tienen saldo pendiente en abril de 2026? Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
+          "expected_sql": "SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id LEFT JOIN purchase_payment pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= DATE '2026-04-01' AND pi.issued_at < DATE '2026-05-01' GROUP BY s.id, s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 ORDER BY saldo_pendiente DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "proveedor": "Avícola Buen Sabor de Prueba",
+              "series": "F026",
+              "number": 990004,
+              "saldo_pendiente": "136.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 3.097,
+          "sql_execution_seconds": 1.699564,
+          "gold_execution_seconds": 1.513121,
+          "token_usage": {
+            "prompt_tokens": 2895,
+            "completion_tokens": 219,
+            "total_tokens": 3114
+          },
+          "error": "SQLEXEC_FAILED/GROUPING_ERROR"
+        }
+      ]
+    }
+  ]
+}

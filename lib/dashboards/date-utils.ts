@@ -235,3 +235,53 @@ export function resolvePreviousRange(
     }
   }
 }
+
+/**
+ * Convierte un valor de fecha y su granularidad en un rango 'between [start, end]' para filtro cruzado.
+ * Las granularidades 'hour', 'hourOfDay' y 'weekday' no son filtrables (retornan null).
+ */
+export function resolveCrossFilterDateRange(
+  rawVal: unknown,
+  granularity?: string
+): [string, string] | null {
+  const gran = granularity || "month";
+  if (gran === "hour" || gran === "hourOfDay" || gran === "weekday") {
+    return null;
+  }
+
+  let str = "";
+  if (rawVal instanceof Date) {
+    str = formatUtcYmd(rawVal);
+  } else if (typeof rawVal === "string" || typeof rawVal === "number") {
+    str = String(rawVal).trim();
+  } else {
+    return null;
+  }
+
+  if (gran === "day") {
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    const d = `${match[1]}-${match[2]}-${match[3]}`;
+    return [d, d];
+  }
+
+  if (gran === "month") {
+    const match = str.match(/^(\d{4})-(\d{2})/);
+    if (!match) return null;
+    const y = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const mm = String(m).padStart(2, "0");
+    const dd = String(lastDay).padStart(2, "0");
+    return [`${y}-${mm}-01`, `${y}-${mm}-${dd}`];
+  }
+
+  if (gran === "year") {
+    const match = str.match(/^(\d{4})/);
+    if (!match) return null;
+    const y = match[1];
+    return [`${y}-01-01`, `${y}-12-31`];
+  }
+
+  return null;
+}

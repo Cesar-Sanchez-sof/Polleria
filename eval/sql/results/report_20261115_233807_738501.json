@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-11-15T23:38:07.776515-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.976127,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-342",
+          "question": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante octubre de 2026?",
+          "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-10-01' AND t.date < DATE '2026-11-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+          "generated_sql": "SELECT ti.item_type AS tipo, SUM(ti.quantity) AS cantidad_total FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND t.date < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY ti.item_type LIMIT 50",
+          "gold_rows": [
+            {
+              "item_type": "Consumo",
+              "cantidad": "12.00"
+            },
+            {
+              "item_type": "Producido",
+              "cantidad": "58.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo": "Consumo",
+              "cantidad_total": "12.00"
+            },
+            {
+              "tipo": "Producido",
+              "cantidad_total": "58.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.976127,
+          "elapsed_seconds": 3.613,
+          "sql_execution_seconds": 1.635703,
+          "gold_execution_seconds": 1.558537,
+          "token_usage": {
+            "prompt_tokens": 3523,
+            "completion_tokens": 120,
+            "total_tokens": 3643
+          }
+        }
+      ]
+    }
+  ]
+}

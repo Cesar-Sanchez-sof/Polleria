@@ -1,17 +1,28 @@
 import React from "react";
 import { calculateMatrixPivot } from "@/lib/dashboards/client-calculations";
 import { type VisualRendererProps, getMetricFriendlyLabel } from "./renderer-types";
+import { cn } from "@/lib/utils";
 
 export function MatrixRenderer({
   data,
   format,
   fieldLabelsMap,
+  onCrossFilter,
 }: VisualRendererProps) {
   const rows = data.rows;
   const axisKey = data.meta.axis || "axis";
-  const metrics = data.meta.metrics;
+  const technicalKeys = new Set(["rawValue", "axisRawValue", "legendRawValue"]);
+  const metrics = data.meta.metrics.filter((m) => !technicalKeys.has(m));
   const pivot = calculateMatrixPivot(rows, axisKey, data.meta.legend, metrics);
   const decimals = format.numberFormat?.decimals ?? 2;
+
+  // Filtro cruzado: clic en fila o celda despacha siempre la dimensión del eje principal (axisRawValue)
+  const handleAxisFilter = (rowLabel: string) => {
+    if (!onCrossFilter) return;
+    const match = rows.find((r) => String(r[axisKey] ?? "(Vacío)") === rowLabel);
+    const rawVal = match?.axisRawValue ?? match?.rawValue ?? rowLabel;
+    onCrossFilter(axisKey, rawVal, rowLabel);
+  };
 
   return (
     <div className="w-full h-full overflow-auto text-xs">
@@ -62,7 +73,12 @@ export function MatrixRenderer({
         </thead>
         <tbody className="divide-y divide-border/40">
           {pivot.rowKeys.map((r) => (
-            <tr key={r} className="hover:bg-muted/15 transition-colors">
+            <tr
+              key={r}
+              onClick={() => handleAxisFilter(r)}
+              className={cn("hover:bg-muted/15 transition-colors", onCrossFilter && "cursor-pointer")}
+              title={onCrossFilter ? `Filtrar por ${r}` : undefined}
+            >
               <td className="p-1.5 font-semibold sticky left-0 bg-background/95 z-10 border-r border-border/60 whitespace-nowrap">
                 {r}
               </td>

@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-11-15T20:08:45.476542-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 1,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 1,
+      "execution_accuracy_denominator": 1,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.848817,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-005",
+          "question": "¿Qué productos vendieron más unidades en pedidos cerrados durante enero de 2026?",
+          "expected_sql": "SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item oi ON oi.order_id = so.id JOIN product p ON p.id = oi.product_id WHERE so.status = 'Closed' AND p.sellable = TRUE AND so.ordered_at >= DATE '2026-01-01' AND so.ordered_at < DATE '2026-02-01' GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 5",
+          "generated_sql": "SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-01-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-02-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo a la brasa de prueba",
+              "unidades": 3
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "total_unidades": "3"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.848817,
+          "elapsed_seconds": 4.343,
+          "sql_execution_seconds": 2.330562,
+          "gold_execution_seconds": 1.679146,
+          "token_usage": {
+            "prompt_tokens": 3141,
+            "completion_tokens": 143,
+            "total_tokens": 3284
+          }
+        }
+      ]
+    }
+  ]
+}

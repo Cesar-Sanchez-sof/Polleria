@@ -1,0 +1,197 @@
+{
+  "generated_at": "2026-11-15T21:36:03.963779-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 5,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 5,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 5,
+      "execution_accuracy_denominator": 5,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.95137,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-332",
+          "question": "¿Cuántas sesiones cerradas tuvo cada caja durante octubre de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-10-01' AS DATE) AND cs.closed_at < CAST('2026-11-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja Principal - Salón",
+              "sesiones": 1
+            },
+            {
+              "caja": "Caja de Prueba",
+              "sesiones": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja Principal - Salón",
+              "sesiones_cerradas": "1"
+            },
+            {
+              "caja": "Caja de Prueba",
+              "sesiones_cerradas": "1"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.761023,
+          "elapsed_seconds": 4.684,
+          "sql_execution_seconds": 2.737569,
+          "gold_execution_seconds": 1.58548,
+          "token_usage": {
+            "prompt_tokens": 3514,
+            "completion_tokens": 102,
+            "total_tokens": 3616
+          }
+        },
+        {
+          "id": "TEST-333",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, en las sesiones cerradas durante octubre de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja Principal - Salón",
+              "ventas_efectivo": "50.00",
+              "ventas_otros": "9.90"
+            },
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros": "420.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja Principal - Salón",
+              "ventas_efectivo": "50.00",
+              "ventas_otros": "9.90"
+            },
+            {
+              "caja": "Caja de Prueba",
+              "ventas_efectivo": "850.00",
+              "ventas_otros": "420.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.995827,
+          "elapsed_seconds": 2.528,
+          "sql_execution_seconds": 1.530388,
+          "gold_execution_seconds": 1.517642,
+          "token_usage": {
+            "prompt_tokens": 3529,
+            "completion_tokens": 141,
+            "total_tokens": 3670
+          }
+        },
+        {
+          "id": "TEST-334",
+          "question": "¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-10-01' AND cs.closed_at < DATE '2026-11-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS suma_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [
+            {
+              "diferencia": "-5.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "suma_diferencias": "-5.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.612,
+          "sql_execution_seconds": 1.564406,
+          "gold_execution_seconds": 1.60467,
+          "token_usage": {
+            "prompt_tokens": 3520,
+            "completion_tokens": 97,
+            "total_tokens": 3617
+          }
+        },
+        {
+          "id": "TEST-335",
+          "question": "¿Cuánto dinero se movió por tipo de movimiento de caja en octubre de 2026?",
+          "expected_sql": "SELECT cm.type, SUM(cm.amount) AS total FROM cash_movement cm WHERE cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' GROUP BY cm.type ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id WHERE cs.opened_at >= CAST('2026-10-01' AS DATE) AND cs.opened_at < CAST('2026-11-01' AS DATE) GROUP BY cm.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "INCOME",
+              "total": "120.00"
+            },
+            {
+              "type": "EXPENSE",
+              "total": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo_movimiento": "EXPENSE",
+              "total_movido": "45.00"
+            },
+            {
+              "tipo_movimiento": "INCOME",
+              "total_movido": "120.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.548,
+          "sql_execution_seconds": 1.621639,
+          "gold_execution_seconds": 1.628914,
+          "token_usage": {
+            "prompt_tokens": 3517,
+            "completion_tokens": 95,
+            "total_tokens": 3612
+          }
+        },
+        {
+          "id": "TEST-336",
+          "question": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en octubre de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja, COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cs.closed_at >= CAST('2026-10-01' AS DATE) AND cs.closed_at < CAST('2026-11-01' AS DATE) GROUP BY cr.name LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "egresos": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "total_egresos": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.514,
+          "sql_execution_seconds": 1.539862,
+          "gold_execution_seconds": 1.613605,
+          "token_usage": {
+            "prompt_tokens": 3529,
+            "completion_tokens": 125,
+            "total_tokens": 3654
+          }
+        }
+      ]
+    }
+  ]
+}

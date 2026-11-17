@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-11-10T22:18:46.468699-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 3,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 1,
+      "execution_error_count": 2,
+      "execution_accuracy_count": 0,
+      "execution_accuracy_denominator": 3,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-052",
+          "question": "¿Cuántas sesiones cerradas tuvo cada caja en febrero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-02-01' AND cs.closed_at < DATE '2026-03-01' GROUP BY cr.id, cr.name ORDER BY sesiones DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.491,
+          "sql_execution_seconds": 2.508659,
+          "gold_execution_seconds": 2.395835,
+          "token_usage": {
+            "prompt_tokens": 3126,
+            "completion_tokens": 125,
+            "total_tokens": 3251
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        },
+        {
+          "id": "TEST-053",
+          "question": "¿Cuánto se registró en ventas en efectivo y otros medios por caja en febrero de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS ventas_otros FROM cash_session cs JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-02-01' AND cs.closed_at < DATE '2026-03-01' GROUP BY cr.id, cr.name ORDER BY caja LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(cs.sales_cash), 0) AS total_ventas_efectivo, COALESCE(SUM(cs.sales_other), 0) AS total_ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-02-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-03-01 00:00:00' AS TIMESTAMP) LIMIT 50",
+          "gold_rows": [],
+          "generated_rows": [
+            {
+              "total_ventas_efectivo": "850.00",
+              "total_ventas_otros": "420.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.086,
+          "sql_execution_seconds": 2.399957,
+          "gold_execution_seconds": 2.399178,
+          "token_usage": {
+            "prompt_tokens": 3130,
+            "completion_tokens": 120,
+            "total_tokens": 3250
+          }
+        },
+        {
+          "id": "TEST-054",
+          "question": "¿Cuál fue la diferencia total de las sesiones cerradas de caja en febrero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= DATE '2026-02-01' AND cs.closed_at < DATE '2026-03-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "diferencia": "0"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 4.137,
+          "sql_execution_seconds": 2.657379,
+          "gold_execution_seconds": 2.615241,
+          "token_usage": {
+            "prompt_tokens": 3130,
+            "completion_tokens": 103,
+            "total_tokens": 3233
+          },
+          "error": "SQLEXEC_FAILED/INVALID_TEXT_REPRESENTATION"
+        }
+      ]
+    }
+  ]
+}
