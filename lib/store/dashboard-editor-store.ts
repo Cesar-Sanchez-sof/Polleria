@@ -406,13 +406,15 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         metricKey: "",
         x: 0,
         y: maxY,
-        w: 4,
-        h: 2,
+        w: 6,
+        h: 1,
         config: {
           ...baseConfig,
           visualType: "card",
           content: "Escribe un texto aquí...",
-          fontSize: 14,
+          fontSize: 22,
+          bold: true,
+          letterSpacing: "normal",
         },
       };
       const nextWidgets = [...currentWidgets, newWidget];

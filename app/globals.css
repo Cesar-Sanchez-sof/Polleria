@@ -294,3 +294,15 @@ main > :last-child {
     font-family: monospace, "Courier New", Courier, monospace !important;
   }
 }
+
+/* ==================================================================== */
+/* React Grid Layout: Placeholder estilizado y suave durante Drag & Drop */
+/* ==================================================================== */
+.react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.12) !important;
+  border: 2px dashed hsl(var(--primary) / 0.5) !important;
+  border-radius: 0.75rem !important; /* rounded-xl */
+  opacity: 1 !important;
+  transition: transform 120ms ease, width 120ms ease, height 120ms ease !important;
+  z-index: 2 !important;
+}

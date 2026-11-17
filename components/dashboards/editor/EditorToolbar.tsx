@@ -29,6 +29,8 @@ import {
   ZoomIn,
   ZoomOut,
   Table2,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +56,7 @@ import {
 import { DynamicVisual } from "../visuals/DynamicVisual";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import { useVisualData } from "@/lib/hooks/use-visual-data";
+import { uploadDashboardImageAction } from "@/app/dashboards/config/actions";
 import { cn } from "@/lib/utils";
 
 interface EditorToolbarProps {
@@ -209,6 +212,34 @@ function InsertImageDialog({
   onInsert: (url: string) => void;
 }) {
   const [url, setUrl] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await uploadDashboardImageAction(formData);
+      if (res.success && res.url) {
+        onInsert(res.url);
+        setUrl("");
+        onOpenChange(false);
+        toast.success("Imagen subida a S3 exitosamente");
+      } else {
+        toast.error(res.error || "Error al subir la imagen");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error al conectar con S3");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleInsert = () => {
     if (!url.trim()) return;
@@ -227,17 +258,46 @@ function InsertImageDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3 pt-1">
-          <label className="text-xs font-medium text-muted-foreground">URL de la imagen</label>
+          {/* Opción 1: Subir desde archivo local a S3 */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full h-9 gap-2 text-xs font-medium cursor-pointer shadow-xs border-dashed border-primary/40 hover:border-primary hover:bg-primary/5"
+          >
+            {isUploading ? (
+              <Loader2 className="size-4 animate-spin text-primary" />
+            ) : (
+              <Upload className="size-4 text-primary" />
+            )}
+            <span>{isUploading ? "Subiendo a S3..." : "Subir archivo a S3"}</span>
+          </Button>
+
+          <div className="flex items-center gap-2 my-0.5">
+            <Separator className="flex-1" />
+            <span className="text-[10px] text-muted-foreground uppercase">O pegar URL</span>
+            <Separator className="flex-1" />
+          </div>
+
+          {/* Opción 2: URL */}
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleInsert(); }}
             placeholder="https://ejemplo.com/imagen.png"
-            className="w-full h-9 text-xs rounded-md border border-input bg-background px-3 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            autoFocus
+            className="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-1">
             <Button
               variant="outline"
               size="sm"

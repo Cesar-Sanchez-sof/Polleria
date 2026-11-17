@@ -10,6 +10,8 @@ import { VISUAL_RENDERERS, BarColumnRenderer } from "./renderers";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import { resolveCrossFilterDateRange } from "@/lib/dashboards/date-utils";
 import { useShareMode } from "@/components/dashboards/share-mode-context";
+import { resolveDashboardImageUrl } from "@/lib/dashboards/image-utils";
+import { cn } from "@/lib/utils";
 
 interface DynamicVisualProps {
   config: WidgetConfig;
@@ -47,44 +49,158 @@ export function DynamicVisual({
   if ((visualType as string) === "text") {
     const content = (config as Record<string, unknown>).content || "";
     const rawFontSize = (config as Record<string, unknown>).fontSize;
-    const fontSize =
+    const fontSizeNum =
       typeof rawFontSize === "number"
-        ? `${rawFontSize}px`
+        ? rawFontSize
         : typeof rawFontSize === "string"
-          ? rawFontSize
-          : "14px";
+          ? parseInt(rawFontSize, 10) || 14
+          : 14;
+    const bold = Boolean((config as Record<string, unknown>).bold);
+    const italic = Boolean((config as Record<string, unknown>).italic);
+    const underline = Boolean((config as Record<string, unknown>).underline);
+    const align = ((config as Record<string, unknown>).align || "left") as "left" | "center" | "right";
+    const fontFamily = String((config as Record<string, unknown>).fontFamily || "Inter");
+    const color = String((config as Record<string, unknown>).color || "");
+    const subtitle = String((config as Record<string, unknown>).subtitle || "");
+    const letterSpacing = String((config as Record<string, unknown>).letterSpacing || "normal");
+    const textTransform = String((config as Record<string, unknown>).textTransform || "none");
+    const backgroundVariant = String((config as Record<string, unknown>).backgroundVariant || "transparent");
+    const verticalAlign = String((config as Record<string, unknown>).verticalAlign || "center");
+
+    const getFontFamilyCss = (font: string) => {
+      switch (font.toLowerCase()) {
+        case "serif":
+        case "playfair":
+          return "'Playfair Display', Georgia, 'Times New Roman', serif";
+        case "roboto":
+          return "'Roboto', sans-serif";
+        case "arial":
+          return "Arial, Helvetica, sans-serif";
+        case "montserrat":
+          return "'Montserrat', sans-serif";
+        case "inter":
+        default:
+          return "var(--font-sans), Inter, sans-serif";
+      }
+    };
+
+    const getLetterSpacingCss = (ls: string) => {
+      switch (ls) {
+        case "wide": return "0.05em";
+        case "wider": return "0.12em";
+        case "widest": return "0.2em";
+        case "normal":
+        default: return "normal";
+      }
+    };
+
+    const getBackgroundVariantClass = (bv: string) => {
+      switch (bv) {
+        case "card":
+          return "bg-card border border-border/80 shadow-xs rounded-xl";
+        case "accent":
+          return "bg-primary/5 border border-primary/20 rounded-xl";
+        case "gradient":
+          return "bg-gradient-to-r from-primary/10 via-amber-500/10 to-transparent border border-primary/20 rounded-xl";
+        case "transparent":
+        default:
+          return "bg-transparent border-none shadow-none";
+      }
+    };
+
+    const lineHeight = fontSizeNum >= 32 ? 1.15 : fontSizeNum >= 20 ? 1.3 : 1.5;
+    const paddingV = Math.max(4, Math.round(fontSizeNum * 0.2));
+    const paddingH = Math.max(8, Math.round(fontSizeNum * 0.3));
+
     return (
-      <div onClick={onSelect} className="w-full h-full p-4 flex flex-col justify-start overflow-auto select-text">
-        {content ? (
-          <div
-            style={{ fontSize }}
-            className="whitespace-pre-wrap break-words text-foreground font-normal leading-relaxed"
-          >
-            {String(content)}
-          </div>
-        ) : (
-          <div className="text-muted-foreground/50 italic text-sm">Escribe un texto aquí...</div>
+      <div
+        onClick={onSelect}
+        className={cn(
+          "w-full h-full flex overflow-hidden select-text transition-all",
+          verticalAlign === "top" ? "items-start" : verticalAlign === "bottom" ? "items-end" : "items-center",
+          getBackgroundVariantClass(backgroundVariant)
         )}
+      >
+        <div
+          style={{
+            fontSize: `${fontSizeNum}px`,
+            lineHeight,
+            fontWeight: bold ? 700 : 400,
+            fontStyle: italic ? "italic" : "normal",
+            textDecoration: underline ? "underline" : "none",
+            textAlign: align,
+            fontFamily: getFontFamilyCss(fontFamily),
+            letterSpacing: getLetterSpacingCss(letterSpacing),
+            textTransform: textTransform as any,
+            color: color || undefined,
+            width: "100%",
+            padding: `${paddingV}px ${paddingH}px`,
+          }}
+          className="break-words select-text"
+        >
+          {content ? (
+            <div>
+              <div className="leading-tight">{String(content)}</div>
+              {subtitle && (
+                <div
+                  className="text-xs text-muted-foreground mt-1 font-normal tracking-normal normal-case"
+                  style={{ textTransform: "none", letterSpacing: "normal" }}
+                >
+                  {subtitle}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span
+              className="text-muted-foreground/40 text-xs italic"
+            >
+              Escribe un texto aquí...
+            </span>
+          )}
+        </div>
       </div>
     );
   }
 
   if ((visualType as string) === "divider") {
+    const thickness = Number((config as Record<string, unknown>).thickness ?? 1);
+    const lineStyle = String((config as Record<string, unknown>).lineStyle ?? "solid");
+    const color = String((config as Record<string, unknown>).color ?? "#cbd5e1");
+
     return (
-      <div onClick={onSelect} className="w-full h-full flex items-center px-2 py-1">
-        <div className="w-full border-t border-border/80" />
+      <div onClick={onSelect} className="w-full h-full flex items-center px-2 py-1 bg-transparent border-none shadow-none">
+        <div
+          className="w-full"
+          style={{
+            borderTopWidth: `${thickness}px`,
+            borderTopStyle: lineStyle as any,
+            borderTopColor: color,
+          }}
+        />
       </div>
     );
   }
 
   if ((visualType as string) === "image") {
-    const content = (config as Record<string, unknown>).content || "";
+    const rawContent = (config as Record<string, unknown>).content || "";
+    const resolvedSrc = resolveDashboardImageUrl(String(rawContent));
+    const objectFit = ((config as Record<string, unknown>).objectFit || "contain") as "contain" | "cover";
+    const borderRadius = Number((config as Record<string, unknown>).borderRadius ?? 8);
+
     return (
-      <div onClick={onSelect} className="w-full h-full p-2 flex items-center justify-center overflow-hidden">
-        {content ? (
-          <img src={String(content)} alt="Imagen" className="max-w-full max-h-full object-contain pointer-events-none rounded-md" />
+      <div onClick={onSelect} className="w-full h-full p-1 flex items-center justify-center overflow-hidden bg-transparent border-none shadow-none">
+        {resolvedSrc ? (
+          <img
+            src={resolvedSrc}
+            alt="Imagen"
+            style={{
+              objectFit,
+              borderRadius: `${borderRadius}px`,
+            }}
+            className="w-full h-full pointer-events-none rounded-md"
+          />
         ) : (
-          <div className="text-xs text-muted-foreground/60 border border-dashed border-border rounded p-4">Sin imagen seleccionada</div>
+          <div className="text-xs text-muted-foreground/40 border border-dashed border-border/60 rounded p-4">Sin imagen seleccionada</div>
         )}
       </div>
     );

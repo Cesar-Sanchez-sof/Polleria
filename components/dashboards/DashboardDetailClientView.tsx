@@ -152,10 +152,20 @@ export function DashboardDetailClientView({
                 const rowStart = (widget.y ?? 0) + 1;
                 const rowSpan = widget.h ?? 2;
 
+                const isDesignWidget =
+                  widget.type === "text" ||
+                  widget.type === "divider" ||
+                  widget.type === "image";
+
                 return (
                   <div
                     key={widget.id}
-                    className="rounded-xl border border-border bg-card shadow-xs overflow-hidden flex flex-col"
+                    className={cn(
+                      "rounded-xl overflow-hidden flex flex-col",
+                      isDesignWidget
+                        ? "bg-transparent border-none shadow-none"
+                        : "border border-border bg-card shadow-xs"
+                    )}
                     style={{
                       gridColumn: `${colStart} / span ${colSpan}`,
                       gridRow: `${rowStart} / span ${rowSpan}`,

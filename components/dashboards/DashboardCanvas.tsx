@@ -54,6 +54,7 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const isInteractingRef = useRef(false);
 
   // Medición dinámica de ancho para react-grid-layout
   const { width, containerRef, mounted } = useContainerWidth();
@@ -88,53 +89,57 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
     toast.success("Nuevo visual añadido. Selecciona un tipo de visual y arrastra campos.");
   };
 
-  // Sincronizar cambios de posición y tamaño en tiempo real mientras se mueve
-  const handleLayoutChange = (
-    newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]
+  // Manejador atómico de finalización de drag o resize con soporte de grupos
+  const handleCommitMove = (
+    newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[],
+    movedItem?: { i: string; x: number; y: number } | null
   ) => {
-    // 1. Detectar si un widget con groupId se movió
-    let groupDelta: { groupId: string; dx: number; dy: number; sourceId: string } | null = null;
-    for (const item of newLayout) {
-      const currentWidget = widgets.find((w) => w.id === item.i);
-      if (currentWidget && (currentWidget.config as Record<string, unknown>).groupId) {
-        const dx = item.x - currentWidget.x;
-        const dy = item.y - currentWidget.y;
-        if (dx !== 0 || dy !== 0) {
-          groupDelta = {
-            groupId: (currentWidget.config as Record<string, unknown>).groupId as string,
-            dx,
-            dy,
-            sourceId: item.i,
-          };
-          break;
-        }
+    isInteractingRef.current = false;
+    const currentWidgets = useDashboardEditorStore.getState().widgets;
+    const currentWidget = movedItem ? currentWidgets.find((w) => w.id === movedItem.i) : null;
+    const groupId = (currentWidget?.config as Record<string, unknown>)?.groupId;
+
+    let mergedLayout = currentWidgets.map((w) => {
+      const fromNew = newLayout.find((l) => l.i === w.id);
+      return fromNew || { i: w.id, x: w.x, y: w.y, w: w.w, h: w.h };
+    });
+
+    // Si el widget pertenece a un grupo, mover a todos los del grupo con el mismo delta
+    if (groupId && movedItem && currentWidget) {
+      const dx = movedItem.x - currentWidget.x;
+      const dy = movedItem.y - currentWidget.y;
+      if (dx !== 0 || dy !== 0) {
+        mergedLayout = mergedLayout.map((item) => {
+          const w = currentWidgets.find((cw) => cw.id === item.i);
+          if (w && w.id !== movedItem.i && (w.config as Record<string, unknown>)?.groupId === groupId) {
+            const newX = Math.max(0, Math.min(12 - item.w, item.x + dx));
+            const newY = Math.max(0, item.y + dy);
+            return { ...item, x: newX, y: newY };
+          }
+          return item;
+        });
       }
     }
 
-    // 2. Actualizar posiciones del layout actual
-    newLayout.forEach((item) => {
-      updateWidgetLayout(
-        item.i,
-        {
-          x: item.x,
-          y: item.y,
-          w: item.w,
-          h: item.h,
-        },
-        false
-      );
-    });
+    commitLayoutChange(mergedLayout);
+  };
 
-    // 3. Si se movió un widget agrupado, mover a todos los del mismo grupo con el mismo delta
-    if (groupDelta) {
-      const { groupId, dx, dy, sourceId } = groupDelta;
-      widgets.forEach((w) => {
-        if (w.id !== sourceId && (w.config as Record<string, unknown>).groupId === groupId) {
-          const newX = Math.max(0, Math.min(12 - w.w, w.x + dx));
-          const newY = Math.max(0, w.y + dy);
-          updateWidgetLayout(w.id, { x: newX, y: newY, w: w.w, h: w.h }, false);
-        }
+  // Sincronizar pasivamente cuando NO hay interacción activa de arrastre o redimensión
+  const handleLayoutChange = (
+    newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]
+  ) => {
+    if (isInteractingRef.current) return;
+    const currentWidgets = useDashboardEditorStore.getState().widgets;
+    const hasAnyChange = newLayout.some((item) => {
+      const current = currentWidgets.find((w) => w.id === item.i);
+      return current && (current.x !== item.x || current.y !== item.y || current.w !== item.w || current.h !== item.h);
+    });
+    if (hasAnyChange) {
+      const mergedLayout = currentWidgets.map((w) => {
+        const fromNew = newLayout.find((l) => l.i === w.id);
+        return fromNew || { i: w.id, x: w.x, y: w.y, w: w.w, h: w.h };
       });
+      commitLayoutChange(mergedLayout);
     }
   };
 
@@ -183,14 +188,22 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
   const layoutItems = widgets.map((w) => {
     const isLocked = Boolean(w.config.layout?.locked);
     const isStatic = isLocked || isPreviewMode;
+    const isDesign =
+      w.type === "text" ||
+      w.type === "divider" ||
+      w.type === "image" ||
+      (w.config as Record<string, unknown>)?.visualType === "text" ||
+      (w.config as Record<string, unknown>)?.visualType === "divider" ||
+      (w.config as Record<string, unknown>)?.visualType === "image";
+
     return {
       i: w.id,
       x: w.x ?? 0,
       y: w.y ?? 0,
-      w: w.w ?? 4,
-      h: w.h ?? 2,
-      minW: 2,
-      minH: 2,
+      w: w.w ?? (isDesign && w.type === "divider" ? 12 : 4),
+      h: w.h ?? (isDesign ? 1 : 2),
+      minW: isDesign ? 1 : 2,
+      minH: isDesign ? 1 : 2,
       static: isStatic,
       isDraggable: !isStatic,
       isResizable: !isStatic,
@@ -288,30 +301,28 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
           {/* Lienzo de Cuadrícula con scroll propio */}
           <div
             ref={canvasRef}
-            className={cn(
-              "flex-1 p-6 overflow-y-auto transition-all",
-              isGridVisible && "bg-grid-active"
-            )}
-            style={
-              isGridVisible
-                ? {
-                    backgroundImage: `
-                      linear-gradient(to right, rgba(148, 163, 184, 0.18) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(148, 163, 184, 0.18) 1px, transparent 1px)
-                    `,
-                    backgroundSize: `calc((100% - 16px) / 12) 96px`,
-                    backgroundPosition: `16px 16px`,
-                  }
-                : undefined
-            }
+            className="flex-1 p-6 overflow-y-auto"
           >
             <CrossFilterChip />
             <div
               ref={containerRef}
-              className="w-full min-h-[500px] transition-transform origin-top-left"
+              className={cn(
+                "w-full min-h-[500px] origin-top-left rounded-xl transition-all",
+                isGridVisible && "bg-grid-active"
+              )}
               style={{
                 transform: `scale(${zoom / 100})`,
                 width: zoom < 100 ? `${100 / (zoom / 100)}%` : "100%",
+                ...(isGridVisible
+                  ? {
+                      backgroundImage: `
+                        linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(148, 163, 184, 0.16) 1px, transparent 1px)
+                      `,
+                      backgroundSize: `calc((100% - 16px) / 12) 96px`,
+                      backgroundPosition: `16px 16px`,
+                    }
+                  : undefined),
               }}
               id="dashboard-canvas-grid"
             >
@@ -344,30 +355,28 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                     cols: 12,
                     rowHeight: 80,
                     margin: [16, 16],
+                    containerPadding: [16, 16],
                   }}
                   dragConfig={{
                     enabled: !isPreviewMode,
                     handle: ".drag-handle",
+                    bounded: true,
                   }}
                   resizeConfig={{
                     enabled: !isPreviewMode,
                   }}
                   onLayoutChange={handleLayoutChange}
-                  onDragStop={(newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => {
-                    const currentWidgets = useDashboardEditorStore.getState().widgets;
-                    const mergedLayout = currentWidgets.map((w) => {
-                      const fromNew = newLayout.find((l) => l.i === w.id);
-                      return fromNew || { i: w.id, x: w.x, y: w.y, w: w.w, h: w.h };
-                    });
-                    commitLayoutChange(mergedLayout);
+                  onDragStart={() => {
+                    isInteractingRef.current = true;
                   }}
-                  onResizeStop={(newLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]) => {
-                    const currentWidgets = useDashboardEditorStore.getState().widgets;
-                    const mergedLayout = currentWidgets.map((w) => {
-                      const fromNew = newLayout.find((l) => l.i === w.id);
-                      return fromNew || { i: w.id, x: w.x, y: w.y, w: w.w, h: w.h };
-                    });
-                    commitLayoutChange(mergedLayout);
+                  onDragStop={(newLayout: readonly any[], _oldItem: any, newItem: any) => {
+                    handleCommitMove(newLayout, newItem);
+                  }}
+                  onResizeStart={() => {
+                    isInteractingRef.current = true;
+                  }}
+                  onResizeStop={(newLayout: readonly any[], _oldItem: any, newItem: any) => {
+                    handleCommitMove(newLayout, newItem);
                   }}
                 >
                   {widgets.map((widget) => {
@@ -376,6 +385,22 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                       !isPreviewMode;
                     const isLocked = Boolean(widget.config.layout?.locked);
                     const groupId = (widget.config as Record<string, unknown>).groupId;
+                    const isDesignWidget =
+                      widget.type === "text" ||
+                      widget.type === "divider" ||
+                      widget.type === "image" ||
+                      (widget.config as Record<string, unknown>)?.visualType === "text" ||
+                      (widget.config as Record<string, unknown>)?.visualType === "divider" ||
+                      (widget.config as Record<string, unknown>)?.visualType === "image";
+
+                    const badgeLabel =
+                      widget.type === "text" || (widget.config as Record<string, unknown>)?.visualType === "text"
+                        ? "Texto"
+                        : widget.type === "divider" || (widget.config as Record<string, unknown>)?.visualType === "divider"
+                          ? "Línea"
+                          : widget.type === "image" || (widget.config as Record<string, unknown>)?.visualType === "image"
+                            ? "Imagen"
+                            : widget.config.visualType || widget.type;
 
                     return (
                       <div
@@ -390,15 +415,23 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                           }
                         }}
                         className={cn(
-                          "group rounded-xl border bg-card shadow-xs transition-all flex flex-col overflow-hidden",
-                          isSelected
-                            ? "border-primary ring-2 ring-primary/20 shadow-md"
-                            : "border-border hover:border-border/80"
+                          "group rounded-xl transition-all flex flex-col overflow-hidden",
+                          isDesignWidget
+                            ? "bg-transparent border-none shadow-none"
+                            : "border border-border bg-card shadow-xs hover:border-border/80",
+                          isSelected && (isDesignWidget ? "ring-1 ring-primary/40 rounded-lg" : "ring-2 ring-primary/40 shadow-md")
                         )}
                       >
                         {/* Cabecera del Widget con Drag Handle, Bloqueo y Botón de Borrar (solo en edición) */}
                         {!isPreviewMode && (
-                          <div className="widget-drag-header h-7 px-2.5 bg-muted/40 border-b border-border/60 flex items-center justify-between shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                          <div
+                            className={cn(
+                              "widget-drag-header h-7 px-2.5 flex items-center justify-between shrink-0 transition-opacity",
+                              isDesignWidget
+                                ? "opacity-0 group-hover:opacity-100 bg-background/90 backdrop-blur-xs border-b border-border/40 rounded-t-lg"
+                                : "opacity-40 group-hover:opacity-100 bg-muted/40 border-b border-border/60"
+                            )}
+                          >
                             <div
                               className={cn(
                                 "drag-handle flex items-center gap-1.5 text-muted-foreground text-xs py-1",
@@ -412,7 +445,7 @@ export function DashboardCanvas({ dashboard, isShareMode = false }: DashboardCan
                                 variant="outline"
                                 className="text-[9px] uppercase font-mono px-1 py-0 h-4 font-semibold text-muted-foreground bg-background/50"
                               >
-                                {widget.config.visualType || widget.type}
+                                {badgeLabel}
                               </Badge>
                               {Boolean(groupId) && (
                                 <Badge

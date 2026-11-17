@@ -87,6 +87,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|images|Los_Betos_Logo.jpg|balance.png|estado_resultados.png|libro_mayor.png|restauranteCaja.html|restauranteCocina.html|api/auth/login|api/auth/recuperar|api/branding|api/webhooks).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|Los_Betos_Logo.jpg|balance.png|estado_resultados.png|libro_mayor.png|restauranteCaja.html|restauranteCocina.html|api/auth/login|api/auth/recuperar|api/branding|api/webhooks|api/storage).*)",
   ],
 };

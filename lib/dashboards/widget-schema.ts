@@ -418,7 +418,22 @@ export const widgetConfigSchema = z
     layout: widgetLayoutConfigSchema.optional(),
     content: z.string().optional(),
     fontSize: z.union([z.number(), z.string()]).optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    align: z.enum(["left", "center", "right"]).optional(),
+    fontFamily: z.string().optional(),
+    color: z.string().optional(),
+    thickness: z.number().optional(),
+    lineStyle: z.enum(["solid", "dotted", "dashed"]).optional(),
+    objectFit: z.enum(["contain", "cover"]).optional(),
+    borderRadius: z.number().optional(),
     groupId: z.string().optional(),
+    subtitle: z.string().optional(),
+    letterSpacing: z.enum(["normal", "wide", "wider", "widest"]).optional(),
+    textTransform: z.enum(["none", "uppercase", "lowercase", "capitalize"]).optional(),
+    backgroundVariant: z.enum(["transparent", "card", "accent", "gradient"]).optional(),
+    verticalAlign: z.enum(["top", "center", "bottom"]).optional(),
   })
   .passthrough();
 
