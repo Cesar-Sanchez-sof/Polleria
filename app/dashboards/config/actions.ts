@@ -19,6 +19,8 @@ import {
   type UpdateDashboardData,
   type DashboardWidgetInput,
 } from "@/lib/services/settings/dashboard.service";
+import { currentSession } from "@/lib/auth/current-session";
+import { getDashboardAccess } from "@/lib/services/dashboards/dashboard-access.service";
 
 // ============================================================================
 // Server Actions para Secciones
@@ -179,6 +181,12 @@ export async function updateDashboardWidgetsAction(
   widgetsData: DashboardWidgetInput[]
 ) {
   try {
+    // Verificar autenticación y permiso de edición
+    const session = await currentSession();
+    if (!session) return { success: false, error: "No autenticado" };
+    const access = await getDashboardAccess(session.userId, dashboardId);
+    if (!access.canEdit) return { success: false, error: "Sin permiso para editar este tablero" };
+
     const { z } = await import("zod");
     const { widgetConfigSchema } = await import("@/lib/dashboards/widget-schema");
 

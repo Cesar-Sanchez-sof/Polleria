@@ -58,6 +58,25 @@ export interface VisualDataResult {
 }
 
 /**
+ * Fetcher GET para el endpoint seguro de datos en modo share.
+ * No envía config desde el cliente — la config se lee de la BD en el servidor.
+ */
+async function getWidgetFetcher(url: string): Promise<NormalizedQueryResult> {
+  const res = await fetch(url);
+
+  if (res.status === 403) {
+    throw new Error("Sin permiso para ver estos datos");
+  }
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => null);
+    throw new Error(errorBody?.error || `Error inesperado al cargar datos (${res.status}).`);
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+/**
  * Fetcher para la API de consulta analítica estilo Power BI.
  */
 async function queryFetcher([url, queryData]: [string, WidgetDataConfig]): Promise<NormalizedQueryResult> {
@@ -89,10 +108,16 @@ async function queryFetcher([url, queryData]: [string, WidgetDataConfig]): Promi
 
 /**
  * Hook cliente para consultar datos analíticos de un visual con caché SWR.
+ *
+ * @param dataConfig - Configuración del widget (puede ser null/undefined si aún no está configurado)
+ * @param widgetId - ID del widget (para excluir como origen de cross-filter)
+ * @param options.dashboardId - ID del dashboard (requerido para modo share)
+ * @param options.isShareMode - Si true, usa el endpoint seguro GET /api/dashboards/[id]/widgets/[widgetId]/data
  */
 export function useVisualData(
   dataConfig?: WidgetDataConfig | null,
-  widgetId?: string
+  widgetId?: string,
+  options?: { dashboardId?: string; isShareMode?: boolean }
 ): VisualDataResult {
   const crossFilters = useDashboardEditorStore((s) => s.crossFilters);
   const { catalog } = useDashboardCatalog();
@@ -204,11 +229,40 @@ export function useVisualData(
       resolvedConfig.values.length > 0
   );
 
+  // Modo share: usa endpoint GET seguro en vez del POST genérico
+  const isShareMode = Boolean(options?.isShareMode);
+  const shareDashboardId = options?.dashboardId;
+  const shareEndpointUrl =
+    isShareMode && shareDashboardId && widgetId
+      ? `/api/dashboards/${shareDashboardId}/widgets/${widgetId}/data`
+      : null;
+
   // La clave de SWR usa el payload con el filtro ya resuelto
-  const key = isValid ? (["/api/dashboards/query", resolvedConfig] as [string, WidgetDataConfig]) : null;
+  // En modo share: clave GET simple; en modo normal: clave [url, config]
+  const key = hasEmptyDateRange
+    ? null
+    : isShareMode && shareEndpointUrl
+    ? shareEndpointUrl
+    : isValid
+    ? (["/api/dashboards/query", resolvedConfig] as [string, WidgetDataConfig])
+    : null;
+
+  // SWR en modo share (GET sin body)
+  const { data: shareData, error: shareError, isLoading: shareLoading, isValidating: shareValidating, mutate: shareMutate } = useSWR<NormalizedQueryResult, Error>(
+    isShareMode && shareEndpointUrl && !hasEmptyDateRange ? shareEndpointUrl : null,
+    getWidgetFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+      shouldRetryOnError: false,
+    }
+  );
+
+  // SWR en modo normal (POST con config)
+  const normalKey = !isShareMode && isValid ? (["/api/dashboards/query", resolvedConfig] as [string, WidgetDataConfig]) : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<NormalizedQueryResult, Error>(
-    key,
+    normalKey,
     queryFetcher,
     {
       revalidateOnFocus: false,
@@ -250,13 +304,25 @@ export function useVisualData(
   );
 
   return {
-    data: hasEmptyDateRange ? emptyDataResult : (data || null),
+    data: hasEmptyDateRange
+      ? emptyDataResult
+      : isShareMode
+      ? (shareData || null)
+      : (data || null),
     previousData: previousData || null,
-    isLoading: hasEmptyDateRange ? false : (isValid ? isLoading : false),
-    isValidating,
-    error: hasEmptyDateRange ? null : (error ? error.message : null),
-    isTruncated: Boolean(data?.meta?.truncated),
-    mutate,
+    isLoading: hasEmptyDateRange
+      ? false
+      : isShareMode
+      ? shareLoading
+      : (isValid ? isLoading : false),
+    isValidating: isShareMode ? shareValidating : isValidating,
+    error: hasEmptyDateRange
+      ? null
+      : isShareMode
+      ? (shareError ? shareError.message : null)
+      : (error ? error.message : null),
+    isTruncated: Boolean(isShareMode ? shareData?.meta?.truncated : data?.meta?.truncated),
+    mutate: isShareMode ? shareMutate : mutate,
     hasIncompatibleCrossFilter: false,
     hasCrossFilterApplied: (() => {
       if (!crossFilters || !dataConfig?.dataset) return false;

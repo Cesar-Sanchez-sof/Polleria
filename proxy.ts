@@ -17,6 +17,20 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
+/**
+ * Sanitiza la callbackUrl para evitar open-redirect:
+ * - Debe empezar con `/`
+ * - NO puede empezar con `//`
+ * - NO puede contener `:` (evita esquemas externos como `https:` o `//evil.com`)
+ * Si falla, devuelve `/share` como fallback.
+ */
+function sanitizeCallbackUrl(url: string): string {
+  if (url.startsWith("/") && !url.startsWith("//") && !url.includes(":")) {
+    return url;
+  }
+  return "/share";
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const rawCookie = request.cookies.get(SESSION_COOKIE)?.value;
@@ -53,7 +67,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirección perimetral a /login para cualquier página protegida
-  const redirectResponse = NextResponse.redirect(new URL("/login", request.url));
+  const loginUrl = new URL("/login", request.url);
+  if (pathname.startsWith("/share")) {
+    loginUrl.searchParams.set("callbackUrl", sanitizeCallbackUrl(pathname));
+  }
+  const redirectResponse = NextResponse.redirect(loginUrl);
   
   // Si traía una cookie inválida o expirada, se purga del navegador
   if (rawCookie) {

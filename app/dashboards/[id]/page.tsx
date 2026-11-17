@@ -1,6 +1,8 @@
 import React from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { currentSession } from "@/lib/auth/current-session";
+import { getDashboardAccess } from "@/lib/services/dashboards/dashboard-access.service";
 import {
   LayoutDashboard,
   Sliders,
@@ -36,6 +38,13 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
   ]);
 
   if (!dashboard) {
+    notFound();
+  }
+
+  const session = await currentSession();
+  if (!session) redirect('/login');
+  const access = await getDashboardAccess(session.userId, id);
+  if (!access.canView) {
     notFound();
   }
 
@@ -88,6 +97,7 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
 
           {/* Acciones de Lectura / Navegar a Modo Edición */}
           <div className="flex items-center gap-2">
+            {access.canEdit && (
             <Link href={`/dashboards/${dashboard.id}/edit`}>
               <Button
                 size="sm"
@@ -97,6 +107,7 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
                 <span>Editar diseño</span>
               </Button>
             </Link>
+            )}
           </div>
         </header>
 
@@ -120,12 +131,14 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
                 gráficos de ventas y tablas de control.
               </p>
 
+              {access.canEdit && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button size="sm" className="h-8 gap-1.5 text-xs font-medium cursor-pointer shadow-xs">
                   <Sliders className="size-3.5" />
                   <span>Configurar Widgets</span>
                 </Button>
               </Link>
+              )}
             </div>
           ) : (
             /* Renderizado Estático usando 12 Columnas en CSS Grid */
