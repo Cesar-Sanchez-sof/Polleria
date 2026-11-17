@@ -189,6 +189,9 @@ export const USE_CASES: Record<string, UseCaseEntry> = {
   "GET /api/assistant": { uses: ["Recuperar el historial de la conversación con el asistente financiero."] },
   "POST /api/assistant": { uses: ["Preguntar «¿cuánto vendimos ayer en pollo a la brasa?» y recibir la respuesta con cifras."] },
   "POST /api/assistant/transcribe": { uses: ["El dueño dicta su pregunta por voz y se transcribe a texto."] },
+
+  // ---------------- Almacenamiento (proxy de imágenes S3) ----------------
+  "GET /api/storage/{...key}": { tag: "Settings", uses: ["El editor de tableros carga una imagen subida a S3 (logo del restaurante, imagen de widget) a través del proxy interno, evitando exponer las credenciales de Neon Object Storage al cliente."] },
 };
 
 /** Tags de operaciones sin `@openapi` propio. */
