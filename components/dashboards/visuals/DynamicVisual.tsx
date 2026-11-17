@@ -45,6 +45,19 @@ export function DynamicVisual({
   const format = config.format;
   const visualType = config.visualType;
 
+  // useMemo debe estar ANTES de cualquier early return (Regla de Hooks)
+  const fieldLabelsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (catalog) {
+      for (const ds of catalog) {
+        for (const f of ds.fields) {
+          map.set(f.id, f.label);
+        }
+      }
+    }
+    return map;
+  }, [catalog]);
+
   // Soporte directo para widgets estáticos (text, divider, image)
   if ((visualType as string) === "text") {
     const content = (config as Record<string, unknown>).content || "";
@@ -289,18 +302,6 @@ export function DynamicVisual({
       }
     }
   }
-
-  const fieldLabelsMap = useMemo(() => {
-    const map = new Map<string, string>();
-    if (catalog) {
-      for (const ds of catalog) {
-        for (const f of ds.fields) {
-          map.set(f.id, f.label);
-        }
-      }
-    }
-    return map;
-  }, [catalog]);
 
   // Paleta de colores
   const palette =
