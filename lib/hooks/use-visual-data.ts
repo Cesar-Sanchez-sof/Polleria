@@ -120,18 +120,36 @@ export function useVisualData(
   options?: { dashboardId?: string; isShareMode?: boolean }
 ): VisualDataResult {
   const crossFilters = useDashboardEditorStore((s) => s.crossFilters);
+  const globalDateRange = useDashboardEditorStore((s) => s.globalDateRange);
   const { catalog } = useDashboardCatalog();
 
   // Resuelve dateRange relativo a un filtro between concreto antes de llamar a /query
   const resolvedConfig = useMemo(() => {
     if (!dataConfig) return null;
     let filters = [...(dataConfig.filters || [])];
-    if (dataConfig.dateRange) {
-      const resolvedRange = resolveDateRange(dataConfig.dateRange);
+
+    // Determinar qué dateRange aplicar: globalDateRange tiene prioridad si existe campo de fecha
+    const effectiveDateField =
+      dataConfig.dateRange?.field ||
+      catalog.find((d) => d.id === dataConfig.dataset)?.defaultDateField ||
+      catalog.find((d) => d.id === dataConfig.dataset)?.fields.find((f) => f.dataType === "date")?.id;
+
+    const activeDateRange =
+      globalDateRange && effectiveDateField
+        ? {
+            field: effectiveDateField,
+            preset: globalDateRange.preset,
+            from: globalDateRange.from,
+            to: globalDateRange.to,
+          }
+        : dataConfig.dateRange;
+
+    if (activeDateRange) {
+      const resolvedRange = resolveDateRange(activeDateRange);
       // Reemplaza o agrega el filtro between sobre el campo de fecha indicado
-      filters = filters.filter((f) => f.field !== dataConfig.dateRange?.field);
+      filters = filters.filter((f) => f.field !== activeDateRange.field);
       filters.push({
-        field: dataConfig.dateRange.field,
+        field: activeDateRange.field,
         operator: "between",
         value: resolvedRange,
       });
@@ -189,7 +207,7 @@ export function useVisualData(
       ...dataConfig,
       filters,
     };
-  }, [dataConfig, crossFilters, widgetId]);
+  }, [dataConfig, crossFilters, widgetId, globalDateRange, catalog]);
 
   // Si el rango resultante de la intersección tiene inicio > fin, la intersección es vacía
   const hasEmptyDateRange = useMemo(() => {

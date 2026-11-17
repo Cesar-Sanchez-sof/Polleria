@@ -8,6 +8,7 @@ import type {
   WidgetDateRange,
   WidgetSort,
   DateGranularity,
+  DatePreset,
 } from "@/lib/dashboards/widget-schema";
 import {
   adaptLegacyWidget,
@@ -149,6 +150,10 @@ export interface DashboardEditorState {
   setCrossFilter: (filter: CrossFilterState) => void;
   clearCrossFilters: () => void;
 
+  // Filtro de Fecha Global
+  globalDateRange: { preset: DatePreset; from?: string; to?: string } | null;
+  setGlobalDateRange: (range: { preset: DatePreset; from?: string; to?: string } | null) => void;
+
   // Acciones de Gestión de Widgets
   setWidgets: (widgets: RawWidgetInput[]) => void;
   addWidget: (widgetPartial?: Partial<CanvasWidget>) => string;
@@ -287,6 +292,11 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
     isRefreshing: false,
     isPreviewMode: false,
     crossFilters: null,
+    globalDateRange: null,
+
+    setGlobalDateRange: (range) => {
+      set({ globalDateRange: range });
+    },
 
     setCrossFilter: (filter) => {
       set((state) => {
@@ -1090,6 +1100,7 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         isRefreshing: false,
         isPreviewMode: false,
         crossFilters: null,
+        globalDateRange: null,
       });
     },
   };
