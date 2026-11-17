@@ -114,7 +114,17 @@ export default async function DashboardDetailPage(props: DashboardDetailPageProp
         {/* ==================================================================== */}
         {/* Vista de Cuadrícula Estática (CSS Grid Puro - Sin react-grid-layout) */}
         {/* ==================================================================== */}
-        <div className="flex-1 p-6">
+        <div
+          className="flex-1 p-6 transition-all"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(148, 163, 184, 0.18) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(148, 163, 184, 0.18) 1px, transparent 1px)
+            `,
+            backgroundSize: `calc((100% - 16px) / 12) 96px`,
+            backgroundPosition: `16px 16px`,
+          }}
+        >
           <CrossFilterChip />
           {widgets.length === 0 ? (
             /* Estado Vacío cuando aún no tiene widgets */

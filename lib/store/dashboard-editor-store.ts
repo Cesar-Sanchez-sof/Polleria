@@ -282,7 +282,7 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
     canUndo: false,
     canRedo: false,
 
-    isGridVisible: false,
+    isGridVisible: true,
     focusedWidgetId: null,
     isRefreshing: false,
     isPreviewMode: false,
@@ -1085,7 +1085,7 @@ export const useDashboardEditorStore = create<DashboardEditorState>((set, get) =
         savedSnapshotIndex: 0,
         canUndo: false,
         canRedo: false,
-        isGridVisible: false,
+        isGridVisible: true,
         focusedWidgetId: null,
         isRefreshing: false,
         isPreviewMode: false,

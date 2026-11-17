@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useSWRConfig } from "swr";
-import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import {
   Undo2,
@@ -15,7 +14,6 @@ import {
   AlignVerticalJustifyStart,
   Maximize2,
   RefreshCw,
-  Download,
   Eye,
   FilterX,
 } from "lucide-react";
@@ -128,7 +126,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
   const isSelectedLocked = Boolean(selectedWidget?.config.layout?.locked);
 
   const [isFocusOpen, setIsFocusOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
 
   // =========================================================================
   // Atajos de teclado: Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z, Supr, Ctrl+D
@@ -232,69 +229,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
     }
   };
 
-  // =========================================================================
-  // Exportar PNG del visual seleccionado (o del lienzo completo si no hay selección)
-  // =========================================================================
-  const handleExportPNG = async () => {
-    setIsExporting(true);
-    try {
-      // Si hay widget seleccionado → exportar solo ese widget
-      // Si no → exportar el lienzo completo vía canvasRef
-      let node: HTMLElement | null = null;
-      let fileName = "dashboard.png";
-
-      if (selectedWidgetId) {
-        const wrapper = document.getElementById(`widget-card-${selectedWidgetId}`);
-        if (!wrapper) throw new Error("No se encontró el elemento visual en el lienzo");
-        // Preferir el contenedor interno del gráfico (Recharts)
-        node =
-          (wrapper.querySelector(".recharts-wrapper") as HTMLElement | null) ??
-          (wrapper.querySelector('[class*="flex-1"]') as HTMLElement | null) ??
-          wrapper;
-        const title = selectedWidget?.title || "visual";
-        fileName = `${title.toLowerCase().replace(/[^a-z0-9_-]/g, "_")}.png`;
-      } else if (canvasRef?.current) {
-        node = canvasRef.current;
-      } else {
-        // Fallback: buscar el contenedor del grid por id
-        node = document.getElementById("dashboard-canvas-grid");
-      }
-
-      if (!node) {
-        toast.info("Selecciona un visual o asegúrate de que el lienzo esté visible");
-        return;
-      }
-
-      // Esperar a que fuentes y animaciones terminen
-      await new Promise<void>((r) => setTimeout(r, 150));
-
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        backgroundColor: "#ffffff",
-        pixelRatio: 2,
-        width: node.offsetWidth,
-        height: node.offsetHeight,
-        filter: (el) => {
-          const htmlEl = el as HTMLElement;
-          // Omitir cabeceras de drag en exportación individual
-          if (htmlEl?.classList?.contains("widget-drag-header")) return false;
-          return true;
-        },
-      });
-
-      const link = document.createElement("a");
-      link.download = fileName;
-      link.href = dataUrl;
-      link.click();
-      toast.success("Imagen PNG exportada exitosamente");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error al procesar el visual";
-      toast.error(`Error al exportar PNG: ${msg}`);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   return (
     <TooltipProvider delay={250}>
       <nav
@@ -394,18 +328,6 @@ export function EditorToolbar({ dashboardId, canvasRef }: EditorToolbarProps) {
               label="Actualizar datos"
               onClick={handleRefresh}
               disabled={isRefreshing}
-            />
-            <ToolbarButton
-              icon={<Download className="size-4" />}
-              label={
-                isExporting
-                  ? "Generando PNG..."
-                  : selectedWidgetId
-                  ? "Exportar visual como PNG"
-                  : "Exportar lienzo completo como PNG"
-              }
-              onClick={handleExportPNG}
-              disabled={isExporting}
             />
             {hasCrossFilters && (
               <ToolbarButton
