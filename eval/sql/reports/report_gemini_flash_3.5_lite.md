@@ -1,12 +1,17 @@
 # Reporte de evaluación Text-to-SQL
 
-| Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |
+| Agente | Casos | EX | VES | Correctas | Incorrectas | Errores | Ejecutadas |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini | 350 | 0.00% | 94.00% | 0.9273 | N/D | 346 | 4 |
+| gemini flash 3.5 lite | 350 | 94.00% | 0.9273 | 329 | 17 | 4 | 346 |
 
-**gemini**: EM compara SQL normalizado. EX compara los resultados gold/generado ignorando el orden de filas y las etiquetas de columnas. VES es la media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.
-
-TS = N/D: no se configuraron bases/estados alternativos para ejecutar una suite de pruebas.
+**gemini flash 3.5 lite**:
+- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas. Fórmula: `Correctas / Casos = 329 / 350 = 94.00%`.
+- **Desglose de ejecución**:
+  - **Correctas (EX OK)**: 329 (94.00%) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.
+  - **Incorrectas**: 17 (4.86%) — consultas que se ejecutaron en PostgreSQL sin error pero cuyos datos devueltos difieren del gold.
+  - **Errores**: 4 (1.14%) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).
+  - **Ejecutadas en total**: 346 (98.86%) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).
+- **VES (Valid Efficiency Score)**: media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas o con error valen 0.
 
 <details><summary>TEST-001 — EM=X, EX=True, VES=0.936743</summary>
 
