@@ -140,7 +140,6 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertIn(f"{ANSI_CYAN}  Respuesta SQL generada:\n", printed)
         self.assertIn('"total": "1"', printed)
         case_line = print_mock.call_args_list[0].args[0]
-        self.assertIn(f"{ANSI_GREEN}EM=OK{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_GREEN}EX=OK{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_BLUE}tiempo=", case_line)
 
@@ -178,7 +177,6 @@ class EvaluationMetricTests(unittest.TestCase):
 
         case_line = print_mock.call_args_list[0].args[0]
         self.assertIn(f"{ANSI_YELLOW}[groq]{ANSI_RESET}", case_line)
-        self.assertIn(f"{ANSI_RED}EM=X{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_RED}EX=X{ANSI_RESET}", case_line)
         self.assertIn(f"{ANSI_BLUE}tiempo=", case_line)
 
@@ -223,12 +221,12 @@ class EvaluationMetricTests(unittest.TestCase):
             updated_result["cases"].append(result("TEST-003", "SELECT 3")["cases"][0])
             markdown_paths, _ = write_reports([updated_result], reports_dir, results_dir)
 
-            report = (reports_dir / "report_gemini.md").read_text(encoding="utf-8")
+            report = (reports_dir / "report_gemini_flash_3.5_lite.md").read_text(encoding="utf-8")
             cumulative = json.loads(
-                (results_dir / "report_gemini.json").read_text(encoding="utf-8")
+                (results_dir / "report_gemini_flash_3.5_lite.json").read_text(encoding="utf-8")
             )
 
-        self.assertEqual(markdown_paths, [reports_dir / "report_gemini.md"])
+        self.assertEqual(markdown_paths, [reports_dir / "report_gemini_flash_3.5_lite.md"])
         self.assertEqual(cumulative["total_cases"], 3)
         self.assertEqual(
             [case["id"] for case in cumulative["cases"]],
@@ -245,6 +243,12 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertIn('"total": "SELECT updated"', report)
         self.assertIn("TEST-002", report)
         self.assertIn("TEST-003", report)
+        self.assertIn("| Agente | Casos | EX | VES | Correctas | Incorrectas | Errores | Ejecutadas |", report)
+        self.assertIn("| gemini flash 3.5 lite |", report)
+        self.assertNotIn("| EM |", report)
+        self.assertNotIn("| TS |", report)
+        self.assertIn("- **Desglose de ejecución**:", report)
+        self.assertEqual(cumulative["execution_incorrect_count"], 0)
         self.assertLess(report.index("<summary>TEST-001"), report.index("<summary>TEST-002"))
         self.assertLess(report.index("<summary>TEST-002"), report.index("<summary>TEST-003"))
 
