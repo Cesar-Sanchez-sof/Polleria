@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
-import swaggerJSDoc from 'swagger-jsdoc';
 import type { OpenAPIV3 } from 'openapi-types';
-import { swaggerOptions } from './swaggerConfig';
+import { swaggerDefinition } from './swaggerConfig';
 import { promises as fs } from 'fs';
 import path from 'path';
+import jsyaml from 'js-yaml';
 import { enrichOperations, extractPermissions } from './enrich';
 
 const permissionsByOperation = new Map<string, string[]>();
 
 /**
- * Scan the app/api directory (excluding openapi) and add minimal OpenAPI path
- * objects for any file that exports a HTTP handler (GET, POST, PUT, PATCH, DELETE).
- * Guarantees Swagger UI shows **all** endpoints even without JSDoc comments.
+ * Scan the app/api directory (excluding openapi) and parse JSDoc @openapi blocks
+ * plus minimal OpenAPI path objects for any file that exports an HTTP handler.
  */
 async function addDiscoveredPaths(spec: OpenAPIV3.Document) {
   const apiRoot = path.resolve(process.cwd(), 'app', 'api');
@@ -31,6 +30,33 @@ async function addDiscoveredPaths(spec: OpenAPIV3.Document) {
         // Next.js dynamic segments `[id]` are OpenAPI path templates `{id}`.
         urlPath = urlPath.replace(/\[([^\]]+)\]/g, '{$1}');
         const content = await fs.readFile(fullPath, 'utf8');
+
+        // 1. Extraer bloques @openapi escritos a mano
+        const openapiMatches = content.match(/\/\*\*[\s\S]*?@openapi([\s\S]*?)\*\//g);
+        if (openapiMatches) {
+          for (const m of openapiMatches) {
+            const rawYaml = m
+              .replace(/\/\*\*[\s\S]*?@openapi/, '')
+              .replace(/\*\/$/, '')
+              .replace(/^\s*\*\s?/gm, '');
+            try {
+              const parsed = jsyaml.load(rawYaml) as Record<string, unknown>;
+              if (parsed && typeof parsed === 'object') {
+                for (const [pathKey, pathVal] of Object.entries(parsed)) {
+                  spec.paths = spec.paths ?? {};
+                  spec.paths[pathKey] = {
+                    ...(spec.paths[pathKey] ?? {}),
+                    ...(pathVal as OpenAPIV3.PathItemObject),
+                  };
+                }
+              }
+            } catch {
+              // ignore invalid yaml in comment
+            }
+          }
+        }
+
+        // 2. Extraer métodos exportados
         const methods: string[] = [];
         if (/export\s+(?:const|async\s+function|function)\s+GET\b/.test(content)) methods.push('get');
         if (/export\s+(?:const|async\s+function|function)\s+POST\b/.test(content)) methods.push('post');
@@ -38,15 +64,18 @@ async function addDiscoveredPaths(spec: OpenAPIV3.Document) {
         if (/export\s+(?:const|async\s+function|function)\s+PATCH\b/.test(content)) methods.push('patch');
         if (/export\s+(?:const|async\s+function|function)\s+DELETE\b/.test(content)) methods.push('delete');
         if (methods.length === 0) continue;
+
         spec.paths = spec.paths ?? {};
         const pathItem = (spec.paths[urlPath] ?? {}) as Record<string, unknown>;
         spec.paths[urlPath] = pathItem as OpenAPIV3.PathItemObject;
         const operationBase = urlPath
           .replace(/[^A-Za-z0-9]+(.)/g, (_, c: string) => c.toUpperCase())
           .replace(/[^A-Za-z0-9]/g, '');
+
         for (const [method, perms] of Object.entries(extractPermissions(content))) {
           permissionsByOperation.set(method + ' ' + urlPath, perms);
         }
+
         for (const m of methods) {
           if (!pathItem[m]) {
             pathItem[m] = {
@@ -66,7 +95,7 @@ async function addDiscoveredPaths(spec: OpenAPIV3.Document) {
 let cachedSpecPromise: Promise<OpenAPIV3.Document> | null = null;
 
 async function buildOpenApiSpec(): Promise<OpenAPIV3.Document> {
-  const spec = swaggerJSDoc(swaggerOptions) as OpenAPIV3.Document;
+  const spec = JSON.parse(JSON.stringify(swaggerDefinition)) as OpenAPIV3.Document;
   spec.components = spec.components ?? {};
   spec.components.schemas = {
     ...(spec.components.schemas ?? {}),

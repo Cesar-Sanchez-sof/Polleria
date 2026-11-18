@@ -1,38 +1,76 @@
-// app/swagger/page.tsx
 "use client";
-import SwaggerUI from "swagger-ui-react";
-import "swagger-ui-react/swagger-ui.css";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef } from "react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { FileText } from "lucide-react";
 
 /**
  * Vista que expone la documentación OpenAPI mediante Swagger UI.
- * Cumple los requisitos C01‑C10: spec en OpenAPI, visualizable con Swagger UI,
- * incluye todos los endpoints, muestra método, ruta, parámetros, cuerpo y
- * respuestas con ejemplos, y está sincronizada porque recibe la spec dinámicamente
- * desde `/api/openapi`.
+ * Utiliza el renderizador oficial de Swagger UI Standalone cargado de forma limpia
+ * en el navegador, desacoplado de dependencias legacy de React.
  */
 export default function ApiDocs() {
-  const [specUrl, setSpecUrl] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // La spec se genera en tiempo de ejecución, por lo que simplemente apuntamos al endpoint.
-    setSpecUrl("/api/openapi");
+    // Inyectar CSS de Swagger UI
+    const linkId = "swagger-ui-css";
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement("link");
+      link.id = linkId;
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/swagger-ui-dist@5/swagger-ui.css";
+      document.head.appendChild(link);
+    }
+
+    // Inyectar bundle de Swagger UI
+    const scriptId = "swagger-ui-bundle";
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    function initSwagger() {
+      if ((window as any).SwaggerUIBundle && containerRef.current) {
+        (window as any).SwaggerUIBundle({
+          url: "/api/openapi",
+          domNode: containerRef.current,
+          deepLinking: true,
+          presets: [
+            (window as any).SwaggerUIBundle.presets.apis,
+            (window as any).SwaggerUIStandalonePreset,
+          ],
+          layout: "BaseLayout",
+        });
+      }
+    }
+
+    if (!script) {
+      script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js";
+      script.onload = () => {
+        // standalone preset
+        const presetScript = document.createElement("script");
+        presetScript.src = "https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js";
+        presetScript.onload = initSwagger;
+        document.body.appendChild(presetScript);
+      };
+      document.body.appendChild(script);
+    } else {
+      initSwagger();
+    }
   }, []);
 
-  if (!specUrl) return <p>Cargando documentación…</p>;
-
-return (
-  <>
-    <ModuleHeader
-      title="Documentación API – Polleria"
-      subtitle="Explora la especificación OpenAPI de la aplicación."
-      icon={FileText}
-    />
-    <section className="p-6 bg-(--color-background) min-h-screen">
-      <SwaggerUI url={specUrl} />
-    </section>
-  </>
-);
+  return (
+    <>
+      <ModuleHeader
+        title="Documentación API – Polleria"
+        subtitle="Explora la especificación OpenAPI de la aplicación."
+        icon={FileText}
+      />
+      <section className="p-6 bg-(--color-background) min-h-screen">
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <div ref={containerRef} id="swagger-ui-container" />
+        </div>
+      </section>
+    </>
+  );
 }
