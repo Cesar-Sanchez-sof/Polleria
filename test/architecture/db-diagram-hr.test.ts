@@ -48,7 +48,7 @@ function scalarFields(name: string): string[] {
 }
 
 function diagramFields(name: string): string[] {
-  const block = diagram.match(new RegExp(`id: '${name}', label:[\\s\\S]*?\\n\\t\\t\\],\\n\\t\\},\\n`));
+  const block = diagram.match(new RegExp(`id: '${name}', label:[\\s\\S]*?[\r\n]+[\t ]*\],[\r\n]+[\t ]*\},`));
   if (!block) throw new Error(`Falta la entidad ${name} en el diagrama`);
   return [...block[0].matchAll(/name: '(\w+)'/g)].map((m) => m[1]);
 }
