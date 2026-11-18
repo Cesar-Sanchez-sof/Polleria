@@ -3,7 +3,9 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { WidgetDataConfig } from "@/lib/dashboards/widget-schema";
+import { filterRuleSchema } from "@/lib/dashboards/widget-schema";
 import { resolveDateRange, resolvePreviousRange } from "@/lib/dashboards/date-utils";
+import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 
 export interface CatalogField {
   id: string;
@@ -16,6 +18,7 @@ export interface CatalogField {
   valueLabels?: Record<string, string>;
   isCalculated?: boolean;
   description?: string;
+  filterable?: boolean;
 }
 
 export interface CatalogDataset {
@@ -48,6 +51,29 @@ export interface VisualDataResult {
   error: string | null;
   isTruncated: boolean;
   mutate: () => Promise<unknown>;
+  /** true si crossFilters está activo pero ningún campo del filtro existe en este dataset */
+  hasIncompatibleCrossFilter: boolean;
+  /** true si crossFilters está activo y al menos un campo del filtro existe en este dataset */
+  hasCrossFilterApplied: boolean;
+}
+
+/**
+ * Fetcher GET para el endpoint seguro de datos en modo share.
+ * No envía config desde el cliente — la config se lee de la BD en el servidor.
+ */
+async function getWidgetFetcher(url: string): Promise<NormalizedQueryResult> {
+  const res = await fetch(url);
+
+  if (res.status === 403) {
+    throw new Error("Sin permiso para ver estos datos");
+  }
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => null);
+    throw new Error(errorBody?.error || `Error inesperado al cargar datos (${res.status}).`);
+  }
+
+  const json = await res.json();
+  return json.data;
 }
 
 /**
@@ -82,42 +108,179 @@ async function queryFetcher([url, queryData]: [string, WidgetDataConfig]): Promi
 
 /**
  * Hook cliente para consultar datos analíticos de un visual con caché SWR.
+ *
+ * @param dataConfig - Configuración del widget (puede ser null/undefined si aún no está configurado)
+ * @param widgetId - ID del widget (para excluir como origen de cross-filter)
+ * @param options.dashboardId - ID del dashboard (requerido para modo share)
+ * @param options.isShareMode - Si true, usa el endpoint seguro GET /api/dashboards/[id]/widgets/[widgetId]/data
  */
-export function useVisualData(dataConfig?: WidgetDataConfig | null): VisualDataResult {
+export function useVisualData(
+  dataConfig?: WidgetDataConfig | null,
+  widgetId?: string,
+  options?: { dashboardId?: string; isShareMode?: boolean }
+): VisualDataResult {
+  const crossFilters = useDashboardEditorStore((s) => s.crossFilters);
+  const globalDateRange = useDashboardEditorStore((s) => s.globalDateRange);
+  const { catalog } = useDashboardCatalog();
+
   // Resuelve dateRange relativo a un filtro between concreto antes de llamar a /query
   const resolvedConfig = useMemo(() => {
     if (!dataConfig) return null;
     let filters = [...(dataConfig.filters || [])];
-    if (dataConfig.dateRange) {
-      const resolvedRange = resolveDateRange(dataConfig.dateRange);
+
+    // Determinar qué dateRange aplicar: globalDateRange tiene prioridad si existe campo de fecha
+    const effectiveDateField =
+      dataConfig.dateRange?.field ||
+      catalog.find((d) => d.id === dataConfig.dataset)?.defaultDateField ||
+      catalog.find((d) => d.id === dataConfig.dataset)?.fields.find((f) => f.dataType === "date")?.id;
+
+    const activeDateRange =
+      globalDateRange && effectiveDateField
+        ? {
+            field: effectiveDateField,
+            preset: globalDateRange.preset,
+            from: globalDateRange.from,
+            to: globalDateRange.to,
+          }
+        : dataConfig.dateRange;
+
+    if (activeDateRange) {
+      const resolvedRange = resolveDateRange(activeDateRange);
       // Reemplaza o agrega el filtro between sobre el campo de fecha indicado
-      filters = filters.filter((f) => f.field !== dataConfig.dateRange?.field);
+      filters = filters.filter((f) => f.field !== activeDateRange.field);
       filters.push({
-        field: dataConfig.dateRange.field,
+        field: activeDateRange.field,
         operator: "between",
         value: resolvedRange,
       });
     }
+
+    // Inyectar crossFilter: SOLO si config.data.dataset === datasetId y el widget no es el origen
+    if (crossFilters && dataConfig.dataset) {
+      const matchesDataset = dataConfig.dataset === crossFilters.datasetId;
+      const isNotSource = !widgetId || widgetId !== crossFilters.sourceWidgetId;
+
+      if (matchesDataset && isNotSource) {
+        const operator = Array.isArray(crossFilters.value) ? "between" : "eq";
+        const candidate = {
+          field: crossFilters.field,
+          operator,
+          value: crossFilters.value,
+        };
+        const parsed = filterRuleSchema.safeParse(candidate);
+        if (parsed.success) {
+          const existingIdx = filters.findIndex((f) => f.field === crossFilters.field);
+          if (existingIdx >= 0) {
+            const existing = filters[existingIdx];
+            // Si ambos son between (rango de fechas) -> intersección de rangos
+            if (
+              existing.operator === "between" &&
+              Array.isArray(existing.value) &&
+              existing.value.length === 2 &&
+              parsed.data.operator === "between" &&
+              Array.isArray(parsed.data.value) &&
+              parsed.data.value.length === 2
+            ) {
+              const start1 = String(existing.value[0]).trim().slice(0, 10);
+              const end1 = String(existing.value[1]).trim().slice(0, 10);
+              const start2 = String(parsed.data.value[0]).trim().slice(0, 10);
+              const end2 = String(parsed.data.value[1]).trim().slice(0, 10);
+              const maxStart = start1 > start2 ? start1 : start2;
+              const minEnd = end1 < end2 ? end1 : end2;
+              filters[existingIdx] = {
+                field: crossFilters.field,
+                operator: "between",
+                value: [maxStart, minEnd],
+              };
+            } else {
+              // Con otros operadores: no se pisan, se combinan (Prisma AND)
+              filters.push(parsed.data);
+            }
+          } else {
+            filters.push(parsed.data);
+          }
+        }
+      }
+    }
+
     return {
       ...dataConfig,
       filters,
     };
-  }, [dataConfig]);
+  }, [dataConfig, crossFilters, widgetId, globalDateRange, catalog]);
+
+  // Si el rango resultante de la intersección tiene inicio > fin, la intersección es vacía
+  const hasEmptyDateRange = useMemo(() => {
+    if (!resolvedConfig?.filters) return false;
+    return resolvedConfig.filters.some((f) => {
+      if (f.operator === "between" && Array.isArray(f.value) && f.value.length === 2) {
+        const s = String(f.value[0]).trim().slice(0, 10);
+        const e = String(f.value[1]).trim().slice(0, 10);
+        return s > e;
+      }
+      return false;
+    });
+  }, [resolvedConfig]);
+
+  const emptyDataResult: NormalizedQueryResult = useMemo(
+    () => ({
+      dataset: resolvedConfig?.dataset || "",
+      rows: [],
+      meta: {
+        metrics: (resolvedConfig?.values || []).map((v) => `${v.field}_${v.agg}`),
+        totalRows: 0,
+        truncated: false,
+        engine: "in_memory_hybrid",
+      },
+    }),
+    [resolvedConfig]
+  );
 
   // Un visual está listo para consultar si tiene dataset y al menos una medida configurada
+  // Si la intersección de fechas es vacía (inicio > fin), NO se hace la petición HTTP
   const isValid = Boolean(
-    resolvedConfig &&
+    !hasEmptyDateRange &&
+      resolvedConfig &&
       resolvedConfig.dataset &&
       resolvedConfig.dataset.trim() !== "" &&
       resolvedConfig.values &&
       resolvedConfig.values.length > 0
   );
 
+  // Modo share: usa endpoint GET seguro en vez del POST genérico
+  const isShareMode = Boolean(options?.isShareMode);
+  const shareDashboardId = options?.dashboardId;
+  const shareEndpointUrl =
+    isShareMode && shareDashboardId && widgetId
+      ? `/api/dashboards/${shareDashboardId}/widgets/${widgetId}/data`
+      : null;
+
   // La clave de SWR usa el payload con el filtro ya resuelto
-  const key = isValid ? (["/api/dashboards/query", resolvedConfig] as [string, WidgetDataConfig]) : null;
+  // En modo share: clave GET simple; en modo normal: clave [url, config]
+  const key = hasEmptyDateRange
+    ? null
+    : isShareMode && shareEndpointUrl
+    ? shareEndpointUrl
+    : isValid
+    ? (["/api/dashboards/query", resolvedConfig] as [string, WidgetDataConfig])
+    : null;
+
+  // SWR en modo share (GET sin body)
+  const { data: shareData, error: shareError, isLoading: shareLoading, isValidating: shareValidating, mutate: shareMutate } = useSWR<NormalizedQueryResult, Error>(
+    isShareMode && shareEndpointUrl && !hasEmptyDateRange ? shareEndpointUrl : null,
+    getWidgetFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+      shouldRetryOnError: false,
+    }
+  );
+
+  // SWR en modo normal (POST con config)
+  const normalKey = !isShareMode && isValid ? (["/api/dashboards/query", resolvedConfig] as [string, WidgetDataConfig]) : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<NormalizedQueryResult, Error>(
-    key,
+    normalKey,
     queryFetcher,
     {
       revalidateOnFocus: false,
@@ -159,13 +322,32 @@ export function useVisualData(dataConfig?: WidgetDataConfig | null): VisualDataR
   );
 
   return {
-    data: data || null,
+    data: hasEmptyDateRange
+      ? emptyDataResult
+      : isShareMode
+      ? (shareData || null)
+      : (data || null),
     previousData: previousData || null,
-    isLoading: isValid ? isLoading : false,
-    isValidating,
-    error: error ? error.message : null,
-    isTruncated: Boolean(data?.meta?.truncated),
-    mutate,
+    isLoading: hasEmptyDateRange
+      ? false
+      : isShareMode
+      ? shareLoading
+      : (isValid ? isLoading : false),
+    isValidating: isShareMode ? shareValidating : isValidating,
+    error: hasEmptyDateRange
+      ? null
+      : isShareMode
+      ? (shareError ? shareError.message : null)
+      : (error ? error.message : null),
+    isTruncated: Boolean(isShareMode ? shareData?.meta?.truncated : data?.meta?.truncated),
+    mutate: isShareMode ? shareMutate : mutate,
+    hasIncompatibleCrossFilter: false,
+    hasCrossFilterApplied: (() => {
+      if (!crossFilters || !dataConfig?.dataset) return false;
+      const matchesDataset = dataConfig.dataset === crossFilters.datasetId;
+      const isNotSource = !widgetId || widgetId !== crossFilters.sourceWidgetId;
+      return matchesDataset && isNotSource;
+    })(),
   };
 }
 

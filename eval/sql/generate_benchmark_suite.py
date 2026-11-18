@@ -60,7 +60,7 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
     sales = [
         _case(
             "ventas", "facil",
-            f"¿Cuál fue el total de comprobantes emitidos en {month_name}?",
+            f"¿Cuál fue el importe total de los comprobantes emitidos en {month_name}?",
             f"SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si "
             f"WHERE si.status = 'Issued' AND {date_range('si.issued_at')}{limit}",
             ("sales_invoice",),
@@ -167,7 +167,8 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "compras", "dificil",
-            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}?",
+            f"¿Qué facturas de compra activas tienen saldo pendiente en {month_name}? "
+            "Indica el proveedor, la serie, el número y el saldo pendiente de cada factura.",
             f"SELECT s.business_name AS proveedor, pi.series, pi.number, "
             f"pi.total_amount - COALESCE(SUM(pp.amount), 0) AS saldo_pendiente "
             f"FROM purchase_invoice pi JOIN supplier s ON s.id = pi.supplier_id "
@@ -197,7 +198,7 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "caja", "medio",
-            f"¿Cuántas sesiones cerradas tuvo cada caja en {month_name}?",
+            f"¿Cuántas sesiones cerradas tuvo cada caja durante {month_name}?",
             f"SELECT cr.name AS caja, COUNT(*) AS sesiones FROM cash_session cs "
             f"JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' "
             f"AND {date_range('cs.closed_at')} GROUP BY cr.id, cr.name ORDER BY sesiones DESC{limit}",
@@ -205,7 +206,8 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "caja", "medio",
-            f"¿Cuánto se registró en ventas en efectivo y otros medios por caja en {month_name}?",
+            f"¿Cuánto se registró en ventas en efectivo y otros medios, desglosado por caja, "
+            f"en las sesiones cerradas durante {month_name}?",
             f"SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, "
             f"SUM(cs.sales_other) AS ventas_otros FROM cash_session cs "
             f"JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cs.status = 'CLOSED' "
@@ -214,7 +216,7 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "caja", "facil",
-            f"¿Cuál fue la diferencia total de las sesiones cerradas de caja en {month_name}?",
+            f"¿Cuál fue la suma de las diferencias de cierre de las sesiones cerradas en {month_name}?",
             f"SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs "
             f"WHERE cs.status = 'CLOSED' AND {date_range('cs.closed_at')}{limit}",
             ("cash_session",),
@@ -228,7 +230,8 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "caja", "dificil",
-            f"¿Cuánto se egresó por caja registradora en {month_name}?",
+            f"¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, "
+            f"en {month_name}?",
             f"SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm "
             f"JOIN cash_session cs ON cs.id = cm.session_id "
             f"JOIN cash_register cr ON cr.id = cs.cash_register_id "
@@ -280,7 +283,8 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "inventario", "medio",
-            f"¿Qué cantidades se consumieron y produjeron en transformaciones durante {month_name}?",
+            f"¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas "
+            f"durante {month_name}?",
             f"SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t "
             f"JOIN transformation_item ti ON ti.transformation_id = t.id "
             f"WHERE t.annulled = FALSE AND {date_range('t.date')} "
@@ -327,8 +331,9 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "contabilidad", "dificil",
-            f"¿Qué asientos registrados no cuadraron entre debe y haber en {month_name}?",
-            f"SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, "
+            f"¿Qué asientos registrados no cuadraron entre debe y haber en {month_name}? "
+            "Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+            f"SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, "
             f"SUM(jed.credit) AS total_haber FROM journal_entry je "
             f"JOIN journal_entry_detail jed ON jed.entry_id = je.id "
             f"WHERE je.status = TRUE AND {date_range('je.entry_date')} "
@@ -359,7 +364,7 @@ def _monthly_templates(period: tuple[str, str, str]) -> list[dict[str, Any]]:
         ),
         _case(
             "contabilidad", "medio",
-            f"¿Cuántos periodos contables abiertos abarcan {month_name}?",
+            f"¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de {month_name}?",
             f"SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' "
             f"AND ap.start_date < DATE '{end}' AND ap.end_date >= DATE '{start}'{limit}",
             ("accounting_period",),

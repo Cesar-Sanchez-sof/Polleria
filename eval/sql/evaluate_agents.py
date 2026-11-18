@@ -56,6 +56,19 @@ ANSI_PURPLE = "\033[35m"
 ANSI_CYAN = "\033[36m"
 ANSI_RESET = "\033[0m"
 
+AGENT_DISPLAY_NAMES: dict[str, str] = {
+    "groq": "chatgpt oss 120 b",
+    "gemini": "gemini flash 3.5 lite",
+}
+AGENT_FILE_SLUGS: dict[str, str] = {
+    "groq": "chatgpt_oss_120_b",
+    "gemini": "gemini_flash_3.5_lite",
+}
+
+
+def agent_slug(agent: str) -> str:
+    return AGENT_FILE_SLUGS.get(agent, agent.lower().replace(" ", "_"))
+
 
 def colorize(text: str, color: str) -> str:
     return f"{color}{text}{ANSI_RESET}"
@@ -392,10 +405,6 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
             provider_tag = f"[{name}]"
             if name == "groq":
                 provider_tag = colorize(provider_tag, ANSI_YELLOW)
-            em_metric = colorize(
-                f"EM={'OK' if exact_match else 'X'}",
-                metric_color(exact_match),
-            )
             ex_metric = colorize(
                 f"EX={ex_text}",
                 metric_color(execution_accuracy),
@@ -404,14 +413,13 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
                 f"VES={ves_text}",
                 ANSI_YELLOW if ves is None else ANSI_GREEN if ves > 0 else ANSI_RED,
             )
-            ts_metric = colorize("TS=N/D", ANSI_YELLOW)
             timing = colorize(
                 f"tiempo={elapsed_seconds:.3f}s SQL={sql_execution_seconds:.6f}s",
                 ANSI_BLUE,
             )
             print(
-                f"{provider_tag} {case['id']} {em_metric} {ex_metric} "
-                f"{ves_metric} {ts_metric} tokens={tokens_text} {timing}",
+                f"{provider_tag} {case['id']} {ex_metric} "
+                f"{ves_metric} tokens={tokens_text} {timing}",
                 flush=True,
             )
             print(colorize(f"  SQL gold:\n{case['expected_sql']}", ANSI_PURPLE), flush=True)
@@ -430,14 +438,12 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
     ex_passed = sum(result["execution_accuracy"] is True for result in gold_valid)
     ves_values = [result["ves"] for result in gold_valid if result["ves"] is not None]
     executed = sum(result["execution_succeeded"] for result in case_results)
+    execution_error_count = len(case_results) - executed
+    execution_incorrect_count = max(0, executed - ex_passed)
     ves_summary = f"{sum(ves_values) / len(ves_values):.4f}" if ves_values else "N/D"
     provider_tag = f"[{name}]"
     if name == "groq":
         provider_tag = colorize(provider_tag, ANSI_YELLOW)
-    em_summary = colorize(
-        f"EM={passed}/{len(case_results)}",
-        metric_color(passed == len(case_results) if case_results else None),
-    )
     ex_summary = colorize(
         f"EX={ex_passed}/{len(gold_valid)}",
         metric_color(ex_passed == len(gold_valid) if gold_valid else None),
@@ -447,9 +453,9 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
         ANSI_YELLOW if not ves_values else ANSI_GREEN if float(ves_summary) > 0 else ANSI_RED,
     )
     print(
-        f"{provider_tag} Resumen: ejecutadas={executed}/{len(case_results)}, "
-        f"{em_summary}, {ex_summary}, {ves_summary_metric}, "
-        f"{colorize('TS=N/D', ANSI_YELLOW)}.",
+        f"{provider_tag} Resumen: ejecutadas={executed}/{len(case_results)} "
+        f"(correctas={ex_passed}, incorrectas={execution_incorrect_count}, errores={execution_error_count}), "
+        f"{ex_summary}, {ves_summary_metric}.",
         flush=True,
     )
     return {
@@ -458,8 +464,9 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
         "exact_match_count": passed,
         "exact_match_rate": round(passed / len(case_results), 4) if case_results else 0.0,
         "execution_success_count": executed,
-        "execution_error_count": len(case_results) - executed,
+        "execution_error_count": execution_error_count,
         "execution_accuracy_count": ex_passed,
+        "execution_incorrect_count": execution_incorrect_count,
         "execution_accuracy_denominator": len(gold_valid),
         "execution_accuracy_rate": round(ex_passed / len(gold_valid), 4) if gold_valid else None,
         "ves": round(sum(ves_values) / len(ves_values), 6) if ves_values else None,
@@ -471,8 +478,8 @@ def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dic
 
 def _parse_report_cases(markdown: str) -> list[dict[str, Any]]:
     case_pattern = re.compile(
-        r"<details><summary>(?P<id>.*?) — EM=(?P<em>OK|X), "
-        r"EX=(?P<ex>True|False|N/D), VES=(?P<ves>[^<]+)</summary>\s*"
+        r"<details><summary>(?P<id>.*?)(?: — EM=(?P<em>OK|X))? — "
+        r"EX=(?P<ex>True|False|OK|X|N/D), VES=(?P<ves>[^<]+)</summary>\s*"
         r".*?\*\*SQL gold\*\*\s*```sql\n(?P<expected>.*?)\n```\s*"
         r".*?\*\*SQL generada\*\*\s*```sql\n(?P<generated>.*?)\n```",
         re.DOTALL,
@@ -481,15 +488,18 @@ def _parse_report_cases(markdown: str) -> list[dict[str, Any]]:
     for match in case_pattern.finditer(markdown):
         ves = match.group("ves")
         generated_sql = match.group("generated")
+        em_val = match.group("em")
         cases.append(
             {
                 "id": match.group("id"),
                 "expected_sql": match.group("expected"),
                 "generated_sql": None if generated_sql == "[SIN SQL]" else generated_sql,
-                "exact_match": match.group("em") == "OK",
+                "exact_match": em_val == "OK" if em_val is not None else False,
                 "execution_accuracy": {
                     "True": True,
+                    "OK": True,
                     "False": False,
+                    "X": False,
                     "N/D": None,
                 }[match.group("ex")],
                 "ves": float(ves) if ves != "N/D" else None,
@@ -507,14 +517,21 @@ def _aggregate_agent_result(agent: str, cases: list[dict[str, Any]]) -> dict[str
     execution_success_count = (
         sum(case["execution_succeeded"] for case in cases) if execution_known else None
     )
+    execution_error_count = len(cases) - execution_success_count if execution_known else None
+    execution_incorrect_count = (
+        max(0, execution_success_count - execution_accuracy_count)
+        if execution_known and execution_accuracy_count is not None
+        else None
+    )
     return {
         "agent": agent,
         "total_cases": len(cases),
         "exact_match_count": exact_match_count,
         "exact_match_rate": exact_match_count / len(cases) if cases else 0.0,
         "execution_success_count": execution_success_count,
-        "execution_error_count": len(cases) - execution_success_count if execution_known else None,
+        "execution_error_count": execution_error_count,
         "execution_accuracy_count": execution_accuracy_count,
+        "execution_incorrect_count": execution_incorrect_count,
         "execution_accuracy_denominator": len(accuracy_cases),
         "execution_accuracy_rate": (
             execution_accuracy_count / len(accuracy_cases) if accuracy_cases else None
@@ -547,20 +564,39 @@ def _load_existing_agent_result(
     reports_dir: Path,
     results_dir: Path,
 ) -> dict[str, Any] | None:
-    cumulative_path = results_dir / f"report_{agent}.json"
-    if cumulative_path.exists():
+    slug = agent_slug(agent)
+    candidate_slugs = [slug, slug.replace("_b", "b"), agent]
+    cumulative_path = None
+    for candidate in candidate_slugs:
+        p = results_dir / f"report_{candidate}.json"
+        if p.exists():
+            cumulative_path = p
+            break
+
+    if cumulative_path and cumulative_path.exists():
         data = json.loads(cumulative_path.read_text(encoding="utf-8"))
         return data
 
-    markdown_path = reports_dir / f"report_{agent}.md"
-    if not markdown_path.exists():
+    markdown_path = None
+    for candidate in candidate_slugs:
+        p = reports_dir / f"report_{candidate}.md"
+        if p.exists():
+            markdown_path = p
+            break
+
+    if markdown_path is None:
         legacy_path = reports_dir / "report.md"
         if legacy_path.exists():
             legacy_markdown = legacy_path.read_text(encoding="utf-8")
-            if f"| {agent} |" in legacy_markdown:
+            display_name = AGENT_DISPLAY_NAMES.get(agent, agent)
+            if (
+                f"| {agent} |" in legacy_markdown
+                or f"| {display_name} |" in legacy_markdown
+                or f"| {slug} |" in legacy_markdown
+            ):
                 markdown_path = legacy_path
 
-    if markdown_path.exists():
+    if markdown_path and markdown_path.exists():
         cases = _parse_report_cases(markdown_path.read_text(encoding="utf-8"))
         return _aggregate_agent_result(agent, cases) if cases else None
 
@@ -570,7 +606,7 @@ def _load_existing_agent_result(
             continue
         data = json.loads(run_path.read_text(encoding="utf-8"))
         for result in data.get("agents", []):
-            if result.get("agent") == agent:
+            if result.get("agent") in (agent, slug, AGENT_DISPLAY_NAMES.get(agent)):
                 return result
     return None
 
@@ -589,14 +625,15 @@ def write_reports(
     json_path = results_dir / f"report_{timestamp}.json"
     markdown_paths = []
     for result in results:
+        slug = agent_slug(result["agent"])
         existing = _load_existing_agent_result(result["agent"], reports_dir, results_dir)
         cumulative = _merge_agent_results(existing, result)
-        (results_dir / f"report_{result['agent']}.json").write_text(
+        (results_dir / f"report_{slug}.json").write_text(
             json.dumps(cumulative, indent=2, ensure_ascii=False, default=str),
             encoding="utf-8",
         )
 
-        markdown_path = reports_dir / f"report_{result['agent']}.md"
+        markdown_path = reports_dir / f"report_{slug}.md"
         markdown_paths.append(markdown_path)
         _write_agent_markdown(markdown_path, cumulative)
 
@@ -616,29 +653,58 @@ def _write_agent_markdown(markdown_path: Path, result: dict[str, Any]) -> None:
     lines = [
         "# Reporte de evaluación Text-to-SQL",
         "",
-        "| Agente | Casos | EM | EX | VES | TS | Ejecutadas | Errores |",
+        "| Agente | Casos | EX | VES | Correctas | Incorrectas | Errores | Ejecutadas |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     ex_rate = result["execution_accuracy_rate"]
     ves = result["ves"]
     ex_text = f"{ex_rate:.2%}" if ex_rate is not None else "N/D"
     ves_text = f"{ves:.4f}" if ves is not None else "N/D"
-    execution_success_count = result["execution_success_count"]
-    execution_error_count = result["execution_error_count"]
+    total_cases = result["total_cases"]
+    execution_success_count = result.get("execution_success_count")
+    execution_error_count = result.get("execution_error_count")
+    accuracy_count = result.get("execution_accuracy_count")
+    incorrect_count = result.get("execution_incorrect_count")
+    if (
+        incorrect_count is None
+        and execution_success_count is not None
+        and accuracy_count is not None
+    ):
+        incorrect_count = max(0, execution_success_count - accuracy_count)
+
     executed_text = str(execution_success_count) if execution_success_count is not None else "N/D"
     errors_text = str(execution_error_count) if execution_error_count is not None else "N/D"
+    correct_text = str(accuracy_count) if accuracy_count is not None else "N/D"
+    incorrect_text = str(incorrect_count) if incorrect_count is not None else "N/D"
+
+    agent_display = AGENT_DISPLAY_NAMES.get(result["agent"], result["agent"])
     lines.append(
-        f"| {result['agent']} | {result['total_cases']} | {result['exact_match_rate']:.2%} | "
-        f"{ex_text} | {ves_text} | N/D | {executed_text} | {errors_text} |"
+        f"| {agent_display} | {total_cases} | "
+        f"{ex_text} | {ves_text} | {correct_text} | {incorrect_text} | {errors_text} | {executed_text} |"
     )
+
+    correct_pct = f"{accuracy_count / total_cases:.2%}" if accuracy_count is not None and total_cases else "N/D"
+    incorrect_pct = f"{incorrect_count / total_cases:.2%}" if incorrect_count is not None and total_cases else "N/D"
+    errors_pct = f"{execution_error_count / total_cases:.2%}" if execution_error_count is not None and total_cases else "N/D"
+    executed_pct = f"{execution_success_count / total_cases:.2%}" if execution_success_count is not None and total_cases else "N/D"
+
+    formula_text = (
+        f" Fórmula: `Correctas / Casos = {correct_text} / {total_cases} = {ex_text}`."
+        if accuracy_count is not None
+        else ""
+    )
+
     lines.extend(
         [
             "",
-            f"**{result['agent']}**: EM compara SQL normalizado. EX compara los resultados gold/generado "
-            "ignorando el orden de filas y las etiquetas de columnas. VES es la media de "
-            "`sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas valen 0.",
-            "",
-            "TS = N/D: no se configuraron bases/estados alternativos para ejecutar una suite de pruebas.",
+            f"**{agent_display}**:",
+            f"- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas.{formula_text}",
+            "- **Desglose de ejecución**:",
+            f"  - **Correctas (EX OK)**: {correct_text} ({correct_pct}) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.",
+            f"  - **Incorrectas**: {incorrect_text} ({incorrect_pct}) — consultas que se ejecutaron en PostgreSQL sin error pero cuyos datos devueltos difieren del gold.",
+            f"  - **Errores**: {errors_text} ({errors_pct}) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).",
+            f"  - **Ejecutadas en total**: {executed_text} ({executed_pct}) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).",
+            "- **VES (Valid Efficiency Score)**: media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas o con error valen 0.",
         ]
     )
     for case in result["cases"]:
@@ -655,7 +721,7 @@ def _write_agent_markdown(markdown_path: Path, result: dict[str, Any]) -> None:
         lines.extend(
             [
                 "",
-                f"<details><summary>{case['id']} — EM={'OK' if case['exact_match'] else 'X'}, "
+                f"<details><summary>{case['id']} — "
                 f"EX={case['execution_accuracy'] if case['execution_accuracy'] is not None else 'N/D'}, "
                 f"VES={case['ves'] if case['ves'] is not None else 'N/D'}</summary>",
                 "",

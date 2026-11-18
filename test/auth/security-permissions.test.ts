@@ -94,6 +94,8 @@ describe("ninguna API queda sin control de acceso", () => {
     "app/api/checkout/yape/route.ts",
     // Imágenes de la marca: el login las necesita antes de tener sesión (solo ranuras conocidas, ver el handler).
     "app/api/branding/assets/[slot]/route.ts",
+    // Proxy público de imágenes S3: sirve archivos de imagen sin sesión (caching inmutable, sin datos sensibles).
+    "app/api/storage/[...key]/route.ts",
   ];
   const routes = files(join(ROOT, "app/api"), /^route\.ts$/)
     .map((r) => relative(ROOT, r).replace(/\\/g, "/"))

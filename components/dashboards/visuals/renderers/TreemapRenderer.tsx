@@ -2,7 +2,7 @@ import React from "react";
 import { ResponsiveContainer, Treemap, Tooltip } from "recharts";
 import { type VisualRendererProps, getMetricFriendlyLabel } from "./renderer-types";
 
-function CustomTreemapCell(props: {
+interface TreemapEntry {
   x?: number;
   y?: number;
   width?: number;
@@ -10,12 +10,19 @@ function CustomTreemapCell(props: {
   name?: string;
   value?: number;
   fill?: string;
-}) {
-  const { x = 0, y = 0, width = 0, height = 0, name = "", fill = "#3b82f6" } = props;
+  _field?: string;
+  _rawValue?: unknown;
+}
+
+function CustomTreemapCell(props: TreemapEntry & { onClick?: (entry: TreemapEntry) => void }) {
+  const { x = 0, y = 0, width = 0, height = 0, name = "", fill = "#3b82f6", onClick } = props;
   if (width < 30 || height < 20) return null;
 
   return (
-    <g>
+    <g
+      style={{ cursor: onClick ? "pointer" : "default" }}
+      onClick={() => onClick && onClick(props)}
+    >
       <rect
         x={x}
         y={y}
@@ -43,17 +50,30 @@ export function TreemapRenderer({
   data,
   palette,
   fieldLabelsMap,
+  onCrossFilter,
 }: VisualRendererProps) {
   const rows = data.rows;
   const axisKey = data.meta.axis || "axis";
   const metrics = data.meta.metrics;
   const metricKey = metrics[0] || "";
 
-  const treemapData = rows.map((r, i) => ({
-    name: String(r[axisKey] ?? `Item ${i + 1}`),
-    size: Number(r[metricKey]) || 0,
-    fill: palette[i % palette.length],
-  }));
+  const treemapData = rows.map((r, i) => {
+    const rawVal = r.rawValue !== undefined && r.rawValue !== null ? r.rawValue : r[axisKey];
+    const displayVal = String(r[axisKey] ?? `Item ${i + 1}`);
+    return {
+      name: displayVal,
+      size: Number(r[metricKey]) || 0,
+      fill: palette[i % palette.length],
+      _field: axisKey,
+      _rawValue: rawVal,
+      _display: displayVal,
+    };
+  });
+
+  const handleCellClick = (entry: TreemapEntry) => {
+    if (!onCrossFilter || !entry._field) return;
+    onCrossFilter(entry._field, entry._rawValue, entry.name);
+  };
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -62,11 +82,11 @@ export function TreemapRenderer({
         dataKey="size"
         nameKey="name"
         stroke="#ffffff"
-        content={<CustomTreemapCell />}
+        content={<CustomTreemapCell onClick={handleCellClick} />}
         isAnimationActive={false}
       >
         <Tooltip
-          formatter={(val: any) => [
+          formatter={(val: unknown) => [
             Number(val).toLocaleString("es-PE"),
             getMetricFriendlyLabel(metricKey, fieldLabelsMap),
           ]}

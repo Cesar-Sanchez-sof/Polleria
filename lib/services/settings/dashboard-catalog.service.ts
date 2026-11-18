@@ -18,6 +18,7 @@ export interface CatalogField {
   valueLabels?: Record<string, string>;
   isCalculated?: boolean;
   description?: string;
+  filterable: boolean;
 }
 
 export interface CatalogDataset {
@@ -78,6 +79,10 @@ export async function getDashboardCatalogService(
         valueLabels: f.valueLabels ? { ...f.valueLabels } : undefined,
         isCalculated: f.isCalculated,
         description: f.description,
+        filterable:
+          f.kind === "dimension" &&
+          Boolean(f.prismaPath || f.prismaField) &&
+          !f.customExtractor,
       };
     });
 

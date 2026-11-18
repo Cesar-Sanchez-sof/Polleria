@@ -230,6 +230,73 @@ export async function uploadVoucherToS3(
 }
 
 /**
+ * Sube una imagen para un widget de dashboard a S3 (o almacén local si S3 remoto no está configurado).
+ * Devuelve la URL pública y la clave S3.
+ */
+export async function uploadDashboardImage(
+  filename: string,
+  buffer: Buffer,
+  contentType: string = "image/png"
+): Promise<{ publicUrl: string; s3Key: string }> {
+  const { bucket, endpoint, accessKey, secretKey, region } = getS3Config();
+
+  const cleanExt = path.extname(filename) || ".png";
+  const baseName = path.basename(filename, cleanExt).replace(/[^a-zA-Z0-9_-]/g, "_");
+  const s3Key = `dashboards/images/${Date.now()}-${baseName}${cleanExt}`;
+  const publicUrl = `${endpoint}/${bucket}/${s3Key}`;
+  const localUrl = `/storage/comprobantes/${s3Key}`;
+
+  // 1. Guardar físicamente una copia local en disco
+  try {
+    const localDir = path.join(process.cwd(), "public", "storage", "comprobantes", path.dirname(s3Key));
+    fs.mkdirSync(localDir, { recursive: true });
+    const localFilePath = path.join(process.cwd(), "public", "storage", "comprobantes", s3Key);
+    fs.writeFileSync(localFilePath, buffer);
+  } catch (fsErr) {
+    console.warn("[uploadDashboardImage] Aviso al persistir copia local:", fsErr);
+  }
+
+  // 2. Si hay credenciales de S3 válidas, subir a S3 remoto
+  const hasValidRemoteCreds = Boolean(
+    accessKey &&
+    secretKey &&
+    !accessKey.includes("TU_KEY") &&
+    endpoint &&
+    endpoint.startsWith("http")
+  );
+
+  if (hasValidRemoteCreds) {
+    try {
+      const s3 = new S3Client({
+        endpoint,
+        region,
+        credentials: {
+          accessKeyId: accessKey!,
+          secretAccessKey: secretKey!,
+        },
+        forcePathStyle: true,
+      });
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: s3Key,
+          Body: buffer,
+          ContentType: contentType,
+        })
+      );
+
+      return { publicUrl, s3Key };
+    } catch (err) {
+      console.warn("[uploadDashboardImage] Error al subir a S3 remoto, usando URL local:", err);
+      return { publicUrl: localUrl, s3Key };
+    }
+  }
+
+  return { publicUrl: localUrl, s3Key };
+}
+
+/**
  * Procesa y sube un lote de comprobantes con control de concurrencia.
  * 
  * Por defecto soporta 20 subidas en simultáneo a la vez (maxConcurrency = 20),

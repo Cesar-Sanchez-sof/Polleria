@@ -1,18 +1,28 @@
 import React from "react";
 import { sortDimensionKeys } from "@/lib/dashboards/client-calculations";
 import { type VisualRendererProps, getMetricFriendlyLabel } from "./renderer-types";
+import { cn } from "@/lib/utils";
 
 export function HeatmapRenderer({
   data,
   format,
   palette,
   fieldLabelsMap,
+  onCrossFilter,
 }: VisualRendererProps) {
   const rows = data.rows;
   const axisKey = data.meta.axis || "axis";
   const metrics = data.meta.metrics;
   const legendKey = data.meta.legend;
   const metricKey = metrics[0] || "";
+
+  // Filtro cruzado: clic en fila o celda despacha siempre la dimensión del eje principal (axisRawValue)
+  const handleAxisFilter = (rowLabel: string) => {
+    if (!onCrossFilter) return;
+    const match = rows.find((r) => String(r[axisKey] ?? "(Vacío)") === rowLabel);
+    const rawVal = match?.axisRawValue ?? match?.rawValue ?? rowLabel;
+    onCrossFilter(axisKey, rawVal, rowLabel);
+  };
 
   const rowSet = new Set<string>();
   const colSet = new Set<string>();
@@ -64,7 +74,12 @@ export function HeatmapRenderer({
           </thead>
           <tbody>
             {distinctRows.map((row) => (
-              <tr key={row} className="border-b border-border/20">
+              <tr
+                key={row}
+                onClick={() => handleAxisFilter(row)}
+                className={cn("border-b border-border/20", onCrossFilter && "cursor-pointer")}
+                title={onCrossFilter ? `Filtrar por ${row}` : undefined}
+              >
                 <td className="p-1.5 font-semibold text-muted-foreground whitespace-nowrap bg-background">
                   {row}
                 </td>
@@ -79,6 +94,7 @@ export function HeatmapRenderer({
                         backgroundColor: baseColor,
                         opacity: val > 0 ? ratio : 0.05,
                         color: ratio > 0.55 ? "#ffffff" : "#0f172a",
+                        cursor: onCrossFilter ? "pointer" : "default",
                       }}
                       title={`${row} × ${col}: ${val.toLocaleString("es-PE")}`}
                     >
