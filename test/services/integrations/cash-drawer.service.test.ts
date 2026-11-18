@@ -1,3 +1,4 @@
+import EventEmitter from "node:events";
 import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -85,19 +86,28 @@ describe("notifyCashDrawer", () => {
 
   it("modo red: envía los bytes ESC/POS por TCP a la impresora", async () => {
     const received: Buffer[] = [];
-    const server = net.createServer((s) => s.on("data", (d) => received.push(d)));
-    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-    const { port } = server.address() as net.AddressInfo;
-    m.getPrinterConfig.mockResolvedValue({ paperWidth: "80mm", cashierPrinter: { name: "Caja", ipOrPort: `127.0.0.1:${port}`, active: true } });
+    const mockSocket = new EventEmitter() as any;
+    mockSocket.setTimeout = vi.fn();
+    mockSocket.destroy = vi.fn();
+    mockSocket.end = vi.fn((data: Buffer, cb?: () => void) => {
+      received.push(data);
+      cb?.();
+    });
+    const connectSpy = vi.spyOn(net, "createConnection").mockImplementation((() => {
+      setImmediate(() => mockSocket.emit("connect"));
+      return mockSocket;
+    }) as any);
+
+    m.getPrinterConfig.mockResolvedValue({ paperWidth: "80mm", cashierPrinter: { name: "Caja", ipOrPort: "127.0.0.1:9100", active: true } });
     try {
       const r = await notifyCashDrawer("OPEN_SESSION", info);
-      expect(r).toMatchObject({ ok: true, mode: "network", target: `127.0.0.1:${port}` });
-      await vi.waitFor(() => expect(Buffer.concat(received).length).toBeGreaterThan(0));
+      expect(r).toMatchObject({ ok: true, mode: "network", target: "127.0.0.1:9100" });
+      expect(connectSpy).toHaveBeenCalledWith({ host: "127.0.0.1", port: 9100 });
       const data = Buffer.concat(received);
       expect([...data.subarray(2, 7)]).toEqual([0x1b, 0x70, 0, 25, 250]);
       expect(data.toString("latin1")).toContain("APERTURA DE CAJA");
     } finally {
-      server.close();
+      connectSpy.mockRestore();
     }
   });
 
