@@ -1,0 +1,298 @@
+{
+  "version": "report-interpretation-v1",
+  "descripcion": "Casos para evaluar si un agente puede leer e interpretar correctamente los reportes de evaluacion Text-to-SQL generados por evaluate_agents.py.",
+  "total_casos": 30,
+  "contexto": {
+    "reportes_disponibles": [
+      "eval/sql/reports/report_chatgpt_oss_120_b.md",
+      "eval/sql/reports/report_gemini_flash_3.5_lite.md"
+    ],
+    "metricas": {
+      "EX": "Execution Accuracy: porcentaje de consultas cuyo resultado coincide exactamente con el gold (ignora alias de columnas y orden de filas).",
+      "VES": "Valid Efficiency Score: media de sqrt(tiempo_gold / tiempo_generado), limitada a 1; los incorrectos y errores valen 0.",
+      "EM": "Exact Match: la SQL generada es lexicamente identica a la gold.",
+      "Correctas": "Consultas que se ejecutaron y cuyo resultado coincide con el gold.",
+      "Incorrectas": "Consultas que se ejecutaron sin error pero cuyo resultado difiere del gold.",
+      "Errores": "Consultas que fallaron al ejecutarse en la base de datos."
+    }
+  },
+  "casos": [
+    {
+      "id": "RI-001",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántos casos en total evaluó el agente chatgpt oss 120 b?",
+      "respuesta_gold": "302",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-002",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál es el Execution Accuracy (EX) del agente gemini flash 3.5 lite?",
+      "respuesta_gold": "97.43%",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-003",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántos errores de ejecución tuvo el agente gemini flash 3.5 lite?",
+      "respuesta_gold": "0",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-004",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántas consultas incorrectas tuvo el agente chatgpt oss 120 b?",
+      "respuesta_gold": "13",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-005",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuál es el VES del agente chatgpt oss 120 b?",
+      "respuesta_gold": "0.9304",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-006",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántas consultas ejecutó correctamente (sin error) el agente chatgpt oss 120 b?",
+      "respuesta_gold": "300",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-007",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántas consultas correctas obtuvo el agente gemini flash 3.5 lite?",
+      "respuesta_gold": "341",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-008",
+      "categoria": "lectura_cabecera",
+      "dificultad": "facil",
+      "pregunta": "¿Cuántas consultas incorrectas tuvo el agente gemini flash 3.5 lite?",
+      "respuesta_gold": "9",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-009",
+      "categoria": "casos_fallidos",
+      "dificultad": "medio",
+      "pregunta": "Lista todos los IDs de test que tienen EX=False en el reporte de chatgpt oss 120 b.",
+      "respuesta_gold": ["TEST-033", "TEST-067", "TEST-088", "TEST-113", "TEST-148", "TEST-156", "TEST-173", "TEST-183", "TEST-191", "TEST-218", "TEST-224", "TEST-226", "TEST-253", "TEST-261"],
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "detalles_casos",
+      "tipo_respuesta": "lista"
+    },
+    {
+      "id": "RI-010",
+      "categoria": "casos_fallidos",
+      "dificultad": "medio",
+      "pregunta": "Lista todos los IDs de test que tienen EX=False en el reporte de gemini flash 3.5 lite.",
+      "respuesta_gold": ["TEST-043", "TEST-056", "TEST-091", "TEST-176", "TEST-183", "TEST-246", "TEST-277", "TEST-281", "TEST-320"],
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "detalles_casos",
+      "tipo_respuesta": "lista"
+    },
+    {
+      "id": "RI-011",
+      "categoria": "casos_fallidos",
+      "dificultad": "medio",
+      "pregunta": "¿Cuántos tests tienen EX=False en el reporte de chatgpt oss 120 b?",
+      "respuesta_gold": "14",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "detalles_casos"
+    },
+    {
+      "id": "RI-012",
+      "categoria": "casos_fallidos",
+      "dificultad": "medio",
+      "pregunta": "¿Cuántos tests tienen EX=False en el reporte de gemini flash 3.5 lite?",
+      "respuesta_gold": "9",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "detalles_casos"
+    },
+    {
+      "id": "RI-013",
+      "categoria": "casos_fallidos",
+      "dificultad": "medio",
+      "pregunta": "¿Hay algún test con EX=False que sea común a ambos agentes? Lista los IDs.",
+      "respuesta_gold": ["TEST-183"],
+      "fuente": "ambos_reportes",
+      "seccion": "detalles_casos",
+      "tipo_respuesta": "lista"
+    },
+    {
+      "id": "RI-014",
+      "categoria": "detalle_caso",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál es el VES del TEST-033 en el reporte de chatgpt oss 120 b?",
+      "respuesta_gold": "0.0",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "detalles_casos"
+    },
+    {
+      "id": "RI-015",
+      "categoria": "detalle_caso",
+      "dificultad": "medio",
+      "pregunta": "En el reporte de chatgpt oss 120 b, ¿TEST-001 tiene EX=True o EX=False?",
+      "respuesta_gold": "EX=True",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "detalles_casos"
+    },
+    {
+      "id": "RI-016",
+      "categoria": "detalle_caso",
+      "dificultad": "medio",
+      "pregunta": "En el reporte de gemini flash 3.5 lite, ¿TEST-001 tiene EM=OK o EM=X?",
+      "respuesta_gold": "EM=X",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "detalles_casos"
+    },
+    {
+      "id": "RI-017",
+      "categoria": "comparativa",
+      "dificultad": "medio",
+      "pregunta": "¿Qué agente tiene mayor EX: chatgpt oss 120 b o gemini flash 3.5 lite?",
+      "respuesta_gold": "gemini flash 3.5 lite",
+      "fuente": "ambos_reportes",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-018",
+      "categoria": "comparativa",
+      "dificultad": "medio",
+      "pregunta": "¿Qué agente tiene mayor VES: chatgpt oss 120 b o gemini flash 3.5 lite?",
+      "respuesta_gold": "gemini flash 3.5 lite",
+      "fuente": "ambos_reportes",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-019",
+      "categoria": "comparativa",
+      "dificultad": "medio",
+      "pregunta": "¿Cuántos casos más evalúa gemini flash 3.5 lite respecto a chatgpt oss 120 b?",
+      "respuesta_gold": "48",
+      "fuente": "ambos_reportes",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-020",
+      "categoria": "comparativa",
+      "dificultad": "medio",
+      "pregunta": "¿Cuál agente tuvo errores de ejecución y cuántos?",
+      "respuesta_gold": "chatgpt oss 120 b con 2 errores. gemini flash 3.5 lite con 0 errores.",
+      "fuente": "ambos_reportes",
+      "seccion": "tabla_resumen"
+    },
+    {
+      "id": "RI-021",
+      "categoria": "comprension_metrica",
+      "dificultad": "dificil",
+      "pregunta": "¿Por qué un test puede tener EX=True aunque el alias de la columna en el SQL generado sea diferente al gold?",
+      "respuesta_gold": "Porque la métrica EX ignora los alias de columnas y el orden de filas; solo compara los valores retornados por la consulta.",
+      "fuente": "descripcion_metrica",
+      "seccion": "cabecera_reporte"
+    },
+    {
+      "id": "RI-022",
+      "categoria": "comprension_metrica",
+      "dificultad": "dificil",
+      "pregunta": "¿Qué significa que un test tenga VES=0.0?",
+      "respuesta_gold": "Que el test fue incorrecto o tuvo error de ejecución, por lo que no aporta al puntaje de eficiencia.",
+      "fuente": "descripcion_metrica",
+      "seccion": "cabecera_reporte"
+    },
+    {
+      "id": "RI-023",
+      "categoria": "comprension_metrica",
+      "dificultad": "dificil",
+      "pregunta": "¿Qué fórmula se usa para calcular el EX en el reporte de chatgpt oss 120 b?",
+      "respuesta_gold": "Correctas / Casos = 287 / 302 = 95.03%",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "descripcion_metricas"
+    },
+    {
+      "id": "RI-024",
+      "categoria": "comprension_metrica",
+      "dificultad": "dificil",
+      "pregunta": "¿Qué significa EM=X en el reporte de gemini flash 3.5 lite?",
+      "respuesta_gold": "Que el SQL generado no es lexicamente identico al SQL gold (Exact Match falló), aunque puede que el resultado de ejecución sea correcto.",
+      "fuente": "descripcion_metrica",
+      "seccion": "detalles_casos"
+    },
+    {
+      "id": "RI-025",
+      "categoria": "comprension_metrica",
+      "dificultad": "dificil",
+      "pregunta": "¿Cuántas consultas ejecutó en total el agente gemini flash 3.5 lite y qué porcentaje representa del total de casos?",
+      "respuesta_gold": "350 consultas ejecutadas, que representan el 100% de los 350 casos.",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "descripcion_metricas"
+    },
+    {
+      "id": "RI-026",
+      "categoria": "detalle_caso",
+      "dificultad": "dificil",
+      "pregunta": "En el reporte de chatgpt oss 120 b, ¿cuántos tests tienen EX=True y VES mayor a 0.95?",
+      "respuesta_gold": null,
+      "nota": "Requiere leer todos los detalles del reporte. Caso de alto costo cognitivo.",
+      "fuente": "report_chatgpt_oss_120_b.md",
+      "seccion": "detalles_casos",
+      "tipo_respuesta": "conteo_condicional"
+    },
+    {
+      "id": "RI-027",
+      "categoria": "casos_fallidos",
+      "dificultad": "dificil",
+      "pregunta": "¿Cuáles son los tests con EX=False exclusivos del agente chatgpt oss 120 b (no presentes en gemini flash 3.5 lite)?",
+      "respuesta_gold": ["TEST-033", "TEST-067", "TEST-088", "TEST-113", "TEST-148", "TEST-156", "TEST-173", "TEST-191", "TEST-218", "TEST-224", "TEST-226", "TEST-253", "TEST-261"],
+      "fuente": "ambos_reportes",
+      "seccion": "detalles_casos",
+      "tipo_respuesta": "lista"
+    },
+    {
+      "id": "RI-028",
+      "categoria": "casos_fallidos",
+      "dificultad": "dificil",
+      "pregunta": "¿Cuáles son los tests con EX=False exclusivos del agente gemini flash 3.5 lite (no presentes en chatgpt oss 120 b)?",
+      "respuesta_gold": ["TEST-043", "TEST-056", "TEST-091", "TEST-176", "TEST-246", "TEST-277", "TEST-281", "TEST-320"],
+      "fuente": "ambos_reportes",
+      "seccion": "detalles_casos",
+      "tipo_respuesta": "lista"
+    },
+    {
+      "id": "RI-029",
+      "categoria": "comparativa",
+      "dificultad": "dificil",
+      "pregunta": "¿Cuál agente falla en más casos en términos absolutos: chatgpt oss 120 b o gemini flash 3.5 lite? ¿Y en términos relativos (% sobre total de casos)?",
+      "respuesta_gold": "En términos absolutos: chatgpt oss 120 b (14 casos EX=False vs 9 de gemini). En términos relativos: chatgpt oss 120 b (14/302 = 4.64%) vs gemini flash 3.5 lite (9/350 = 2.57%). chatgpt oss 120 b falla más en ambas métricas.",
+      "fuente": "ambos_reportes",
+      "seccion": "tabla_resumen + detalles_casos"
+    },
+    {
+      "id": "RI-030",
+      "categoria": "comprension_metrica",
+      "dificultad": "dificil",
+      "pregunta": "Si el agente gemini flash 3.5 lite no tiene errores de ejecución, ¿cómo se explica que tenga 9 incorrectos?",
+      "respuesta_gold": "Los incorrectos son consultas que se ejecutaron sin error en PostgreSQL pero cuyos datos retornados difieren del resultado del SQL gold. Que no haya errores de ejecución no garantiza que el resultado sea correcto.",
+      "fuente": "report_gemini_flash_3.5_lite.md",
+      "seccion": "descripcion_metricas"
+    }
+  ]
+}

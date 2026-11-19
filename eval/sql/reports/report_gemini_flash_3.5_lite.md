@@ -2,18 +2,18 @@
 
 | Agente | Casos | EX | VES | Correctas | Incorrectas | Errores | Ejecutadas |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini flash 3.5 lite | 350 | 94.00% | 0.9273 | 329 | 17 | 4 | 346 |
+| gemini flash 3.5 lite | 350 | 97.43% | 0.9606 | 341 | 9 | 0 | 350 |
 
 **gemini flash 3.5 lite**:
-- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas. Fórmula: `Correctas / Casos = 329 / 350 = 94.00%`.
+- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas. Fórmula: `Correctas / Casos = 341 / 350 = 97.43%`.
 - **Desglose de ejecución**:
-  - **Correctas (EX OK)**: 329 (94.00%) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.
-  - **Incorrectas**: 17 (4.86%) — consultas que se ejecutaron en PostgreSQL sin error pero cuyos datos devueltos difieren del gold.
-  - **Errores**: 4 (1.14%) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).
-  - **Ejecutadas en total**: 346 (98.86%) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).
+  - **Correctas (EX OK)**: 341 (97.43%) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.
+  - **Incorrectas**: 9 (2.57%) — consultas que se ejecutaron en PostgreSQL sin error pero cuyos datos devueltos difieren del gold.
+  - **Errores**: 0 (0.00%) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).
+  - **Ejecutadas en total**: 350 (100.00%) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).
 - **VES (Valid Efficiency Score)**: media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas o con error valen 0.
 
-<details><summary>TEST-001 — EM=X, EX=True, VES=0.936743</summary>
+<details><summary>TEST-001 — EX=True, VES=0.976799</summary>
 
 **SQL gold**
 
@@ -49,7 +49,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invo
 
 </details>
 
-<details><summary>TEST-002 — EM=X, EX=True, VES=0.997813</summary>
+<details><summary>TEST-002 — EX=True, VES=0.997813</summary>
 
 **SQL gold**
 
@@ -95,7 +95,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-003 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-003 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -141,7 +141,7 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 
 </details>
 
-<details><summary>TEST-004 — EM=X, EX=True, VES=0.991726</summary>
+<details><summary>TEST-004 — EX=True, VES=0.991726</summary>
 
 **SQL gold**
 
@@ -177,7 +177,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-005 — EM=X, EX=True, VES=0.848817</summary>
+<details><summary>TEST-005 — EX=True, VES=0.848817</summary>
 
 **SQL gold**
 
@@ -215,7 +215,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 
 </details>
 
-<details><summary>TEST-006 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-006 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -261,7 +261,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-007 — EM=X, EX=True, VES=0.978151</summary>
+<details><summary>TEST-007 — EX=True, VES=0.978151</summary>
 
 **SQL gold**
 
@@ -299,7 +299,7 @@ SELECT dt.number AS mesa, COUNT(so.id) AS total_pedidos FROM public.dining_table
 
 </details>
 
-<details><summary>TEST-008 — EM=X, EX=True, VES=0.994788</summary>
+<details><summary>TEST-008 — EX=True, VES=0.994788</summary>
 
 **SQL gold**
 
@@ -335,7 +335,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-009 — EM=X, EX=True, VES=0.995938</summary>
+<details><summary>TEST-009 — EX=True, VES=0.995938</summary>
 
 **SQL gold**
 
@@ -373,7 +373,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_comprado FROM
 
 </details>
 
-<details><summary>TEST-010 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-010 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -411,7 +411,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-011 — EM=X, EX=True, VES=0.975421</summary>
+<details><summary>TEST-011 — EX=True, VES=0.975421</summary>
 
 **SQL gold**
 
@@ -449,7 +449,7 @@ SELECT ip.expense_category AS categoria, SUM(ip.amount_paid) AS total_gastado FR
 
 </details>
 
-<details><summary>TEST-012 — EM=X, EX=True, VES=0.995737</summary>
+<details><summary>TEST-012 — EX=True, VES=0.995737</summary>
 
 **SQL gold**
 
@@ -495,7 +495,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-013 — EM=X, EX=True, VES=0.992835</summary>
+<details><summary>TEST-013 — EX=True, VES=0.992835</summary>
 
 **SQL gold**
 
@@ -533,7 +533,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-014 — EM=X, EX=True, VES=0.960958</summary>
+<details><summary>TEST-014 — EX=True, VES=0.960958</summary>
 
 **SQL gold**
 
@@ -575,7 +575,7 @@ SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS numero, (p
 
 </details>
 
-<details><summary>TEST-015 — EM=X, EX=True, VES=0.996358</summary>
+<details><summary>TEST-015 — EX=True, VES=0.996358</summary>
 
 **SQL gold**
 
@@ -611,7 +611,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-016 — EM=X, EX=True, VES=0.981017</summary>
+<details><summary>TEST-016 — EX=True, VES=0.981017</summary>
 
 **SQL gold**
 
@@ -647,7 +647,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-017 — EM=X, EX=True, VES=0.947009</summary>
+<details><summary>TEST-017 — EX=True, VES=0.947009</summary>
 
 **SQL gold**
 
@@ -685,7 +685,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-018 — EM=X, EX=True, VES=0.997711</summary>
+<details><summary>TEST-018 — EX=True, VES=0.997711</summary>
 
 **SQL gold**
 
@@ -725,7 +725,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-019 — EM=X, EX=True, VES=0.978319</summary>
+<details><summary>TEST-019 — EX=True, VES=0.978319</summary>
 
 **SQL gold**
 
@@ -761,7 +761,7 @@ SELECT SUM(cs.difference) AS suma_diferencias FROM public.cash_session AS cs WHE
 
 </details>
 
-<details><summary>TEST-020 — EM=X, EX=True, VES=0.996545</summary>
+<details><summary>TEST-020 — EX=True, VES=0.996545</summary>
 
 **SQL gold**
 
@@ -807,7 +807,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_monto FROM public.cas
 
 </details>
 
-<details><summary>TEST-021 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-021 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -845,7 +845,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-022 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-022 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -915,7 +915,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-023 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-023 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -953,7 +953,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades_vendidas FROM public.inv
 
 </details>
 
-<details><summary>TEST-024 — EM=X, EX=True, VES=0.998894</summary>
+<details><summary>TEST-024 — EX=True, VES=0.998894</summary>
 
 **SQL gold**
 
@@ -991,7 +991,7 @@ SELECT p.name AS producto, im.quantity AS cantidad FROM public.inventory_movemen
 
 </details>
 
-<details><summary>TEST-025 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-025 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1029,7 +1029,7 @@ SELECT p.name AS insumo, SUM(im.quantity) AS cantidad FROM public.inventory_move
 
 </details>
 
-<details><summary>TEST-026 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-026 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1065,7 +1065,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-027 — EM=X, EX=True, VES=0.994137</summary>
+<details><summary>TEST-027 — EX=True, VES=0.994137</summary>
 
 **SQL gold**
 
@@ -1111,7 +1111,7 @@ SELECT ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FROM public.transforma
 
 </details>
 
-<details><summary>TEST-028 — EM=X, EX=True, VES=0.994079</summary>
+<details><summary>TEST-028 — EX=True, VES=0.994079</summary>
 
 **SQL gold**
 
@@ -1149,7 +1149,7 @@ SELECT p.name AS product_name, SUM(im.quantity) AS total_quantity FROM public.in
 
 </details>
 
-<details><summary>TEST-029 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-029 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1187,7 +1187,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-030 — EM=X, EX=True, VES=0.987385</summary>
+<details><summary>TEST-030 — EX=True, VES=0.987385</summary>
 
 **SQL gold**
 
@@ -1247,7 +1247,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, (COALESCE(SUM(jed.deb
 
 </details>
 
-<details><summary>TEST-031 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-031 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1285,7 +1285,7 @@ SELECT je.book AS diario, COUNT(DISTINCT je.id) AS total_asientos FROM public.jo
 
 </details>
 
-<details><summary>TEST-032 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-032 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1327,7 +1327,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SU
 
 </details>
 
-<details><summary>TEST-033 — EM=X, EX=True, VES=0.992693</summary>
+<details><summary>TEST-033 — EX=True, VES=0.992693</summary>
 
 **SQL gold**
 
@@ -1363,7 +1363,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto 
 
 </details>
 
-<details><summary>TEST-034 — EM=X, EX=True, VES=0.996978</summary>
+<details><summary>TEST-034 — EX=True, VES=0.996978</summary>
 
 **SQL gold**
 
@@ -1423,7 +1423,7 @@ SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS 
 
 </details>
 
-<details><summary>TEST-035 — EM=X, EX=True, VES=0.981071</summary>
+<details><summary>TEST-035 — EX=True, VES=0.981071</summary>
 
 **SQL gold**
 
@@ -1459,7 +1459,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-036 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-036 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1495,7 +1495,7 @@ SELECT SUM(si.total_amount) AS total_importe FROM public.sales_invoice AS si WHE
 
 </details>
 
-<details><summary>TEST-037 — EM=X, EX=True, VES=0.950866</summary>
+<details><summary>TEST-037 — EX=True, VES=0.950866</summary>
 
 **SQL gold**
 
@@ -1541,7 +1541,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-038 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-038 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1587,7 +1587,7 @@ SELECT pt.name AS medio_de_pago, SUM(sp.amount) AS total_cobrado FROM public.sal
 
 </details>
 
-<details><summary>TEST-039 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-039 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1623,7 +1623,7 @@ SELECT COUNT(DISTINCT so.id) AS total_pedidos FROM public.sales_order AS so WHER
 
 </details>
 
-<details><summary>TEST-040 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-040 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1661,7 +1661,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 
 </details>
 
-<details><summary>TEST-041 — EM=X, EX=True, VES=0.955246</summary>
+<details><summary>TEST-041 — EX=True, VES=0.955246</summary>
 
 **SQL gold**
 
@@ -1707,7 +1707,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-042 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-042 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1745,7 +1745,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-043 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-043 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -1781,7 +1781,7 @@ SELECT COUNT(*) AS total_facturas_compra FROM public.purchase_invoice AS pi WHER
 
 </details>
 
-<details><summary>TEST-044 — EM=X, EX=True, VES=0.9545</summary>
+<details><summary>TEST-044 — EX=True, VES=0.9545</summary>
 
 **SQL gold**
 
@@ -1819,7 +1819,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM 
 
 </details>
 
-<details><summary>TEST-045 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-045 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1857,7 +1857,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-046 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-046 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -1895,7 +1895,7 @@ SELECT ip.expense_category AS categoria, SUM(ip.amount_paid) AS total_gastado FR
 
 </details>
 
-<details><summary>TEST-047 — EM=X, EX=True, VES=0.999939</summary>
+<details><summary>TEST-047 — EX=True, VES=0.999939</summary>
 
 **SQL gold**
 
@@ -1941,7 +1941,7 @@ SELECT a.status AS status, COUNT(*) AS total_orders FROM public.purchase_order A
 
 </details>
 
-<details><summary>TEST-048 — EM=X, EX=True, VES=0.94546</summary>
+<details><summary>TEST-048 — EX=True, VES=0.94546</summary>
 
 **SQL gold**
 
@@ -1979,7 +1979,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-049 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-049 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2021,7 +2021,7 @@ SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, p
 
 </details>
 
-<details><summary>TEST-050 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-050 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2057,7 +2057,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-051 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-051 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2093,7 +2093,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-052 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-052 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2121,7 +2121,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-053 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-053 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2149,7 +2149,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-054 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-054 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2185,7 +2185,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_ses
 
 </details>
 
-<details><summary>TEST-055 — EM=X, EX=True, VES=0.988889</summary>
+<details><summary>TEST-055 — EX=True, VES=0.988889</summary>
 
 **SQL gold**
 
@@ -2231,7 +2231,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-056 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-056 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -2264,7 +2264,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-057 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-057 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2334,7 +2334,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-058 — EM=X, EX=True, VES=0.988734</summary>
+<details><summary>TEST-058 — EX=True, VES=0.988734</summary>
 
 **SQL gold**
 
@@ -2372,7 +2372,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS total_unidades FROM public.invent
 
 </details>
 
-<details><summary>TEST-059 — EM=X, EX=True, VES=0.992375</summary>
+<details><summary>TEST-059 — EX=True, VES=0.992375</summary>
 
 **SQL gold**
 
@@ -2410,7 +2410,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-060 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-060 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2448,7 +2448,7 @@ SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad FROM public.purc
 
 </details>
 
-<details><summary>TEST-061 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-061 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2484,7 +2484,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-062 — EM=X, EX=True, VES=0.995233</summary>
+<details><summary>TEST-062 — EX=True, VES=0.995233</summary>
 
 **SQL gold**
 
@@ -2532,7 +2532,7 @@ SELECT p.name AS producto, ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FR
 
 </details>
 
-<details><summary>TEST-063 — EM=X, EX=True, VES=0.99664</summary>
+<details><summary>TEST-063 — EX=True, VES=0.99664</summary>
 
 **SQL gold**
 
@@ -2570,7 +2570,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-064 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-064 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2608,7 +2608,7 @@ SELECT SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.
 
 </details>
 
-<details><summary>TEST-065 — EM=X, EX=True, VES=0.996617</summary>
+<details><summary>TEST-065 — EX=True, VES=0.996617</summary>
 
 **SQL gold**
 
@@ -2668,7 +2668,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-066 — EM=X, EX=True, VES=0.973999</summary>
+<details><summary>TEST-066 — EX=True, VES=0.973999</summary>
 
 **SQL gold**
 
@@ -2706,7 +2706,7 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-067 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-067 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2748,7 +2748,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_deb
 
 </details>
 
-<details><summary>TEST-068 — EM=X, EX=True, VES=0.969175</summary>
+<details><summary>TEST-068 — EX=True, VES=0.969175</summary>
 
 **SQL gold**
 
@@ -2784,7 +2784,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-069 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-069 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -2844,7 +2844,7 @@ SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS 
 
 </details>
 
-<details><summary>TEST-070 — EM=X, EX=True, VES=0.935278</summary>
+<details><summary>TEST-070 — EX=True, VES=0.935278</summary>
 
 **SQL gold**
 
@@ -2880,7 +2880,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-071 — EM=X, EX=True, VES=0.989261</summary>
+<details><summary>TEST-071 — EX=True, VES=0.989261</summary>
 
 **SQL gold**
 
@@ -2916,7 +2916,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS importe_total FROM public.sales_invo
 
 </details>
 
-<details><summary>TEST-072 — EM=X, EX=True, VES=0.985968</summary>
+<details><summary>TEST-072 — EX=True, VES=0.985968</summary>
 
 **SQL gold**
 
@@ -2962,7 +2962,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-073 — EM=X, EX=True, VES=0.977008</summary>
+<details><summary>TEST-073 — EX=True, VES=0.977008</summary>
 
 **SQL gold**
 
@@ -3008,7 +3008,7 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 
 </details>
 
-<details><summary>TEST-074 — EM=X, EX=True, VES=0.998695</summary>
+<details><summary>TEST-074 — EX=True, VES=0.998695</summary>
 
 **SQL gold**
 
@@ -3044,7 +3044,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-075 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-075 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3082,7 +3082,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS unidades_vendidas FROM public.ord
 
 </details>
 
-<details><summary>TEST-076 — EM=X, EX=True, VES=0.976091</summary>
+<details><summary>TEST-076 — EX=True, VES=0.976091</summary>
 
 **SQL gold**
 
@@ -3128,7 +3128,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-077 — EM=X, EX=True, VES=0.956066</summary>
+<details><summary>TEST-077 — EX=True, VES=0.956066</summary>
 
 **SQL gold**
 
@@ -3166,7 +3166,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-078 — EM=X, EX=True, VES=0.966697</summary>
+<details><summary>TEST-078 — EX=True, VES=0.966697</summary>
 
 **SQL gold**
 
@@ -3202,7 +3202,7 @@ SELECT COALESCE(SUM(pi.total_amount), 0) AS total_facturas_compra FROM public.pu
 
 </details>
 
-<details><summary>TEST-079 — EM=X, EX=True, VES=0.950845</summary>
+<details><summary>TEST-079 — EX=True, VES=0.950845</summary>
 
 **SQL gold**
 
@@ -3240,7 +3240,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_comprado FROM
 
 </details>
 
-<details><summary>TEST-080 — EM=X, EX=True, VES=0.998828</summary>
+<details><summary>TEST-080 — EX=True, VES=0.998828</summary>
 
 **SQL gold**
 
@@ -3278,7 +3278,7 @@ SELECT pt.name AS payment_type, COALESCE(SUM(pp.amount), 0) AS total_paid FROM p
 
 </details>
 
-<details><summary>TEST-081 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-081 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3316,7 +3316,7 @@ SELECT ia.expense_category AS categoria, SUM(ia.amount_paid) AS total_gastado FR
 
 </details>
 
-<details><summary>TEST-082 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-082 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3362,7 +3362,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-083 — EM=X, EX=True, VES=0.982338</summary>
+<details><summary>TEST-083 — EX=True, VES=0.982338</summary>
 
 **SQL gold**
 
@@ -3400,7 +3400,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS total_unidades_recibida
 
 </details>
 
-<details><summary>TEST-084 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-084 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3442,7 +3442,7 @@ SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, p
 
 </details>
 
-<details><summary>TEST-085 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-085 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3478,7 +3478,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-086 — EM=X, EX=True, VES=0.979668</summary>
+<details><summary>TEST-086 — EX=True, VES=0.979668</summary>
 
 **SQL gold**
 
@@ -3514,7 +3514,7 @@ SELECT SUM(cm.amount) AS total_ingresos FROM public.cash_movement AS cm WHERE cm
 
 </details>
 
-<details><summary>TEST-087 — EM=X, EX=True, VES=0.947736</summary>
+<details><summary>TEST-087 — EX=True, VES=0.947736</summary>
 
 **SQL gold**
 
@@ -3552,7 +3552,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-088 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-088 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3592,7 +3592,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-089 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-089 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3628,7 +3628,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencia FROM public.cash_sess
 
 </details>
 
-<details><summary>TEST-090 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-090 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3674,7 +3674,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-091 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-091 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -3712,7 +3712,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-092 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-092 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3782,7 +3782,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-093 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-093 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3820,7 +3820,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-094 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-094 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3858,7 +3858,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-095 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-095 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3896,7 +3896,7 @@ SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad FROM public.purc
 
 </details>
 
-<details><summary>TEST-096 — EM=X, EX=True, VES=0.983191</summary>
+<details><summary>TEST-096 — EX=True, VES=0.983191</summary>
 
 **SQL gold**
 
@@ -3932,7 +3932,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-097 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-097 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -3980,7 +3980,7 @@ SELECT p.name AS producto, ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FR
 
 </details>
 
-<details><summary>TEST-098 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-098 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4018,7 +4018,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-099 — EM=X, EX=True, VES=0.996738</summary>
+<details><summary>TEST-099 — EX=True, VES=0.996738</summary>
 
 **SQL gold**
 
@@ -4056,7 +4056,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-100 — EM=X, EX=True, VES=0.998708</summary>
+<details><summary>TEST-100 — EX=True, VES=0.998708</summary>
 
 **SQL gold**
 
@@ -4116,7 +4116,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-101 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-101 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4154,7 +4154,7 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-102 — EM=X, EX=True, VES=0.995707</summary>
+<details><summary>TEST-102 — EX=True, VES=0.995707</summary>
 
 **SQL gold**
 
@@ -4196,7 +4196,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_deb
 
 </details>
 
-<details><summary>TEST-103 — EM=X, EX=True, VES=0.99708</summary>
+<details><summary>TEST-103 — EX=True, VES=0.99708</summary>
 
 **SQL gold**
 
@@ -4232,7 +4232,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-104 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-104 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4292,7 +4292,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-105 — EM=X, EX=True, VES=0.98711</summary>
+<details><summary>TEST-105 — EX=True, VES=0.98711</summary>
 
 **SQL gold**
 
@@ -4328,7 +4328,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-106 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-106 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4364,7 +4364,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS importe_total FROM public.sales_invo
 
 </details>
 
-<details><summary>TEST-107 — EM=X, EX=True, VES=0.995948</summary>
+<details><summary>TEST-107 — EX=True, VES=0.995948</summary>
 
 **SQL gold**
 
@@ -4410,7 +4410,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-108 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-108 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4456,7 +4456,7 @@ SELECT pt.name AS medio_de_pago, SUM(sp.amount) AS total_cobrado FROM public.sal
 
 </details>
 
-<details><summary>TEST-109 — EM=X, EX=True, VES=0.981595</summary>
+<details><summary>TEST-109 — EX=True, VES=0.981595</summary>
 
 **SQL gold**
 
@@ -4492,7 +4492,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.status =
 
 </details>
 
-<details><summary>TEST-110 — EM=X, EX=True, VES=0.958147</summary>
+<details><summary>TEST-110 — EX=True, VES=0.958147</summary>
 
 **SQL gold**
 
@@ -4530,7 +4530,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS unidades_vendidas FROM public.ord
 
 </details>
 
-<details><summary>TEST-111 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-111 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4576,7 +4576,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-112 — EM=X, EX=True, VES=0.949421</summary>
+<details><summary>TEST-112 — EX=True, VES=0.949421</summary>
 
 **SQL gold**
 
@@ -4614,7 +4614,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-113 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-113 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4650,7 +4650,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-114 — EM=X, EX=True, VES=0.756703</summary>
+<details><summary>TEST-114 — EX=True, VES=0.756703</summary>
 
 **SQL gold**
 
@@ -4688,7 +4688,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM 
 
 </details>
 
-<details><summary>TEST-115 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-115 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4726,7 +4726,7 @@ SELECT pt.name AS medio_de_pago, SUM(pp.amount) AS total_pagado FROM public.purc
 
 </details>
 
-<details><summary>TEST-116 — EM=X, EX=True, VES=0.977518</summary>
+<details><summary>TEST-116 — EX=True, VES=0.977518</summary>
 
 **SQL gold**
 
@@ -4764,7 +4764,7 @@ SELECT ip.expense_category AS categoria, SUM(ip.amount_paid) AS total_gastado FR
 
 </details>
 
-<details><summary>TEST-117 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-117 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4810,7 +4810,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-118 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-118 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4848,7 +4848,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-119 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-119 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4890,7 +4890,7 @@ SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, (
 
 </details>
 
-<details><summary>TEST-120 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-120 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4926,7 +4926,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-121 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-121 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -4962,7 +4962,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-122 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-122 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5000,7 +5000,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-123 — EM=X, EX=True, VES=0.977682</summary>
+<details><summary>TEST-123 — EX=True, VES=0.977682</summary>
 
 **SQL gold**
 
@@ -5040,7 +5040,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-124 — EM=X, EX=True, VES=0.981045</summary>
+<details><summary>TEST-124 — EX=True, VES=0.981045</summary>
 
 **SQL gold**
 
@@ -5076,7 +5076,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_ses
 
 </details>
 
-<details><summary>TEST-125 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-125 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5122,7 +5122,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_monto FROM public.cas
 
 </details>
 
-<details><summary>TEST-126 — EM=X, EX=True, VES=0.981907</summary>
+<details><summary>TEST-126 — EX=True, VES=0.981907</summary>
 
 **SQL gold**
 
@@ -5160,7 +5160,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-127 — EM=X, EX=True, VES=0.95988</summary>
+<details><summary>TEST-127 — EX=True, VES=0.95988</summary>
 
 **SQL gold**
 
@@ -5230,7 +5230,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-128 — EM=X, EX=True, VES=0.975812</summary>
+<details><summary>TEST-128 — EX=True, VES=0.975812</summary>
 
 **SQL gold**
 
@@ -5268,7 +5268,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-129 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-129 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5306,7 +5306,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-130 — EM=X, EX=True, VES=0.963882</summary>
+<details><summary>TEST-130 — EX=True, VES=0.963882</summary>
 
 **SQL gold**
 
@@ -5344,7 +5344,7 @@ SELECT p.name AS insumo, SUM(im.quantity) AS cantidad FROM public.inventory_move
 
 </details>
 
-<details><summary>TEST-131 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-131 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5380,7 +5380,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-132 — EM=X, EX=True, VES=0.994587</summary>
+<details><summary>TEST-132 — EX=True, VES=0.994587</summary>
 
 **SQL gold**
 
@@ -5426,7 +5426,7 @@ SELECT ti.item_type AS item_type, SUM(ti.quantity) AS total_quantity FROM public
 
 </details>
 
-<details><summary>TEST-133 — EM=X, EX=True, VES=0.977305</summary>
+<details><summary>TEST-133 — EX=True, VES=0.977305</summary>
 
 **SQL gold**
 
@@ -5464,7 +5464,7 @@ SELECT p.name AS producto, im.quantity AS cantidad FROM public.inventory_movemen
 
 </details>
 
-<details><summary>TEST-134 — EM=X, EX=True, VES=0.998796</summary>
+<details><summary>TEST-134 — EX=True, VES=0.998796</summary>
 
 **SQL gold**
 
@@ -5502,7 +5502,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-135 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-135 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5562,7 +5562,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-136 — EM=X, EX=True, VES=0.992103</summary>
+<details><summary>TEST-136 — EX=True, VES=0.992103</summary>
 
 **SQL gold**
 
@@ -5600,7 +5600,7 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-137 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-137 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5642,7 +5642,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SU
 
 </details>
 
-<details><summary>TEST-138 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-138 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5678,7 +5678,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-139 — EM=X, EX=True, VES=0.967144</summary>
+<details><summary>TEST-139 — EX=True, VES=0.967144</summary>
 
 **SQL gold**
 
@@ -5738,7 +5738,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-140 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-140 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5774,7 +5774,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-141 — EM=X, EX=True, VES=0.978042</summary>
+<details><summary>TEST-141 — EX=True, VES=0.978042</summary>
 
 **SQL gold**
 
@@ -5810,7 +5810,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invo
 
 </details>
 
-<details><summary>TEST-142 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-142 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5856,7 +5856,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-143 — EM=X, EX=True, VES=0.990333</summary>
+<details><summary>TEST-143 — EX=True, VES=0.990333</summary>
 
 **SQL gold**
 
@@ -5902,7 +5902,7 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 
 </details>
 
-<details><summary>TEST-144 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-144 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -5938,7 +5938,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS a WHERE a.order_type
 
 </details>
 
-<details><summary>TEST-145 — EM=X, EX=True, VES=0.98162</summary>
+<details><summary>TEST-145 — EX=True, VES=0.98162</summary>
 
 **SQL gold**
 
@@ -5976,7 +5976,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 
 </details>
 
-<details><summary>TEST-146 — EM=X, EX=True, VES=0.990691</summary>
+<details><summary>TEST-146 — EX=True, VES=0.990691</summary>
 
 **SQL gold**
 
@@ -6022,7 +6022,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-147 — EM=X, EX=True, VES=0.998864</summary>
+<details><summary>TEST-147 — EX=True, VES=0.998864</summary>
 
 **SQL gold**
 
@@ -6060,7 +6060,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-148 — EM=X, EX=True, VES=0.9943</summary>
+<details><summary>TEST-148 — EX=True, VES=0.9943</summary>
 
 **SQL gold**
 
@@ -6096,7 +6096,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-149 — EM=X, EX=True, VES=0.998065</summary>
+<details><summary>TEST-149 — EX=True, VES=0.998065</summary>
 
 **SQL gold**
 
@@ -6134,7 +6134,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_comprado FROM
 
 </details>
 
-<details><summary>TEST-150 — EM=X, EX=True, VES=0.996913</summary>
+<details><summary>TEST-150 — EX=True, VES=0.996913</summary>
 
 **SQL gold**
 
@@ -6172,7 +6172,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-151 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-151 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6210,7 +6210,7 @@ SELECT ip.expense_category AS categoria, SUM(ip.amount_paid) AS total_gastado FR
 
 </details>
 
-<details><summary>TEST-152 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-152 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6256,7 +6256,7 @@ SELECT a.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order 
 
 </details>
 
-<details><summary>TEST-153 — EM=X, EX=True, VES=0.996726</summary>
+<details><summary>TEST-153 — EX=True, VES=0.996726</summary>
 
 **SQL gold**
 
@@ -6294,7 +6294,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS total_unidades_recibida
 
 </details>
 
-<details><summary>TEST-154 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-154 — EX=True, VES=0.948722</summary>
 
 **SQL gold**
 
@@ -6318,7 +6318,7 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount - COALESCE(SUM(pp.amount), 0) AS pending_balance FROM public.purchase_invoice AS pi LEFT JOIN public.purchase_payment AS pp ON pp.purchase_invoice_id = pi.id WHERE pi.active = TRUE AND pi.issued_at >= '2026-05-01' AND pi.issued_at < '2026-06-01' GROUP BY pi.id, pi.series, pi.number, pi.total_amount HAVING pi.total_amount - COALESCE(SUM(pp.amount), 0) > 0 LIMIT 50
+SELECT s.business_name AS proveedor, pi.series AS series, pi.number AS number, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-05-01' AS DATE) AND pi.issued_at < CAST('2026-06-01' AS DATE) GROUP BY s.business_name, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -6326,17 +6326,17 @@ SELECT pi.id AS id, pi.series AS series, pi.number AS number, pi.total_amount - 
 ```json
 [
   {
-    "id": "36",
+    "proveedor": "Avícola Buen Sabor de Prueba",
     "series": "F026",
     "number": "990005",
-    "pending_balance": "136.00"
+    "saldo_pendiente": "136.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-155 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-155 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6372,7 +6372,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-156 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-156 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6408,7 +6408,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-157 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-157 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6446,7 +6446,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-158 — EM=X, EX=True, VES=0.963657</summary>
+<details><summary>TEST-158 — EX=True, VES=0.963657</summary>
 
 **SQL gold**
 
@@ -6486,7 +6486,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-159 — EM=X, EX=True, VES=0.96267</summary>
+<details><summary>TEST-159 — EX=True, VES=0.96267</summary>
 
 **SQL gold**
 
@@ -6522,7 +6522,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS suma_diferencias FROM public.cash_sess
 
 </details>
 
-<details><summary>TEST-160 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-160 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6568,7 +6568,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-161 — EM=X, EX=True, VES=0.993195</summary>
+<details><summary>TEST-161 — EX=True, VES=0.993195</summary>
 
 **SQL gold**
 
@@ -6606,7 +6606,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-162 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-162 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6676,7 +6676,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-163 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-163 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6714,7 +6714,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-164 — EM=X, EX=True, VES=0.985603</summary>
+<details><summary>TEST-164 — EX=True, VES=0.985603</summary>
 
 **SQL gold**
 
@@ -6752,7 +6752,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-165 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-165 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6790,7 +6790,7 @@ SELECT p.name AS insumo, SUM(im.quantity) AS cantidad FROM public.inventory_move
 
 </details>
 
-<details><summary>TEST-166 — EM=X, EX=True, VES=0.997829</summary>
+<details><summary>TEST-166 — EX=True, VES=0.997829</summary>
 
 **SQL gold**
 
@@ -6826,7 +6826,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-167 — EM=X, EX=True, VES=0.837843</summary>
+<details><summary>TEST-167 — EX=True, VES=0.837843</summary>
 
 **SQL gold**
 
@@ -6872,7 +6872,7 @@ SELECT ti.item_type AS item_type, SUM(ti.quantity) AS total_quantity FROM public
 
 </details>
 
-<details><summary>TEST-168 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-168 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -6910,7 +6910,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-169 — EM=X, EX=True, VES=0.996447</summary>
+<details><summary>TEST-169 — EX=True, VES=0.996447</summary>
 
 **SQL gold**
 
@@ -6948,7 +6948,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-170 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-170 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7008,7 +7008,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-171 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-171 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7046,12 +7046,12 @@ SELECT je.book AS diario, COUNT(*) AS total_asientos FROM public.journal_entry A
 
 </details>
 
-<details><summary>TEST-172 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-172 — EX=True, VES=0.941671</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-05-01' AND je.entry_date < DATE '2026-06-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-05-01' AND je.entry_date < DATE '2026-06-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -7059,7 +7059,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 200,
     "code": "BENCH26-05-02",
     "entry_date": "2026-05-23",
     "total_debe": "100.00",
@@ -7071,7 +7070,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS codigo_asiento, je.entry_date AS fecha_asiento, je.description AS glosa, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= '2026-05-01' AND je.entry_date < '2026-06-01') AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SUM(jed.credit) AS credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-05-01' AS DATE) AND je.entry_date < CAST('2026-06-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -7079,18 +7078,17 @@ SELECT je.code AS codigo_asiento, je.entry_date AS fecha_asiento, je.description
 ```json
 [
   {
-    "codigo_asiento": "BENCH26-05-02",
-    "fecha_asiento": "2026-05-23",
-    "glosa": "Asiento descuadrado ficticio de prueba",
-    "total_debe": "100.00",
-    "total_haber": "80.00"
+    "code": "BENCH26-05-02",
+    "entry_date": "2026-05-23",
+    "debit": "100.00",
+    "credit": "80.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-173 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-173 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7126,7 +7124,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-174 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-174 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7186,7 +7184,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-175 — EM=X, EX=True, VES=0.943476</summary>
+<details><summary>TEST-175 — EX=True, VES=0.943476</summary>
 
 **SQL gold**
 
@@ -7222,7 +7220,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-176 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-176 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -7258,7 +7256,7 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 
 </details>
 
-<details><summary>TEST-177 — EM=X, EX=True, VES=0.976661</summary>
+<details><summary>TEST-177 — EX=True, VES=0.976661</summary>
 
 **SQL gold**
 
@@ -7304,7 +7302,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-178 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-178 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7350,7 +7348,7 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 
 </details>
 
-<details><summary>TEST-179 — EM=X, EX=True, VES=0.998869</summary>
+<details><summary>TEST-179 — EX=True, VES=0.998869</summary>
 
 **SQL gold**
 
@@ -7386,7 +7384,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-180 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-180 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7424,7 +7422,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 
 </details>
 
-<details><summary>TEST-181 — EM=X, EX=True, VES=0.998122</summary>
+<details><summary>TEST-181 — EX=True, VES=0.998122</summary>
 
 **SQL gold**
 
@@ -7470,7 +7468,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-182 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-182 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7508,7 +7506,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-183 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-183 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -7544,7 +7542,7 @@ SELECT COUNT(*) AS total_facturas_compra FROM public.purchase_invoice AS pi WHER
 
 </details>
 
-<details><summary>TEST-184 — EM=X, EX=True, VES=0.99326</summary>
+<details><summary>TEST-184 — EX=True, VES=0.99326</summary>
 
 **SQL gold**
 
@@ -7582,7 +7580,7 @@ SELECT s.business_name AS business_name, SUM(pi.total_amount) AS total_compras F
 
 </details>
 
-<details><summary>TEST-185 — EM=X, EX=True, VES=0.995557</summary>
+<details><summary>TEST-185 — EX=True, VES=0.995557</summary>
 
 **SQL gold**
 
@@ -7620,7 +7618,7 @@ SELECT pt.name AS payment_type_name, SUM(pp.amount) AS total_paid FROM public.pu
 
 </details>
 
-<details><summary>TEST-186 — EM=X, EX=True, VES=0.997891</summary>
+<details><summary>TEST-186 — EX=True, VES=0.997891</summary>
 
 **SQL gold**
 
@@ -7658,7 +7656,7 @@ SELECT ip.expense_category AS categoria, SUM(ip.amount_paid) AS total_gastado FR
 
 </details>
 
-<details><summary>TEST-187 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-187 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -7704,7 +7702,7 @@ SELECT poi_alias_status.status AS estado, COUNT(*) AS total FROM public.purchase
 
 </details>
 
-<details><summary>TEST-188 — EM=X, EX=True, VES=0.996189</summary>
+<details><summary>TEST-188 — EX=True, VES=0.996189</summary>
 
 **SQL gold**
 
@@ -7742,7 +7740,7 @@ SELECT p.name AS product_name, SUM(poi.quantity_received) AS total_quantity_rece
 
 </details>
 
-<details><summary>TEST-189 — EM=X, EX=True, VES=0.979759</summary>
+<details><summary>TEST-189 — EX=True, VES=0.979759</summary>
 
 **SQL gold**
 
@@ -7784,7 +7782,7 @@ SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, (
 
 </details>
 
-<details><summary>TEST-190 — EM=X, EX=True, VES=0.977789</summary>
+<details><summary>TEST-190 — EX=True, VES=0.977789</summary>
 
 **SQL gold**
 
@@ -7820,7 +7818,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-191 — EM=X, EX=True, VES=0.990912</summary>
+<details><summary>TEST-191 — EX=True, VES=0.990912</summary>
 
 **SQL gold**
 
@@ -7856,7 +7854,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-192 — EM=X, EX=True, VES=0.948344</summary>
+<details><summary>TEST-192 — EX=True, VES=0.948344</summary>
 
 **SQL gold**
 
@@ -7894,7 +7892,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-193 — EM=X, EX=True, VES=0.99139</summary>
+<details><summary>TEST-193 — EX=True, VES=0.99139</summary>
 
 **SQL gold**
 
@@ -7934,7 +7932,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-194 — EM=X, EX=True, VES=0.979168</summary>
+<details><summary>TEST-194 — EX=True, VES=0.979168</summary>
 
 **SQL gold**
 
@@ -7970,7 +7968,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS suma_diferencias FROM public.cash_sess
 
 </details>
 
-<details><summary>TEST-195 — EM=X, EX=True, VES=0.990758</summary>
+<details><summary>TEST-195 — EX=True, VES=0.990758</summary>
 
 **SQL gold**
 
@@ -8016,7 +8014,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-196 — EM=X, EX=True, VES=0.99421</summary>
+<details><summary>TEST-196 — EX=True, VES=0.99421</summary>
 
 **SQL gold**
 
@@ -8054,7 +8052,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-197 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-197 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -8124,7 +8122,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-198 — EM=X, EX=True, VES=0.983733</summary>
+<details><summary>TEST-198 — EX=True, VES=0.983733</summary>
 
 **SQL gold**
 
@@ -8162,7 +8160,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-199 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-199 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -8200,7 +8198,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-200 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-200 — EX=True, VES=0.949394</summary>
 
 **SQL gold**
 
@@ -8222,7 +8220,7 @@ SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN prod
 **SQL generada**
 
 ```sql
-SELECT p.name AS insumo, SUM(poi.quantity_ordered) AS cantidad FROM public.purchase_order_item AS poi JOIN public.product AS p ON poi.product_id = p.id JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id WHERE po.issued_at >= CAST('2026-06-01' AS DATE) AND po.issued_at < CAST('2026-07-01' AS DATE) GROUP BY p.name ORDER BY cantidad DESC LIMIT 50
+SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad FROM public.purchase_order_item AS poi JOIN public.purchase_order AS po ON poi.purchase_order_id = po.id JOIN public.product AS p ON poi.product_id = p.id WHERE po.received_at >= CAST('2026-06-01 00:00:00' AS TIMESTAMP) AND po.received_at < CAST('2026-07-01 00:00:00' AS TIMESTAMP) GROUP BY p.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -8231,14 +8229,14 @@ SELECT p.name AS insumo, SUM(poi.quantity_ordered) AS cantidad FROM public.purch
 [
   {
     "insumo": "Pollo entero de prueba",
-    "cantidad": "28.00"
+    "cantidad": "20.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-201 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-201 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -8274,7 +8272,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-202 — EM=X, EX=True, VES=0.990345</summary>
+<details><summary>TEST-202 — EX=True, VES=0.990345</summary>
 
 **SQL gold**
 
@@ -8322,7 +8320,7 @@ SELECT p.name AS producto, ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FR
 
 </details>
 
-<details><summary>TEST-203 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-203 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -8360,7 +8358,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-204 — EM=X, EX=True, VES=0.996855</summary>
+<details><summary>TEST-204 — EX=True, VES=0.996855</summary>
 
 **SQL gold**
 
@@ -8398,7 +8396,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-205 — EM=X, EX=True, VES=0.966291</summary>
+<details><summary>TEST-205 — EX=True, VES=0.966291</summary>
 
 **SQL gold**
 
@@ -8458,7 +8456,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-206 — EM=X, EX=True, VES=0.977302</summary>
+<details><summary>TEST-206 — EX=True, VES=0.977302</summary>
 
 **SQL gold**
 
@@ -8496,12 +8494,12 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-207 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-207 — EX=True, VES=0.999415</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-06-01' AND je.entry_date < DATE '2026-07-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-06-01' AND je.entry_date < DATE '2026-07-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -8509,7 +8507,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 202,
     "code": "BENCH26-06-02",
     "entry_date": "2026-06-23",
     "total_debe": "100.00",
@@ -8521,7 +8518,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS codigo_asiento, je.entry_date AS fecha, je.description AS descripcion, SUM(COALESCE(jed.debit, 0)) AS total_debe, SUM(COALESCE(jed.credit, 0)) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-06-01' AS DATE) AND je.entry_date < CAST('2026-07-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(COALESCE(jed.debit, 0)) <> SUM(COALESCE(jed.credit, 0)) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SUM(jed.credit) AS credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-06-01' AS DATE) AND je.entry_date < CAST('2026-07-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -8529,18 +8526,17 @@ SELECT je.code AS codigo_asiento, je.entry_date AS fecha, je.description AS desc
 ```json
 [
   {
-    "codigo_asiento": "BENCH26-06-02",
-    "fecha": "2026-06-23",
-    "descripcion": "Asiento descuadrado ficticio de prueba",
-    "total_debe": "100.00",
-    "total_haber": "80.00"
+    "code": "BENCH26-06-02",
+    "entry_date": "2026-06-23",
+    "debit": "100.00",
+    "credit": "80.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-208 — EM=X, EX=True, VES=0.988598</summary>
+<details><summary>TEST-208 — EX=True, VES=0.988598</summary>
 
 **SQL gold**
 
@@ -8576,7 +8572,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto 
 
 </details>
 
-<details><summary>TEST-209 — EM=X, EX=True, VES=0.999344</summary>
+<details><summary>TEST-209 — EX=True, VES=0.999344</summary>
 
 **SQL gold**
 
@@ -8636,7 +8632,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-210 — EM=X, EX=True, VES=0.922166</summary>
+<details><summary>TEST-210 — EX=True, VES=0.922166</summary>
 
 **SQL gold**
 
@@ -8672,7 +8668,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-211 — EM=X, EX=True, VES=0.98425</summary>
+<details><summary>TEST-211 — EX=True, VES=0.98425</summary>
 
 **SQL gold**
 
@@ -8708,7 +8704,7 @@ SELECT SUM(si.total_amount) AS importe_total FROM public.sales_invoice AS si WHE
 
 </details>
 
-<details><summary>TEST-212 — EM=X, EX=True, VES=0.997708</summary>
+<details><summary>TEST-212 — EX=True, VES=0.997708</summary>
 
 **SQL gold**
 
@@ -8754,7 +8750,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-213 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-213 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -8800,7 +8796,7 @@ SELECT pt.name AS medio_de_pago, SUM(sp.amount) AS total_cobrado FROM public.sal
 
 </details>
 
-<details><summary>TEST-214 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-214 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -8836,7 +8832,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-215 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-215 — EX=True, VES=0.968912</summary>
 
 **SQL gold**
 
@@ -8858,7 +8854,7 @@ SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item 
 **SQL generada**
 
 ```sql
-SELECT p.name AS product_name, SUM(oi.quantity) AS total_units FROM public.sales_order AS so JOIN public.order_item AS oi ON so.id = oi.order_id JOIN public.product AS p ON oi.product_id = p.id WHERE so.order_type = 'Llevar' AND so.status = 'Closed' AND so.ordered_at >= CAST('2026-07-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-08-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_units DESC LIMIT 50
+SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-07-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-08-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -8866,15 +8862,15 @@ SELECT p.name AS product_name, SUM(oi.quantity) AS total_units FROM public.sales
 ```json
 [
   {
-    "product_name": "Pollo a la brasa de prueba",
-    "total_units": "1"
+    "producto": "Pollo a la brasa de prueba",
+    "total_unidades": "3"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-216 — EM=X, EX=True, VES=0.98999</summary>
+<details><summary>TEST-216 — EX=True, VES=0.98999</summary>
 
 **SQL gold**
 
@@ -8920,7 +8916,7 @@ SELECT a.order_type AS canal, SUM(b.total_amount) AS total_vendido FROM public.s
 
 </details>
 
-<details><summary>TEST-217 — EM=X, EX=True, VES=0.984272</summary>
+<details><summary>TEST-217 — EX=True, VES=0.984272</summary>
 
 **SQL gold**
 
@@ -8958,7 +8954,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-218 — EM=X, EX=True, VES=0.993052</summary>
+<details><summary>TEST-218 — EX=True, VES=0.993052</summary>
 
 **SQL gold**
 
@@ -8994,7 +8990,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-219 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-219 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9032,7 +9028,7 @@ SELECT s.business_name AS business_name, SUM(pi.total_amount) AS total_compras F
 
 </details>
 
-<details><summary>TEST-220 — EM=X, EX=True, VES=0.978565</summary>
+<details><summary>TEST-220 — EX=True, VES=0.978565</summary>
 
 **SQL gold**
 
@@ -9070,7 +9066,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-221 — EM=X, EX=True, VES=0.840197</summary>
+<details><summary>TEST-221 — EX=True, VES=0.840197</summary>
 
 **SQL gold**
 
@@ -9108,7 +9104,7 @@ SELECT i.expense_category AS categoria, SUM(i.amount_paid) AS total_gastado FROM
 
 </details>
 
-<details><summary>TEST-222 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-222 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9154,7 +9150,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-223 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-223 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9192,7 +9188,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS total_unidades_recibida
 
 </details>
 
-<details><summary>TEST-224 — EM=X, EX=True, VES=0.974653</summary>
+<details><summary>TEST-224 — EX=True, VES=0.974653</summary>
 
 **SQL gold**
 
@@ -9235,7 +9231,7 @@ SELECT pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, s.bu
 
 </details>
 
-<details><summary>TEST-225 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-225 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9271,7 +9267,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-226 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-226 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9307,7 +9303,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-227 — EM=X, EX=True, VES=0.972609</summary>
+<details><summary>TEST-227 — EX=True, VES=0.972609</summary>
 
 **SQL gold**
 
@@ -9345,7 +9341,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_regis
 
 </details>
 
-<details><summary>TEST-228 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-228 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9385,7 +9381,7 @@ SELECT cr.name AS caja, COALESCE(SUM(cs.sales_cash), 0) AS ventas_efectivo, COAL
 
 </details>
 
-<details><summary>TEST-229 — EM=X, EX=True, VES=0.990166</summary>
+<details><summary>TEST-229 — EX=True, VES=0.990166</summary>
 
 **SQL gold**
 
@@ -9421,7 +9417,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS suma_diferencias FROM public.cash_sess
 
 </details>
 
-<details><summary>TEST-230 — EM=X, EX=True, VES=0.99562</summary>
+<details><summary>TEST-230 — EX=True, VES=0.99562</summary>
 
 **SQL gold**
 
@@ -9467,7 +9463,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-231 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-231 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9505,7 +9501,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-232 — EM=X, EX=True, VES=0.998518</summary>
+<details><summary>TEST-232 — EX=True, VES=0.998518</summary>
 
 **SQL gold**
 
@@ -9575,7 +9571,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-233 — EM=X, EX=True, VES=0.990379</summary>
+<details><summary>TEST-233 — EX=True, VES=0.990379</summary>
 
 **SQL gold**
 
@@ -9613,7 +9609,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS total_unidades FROM public.invent
 
 </details>
 
-<details><summary>TEST-234 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-234 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9651,7 +9647,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-235 — EM=X, EX=True, VES=0.738952</summary>
+<details><summary>TEST-235 — EX=True, VES=0.738952</summary>
 
 **SQL gold**
 
@@ -9689,7 +9685,7 @@ SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad FROM public.purc
 
 </details>
 
-<details><summary>TEST-236 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-236 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9725,7 +9721,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-237 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-237 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9773,7 +9769,7 @@ SELECT p.name AS producto, ti.item_type AS tipo, SUM(ti.quantity) AS cantidad FR
 
 </details>
 
-<details><summary>TEST-238 — EM=X, EX=True, VES=0.991302</summary>
+<details><summary>TEST-238 — EX=True, VES=0.991302</summary>
 
 **SQL gold**
 
@@ -9811,7 +9807,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-239 — EM=X, EX=True, VES=0.981332</summary>
+<details><summary>TEST-239 — EX=True, VES=0.981332</summary>
 
 **SQL gold**
 
@@ -9849,7 +9845,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-240 — EM=X, EX=True, VES=0.999061</summary>
+<details><summary>TEST-240 — EX=True, VES=0.999061</summary>
 
 **SQL gold**
 
@@ -9909,7 +9905,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-241 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-241 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -9947,12 +9943,12 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-242 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-242 — EX=True, VES=0.95402</summary>
 
 **SQL gold**
 
 ```sql
-SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
+SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-07-01' AND je.entry_date < DATE '2026-08-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50
 ```
 
 **Respuesta SQL gold**
@@ -9960,7 +9956,6 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 ```json
 [
   {
-    "id": 204,
     "code": "BENCH26-07-02",
     "entry_date": "2026-07-23",
     "total_debe": "100.00",
@@ -9972,7 +9967,7 @@ SELECT je.id, je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.cred
 **SQL generada**
 
 ```sql
-SELECT je.code AS codigo_asiento, je.entry_date AS fecha_asiento, je.description AS glosa, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date, je.description HAVING SUM(jed.debit) <> SUM(jed.credit) LIMIT 50
+SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_debit, SUM(jed.credit) AS total_credit FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-07-01' AS DATE) AND je.entry_date < CAST('2026-08-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -9980,18 +9975,17 @@ SELECT je.code AS codigo_asiento, je.entry_date AS fecha_asiento, je.description
 ```json
 [
   {
-    "codigo_asiento": "BENCH26-07-02",
-    "fecha_asiento": "2026-07-23",
-    "glosa": "Asiento descuadrado ficticio de prueba",
-    "total_debe": "100.00",
-    "total_haber": "80.00"
+    "code": "BENCH26-07-02",
+    "entry_date": "2026-07-23",
+    "total_debit": "100.00",
+    "total_credit": "80.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-243 — EM=X, EX=True, VES=0.982552</summary>
+<details><summary>TEST-243 — EX=True, VES=0.982552</summary>
 
 **SQL gold**
 
@@ -10027,7 +10021,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-244 — EM=X, EX=True, VES=0.999694</summary>
+<details><summary>TEST-244 — EX=True, VES=0.999694</summary>
 
 **SQL gold**
 
@@ -10087,7 +10081,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-245 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-245 — EX=True, VES=0.982084</summary>
 
 **SQL gold**
 
@@ -10108,18 +10102,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-08-01' AS DATE) AND ap.end_date >= CAST('2026-07-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-246 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-246 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -10155,7 +10153,7 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 
 </details>
 
-<details><summary>TEST-247 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-247 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10201,7 +10199,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-248 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-248 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10247,7 +10245,7 @@ SELECT pt.name AS medio_pago, SUM(sp.amount) AS total_cobrado FROM public.sales_
 
 </details>
 
-<details><summary>TEST-249 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-249 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10283,7 +10281,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS so WHERE so.order_ty
 
 </details>
 
-<details><summary>TEST-250 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-250 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10321,7 +10319,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 
 </details>
 
-<details><summary>TEST-251 — EM=X, EX=True, VES=0.977877</summary>
+<details><summary>TEST-251 — EX=True, VES=0.977877</summary>
 
 **SQL gold**
 
@@ -10367,7 +10365,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-252 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-252 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10405,7 +10403,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.sal
 
 </details>
 
-<details><summary>TEST-253 — EM=X, EX=True, VES=0.969632</summary>
+<details><summary>TEST-253 — EX=True, VES=0.969632</summary>
 
 **SQL gold**
 
@@ -10441,7 +10439,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-254 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-254 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10479,7 +10477,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM 
 
 </details>
 
-<details><summary>TEST-255 — EM=X, EX=True, VES=0.979636</summary>
+<details><summary>TEST-255 — EX=True, VES=0.979636</summary>
 
 **SQL gold**
 
@@ -10517,7 +10515,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-256 — EM=X, EX=True, VES=0.995249</summary>
+<details><summary>TEST-256 — EX=True, VES=0.995249</summary>
 
 **SQL gold**
 
@@ -10555,7 +10553,7 @@ SELECT i.expense_category AS categoria, SUM(i.amount_paid) AS total_gastado FROM
 
 </details>
 
-<details><summary>TEST-257 — EM=X, EX=True, VES=0.993756</summary>
+<details><summary>TEST-257 — EX=True, VES=0.993756</summary>
 
 **SQL gold**
 
@@ -10601,7 +10599,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-258 — EM=X, EX=True, VES=0.994599</summary>
+<details><summary>TEST-258 — EX=True, VES=0.994599</summary>
 
 **SQL gold**
 
@@ -10639,7 +10637,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-259 — EM=X, EX=True, VES=0.966097</summary>
+<details><summary>TEST-259 — EX=True, VES=0.966097</summary>
 
 **SQL gold**
 
@@ -10681,7 +10679,7 @@ SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, (
 
 </details>
 
-<details><summary>TEST-260 — EM=X, EX=True, VES=0.941814</summary>
+<details><summary>TEST-260 — EX=True, VES=0.941814</summary>
 
 **SQL gold**
 
@@ -10717,7 +10715,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-261 — EM=X, EX=True, VES=0.996849</summary>
+<details><summary>TEST-261 — EX=True, VES=0.996849</summary>
 
 **SQL gold**
 
@@ -10753,7 +10751,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-262 — EM=X, EX=True, VES=0.865126</summary>
+<details><summary>TEST-262 — EX=True, VES=0.865126</summary>
 
 **SQL gold**
 
@@ -10791,7 +10789,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-263 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-263 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10831,7 +10829,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-264 — EM=X, EX=True, VES=0.992182</summary>
+<details><summary>TEST-264 — EX=True, VES=0.992182</summary>
 
 **SQL gold**
 
@@ -10867,7 +10865,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_ses
 
 </details>
 
-<details><summary>TEST-265 — EM=X, EX=True, VES=0.985217</summary>
+<details><summary>TEST-265 — EX=True, VES=0.985217</summary>
 
 **SQL gold**
 
@@ -10913,7 +10911,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-266 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-266 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -10951,7 +10949,7 @@ SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-267 — EM=X, EX=True, VES=0.997411</summary>
+<details><summary>TEST-267 — EX=True, VES=0.997411</summary>
 
 **SQL gold**
 
@@ -11021,7 +11019,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-268 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-268 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11059,7 +11057,7 @@ SELECT p.name AS producto, SUM(ABS(im.quantity)) AS unidades_salida FROM public.
 
 </details>
 
-<details><summary>TEST-269 — EM=X, EX=True, VES=0.976331</summary>
+<details><summary>TEST-269 — EX=True, VES=0.976331</summary>
 
 **SQL gold**
 
@@ -11097,7 +11095,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-270 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-270 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11135,7 +11133,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-271 — EM=X, EX=True, VES=0.998185</summary>
+<details><summary>TEST-271 — EX=True, VES=0.998185</summary>
 
 **SQL gold**
 
@@ -11171,7 +11169,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-272 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-272 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11219,7 +11217,7 @@ SELECT p.name AS producto, ti.item_type AS tipo_item, SUM(ti.quantity) AS cantid
 
 </details>
 
-<details><summary>TEST-273 — EM=X, EX=True, VES=0.974838</summary>
+<details><summary>TEST-273 — EX=True, VES=0.974838</summary>
 
 **SQL gold**
 
@@ -11257,7 +11255,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-274 — EM=X, EX=True, VES=0.996952</summary>
+<details><summary>TEST-274 — EX=True, VES=0.996952</summary>
 
 **SQL gold**
 
@@ -11295,7 +11293,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-275 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-275 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11355,7 +11353,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-276 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-276 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11393,7 +11391,7 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-277 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-277 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -11435,7 +11433,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, je.description AS descripti
 
 </details>
 
-<details><summary>TEST-278 — EM=X, EX=True, VES=0.999418</summary>
+<details><summary>TEST-278 — EX=True, VES=0.999418</summary>
 
 **SQL gold**
 
@@ -11471,7 +11469,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-279 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-279 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11531,7 +11529,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-280 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-280 — EX=True, VES=0.973465</summary>
 
 **SQL gold**
 
@@ -11552,18 +11550,22 @@ SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-09-01' AS DATE) AND ap.end_date >= CAST('2026-08-01' AS DATE) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_periodos": "1"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-281 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-281 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -11599,7 +11601,7 @@ SELECT COUNT(*) AS total_comprobantes FROM public.sales_invoice AS si WHERE si.i
 
 </details>
 
-<details><summary>TEST-282 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-282 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11645,7 +11647,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-283 — EM=X, EX=True, VES=0.994891</summary>
+<details><summary>TEST-283 — EX=True, VES=0.994891</summary>
 
 **SQL gold**
 
@@ -11691,7 +11693,7 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 
 </details>
 
-<details><summary>TEST-284 — EM=X, EX=True, VES=0.983447</summary>
+<details><summary>TEST-284 — EX=True, VES=0.983447</summary>
 
 **SQL gold**
 
@@ -11727,7 +11729,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS a WHERE a.order_type
 
 </details>
 
-<details><summary>TEST-285 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-285 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11765,7 +11767,7 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 
 </details>
 
-<details><summary>TEST-286 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-286 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11811,7 +11813,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-287 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-287 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11849,7 +11851,7 @@ SELECT dt.number AS mesa, COUNT(DISTINCT so.id) AS total_pedidos FROM public.din
 
 </details>
 
-<details><summary>TEST-288 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-288 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11885,7 +11887,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-289 — EM=X, EX=True, VES=0.99784</summary>
+<details><summary>TEST-289 — EX=True, VES=0.99784</summary>
 
 **SQL gold**
 
@@ -11923,7 +11925,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM 
 
 </details>
 
-<details><summary>TEST-290 — EM=X, EX=True, VES=0.982239</summary>
+<details><summary>TEST-290 — EX=True, VES=0.982239</summary>
 
 **SQL gold**
 
@@ -11961,7 +11963,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-291 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-291 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -11999,7 +12001,7 @@ SELECT i.expense_category AS categoria, SUM(i.amount_paid) AS total_gastado FROM
 
 </details>
 
-<details><summary>TEST-292 — EM=X, EX=True, VES=0.973998</summary>
+<details><summary>TEST-292 — EX=True, VES=0.973998</summary>
 
 **SQL gold**
 
@@ -12045,7 +12047,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-293 — EM=X, EX=True, VES=0.997934</summary>
+<details><summary>TEST-293 — EX=True, VES=0.997934</summary>
 
 **SQL gold**
 
@@ -12083,7 +12085,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS total_unidades_recibida
 
 </details>
 
-<details><summary>TEST-294 — EM=X, EX=True, VES=0.997935</summary>
+<details><summary>TEST-294 — EX=True, VES=0.997935</summary>
 
 **SQL gold**
 
@@ -12126,7 +12128,7 @@ SELECT pi.series AS series, pi.number AS number, pi.issued_at AS issued_at, s.bu
 
 </details>
 
-<details><summary>TEST-295 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-295 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12162,7 +12164,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-296 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-296 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12198,7 +12200,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_ingresos FROM public.cash_movement A
 
 </details>
 
-<details><summary>TEST-297 — EM=X, EX=True, VES=0.971406</summary>
+<details><summary>TEST-297 — EX=True, VES=0.971406</summary>
 
 **SQL gold**
 
@@ -12236,7 +12238,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS total_sesiones FROM public.cash_session 
 
 </details>
 
-<details><summary>TEST-298 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-298 — EX=True, VES=0.971295</summary>
 
 **SQL gold**
 
@@ -12259,7 +12261,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cs.sales_cash), 0) AS ventas_efectivo, COALESCE(SUM(cs.sales_other), 0) AS ventas_otros FROM public.cash_session AS cs WHERE cs.opened_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cs.opened_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_other) AS otros_medios FROM public.cash_session AS cs JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -12267,15 +12269,16 @@ SELECT COALESCE(SUM(cs.sales_cash), 0) AS ventas_efectivo, COALESCE(SUM(cs.sales
 ```json
 [
   {
+    "caja": "Caja de Prueba",
     "ventas_efectivo": "850.00",
-    "ventas_otros": "420.00"
+    "otros_medios": "420.00"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-299 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-299 — EX=True, VES=0.966595</summary>
 
 **SQL gold**
 
@@ -12296,18 +12299,22 @@ SELECT COALESCE(SUM(cs.difference), 0) AS diferencia FROM cash_session cs WHERE 
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT COALESCE(SUM(cs.difference), 0) AS total_diferencias FROM public.cash_session AS cs WHERE cs.status = 'CLOSED' AND cs.closed_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cs.closed_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "total_diferencias": "-5.00"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-300 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-300 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12353,7 +12360,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-301 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-301 — EX=True, VES=0.975832</summary>
 
 **SQL gold**
 
@@ -12375,7 +12382,7 @@ SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cas
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS cm WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-09-01 00:00:00' AS TIMESTAMP) AND cm.created_at < CAST('2026-10-01 00:00:00' AS TIMESTAMP) LIMIT 50
+SELECT cr.name AS caja_registradora, SUM(cm.amount) AS total_egresos FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cs.closed_at >= CAST('2026-09-01' AS DATE) AND cs.closed_at < CAST('2026-10-01' AS DATE) GROUP BY cr.name LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -12383,6 +12390,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 ```json
 [
   {
+    "caja_registradora": "Caja de Prueba",
     "total_egresos": "45.00"
   }
 ]
@@ -12390,7 +12398,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-302 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-302 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12460,7 +12468,7 @@ SELECT im.movement_type AS tipo_movimiento, COUNT(*) AS total_movimientos, SUM(i
 
 </details>
 
-<details><summary>TEST-303 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-303 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12498,7 +12506,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-304 — EM=X, EX=True, VES=0.988238</summary>
+<details><summary>TEST-304 — EX=True, VES=0.988238</summary>
 
 **SQL gold**
 
@@ -12536,7 +12544,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-305 — EM=X, EX=True, VES=0.998613</summary>
+<details><summary>TEST-305 — EX=True, VES=0.998613</summary>
 
 **SQL gold**
 
@@ -12574,7 +12582,7 @@ SELECT p.name AS insumo, SUM(im.quantity) AS cantidad FROM public.inventory_move
 
 </details>
 
-<details><summary>TEST-306 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-306 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12610,7 +12618,7 @@ SELECT COUNT(*) AS total_transformations FROM public.transformation AS t WHERE t
 
 </details>
 
-<details><summary>TEST-307 — EM=X, EX=True, VES=0.991951</summary>
+<details><summary>TEST-307 — EX=True, VES=0.991951</summary>
 
 **SQL gold**
 
@@ -12658,7 +12666,7 @@ SELECT p.name AS producto, ti.item_type AS tipo_item, SUM(ti.quantity) AS cantid
 
 </details>
 
-<details><summary>TEST-308 — EM=X, EX=True, VES=0.984394</summary>
+<details><summary>TEST-308 — EX=True, VES=0.984394</summary>
 
 **SQL gold**
 
@@ -12696,7 +12704,7 @@ SELECT p.name AS producto, im.quantity AS cantidad FROM public.inventory_movemen
 
 </details>
 
-<details><summary>TEST-309 — EM=X, EX=True, VES=0.996989</summary>
+<details><summary>TEST-309 — EX=True, VES=0.996989</summary>
 
 **SQL gold**
 
@@ -12734,7 +12742,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-310 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-310 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12794,7 +12802,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-311 — EM=X, EX=True, VES=0.993451</summary>
+<details><summary>TEST-311 — EX=True, VES=0.993451</summary>
 
 **SQL gold**
 
@@ -12832,7 +12840,7 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-312 — EM=X, EX=True, VES=0.963324</summary>
+<details><summary>TEST-312 — EX=True, VES=0.963324</summary>
 
 **SQL gold**
 
@@ -12874,7 +12882,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS total_deb
 
 </details>
 
-<details><summary>TEST-313 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-313 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12910,7 +12918,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto 
 
 </details>
 
-<details><summary>TEST-314 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-314 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -12970,7 +12978,7 @@ SELECT aa.type AS tipo_cuenta, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS 
 
 </details>
 
-<details><summary>TEST-315 — EM=X, EX=True, VES=0.909942</summary>
+<details><summary>TEST-315 — EX=True, VES=0.909942</summary>
 
 **SQL gold**
 
@@ -13006,7 +13014,7 @@ SELECT COUNT(*) AS total_periodos FROM public.accounting_period AS ap WHERE ap.s
 
 </details>
 
-<details><summary>TEST-316 — EM=X, EX=True, VES=0.977873</summary>
+<details><summary>TEST-316 — EX=True, VES=0.977873</summary>
 
 **SQL gold**
 
@@ -13042,7 +13050,7 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS importe_total FROM public.sales_invo
 
 </details>
 
-<details><summary>TEST-317 — EM=X, EX=True, VES=0.997133</summary>
+<details><summary>TEST-317 — EX=True, VES=0.997133</summary>
 
 **SQL gold**
 
@@ -13088,7 +13096,7 @@ SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_factur
 
 </details>
 
-<details><summary>TEST-318 — EM=X, EX=True, VES=0.992137</summary>
+<details><summary>TEST-318 — EX=True, VES=0.992137</summary>
 
 **SQL gold**
 
@@ -13150,7 +13158,7 @@ SELECT pt.name AS payment_type, SUM(sp.amount) AS total_collected FROM public.sa
 
 </details>
 
-<details><summary>TEST-319 — EM=X, EX=True, VES=0.983038</summary>
+<details><summary>TEST-319 — EX=True, VES=0.983038</summary>
 
 **SQL gold**
 
@@ -13186,7 +13194,7 @@ SELECT COUNT(*) AS total_pedidos FROM public.sales_order AS a WHERE a.order_type
 
 </details>
 
-<details><summary>TEST-320 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-320 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -13224,7 +13232,7 @@ SELECT p.name, SUM(oi.quantity) AS unidades FROM sales_order so JOIN order_item 
 **SQL generada**
 
 ```sql
-SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_item AS oi JOIN public.product AS p ON oi.product_id = p.id JOIN public.sales_order AS so ON oi.order_id = so.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY total_unidades DESC LIMIT 50
+SELECT p.name AS producto, SUM(oi.quantity) AS unidades_vendidas FROM public.sales_order AS so JOIN public.order_item AS oi ON so.id = oi.order_id JOIN public.product AS p ON oi.product_id = p.id WHERE so.status = 'Closed' AND so.ordered_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND so.ordered_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50
 ```
 
 **Respuesta SQL generada**
@@ -13233,42 +13241,42 @@ SELECT p.name AS producto, SUM(oi.quantity) AS total_unidades FROM public.order_
 [
   {
     "producto": "1/4 Pollo a la Brasa",
-    "total_unidades": "11"
+    "unidades_vendidas": "11"
   },
   {
     "producto": "Agua Mineral 600ml",
-    "total_unidades": "4"
+    "unidades_vendidas": "4"
   },
   {
     "producto": "Pollo a la brasa de prueba",
-    "total_unidades": "3"
+    "unidades_vendidas": "3"
   },
   {
     "producto": "1/2 Pollo a la Brasa",
-    "total_unidades": "2"
+    "unidades_vendidas": "2"
   },
   {
     "producto": "Coca Cola 1.5L",
-    "total_unidades": "2"
+    "unidades_vendidas": "2"
   },
   {
     "producto": "Jarra de Maracuyá 1L",
-    "total_unidades": "1"
+    "unidades_vendidas": "1"
   },
   {
     "producto": "Inca Kola 1.5L",
-    "total_unidades": "1"
+    "unidades_vendidas": "1"
   },
   {
     "producto": "Mostrito Especial",
-    "total_unidades": "1"
+    "unidades_vendidas": "1"
   }
 ]
 ```
 
 </details>
 
-<details><summary>TEST-321 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-321 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -13314,7 +13322,7 @@ SELECT so.order_type AS canal, SUM(si.total_amount) AS total_vendido FROM public
 
 </details>
 
-<details><summary>TEST-322 — EM=X, EX=True, VES=0.998234</summary>
+<details><summary>TEST-322 — EX=True, VES=0.998234</summary>
 
 **SQL gold**
 
@@ -13384,7 +13392,7 @@ SELECT t.number AS numero_mesa, COUNT(o.id) AS total_pedidos FROM public.dining_
 
 </details>
 
-<details><summary>TEST-323 — EM=X, EX=True, VES=0.998513</summary>
+<details><summary>TEST-323 — EX=True, VES=0.998513</summary>
 
 **SQL gold**
 
@@ -13420,7 +13428,7 @@ SELECT SUM(pi.total_amount) AS total_facturas_compra FROM public.purchase_invoic
 
 </details>
 
-<details><summary>TEST-324 — EM=X, EX=True, VES=0.996772</summary>
+<details><summary>TEST-324 — EX=True, VES=0.996772</summary>
 
 **SQL gold**
 
@@ -13490,7 +13498,7 @@ SELECT s.business_name AS proveedor, SUM(pi.total_amount) AS total_compras FROM 
 
 </details>
 
-<details><summary>TEST-325 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-325 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -13552,7 +13560,7 @@ SELECT pt.name AS payment_type, SUM(pp.amount) AS total_paid FROM public.purchas
 
 </details>
 
-<details><summary>TEST-326 — EM=X, EX=True, VES=0.996631</summary>
+<details><summary>TEST-326 — EX=True, VES=0.996631</summary>
 
 **SQL gold**
 
@@ -13606,7 +13614,7 @@ SELECT i.expense_category AS categoria, SUM(i.amount_paid) AS total_gastado FROM
 
 </details>
 
-<details><summary>TEST-327 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-327 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -13652,7 +13660,7 @@ SELECT po.status AS estado, COUNT(*) AS total_ordenes FROM public.purchase_order
 
 </details>
 
-<details><summary>TEST-328 — EM=X, EX=True, VES=0.979055</summary>
+<details><summary>TEST-328 — EX=True, VES=0.979055</summary>
 
 **SQL gold**
 
@@ -13722,7 +13730,7 @@ SELECT p.name AS producto, SUM(poi.quantity_received) AS unidades_recibidas FROM
 
 </details>
 
-<details><summary>TEST-329 — EM=X, EX=False, VES=0.0</summary>
+<details><summary>TEST-329 — EX=True, VES=0.973642</summary>
 
 **SQL gold**
 
@@ -13758,18 +13766,37 @@ SELECT s.business_name AS proveedor, pi.series, pi.number, pi.total_amount - COA
 **SQL generada**
 
 ```sql
-[SIN SQL]
+SELECT s.business_name AS proveedor, pi.series AS serie, pi.number AS número, (pi.total_amount - COALESCE(SUM(pp.amount), 0)) AS saldo_pendiente FROM public.purchase_invoice AS pi JOIN public.supplier AS s ON pi.supplier_id = s.id LEFT JOIN public.purchase_payment AS pp ON pi.id = pp.purchase_invoice_id WHERE pi.active = TRUE AND pi.issued_at >= CAST('2026-10-01' AS DATE) AND pi.issued_at < CAST('2026-11-01' AS DATE) GROUP BY s.business_name, pi.id, pi.series, pi.number, pi.total_amount HAVING (pi.total_amount - COALESCE(SUM(pp.amount), 0)) > 0 LIMIT 50
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[NO EJECUTADA]
+[
+  {
+    "proveedor": "Avícola Buen Sabor de Prueba",
+    "serie": "F026",
+    "número": "990010",
+    "saldo_pendiente": "136.00"
+  },
+  {
+    "proveedor": "PONCE EVANGELISTA, RENZO DANIEL",
+    "serie": "F003",
+    "número": "42345234",
+    "saldo_pendiente": "3.00"
+  },
+  {
+    "proveedor": "COMPAÑIA FOOD RETAIL S.A.C.",
+    "serie": "F002",
+    "número": "34123423",
+    "saldo_pendiente": "11.10"
+  }
+]
 ```
 
 </details>
 
-<details><summary>TEST-330 — EM=X, EX=True, VES=0.99917</summary>
+<details><summary>TEST-330 — EX=True, VES=0.99917</summary>
 
 **SQL gold**
 
@@ -13805,7 +13832,7 @@ SELECT COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public.cash_movement AS
 
 </details>
 
-<details><summary>TEST-331 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-331 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -13841,7 +13868,7 @@ SELECT SUM(cm.amount) AS total_ingresos FROM public.cash_movement AS cm WHERE cm
 
 </details>
 
-<details><summary>TEST-332 — EM=X, EX=True, VES=0.761023</summary>
+<details><summary>TEST-332 — EX=True, VES=0.761023</summary>
 
 **SQL gold**
 
@@ -13887,7 +13914,7 @@ SELECT cr.name AS caja, COUNT(cs.id) AS sesiones_cerradas FROM public.cash_sessi
 
 </details>
 
-<details><summary>TEST-333 — EM=X, EX=True, VES=0.995827</summary>
+<details><summary>TEST-333 — EX=True, VES=0.995827</summary>
 
 **SQL gold**
 
@@ -13937,7 +13964,7 @@ SELECT cr.name AS caja, SUM(cs.sales_cash) AS ventas_efectivo, SUM(cs.sales_othe
 
 </details>
 
-<details><summary>TEST-334 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-334 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -13973,7 +14000,7 @@ SELECT COALESCE(SUM(cs.difference), 0) AS suma_diferencias FROM public.cash_sess
 
 </details>
 
-<details><summary>TEST-335 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-335 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -14019,7 +14046,7 @@ SELECT cm.type AS tipo_movimiento, SUM(cm.amount) AS total_movido FROM public.ca
 
 </details>
 
-<details><summary>TEST-336 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-336 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -14057,7 +14084,7 @@ SELECT cr.name AS caja, COALESCE(SUM(cm.amount), 0) AS total_egresos FROM public
 
 </details>
 
-<details><summary>TEST-337 — EM=X, EX=True, VES=0.996492</summary>
+<details><summary>TEST-337 — EX=True, VES=0.996492</summary>
 
 **SQL gold**
 
@@ -14157,7 +14184,7 @@ SELECT im.movement_type AS movimiento, COUNT(*) AS total_movimientos, SUM(im.qua
 
 </details>
 
-<details><summary>TEST-338 — EM=X, EX=True, VES=0.99382</summary>
+<details><summary>TEST-338 — EX=True, VES=0.99382</summary>
 
 **SQL gold**
 
@@ -14211,7 +14238,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS unidades FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-339 — EM=X, EX=True, VES=0.983419</summary>
+<details><summary>TEST-339 — EX=True, VES=0.983419</summary>
 
 **SQL gold**
 
@@ -14249,7 +14276,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-340 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-340 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -14319,7 +14346,7 @@ SELECT p.name AS insumo, SUM(poi.quantity_received) AS cantidad_ingresada FROM p
 
 </details>
 
-<details><summary>TEST-341 — EM=X, EX=True, VES=0.983237</summary>
+<details><summary>TEST-341 — EX=True, VES=0.983237</summary>
 
 **SQL gold**
 
@@ -14355,7 +14382,7 @@ SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE 
 
 </details>
 
-<details><summary>TEST-342 — EM=X, EX=True, VES=0.976127</summary>
+<details><summary>TEST-342 — EX=True, VES=0.976127</summary>
 
 **SQL gold**
 
@@ -14401,7 +14428,7 @@ SELECT ti.item_type AS tipo, SUM(ti.quantity) AS cantidad_total FROM public.tran
 
 </details>
 
-<details><summary>TEST-343 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-343 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -14455,7 +14482,7 @@ SELECT p.name AS producto, SUM(im.quantity) AS cantidad FROM public.inventory_mo
 
 </details>
 
-<details><summary>TEST-344 — EM=X, EX=True, VES=0.998946</summary>
+<details><summary>TEST-344 — EX=True, VES=0.998946</summary>
 
 **SQL gold**
 
@@ -14493,7 +14520,7 @@ SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) A
 
 </details>
 
-<details><summary>TEST-345 — EM=X, EX=True, VES=0.963312</summary>
+<details><summary>TEST-345 — EX=True, VES=0.963312</summary>
 
 **SQL gold**
 
@@ -14723,7 +14750,7 @@ SELECT aa.code AS codigo_cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debi
 
 </details>
 
-<details><summary>TEST-346 — EM=X, EX=True, VES=0.888597</summary>
+<details><summary>TEST-346 — EX=True, VES=0.888597</summary>
 
 **SQL gold**
 
@@ -14801,7 +14828,7 @@ SELECT je.book AS diario, COUNT(je.id) AS total_asientos FROM public.journal_ent
 
 </details>
 
-<details><summary>TEST-347 — EM=X, EX=True, VES=0.965056</summary>
+<details><summary>TEST-347 — EX=True, VES=0.965056</summary>
 
 **SQL gold**
 
@@ -14843,7 +14870,7 @@ SELECT je.code AS code, je.entry_date AS entry_date, SUM(jed.debit) AS debit, SU
 
 </details>
 
-<details><summary>TEST-348 — EM=X, EX=True, VES=0.979389</summary>
+<details><summary>TEST-348 — EX=True, VES=0.979389</summary>
 
 **SQL gold**
 
@@ -14879,7 +14906,7 @@ SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM 
 
 </details>
 
-<details><summary>TEST-349 — EM=X, EX=True, VES=1.0</summary>
+<details><summary>TEST-349 — EX=True, VES=1.0</summary>
 
 **SQL gold**
 
@@ -14959,7 +14986,7 @@ SELECT aa.type AS tipo_cuenta, COALESCE(SUM(jed.debit), 0) AS total_debe, COALES
 
 </details>
 
-<details><summary>TEST-350 — EM=X, EX=True, VES=0.999304</summary>
+<details><summary>TEST-350 — EX=True, VES=0.999304</summary>
 
 **SQL gold**
 
