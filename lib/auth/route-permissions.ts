@@ -10,7 +10,7 @@ const RECORD_VIEWS = ["asientos.ver", "pagar.ver", "cuentas.ver", "periodos.ver"
 const REPORT_VIEWS = [
   "comprobacion.ver", "balance.ver", "dashboard.ver", "resultados.ver", "flujo.ver", "mayor.ver", "ple.ver", "resumen.ver",
 ];
-const DOC_VIEWS = ["endpoints.ver", "diagrama.ver", "estilos.ver"];
+const DOC_VIEWS = ["manual.ver", "despliegue.ver", "endpoints.ver", "diagrama.ver", "estilos.ver"];
 
 /** Permisos "ver" cuya presencia (cualquiera) hace visible cada sección del menú. */
 export const SECTIONS: Record<string, string[]> = {
@@ -78,6 +78,8 @@ const LINK_PERMISSION: Record<string, string> = {
   "/security/users": "usuarios.ver",
   "/security/roles": "roles.ver",
   "/security/audit": "auditoria.ver",
+  "/docs/user-manual": "manual.ver",
+  "/docs/deployment": "despliegue.ver",
   "/docs/swagger": "endpoints.ver",
   "/docs/db-diagram": "diagrama.ver",
   "/docs/architecture": "diagrama.ver",
@@ -134,8 +136,11 @@ const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
   { prefix: "/security/users", permissions: ["usuarios.ver"] },
   { prefix: "/security/roles", permissions: ["roles.ver"] },
   { prefix: "/security/audit", permissions: ["auditoria.ver"] },
+  { prefix: "/docs/user-manual", permissions: ["manual.ver"] },
+  { prefix: "/docs/deployment", permissions: ["despliegue.ver"] },
   { prefix: "/docs/swagger", permissions: ["endpoints.ver"] },
   { prefix: "/docs/db-diagram", permissions: ["diagrama.ver"] },
+  { prefix: "/docs/architecture", permissions: ["diagrama.ver"] },
   { prefix: "/docs/style-guide", permissions: ["estilos.ver"] },
 ].sort((a, b) => b.prefix.length - a.prefix.length);
 
