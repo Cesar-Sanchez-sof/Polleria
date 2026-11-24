@@ -140,6 +140,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: "documentacion", label: "DOCUMENTACIÓN", icon: BookOpen, permissions: "documentation",
     items: [
+      { label: "Manual de Usuario", href: "/docs/user-manual", path: "user-manual" },
+      { label: "Manual de Despliegue", href: "/docs/deployment", path: "deployment" },
       { label: "Endpoints", href: "/docs/swagger", path: "endpoints" },
       { label: "Diagrama DB", href: "/docs/db-diagram", path: "db-diagram" },
       { label: "Arquitectura", href: "/docs/architecture", path: "architecture" },

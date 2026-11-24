@@ -293,6 +293,59 @@ main > :last-child {
     border: none !important;
     font-family: monospace, "Courier New", Courier, monospace !important;
   }
+
+  /* =====================================================================
+     REGLAS DE IMPRESIÓN A4 PARA MANUALES (/docs/user-manual, /docs/deployment)
+     Anulan el ancho de ticketera de 80mm y el offset del menú lateral.
+     ===================================================================== */
+  html:has(.manual-doc-print),
+  body:has(.manual-doc-print) {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 12px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html:has(.manual-doc-print) [class*="md:pl-64"] {
+    padding-left: 0 !important;
+  }
+
+  html:has(.manual-doc-print) .fixed {
+    display: none !important;
+  }
+
+  .manual-doc-print,
+  .manual-doc-print * {
+    overflow: visible !important;
+  }
+
+  .manual-doc-print {
+    height: auto !important;
+    min-height: 0 !important;
+    background: #ffffff !important;
+    color: #0d1c2e !important;
+    --background: #ffffff;
+    --foreground: #0d1c2e;
+    --card: #ffffff;
+    --card-foreground: #0d1c2e;
+    --muted: #f8f5f4;
+    --muted-foreground: #5d4a48;
+    --border: #e7d4cf;
+    --primary: #9a0001;
+    --primary-foreground: #ffffff;
+  }
+
+  .manual-print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
 
 /* ==================================================================== */

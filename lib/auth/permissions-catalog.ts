@@ -64,6 +64,8 @@ export const PERMISSION_MODULES: readonly PermissionModule[] = [
   { code: "desarrollador", name: "Interruptores de desarrollador", group: "Configuración", actions: ["ver", "editar"] },
   { code: "personalizacion", name: "Personalización (marca, login e inicio)", group: "Configuración", actions: ["ver", "editar"] },
   // Documentación
+  { code: "manual", name: "Manual de usuario", group: "Documentación", parent: "documentacion", actions: ["ver"] },
+  { code: "despliegue", name: "Manual de despliegue", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "endpoints", name: "Endpoints", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "diagrama", name: "Diagrama DB", group: "Documentación", parent: "documentacion", actions: ["ver"] },
   { code: "estilos", name: "Guía de estilos", group: "Documentación", parent: "documentacion", actions: ["ver"] },
