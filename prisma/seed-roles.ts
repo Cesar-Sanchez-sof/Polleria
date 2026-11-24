@@ -25,6 +25,7 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
       ...p("caja", "ver", "crear", "editar"),
       ...p("clientes", "ver", "crear", "editar"),
       ...p("pedidos", "ver"),
+      ...p("manual", "ver"),
     ],
   },
   {
@@ -37,6 +38,7 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
       ...p("mesas", "ver", "editar"),
       ...p("platos", "ver"),
       ...p("clientes", "ver"),
+      ...p("manual", "ver"),
     ],
   },
   {
@@ -49,6 +51,7 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
       ...p("platos", "ver"),
       ...p("inventario", "ver"),
       ...p("transformacion", "ver", "crear"),
+      ...p("manual", "ver"),
     ],
   },
   {
@@ -75,6 +78,7 @@ const ROLES_BASE: Array<{ name: string; description: string; permissions: string
       ...p("ventas", "ver"),
       ...p("facturas", "ver"),
       ...p("auditoria", "ver"),
+      ...p("manual", "ver"),
     ],
   },
 ];
@@ -92,6 +96,7 @@ ROLES_BASE.push({
     ...p("seguros", "ver", "crear", "editar"),
     ...p("anticipos", "ver", "crear", "editar"),
     ...p("planilla", "ver", "crear", "editar"),
+    ...p("manual", "ver"),
   ],
 });
 
@@ -132,6 +137,18 @@ export async function seedRolesPermissions(prisma: PrismaClient) {
 
   const all = await prisma.permission.findMany({ select: { id: true, code: true } });
   const idByCode = new Map(all.map((x) => [x.code, x.id]));
+
+  // Manual de usuario: al incorporarse por primera vez al catálogo, se habilita para todos los roles existentes.
+  if (!known.has("manual.ver") && idByCode.has("manual.ver")) {
+    const manualPermId = idByCode.get("manual.ver")!;
+    const existingRoles = await prisma.role.findMany({ select: { id: true } });
+    if (existingRoles.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: existingRoles.map((r) => ({ roleId: r.id, permissionId: manualPermId })),
+        skipDuplicates: true,
+      });
+    }
+  }
 
   // 2. ADMIN: rol de sistema con todos los permisos (se re-sincroniza siempre).
   const admin = await prisma.role.upsert({
