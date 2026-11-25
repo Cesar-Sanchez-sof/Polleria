@@ -17,6 +17,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [yo, setYo] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -29,7 +30,11 @@ export default function UsersPage() {
       if (!u.ok || !r.ok) throw new Error();
       setUsers(await u.json());
       setRoles(await r.json());
-      if (me.ok) setYo((await me.json()).userId);
+      if (me.ok) {
+        const meData = await me.json();
+        setYo(meData.userId);
+        setIsAdmin(Boolean(meData.superuser));
+      }
       setError(null);
     } catch {
       setError("No se pudo cargar la lista de usuarios");
@@ -160,6 +165,7 @@ export default function UsersPage() {
         open={formOpen}
         user={editing}
         roles={roles}
+        roleLock={editing === null ? null : !isAdmin ? "Solo un administrador puede cambiar el rol de un usuario." : editing.user_id === yo ? "No puedes cambiar tu propio rol." : null}
         onClose={() => setFormOpen(false)}
         onSaved={() => {
           setFormOpen(false);
