@@ -95,6 +95,7 @@ export const API_CATALOG = [
   { route: "/api/auth/logout", domain: "security", methods: ["POST"], safety: "auth" },
   { route: "/api/auth/me", domain: "security", methods: ["GET"], safety: "read", samplePath: () => "/api/auth/me" },
   { route: "/api/roles", domain: "security", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/roles" },
+  { route: "/api/roles/dashboards", domain: "security", methods: ["GET"], safety: "read", samplePath: () => "/api/roles/dashboards" },
   { route: "/api/roles/[id]", domain: "security", methods: ["GET", "PUT", "DELETE"], safety: "read", samplePath: ({ ids }) => `/api/roles/${ids.role ?? 1}` },
   { route: "/api/users", domain: "security", methods: ["GET", "POST"], safety: "read", samplePath: () => "/api/users" },
   { route: "/api/users/[id]", domain: "security", methods: ["PUT", "PATCH"], safety: "write" },

@@ -65,7 +65,7 @@ type StepName = "Datos personales" | "Contrato" | "Horario" | "Acceso al sistema
  */
 export function HireWizard({ open, onClose, onHired }: { open: boolean; onClose: () => void; onHired: (e: EmployeeDto) => void }) {
   const { can } = usePermissions();
-  const canGrant = can("usuarios.crear");
+  const canGrant = can("usuarios.crear") || can("empleados.crear");
   const steps: StepName[] = ["Datos personales", "Contrato", "Horario", ...(canGrant ? (["Acceso al sistema"] as const) : []), "Confirmar"];
   const [step, setStep] = useState(0);
   const [personal, setPersonal] = useState<PersonalData>(emptyPersonal);

@@ -45,14 +45,11 @@ export async function POST(request: NextRequest) {
     const body = await readJson(request);
     if (!body?.personal || !body?.contract) return badRequest("Envía los datos personales y del contrato");
 
-    // Crear su usuario del sistema exige además el permiso de Usuarios.
+    // Quien contrata también entrega el acceso: el rol elegido define los permisos del trabajador.
+    // Un rol de sistema (ADMIN) solo lo asigna un administrador (lo valida prepareAccess).
     let access = null;
-    let superuser = auth.superuser;
     if (body.access) {
-      const userAuth = await authorize("usuarios.crear");
-      if (!userAuth.ok) return userAuth.response;
-      superuser = userAuth.superuser;
-      access = await prepareAccess(body.access as AccessData, superuser);
+      access = await prepareAccess(body.access as AccessData, auth.superuser);
     }
     const { employee, contract, user } = await hireEmployee(
       body.personal as EmployeeData,

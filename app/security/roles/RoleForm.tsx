@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Fragment, useState } from "react";
+import { FormEvent, Fragment, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,6 +25,19 @@ export interface RoleRow {
   is_system: boolean;
   total_users: number;
   permissions: string[];
+  dashboards?: DashboardAccess[];
+}
+
+interface DashboardAccess {
+  dashboard_id: string;
+  can_view: boolean;
+  can_edit: boolean;
+}
+
+interface DashboardOption {
+  dashboard_id: string;
+  name: string;
+  section: string;
 }
 
 interface Props {
@@ -65,6 +78,45 @@ function Content({ role, onClose, onSaved }: Omit<Props, "open">) {
   const [permissions, setPermissions] = useState<Set<string>>(new Set(role?.permissions ?? []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dashOptions, setDashOptions] = useState<DashboardOption[]>([]);
+  const [dashError, setDashError] = useState<string | null>(null);
+  const [dashAccess, setDashAccess] = useState<Map<string, DashboardAccess>>(
+    new Map((role?.dashboards ?? []).map((d) => [d.dashboard_id, d])),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/roles/dashboards", { cache: "no-store" })
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((body as { error?: string } | null)?.error ?? "No se pudieron cargar los tableros");
+        if (!cancelled) setDashOptions(Array.isArray(body) ? body : []);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setDashError(e instanceof Error ? e.message : "No se pudieron cargar los tableros");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function markDash(id: string, kind: "view" | "edit", marked: boolean) {
+    setDashAccess((prev) => {
+      const next = new Map(prev);
+      const cur = next.get(id) ?? { dashboard_id: id, can_view: false, can_edit: false };
+      let { can_view, can_edit } = cur;
+      if (kind === "view") {
+        can_view = marked;
+        if (!marked) can_edit = false;
+      } else {
+        can_edit = marked;
+        if (marked) can_view = true; // editar implica ver
+      }
+      if (can_view || can_edit) next.set(id, { dashboard_id: id, can_view, can_edit });
+      else next.delete(id);
+      return next;
+    });
+  }
 
   function mark(module: string, action: Action, marked: boolean) {
     setPermissions((prev) => {
@@ -96,7 +148,14 @@ function Content({ role, onClose, onSaved }: Omit<Props, "open">) {
       const res = await fetch(editing ? `/api/roles/${role.role_id}` : "/api/roles", {
         method: editing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, active, permissions: [...permissions] }),
+        body: JSON.stringify({
+          name,
+          description,
+          active,
+          permissions: [...permissions],
+          // Si no se pudieron cargar los tableros no se envía, para no borrar el acceso existente.
+          ...(dashError ? {} : { dashboards: [...dashAccess.values()] }),
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -206,6 +265,67 @@ function Content({ role, onClose, onSaved }: Omit<Props, "open">) {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Tableros (dashboards)</h3>
+          <span className="text-xs text-muted-foreground">
+            {isSystem ? "Acceso total" : `${dashAccess.size} con acceso`}
+          </span>
+        </div>
+        {isSystem ? (
+          <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">El rol de sistema ve y edita todos los tableros.</p>
+        ) : dashError ? (
+          <p className="text-sm text-destructive">{dashError}. El acceso a tableros no se modificará al guardar.</p>
+        ) : dashOptions.length === 0 ? (
+          <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Aún no hay tableros creados.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tablero</TableHead>
+                <TableHead className="text-center">Ver</TableHead>
+                <TableHead className="text-center">Editar diseño</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...new Set(dashOptions.map((d) => d.section))].map((section) => (
+                <Fragment key={section}>
+                  <TableRow>
+                    <TableCell colSpan={3} className="bg-muted/50 text-xs font-semibold uppercase tracking-wide">
+                      {section}
+                    </TableCell>
+                  </TableRow>
+                  {dashOptions
+                    .filter((d) => d.section === section)
+                    .map((d) => {
+                      const a = dashAccess.get(d.dashboard_id);
+                      return (
+                        <TableRow key={d.dashboard_id}>
+                          <TableCell>{d.name}</TableCell>
+                          <TableCell className="text-center align-middle [&>*]:mx-auto">
+                            <Checkbox
+                              checked={a?.can_view ?? false}
+                              onCheckedChange={(v) => markDash(d.dashboard_id, "view", v === true)}
+                              aria-label={`Ver el tablero ${d.name}`}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center align-middle [&>*]:mx-auto">
+                            <Checkbox
+                              checked={a?.can_edit ?? false}
+                              onCheckedChange={(v) => markDash(d.dashboard_id, "edit", v === true)}
+                              aria-label={`Editar el tablero ${d.name}`}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {error && (

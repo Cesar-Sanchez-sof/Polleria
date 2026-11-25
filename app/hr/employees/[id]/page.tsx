@@ -99,7 +99,7 @@ export default function EmployeeProfilePage() {
               Datos personales
             </AppButton>
           )}
-          {employee.active && !employee.has_user && can("usuarios.crear") && (
+          {employee.active && !employee.has_user && (can("usuarios.crear") || can("empleados.editar")) && (
             <AppButton size="sm" variant="secondary" icon={<KeyRound />} onClick={() => setGranting(true)}>
               Dar acceso al sistema
             </AppButton>

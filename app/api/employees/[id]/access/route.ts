@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest, ctx: IdContext) {
   try {
-    const auth = await authorize("usuarios.crear");
+    const auth = await authorize(["usuarios.crear", "empleados.editar"]);
     if (!auth.ok) return auth.response;
     const id = await routeId(ctx);
     const body = await readJson(request);
