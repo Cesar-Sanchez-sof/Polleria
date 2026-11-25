@@ -79,6 +79,10 @@ Los 9 trabajadores demo tienen DNI `70000001…70000009`; solo 5 tienen usuario.
 
 ## 7. Limitaciones conocidas (no son defectos de la prueba)
 
+- **Defecto conocido (caso 7.8):** «Programar desde contratos» responde 500 por superar el tiempo de espera de 30 s cuando la base está en la nube. Márcalo `OBSERVADO`.
+- **Planilla (casos 11.x):** octubre ya está **Pagada** en los datos demo y no se recalcula. Usa el mes en curso (Borrador) para calcular y revisar boletas, y setiembre (Borrador) para aprobar y pagar.
+- La hoja **Verificación** del Excel indica qué casos fueron ejecutados contra el sistema (E), contrastados con el código (C) o no verificados (N). Los «N» son los que más probablemente necesiten ajuste.
+
 - No hay límite de intentos de login fallidos ni recuperación de contraseña desde la pantalla de login.
 - La marcación automática al iniciar sesión depende de la hora real: el trabajador debe tener turno hoy y estar en ventana.
 - Un horario de 7 días sin descanso se rechaza a propósito.

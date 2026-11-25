@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { UserError } from "@/lib/services/security/users.service";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import { fullName, isoDate, todayLimaIso } from "./common";
-import { MINIMUM_WAGE, type ContractTypeCode } from "./labor-rules";
+import { MINIMUM_WAGE, addDaysIso, type ContractTypeCode } from "./labor-rules";
 import { employeeAttendance } from "./attendance.service";
 import { familyAllowanceAmount } from "./payroll-rules";
 import {
@@ -62,12 +62,21 @@ function validPeriod(kindRaw: unknown, yearRaw: unknown, halfRaw: unknown) {
   return { kind: kindRaw as BenefitKind, year, half: half as 1 | 2 };
 }
 
+/** Días por consulta de asistencia (el límite del servicio es 62). */
+const ABSENCE_CHUNK_DAYS = 60;
+
 /** Faltas injustificadas de un trabajador en un rango (hasta hoy como máximo). */
 async function absencesIn(employeeId: number, from: string, to: string, today: string): Promise<number> {
   const end = to < today ? to : today;
   if (end < from) return 0;
-  const attendance = await employeeAttendance(employeeId, from, end);
-  return attendance.days.filter((d) => d.status === "Falta").length;
+  // employeeAttendance rechaza rangos de más de 62 días y un semestre dura ~180: se consulta por tramos.
+  let faltas = 0;
+  for (let chunkFrom = from; chunkFrom <= end; chunkFrom = addDaysIso(chunkFrom, ABSENCE_CHUNK_DAYS)) {
+    const last = addDaysIso(chunkFrom, ABSENCE_CHUNK_DAYS - 1);
+    const attendance = await employeeAttendance(employeeId, chunkFrom, last < end ? last : end);
+    faltas += attendance.days.filter((d) => d.status === "Falta").length;
+  }
+  return faltas;
 }
 
 async function usedVacationDays(employeeId: number): Promise<number> {

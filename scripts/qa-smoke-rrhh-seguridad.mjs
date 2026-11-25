@@ -332,8 +332,10 @@ async function main() {
   futureM.setUTCMonth(futureM.getUTCMonth() + 2);
   r = await rrhh.call("POST", "/api/payroll", { year: futureM.getUTCFullYear(), month: futureM.getUTCMonth() + 1 });
   check("Calcular un mes futuro → 400", r.status === 400, `${r.status} ${msg(r)}`);
-  r = await rrhh.call("GET", "/api/payroll/social-benefits?kind=gratificacion&year=" + py + "&half=2");
-  check("Gratificaciones del semestre (200)", r.status === 200 || r.status === 400, `${r.status} ${msg(r)}`);
+  r = await rrhh.call("GET", `/api/payroll/social-benefits?type=gratificacion&year=${py}&half=2`);
+  check("Gratificaciones del semestre (200 con líneas)", r.status === 200 && Array.isArray(r.json?.lines), `${r.status} ${msg(r)}`);
+  r = await rrhh.call("GET", `/api/payroll/social-benefits?type=cts&year=${py}&half=2`);
+  check("CTS del semestre (200 con líneas)", r.status === 200 && Array.isArray(r.json?.lines), `${r.status} ${msg(r)}`);
 
   sec("13. Autoservicio");
   const worker = new Session();
