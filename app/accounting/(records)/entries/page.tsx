@@ -7,10 +7,9 @@ import { Card } from "@/components/ui/card";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
 import { JournalEntryDetail } from "./components/JournalEntryDetail";
-import { JournalEntryFilters, type FilterChip } from "./components/JournalEntryFilters";
+import { JournalEntryFilters } from "./components/JournalEntryFilters";
 import { NewJournalEntryDialog } from "./components/NewJournalEntryDialog";
 import { JournalEntryPagination } from "./components/JournalEntryPagination";
-import { JournalEntryTabs } from "./components/JournalEntryTabs";
 import { JournalEntryTable } from "./components/JournalEntryTable";
 import { JournalEntryToolbar } from "./components/JournalEntryToolbar";
 
@@ -44,6 +43,7 @@ function EntriesPageContent() {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (journalParam) {
@@ -189,12 +189,6 @@ function EntriesPageContent() {
     setPage(1);
   };
 
-  const clearSearch = () => {
-    setSearchQuery("");
-    setSearch("");
-    setPage(1);
-  };
-
   const changeJournal = (val: string) => {
     setJournal(val);
     setPage(1);
@@ -209,26 +203,6 @@ function EntriesPageContent() {
     if (field === "from") setFrom(val);
     else setTo(val);
     setPage(1);
-  };
-
-  const removeFilter = (chip: FilterChip) => {
-    switch (chip) {
-      case "from":
-        changeRange("from", "");
-        break;
-      case "to":
-        changeRange("to", "");
-        break;
-      case "journal":
-        changeJournal("todos");
-        break;
-      case "status":
-        changeStatus("todos");
-        break;
-      case "q":
-        clearSearch();
-        break;
-    }
   };
 
   const sortBy = (field: JournalEntrySort) => {
@@ -314,8 +288,6 @@ function EntriesPageContent() {
   const fromShown = total === 0 ? 0 : (Math.min(page, totalPages) - 1) * pageSize + 1;
   const toShown = total === 0 ? 0 : Math.min(fromShown + rows.length - 1, total);
 
-  const journals = options?.daily ?? [];
-
   return (
     <>
       {/* Main content area */}
@@ -326,9 +298,6 @@ function EntriesPageContent() {
         iconClassName="bg-red-100 text-red-700"
       >
         <JournalEntryToolbar
-          q={searchQuery}
-          onSearch={setSearchQuery}
-          onClearSearch={clearSearch}
           onNew={() => setNewOpen(true)}
           onExport={handleExport}
           exporting={exporting}
@@ -339,36 +308,30 @@ function EntriesPageContent() {
           page={page}
           totalPages={totalPages}
           onPage={changePage}
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((open) => !open)}
         />
       </ModuleHeader>
       {/* Main Content */}
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
-        <div className="flex flex-col w-full gap-5">
+        <div className="flex w-full flex-col gap-5">
+          {filtersOpen && <JournalEntryFilters
+            from={from}
+            to={to}
+            journal={journal}
+            statusFilter={statusFilter}
+            search={searchQuery}
+            options={options}
+            hasFilters={hasFilters}
+            onFrom={(val) => changeRange("from", val)}
+            onTo={(val) => changeRange("to", val)}
+            onJournal={changeJournal}
+            onStatus={changeStatus}
+            onSearch={setSearchQuery}
+            onClear={clearFilters}
+          />}
+
           <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <JournalEntryTabs
-                journals={journals}
-                total={total}
-                journal={journal}
-                onSelect={changeJournal}
-              />
-
-              <JournalEntryFilters
-                from={from}
-                to={to}
-                journal={journal}
-                statusFilter={statusFilter}
-                search={search}
-                options={options}
-                hasFilters={hasFilters}
-                onFrom={(val) => changeRange("from", val)}
-                onTo={(val) => changeRange("to", val)}
-                onStatus={changeStatus}
-                onClear={clearFilters}
-                onRemove={removeFilter}
-              />
-            </div>
-
             <JournalEntryTable
               rows={rows}
               loading={loading}

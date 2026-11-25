@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { BookOpen } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 
 import { JournalEntryDetail } from "../entries/components/JournalEntryDetail";
 import { JournalEntryPagination } from "../entries/components/JournalEntryPagination";
@@ -20,7 +21,7 @@ import { exportJournalEntriesToExcel } from "@/lib/services/accounting/accountin
 /**
  * Pantalla del Libro Diario: asientos contables ordenados cronológicamente
  * (del más reciente al más antiguo) con sus líneas y totales, filtrables por
- * un periodo de fechas.
+ * un periodo de fechas, libro/subdiario, estado y búsqueda en los datos del asiento.
  *
  * La lógica de presentación vive en ./components/DailyBookFilters.tsx y
  * ./components/DailyJournalTable.tsx; el acceso a datos en lib/services/diario.service.ts.
@@ -31,7 +32,11 @@ export default function DailyBookPage() {
   // ---------------------------------------------------------------------
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<"" | "registrado" | "anulado">("");
+  const [bookFilter, setBookFilter] = useState("");
   const [exporting, setExporting] = useState<boolean>(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Paginación
   const [page, setPage] = useState<number>(1);
@@ -54,7 +59,12 @@ export default function DailyBookPage() {
   const detailRequestRef = useRef(0);
 
   const invalidRange = Boolean(from && to && from > to);
-  const hasFilters = Boolean(from) || Boolean(to);
+  const hasFilters =
+    Boolean(from) ||
+    Boolean(to) ||
+    Boolean(search.trim()) ||
+    Boolean(statusFilter) ||
+    Boolean(bookFilter.trim());
 
   // Listado: se reconsulta cada vez que cambia el periodo o la página.
   // Un rango invertido no se consulta: el aviso se deriva del propio estado
@@ -64,7 +74,15 @@ export default function DailyBookPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listDailyBookEntries({ from: from, to: to, page, pageSize });
+      const data = await listDailyBookEntries({
+        from,
+        to,
+        q: search,
+        status: statusFilter || undefined,
+        book: bookFilter,
+        page,
+        pageSize,
+      });
       if (request !== requestRef.current) return;
       setPageData(data);
     } catch (e) {
@@ -74,7 +92,7 @@ export default function DailyBookPage() {
     } finally {
       if (request === requestRef.current) setLoading(false);
     }
-  }, [from, to, page, pageSize]);
+  }, [from, to, search, statusFilter, bookFilter, page, pageSize]);
 
   useEffect(() => {
     // Se difiere al siguiente tick para no invocar setState de forma síncrona
@@ -83,7 +101,7 @@ export default function DailyBookPage() {
     if (invalidRange) return;
     const timer = setTimeout(() => {
       void loadList();
-    }, 0);
+    }, 250);
     return () => clearTimeout(timer);
   }, [loadList, invalidRange]);
 
@@ -94,7 +112,13 @@ export default function DailyBookPage() {
     try {
       setExporting(true);
       await exportJournalEntriesToExcel({
-        filters: { from: from, to: to },
+        filters: {
+          from,
+          to,
+          q: search,
+          status: statusFilter,
+          daily: bookFilter,
+        },
         journalTitle: "Libro Diario",
       });
     } finally {
@@ -105,12 +129,30 @@ export default function DailyBookPage() {
   const clearFilters = () => {
     setFrom("");
     setTo("");
+    setSearch("");
+    setStatusFilter("");
+    setBookFilter("");
     setPage(1);
   };
 
   const changeRange = (field: "from" | "to", value: string) => {
     if (field === "from") setFrom(value);
     else setTo(value);
+    setPage(1);
+  };
+
+  const changeSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const changeStatus = (value: "" | "registrado" | "anulado") => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const changeBook = (value: string) => {
+    setBookFilter(value);
     setPage(1);
   };
 
@@ -181,31 +223,40 @@ export default function DailyBookPage() {
         icon={BookOpen}
         iconClassName="bg-red-100 text-red-700"
       >
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
+        />
         <span className="bg-slate-100 px-2.5 py-1.5 rounded-lg text-xs text-slate-500">
           <span className="tabular-nums font-semibold text-slate-900">
             {displayedTotal}
           </span>{" "}
           asiento{displayedTotal === 1 ? "" : "s"}
-          {hasFilters && !invalidRange ? " en el periodo" : ""}
+          {hasFilters && !invalidRange ? " con los filtros aplicados" : ""}
         </span>
       </ModuleHeader>
       {/* Main Content */}
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
-          {/* FILTRO DE PERIODO Y TABLA */}
-          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
-            <DailyBookFilters
-              from={from}
-              to={to}
-              hasFilters={hasFilters}
-              invalidRange={invalidRange}
-              onFrom={(value) => changeRange("from", value)}
-              onTo={(value) => changeRange("to", value)}
-              onClear={clearFilters}
-              onExport={handleExport}
-              exporting={exporting}
-            />
+          {filtersOpen && <DailyBookFilters
+            from={from}
+            to={to}
+            search={search}
+            statusFilter={statusFilter}
+            bookFilter={bookFilter}
+            hasFilters={hasFilters}
+            invalidRange={invalidRange}
+            onFrom={(value) => changeRange("from", value)}
+            onTo={(value) => changeRange("to", value)}
+            onSearch={changeSearch}
+            onStatus={changeStatus}
+            onBook={changeBook}
+            onClear={clearFilters}
+            onExport={handleExport}
+            exporting={exporting}
+          />}
 
+          <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
             <DailyJournalTable
               rows={rows}
               loading={isLoading}

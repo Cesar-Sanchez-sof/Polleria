@@ -62,6 +62,9 @@ describe("buildDailyBookQuery (libro diario)", () => {
       buildDailyBookQuery({
         from: "2025-05-01",
         to: "2025-06-30",
+        q: "  Caja  ",
+        status: "anulado",
+        book: "Ventas",
         page: 2,
         pageSize: 25,
       })
@@ -69,6 +72,9 @@ describe("buildDailyBookQuery (libro diario)", () => {
 
     expect(params.get("desde")).toBe("2025-05-01");
     expect(params.get("hasta")).toBe("2025-06-30");
+    expect(params.get("q")).toBe("Caja");
+    expect(params.get("estado")).toBe("anulado");
+    expect(params.get("libro")).toBe("Ventas");
     expect(params.get("page")).toBe("2");
     expect(params.get("pageSize")).toBe("25");
   });
@@ -94,13 +100,20 @@ describe("listDailyBookEntries", () => {
   it("consulta /api/daily-book con el periodo y sin caché", async () => {
     fetchMock.mockResolvedValue(createJsonResponse(PAGE_DATA));
 
-    const result = await listDailyBookEntries({ from: "2025-05-01", page: 2 });
+    const result = await listDailyBookEntries({
+      from: "2025-05-01",
+      q: "Caja 101",
+      status: "registrado",
+      book: "Ventas",
+      page: 2,
+    });
 
     expect(result).toEqual(PAGE_DATA);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith("/api/daily-book?desde=2025-05-01&page=2", {
-      cache: "no-store",
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/daily-book?desde=2025-05-01&q=Caja+101&estado=registrado&libro=Ventas&page=2",
+      { cache: "no-store" }
+    );
   });
 
   it("consulta /api/daily-book sin query cuando no hay filtros", async () => {

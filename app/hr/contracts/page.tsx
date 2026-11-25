@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Eye, FilePlus2, FileSignature, FileText, FileX, RefreshCw, Search, UserX } from "lucide-react";
+import { AlertTriangle, Eye, FilePlus2, FileSignature, FileText, FileX, RefreshCw, UserX } from "lucide-react";
 import { AppButton } from "@/components/shared/AppButton";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
@@ -25,6 +26,7 @@ export default function ContractsPage() {
   const [alerts, setAlerts] = useState<HrAlert[]>([]);
   const [filter, setFilter] = useState<Filter>("current");
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<ContractDialogMode | null>(null);
@@ -176,22 +178,7 @@ export default function ContractsPage() {
     <>
       <ModuleHeader title="Contratos" subtitle="Vigencias, renovaciones, adendas y ceses" icon={FileSignature}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="relative w-56">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar trabajador o cargo..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 rounded-xl pl-9 text-xs" />
-          </div>
-          <SegmentedTabs<Filter>
-            ariaLabel="Filtrar contratos"
-            value={filter}
-            onValueChange={setFilter}
-            className="max-w-full overflow-x-auto"
-            items={[
-              { value: "current", label: "Vigentes", count: counts.current, tone: "success" },
-              { value: "expiring", label: "Por vencer", count: counts.expiring, tone: "warning" },
-              { value: "history", label: "Historial", count: counts.history, tone: "neutral" },
-              { value: "all", label: "Todos", count: contracts.length, tone: "brand" },
-            ]}
-          />
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           {can("contratos.crear") && (
             <AppButton size="sm" icon={<FilePlus2 />} onClick={() => setMode({ kind: "new", employee: null })}>
               Nuevo contrato
@@ -208,6 +195,34 @@ export default function ContractsPage() {
         </div>
         <AlertsPanel alerts={alerts} max={10} />
         {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
+        {filtersOpen && (
+          <AdvancedFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar trabajador, DNI o cargo..."
+            activeFilterCount={(search.trim() ? 1 : 0) + (filter !== "current" ? 1 : 0)}
+            hasActiveFilters={search.trim() !== "" || filter !== "current"}
+            onClear={() => {
+              setSearch("");
+              setFilter("current");
+            }}
+            resultCount={rows.length}
+            itemLabel="contratos"
+          >
+            <SegmentedTabs<Filter>
+              ariaLabel="Filtrar contratos"
+              value={filter}
+              onValueChange={setFilter}
+              className="max-w-full overflow-x-auto"
+              items={[
+                { value: "current", label: "Vigentes", count: counts.current, tone: "success" },
+                { value: "expiring", label: "Por vencer", count: counts.expiring, tone: "warning" },
+                { value: "history", label: "Historial", count: counts.history, tone: "neutral" },
+                { value: "all", label: "Todos", count: contracts.length, tone: "brand" },
+              ]}
+            />
+          </AdvancedFilterBar>
+        )}
         <DataTable
           columns={columns}
           rows={rows}

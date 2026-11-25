@@ -170,6 +170,54 @@ describe("GET /api/daily-book (libro diario)", () => {
     expect(findManyMock.mock.calls[0][0].where).toEqual(where);
   });
 
+  it("combina búsqueda global y estado antes de paginar", async () => {
+    countMock.mockResolvedValueOnce(25);
+    findManyMock.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      createRequest("?q=Caja&estado=anulado&libro=Ventas&page=2")
+    );
+
+    expect(response.status).toBe(200);
+    expect(countMock.mock.calls[0][0].where).toMatchObject({
+      status: false,
+      book: { contains: "Ventas", mode: "insensitive" },
+      OR: expect.arrayContaining([
+        { code: { contains: "Caja", mode: "insensitive" } },
+        { book: { contains: "Caja", mode: "insensitive" } },
+      ]),
+    });
+    expect(findManyMock.mock.calls[0][0].where).toEqual(
+      countMock.mock.calls[0][0].where
+    );
+    expect(findManyMock.mock.calls[0][0].skip).toBe(10);
+  });
+
+  it("busca también en el detalle de cuentas y líneas", async () => {
+    countMock.mockResolvedValueOnce(0);
+    findManyMock.mockResolvedValueOnce([]);
+
+    await GET(createRequest("?q=401"));
+
+    expect(countMock.mock.calls[0][0].where.OR).toContainEqual({
+      entryDetails: {
+        some: {
+          OR: [
+            { description: { contains: "401", mode: "insensitive" } },
+            {
+              account: {
+                OR: [
+                  { code: { contains: "401", mode: "insensitive" } },
+                  { name: { contains: "401", mode: "insensitive" } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it("acepta un solo extremo del periodo y no filtra sin fechas (C07)", async () => {
     countMock.mockResolvedValueOnce(0);
     findManyMock.mockResolvedValueOnce([]);
@@ -222,6 +270,16 @@ describe("GET /api/daily-book (libro diario)", () => {
       error: "La fecha inicial no puede ser posterior a la fecha final.",
     });
     expect(findManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un estado no admitido", async () => {
+    const response = await GET(createRequest("?estado=pendiente"));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "El estado debe ser registrado o anulado.",
+    });
+    expect(countMock).not.toHaveBeenCalled();
   });
 
   it("normaliza página y tamaño de página inválidos", async () => {

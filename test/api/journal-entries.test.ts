@@ -112,7 +112,7 @@ describe("GET /api/journal-entries (listar asientos)", () => {
 
     const filter = countMock.mock.calls[0][0].where as Record<string, unknown>;
     expect(filter).toMatchObject({
-      book: "Banco / Caja",
+      book: { contains: "Banco / Caja", mode: "insensitive" },
       status: false,
       entryDate: {
         gte: parseUtcDate("2025-05-01"),
@@ -123,15 +123,22 @@ describe("GET /api/journal-entries (listar asientos)", () => {
     expect(filter.OR).toEqual([
       { code: { contains: "caja", mode: "insensitive" } },
       { description: { contains: "caja", mode: "insensitive" } },
+      { book: { contains: "caja", mode: "insensitive" } },
+      { responsible: { contains: "caja", mode: "insensitive" } },
       {
         entryDetails: {
           some: {
-            account: {
-              OR: [
-                { code: { contains: "caja", mode: "insensitive" } },
-                { name: { contains: "caja", mode: "insensitive" } },
-              ],
-            },
+            OR: [
+              { description: { contains: "caja", mode: "insensitive" } },
+              {
+                account: {
+                  OR: [
+                    { code: { contains: "caja", mode: "insensitive" } },
+                    { name: { contains: "caja", mode: "insensitive" } },
+                  ],
+                },
+              },
+            ],
           },
         },
       },

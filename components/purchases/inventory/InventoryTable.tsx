@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,20 @@ import { ProductDialog } from "./ProductDialog";
 import { AdjustmentDialog } from "./AdjustmentDialog";
 import { KardexDialog } from "./KardexDialog";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import {
+  AdvancedFilterBar,
+  normalizeFilterText,
+} from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { RowActions } from "@/components/shared/RowActions";
 import { Tag } from "@/components/shared/TagCell";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Plus,
   Search,
@@ -28,10 +40,12 @@ import {
   Package,
   Pencil,
   ListOrdered,
+  Boxes,
 } from "lucide-react";
 import { ProductType, AffectationIgv } from "@prisma/client";
 import { updateProductMinimum, updateProductUnit, setProductStatus } from "@/lib/services/purchases/product";
 import { toast } from "sonner";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 
 interface Product {
   id: number;
@@ -52,16 +66,20 @@ interface InventoryTableProps {
   initialProducts: Product[];
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  all: "Todos",
-  active: "Solo activos",
-  inactive: "Solo inactivos",
-};
-
 export function InventoryTable({ initialProducts }: InventoryTableProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "raw" | "finished">("all");
+  const [stockFilter, setStockFilter] = useState<"all" | "out" | "low" | "healthy">("all");
+  const [sellableFilter, setSellableFilter] = useState<"all" | "yes" | "no">("all");
+  const [igvFilter, setIgvFilter] = useState<"all" | "included" | "excluded" | "unset">("all");
+  const [minimumStockFilter, setMinimumStockFilter] = useState("");
+  const [maximumStockFilter, setMaximumStockFilter] = useState("");
+  const [costFieldFilter, setCostFieldFilter] = useState<"average" | "last">("average");
+  const [minimumCostFilter, setMinimumCostFilter] = useState("");
+  const [maximumCostFilter, setMaximumCostFilter] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
   const [productToAdjust, setProductToAdjust] = useState<Product | null>(null);
@@ -79,29 +97,123 @@ export function InventoryTable({ initialProducts }: InventoryTableProps) {
   const [pendingUnitChange, setPendingUnitChange] = useState<{ productId: number; unit: string } | null>(null);
 
 
-  const filtered = products.filter((i) => {
-    const q = search.toLowerCase();
-    const code = `INS-${i.id.toString().padStart(3, "0")}`.toLowerCase();
+  const filtered = useMemo(() => products.filter((i) => {
+    const q = normalizeFilterText(search.trim());
+    const code = `INS-${i.id.toString().padStart(3, "0")}`;
     const typeLabel = i.type === ProductType.RawMaterial ? "materia prima" : "producto terminado";
     const affectationLabel =
       i.affectationIgv === AffectationIgv.Included ? "incluido" : "excluido";
     const matchesSearch =
-      i.name.toLowerCase().includes(q) ||
-      code.includes(q) ||
-      i.type.toLowerCase().includes(q) ||
-      typeLabel.includes(q) ||
-      affectationLabel.includes(q);
+      !q ||
+      [i.name, code, i.type, typeLabel, affectationLabel, i.unitOfMeasure]
+        .some((value) => normalizeFilterText(value).includes(q));
 
     const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "active" && i.active) ||
       (statusFilter === "inactive" && !i.active);
 
-    return matchesSearch && matchesStatus;
-  });
+    const matchesType =
+      typeFilter === "all" ||
+      (typeFilter === "raw" && i.type === ProductType.RawMaterial) ||
+      (typeFilter === "finished" && i.type === ProductType.FinishedProduct);
+    const currentStock = Number(i.currentStock);
+    const minimumStock = Number(i.minimumStock);
+    const matchesStock =
+      stockFilter === "all" ||
+      (stockFilter === "out" && currentStock <= 0) ||
+      (stockFilter === "low" && currentStock > 0 && currentStock <= minimumStock) ||
+      (stockFilter === "healthy" && currentStock > minimumStock);
+    const matchesSellable =
+      sellableFilter === "all" ||
+      (sellableFilter === "yes" && Boolean(i.sellable)) ||
+      (sellableFilter === "no" && !i.sellable);
+    const matchesIgv =
+      igvFilter === "all" ||
+      (igvFilter === "included" && i.affectationIgv === AffectationIgv.Included) ||
+      (igvFilter === "excluded" && i.affectationIgv === AffectationIgv.Excluded) ||
+      (igvFilter === "unset" && !i.affectationIgv);
+    const minStock =
+      minimumStockFilter === "" ? undefined : Number(minimumStockFilter);
+    const maxStock =
+      maximumStockFilter === "" ? undefined : Number(maximumStockFilter);
+    const matchesQuantity =
+      (minStock === undefined || currentStock >= minStock) &&
+      (maxStock === undefined || currentStock <= maxStock);
+    const minCost =
+      minimumCostFilter === "" ? undefined : Number(minimumCostFilter);
+    const maxCost =
+      maximumCostFilter === "" ? undefined : Number(maximumCostFilter);
+    const rawCost = costFieldFilter === "average" ? i.averageCost : i.lastCost;
+    const cost = Number(rawCost);
+    const hasCostRange = minCost !== undefined || maxCost !== undefined;
+    const matchesCost =
+      !hasCostRange ||
+      (rawCost !== null &&
+        rawCost !== undefined &&
+        rawCost !== "" &&
+        Number.isFinite(cost) &&
+        (minCost === undefined || cost >= minCost) &&
+        (maxCost === undefined || cost <= maxCost));
 
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesType &&
+      matchesStock &&
+      matchesSellable &&
+      matchesIgv &&
+      matchesQuantity &&
+      matchesCost
+    );
+  }), [
+    products,
+    search,
+    statusFilter,
+    typeFilter,
+    stockFilter,
+    sellableFilter,
+    igvFilter,
+    minimumStockFilter,
+    maximumStockFilter,
+    costFieldFilter,
+    minimumCostFilter,
+    maximumCostFilter,
+  ]);
 
-  const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
+  const activeFilterCount =
+    Number(statusFilter !== "all") +
+    Number(typeFilter !== "all") +
+    Number(stockFilter !== "all") +
+    Number(sellableFilter !== "all") +
+    Number(igvFilter !== "all") +
+    Number(minimumStockFilter !== "") +
+    Number(maximumStockFilter !== "") +
+    Number(minimumCostFilter !== "") +
+    Number(maximumCostFilter !== "");
+  const hasActiveFilter = search.trim() !== "" || activeFilterCount > 0;
+  const invalidStockRange =
+    minimumStockFilter !== "" &&
+    maximumStockFilter !== "" &&
+    Number(minimumStockFilter) > Number(maximumStockFilter);
+  const invalidCostRange =
+    minimumCostFilter !== "" &&
+    maximumCostFilter !== "" &&
+    Number(minimumCostFilter) > Number(maximumCostFilter);
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setStockFilter("all");
+    setSellableFilter("all");
+    setIgvFilter("all");
+    setMinimumStockFilter("");
+    setMaximumStockFilter("");
+    setCostFieldFilter("average");
+    setMinimumCostFilter("");
+    setMaximumCostFilter("");
+  };
 
   const handleNewProductSuccess = (created: Product) => {
     setProducts((prev) => [created, ...prev]);
@@ -474,100 +586,174 @@ export function InventoryTable({ initialProducts }: InventoryTableProps) {
   ];
 
   return (
-    <div className="space-y-4">
+    <>
+      <ModuleHeader
+        title="Kardex e Inventario"
+        subtitle="Stock, estado, tipo y costo de materias primas y productos terminados"
+        icon={Boxes}
+        iconClassName="bg-emerald-100 text-emerald-800"
+      >
+        <Button
+          variant="outline"
+          onClick={() => setKardexOpen(true)}
+          size="sm"
+          className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+        >
+          <ListOrdered className="h-4 w-4" /> Ver Kardex
+        </Button>
 
-      {/* ── Toolbar ── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 bg-card border p-3 rounded-xl shadow-xs">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
+        />
+        <Button
+          onClick={() => setProductDialogOpen(true)}
+          size="sm"
+          className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+        >
+          <Plus className="h-4 w-4" /> Nuevo Insumo
+        </Button>
+      </ModuleHeader>
+
+      <main className="relative flex-1 w-full min-w-0 space-y-4 p-3 sm:p-4 md:p-6">
+
+      {filtersOpen && <AdvancedFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar código, producto, tipo, unidad o afectación IGV..."
+        activeFilterCount={activeFilterCount}
+        hasActiveFilters={hasActiveFilter}
+        onClear={clearFilters}
+        resultCount={filtered.length}
+        itemLabel={`de ${products.length} productos`}
+      >
+        <InventoryFilterSelect
+          label="Estado"
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+          options={[
+            { value: "all", label: "Todos" },
+            { value: "active", label: "Activos" },
+            { value: "inactive", label: "Inactivos" },
+          ]}
+        />
+        <InventoryFilterSelect
+          label="Tipo"
+          value={typeFilter}
+          onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}
+          options={[
+            { value: "all", label: "Todos los tipos" },
+            { value: "raw", label: "Materia prima" },
+            { value: "finished", label: "Producto terminado" },
+          ]}
+        />
+        <InventoryFilterSelect
+          label="Stock"
+          value={stockFilter}
+          onValueChange={(value) => setStockFilter(value as typeof stockFilter)}
+          options={[
+            { value: "all", label: "Cualquier stock" },
+            { value: "out", label: "Agotado" },
+            { value: "low", label: "Bajo mínimo" },
+            { value: "healthy", label: "Óptimo" },
+          ]}
+        />
+        <InventoryFilterSelect
+          label="Venta"
+          value={sellableFilter}
+          onValueChange={(value) => setSellableFilter(value as typeof sellableFilter)}
+          options={[
+            { value: "all", label: "Todos" },
+            { value: "yes", label: "En carta" },
+            { value: "no", label: "No vendible" },
+          ]}
+        />
+        <InventoryFilterSelect
+          label="IGV"
+          value={igvFilter}
+          onValueChange={(value) => setIgvFilter(value as typeof igvFilter)}
+          options={[
+            { value: "all", label: "Cualquier afectación" },
+            { value: "included", label: "Incluido" },
+            { value: "excluded", label: "Excluido" },
+            { value: "unset", label: "Sin configurar" },
+          ]}
+        />
+        <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Stock desde
           <Input
-            placeholder="Buscar por código, insumo o tipo..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-            }}
-            className="pl-9 h-9 text-xs"
+            type="number"
+            min="0"
+            step="0.01"
+            value={minimumStockFilter}
+            onChange={(event) => setMinimumStockFilter(event.target.value)}
+            placeholder="Mínimo"
+            className="h-9 rounded-lg text-xs"
           />
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Segmented Control de Estados */}
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("all");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "all"
-                  ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Todos</span>
-              <span className="text-[10px] bg-muted px-1.5 py-0.2 rounded-full font-mono">
-                {products.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("active");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "active"
-                  ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Activos</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {products.filter((s) => s.active).length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("inactive");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "inactive"
-                  ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Inactivos</span>
-              <span className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {products.filter((s) => !s.active).length}
-              </span>
-            </button>
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={() => setKardexOpen(true)}
-            size="sm"
-            className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <ListOrdered className="h-4 w-4" /> Ver Kardex
-          </Button>
-
-          <Button
-            onClick={() => setProductDialogOpen(true)}
-            size="sm"
-            className="h-9 px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <Plus className="h-4 w-4" /> Nuevo Insumo
-          </Button>
-        </div>
-      </div>
+        </label>
+        <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Stock hasta
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={maximumStockFilter}
+            onChange={(event) => setMaximumStockFilter(event.target.value)}
+            placeholder="Máximo"
+            className="h-9 rounded-lg text-xs"
+          />
+        </label>
+        <InventoryFilterSelect
+          label="Costo de referencia"
+          value={costFieldFilter}
+          onValueChange={(value) => setCostFieldFilter(value as typeof costFieldFilter)}
+          options={[
+            { value: "average", label: "Costo promedio" },
+            { value: "last", label: "Último costo" },
+          ]}
+        />
+        <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Costo desde
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={minimumCostFilter}
+            onChange={(event) => setMinimumCostFilter(event.target.value)}
+            placeholder="Mínimo"
+            className="h-9 rounded-lg text-xs"
+          />
+        </label>
+        <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Costo hasta
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={maximumCostFilter}
+            onChange={(event) => setMaximumCostFilter(event.target.value)}
+            placeholder="Máximo"
+            className="h-9 rounded-lg text-xs"
+          />
+        </label>
+      </AdvancedFilterBar>}
+      {invalidStockRange && (
+        <p className="text-xs font-medium text-amber-700">
+          El stock mínimo no puede ser mayor que el máximo.
+        </p>
+      )}
+      {invalidCostRange && (
+        <p className="text-xs font-medium text-amber-700">
+          El costo mínimo no puede ser mayor que el máximo.
+        </p>
+      )}
 
       {/* ── Table (DataTable compartido) ── */}
       <DataTable
         columns={columns}
         rows={filtered}
         rowKey={(item) => item.id}
-        pageResetKey={`${search}|${statusFilter}`}
+        pageResetKey={`${search}|${statusFilter}|${typeFilter}|${stockFilter}|${sellableFilter}|${igvFilter}|${minimumStockFilter}|${maximumStockFilter}|${costFieldFilter}|${minimumCostFilter}|${maximumCostFilter}`}
         pagination={{ defaultPageSize: 15, itemLabel: "insumos" }}
         emptyState={{
           icon: hasActiveFilter ? <Search className="h-7 w-7" /> : <Package className="h-7 w-7" />,
@@ -641,6 +827,41 @@ export function InventoryTable({ initialProducts }: InventoryTableProps) {
           unitOfMeasure: s.unitOfMeasure,
         }))}
       />
-    </div>
+      </main>
+    </>
+  );
+}
+
+function InventoryFilterSelect({
+  label,
+  value,
+  onValueChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="flex min-w-[135px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      {label}
+      <Select
+        value={value}
+        items={options}
+        onValueChange={(nextValue) => onValueChange(nextValue ?? options[0].value)}
+      >
+        <SelectTrigger className="h-9 w-full rounded-lg bg-background text-xs font-normal normal-case tracking-normal">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
   );
 }

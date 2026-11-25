@@ -5,15 +5,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Search,
   Eye,
   CreditCard,
   Receipt,
   Plus,
   Building2,
   Calendar as CalendarIcon,
-  X,
-  Filter,
 } from "lucide-react";
 import { PurchaseDetailDialog } from "./PurchaseDetailDialog";
 import { RegisterPaymentDialog } from "./RegisterPaymentDialog";
@@ -22,6 +19,8 @@ import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -141,6 +140,7 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "partial" | "paid">("all");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("this_month");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Paginación
 
@@ -399,105 +399,12 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
     <div className="space-y-6">
 
       {/* ── Barra Superior: Selector de Período y Control Temporal ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-slate-50/70 dark:bg-slate-900/40 p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-200/70 dark:border-slate-800">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="text-xs font-semibold text-foreground">Período de Análisis:</span>
-          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-2.5 py-0.5 rounded-full font-mono">
-            {periodLabel}
-          </span>
-        </div>
-
-        {/* Selección rápida de período (SegmentedTabs de la guía de estilos) */}
-        <SegmentedTabs
-          items={PERIOD_TABS}
-          value={periodFilter}
-          onValueChange={setPeriodFilter}
-          size="sm"
-          rounded="lg"
-          enableCount={false}
-          ariaLabel="Período de análisis"
+      <div className="flex justify-end gap-2">
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
         />
-      </div>
-
-
-      {/* Rango de Fechas Personalizado (se muestra solo si se selecciona "custom") */}
-      {periodFilter === "custom" && (
-        <div className="flex flex-wrap items-center gap-3 p-3.5 bg-card border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl shadow-2xs animate-in fade-in-50">
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-            <Filter className="h-3.5 w-3.5" />
-            <span>Definir Rango:</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Desde:</span>
-            <Input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="h-8 text-xs bg-background w-36"
-            />
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Hasta:</span>
-            <Input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="h-8 text-xs bg-background w-36"
-            />
-          </div>
-          {(customStart || customEnd) && (
-            <button
-              onClick={() => {
-                setCustomStart("");
-                setCustomEnd("");
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground underline ml-2"
-            >
-              Resetear rango
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Toolbar Inteligente (Buscador + Filtros Segmentados + Botón Acción) ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-card border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 rounded-2xl shadow-xs">
-        
-        {/* Izquierda: Buscador */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Buscar por RUC, razón social o comprobante..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-            }}
-            className="pl-9 pr-8 h-10 text-xs bg-background rounded-xl border-slate-200 dark:border-slate-800"
-          />
-          {search && (
-            <button
-              onClick={() => {
-                setSearch("");
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Centro / Derecha: Segmented Control de Estados + Botón Nueva Compra */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Filtro por estado de pago (SegmentedTabs de la guía de estilos) */}
-          <SegmentedTabs
-            items={statusTabs}
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            hideZeroCount
-            ariaLabel="Estado de pago"
-          />
-
-          {/* Botón directo a Añadir Compra */}
+        {/* Botón directo a Añadir Compra */}
           <Link href="/purchases/list?tab=add">
             <Button
               size="sm"
@@ -507,8 +414,89 @@ export function PurchasesTable({ initialInvoices, paymentTypes }: PurchasesTable
               <span>Añadir Compra</span>
             </Button>
           </Link>
-        </div>
       </div>
+
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar por RUC, razón social o comprobante..."
+          activeFilterCount={Number(statusFilter !== "all") + Number(periodFilter !== "this_month")}
+          hasActiveFilters={search.trim() !== "" || statusFilter !== "all" || periodFilter !== "this_month"}
+          onClear={() => {
+            setSearch("");
+            setStatusFilter("all");
+            setPeriodFilter("all");
+            setCustomStart("");
+            setCustomEnd("");
+          }}
+          resultCount={filtered.length}
+          itemLabel="comprobantes"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Período
+            </span>
+            <SegmentedTabs
+              items={PERIOD_TABS}
+              value={periodFilter}
+              onValueChange={setPeriodFilter}
+              size="sm"
+              rounded="lg"
+              enableCount={false}
+              ariaLabel="Período de análisis"
+            />
+          </div>
+          {periodFilter === "custom" && (
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Desde
+                <Input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="h-9 w-36 bg-background text-xs"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Hasta
+                <Input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="h-9 w-36 bg-background text-xs"
+                />
+              </label>
+              {(customStart || customEnd) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCustomStart("");
+                    setCustomEnd("");
+                  }}
+                  className="h-9 text-xs"
+                >
+                  Resetear rango
+                </Button>
+              )}
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Estado de pago
+            </span>
+            <SegmentedTabs
+              items={statusTabs}
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              hideZeroCount
+              ariaLabel="Estado de pago"
+            />
+          </div>
+        </AdvancedFilterBar>
+      )}
 
       {/* ── Tabla de compras (DataTable compartido) ── */}
       <DataTable

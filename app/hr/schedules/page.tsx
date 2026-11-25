@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock, Edit2, Layers, List, Plus, Trash2, UserPlus, Users, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
@@ -26,6 +28,8 @@ export default function SchedulesPage() {
   const [today, setToday] = useState<string | null>(null);
   const [monday, setMonday] = useState<string | null>(null);
   const [view, setView] = useState<View>("week");
+  const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +183,14 @@ export default function SchedulesPage() {
   ];
 
   const isCurrentWeek = today !== null && monday === mondayOf(today);
+  const query = search.trim().toLowerCase();
+  const visibleSchedules = schedules.filter(
+    (schedule) =>
+      !query ||
+      schedule.name.toLowerCase().includes(query) ||
+      schedule.date.includes(query) ||
+      schedule.employees.some((employee) => employee.full_name.toLowerCase().includes(query)),
+  );
 
   return (
     <>
@@ -197,6 +209,7 @@ export default function SchedulesPage() {
               { value: "list", label: "Lista", icon: <List />, tone: "brand" },
             ]}
           />
+          {view === "list" && <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />}
           <AppButton size="sm" variant="secondary" icon={<Layers />} onClick={() => setTemplatesOpen(true)}>
             Turnos base
           </AppButton>
@@ -254,6 +267,18 @@ export default function SchedulesPage() {
           </p>
         )}
 
+        {view === "list" && filtersOpen && (
+          <AdvancedFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar horario, fecha o trabajador..."
+            activeFilterCount={search.trim() ? 1 : 0}
+            hasActiveFilters={search.trim() !== ""}
+            onClear={() => setSearch("")}
+            resultCount={visibleSchedules.length}
+            itemLabel="horarios"
+          />
+        )}
         {view === "week" && monday ? (
           <WeekGrid
             monday={monday}
@@ -266,11 +291,12 @@ export default function SchedulesPage() {
         ) : (
           <DataTable
             columns={columns}
-            rows={schedules}
+            rows={visibleSchedules}
             rowKey={(s) => s.shift_id}
             loading={loading}
             loadingMode="auto"
             defaultSort={{ key: "date", direction: "asc" }}
+            pageResetKey={search}
             pagination={{ defaultPageSize: 15, itemLabel: "horarios" }}
             emptyState={{
               icon: <CalendarClock className="h-7 w-7" />,

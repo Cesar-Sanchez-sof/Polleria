@@ -1,11 +1,11 @@
 "use client";
 
-import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   UtensilsCrossed,
   Plus,
-  Search,
   CheckCircle2,
   AlertCircle,
   Edit2,
@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,16 @@ export default function ProductsCatalogPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("todos");
   const [statusFilter, setStatusFilter] = useState<"todos" | "active" | "inactive">("todos");
+  const [stockFilter, setStockFilter] = useState<"todos" | "agotado" | "bajo" | "disponible">("todos");
+  const [recipeFilter, setRecipeFilter] = useState<"todos" | "con-receta" | "sin-receta">("todos");
+  const [typeFilter, setTypeFilter] = useState<"todos" | "FinishedProduct" | "RawMaterial">("todos");
+  const [minimumPrice, setMinimumPrice] = useState("");
+  const [maximumPrice, setMaximumPrice] = useState("");
+  const [minimumStock, setMinimumStock] = useState("");
+  const [maximumStock, setMaximumStock] = useState("");
+  const [minimumCost, setMinimumCost] = useState("");
+  const [maximumCost, setMaximumCost] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Modal Crear / Editar Producto
   const [modalOpen, setModalOpen] = useState(false);
@@ -312,9 +323,60 @@ export default function ProductsCatalogPage() {
           ? product.active
           : !product.active;
 
-      return matchesSearch && matchesCat && matchesStatus;
+      const matchesStock =
+        stockFilter === "todos" ||
+        (stockFilter === "agotado" && product.stock <= 0) ||
+        (stockFilter === "bajo" && product.stock > 0 && product.stock <= 5) ||
+        (stockFilter === "disponible" && product.available && product.stock > 0);
+      const matchesRecipe =
+        recipeFilter === "todos" ||
+        (recipeFilter === "con-receta" && product.recipe.length > 0) ||
+        (recipeFilter === "sin-receta" && product.recipe.length === 0);
+      const matchesType =
+        typeFilter === "todos" || product.type === typeFilter;
+      const minPrice = minimumPrice === "" ? undefined : Number(minimumPrice);
+      const maxPrice = maximumPrice === "" ? undefined : Number(maximumPrice);
+      const matchesPrice =
+        (minPrice === undefined || product.price >= minPrice) &&
+        (maxPrice === undefined || product.price <= maxPrice);
+      const minStock = minimumStock === "" ? undefined : Number(minimumStock);
+      const maxStock = maximumStock === "" ? undefined : Number(maximumStock);
+      const matchesStockRange =
+        (minStock === undefined || product.stock >= minStock) &&
+        (maxStock === undefined || product.stock <= maxStock);
+      const minCost = minimumCost === "" ? undefined : Number(minimumCost);
+      const maxCost = maximumCost === "" ? undefined : Number(maximumCost);
+      const matchesCost =
+        (minCost === undefined || product.recipeCost >= minCost) &&
+        (maxCost === undefined || product.recipeCost <= maxCost);
+
+      return (
+        matchesSearch &&
+        matchesCat &&
+        matchesStatus &&
+        matchesStock &&
+        matchesRecipe &&
+        matchesType &&
+        matchesPrice &&
+        matchesStockRange &&
+        matchesCost
+      );
     });
-  }, [products, search, categoryFilter, statusFilter]);
+  }, [
+    products,
+    search,
+    categoryFilter,
+    statusFilter,
+    stockFilter,
+    recipeFilter,
+    typeFilter,
+    minimumPrice,
+    maximumPrice,
+    minimumStock,
+    maximumStock,
+    minimumCost,
+    maximumCost,
+  ]);
 
   // Métricas
   const metrics = useMemo(() => {
@@ -324,6 +386,19 @@ export default function ProductsCatalogPage() {
     const withRecipe = products.filter((d) => d.recipe && d.recipe.length > 0).length;
     return { total, active, inactive, withRecipe };
   }, [products]);
+
+  const invalidPriceRange =
+    minimumPrice !== "" &&
+    maximumPrice !== "" &&
+    Number(minimumPrice) > Number(maximumPrice);
+  const invalidStockRange =
+    minimumStock !== "" &&
+    maximumStock !== "" &&
+    Number(minimumStock) > Number(maximumStock);
+  const invalidCostRange =
+    minimumCost !== "" &&
+    maximumCost !== "" &&
+    Number(minimumCost) > Number(maximumCost);
 
   const columns: DataTableColumn<ProductItem>[] = [
     {
@@ -473,53 +548,22 @@ export default function ProductsCatalogPage() {
     <>
       <ModuleHeader
         title="Productos y Carta"
-        subtitle="Lo que se vende en el salón: precio, receta (ingredientes por unidad) y stock disponible"
+        subtitle="Precio, receta con ingredientes por unidad y stock disponible"
         icon={ChefHat}
         iconClassName="bg-amber-100 text-amber-800"
       >
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="relative w-56">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar producto o ingrediente..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-xs rounded-xl h-9"
-            />
-          </div>
-          <SegmentedTabs
-            ariaLabel="Filtrar por categoría"
-            value={categoryFilter}
-            onValueChange={setCategoryFilter}
-            className="max-w-full overflow-x-auto"
-            items={[
-              { value: "todos", label: "Todos", tone: "brand" },
-              { value: "pollos", label: "Pollos", tone: "brand" },
-              { value: "adicionales", label: "Guarniciones", tone: "brand" },
-              { value: "bebidas", label: "Bebidas", tone: "brand" },
-            ]}
-          />
-          <SegmentedTabs
-            ariaLabel="Filtrar por estado"
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            className="max-w-full overflow-x-auto"
-            items={[
-              { value: "todos", label: "Todo Estado", tone: "brand" },
-              { value: "active", label: "Activos", tone: "success" },
-              { value: "inactive", label: "Pausados", tone: "warning" },
-            ]}
-          />
-          <Button
-            size="sm"
-            onClick={handleOpenCreateModal}
-            className="text-xs h-9 font-bold gap-1.5 rounded-xl bg-red-700 hover:bg-red-800 text-white shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Producto</span>
-          </Button>
-        </div>
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
+        />
+        <Button
+          size="sm"
+          onClick={handleOpenCreateModal}
+          className="text-xs h-9 font-bold gap-1.5 rounded-xl bg-red-700 hover:bg-red-800 text-white shadow-xs cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Nuevo Producto</span>
+        </Button>
       </ModuleHeader>
 
       <main className="flex-1 w-full min-w-0 p-4 sm:p-6 flex flex-col gap-5">
@@ -531,13 +575,205 @@ export default function ProductsCatalogPage() {
           <StatCard layout="label-first" tone="blue" icon={<Scale />} label="Con Receta (Escandallo)" value={metrics.withRecipe} colorValue />
         </div>
 
+        {filtersOpen && <AdvancedFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar producto, descripción o ingrediente..."
+          activeFilterCount={
+            Number(categoryFilter !== "todos") +
+            Number(statusFilter !== "todos") +
+            Number(stockFilter !== "todos") +
+            Number(recipeFilter !== "todos") +
+            Number(typeFilter !== "todos") +
+            Number(minimumPrice !== "") +
+            Number(maximumPrice !== "") +
+            Number(minimumStock !== "") +
+            Number(maximumStock !== "") +
+            Number(minimumCost !== "") +
+            Number(maximumCost !== "")
+          }
+          hasActiveFilters={
+            Boolean(search.trim()) ||
+            categoryFilter !== "todos" ||
+            statusFilter !== "todos" ||
+            stockFilter !== "todos" ||
+            recipeFilter !== "todos" ||
+            typeFilter !== "todos" ||
+            minimumPrice !== "" ||
+            maximumPrice !== "" ||
+            minimumStock !== "" ||
+            maximumStock !== "" ||
+            minimumCost !== "" ||
+            maximumCost !== ""
+          }
+          onClear={() => {
+            setSearch("");
+            setCategoryFilter("todos");
+            setStatusFilter("todos");
+            setStockFilter("todos");
+            setRecipeFilter("todos");
+            setTypeFilter("todos");
+            setMinimumPrice("");
+            setMaximumPrice("");
+            setMinimumStock("");
+            setMaximumStock("");
+            setMinimumCost("");
+            setMaximumCost("");
+          }}
+          resultCount={filteredProducts.length}
+          itemLabel={`de ${products.length} productos`}
+        >
+          <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Categoría
+            <NativeSelect
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="h-9 rounded-lg text-xs"
+            >
+              <NativeSelectOption value="todos">Todas</NativeSelectOption>
+              <NativeSelectOption value="pollos">Pollos</NativeSelectOption>
+              <NativeSelectOption value="adicionales">Guarniciones</NativeSelectOption>
+              <NativeSelectOption value="bebidas">Bebidas</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Estado
+            <NativeSelect
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="h-9 rounded-lg text-xs"
+            >
+              <NativeSelectOption value="todos">Todos</NativeSelectOption>
+              <NativeSelectOption value="active">Activos</NativeSelectOption>
+              <NativeSelectOption value="inactive">Pausados</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Stock
+            <NativeSelect
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}
+              className="h-9 rounded-lg text-xs"
+            >
+              <NativeSelectOption value="todos">Cualquier stock</NativeSelectOption>
+              <NativeSelectOption value="agotado">Agotado</NativeSelectOption>
+              <NativeSelectOption value="bajo">Stock bajo (1-5)</NativeSelectOption>
+              <NativeSelectOption value="disponible">Disponible</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Receta
+            <NativeSelect
+              value={recipeFilter}
+              onChange={(e) => setRecipeFilter(e.target.value as typeof recipeFilter)}
+              className="h-9 rounded-lg text-xs"
+            >
+              <NativeSelectOption value="todos">Todas</NativeSelectOption>
+              <NativeSelectOption value="con-receta">Con receta</NativeSelectOption>
+              <NativeSelectOption value="sin-receta">Sin receta</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Tipo
+            <NativeSelect
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+              className="h-9 rounded-lg text-xs"
+            >
+              <NativeSelectOption value="todos">Todos los tipos</NativeSelectOption>
+              <NativeSelectOption value="FinishedProduct">Producto terminado</NativeSelectOption>
+              <NativeSelectOption value="RawMaterial">Materia prima</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Precio desde
+            <Input
+              type="number"
+              min="0"
+              step="0.10"
+              value={minimumPrice}
+              onChange={(e) => setMinimumPrice(e.target.value)}
+              placeholder="S/ 0"
+              className="h-9 rounded-lg text-xs"
+            />
+          </label>
+          <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Precio hasta
+            <Input
+              type="number"
+              min="0"
+              step="0.10"
+              value={maximumPrice}
+              onChange={(e) => setMaximumPrice(e.target.value)}
+              placeholder="S/ 100"
+              className="h-9 rounded-lg text-xs"
+            />
+          </label>
+          <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Stock desde
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={minimumStock}
+              onChange={(e) => setMinimumStock(e.target.value)}
+              placeholder="0"
+              className="h-9 rounded-lg text-xs"
+            />
+          </label>
+          <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Stock hasta
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={maximumStock}
+              onChange={(e) => setMaximumStock(e.target.value)}
+              placeholder="Máximo"
+              className="h-9 rounded-lg text-xs"
+            />
+          </label>
+          <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Costo desde
+            <Input
+              type="number"
+              min="0"
+              step="0.10"
+              value={minimumCost}
+              onChange={(e) => setMinimumCost(e.target.value)}
+              placeholder="S/ 0"
+              className="h-9 rounded-lg text-xs"
+            />
+          </label>
+          <label className="flex min-w-[105px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Costo hasta
+            <Input
+              type="number"
+              min="0"
+              step="0.10"
+              value={maximumCost}
+              onChange={(e) => setMaximumCost(e.target.value)}
+              placeholder="S/ 100"
+              className="h-9 rounded-lg text-xs"
+            />
+          </label>
+        </AdvancedFilterBar>}
+
+        {(invalidPriceRange || invalidStockRange || invalidCostRange) && (
+          <p className="text-xs font-semibold text-amber-700">
+            {invalidPriceRange && "El precio mínimo no puede superar el precio máximo. "}
+            {invalidStockRange && "El stock mínimo no puede superar el stock máximo. "}
+            {invalidCostRange && "El costo mínimo no puede superar el costo máximo."}
+          </p>
+        )}
+
         {/* Tabla / Listado de Productos */}
         <DataTable
           columns={columns}
           rows={filteredProducts}
           rowKey={(product) => product.id}
           defaultSort={{ key: "name", direction: "asc" }}
-          pageResetKey={`${search}|${categoryFilter}|${statusFilter}`}
+          pageResetKey={`${search}|${categoryFilter}|${statusFilter}|${stockFilter}|${recipeFilter}|${typeFilter}|${minimumPrice}|${maximumPrice}|${minimumStock}|${maximumStock}|${minimumCost}|${maximumCost}`}
           pagination={{ defaultPageSize: 15, itemLabel: "productos" }}
           loading={loading}
           loadingMode="auto"

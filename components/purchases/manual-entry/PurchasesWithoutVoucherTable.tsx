@@ -30,7 +30,6 @@ import { InformalPurchaseType, ExpenseCategory } from "@prisma/client";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/services/purchases/purchase-without-voucher.constants";
 import { toast } from "sonner";
 import {
-  Search,
   Package,
   Briefcase,
   Ban,
@@ -41,6 +40,8 @@ import {
   Eye,
   Info,
 } from "lucide-react";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
 
 export interface InformalPurchaseItem {
   id: number;
@@ -85,6 +86,7 @@ export function PurchasesWithoutVoucherTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Estado del diálogo de anulación
   const [purchaseToAnnul, setPurchaseToAnnul] = useState<InformalPurchaseItem | null>(null);
@@ -250,24 +252,38 @@ export function PurchasesWithoutVoucherTable({
         </div>
       </div>
 
-      {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border rounded-lg p-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Buscar por insumo, descripción, lugar..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="pl-9 h-9 text-xs"
-          />
-        </div>
+      <div className="flex justify-end">
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
+        />
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Segmented Control: Tipo */}
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={searchTerm}
+          onSearchChange={(value) => {
+            setSearchTerm(value);
+            setCurrentPage(1);
+          }}
+          searchPlaceholder="Buscar por insumo, descripción, lugar..."
+          activeFilterCount={Number(typeFilter !== "ALL") + Number(statusFilter !== "ALL")}
+          hasActiveFilters={searchTerm.trim() !== "" || typeFilter !== "ALL" || statusFilter !== "ALL"}
+          onClear={() => {
+            setSearchTerm("");
+            setTypeFilter("ALL");
+            setStatusFilter("ALL");
+            setCurrentPage(1);
+          }}
+          resultCount={filteredPurchases.length}
+          itemLabel="compras"
+        >
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Tipo
+          </span>
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+          {/* Segmented Control: Tipo */}
             <button
               type="button"
               onClick={() => {
@@ -311,9 +327,13 @@ export function PurchasesWithoutVoucherTable({
               Gastos
             </button>
           </div>
-
-          {/* Segmented Control: Estado */}
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Estado
+          </span>
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+          {/* Segmented Control: Estado */}
             <button
               type="button"
               onClick={() => {
@@ -358,10 +378,11 @@ export function PurchasesWithoutVoucherTable({
             </button>
           </div>
         </div>
-      </div>
+        </AdvancedFilterBar>
+      )}
 
       {/* Tabla de Historial */}
-      <div className="rounded-md border bg-card overflow-hidden">
+      <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
