@@ -1,0 +1,310 @@
+{
+  "generated_at": "2026-11-24T23:47:39.807781-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 6,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 6,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 6,
+      "execution_incorrect_count": 0,
+      "execution_accuracy_denominator": 6,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.946383,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-336",
+          "question": "¿Cuál fue el importe de los egresos manuales de caja, desglosado por caja registradora, en octubre de 2026?",
+          "expected_sql": "SELECT cr.name AS caja, SUM(cm.amount) AS egresos FROM cash_movement cm JOIN cash_session cs ON cs.id = cm.session_id JOIN cash_register cr ON cr.id = cs.cash_register_id WHERE cm.type = 'EXPENSE' AND cm.created_at >= DATE '2026-10-01' AND cm.created_at < DATE '2026-11-01' GROUP BY cr.id, cr.name ORDER BY egresos DESC LIMIT 50",
+          "generated_sql": "SELECT cr.name AS caja_registradora, COALESCE(SUM(cm.amount), 0) AS total_egresos_manual FROM public.cash_movement AS cm JOIN public.cash_session AS cs ON cm.session_id = cs.id JOIN public.cash_register AS cr ON cs.cash_register_id = cr.id WHERE cm.type = 'EXPENSE' AND cm.created_at >= CAST('2026-10-01' AS DATE) AND cm.created_at < CAST('2026-11-01' AS DATE) GROUP BY cr.name ORDER BY caja_registradora LIMIT 50",
+          "gold_rows": [
+            {
+              "caja": "Caja de Prueba",
+              "egresos": "45.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "caja_registradora": "Caja de Prueba",
+              "total_egresos_manual": "45.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.7567,
+          "elapsed_seconds": 5.357,
+          "sql_execution_seconds": 2.706431,
+          "gold_execution_seconds": 1.549689,
+          "token_usage": {
+            "prompt_tokens": 3230,
+            "completion_tokens": 218,
+            "total_tokens": 3448
+          }
+        },
+        {
+          "id": "TEST-337",
+          "question": "¿Cuántos movimientos y qué cantidad hubo por tipo de movimiento de inventario en octubre de 2026?",
+          "expected_sql": "SELECT im.movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS cantidad FROM inventory_movement im WHERE im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY im.movement_type ORDER BY movimientos DESC LIMIT 50",
+          "generated_sql": "SELECT im.movement_type AS movement_type, COUNT(*) AS movimientos, SUM(im.quantity) AS total_cantidad FROM public.inventory_movement AS im WHERE im.moved_at >= CAST('2026-10-01' AS DATE) AND im.moved_at < CAST('2026-11-01' AS DATE) GROUP BY im.movement_type LIMIT 50",
+          "gold_rows": [
+            {
+              "movement_type": "Purchase",
+              "movimientos": 17,
+              "cantidad": "135.00"
+            },
+            {
+              "movement_type": "InformalPurchase",
+              "movimientos": 7,
+              "cantidad": "1.00"
+            },
+            {
+              "movement_type": "Sale",
+              "movimientos": 6,
+              "cantidad": "7.00"
+            },
+            {
+              "movement_type": "TransformationIn",
+              "movimientos": 4,
+              "cantidad": "65.00"
+            },
+            {
+              "movement_type": "TransformationOut",
+              "movimientos": 4,
+              "cantidad": "16.00"
+            },
+            {
+              "movement_type": "Adjustment",
+              "movimientos": 3,
+              "cantidad": "-42.00"
+            },
+            {
+              "movement_type": "Shrinkage",
+              "movimientos": 1,
+              "cantidad": "1.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "movement_type": "Sale",
+              "movimientos": "6",
+              "total_cantidad": "7.00"
+            },
+            {
+              "movement_type": "InformalPurchase",
+              "movimientos": "7",
+              "total_cantidad": "1.00"
+            },
+            {
+              "movement_type": "Shrinkage",
+              "movimientos": "1",
+              "total_cantidad": "1.00"
+            },
+            {
+              "movement_type": "TransformationIn",
+              "movimientos": "4",
+              "total_cantidad": "65.00"
+            },
+            {
+              "movement_type": "Adjustment",
+              "movimientos": "3",
+              "total_cantidad": "-42.00"
+            },
+            {
+              "movement_type": "TransformationOut",
+              "movimientos": "4",
+              "total_cantidad": "16.00"
+            },
+            {
+              "movement_type": "Purchase",
+              "movimientos": "17",
+              "total_cantidad": "135.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.655,
+          "sql_execution_seconds": 1.589552,
+          "gold_execution_seconds": 1.626839,
+          "token_usage": {
+            "prompt_tokens": 3221,
+            "completion_tokens": 186,
+            "total_tokens": 3407
+          }
+        },
+        {
+          "id": "TEST-338",
+          "question": "¿Qué productos tuvieron salidas por venta y cuántas unidades en octubre de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Sale' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, COALESCE(SUM(im.quantity), 0) AS unidades_vendidas FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Sale' AND im.moved_at >= CAST('2026-10-01' AS DATE) AND im.moved_at < CAST('2026-11-01' AS DATE) GROUP BY p.name ORDER BY unidades_vendidas DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Agua Mineral 600ml",
+              "cantidad": "4.00"
+            },
+            {
+              "name": "Pollo a la brasa de prueba",
+              "cantidad": "2.00"
+            },
+            {
+              "name": "1 Pollo a la Brasa Entero",
+              "cantidad": "1.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Agua Mineral 600ml",
+              "unidades_vendidas": "4.00"
+            },
+            {
+              "producto": "Pollo a la brasa de prueba",
+              "unidades_vendidas": "2.00"
+            },
+            {
+              "producto": "1 Pollo a la Brasa Entero",
+              "unidades_vendidas": "1.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.994225,
+          "elapsed_seconds": 2.621,
+          "sql_execution_seconds": 1.565873,
+          "gold_execution_seconds": 1.547838,
+          "token_usage": {
+            "prompt_tokens": 3218,
+            "completion_tokens": 175,
+            "total_tokens": 3393
+          }
+        },
+        {
+          "id": "TEST-339",
+          "question": "¿Qué productos tuvieron mermas y qué cantidad en octubre de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, COALESCE(SUM(im.quantity), 0) AS cantidad_merma FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Shrinkage' AND im.moved_at >= CAST('2026-10-01' AS DATE) AND im.moved_at < CAST('2026-11-01' AS DATE) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "1.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Pollo entero de prueba",
+              "cantidad_merma": "1.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.962209,
+          "elapsed_seconds": 2.616,
+          "sql_execution_seconds": 1.672316,
+          "gold_execution_seconds": 1.548308,
+          "token_usage": {
+            "prompt_tokens": 3215,
+            "completion_tokens": 216,
+            "total_tokens": 3431
+          }
+        },
+        {
+          "id": "TEST-340",
+          "question": "¿Qué insumos ingresaron por compras y en qué cantidad durante octubre de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Purchase' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS insumo, COALESCE(SUM(im.quantity), 0) AS cantidad FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Purchase' AND im.moved_at >= CAST('2026-10-01 00:00:00' AS TIMESTAMP) AND im.moved_at < CAST('2026-11-01 00:00:00' AS TIMESTAMP) GROUP BY p.name ORDER BY cantidad DESC LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Pollo entero",
+              "cantidad": "72.00"
+            },
+            {
+              "name": "Presas de pollo",
+              "cantidad": "22.00"
+            },
+            {
+              "name": "Papa",
+              "cantidad": "20.00"
+            },
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "20.00"
+            },
+            {
+              "name": "1 Pollo a la Brasa Entero",
+              "cantidad": "1.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "insumo": "Pollo entero",
+              "cantidad": "72.00"
+            },
+            {
+              "insumo": "Presas de pollo",
+              "cantidad": "22.00"
+            },
+            {
+              "insumo": "Pollo entero de prueba",
+              "cantidad": "20.00"
+            },
+            {
+              "insumo": "Papa",
+              "cantidad": "20.00"
+            },
+            {
+              "insumo": "1 Pollo a la Brasa Entero",
+              "cantidad": "1.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 3.063,
+          "sql_execution_seconds": 1.613894,
+          "gold_execution_seconds": 1.623604,
+          "token_usage": {
+            "prompt_tokens": 3217,
+            "completion_tokens": 308,
+            "total_tokens": 3525
+          }
+        },
+        {
+          "id": "TEST-341",
+          "question": "¿Cuántas transformaciones no anuladas hubo en octubre de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM transformation t WHERE t.annulled = FALSE AND t.date >= DATE '2026-10-01' AND t.date < DATE '2026-11-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS total_transformaciones FROM public.transformation AS t WHERE t.annulled = FALSE AND t.date >= CAST('2026-10-01' AS DATE) AND t.date < CAST('2026-11-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 3
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_transformaciones": "3"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.965162,
+          "elapsed_seconds": 2.606,
+          "sql_execution_seconds": 1.667554,
+          "gold_execution_seconds": 1.55339,
+          "token_usage": {
+            "prompt_tokens": 3215,
+            "completion_tokens": 111,
+            "total_tokens": 3326
+          }
+        }
+      ]
+    }
+  ]
+}
