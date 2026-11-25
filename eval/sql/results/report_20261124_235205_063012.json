@@ -1,0 +1,262 @@
+{
+  "generated_at": "2026-11-24T23:52:05.102051-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 5,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 5,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 5,
+      "execution_incorrect_count": 0,
+      "execution_accuracy_denominator": 5,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.983188,
+      "test_suite_accuracy": null,
+      "interrupted": false,
+      "cases": [
+        {
+          "id": "TEST-346",
+          "question": "¿Cuántos asientos registrados hubo por diario en octubre de 2026?",
+          "expected_sql": "SELECT je.book, COUNT(*) AS total FROM journal_entry je WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.book ORDER BY total DESC LIMIT 50",
+          "generated_sql": "SELECT je.book AS diario, COUNT(*) AS total_asientos FROM public.journal_entry AS je WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.book LIMIT 50",
+          "gold_rows": [
+            {
+              "book": "Caja y bancos",
+              "total": 34
+            },
+            {
+              "book": "Ventas",
+              "total": 27
+            },
+            {
+              "book": "Compras",
+              "total": 19
+            },
+            {
+              "book": "Operaciones varias",
+              "total": 2
+            },
+            {
+              "book": "Diario de prueba",
+              "total": 2
+            },
+            {
+              "book": "Verificacion",
+              "total": 1
+            },
+            {
+              "book": "Planillas",
+              "total": 1
+            }
+          ],
+          "generated_rows": [
+            {
+              "diario": "Verificacion",
+              "total_asientos": "1"
+            },
+            {
+              "diario": "Ventas",
+              "total_asientos": "27"
+            },
+            {
+              "diario": "Planillas",
+              "total_asientos": "1"
+            },
+            {
+              "diario": "Compras",
+              "total_asientos": "19"
+            },
+            {
+              "diario": "Operaciones varias",
+              "total_asientos": "2"
+            },
+            {
+              "diario": "Diario de prueba",
+              "total_asientos": "2"
+            },
+            {
+              "diario": "Caja y bancos",
+              "total_asientos": "34"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.980932,
+          "elapsed_seconds": 2.852,
+          "sql_execution_seconds": 1.679168,
+          "gold_execution_seconds": 1.615743,
+          "token_usage": {
+            "prompt_tokens": 3215,
+            "completion_tokens": 184,
+            "total_tokens": 3399
+          }
+        },
+        {
+          "id": "TEST-347",
+          "question": "¿Qué asientos registrados no cuadraron entre debe y haber en octubre de 2026? Indica el código, la fecha, el total al debe y el total al haber de cada asiento.",
+          "expected_sql": "SELECT je.code, je.entry_date, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY je.id, je.code, je.entry_date HAVING ABS(SUM(jed.debit) - SUM(jed.credit)) > 0.01 ORDER BY je.entry_date DESC LIMIT 50",
+          "generated_sql": "SELECT je.code AS codigo, je.entry_date AS fecha, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY je.id, je.code, je.entry_date HAVING ABS(COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0)) > 0.01 LIMIT 50",
+          "gold_rows": [
+            {
+              "code": "BENCH26-10-02",
+              "entry_date": "2026-10-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "codigo": "BENCH26-10-02",
+              "fecha": "2026-10-23",
+              "total_debe": "100.00",
+              "total_haber": "80.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.982954,
+          "elapsed_seconds": 2.506,
+          "sql_execution_seconds": 1.689731,
+          "gold_execution_seconds": 1.632616,
+          "token_usage": {
+            "prompt_tokens": 3238,
+            "completion_tokens": 221,
+            "total_tokens": 3459
+          }
+        },
+        {
+          "id": "TEST-348",
+          "question": "¿Cuál fue el saldo neto del elemento contable 3 en octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND aa.code LIKE '3%' AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (aa.id = 3 AND je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "saldo": "0"
+            }
+          ],
+          "generated_rows": [
+            {
+              "saldo_neto": "0"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.952055,
+          "elapsed_seconds": 2.897,
+          "sql_execution_seconds": 1.781288,
+          "gold_execution_seconds": 1.614575,
+          "token_usage": {
+            "prompt_tokens": 3219,
+            "completion_tokens": 212,
+            "total_tokens": 3431
+          }
+        },
+        {
+          "id": "TEST-349",
+          "question": "¿Cuánto sumaron el debe y el haber por tipo de cuenta en octubre de 2026?",
+          "expected_sql": "SELECT aa.type, SUM(jed.debit) AS total_debe, SUM(jed.credit) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY aa.type ORDER BY aa.type LIMIT 50",
+          "generated_sql": "SELECT aa.type AS tipo, COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry_detail AS jed JOIN public.journal_entry AS je ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY aa.type LIMIT 50",
+          "gold_rows": [
+            {
+              "type": "Activo",
+              "total_debe": "3891.44",
+              "total_haber": "4153.39"
+            },
+            {
+              "type": "Costo",
+              "total_debe": "749.57",
+              "total_haber": "0.00"
+            },
+            {
+              "type": "Gasto",
+              "total_debe": "14910.06",
+              "total_haber": "611.87"
+            },
+            {
+              "type": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "544.23"
+            },
+            {
+              "type": "Pasivo",
+              "total_debe": "1052.44",
+              "total_haber": "15274.02"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo": "Ingreso",
+              "total_debe": "0.00",
+              "total_haber": "544.23"
+            },
+            {
+              "tipo": "Activo",
+              "total_debe": "3891.44",
+              "total_haber": "4153.39"
+            },
+            {
+              "tipo": "Costo",
+              "total_debe": "749.57",
+              "total_haber": "0.00"
+            },
+            {
+              "tipo": "Pasivo",
+              "total_debe": "1052.44",
+              "total_haber": "15274.02"
+            },
+            {
+              "tipo": "Gasto",
+              "total_debe": "14910.06",
+              "total_haber": "611.87"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.411,
+          "sql_execution_seconds": 1.563775,
+          "gold_execution_seconds": 1.610582,
+          "token_usage": {
+            "prompt_tokens": 3219,
+            "completion_tokens": 195,
+            "total_tokens": 3414
+          }
+        },
+        {
+          "id": "TEST-350",
+          "question": "¿Cuántos periodos contables con estado abierto estuvieron vigentes en algún momento de octubre de 2026?",
+          "expected_sql": "SELECT COUNT(*) AS total FROM accounting_period ap WHERE ap.status = 'OPEN' AND ap.start_date < DATE '2026-11-01' AND ap.end_date >= DATE '2026-10-01' LIMIT 50",
+          "generated_sql": "SELECT COUNT(*) AS periodos_abiertos FROM public.accounting_period AS ap WHERE ap.status = 'OPEN' AND ap.start_date < CAST('2026-11-01' AS DATE) AND ap.end_date >= CAST('2026-10-01' AS DATE) LIMIT 50",
+          "gold_rows": [
+            {
+              "total": 2
+            }
+          ],
+          "generated_rows": [
+            {
+              "periodos_abiertos": "2"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.613,
+          "sql_execution_seconds": 1.559273,
+          "gold_execution_seconds": 1.659659,
+          "token_usage": {
+            "prompt_tokens": 3222,
+            "completion_tokens": 124,
+            "total_tokens": 3346
+          }
+        }
+      ]
+    }
+  ]
+}

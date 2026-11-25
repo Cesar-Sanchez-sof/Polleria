@@ -1,0 +1,458 @@
+{
+  "generated_at": "2026-11-24T23:49:40.820957-05:00",
+  "agents": [
+    {
+      "agent": "groq",
+      "total_cases": 4,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 4,
+      "execution_error_count": 0,
+      "execution_accuracy_count": 4,
+      "execution_incorrect_count": 0,
+      "execution_accuracy_denominator": 4,
+      "execution_accuracy_rate": 1.0,
+      "ves": 0.999205,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-342",
+          "question": "¿Qué cantidades de tipo Consumo y Producido hubo en transformaciones no anuladas durante octubre de 2026?",
+          "expected_sql": "SELECT ti.item_type, SUM(ti.quantity) AS cantidad FROM transformation t JOIN transformation_item ti ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= DATE '2026-10-01' AND t.date < DATE '2026-11-01' GROUP BY ti.item_type ORDER BY ti.item_type LIMIT 50",
+          "generated_sql": "SELECT ti.item_type AS tipo, SUM(ti.quantity) AS total_cantidad FROM public.transformation_item AS ti JOIN public.transformation AS t ON ti.transformation_id = t.id WHERE t.annulled = FALSE AND t.date >= CAST('2026-10-01' AS DATE) AND t.date < CAST('2026-11-01' AS DATE) AND ti.item_type IN ('Consumo', 'Producido') GROUP BY ti.item_type LIMIT 50",
+          "gold_rows": [
+            {
+              "item_type": "Consumo",
+              "cantidad": "12.00"
+            },
+            {
+              "item_type": "Producido",
+              "cantidad": "58.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "tipo": "Consumo",
+              "total_cantidad": "12.00"
+            },
+            {
+              "tipo": "Producido",
+              "total_cantidad": "58.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 0.996821,
+          "elapsed_seconds": 2.654,
+          "sql_execution_seconds": 1.679406,
+          "gold_execution_seconds": 1.668746,
+          "token_usage": {
+            "prompt_tokens": 3223,
+            "completion_tokens": 200,
+            "total_tokens": 3423
+          }
+        },
+        {
+          "id": "TEST-343",
+          "question": "¿Qué productos tuvieron ajustes de inventario y en qué cantidad en octubre de 2026?",
+          "expected_sql": "SELECT p.name, SUM(im.quantity) AS cantidad FROM inventory_movement im JOIN product p ON p.id = im.product_id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= DATE '2026-10-01' AND im.moved_at < DATE '2026-11-01' GROUP BY p.id, p.name ORDER BY cantidad DESC LIMIT 50",
+          "generated_sql": "SELECT p.name AS producto, SUM(im.quantity) AS cantidad_total FROM public.inventory_movement AS im JOIN public.product AS p ON im.product_id = p.id WHERE im.movement_type = 'Adjustment' AND im.moved_at >= CAST('2026-10-01' AS DATE) AND im.moved_at < CAST('2026-11-01' AS DATE) GROUP BY p.name LIMIT 50",
+          "gold_rows": [
+            {
+              "name": "Agua Mineral 600ml",
+              "cantidad": "5.00"
+            },
+            {
+              "name": "Pollo entero de prueba",
+              "cantidad": "3.00"
+            },
+            {
+              "name": "Presas de pollo",
+              "cantidad": "-50.00"
+            }
+          ],
+          "generated_rows": [
+            {
+              "producto": "Agua Mineral 600ml",
+              "cantidad_total": "5.00"
+            },
+            {
+              "producto": "Pollo entero de prueba",
+              "cantidad_total": "3.00"
+            },
+            {
+              "producto": "Presas de pollo",
+              "cantidad_total": "-50.00"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.575,
+          "sql_execution_seconds": 1.570132,
+          "gold_execution_seconds": 1.63154,
+          "token_usage": {
+            "prompt_tokens": 3217,
+            "completion_tokens": 264,
+            "total_tokens": 3481
+          }
+        },
+        {
+          "id": "TEST-344",
+          "question": "¿Cuánto sumaron el debe y el haber de los asientos registrados en octubre de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' LIMIT 50",
+          "generated_sql": "SELECT COALESCE(SUM(jed.debit), 0) AS total_debe, COALESCE(SUM(jed.credit), 0) AS total_haber FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE LIMIT 50",
+          "gold_rows": [
+            {
+              "total_debe": "20603.51",
+              "total_haber": "20583.51"
+            }
+          ],
+          "generated_rows": [
+            {
+              "total_debe": "20603.51",
+              "total_haber": "20583.51"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.54,
+          "sql_execution_seconds": 1.534509,
+          "gold_execution_seconds": 1.572897,
+          "token_usage": {
+            "prompt_tokens": 3220,
+            "completion_tokens": 160,
+            "total_tokens": 3380
+          }
+        },
+        {
+          "id": "TEST-345",
+          "question": "¿Cuál fue el saldo neto por cuenta contable en octubre de 2026?",
+          "expected_sql": "SELECT aa.code, aa.name, SUM(jed.debit) - SUM(jed.credit) AS saldo FROM journal_entry je JOIN journal_entry_detail jed ON jed.entry_id = je.id JOIN accounting_account aa ON aa.id = jed.account_id WHERE je.status = TRUE AND je.entry_date >= DATE '2026-10-01' AND je.entry_date < DATE '2026-11-01' GROUP BY aa.id, aa.code, aa.name ORDER BY aa.code LIMIT 50",
+          "generated_sql": "SELECT aa.code AS cuenta, aa.name AS nombre_cuenta, COALESCE(SUM(jed.debit), 0) - COALESCE(SUM(jed.credit), 0) AS saldo_neto FROM public.journal_entry AS je JOIN public.journal_entry_detail AS jed ON jed.entry_id = je.id JOIN public.accounting_account AS aa ON jed.account_id = aa.id WHERE (je.entry_date >= CAST('2026-10-01' AS DATE) AND je.entry_date < CAST('2026-11-01' AS DATE)) AND je.status = TRUE GROUP BY aa.code, aa.name ORDER BY cuenta LIMIT 50",
+          "gold_rows": [
+            {
+              "code": "1",
+              "name": "Activo",
+              "saldo": "20.00"
+            },
+            {
+              "code": "10",
+              "name": "Efectivo y equivalentes de efectivo",
+              "saldo": "-20.00"
+            },
+            {
+              "code": "1009001",
+              "name": "Cuenta de activo de prueba del mes 10",
+              "saldo": "200.00"
+            },
+            {
+              "code": "101",
+              "name": "Caja",
+              "saldo": "-852.69"
+            },
+            {
+              "code": "1011",
+              "name": "CajaPrincipal",
+              "saldo": "10.00"
+            },
+            {
+              "code": "104",
+              "name": "Bancos - Cuentas Corrientes",
+              "saldo": "-360.10"
+            },
+            {
+              "code": "121",
+              "name": "Cuentas por Cobrar Comerciales - Terceros",
+              "saldo": "0.00"
+            },
+            {
+              "code": "141",
+              "name": "Adelantos de Remuneraciones al Personal",
+              "saldo": "200.00"
+            },
+            {
+              "code": "167",
+              "name": "Tributos por Acreditar - IGV",
+              "saldo": "66.67"
+            },
+            {
+              "code": "201",
+              "name": "Mercaderías",
+              "saldo": "232.09"
+            },
+            {
+              "code": "201001",
+              "name": "Obligaciones de prueba",
+              "saldo": "-80.00"
+            },
+            {
+              "code": "211",
+              "name": "Productos Terminados",
+              "saldo": "-3.46"
+            },
+            {
+              "code": "241",
+              "name": "Materias Primas",
+              "saldo": "245.54"
+            },
+            {
+              "code": "401",
+              "name": "Tributos por Pagar - IGV",
+              "saldo": "-61.97"
+            },
+            {
+              "code": "401001",
+              "name": "Ventas de prueba",
+              "saldo": "-100.00"
+            },
+            {
+              "code": "40111",
+              "name": "IGV - Cuenta Fiscal",
+              "saldo": "43.45"
+            },
+            {
+              "code": "4017",
+              "name": "Impuesto a la Renta de Quinta Categoría por Pagar",
+              "saldo": "-423.00"
+            },
+            {
+              "code": "4031",
+              "name": "EsSalud por Pagar",
+              "saldo": "-1160.10"
+            },
+            {
+              "code": "4032",
+              "name": "ONP por Pagar",
+              "saldo": "-394.36"
+            },
+            {
+              "code": "407",
+              "name": "Administradoras de Fondos de Pensiones (AFP) por Pagar",
+              "saldo": "-1193.63"
+            },
+            {
+              "code": "411",
+              "name": "Remuneraciones por Pagar",
+              "saldo": "-11019.97"
+            },
+            {
+              "code": "421",
+              "name": "Cuentas por Pagar Comerciales - Terceros",
+              "saldo": "287.00"
+            },
+            {
+              "code": "461",
+              "name": "Cuentas por Pagar Diversas - Terceros",
+              "saldo": "-219.00"
+            },
+            {
+              "code": "611",
+              "name": "Mercaderías - Variación de inventarios",
+              "saldo": "-611.87"
+            },
+            {
+              "code": "6211",
+              "name": "Sueldos y Salarios",
+              "saldo": "13230.96"
+            },
+            {
+              "code": "6271",
+              "name": "Régimen de Prestaciones de Salud (EsSalud)",
+              "saldo": "1160.10"
+            },
+            {
+              "code": "6274",
+              "name": "Seguro de Vida Ley y otros Seguros del Personal",
+              "saldo": "219.00"
+            },
+            {
+              "code": "659",
+              "name": "Otros Gastos de Gestión",
+              "saldo": "300.00"
+            },
+            {
+              "code": "691",
+              "name": "Costo de Ventas de Mercaderías",
+              "saldo": "749.57"
+            },
+            {
+              "code": "701",
+              "name": "Ventas de Mercaderías",
+              "saldo": "-444.23"
+            }
+          ],
+          "generated_rows": [
+            {
+              "cuenta": "1",
+              "nombre_cuenta": "Activo",
+              "saldo_neto": "20.00"
+            },
+            {
+              "cuenta": "10",
+              "nombre_cuenta": "Efectivo y equivalentes de efectivo",
+              "saldo_neto": "-20.00"
+            },
+            {
+              "cuenta": "1009001",
+              "nombre_cuenta": "Cuenta de activo de prueba del mes 10",
+              "saldo_neto": "200.00"
+            },
+            {
+              "cuenta": "101",
+              "nombre_cuenta": "Caja",
+              "saldo_neto": "-852.69"
+            },
+            {
+              "cuenta": "1011",
+              "nombre_cuenta": "CajaPrincipal",
+              "saldo_neto": "10.00"
+            },
+            {
+              "cuenta": "104",
+              "nombre_cuenta": "Bancos - Cuentas Corrientes",
+              "saldo_neto": "-360.10"
+            },
+            {
+              "cuenta": "121",
+              "nombre_cuenta": "Cuentas por Cobrar Comerciales - Terceros",
+              "saldo_neto": "0.00"
+            },
+            {
+              "cuenta": "141",
+              "nombre_cuenta": "Adelantos de Remuneraciones al Personal",
+              "saldo_neto": "200.00"
+            },
+            {
+              "cuenta": "167",
+              "nombre_cuenta": "Tributos por Acreditar - IGV",
+              "saldo_neto": "66.67"
+            },
+            {
+              "cuenta": "201",
+              "nombre_cuenta": "Mercaderías",
+              "saldo_neto": "232.09"
+            },
+            {
+              "cuenta": "201001",
+              "nombre_cuenta": "Obligaciones de prueba",
+              "saldo_neto": "-80.00"
+            },
+            {
+              "cuenta": "211",
+              "nombre_cuenta": "Productos Terminados",
+              "saldo_neto": "-3.46"
+            },
+            {
+              "cuenta": "241",
+              "nombre_cuenta": "Materias Primas",
+              "saldo_neto": "245.54"
+            },
+            {
+              "cuenta": "401",
+              "nombre_cuenta": "Tributos por Pagar - IGV",
+              "saldo_neto": "-61.97"
+            },
+            {
+              "cuenta": "401001",
+              "nombre_cuenta": "Ventas de prueba",
+              "saldo_neto": "-100.00"
+            },
+            {
+              "cuenta": "40111",
+              "nombre_cuenta": "IGV - Cuenta Fiscal",
+              "saldo_neto": "43.45"
+            },
+            {
+              "cuenta": "4017",
+              "nombre_cuenta": "Impuesto a la Renta de Quinta Categoría por Pagar",
+              "saldo_neto": "-423.00"
+            },
+            {
+              "cuenta": "4031",
+              "nombre_cuenta": "EsSalud por Pagar",
+              "saldo_neto": "-1160.10"
+            },
+            {
+              "cuenta": "4032",
+              "nombre_cuenta": "ONP por Pagar",
+              "saldo_neto": "-394.36"
+            },
+            {
+              "cuenta": "407",
+              "nombre_cuenta": "Administradoras de Fondos de Pensiones (AFP) por Pagar",
+              "saldo_neto": "-1193.63"
+            },
+            {
+              "cuenta": "411",
+              "nombre_cuenta": "Remuneraciones por Pagar",
+              "saldo_neto": "-11019.97"
+            },
+            {
+              "cuenta": "421",
+              "nombre_cuenta": "Cuentas por Pagar Comerciales - Terceros",
+              "saldo_neto": "287.00"
+            },
+            {
+              "cuenta": "461",
+              "nombre_cuenta": "Cuentas por Pagar Diversas - Terceros",
+              "saldo_neto": "-219.00"
+            },
+            {
+              "cuenta": "611",
+              "nombre_cuenta": "Mercaderías - Variación de inventarios",
+              "saldo_neto": "-611.87"
+            },
+            {
+              "cuenta": "6211",
+              "nombre_cuenta": "Sueldos y Salarios",
+              "saldo_neto": "13230.96"
+            },
+            {
+              "cuenta": "6271",
+              "nombre_cuenta": "Régimen de Prestaciones de Salud (EsSalud)",
+              "saldo_neto": "1160.10"
+            },
+            {
+              "cuenta": "6274",
+              "nombre_cuenta": "Seguro de Vida Ley y otros Seguros del Personal",
+              "saldo_neto": "219.00"
+            },
+            {
+              "cuenta": "659",
+              "nombre_cuenta": "Otros Gastos de Gestión",
+              "saldo_neto": "300.00"
+            },
+            {
+              "cuenta": "691",
+              "nombre_cuenta": "Costo de Ventas de Mercaderías",
+              "saldo_neto": "749.57"
+            },
+            {
+              "cuenta": "701",
+              "nombre_cuenta": "Ventas de Mercaderías",
+              "saldo_neto": "-444.23"
+            }
+          ],
+          "exact_match": false,
+          "execution_succeeded": true,
+          "execution_accuracy": true,
+          "ves": 1.0,
+          "elapsed_seconds": 2.46,
+          "sql_execution_seconds": 1.573963,
+          "gold_execution_seconds": 1.643298,
+          "token_usage": {
+            "prompt_tokens": 3217,
+            "completion_tokens": 193,
+            "total_tokens": 3410
+          }
+        }
+      ]
+    }
+  ]
+}
