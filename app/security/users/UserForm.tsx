@@ -40,12 +40,14 @@ interface Props {
   open: boolean;
   user: UserRow | null; // null = alta
   roles: Role[];
+  /** Motivo por el que el rol no se puede cambiar al editar (null = se puede). */
+  roleLock?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
 /** Un solo formulario para empleado + usuario, tanto para el alta como para la edición. */
-export function UserForm({ open, user, roles, onClose, onSaved }: Props) {
+export function UserForm({ open, user, roles, roleLock = null, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const editing = user !== null;
@@ -93,7 +95,9 @@ export function UserForm({ open, user, roles, onClose, onSaved }: Props) {
           <Field id="username" label="Nombre de usuario" value={user?.username} required minLength={3} maxLength={20} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="role_id">Rol</Label>
-            <NativeSelect id="role_id" name="role_id" defaultValue={user?.role.role_id ?? ""} required className="w-full">
+            {/* Un campo deshabilitado no se envía: el rol actual viaja en un campo oculto. */}
+            {roleLock && <input type="hidden" name="role_id" value={user?.role.role_id ?? ""} />}
+            <NativeSelect id="role_id" name={roleLock ? undefined : "role_id"} defaultValue={user?.role.role_id ?? ""} required disabled={Boolean(roleLock)} className="w-full">
               <NativeSelectOption value="" disabled>
                 Selecciona un rol
               </NativeSelectOption>
@@ -103,6 +107,7 @@ export function UserForm({ open, user, roles, onClose, onSaved }: Props) {
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+            {roleLock && <p className="text-xs text-muted-foreground">{roleLock}</p>}
           </div>
           <div className="sm:col-span-2">
             <Field
