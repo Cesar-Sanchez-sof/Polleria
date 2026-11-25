@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Banknote, CheckCircle2, Edit2, HandCoins, HeartHandshake, MinusCircle, Plus, Power, ShieldPlus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
@@ -26,12 +28,14 @@ type AdvanceAction = "approve" | "reject" | "pay" | "deduct" | "cancel";
 export default function BenefitsPage() {
   const { can } = usePermissions();
   const [selected, setSelected] = useState<Tab>("insurances");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Los permisos llegan después del primer render: sin acceso a seguros se muestran los adelantos.
   const tab: Tab = selected === "insurances" && !can("seguros.ver") ? "advances" : selected;
 
   return (
     <>
       <ModuleHeader title="Seguros y adelantos" subtitle="Coberturas del personal y adelantos de sueldo" icon={HeartHandshake}>
+        <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
         <SegmentedTabs<Tab>
           ariaLabel="Sección"
           value={tab}
@@ -43,14 +47,14 @@ export default function BenefitsPage() {
         />
       </ModuleHeader>
       <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
-        {tab === "insurances" && can("seguros.ver") && <InsurancesSection />}
-        {tab === "advances" && can("anticipos.ver") && <AdvancesSection />}
+        {tab === "insurances" && can("seguros.ver") && <InsurancesSection filtersOpen={filtersOpen} />}
+        {tab === "advances" && can("anticipos.ver") && <AdvancesSection filtersOpen={filtersOpen} />}
       </main>
     </>
   );
 }
 
-function InsurancesSection() {
+function InsurancesSection({ filtersOpen }: { filtersOpen: boolean }) {
   const { can } = usePermissions();
   const [rows, setRows] = useState<InsuranceDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,17 +149,31 @@ function InsurancesSection() {
         <StatCard layout="label-first" tone="amber" icon={<Ban />} label="Por vencer o vencidas" value={metrics.expiring} colorValue />
         <StatCard layout="label-first" tone="neutral" icon={<Banknote />} label="Costo mensual" value={money.format(metrics.cost)} />
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-xs">
-          <input type="checkbox" className="h-4 w-4 accent-primary" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-          Mostrar seguros dados de baja
-        </label>
-        {can("seguros.crear") && (
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search=""
+          onSearchChange={() => undefined}
+          searchPlaceholder="Buscar seguros"
+          showSearch={false}
+          activeFilterCount={showInactive ? 1 : 0}
+          hasActiveFilters={showInactive}
+          onClear={() => setShowInactive(false)}
+          resultCount={visible.length}
+          itemLabel="seguros"
+        >
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" className="h-4 w-4 accent-primary" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+            Mostrar seguros dados de baja
+          </label>
+        </AdvancedFilterBar>
+      )}
+      {can("seguros.crear") && (
+        <div className="flex justify-end">
           <AppButton size="sm" icon={<Plus />} onClick={() => setEditing("new")}>
             Registrar seguro
           </AppButton>
-        )}
-      </div>
+        </div>
+      )}
       <DataTable
         columns={columns}
         rows={visible}
@@ -179,12 +197,13 @@ function InsurancesSection() {
   );
 }
 
-function AdvancesSection() {
+function AdvancesSection({ filtersOpen }: { filtersOpen: boolean }) {
   const { can } = usePermissions();
   const [rows, setRows] = useState<AdvanceDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [acting, setActing] = useState<{ advance: AdvanceDto; action: AdvanceAction } | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -211,6 +230,8 @@ function AdvancesSection() {
   );
 
   const edit = can("anticipos.editar");
+  const query = search.trim().toLowerCase();
+  const visible = rows.filter((r) => !query || r.employee_name.toLowerCase().includes(query) || r.reason.toLowerCase().includes(query));
   const columns: DataTableColumn<AdvanceDto>[] = [
     {
       key: "employee",
@@ -296,9 +317,21 @@ function AdvancesSection() {
           </AppButton>
         </div>
       )}
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar trabajador o motivo..."
+          activeFilterCount={search.trim() ? 1 : 0}
+          hasActiveFilters={search.trim() !== ""}
+          onClear={() => setSearch("")}
+          resultCount={visible.length}
+          itemLabel="adelantos"
+        />
+      )}
       <DataTable
         columns={columns}
-        rows={rows}
+        rows={visible}
         rowKey={(a) => a.advance_id}
         loading={loading}
         loadingMode="auto"

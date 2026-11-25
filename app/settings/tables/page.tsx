@@ -10,10 +10,11 @@ import {
   Edit2,
   Power,
   Utensils,
-  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { StatCard } from "@/components/shared/StatCard";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import { Card } from "@/components/ui/card";
@@ -56,6 +57,7 @@ export default function TablesManagementPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | "disponible" | "ocupada" | "inactiva">("todos");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Modal Crear / Editar Mesa
   const [modalOpen, setModalOpen] = useState(false);
@@ -252,42 +254,6 @@ export default function TablesManagementPage() {
         iconClassName="bg-emerald-100 text-emerald-800"
       >
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="relative w-52">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar por número de mesa..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-xs rounded-xl h-9"
-            />
-          </div>
-          {areas.length > 0 && (
-            <select
-              value={selectedAreaId}
-              onChange={(e) => setSelectedAreaId(e.target.value)}
-              className="h-9 text-xs rounded-xl border border-input bg-background text-foreground px-2.5 font-semibold focus:outline-none"
-            >
-              <option value="todos">Todos los Salones</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <SegmentedTabs
-            ariaLabel="Filtrar mesas por estado"
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            className="max-w-full overflow-x-auto"
-            items={[
-              { value: "todos", label: "Todas", tone: "brand" },
-              { value: "disponible", label: "Disponibles", tone: "success" },
-              { value: "ocupada", label: "Ocupadas", tone: "danger" },
-              { value: "inactiva", label: "Inactivas", tone: "neutral" },
-            ]}
-          />
           <Button
             variant="outline"
             size="sm"
@@ -297,6 +263,7 @@ export default function TablesManagementPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Refrescar</span>
           </Button>
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           <Button
             size="sm"
             onClick={handleOpenCreateModal}
@@ -316,6 +283,51 @@ export default function TablesManagementPage() {
           <StatCard {...FLAT} tone="rose" icon={<Utensils />} label="Mesas Ocupadas" value={metrics.occupied} colorValue />
           <StatCard {...FLAT} tone="blue" icon={<Users />} label="Aforo Salón (Sillas)" value={metrics.totalCapacity} colorValue />
         </div>
+
+        {filtersOpen && (
+          <AdvancedFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por número de mesa..."
+            activeFilterCount={Number(statusFilter !== "todos") + Number(selectedAreaId !== "todos")}
+            hasActiveFilters={Boolean(search.trim()) || statusFilter !== "todos" || selectedAreaId !== "todos"}
+            onClear={() => {
+              setSearch("");
+              setStatusFilter("todos");
+              setSelectedAreaId("todos");
+            }}
+            resultCount={filteredTables.length}
+            itemLabel="mesas"
+          >
+            {areas.length > 0 && (
+              <select
+                value={selectedAreaId}
+                onChange={(e) => setSelectedAreaId(e.target.value)}
+                aria-label="Filtrar por salón"
+                className="h-10 text-xs rounded-xl border border-input bg-background text-foreground px-2.5 font-semibold focus:outline-none"
+              >
+                <option value="todos">Todos los Salones</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <SegmentedTabs
+              ariaLabel="Filtrar mesas por estado"
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              className="max-w-full overflow-x-auto"
+              items={[
+                { value: "todos", label: "Todas", tone: "brand" },
+                { value: "disponible", label: "Disponibles", tone: "success" },
+                { value: "ocupada", label: "Ocupadas", tone: "danger" },
+                { value: "inactiva", label: "Inactivas", tone: "neutral" },
+              ]}
+            />
+          </AdvancedFilterBar>
+        )}
 
         {/* Filtros */}
         {/* Grilla de Mesas */}

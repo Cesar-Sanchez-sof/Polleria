@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CalendarRange, CheckCircle2, Clock, Plus, Umbrella, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
@@ -29,6 +31,7 @@ export default function LeavesPage() {
   const [leaves, setLeaves] = useState<LeaveDto[]>([]);
   const [status, setStatus] = useState<StatusFilter>("Pendiente");
   const [type, setType] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
@@ -147,24 +150,7 @@ export default function LeavesPage() {
     <>
       <ModuleHeader title="Vacaciones y permisos" subtitle="Solicitudes, aprobaciones, adelantos de vacaciones y licencias" icon={Umbrella}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <NativeSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Tipo" className="h-9 w-48 rounded-xl text-xs">
-            <NativeSelectOption value="">Todos los tipos</NativeSelectOption>
-            {(Object.keys(LEAVE_TYPE_LABEL) as LeaveTypeCode[]).map((t) => (
-              <NativeSelectOption key={t} value={t}>
-                {LEAVE_TYPE_LABEL[t]}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <SegmentedTabs<StatusFilter>
-            ariaLabel="Estado"
-            value={status}
-            onValueChange={setStatus}
-            items={[
-              { value: "Pendiente", label: "Por revisar", count: metrics.pending, tone: "warning" },
-              { value: "Aprobada", label: "Aprobadas", count: metrics.approved, tone: "success" },
-              { value: "all", label: "Todas", count: leaves.length, tone: "brand" },
-            ]}
-          />
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           {can("vacaciones.crear") && (
             <AppButton size="sm" icon={<Plus />} onClick={() => setCreating(true)}>
               Registrar
@@ -179,6 +165,41 @@ export default function LeavesPage() {
           <StatCard layout="label-first" tone="emerald" icon={<CalendarRange />} label="Próximas aprobadas" value={metrics.upcoming} colorValue />
           <StatCard layout="label-first" tone="neutral" icon={<CheckCircle2 />} label="Aprobadas (total)" value={metrics.approved} />
         </div>
+        {filtersOpen && (
+          <AdvancedFilterBar
+            search=""
+            onSearchChange={() => undefined}
+            searchPlaceholder="Buscar solicitudes"
+            showSearch={false}
+            activeFilterCount={(status !== "Pendiente" ? 1 : 0) + (type ? 1 : 0)}
+            hasActiveFilters={status !== "Pendiente" || type !== ""}
+            onClear={() => {
+              setStatus("Pendiente");
+              setType("");
+            }}
+            resultCount={rows.length}
+            itemLabel="solicitudes"
+          >
+            <NativeSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Tipo" className="h-9 w-48 rounded-xl text-xs">
+              <NativeSelectOption value="">Todos los tipos</NativeSelectOption>
+              {(Object.keys(LEAVE_TYPE_LABEL) as LeaveTypeCode[]).map((t) => (
+                <NativeSelectOption key={t} value={t}>
+                  {LEAVE_TYPE_LABEL[t]}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <SegmentedTabs<StatusFilter>
+              ariaLabel="Estado"
+              value={status}
+              onValueChange={setStatus}
+              items={[
+                { value: "Pendiente", label: "Por revisar", count: metrics.pending, tone: "warning" },
+                { value: "Aprobada", label: "Aprobadas", count: metrics.approved, tone: "success" },
+                { value: "all", label: "Todas", count: leaves.length, tone: "brand" },
+              ]}
+            />
+          </AdvancedFilterBar>
+        )}
         <DataTable
           columns={columns}
           rows={rows}

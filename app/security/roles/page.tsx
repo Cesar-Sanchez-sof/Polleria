@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar, normalizeFilterText } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
@@ -19,6 +21,8 @@ export default function RolesPage() {
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RoleRow | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -44,6 +48,17 @@ export default function RolesPage() {
     setEditing(r);
     setFormOpen(true);
   }
+
+  const filteredRoles = useMemo(() => {
+    const query = normalizeFilterText(search.trim());
+    if (!query) return roles;
+
+    return roles.filter((role) =>
+      [role.name, role.description ?? "", ...role.permissions].some((value) =>
+        normalizeFilterText(value).includes(query)
+      )
+    );
+  }, [roles, search]);
 
   async function removeRole(r: RoleRow) {
     if (!window.confirm(`¿Eliminar el rol ${r.name}? Esta acción no se puede deshacer.`)) return;
@@ -120,6 +135,7 @@ export default function RolesPage() {
         icon={ShieldCheck}
       >
         <div className="flex gap-2">
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           <Button variant="outline" nativeButton={false} render={<Link href="/security/users" />}>
             Usuarios
           </Button>
@@ -134,9 +150,22 @@ export default function RolesPage() {
         </p>
       )}
 
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar rol, descripción o permiso..."
+          activeFilterCount={0}
+          hasActiveFilters={Boolean(search.trim())}
+          onClear={() => setSearch("")}
+          resultCount={filteredRoles.length}
+          itemLabel="roles"
+        />
+      )}
+
       <DataTable
         columns={columns}
-        rows={roles}
+        rows={filteredRoles}
         rowKey={(r) => r.role_id}
         loading={loading}
         loadingMode="auto"

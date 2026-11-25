@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense } from "reac
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { SegmentedTabs, type SegmentedTabItem } from "@/components/shared/SegmentedTabs";
+import { AdvancedFilterBar, normalizeFilterText } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatCard } from "@/components/shared/StatCard";
@@ -11,6 +13,7 @@ import { Tag } from "@/components/shared/TagCell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   Dialog,
   DialogContent,
@@ -130,6 +133,7 @@ function SalesManagementContent() {
 
   // Pestaña principal del módulo de ventas
   const [activeTab, setActiveTab] = useState<TabType>("tables");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Los tabs se agrupan igual que el menú: Salón (mesas, bebidas, listos, no cobrados) vs. Caja (ventanilla, clientes, facturas).
   const isSalonTab = (["tables", "drinks", "kitchen", "payments"] as TabType[]).includes(activeTab);
 
@@ -187,6 +191,19 @@ function SalesManagementContent() {
 
   // Búsqueda de clientes
   const [customerSearch, setCustomerSearch] = useState<string>("");
+  const [customerDocumentFilter, setCustomerDocumentFilter] = useState<"todos" | "dni" | "ruc">("todos");
+  const [customerTypeFilter, setCustomerTypeFilter] = useState<"todos" | "Natural" | "Legal">("todos");
+  const [customerContactFilter, setCustomerContactFilter] = useState<"todos" | "con-telefono" | "sin-telefono">("todos");
+
+  // Filtros de comprobantes de venta
+  const [voucherSearch, setVoucherSearch] = useState("");
+  const [voucherTypeFilter, setVoucherTypeFilter] = useState<"todos" | "Boleta" | "Factura" | "Ticket">("todos");
+  const [voucherPaymentFilter, setVoucherPaymentFilter] = useState("todos");
+  const [voucherOriginFilter, setVoucherOriginFilter] = useState("todos");
+
+  // Filtros de Ventanilla
+  const [counterSearch, setCounterSearch] = useState("");
+  const [counterTypeFilter, setCounterTypeFilter] = useState<"todos" | "Mesa" | "Llevar">("todos");
 
   // Estados para vista de Pedidos Listos (Meseros / Despacho)
   const [readySearch, setReadySearch] = useState<string>("");
@@ -605,6 +622,25 @@ function SalesManagementContent() {
     return pending;
   }, [tables, takeoutOrders]);
 
+  const filteredCounterPayments = useMemo(() => {
+    const q = normalizeFilterText(counterSearch.trim());
+    return uncollectedPayments.filter((payment) => {
+      const matchesType =
+        counterTypeFilter === "todos" || payment.type === counterTypeFilter;
+      const matchesSearch =
+        !q ||
+        [
+          payment.identifier,
+          payment.code,
+          payment.kitchenStatus,
+          ...payment.items.map((item) =>
+            item.name || item.productName || ""
+          ),
+        ].some((value) => normalizeFilterText(value).includes(q));
+      return matchesType && matchesSearch;
+    });
+  }, [uncollectedPayments, counterSearch, counterTypeFilter]);
+
   const readyOrdersForDelivery = useMemo(() => {
     const list: Array<{
       orderId: number;
@@ -751,16 +787,32 @@ function SalesManagementContent() {
 
   // Clientes filtrados por búsqueda
   const filteredCustomers = useMemo(() => {
-    if (!customerSearch.trim()) return customers;
-    const q = customerSearch.toLowerCase();
+    const q = normalizeFilterText(customerSearch.trim());
     return customers.filter(
-      (c) =>
-        c.documentNumber.toLowerCase().includes(q) ||
-        c.firstName.toLowerCase().includes(q) ||
-        c.lastName.toLowerCase().includes(q) ||
-        c.fullName.toLowerCase().includes(q)
+      (c) => {
+        const matchesSearch =
+          !q ||
+          [
+            c.documentNumber,
+            c.firstName,
+            c.lastName,
+            c.fullName,
+            c.phone,
+          ].some((value) => normalizeFilterText(value).includes(q));
+        const matchesDocument =
+          customerDocumentFilter === "todos" ||
+          (customerDocumentFilter === "dni" && c.documentNumber.length === 8) ||
+          (customerDocumentFilter === "ruc" && c.documentNumber.length === 11);
+        const matchesType =
+          customerTypeFilter === "todos" || c.personType === customerTypeFilter;
+        const matchesContact =
+          customerContactFilter === "todos" ||
+          (customerContactFilter === "con-telefono" && Boolean(c.phone?.trim())) ||
+          (customerContactFilter === "sin-telefono" && !c.phone?.trim());
+        return matchesSearch && matchesDocument && matchesType && matchesContact;
+      }
     );
-  }, [customers, customerSearch]);
+  }, [customers, customerSearch, customerDocumentFilter, customerTypeFilter, customerContactFilter]);
 
   // ---------------------------------------------------------------------------
   // ACCIONES COMANDA
@@ -1688,6 +1740,57 @@ function SalesManagementContent() {
         },
       ];
 
+  const filteredSaleVouchers = useMemo(() => {
+    const q = normalizeFilterText(voucherSearch.trim());
+    return saleVouchers.filter((voucher) => {
+      const matchesSearch =
+        !q ||
+        [
+          voucher.fullCode,
+          voucher.customer.firstName,
+          voucher.customer.documentNumber,
+          voucher.origin,
+          voucher.paymentMethod,
+          ...voucher.items.map((item) => item.name),
+        ].some((value) => normalizeFilterText(value).includes(q));
+      const matchesType =
+        voucherTypeFilter === "todos" ||
+        voucher.voucherType === voucherTypeFilter;
+      const matchesPayment =
+        voucherPaymentFilter === "todos" ||
+        normalizeFilterText(voucher.paymentMethod).includes(
+          normalizeFilterText(voucherPaymentFilter)
+        );
+      const matchesOrigin =
+        voucherOriginFilter === "todos" ||
+        normalizeFilterText(voucher.origin).includes(
+          normalizeFilterText(voucherOriginFilter)
+        );
+      return matchesSearch && matchesType && matchesPayment && matchesOrigin;
+    });
+  }, [
+    saleVouchers,
+    voucherSearch,
+    voucherTypeFilter,
+    voucherPaymentFilter,
+    voucherOriginFilter,
+  ]);
+
+  const voucherPaymentOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(saleVouchers.map((voucher) => voucher.paymentMethod).filter(Boolean))
+      ).sort(),
+    [saleVouchers]
+  );
+  const voucherOriginOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(saleVouchers.map((voucher) => voucher.origin).filter(Boolean))
+      ).sort(),
+    [saleVouchers]
+  );
+
   const voucherColumns: DataTableColumn<IssuedVoucher>[] = [
     {
       key: "code",
@@ -1823,6 +1926,40 @@ function SalesManagementContent() {
             <span className="hidden sm:inline">+ Para Llevar</span>
             <span className="sm:hidden">+ Llevar</span>
           </Button>
+
+          {(["cashier", "customers", "invoices"] as TabType[]).includes(activeTab) && (
+            <AdvancedFilterToggle
+              open={filtersOpen}
+              onToggle={() => setFiltersOpen((open) => !open)}
+            />
+          )}
+
+          {activeTab === "customers" && (
+            <Button
+              onClick={() => {
+                setNewCustomerType("Natural");
+                setNewCustomerDoc("");
+                setNewCustomerName("");
+                setNewCustomerLastName("");
+                setNewCustomerPhone("");
+                setNewCustomerModalOpen(true);
+              }}
+              className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Cliente</span>
+            </Button>
+          )}
+
+          {activeTab === "invoices" && (
+            <Button
+              onClick={() => goToTab("cashier")}
+              className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>Nueva Venta</span>
+            </Button>
+          )}
 
           <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-mono font-semibold text-slate-700">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -2998,6 +3135,33 @@ function SalesManagementContent() {
               </Card>
             )}
 
+          {filtersOpen && <AdvancedFilterBar
+            search={counterSearch}
+            onSearchChange={setCounterSearch}
+            searchPlaceholder="Buscar mesa, comanda o producto..."
+            activeFilterCount={Number(counterTypeFilter !== "todos")}
+            hasActiveFilters={Boolean(counterSearch.trim()) || counterTypeFilter !== "todos"}
+            onClear={() => {
+              setCounterSearch("");
+              setCounterTypeFilter("todos");
+            }}
+            resultCount={filteredCounterPayments.length}
+            itemLabel={`de ${uncollectedPayments.length} cuentas`}
+          >
+            <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Origen
+              <NativeSelect
+                value={counterTypeFilter}
+                onChange={(e) => setCounterTypeFilter(e.target.value as typeof counterTypeFilter)}
+                className="h-9 rounded-lg text-xs"
+              >
+                <NativeSelectOption value="todos">Todas</NativeSelectOption>
+                <NativeSelectOption value="Mesa">Mesa</NativeSelectOption>
+                <NativeSelectOption value="Llevar">Para llevar</NativeSelectOption>
+              </NativeSelect>
+            </label>
+          </AdvancedFilterBar>}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Columna Izquierda: Selección de Comanda a Cobrar */}
             <div className="lg:col-span-5 flex flex-col gap-4">
@@ -3009,13 +3173,15 @@ function SalesManagementContent() {
                   </Badge>
                 </h3>
 
-                {uncollectedPayments.length === 0 ? (
+                {filteredCounterPayments.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400">
-                    No hay comandas activas pendientes de cobro.
+                    {uncollectedPayments.length === 0
+                      ? "No hay comandas activas pendientes de cobro."
+                      : "No hay cuentas que coincidan con los filtros."}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 max-h-[460px] overflow-y-auto pr-1">
-                    {uncollectedPayments.map((c) => {
+                    {filteredCounterPayments.map((c) => {
                       const isSelected = orderToCharge?.id === c.orderId;
                       return (
                         <div
@@ -3952,54 +4118,83 @@ function SalesManagementContent() {
       {/* =================================================================== */}
       {activeTab === "customers" && (
         <main className="flex-1 w-full min-w-0 p-3 sm:p-6 flex flex-col gap-5">
+          {filtersOpen && <AdvancedFilterBar
+              search={customerSearch}
+              onSearchChange={setCustomerSearch}
+              searchPlaceholder="Buscar DNI, RUC, nombre o teléfono..."
+              activeFilterCount={
+                Number(customerDocumentFilter !== "todos") +
+                Number(customerTypeFilter !== "todos") +
+                Number(customerContactFilter !== "todos")
+              }
+              hasActiveFilters={
+                Boolean(customerSearch.trim()) ||
+                customerDocumentFilter !== "todos" ||
+                customerTypeFilter !== "todos" ||
+                customerContactFilter !== "todos"
+              }
+              onClear={() => {
+                setCustomerSearch("");
+                setCustomerDocumentFilter("todos");
+                setCustomerTypeFilter("todos");
+                setCustomerContactFilter("todos");
+              }}
+              resultCount={filteredCustomers.length}
+              itemLabel={`de ${customers.length} clientes`}
+            >
+              <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Documento
+                <NativeSelect
+                  value={customerDocumentFilter}
+                  onChange={(e) => setCustomerDocumentFilter(e.target.value as typeof customerDocumentFilter)}
+                  className="h-9 rounded-lg text-xs"
+                >
+                  <NativeSelectOption value="todos">Todos</NativeSelectOption>
+                  <NativeSelectOption value="dni">DNI</NativeSelectOption>
+                  <NativeSelectOption value="ruc">RUC</NativeSelectOption>
+                </NativeSelect>
+              </label>
+              <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Tipo
+                <NativeSelect
+                  value={customerTypeFilter}
+                  onChange={(e) => setCustomerTypeFilter(e.target.value as typeof customerTypeFilter)}
+                  className="h-9 rounded-lg text-xs"
+                >
+                  <NativeSelectOption value="todos">Todos</NativeSelectOption>
+                  <NativeSelectOption value="Natural">Persona natural</NativeSelectOption>
+                  <NativeSelectOption value="Legal">Persona jurídica</NativeSelectOption>
+                </NativeSelect>
+              </label>
+              <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Contacto
+                <NativeSelect
+                  value={customerContactFilter}
+                  onChange={(e) => setCustomerContactFilter(e.target.value as typeof customerContactFilter)}
+                  className="h-9 rounded-lg text-xs"
+                >
+                  <NativeSelectOption value="todos">Cualquier contacto</NativeSelectOption>
+                  <NativeSelectOption value="con-telefono">Con teléfono</NativeSelectOption>
+                  <NativeSelectOption value="sin-telefono">Sin teléfono</NativeSelectOption>
+                </NativeSelect>
+              </label>
+          </AdvancedFilterBar>}
+
           <Card className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-            {/* Barra Superior con Búsqueda y Botón Nuevo */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
-              <div className="flex items-center gap-2 w-full sm:w-80">
-                <div className="relative w-full">
-                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                  <Input
-                    placeholder="Buscar por DNI, RUC o Nombre..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-9 bg-slate-50 text-xs h-9 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <Button
-                onClick={() => {
-                  setNewCustomerType("Natural");
-                  setNewCustomerDoc("");
-                  setNewCustomerName("");
-                  setNewCustomerLastName("");
-                  setNewCustomerPhone("");
-                  setNewCustomerModalOpen(true);
-                }}
-                className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Nuevo Cliente</span>
-              </Button>
-            </div>
-
-            {/* Tabla de clientes (DataTable compartido) */}
-            <div className="mt-4">
-              <DataTable
-                columns={customerColumns}
-                rows={filteredCustomers}
-                rowKey={(cli) => cli.id}
-                density="compact"
-                enableCard={false}
-                pageResetKey={customerSearch}
-                pagination={{ defaultPageSize: 15, itemLabel: "clientes" }}
-                emptyState={{
-                  icon: <Users className="h-7 w-7" />,
-                  title: "No se encontraron clientes registrados.",
-                  description: customerSearch ? "Prueba con otro DNI, RUC o nombre." : "Registra el primer cliente con «Nuevo Cliente».",
-                }}
-              />
-            </div>
+            <DataTable
+              columns={customerColumns}
+              rows={filteredCustomers}
+              rowKey={(cli) => cli.id}
+              density="compact"
+              enableCard={false}
+              pageResetKey={`${customerSearch}|${customerDocumentFilter}|${customerTypeFilter}|${customerContactFilter}`}
+              pagination={{ defaultPageSize: 15, itemLabel: "clientes" }}
+              emptyState={{
+                icon: <Users className="h-7 w-7" />,
+                title: "No se encontraron clientes registrados.",
+                description: customerSearch ? "Prueba con otro DNI, RUC o nombre." : "Registra el primer cliente con «Nuevo Cliente».",
+              }}
+            />
           </Card>
         </main>
       )}
@@ -4053,43 +4248,92 @@ function SalesManagementContent() {
             />
           </div>
 
-          {/* Filtro de fecha */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-card p-3 shadow-xs sm:px-4">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Receipt className="h-4 w-4 text-red-700" />
-              <span>Comprobantes de Venta Emitidos</span>
-              <Badge variant="outline" className="text-[10px]">
-                {saleVouchers.length} Emitidos
-              </Badge>
-            </h3>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-semibold text-slate-500">Filtrar:</span>
-              <Button
-                size="sm"
-                variant={salesDateFilter === "hoy" ? "default" : "outline"}
-                onClick={() => setSalesDateFilter("hoy")}
-                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "hoy" ? "bg-red-700 text-white" : ""}`}
+          {filtersOpen && <AdvancedFilterBar
+            search={voucherSearch}
+            onSearchChange={setVoucherSearch}
+            searchPlaceholder="Buscar comprobante, cliente, documento, origen o producto..."
+            activeFilterCount={
+              Number(salesDateFilter !== "hoy") +
+              Number(voucherTypeFilter !== "todos") +
+              Number(voucherPaymentFilter !== "todos") +
+              Number(voucherOriginFilter !== "todos")
+            }
+            hasActiveFilters={
+              Boolean(voucherSearch.trim()) ||
+              salesDateFilter !== "hoy" ||
+              voucherTypeFilter !== "todos" ||
+              voucherPaymentFilter !== "todos" ||
+              voucherOriginFilter !== "todos"
+            }
+            onClear={() => {
+              setVoucherSearch("");
+              setSalesDateFilter("hoy");
+              setVoucherTypeFilter("todos");
+              setVoucherPaymentFilter("todos");
+              setVoucherOriginFilter("todos");
+            }}
+            resultCount={filteredSaleVouchers.length}
+            itemLabel={`de ${saleVouchers.length} comprobantes`}
+          >
+            <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Fecha
+              <NativeSelect
+                value={salesDateFilter}
+                onChange={(e) => setSalesDateFilter(e.target.value)}
+                className="h-9 rounded-lg text-xs"
               >
-                Hoy
-              </Button>
-              <Button
-                size="sm"
-                variant={salesDateFilter === "todas" ? "default" : "outline"}
-                onClick={() => setSalesDateFilter("todas")}
-                className={`h-7 cursor-pointer rounded-lg text-xs ${salesDateFilter === "todas" ? "bg-red-700 text-white" : ""}`}
+                <NativeSelectOption value="hoy">Hoy</NativeSelectOption>
+                <NativeSelectOption value="todas">Todas las fechas</NativeSelectOption>
+              </NativeSelect>
+            </label>
+            <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Comprobante
+              <NativeSelect
+                value={voucherTypeFilter}
+                onChange={(e) => setVoucherTypeFilter(e.target.value as typeof voucherTypeFilter)}
+                className="h-9 rounded-lg text-xs"
               >
-                Todas las Fechas
-              </Button>
-            </div>
-          </div>
+                <NativeSelectOption value="todos">Todos</NativeSelectOption>
+                <NativeSelectOption value="Boleta">Boleta</NativeSelectOption>
+                <NativeSelectOption value="Factura">Factura</NativeSelectOption>
+                <NativeSelectOption value="Ticket">Ticket</NativeSelectOption>
+              </NativeSelect>
+            </label>
+            <label className="flex min-w-[150px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Pago
+              <NativeSelect
+                value={voucherPaymentFilter}
+                onChange={(e) => setVoucherPaymentFilter(e.target.value)}
+                className="h-9 rounded-lg text-xs"
+              >
+                <NativeSelectOption value="todos">Todos los medios</NativeSelectOption>
+                {voucherPaymentOptions.map((method) => (
+                  <NativeSelectOption key={method} value={method}>{method}</NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
+            <label className="flex min-w-[150px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Origen
+              <NativeSelect
+                value={voucherOriginFilter}
+                onChange={(e) => setVoucherOriginFilter(e.target.value)}
+                className="h-9 rounded-lg text-xs"
+              >
+                <NativeSelectOption value="todos">Todos los orígenes</NativeSelectOption>
+                {voucherOriginOptions.map((origin) => (
+                  <NativeSelectOption key={origin} value={origin}>{origin}</NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
+          </AdvancedFilterBar>}
 
           {/* Tabla de Facturas y Boletas */}
           <DataTable
             columns={voucherColumns}
-            rows={saleVouchers}
+            rows={filteredSaleVouchers}
             rowKey={(comp) => comp.id}
             defaultSort={{ key: "issuedAt", direction: "desc" }}
-            pageResetKey={salesDateFilter}
+            pageResetKey={`${salesDateFilter}|${voucherSearch}|${voucherTypeFilter}|${voucherPaymentFilter}|${voucherOriginFilter}`}
             pagination={{ defaultPageSize: 15, itemLabel: "comprobantes" }}
             emptyState={{
               icon: <Receipt className="h-7 w-7" />,

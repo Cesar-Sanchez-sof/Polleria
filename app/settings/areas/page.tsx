@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Layers,
   Plus,
@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar, normalizeFilterText } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,8 @@ export default function RestaurantAreasPage() {
   const [areas, setAreas] = useState<EnrichedArea[]>([]);
   const [allTables, setAllTables] = useState<AreaTable[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   // Modal Crear / Editar Área
   const [modalOpen, setModalOpen] = useState(false);
@@ -200,6 +204,19 @@ export default function RestaurantAreasPage() {
 
   const totalGlobalCapacity = areas.reduce((acc, a) => acc + a.totalCapacity, 0);
   const totalTablesAssigned = areas.reduce((acc, a) => acc + a.tableCount, 0);
+  const filteredAreas = useMemo(() => {
+    const query = normalizeFilterText(search.trim());
+    if (!query) return areas;
+
+    return areas.filter((area) =>
+      [
+        area.name,
+        area.level,
+        area.description,
+        ...area.tableNumbers.map(String),
+      ].some((value) => normalizeFilterText(value).includes(query))
+    );
+  }, [areas, search]);
 
   return (
     <>
@@ -210,6 +227,7 @@ export default function RestaurantAreasPage() {
         iconClassName="bg-emerald-100 text-emerald-800"
       >
         <div className="flex items-center gap-2">
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           <Button
             variant="outline"
             size="sm"
@@ -239,9 +257,22 @@ export default function RestaurantAreasPage() {
           <StatCard enableGradient={false} enableHover={false} tone="purple" icon={<Armchair />} label="Mesas Distribuidas" value={totalTablesAssigned} unit={`de ${allTables.length} mesas`} />
       </div>
 
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar salón, nivel, descripción o mesa..."
+          activeFilterCount={0}
+          hasActiveFilters={Boolean(search.trim())}
+          onClear={() => setSearch("")}
+          resultCount={filteredAreas.length}
+          itemLabel="salones"
+        />
+      )}
+
       {/* Grid de Salones */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {areas.map((area) => (
+        {filteredAreas.map((area) => (
           <Card
             key={area.id}
             className={`rounded-2xl bg-white dark:bg-slate-900 border transition-all overflow-hidden flex flex-col justify-between ${
@@ -357,6 +388,11 @@ export default function RestaurantAreasPage() {
           </Card>
         ))}
       </div>
+      {search.trim() && filteredAreas.length === 0 && (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No se encontraron salones para la búsqueda indicada.
+        </p>
+      )}
 
       {/* Modal Crear / Editar Salón */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

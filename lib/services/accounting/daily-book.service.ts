@@ -2,7 +2,7 @@
  * Frontend service for "Daily Book / General Journal (Libro Diario)".
  *
  * Centralizes access to `/api/daily-book`: chronological listing of journal entries with lines
- * and totals, filtered by date range and pagination.
+ * and totals, filtered by date range, status, text query, and pagination.
  */
 
 import { ApiError, getJson } from "@/lib/services/http";
@@ -16,6 +16,12 @@ export interface DailyBookFilter {
   from?: string;
   /** End date (YYYY-MM-DD, inclusive). */
   to?: string;
+  /** Free-text search across entry, journal, responsible person, and account lines. */
+  q?: string;
+  /** "registrado" | "anulado". Empty = all. */
+  status?: "registrado" | "anulado";
+  /** Partial match for the journal/subjournal name. */
+  book?: string;
   page?: number;
   pageSize?: number;
 }
@@ -64,13 +70,16 @@ export function buildDailyBookQuery(filters: DailyBookFilter): string {
 
   if (filters.from) params.set("desde", filters.from);
   if (filters.to) params.set("hasta", filters.to);
+  if (filters.q?.trim()) params.set("q", filters.q.trim());
+  if (filters.status) params.set("estado", filters.status);
+  if (filters.book?.trim()) params.set("libro", filters.book.trim());
   if (filters.page) params.set("page", String(filters.page));
   if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
 
   return params.toString();
 }
 
-/** Lists daily journal entries in reverse chronological order applying period and pagination. */
+/** Lists daily journal entries in reverse chronological order applying all filters and pagination. */
 export async function listDailyBookEntries(
   filters: DailyBookFilter = {}
 ): Promise<DailyBookPage> {

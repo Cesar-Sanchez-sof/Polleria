@@ -3,7 +3,7 @@
  * `{id}` para segmentos dinámicos). `/api/openapi` lo mezcla con el JSDoc `@openapi` de cada
  * route handler: añade "Casos de uso", el permiso RBAC y las respuestas de error comunes.
  *
- * Al crear un endpoint nuevo agrega aquí su entrada: `test/api/openapi-use-cases.test.ts`
+ * Al crear un endpoint nuevo agrega aquí su entrada: `test/black-box/api/openapi-use-cases.test.ts`
  * falla si alguna operación de `app/api/**` queda sin casos de uso.
  */
 export interface UseCaseEntry {

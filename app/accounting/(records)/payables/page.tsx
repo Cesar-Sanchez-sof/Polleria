@@ -33,6 +33,7 @@ export default function PayablesPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<PayablesFilters>(DEFAULT_PAYABLES_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Sólo la última petición puede escribir estado.
   const requestRef = useRef(0);
@@ -76,15 +77,13 @@ export default function PayablesPage() {
         icon={HandCoins}
         iconClassName="bg-amber-100 text-amber-700"
       >
-        {summary && (
-          <PayablesToolbar
-            search={filters.search}
-            onSearch={(search) => setFilters((f) => ({ ...f, search }))}
-            sortOrder={filters.sortOrder}
-            onToggleSort={() => setFilters((f) => ({ ...f, sortOrder: f.sortOrder === "desc" ? "asc" : "desc" }))}
-            onExport={() => exportPayablesCsv(filterPayables(invoices, filters))}
-          />
-        )}
+        <PayablesToolbar
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((open) => !open)}
+          sortOrder={filters.sortOrder}
+          onToggleSort={() => setFilters((f) => ({ ...f, sortOrder: f.sortOrder === "desc" ? "asc" : "desc" }))}
+          onExport={() => exportPayablesCsv(filterPayables(invoices, filters))}
+        />
       </ModuleHeader>
 
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
@@ -119,6 +118,7 @@ export default function PayablesPage() {
                 onRefresh={() => void load()}
                 filters={filters}
                 onFiltersChange={setFilters}
+                filtersOpen={filtersOpen}
               />
             </>
           )}

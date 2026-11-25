@@ -394,10 +394,10 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               target="_top"
               onClick={handleLinkClick}
             >
-              ERP EMPRESARIAL
+              ERP Agéntico con IA
             </NavLink>
             <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-              SISTEMA INTEGRAL
+              EMPRESA: LOS BETOS
             </span>
           </div>
 

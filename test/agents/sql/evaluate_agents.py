@@ -1,0 +1,850 @@
+# -*- coding: utf-8 -*-
+"""Run SQL-generation evaluations against the configured Gemini and/or Groq agent."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+import time
+from collections import Counter, deque
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+from math import ceil
+from pathlib import Path
+from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+AGENTS_SRC = PROJECT_ROOT / "agents-service" / "src"
+sys.path.insert(0, str(AGENTS_SRC))
+
+from agents_service.agent_sql.assembly import (  # noqa: E402
+    build_gemini_sql_agent,
+    build_groq_sql_agent,
+)
+from agents_service.agent_sql.config import GeminiSqlConfigError  # noqa: E402
+from agents_service.agent_sql.agent import ACCEPTED_ORIGIN, SYSTEM_PROMPT  # noqa: E402
+from agents_service.config.settings import (  # noqa: E402
+    ServiceConfigError,
+    load_service_settings,
+    read_dotenv_keys,
+)
+from agents_service.execution.postgres_readonly import (  # noqa: E402
+    PostgresReadOnlyExecutor,
+    psycopg_connection_factory,
+)
+from agents_service.http.schemas import QueryRequest, User  # noqa: E402
+from agents_service.orchestrator.ports import AuthorizationContext  # noqa: E402
+from agents_service.validation.allowlist import load_allowlist  # noqa: E402
+from agents_service.validation.validator import SqlValidator  # noqa: E402
+
+CASES_FILE = Path(__file__).with_name("benchmark_cases_350.json")
+SERVICE_DOTENV_PATH = PROJECT_ROOT / "agents-service" / ".env"
+ALLOWLIST_FILE = PROJECT_ROOT / "agents-service" / "knowledge" / "allowlist.readonly_erp.json"
+GROQ_REQUESTS_PER_MINUTE = 30
+GROQ_TOKENS_PER_MINUTE = 8_000
+GROQ_RATE_WINDOW_SECONDS = 60.0
+GROQ_INITIAL_TOKENS_PER_BYTE = 0.30
+GROQ_INITIAL_COMPLETION_RESERVE = 256
+ANSI_GREEN = "\033[32m"
+ANSI_RED = "\033[31m"
+ANSI_YELLOW = "\033[33m"
+ANSI_BLUE = "\033[34m"
+ANSI_PURPLE = "\033[35m"
+ANSI_CYAN = "\033[36m"
+ANSI_RESET = "\033[0m"
+
+AGENT_DISPLAY_NAMES: dict[str, str] = {
+    "groq": "chatgpt oss 120 b",
+    "gemini": "gemini flash 3.5 lite",
+}
+AGENT_FILE_SLUGS: dict[str, str] = {
+    "groq": "chatgpt_oss_120_b",
+    "gemini": "gemini_flash_3.5_lite",
+}
+
+
+def agent_slug(agent: str) -> str:
+    return AGENT_FILE_SLUGS.get(agent, agent.lower().replace(" ", "_"))
+
+
+def colorize(text: str, color: str) -> str:
+    return f"{color}{text}{ANSI_RESET}"
+
+
+def metric_color(is_correct: bool | None) -> str:
+    if is_correct is None:
+        return ANSI_YELLOW
+    return ANSI_GREEN if is_correct else ANSI_RED
+
+
+def format_result_rows(rows: list[dict[str, Any]] | None) -> str:
+    if rows is None:
+        return "[NO EJECUTADA]"
+    return json.dumps(rows, ensure_ascii=False, indent=2, default=str)
+
+
+class GroqQuotaLimiter:
+    """Rolling-window limiter using provider usage to improve estimates for later prompts."""
+
+    def __init__(self) -> None:
+        self._events: deque[list[float]] = deque()
+        self._tokens_per_byte = GROQ_INITIAL_TOKENS_PER_BYTE
+        self._completion_reserve = GROQ_INITIAL_COMPLETION_RESERVE
+        self._has_prompt_measurement = False
+
+    def estimate(self, prompt: str) -> tuple[int, int]:
+        prompt_bytes = len(prompt.encode("utf-8"))
+        estimated_tokens = ceil(prompt_bytes * self._tokens_per_byte) + self._completion_reserve
+        if estimated_tokens > GROQ_TOKENS_PER_MINUTE:
+            raise ValueError("El prompt estimado excede el presupuesto de 8.000 tokens por minuto.")
+        return prompt_bytes, estimated_tokens
+
+    def acquire(self, estimated_tokens: int) -> list[float]:
+        while True:
+            now = time.monotonic()
+            while self._events and now - self._events[0][0] >= GROQ_RATE_WINDOW_SECONDS:
+                self._events.popleft()
+
+            wait_seconds = 0.0
+            if len(self._events) >= GROQ_REQUESTS_PER_MINUTE:
+                wait_seconds = max(
+                    wait_seconds,
+                    self._events[0][0] + GROQ_RATE_WINDOW_SECONDS - now,
+                )
+            if sum(event[1] for event in self._events) + estimated_tokens > GROQ_TOKENS_PER_MINUTE:
+                wait_seconds = max(
+                    wait_seconds,
+                    self._events[0][0] + GROQ_RATE_WINDOW_SECONDS - now,
+                )
+            if wait_seconds <= 0:
+                event = [now, float(estimated_tokens)]
+                self._events.append(event)
+                return event
+
+            print(
+                f"[groq] Cuota TPM/RPM: esperando {wait_seconds:.1f} s "
+                f"(estimado {estimated_tokens} tokens por solicitud).",
+                flush=True,
+            )
+            time.sleep(wait_seconds)
+
+    def record_usage(
+        self,
+        event: list[float],
+        prompt_bytes: int,
+        usage: dict[str, int] | None,
+    ) -> None:
+        if not usage:
+            return
+        total_tokens = usage.get("total_tokens")
+        if isinstance(total_tokens, int) and total_tokens >= 0:
+            event[1] = float(total_tokens)
+
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        if isinstance(prompt_tokens, int) and prompt_tokens >= 0 and prompt_bytes:
+            measured_ratio = prompt_tokens / prompt_bytes
+            adjusted_ratio = measured_ratio * 1.05
+            if self._has_prompt_measurement:
+                self._tokens_per_byte = max(self._tokens_per_byte, adjusted_ratio)
+            else:
+                self._tokens_per_byte = adjusted_ratio
+                self._has_prompt_measurement = True
+        if isinstance(completion_tokens, int) and completion_tokens >= 0:
+            self._completion_reserve = max(
+                GROQ_INITIAL_COMPLETION_RESERVE,
+                ceil(completion_tokens * 1.25),
+            )
+
+
+def load_cases(path: Path = CASES_FILE) -> list[dict[str, Any]]:
+    """Load cases from the generated suite or a simple list-based JSON file."""
+    with path.open(encoding="utf-8") as file:
+        data = json.load(file)
+
+    cases = data.get("casos") if isinstance(data, dict) else data
+    if not isinstance(cases, list) or not cases:
+        raise ValueError(f"{path} debe contener una lista no vacía de casos o una clave 'casos'.")
+
+    normalized = []
+    for index, case in enumerate(cases, start=1):
+        if not isinstance(case, dict):
+            raise ValueError(f"El caso {index} no es un objeto JSON.")
+        question = case.get("pregunta") or case.get("question") or case.get("query")
+        expected_sql = case.get("sql_gold") or case.get("gold_sql") or case.get("expected_sql")
+        if not isinstance(question, str) or not question.strip():
+            raise ValueError(f"El caso {index} no tiene pregunta/query válida.")
+        if not isinstance(expected_sql, str) or not expected_sql.strip():
+            raise ValueError(f"El caso {index} no tiene SQL de referencia válido.")
+        normalized.append(
+            {
+                "id": case.get("id", f"case-{index:03d}"),
+                "question": question.strip(),
+                "expected_sql": expected_sql.strip(),
+            }
+        )
+    return normalized
+
+
+def normalize_sql(sql: str) -> str:
+    """Normalize whitespace and optional trailing semicolons for exact-match scoring."""
+    return re.sub(r"\s+", " ", sql).strip().rstrip(";").strip()
+
+
+def canonical_rows(rows: list[dict[str, Any]]) -> tuple[tuple[str, ...], ...]:
+    """Canonicalize SQL denotations, ignoring row order and column labels."""
+    normalized = []
+    for row in rows:
+        normalized.append(tuple(_canonical_value(value) for value in row.values()))
+    return tuple(sorted(normalized, key=repr))
+
+
+def execution_results_match(
+    gold_rows: list[dict[str, Any]],
+    generated_rows: list[dict[str, Any]],
+) -> bool:
+    """Compare denotations while allowing extra projected columns in generated rows."""
+    if len(gold_rows) != len(generated_rows):
+        return False
+
+    gold_values = [Counter(_canonical_value(value) for value in row.values()) for row in gold_rows]
+    generated_values = [
+        Counter(_canonical_value(value) for value in row.values()) for row in generated_rows
+    ]
+    candidates = [
+        [
+            generated_index
+            for generated_index, generated_row in enumerate(generated_values)
+            if not (gold_row - generated_row)
+        ]
+        for gold_row in gold_values
+    ]
+    if any(not matches for matches in candidates):
+        return False
+
+    assigned_gold: dict[int, int] = {}
+
+    def assign(gold_index: int, visited: set[int]) -> bool:
+        for generated_index in candidates[gold_index]:
+            if generated_index in visited:
+                continue
+            visited.add(generated_index)
+            previous_gold = assigned_gold.get(generated_index)
+            if previous_gold is None or assign(previous_gold, visited):
+                assigned_gold[generated_index] = gold_index
+                return True
+        return False
+
+    for gold_index in sorted(range(len(gold_rows)), key=lambda index: len(candidates[index])):
+        if not assign(gold_index, set()):
+            return False
+    return True
+
+
+def _canonical_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return str(value.normalize())
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(Decimal(str(value)).normalize())
+    if isinstance(value, str):
+        try:
+            return str(Decimal(value).normalize())
+        except InvalidOperation:
+            return value
+    return str(value)
+
+
+def valid_efficiency_score(
+    gold_seconds: float | None,
+    generated_seconds: float,
+    execution_correct: bool,
+) -> float | None:
+    if gold_seconds is None or gold_seconds <= 0:
+        return None
+    if not execution_correct:
+        return 0.0
+    if generated_seconds <= 0:
+        return None
+    return min(1.0, (gold_seconds / generated_seconds) ** 0.5)
+
+
+def _build_gold_executor(agent_settings: Any) -> tuple[SqlValidator, PostgresReadOnlyExecutor]:
+    allowlist = load_allowlist(ALLOWLIST_FILE)
+    validator = SqlValidator(allowlist)
+    executor = PostgresReadOnlyExecutor(
+        psycopg_connection_factory(agent_settings.readonly_dsn),
+        validator,
+        accepted_origins=frozenset({ACCEPTED_ORIGIN}),
+    )
+    return validator, executor
+
+
+def evaluate_agent(name: str, builder: Any, agent_settings: Any, cases: list[dict[str, Any]]) -> dict[str, Any]:
+    agent = builder(settings=agent_settings)
+    gold_validator, gold_executor = _build_gold_executor(agent_settings)
+    quota_limiter = GroqQuotaLimiter() if name == "groq" else None
+    auth = AuthorizationContext(
+        rol="contador_demo",
+        origen=ACCEPTED_ORIGIN,
+        autenticado=True,
+        modulos=None,
+    )
+    case_results = []
+    interrupted = False
+
+    try:
+        for case in cases:
+            quota_event = None
+            prompt_bytes = 0
+            if quota_limiter is not None:
+                tables = agent.permitted_tables("contador_demo", auth)
+                prompt = agent.build_prompt("contador_demo", case["question"], tables)
+                prompt_bytes, estimated_tokens = quota_limiter.estimate(f"{SYSTEM_PROMPT}\n{prompt}")
+                quota_event = quota_limiter.acquire(estimated_tokens)
+
+            started_at = time.perf_counter()
+            generated_sql = None
+            generated_rows = None
+            answer_error = None
+            try:
+                answer = agent.answer(
+                    QueryRequest(
+                        id_traza=f"eval-{case['id']}",
+                        mensaje=case["question"],
+                        usuario=User(id=1, rol="admin"),
+                        historial=[],
+                        fecha_referencia_lima=datetime.now().date(),
+                    ),
+                    auth,
+                )
+                generated_sql = answer.sql
+                generated_rows = [
+                    dict(zip(answer.columnas, row, strict=True))
+                    for row in answer.filas
+                ]
+            except Exception as exc:
+                answer_error = str(exc).replace(agent_settings.api_key, "[REDACTED]")
+                answer_error = answer_error.replace(agent_settings.readonly_dsn, "[REDACTED]")
+                print(f"[{name}] Falló el caso {case['id']}: {answer_error}", file=sys.stderr)
+
+            elapsed_seconds = round(time.perf_counter() - started_at, 3)
+            sql_execution_seconds = round(agent.last_sql_execution_seconds, 6)
+            token_usage = getattr(agent, "last_token_usage", None)
+            if quota_limiter is not None and quota_event is not None:
+                quota_limiter.record_usage(quota_event, prompt_bytes, token_usage)
+
+            gold_rows = None
+            gold_execution_seconds = None
+            gold_error = None
+            try:
+                verdict = gold_validator.validate(case["expected_sql"], "contador_demo")
+                if not verdict.approved or not verdict.normalized_sql:
+                    raise ValueError("SQL gold rechazada por el validador: " + ",".join(verdict.reasons))
+                gold_started = time.perf_counter()
+                gold_rows = gold_executor.execute_authorized(verdict, auth)
+                gold_execution_seconds = time.perf_counter() - gold_started
+            except Exception as exc:
+                gold_error = str(exc).replace(agent_settings.readonly_dsn, "[REDACTED]")
+                print(f"[{name}] SQL gold inválida para {case['id']}: {gold_error}", file=sys.stderr)
+
+            exact_match = (
+                generated_sql is not None
+                and normalize_sql(generated_sql) == normalize_sql(case["expected_sql"])
+            )
+            execution_accuracy = (
+                execution_results_match(gold_rows, generated_rows)
+                if gold_rows is not None and generated_rows is not None
+                else False if gold_rows is not None else None
+            )
+            ves = (
+                valid_efficiency_score(
+                    gold_execution_seconds,
+                    sql_execution_seconds,
+                    execution_accuracy is True,
+                )
+                if gold_rows is not None else None
+            )
+            result = {
+                **case,
+                "generated_sql": generated_sql,
+                "gold_rows": gold_rows,
+                "generated_rows": generated_rows,
+                "exact_match": exact_match,
+                "execution_succeeded": generated_rows is not None,
+                "execution_accuracy": execution_accuracy,
+                "ves": round(ves, 6) if ves is not None else None,
+                "elapsed_seconds": elapsed_seconds,
+                "sql_execution_seconds": sql_execution_seconds,
+                "gold_execution_seconds": round(gold_execution_seconds, 6)
+                if gold_execution_seconds is not None else None,
+                "token_usage": token_usage,
+            }
+            if answer_error:
+                result["error"] = answer_error
+            if gold_error:
+                result["gold_error"] = gold_error
+            case_results.append(result)
+
+            total_tokens = token_usage.get("total_tokens") if token_usage else None
+            tokens_text = (
+                f"{total_tokens} (entrada={token_usage.get('prompt_tokens', '?')}, "
+                f"salida={token_usage.get('completion_tokens', '?')})"
+                if total_tokens is not None else "N/D"
+            )
+            ex_text = "N/D" if execution_accuracy is None else ("OK" if execution_accuracy else "X")
+            ves_text = "N/D" if ves is None else f"{ves:.3f}"
+            provider_tag = f"[{name}]"
+            if name == "groq":
+                provider_tag = colorize(provider_tag, ANSI_YELLOW)
+            ex_metric = colorize(
+                f"EX={ex_text}",
+                metric_color(execution_accuracy),
+            )
+            ves_metric = colorize(
+                f"VES={ves_text}",
+                ANSI_YELLOW if ves is None else ANSI_GREEN if ves > 0 else ANSI_RED,
+            )
+            timing = colorize(
+                f"tiempo={elapsed_seconds:.3f}s SQL={sql_execution_seconds:.6f}s",
+                ANSI_BLUE,
+            )
+            print(
+                f"{provider_tag} {case['id']} {ex_metric} "
+                f"{ves_metric} tokens={tokens_text} {timing}",
+                flush=True,
+            )
+            print(colorize(f"  SQL gold:\n{case['expected_sql']}", ANSI_PURPLE), flush=True)
+            print(colorize(f"  Respuesta SQL gold:\n{format_result_rows(gold_rows)}", ANSI_PURPLE), flush=True)
+            print(colorize(f"  SQL generada:\n{generated_sql or '[SIN SQL]'}", ANSI_CYAN), flush=True)
+            print(
+                colorize(f"  Respuesta SQL generada:\n{format_result_rows(generated_rows)}", ANSI_CYAN),
+                flush=True,
+            )
+    except KeyboardInterrupt:
+        interrupted = True
+        print(f"\n[{name}] Interrumpido; se guardarán los {len(case_results)} casos completados.", flush=True)
+
+    passed = sum(result["exact_match"] for result in case_results)
+    gold_valid = [result for result in case_results if result.get("gold_error") is None]
+    ex_passed = sum(result["execution_accuracy"] is True for result in gold_valid)
+    ves_values = [result["ves"] for result in gold_valid if result["ves"] is not None]
+    executed = sum(result["execution_succeeded"] for result in case_results)
+    execution_error_count = len(case_results) - executed
+    execution_incorrect_count = max(0, executed - ex_passed)
+    ves_summary = f"{sum(ves_values) / len(ves_values):.4f}" if ves_values else "N/D"
+    provider_tag = f"[{name}]"
+    if name == "groq":
+        provider_tag = colorize(provider_tag, ANSI_YELLOW)
+    ex_summary = colorize(
+        f"EX={ex_passed}/{len(gold_valid)}",
+        metric_color(ex_passed == len(gold_valid) if gold_valid else None),
+    )
+    ves_summary_metric = colorize(
+        f"VES={ves_summary}",
+        ANSI_YELLOW if not ves_values else ANSI_GREEN if float(ves_summary) > 0 else ANSI_RED,
+    )
+    print(
+        f"{provider_tag} Resumen: ejecutadas={executed}/{len(case_results)} "
+        f"(correctas={ex_passed}, incorrectas={execution_incorrect_count}, errores={execution_error_count}), "
+        f"{ex_summary}, {ves_summary_metric}.",
+        flush=True,
+    )
+    return {
+        "agent": name,
+        "total_cases": len(case_results),
+        "exact_match_count": passed,
+        "exact_match_rate": round(passed / len(case_results), 4) if case_results else 0.0,
+        "execution_success_count": executed,
+        "execution_error_count": execution_error_count,
+        "execution_accuracy_count": ex_passed,
+        "execution_incorrect_count": execution_incorrect_count,
+        "execution_accuracy_denominator": len(gold_valid),
+        "execution_accuracy_rate": round(ex_passed / len(gold_valid), 4) if gold_valid else None,
+        "ves": round(sum(ves_values) / len(ves_values), 6) if ves_values else None,
+        "test_suite_accuracy": None,
+        "interrupted": interrupted,
+        "cases": case_results,
+    }
+
+
+def _parse_report_cases(markdown: str) -> list[dict[str, Any]]:
+    case_pattern = re.compile(
+        r"<details><summary>(?P<id>.*?)(?: — EM=(?P<em>OK|X))? — "
+        r"EX=(?P<ex>True|False|OK|X|N/D), VES=(?P<ves>[^<]+)</summary>\s*"
+        r".*?\*\*SQL gold\*\*\s*```sql\n(?P<expected>.*?)\n```\s*"
+        r".*?\*\*SQL generada\*\*\s*```sql\n(?P<generated>.*?)\n```",
+        re.DOTALL,
+    )
+    cases = []
+    for match in case_pattern.finditer(markdown):
+        ves = match.group("ves")
+        generated_sql = match.group("generated")
+        em_val = match.group("em")
+        cases.append(
+            {
+                "id": match.group("id"),
+                "expected_sql": match.group("expected"),
+                "generated_sql": None if generated_sql == "[SIN SQL]" else generated_sql,
+                "exact_match": em_val == "OK" if em_val is not None else False,
+                "execution_accuracy": {
+                    "True": True,
+                    "OK": True,
+                    "False": False,
+                    "X": False,
+                    "N/D": None,
+                }[match.group("ex")],
+                "ves": float(ves) if ves != "N/D" else None,
+            }
+        )
+    return cases
+
+
+def _aggregate_agent_result(agent: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
+    exact_match_count = sum(case["exact_match"] for case in cases)
+    accuracy_cases = [case for case in cases if case["execution_accuracy"] is not None]
+    execution_accuracy_count = sum(case["execution_accuracy"] is True for case in accuracy_cases)
+    ves_values = [case["ves"] for case in cases if case["ves"] is not None]
+    execution_known = all("execution_succeeded" in case for case in cases)
+    execution_success_count = (
+        sum(case["execution_succeeded"] for case in cases) if execution_known else None
+    )
+    execution_error_count = len(cases) - execution_success_count if execution_known else None
+    execution_incorrect_count = (
+        max(0, execution_success_count - execution_accuracy_count)
+        if execution_known and execution_accuracy_count is not None
+        else None
+    )
+    return {
+        "agent": agent,
+        "total_cases": len(cases),
+        "exact_match_count": exact_match_count,
+        "exact_match_rate": exact_match_count / len(cases) if cases else 0.0,
+        "execution_success_count": execution_success_count,
+        "execution_error_count": execution_error_count,
+        "execution_accuracy_count": execution_accuracy_count,
+        "execution_incorrect_count": execution_incorrect_count,
+        "execution_accuracy_denominator": len(accuracy_cases),
+        "execution_accuracy_rate": (
+            execution_accuracy_count / len(accuracy_cases) if accuracy_cases else None
+        ),
+        "ves": sum(ves_values) / len(ves_values) if ves_values else None,
+        "test_suite_accuracy": None,
+        "interrupted": False,
+        "cases": cases,
+    }
+
+
+def _merge_agent_results(
+    existing: dict[str, Any] | None,
+    incoming: dict[str, Any],
+) -> dict[str, Any]:
+    cases_by_id = {case["id"]: case for case in existing["cases"]} if existing else {}
+    for case in incoming["cases"]:
+        cases_by_id[case["id"]] = case
+
+    merged = _aggregate_agent_result(
+        incoming["agent"],
+        [cases_by_id[case_id] for case_id in sorted(cases_by_id)],
+    )
+    merged["interrupted"] = incoming["interrupted"]
+    return merged
+
+
+def _load_existing_agent_result(
+    agent: str,
+    reports_dir: Path,
+    results_dir: Path,
+) -> dict[str, Any] | None:
+    slug = agent_slug(agent)
+    candidate_slugs = [slug, slug.replace("_b", "b"), agent]
+    cumulative_path = None
+    for candidate in candidate_slugs:
+        p = results_dir / f"report_{candidate}.json"
+        if p.exists():
+            cumulative_path = p
+            break
+
+    if cumulative_path and cumulative_path.exists():
+        data = json.loads(cumulative_path.read_text(encoding="utf-8"))
+        return data
+
+    markdown_path = None
+    for candidate in candidate_slugs:
+        p = reports_dir / f"report_{candidate}.md"
+        if p.exists():
+            markdown_path = p
+            break
+
+    if markdown_path is None:
+        legacy_path = reports_dir / "report.md"
+        if legacy_path.exists():
+            legacy_markdown = legacy_path.read_text(encoding="utf-8")
+            display_name = AGENT_DISPLAY_NAMES.get(agent, agent)
+            if (
+                f"| {agent} |" in legacy_markdown
+                or f"| {display_name} |" in legacy_markdown
+                or f"| {slug} |" in legacy_markdown
+            ):
+                markdown_path = legacy_path
+
+    if markdown_path and markdown_path.exists():
+        cases = _parse_report_cases(markdown_path.read_text(encoding="utf-8"))
+        return _aggregate_agent_result(agent, cases) if cases else None
+
+    run_paths = sorted(results_dir.glob("report_*.json"), reverse=True)
+    for run_path in run_paths:
+        if run_path == cumulative_path:
+            continue
+        data = json.loads(run_path.read_text(encoding="utf-8"))
+        for result in data.get("agents", []):
+            if result.get("agent") in (agent, slug, AGENT_DISPLAY_NAMES.get(agent)):
+                return result
+    return None
+
+
+def write_reports(
+    results: list[dict[str, Any]],
+    reports_dir: Path | None = None,
+    results_dir: Path | None = None,
+) -> tuple[list[Path], Path]:
+    reports_dir = reports_dir or Path(__file__).parent / "reports"
+    results_dir = results_dir or Path(__file__).parent / "results"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
+    json_path = results_dir / f"report_{timestamp}.json"
+    markdown_paths = []
+    for result in results:
+        slug = agent_slug(result["agent"])
+        existing = _load_existing_agent_result(result["agent"], reports_dir, results_dir)
+        cumulative = _merge_agent_results(existing, result)
+        (results_dir / f"report_{slug}.json").write_text(
+            json.dumps(cumulative, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+
+        markdown_path = reports_dir / f"report_{slug}.md"
+        markdown_paths.append(markdown_path)
+        _write_agent_markdown(markdown_path, cumulative)
+
+    json_path.write_text(
+        json.dumps(
+            {"generated_at": datetime.now().astimezone().isoformat(), "agents": results},
+            indent=2,
+            ensure_ascii=False,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+    return markdown_paths, json_path
+
+
+def _write_agent_markdown(markdown_path: Path, result: dict[str, Any]) -> None:
+    lines = [
+        "# Reporte de evaluación Text-to-SQL",
+        "",
+        "| Agente | Casos | EX | VES | Correctas | Incorrectas | Errores | Ejecutadas |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    ex_rate = result["execution_accuracy_rate"]
+    ves = result["ves"]
+    ex_text = f"{ex_rate:.2%}" if ex_rate is not None else "N/D"
+    ves_text = f"{ves:.4f}" if ves is not None else "N/D"
+    total_cases = result["total_cases"]
+    execution_success_count = result.get("execution_success_count")
+    execution_error_count = result.get("execution_error_count")
+    accuracy_count = result.get("execution_accuracy_count")
+    incorrect_count = result.get("execution_incorrect_count")
+    if (
+        incorrect_count is None
+        and execution_success_count is not None
+        and accuracy_count is not None
+    ):
+        incorrect_count = max(0, execution_success_count - accuracy_count)
+
+    executed_text = str(execution_success_count) if execution_success_count is not None else "N/D"
+    errors_text = str(execution_error_count) if execution_error_count is not None else "N/D"
+    correct_text = str(accuracy_count) if accuracy_count is not None else "N/D"
+    incorrect_text = str(incorrect_count) if incorrect_count is not None else "N/D"
+
+    agent_display = AGENT_DISPLAY_NAMES.get(result["agent"], result["agent"])
+    lines.append(
+        f"| {agent_display} | {total_cases} | "
+        f"{ex_text} | {ves_text} | {correct_text} | {incorrect_text} | {errors_text} | {executed_text} |"
+    )
+
+    correct_pct = f"{accuracy_count / total_cases:.2%}" if accuracy_count is not None and total_cases else "N/D"
+    incorrect_pct = f"{incorrect_count / total_cases:.2%}" if incorrect_count is not None and total_cases else "N/D"
+    errors_pct = f"{execution_error_count / total_cases:.2%}" if execution_error_count is not None and total_cases else "N/D"
+    executed_pct = f"{execution_success_count / total_cases:.2%}" if execution_success_count is not None and total_cases else "N/D"
+
+    formula_text = (
+        f" Fórmula: `Correctas / Casos = {correct_text} / {total_cases} = {ex_text}`."
+        if accuracy_count is not None
+        else ""
+    )
+
+    lines.extend(
+        [
+            "",
+            f"**{agent_display}**:",
+            f"- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas.{formula_text}",
+            "- **Desglose de ejecución**:",
+            f"  - **Correctas (EX OK)**: {correct_text} ({correct_pct}) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.",
+            f"  - **Incorrectas**: {incorrect_text} ({incorrect_pct}) — consultas que se ejecutaron en PostgreSQL sin error pero cuyos datos devueltos difieren del gold.",
+            f"  - **Errores**: {errors_text} ({errors_pct}) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).",
+            f"  - **Ejecutadas en total**: {executed_text} ({executed_pct}) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).",
+            "- **VES (Valid Efficiency Score)**: media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas o con error valen 0.",
+        ]
+    )
+    for case in result["cases"]:
+        gold_rows = (
+            format_result_rows(case["gold_rows"])
+            if "gold_rows" in case
+            else "[RESPUESTA NO GUARDADA EN ESTA EJECUCIÓN ANTERIOR]"
+        )
+        generated_rows = (
+            format_result_rows(case["generated_rows"])
+            if "generated_rows" in case
+            else "[RESPUESTA NO GUARDADA EN ESTA EJECUCIÓN ANTERIOR]"
+        )
+        lines.extend(
+            [
+                "",
+                f"<details><summary>{case['id']} — "
+                f"EX={case['execution_accuracy'] if case['execution_accuracy'] is not None else 'N/D'}, "
+                f"VES={case['ves'] if case['ves'] is not None else 'N/D'}</summary>",
+                "",
+                "**SQL gold**",
+                "",
+                "```sql",
+                case["expected_sql"],
+                "```",
+                "",
+                "**Respuesta SQL gold**",
+                "",
+                "```json",
+                gold_rows,
+                "```",
+                "",
+                "**SQL generada**",
+                "",
+                "```sql",
+                case["generated_sql"] or "[SIN SQL]",
+                "```",
+                "",
+                "**Respuesta SQL generada**",
+                "",
+                "```json",
+                generated_rows,
+                "```",
+                "",
+                "</details>",
+            ]
+        )
+    markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Evalúa casos SQL con los agentes configurados.")
+    parser.add_argument(
+        "--provider",
+        choices=("all", "gemini", "groq"),
+        default="all",
+        help="Proveedor a evaluar (por defecto, todos los configurados).",
+    )
+    parser.add_argument(
+        "--start-at",
+        type=int,
+        default=1,
+        help="Número de caso desde el que empezar (base 1; sirve para dividir la suite en tandas).",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Máximo de casos de esta tanda.",
+    )
+    args = parser.parse_args()
+    if args.start_at < 1:
+        parser.error("--start-at debe ser un entero positivo.")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit debe ser un entero positivo.")
+
+    try:
+        cases = load_cases()
+        if args.start_at > len(cases):
+            parser.error(f"--start-at no puede superar el total de casos ({len(cases)}).")
+        end_at = min(len(cases), args.start_at - 1 + args.limit) if args.limit else len(cases)
+        cases = cases[args.start_at - 1 : end_at]
+        dotenv_values = read_dotenv_keys(SERVICE_DOTENV_PATH)
+        validation_env = dict(os.environ)
+        # The evaluator runs with the agents-service's read-only database settings, not the ERP
+        # application's write connection inherited from the project environment.
+        validation_env.pop("DATABASE_URL", None)
+        if args.provider == "groq":
+            validation_env.pop("GEMINI_API_KEY", None)
+            validation_env.pop("GEMINI_MODEL", None)
+            dotenv_values.pop("GEMINI_API_KEY", None)
+            dotenv_values.pop("GEMINI_MODEL", None)
+        elif args.provider == "gemini":
+            validation_env.pop("GROQ_API_KEY", None)
+            validation_env.pop("GROQ_MODEL", None)
+            dotenv_values.pop("GROQ_API_KEY", None)
+            dotenv_values.pop("GROQ_MODEL", None)
+        for key, value in dotenv_values.items():
+            validation_env.setdefault(key, value)
+        settings = load_service_settings(
+            validation_env,
+            dotenv_path=None,
+        )
+    except (OSError, json.JSONDecodeError, ValueError, ServiceConfigError, GeminiSqlConfigError) as exc:
+        parser.exit(2, f"Error de configuración o de casos: {exc}\n")
+
+    available = {
+        "gemini": (build_gemini_sql_agent, settings.gemini),
+        "groq": (build_groq_sql_agent, settings.groq),
+    }
+    selected = [
+        (name, *available[name])
+        for name in ("gemini", "groq")
+        if available[name][1] is not None and args.provider in ("all", name)
+    ]
+    if not selected:
+        parser.error(f"No hay credenciales configuradas para el proveedor '{args.provider}'.")
+
+    print(
+        f"Se evaluarán los casos {args.start_at}-{end_at} ({len(cases)} en esta tanda) "
+        f"con: {', '.join(name for name, _, _ in selected)}."
+    )
+    results = []
+    interrupted = False
+    for name, builder, agent_settings in selected:
+        try:
+            result = evaluate_agent(name, builder, agent_settings, cases)
+        except KeyboardInterrupt:
+            interrupted = True
+            print(f"\n[{name}] Interrumpido antes de completar el caso actual.", flush=True)
+            break
+        results.append(result)
+        if result["interrupted"]:
+            interrupted = True
+            break
+    markdown_paths, json_path = write_reports(results)
+    for markdown_path in markdown_paths:
+        print(f"Reporte Markdown: {markdown_path}")
+    print(f"Resultados JSON: {json_path}")
+    return 130 if interrupted else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

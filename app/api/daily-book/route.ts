@@ -15,12 +15,18 @@ export const GET = createApiHandler({
     try {
       const fromDate = searchParams.get("desde");
       const toDate = searchParams.get("hasta");
+      const query = searchParams.get("q");
+      const status = searchParams.get("estado");
+      const book = searchParams.get("libro");
       const page = searchParams.get("page");
       const pageSize = searchParams.get("pageSize");
 
       const result = await getDailyBookEntriesDomain({
         fromDate,
         toDate,
+        query,
+        status,
+        book,
         page,
         pageSize,
       });

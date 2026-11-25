@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -41,6 +43,8 @@ export default function AccountingPeriodsPage() {
   const [newOpen, setNewOpen] = useState(false);
   // Año fiscal por defecto: todos los registrados (la lista se agrupa igual por año).
   const [fiscalYear, setFiscalYear] = useState<string>(ALL_YEARS);
+  const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // No se necesita estado local para errores de creación; se muestra vía toast.
 
   const fiscalYears = useMemo(() => availableFiscalYears(periods), [periods]);
@@ -52,7 +56,23 @@ export default function AccountingPeriodsPage() {
     [periods, fiscalYear]
   );
 
-  const tableRows = useMemo(() => groups.flatMap((group) => group.periods), [groups]);
+  const tableRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return groups
+      .flatMap((group) => group.periods)
+      .filter((period) =>
+        !query ||
+        [
+          String(period.id),
+          formatDate(period.startDate),
+          formatDate(period.endDate),
+          statusLabel(period.status),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      );
+  }, [groups, search]);
   const yearOfPeriod = useMemo(() => {
     const map = new Map<number, number>();
     for (const group of groups) for (const period of group.periods) map.set(period.id, group.year);
@@ -139,26 +159,10 @@ export default function AccountingPeriodsPage() {
         icon={BookOpen}
         iconClassName="bg-red-100 text-red-700"
       >
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <Label htmlFor="anio-fiscal" className="text-xs text-muted-foreground">
-            Año fiscal
-          </Label>
-          <NativeSelect
-            id="anio-fiscal"
-            className="w-56"
-            aria-label="Filtrar por año fiscal"
-            value={fiscalYear}
-            onChange={(e) => setFiscalYear(e.target.value)}
-          >
-            <option value={ALL_YEARS}>Todos los años fiscales</option>
-            {fiscalYears.map((y) => (
-              <option key={y} value={String(y)}>
-                Año fiscal {y}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
+        />
         <Button
           className="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-xs transition-all hover:bg-red-800"
           type="button"
@@ -171,11 +175,44 @@ export default function AccountingPeriodsPage() {
 
       <main className="relative w-full min-w-0 flex-1 p-3 sm:p-4 md:p-6">
         <div className="flex w-full flex-col gap-5">
+          {filtersOpen && <AdvancedFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por periodo, fecha o estado..."
+            activeFilterCount={Number(fiscalYear !== ALL_YEARS)}
+            hasActiveFilters={Boolean(search.trim()) || fiscalYear !== ALL_YEARS}
+            onClear={() => {
+              setSearch("");
+              setFiscalYear(ALL_YEARS);
+            }}
+            resultCount={tableRows.length}
+            itemLabel={`de ${groups.reduce((sum, group) => sum + group.periods.length, 0)} períodos`}
+          >
+            <label className="flex min-w-[180px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Año fiscal
+              <NativeSelect
+                id="anio-fiscal"
+                className="h-9 w-full rounded-lg bg-background text-xs"
+                aria-label="Filtrar por año fiscal"
+                value={fiscalYear}
+                onChange={(event) => setFiscalYear(event.target.value)}
+              >
+                <option value={ALL_YEARS}>Todos los años fiscales</option>
+                {fiscalYears.map((fiscalYearOption) => (
+                  <option key={fiscalYearOption} value={String(fiscalYearOption)}>
+                    Año fiscal {fiscalYearOption}
+                  </option>
+                ))}
+              </NativeSelect>
+            </label>
+          </AdvancedFilterBar>}
+
           <Card className="flex flex-col gap-5 rounded-xl bg-white p-6 shadow-sm ring-0">
             <DataTable
               columns={columns}
               rows={tableRows}
               rowKey={(p) => p.id}
+              pageResetKey={`${fiscalYear}|${search}`}
               enableCard={false}
               density="compact"
               loading={loading}
@@ -203,7 +240,9 @@ export default function AccountingPeriodsPage() {
                 title:
                   periods.length === 0
                     ? "Aún no hay períodos contables. Crea el del mes actual con «Nuevo periodo»."
-                    : `El año fiscal ${fiscalYear} aún no tiene períodos registrados.`,
+                    : search
+                      ? "No se encontraron períodos con los filtros seleccionados."
+                      : `El año fiscal ${fiscalYear} aún no tiene períodos registrados.`,
               }}
             />
           </Card>

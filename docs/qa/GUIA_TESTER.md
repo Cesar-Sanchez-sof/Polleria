@@ -92,7 +92,7 @@ Los 9 trabajadores demo tienen DNI `70000001…70000009`; solo 5 tienen usuario.
 Antes de empezar (o después de un cambio) puedes comprobar la API en un minuto:
 
 ```bash
-node scripts/qa-smoke-rrhh-seguridad.mjs   # 100 comprobaciones del camino feliz y errores esperados
+node test/smoke/hr-security-smoke.mjs   # 100 comprobaciones del camino feliz y errores esperados
 npx tsx prisma/qa-cleanup.ts               # borra lo que dejó (DNI 999xxxxx, usuarios qa.*, roles «QA …»)
 ```
 

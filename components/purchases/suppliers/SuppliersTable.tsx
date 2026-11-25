@@ -2,24 +2,35 @@
 
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SupplierDialog } from "./SupplierDialog";
 import { setSupplierStatus } from "@/lib/services/purchases/supplier";
 import { toast } from "sonner";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
+import {
+  AdvancedFilterBar,
+  normalizeFilterText,
+} from "@/components/shared/AdvancedFilterBar";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Plus,
-  Search,
   Edit2,
   Power,
   Building2,
   Phone,
   Mail,
-  X,
   User,
+  Users,
 } from "lucide-react";
 
 export interface Supplier {
@@ -53,7 +64,12 @@ interface SuppliersTableProps {
 export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "ruc">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [documentFilter, setDocumentFilter] = useState<"all" | "ruc" | "dni">("all");
+  const [contactFilter, setContactFilter] = useState<
+    "all" | "complete" | "incomplete" | "without_phone" | "without_email"
+  >("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
 
@@ -66,28 +82,52 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   const withRuc = suppliers.filter((p) => p.ruc.length === 11).length;
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeFilterText(search.trim());
 
     return suppliers.filter((p) => {
       const matchesSearch =
         !q ||
-        p.ruc.toLowerCase().includes(q) ||
-        p.businessName.toLowerCase().includes(q) ||
-        (p.contactPerson && p.contactPerson.toLowerCase().includes(q)) ||
-        (p.address && p.address.toLowerCase().includes(q)) ||
-        (p.phone && p.phone.toLowerCase().includes(q)) ||
-        (p.email && p.email.toLowerCase().includes(q));
+        [
+          p.ruc,
+          p.businessName,
+          p.contactPerson ?? "",
+          p.address ?? "",
+          p.phone ?? "",
+          p.email ?? "",
+        ].some((value) => normalizeFilterText(value).includes(q));
 
       let matchesStatus = true;
       if (statusFilter === "active") matchesStatus = p.active;
       if (statusFilter === "inactive") matchesStatus = !p.active;
-      if (statusFilter === "ruc") matchesStatus = p.ruc.length === 11;
+      const matchesDocument =
+        documentFilter === "all" ||
+        (documentFilter === "ruc" && p.ruc.length === 11) ||
+        (documentFilter === "dni" && p.ruc.length !== 11);
+      const hasPhone = Boolean(p.phone?.trim());
+      const hasEmail = Boolean(p.email?.trim());
+      const matchesContact =
+        contactFilter === "all" ||
+        (contactFilter === "complete" && hasPhone && hasEmail) ||
+        (contactFilter === "incomplete" && (!hasPhone || !hasEmail)) ||
+        (contactFilter === "without_phone" && !hasPhone) ||
+        (contactFilter === "without_email" && !hasEmail);
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesDocument && matchesContact;
     });
-  }, [suppliers, search, statusFilter]);
+  }, [suppliers, search, statusFilter, documentFilter, contactFilter]);
 
-  const hasActiveFilter = search.trim() !== "" || statusFilter !== "all";
+  const activeFilterCount =
+    Number(statusFilter !== "all") +
+    Number(documentFilter !== "all") +
+    Number(contactFilter !== "all");
+  const hasActiveFilter = search.trim() !== "" || activeFilterCount > 0;
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setDocumentFilter("all");
+    setContactFilter("all");
+  };
 
   const handleNew = () => {
     setSupplierToEdit(null);
@@ -233,117 +273,73 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
   ];
 
   return (
-    <div className="space-y-6">
+    <>
+      <ModuleHeader
+        title="Gestión de Proveedores"
+        subtitle="Catálogo de proveedores y datos de contacto"
+        icon={Users}
+        iconClassName="bg-amber-100 text-amber-800"
+      >
+        <AdvancedFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((open) => !open)}
+        />
+        <Button
+          onClick={handleNew}
+          size="sm"
+          className="h-9 gap-1.5 rounded-lg px-4 text-xs font-semibold"
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo Proveedor
+        </Button>
+      </ModuleHeader>
 
-      {/* ── Toolbar Inteligente (Buscador + Filtros Segmentados + Botón Nuevo Proveedor) ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-card border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 rounded-2xl shadow-xs">
-        
-        {/* Izquierda: Buscador */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Buscar por RUC, DNI, razón social, contacto o teléfono..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-            }}
-            className="pl-9 pr-8 h-10 text-xs bg-background rounded-xl border-slate-200 dark:border-slate-800"
-          />
-          {search && (
-            <button
-              onClick={() => {
-                setSearch("");
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
+        <div className="space-y-6">
 
-        {/* Centro / Derecha: Segmented Control de Estados + Botón Nuevo Proveedor */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Segmented Control */}
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("all");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "all"
-                  ? "bg-white dark:bg-slate-800 text-foreground font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Todos</span>
-              <span className="text-[10px] bg-muted px-1.5 py-0.2 rounded-full font-mono">
-                {totalSuppliers}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("active");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "active"
-                  ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Activos</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {activeSuppliers}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("inactive");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "inactive"
-                  ? "bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Inactivos</span>
-              {inactiveSuppliers > 0 && (
-                <span className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                  {inactiveSuppliers}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("ruc");
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "ruc"
-                  ? "bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 font-semibold shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Con RUC</span>
-              <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.2 rounded-full font-mono font-semibold">
-                {withRuc}
-              </span>
-            </button>
-          </div>
-
-          {/* Botón Crear Proveedor */}
-          <Button
-            onClick={handleNew}
-            size="sm"
-            className="h-10 px-4 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Nuevo Proveedor</span>
-          </Button>
-        </div>
-      </div>
+      {filtersOpen && <AdvancedFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar RUC, razón social, contacto, dirección o teléfono..."
+        activeFilterCount={activeFilterCount}
+        hasActiveFilters={hasActiveFilter}
+        onClear={clearFilters}
+        resultCount={filtered.length}
+        itemLabel={`de ${totalSuppliers} proveedores`}
+      >
+        <FilterSelect
+          label="Estado"
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+          options={[
+            { value: "all", label: `Todos (${totalSuppliers})` },
+            { value: "active", label: `Activos (${activeSuppliers})` },
+            { value: "inactive", label: `Inactivos (${inactiveSuppliers})` },
+          ]}
+        />
+        <FilterSelect
+          label="Documento"
+          value={documentFilter}
+          onValueChange={(value) => setDocumentFilter(value as typeof documentFilter)}
+          options={[
+            { value: "all", label: "Todo documento" },
+            { value: "ruc", label: `RUC (${withRuc})` },
+            { value: "dni", label: "DNI / otros" },
+          ]}
+        />
+        <FilterSelect
+          label="Contacto"
+          value={contactFilter}
+          onValueChange={(value) => setContactFilter(value as typeof contactFilter)}
+          options={[
+            { value: "all", label: "Cualquier contacto" },
+            { value: "complete", label: "Teléfono y correo" },
+            { value: "incomplete", label: "Datos incompletos" },
+            { value: "without_phone", label: "Sin teléfono" },
+            { value: "without_email", label: "Sin correo" },
+          ]}
+        />
+      </AdvancedFilterBar>}
 
       {/* ── Tabla de Proveedores ── */}
       <DataTable
@@ -351,7 +347,7 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
         rows={filtered}
         rowKey={(p) => p.id}
         defaultSort={{ key: "businessName", direction: "asc" }}
-        pageResetKey={`${search}|${statusFilter}`}
+        pageResetKey={`${search}|${statusFilter}|${documentFilter}|${contactFilter}`}
         pagination={{ defaultPageSize: 15, itemLabel: "proveedores" }}
         emptyState={{
           icon: <Building2 className="h-7 w-7" />,
@@ -366,8 +362,7 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
               variant="outline"
               size="sm"
               onClick={() => {
-                setSearch("");
-                setStatusFilter("all");
+                clearFilters();
               }}
               className="text-xs rounded-xl"
             >
@@ -388,6 +383,42 @@ export function SuppliersTable({ initialSuppliers }: SuppliersTableProps) {
         supplierToEdit={supplierToEdit}
         onSuccess={handleSuccess}
       />
-    </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onValueChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="flex min-w-[145px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      {label}
+      <Select
+        value={value}
+        items={options}
+        onValueChange={(nextValue) => onValueChange(nextValue ?? options[0].value)}
+      >
+        <SelectTrigger className="h-9 w-full rounded-lg bg-background text-xs font-normal normal-case tracking-normal">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
   );
 }

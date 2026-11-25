@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Banknote, BookOpenCheck, Calculator, CheckCircle2, Edit2, Eye, FileText, Landmark, RotateCcw, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
@@ -31,7 +33,8 @@ const STATUS_TONE = { Borrador: "warning", Aprobada: "info", Pagada: "success" }
 
 export default function PayrollPage() {
   const { can } = usePermissions();
-  const [month, setMonth] = useState(previousMonth);
+  const defaultMonth = previousMonth();
+  const [month, setMonth] = useState(defaultMonth);
   const [period, setPeriod] = useState<PayrollPeriodDto | null>(null);
   const [history, setHistory] = useState<PayrollPeriodDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,8 @@ export default function PayrollPage() {
   const [editing, setEditing] = useState<PayrollLineDto | null>(null);
   const [paying, setPaying] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [y, m] = month.split("-").map(Number);
 
@@ -84,6 +89,10 @@ export default function PayrollPage() {
 
   const p = period;
   const draft = p?.status === "Borrador";
+  const query = search.trim().toLowerCase();
+  const visibleLines = (p?.lines ?? []).filter(
+    (line) => !query || line.employee_name.toLowerCase().includes(query) || (line.position ?? "").toLowerCase().includes(query),
+  );
   const columns: DataTableColumn<PayrollLineDto>[] = [
     {
       key: "employee",
@@ -145,7 +154,7 @@ export default function PayrollPage() {
     <>
       <ModuleHeader title="Planilla de sueldos" subtitle="Cálculo mensual, boletas de pago y su impacto contable" icon={Wallet}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Input type="month" value={month} max={todayIso().slice(0, 7)} onChange={(e) => e.target.value && setMonth(e.target.value)} className="h-9 w-44 text-xs" aria-label="Mes de la planilla" />
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           {can("planilla.crear") && (!p || draft) && (
             <AppButton size="sm" variant="soft" icon={<Calculator />} loading={busy === "calc"} onClick={calculate}>
               {p ? "Recalcular" : "Calcular planilla"}
@@ -195,9 +204,26 @@ export default function PayrollPage() {
           <StatCard layout="label-first" tone="amber" icon={<Landmark />} label="Aportes del empleador" value={money.format(p?.total_employer ?? 0)} footerLeft="EsSalud + seguros" />
         </div>
 
+        {filtersOpen && (
+          <AdvancedFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar trabajador o cargo..."
+            activeFilterCount={(search.trim() ? 1 : 0) + (month !== defaultMonth ? 1 : 0)}
+            hasActiveFilters={search.trim() !== "" || month !== defaultMonth}
+            onClear={() => {
+              setSearch("");
+              setMonth(defaultMonth);
+            }}
+            resultCount={visibleLines.length}
+            itemLabel="boletas"
+          >
+            <Input type="month" value={month} max={todayIso().slice(0, 7)} onChange={(e) => e.target.value && setMonth(e.target.value)} className="h-9 w-44 text-xs" aria-label="Mes de la planilla" />
+          </AdvancedFilterBar>
+        )}
         <DataTable
           columns={columns}
-          rows={p?.lines ?? []}
+          rows={visibleLines}
           rowKey={(l) => l.payroll_id}
           loading={loading}
           loadingMode="auto"
