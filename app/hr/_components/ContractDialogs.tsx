@@ -13,7 +13,7 @@ import type { ContractDto } from "@/lib/services/hr/contracts.service";
 import type { EmployeeDto } from "@/lib/services/hr/employees.service";
 import { CONTRACT_TYPE_LABEL, LABOR_REGIME_LABEL, addDaysIso } from "@/lib/services/hr/labor-rules";
 import { api, fmtDate, money } from "../_lib/hr-client";
-import { PersonalFields, emptyPersonal, type PersonalData } from "../employees/EmployeeForm";
+import { PersonalFields, birthDateError, emptyPersonal, type PersonalData } from "../employees/EmployeeForm";
 import {
   ContractTermsFields,
   ScheduleFields,
@@ -91,6 +91,8 @@ export function HireWizard({ open, onClose, onHired }: { open: boolean; onClose:
     if (current === "Datos personales") {
       if (!/^\d{8}$/.test(personal.dni)) return "El DNI debe tener 8 dígitos";
       if (!personal.first_name.trim() || !personal.paternal_last_name.trim()) return "Completa el nombre y el apellido paterno";
+      const birthError = birthDateError(personal.birth_date);
+      if (birthError) return birthError;
     }
     if (current === "Contrato") {
       if (!contract.position.trim() || !contract.area.trim()) return "Indica el cargo y el área";
