@@ -1,439 +1,64 @@
+/**
+ * Orquestador de seeds. Ejecuta, en orden:
+ *   1. Configuración inicial  (prisma/seeds/01-config.ts)  · obligatorio
+ *   2. Datos maestros         (prisma/seeds/02-master.ts)
+ *   3. Datos de demostración  (prisma/seeds/03-demo.ts)    · se omite con SEED_DEMO=false
+ *
+ * Uso:
+ *   npm run db:seed                 → corre los tres seeds (idempotente)
+ *   npm run db:seed -- --auto       → igual, pero se salta todo si la base ya está sembrada
+ *                                      (es lo que ejecutan `npm run dev` y `npm start` al arrancar)
+ *   npm run db:seed -- --only=config|master|demo
+ *   npm run db:reset                → respaldo + vaciado de TODA la base + seeds (ver prisma/reset-db.ts)
+ *
+ * Es seguro ejecutarlo varias veces: nunca borra ni pisa datos existentes.
+ */
 import { PrismaClient } from "@prisma/client";
-import { seedAccounts } from "./seed-accounts";
-import bcrypt from "bcryptjs";
-import { seedRolesPermissions } from "./seed-roles";
-import { seedBranding } from "./seed-branding";
+import { PERMISSIONS_CATALOG } from "../lib/auth/permissions-catalog";
 
-const prisma = new PrismaClient();
+// Cliente compartido: los servicios del sistema (importados por el seed de demostración) reutilizan este mismo.
+const g = globalThis as unknown as { prisma?: PrismaClient };
+g.prisma = new PrismaClient({ log: ["warn", "error"] });
+const prisma = g.prisma;
+
+/** ¿Ya está sembrada la configuración mínima? (consulta barata para el arranque automático) */
+async function alreadySeeded(): Promise<boolean> {
+  const [admin, permissions, accounts, products] = await Promise.all([
+    prisma.user.count({ where: { username: "admin" } }),
+    prisma.permission.count(),
+    prisma.accountingAccount.count(),
+    prisma.product.count(),
+  ]);
+  return admin > 0 && permissions === PERMISSIONS_CATALOG.length && accounts > 0 && products > 0;
+}
 
 async function main() {
-  console.log("🌱 Iniciando población de base de datos para la Pollería...");
+  const args = process.argv.slice(2);
+  const only = args.find((a) => a.startsWith("--only="))?.split("=")[1];
 
-  // 0. HUSO HORARIO DE LA BASE DE DATOS (Trujillo, La Libertad, Perú / UTC-5)
-  try {
-    await prisma.$executeRawUnsafe("SET timezone TO 'America/Lima';");
-    console.log("✔ Zona horaria de la sesión configurada a 'America/Lima' (Trujillo, Perú).");
-  } catch (tzErr) {
-    console.warn("⚠️ Aviso al configurar timezone en sesión:", tzErr);
+  if (args.includes("--auto") && (await alreadySeeded())) {
+    console.log("🌱 Base de datos ya inicializada: no hace falta sembrar.");
+    return;
   }
 
-  // 1. CLIENTE GENÉRICO (para ventas rápidas en caja)
-  const existingCustomer = await prisma.customer.findFirst({
-    where: { documentNumber: "00000000" },
-  });
-  if (!existingCustomer) {
-    await prisma.customer.create({
-      data: {
-        documentNumber: "00000000",
-        firstName: "CLIENTES VARIOS",
-        lastName: "",
-        phone: "000000000",
-        personType: "Natural",
-        active: true,
-      },
-    });
-  }
-  console.log("✔ Cliente genérico '00000000' registrado.");
+  console.log("🌱 Poblando la base de datos de la Pollería…");
+  const { seedConfig } = await import("./seeds/01-config");
+  const { seedMaster } = await import("./seeds/02-master");
+  const { seedDemo } = await import("./seeds/03-demo");
 
-  // 3. ADMIN USER CREATION
-  // Ensure admin role exists
-  const adminRole = await prisma.role.upsert({
-    where: { name: "ADMIN" },
-    update: {},
-    create: { name: "ADMIN", description: "Administrador del sistema", active: true },
-  });
+  if (!only || only === "config") await seedConfig(prisma);
+  if (!only || only === "master") await seedMaster(prisma);
+  if (!only || only === "demo") await seedDemo(prisma);
 
-  // Ensure an employee record for admin exists
-  const adminEmployee = await prisma.employee.upsert({
-    where: { dni: "00000001" },
-    update: {},
-    create: {
-      dni: "00000001",
-      firstName: "Admin",
-      paternalLastName: "User",
-      birthDate: new Date("1990-01-01"),
-      hireDate: new Date(),
-      active: true,
-    },
-  });
-
-  // Ensure admin user exists with email
-  const hashedPassword = await bcrypt.hash("Password123!", 10);
-  await prisma.user.upsert({
-    where: { username: "admin" },
-    update: {
-      email: "admin@example.com",
-      password: hashedPassword,
-    },
-    create: {
-      username: "admin",
-      email: "admin@example.com",
-      password: hashedPassword,
-      employeeId: adminEmployee.id,
-      roleId: adminRole.id,
-      active: true,
-    },
-  });
-  console.log("✔ Usuario admin creado o actualizado.");
-    await seedRolesPermissions(prisma);
-    await seedBranding(prisma);
-
-  // 1.1 CAJA REGISTRADORA Y SESIÓN INICIAL
-  const mainRegister = await prisma.cashRegister.upsert({
-    where: { code: 'CAJA-01' },
-    update: { active: true },
-    create: {
-      name: 'Caja Principal - Salón',
-      code: 'CAJA-01',
-      description: 'Caja registradora principal del salón',
-      active: true,
-    },
-  });
-
-  const adminUser = await prisma.user.findUnique({ where: { username: 'admin' } });
-  if (adminUser) {
-    await prisma.cashSession.updateMany({
-      where: { status: 'OPEN' },
-      data: { status: 'CLOSED', closedAt: new Date() },
-    });
-    await prisma.cashSession.create({
-      data: {
-        cashRegisterId: mainRegister.id,
-        openedById: adminUser.id,
-        initialAmount: 100,
-        status: 'OPEN',
-        openedAt: new Date(),
-      },
-    });
-    console.log('✔ Sesión de caja abierta para el turno inicial.');
-  }
-
-  // 1.2 PROVEEDOR Y MATERIA PRIMA POR DEFECTO
-  const defaultSupplier = await prisma.supplier.findFirst({
-    where: { ruc: '20100154308' },
-  });
-  if (!defaultSupplier) {
-    await prisma.supplier.create({
-      data: {
-        ruc: '20100154308',
-        businessName: 'Corporación Avícola San Fernando S.A.',
-        contactPerson: 'Carlos San Fernando',
-        phone: '987654321',
-        email: 'ventas@sanfernando.com.pe',
-        address: 'Av. República de Panamá 4295, Surquillo, Lima',
-        active: true,
-      },
-    });
-    console.log('✔ Proveedor San Fernando registrado.');
-  }
-
-  const defaultRawChicken = await prisma.product.findFirst({
-    where: { name: 'Pollo entero', type: 'RawMaterial' },
-  });
-  if (!defaultRawChicken) {
-    await prisma.product.create({
-      data: {
-        name: 'Pollo entero',
-        description: 'Pollo entero eviscerado crudo para marinado y brasa',
-        type: 'RawMaterial',
-        unitOfMeasure: 'KG',
-        currentStock: 0,
-        minimumStock: 20,
-        sellable: false,
-        active: true,
-      },
-    });
-    console.log('✔ Insumo Pollo entero registrado con stock inicial 0.');
-  } else {
-    await prisma.product.update({
-      where: { id: defaultRawChicken.id },
-      data: { currentStock: 0 },
-    });
-    console.log('✔ Insumo Pollo entero reiniciado a stock 0 para pruebas.');
-  }
-
-  // 2. MÉTODOS DE PAGO
-  const paymentMethods = [
-    "Efectivo",
-    "Yape",
-    "Tarjeta / POS",
-    "Transferencia",
-  ];
-
-  for (const name of paymentMethods) {
-    const exists = await prisma.paymentType.findFirst({ where: { name } });
-    if (!exists) {
-      await prisma.paymentType.create({
-        data: { name, active: true },
-      });
-    }
-  }
-  console.log("✔ Métodos de pago registrados (Efectivo, Yape, Plin, Tarjeta / POS).");
-
-  // 3. MESAS DEL SALÓN (Mesas 1 a 12 con distintas capacidades)
-  // Cancelar cualquier pedido de mesa previo para que inicien libres en pruebas
-  await prisma.salesOrder.updateMany({
-    where: { orderType: "Mesa", status: { notIn: ["Closed", "Cancelled"] } },
-    data: { status: "Cancelled" },
-  }).catch(() => null);
-
-  const tablesData = [
-    { number: 1, capacity: 2 },
-    { number: 2, capacity: 2 },
-    { number: 3, capacity: 4 },
-    { number: 4, capacity: 4 },
-    { number: 5, capacity: 4 },
-    { number: 6, capacity: 4 },
-    { number: 7, capacity: 6 },
-    { number: 8, capacity: 6 },
-    { number: 9, capacity: 6 },
-    { number: 10, capacity: 8 },
-    { number: 11, capacity: 8 },
-    { number: 12, capacity: 10 },
-  ];
-
-  for (const table of tablesData) {
-    await prisma.diningTable.upsert({
-      where: { number: table.number },
-      update: { capacity: table.capacity, active: true },
-      create: { number: table.number, capacity: table.capacity, active: true },
-    });
-  }
-  console.log("✔ 12 Mesas del salón registradas y marcadas como disponibles.");
-
-  // 3.1 SALONES Y ÁREAS DEL RESTAURANTE
-  const defaultAreas = [
-    {
-      id: "area-1",
-      name: "Salón Principal",
-      level: "Piso 1",
-      description: "Salón central climatizado, cerca a caja y recepción.",
-      tableNumbers: [1, 2, 3, 4, 5, 6],
-      active: true,
-      color: "emerald",
-    },
-    {
-      id: "area-2",
-      name: "Terraza",
-      level: "Piso 1 (Exterior)",
-      description: "Área abierta al aire libre con vista a la avenida.",
-      tableNumbers: [7, 8, 9],
-      active: true,
-      color: "amber",
-    },
-    {
-      id: "area-3",
-      name: "Segundo Piso (Familiar)",
-      level: "Piso 2",
-      description: "Ambiente espacioso para grupos grandes y familias.",
-      tableNumbers: [10, 11, 12],
-      active: true,
-      color: "blue",
-    },
-    {
-      id: "area-4",
-      name: "Barra & Lounge",
-      level: "Piso 1",
-      description: "Mesas altas y atención rápida de bebidas y piqueos.",
-      tableNumbers: [],
-      active: false,
-      color: "purple",
-    },
-  ];
-
-  for (const area of defaultAreas) {
-    await prisma.diningArea.upsert({
-      where: { id: area.id },
-      update: {
-        name: area.name,
-        level: area.level,
-        description: area.description,
-        tableNumbers: area.tableNumbers,
-        active: area.active,
-        color: area.color,
-      },
-      create: {
-        id: area.id,
-        name: area.name,
-        level: area.level,
-        description: area.description,
-        tableNumbers: area.tableNumbers,
-        active: area.active,
-        color: area.color,
-      },
-    });
-  }
-  console.log("✔ Salones y áreas registradas.");
-
-  // 3.2 CONFIGURACIÓN DE IMPRESORAS Y COMPROBANTES
-  await prisma.printerConfig.upsert({
-    where: { id: "default" },
-    update: {},
-    create: {
-      id: "default",
-      paperWidth: "80mm",
-      autoCut: true,
-      autoPrintVoucher: true,
-      printWaiterCopy: false,
-      series: {
-        boleta: "B001",
-        factura: "F001",
-        ticket: "T001",
-      },
-      kitchenPrinter: {
-        name: "Comandera Cocina (Epson TM-T20III)",
-        ipOrPort: "192.168.1.200:9100",
-        active: true,
-        autoPrintOnOrder: true,
-      },
-      barPrinter: {
-        name: "Comandera Bar / Bebidas",
-        ipOrPort: "192.168.1.201:9100",
-        active: false,
-        autoPrintOnOrder: false,
-      },
-      cashierPrinter: {
-        name: "Impresora Térmica Caja 80mm",
-        ipOrPort: "USB001 / Local",
-        active: true,
-      },
-    },
-  });
-  console.log("✔ Configuración de impresoras térmicas registrada.");
-
-  // 3.3 CONFIGURACIÓN DE IDENTIDAD DEL RESTAURANTE Y YAPE
-  await prisma.restaurantConfig.upsert({
-    where: { id: "default" },
-    update: {},
-    create: {
-      id: "default",
-      name: "POLLERÍA & BRASAS EL BUEN SABOR S.A.C.",
-      commercialName: "El Buen Sabor a la Brasa",
-      ruc: "20608976543",
-      address: "Av. Los Héroes 456, San Juan de Miraflores",
-      city: "Lima, Perú",
-      phone: "+51 987 654 321",
-      email: "contacto@elbuensabor.pe",
-      ticketFooter: "¡Gracias por su visita! Pollería & Brasas les desea un excelente día. Para comprobante electrónico visite www.elbuensabor.pe",
-      currency: "S/ PEN",
-      logoUrl: "",
-      yapePhone: "954316272",
-      yapeName: "El Buen Sabor a la Brasa",
-      yapeQrImageUrl: "/storage/comprobantes/restaurant/yape-qr.png",
-    },
-  });
-  console.log("✔ Identidad del restaurante y configuración de Yape registradas en PostgreSQL.");
-
-  // 4. CARTA DE PRODUCTOS DE LA POLLERÍA (productos terminados que se venden)
-  const productsData = [
-    {
-      name: "1/4 Pollo a la Brasa",
-      description: "1/4 de pollo a la brasa tradicional con papas fritas crocantes, ensalada clásica y cremas caseras.",
-      price: 21.9,
-    },
-    {
-      name: "1/2 Pollo a la Brasa",
-      description: "1/2 pollo a la brasa jugoso con papas fritas familiares, ensalada y cremas.",
-      price: 39.9,
-    },
-    {
-      name: "1 Pollo a la Brasa Entero",
-      description: "1 pollo entero a la brasa con porción familiar de papas fritas, ensalada grande y cremas surtidas.",
-      price: 72.9,
-    },
-    {
-      name: "Mostrito Brasa Clásico",
-      description: "1/4 de pollo a la brasa acompañado de arroz chaufa al wok, papas fritas y cremas.",
-      price: 24.9,
-    },
-    {
-      name: "Mostrito Especial",
-      description: "1/4 de pollo a la brasa + chaufa especial + papas + huevo frito montado y plátano frito.",
-      price: 27.5,
-    },
-    {
-      name: "Porción de Papas Fritas",
-      description: "Papas amarillas crocantes seleccionadas con sal marina.",
-      price: 12.0,
-    },
-    {
-      name: "Tequeños Brasa (8 unidades)",
-      description: "Tequeños rellenos de pollo a la brasa y queso, con crema de palta artesanal.",
-      price: 16.0,
-    },
-    {
-      name: "Porción de Arroz Chaufa de Pollo",
-      description: "Arroz chaufa salteado al wok con trozos de pollo, cebolla china y sillao.",
-      price: 14.0,
-    },
-    {
-      name: "Ensalada Clásica Familiar",
-      description: "Lechuga fresca, rodajas de tomate, pepino, palta y vinagreta de la casa.",
-      price: 10.0,
-    },
-    {
-      name: "Inca Kola 1.5L",
-      description: "Gaseosa Inca Kola en botella no retornable.",
-      price: 10.0,
-    },
-    {
-      name: "Coca Cola 1.5L",
-      description: "Gaseosa Coca Cola en botella no retornable.",
-      price: 10.0,
-    },
-    {
-      name: "Jarra de Chicha Morada 1L",
-      description: "Chicha morada casera preparada con maíz morado, piña, manzana y canela.",
-      price: 12.0,
-    },
-    {
-      name: "Jarra de Maracuyá 1L",
-      description: "Refresco natural de maracuyá helada.",
-      price: 12.0,
-    },
-    {
-      name: "Agua Mineral 600ml",
-      description: "Agua mineral sin gas personal.",
-      price: 4.0,
-    },
-  ];
-
-  // Stock inicial disponible para platos de la carta del salón
-  for (const product of productsData) {
-    const exists = await prisma.product.findFirst({ where: { name: product.name, sellable: true } });
-    if (!exists) {
-      await prisma.product.create({
-        data: {
-          name: product.name,
-          description: product.description,
-          price: product.price,
-          type: "FinishedProduct",
-          unitOfMeasure: "UND",
-          currentStock: 50,
-          minimumStock: 5,
-          sellable: true,
-          active: true,
-        },
-      });
-    } else {
-      await prisma.product.update({
-        where: { id: exists.id },
-        data: { currentStock: 50, active: true },
-      });
-    }
-  }
-  console.log(`✔ ${productsData.length} productos registrados en la carta.`);
-
-  // 5. CATÁLOGO DE CUENTAS CONTABLES (PCGE 2019 simplificado para la pollería)
-  await seedAccounts(prisma);
-
-  console.log("✨ Población de datos completada con éxito!");
+  console.log("\n✨ Seeds completados.");
+  console.log("   Usuario administrador: admin / contraseña inicial «Password123!» (cámbiala al ingresar).");
 }
 
 main()
   .catch((e) => {
     console.error("❌ Error al poblar la base de datos:", e);
-    process.exit(1);
+    // En el arranque automático un fallo del seed no debe impedir levantar el sistema.
+    if (!process.argv.includes("--auto")) process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

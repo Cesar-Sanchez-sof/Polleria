@@ -35,8 +35,9 @@ export const USE_CASES: Record<string, UseCaseEntry> = {
   "PATCH /api/users/{id}": { uses: ["Desactivar el usuario de un trabajador que renunció sin borrar su historial."] },
   "GET /api/roles": { uses: ["Listar los roles (Administrador, Cajero, Mozo, Cocina) y sus permisos."] },
   "POST /api/roles": { uses: ["Crear el rol «Supervisor de salón» con permisos de pedidos y caja, sin contabilidad."] },
+  "GET /api/roles/dashboards": { uses: ["Mostrar en el formulario de un rol la lista de tableros para marcar a cuáles puede entrar o cuáles puede editar."] },
   "GET /api/roles/{id}": { uses: ["Ver el detalle de permisos de un rol antes de editarlo."] },
-  "PUT /api/roles/{id}": { uses: ["Quitar el permiso de anular ventas a un rol de mozos."] },
+  "PUT /api/roles/{id}": { uses: ["Quitar el permiso de anular ventas a un rol de mozos.", "Dar al rol «Supervisor» acceso de solo lectura al tablero de ventas diarias."] },
   "DELETE /api/roles/{id}": { uses: ["Eliminar un rol obsoleto que ya no tiene usuarios asignados."] },
   "GET /api/audit-logs": { uses: ["Investigar quién anuló una venta o modificó un precio y a qué hora.", "Exportar la bitácora para una revisión de control interno."] },
 

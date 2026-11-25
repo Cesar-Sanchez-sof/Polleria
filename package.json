@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "tsx prisma/seed.ts --auto",
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "prestart": "tsx prisma/seed.ts --auto",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -13,12 +15,14 @@
     "test:load:local": "node scripts/load-tests/local-stress-suite.mjs",
     "test:load:break": "node scripts/load-tests/local-stress-suite.mjs --mode=stress",
     "postinstall": "prisma generate",
-    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:backup": "tsx scripts/backup-db.ts",
+    "db:reset": "tsx scripts/backup-db.ts && tsx prisma/reset-db.ts --yes && tsx prisma/seed.ts",
     "test:e2e": "node scripts/run-e2e.mjs",
-    "db:seed:hr": "npx tsx prisma/seed-hr-demo.ts"
+    "db:seed:hr": "tsx prisma/seed-hr-demo.ts"
   },
   "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
@@ -60,8 +64,8 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml-crypto": "^6.0.0",
     "xmlbuilder2": "^3.1.1",
-    "zustand": "^5.1.0",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
@@ -69,6 +73,7 @@
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/adm-zip": "^0.5.7",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -80,9 +85,9 @@
     "prisma": "^6.12.0",
     "shadcn": "^1.0.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^4.1.11",
-    "@types/js-yaml": "^4.0.9"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "adm-zip": "^0.6.1",

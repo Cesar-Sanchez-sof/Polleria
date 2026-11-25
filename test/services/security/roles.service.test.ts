@@ -9,6 +9,9 @@ const m = vi.hoisted(() => ({
   rpDeleteMany: vi.fn(),
   rpCreateMany: vi.fn(),
   userFindUnique: vi.fn(),
+  dashboardCount: vi.fn(),
+  draDeleteMany: vi.fn(),
+  draCreateMany: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -17,6 +20,8 @@ vi.mock("@/lib/prisma", () => {
     permission: { findMany: m.permissionFindMany },
     rolePermission: { deleteMany: m.rpDeleteMany, createMany: m.rpCreateMany },
     user: { findUnique: m.userFindUnique },
+    dashboard: { count: m.dashboardCount },
+    dashboardRoleAccess: { deleteMany: m.draDeleteMany, createMany: m.draCreateMany },
     $transaction: (fn: (tx: unknown) => unknown) => fn(db),
   };
   return { prisma: db };
@@ -39,11 +44,13 @@ function roleWithRelations(extra: Partial<{ id: number; name: string; isSystem: 
     isSystem: extra.isSystem ?? false,
     _count: { users: extra.users ?? 0 },
     permissions: [{ permission: { code: "pedidos.ver" } }],
+    dashboardAccess: [] as Array<{ dashboardId: string; canView: boolean; canEdit: boolean }>,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  m.dashboardCount.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.length);
   m.permissionFindMany.mockImplementation(async ({ where }: { where: { code: { in: string[] } } }) =>
     where.code.in.map((_, i) => ({ id: i + 1 })),
   );
@@ -145,5 +152,44 @@ describe("conexión con usuarios", () => {
     await expect(verifyModifiableUser(1, true)).resolves.toBeUndefined();
     m.userFindUnique.mockResolvedValue({ role: { isSystem: false } });
     await expect(verifyModifiableUser(2, false)).resolves.toBeUndefined();
+  });
+});
+
+describe("acceso del rol a tableros", () => {
+  beforeEach(() => {
+    m.roleFindUnique.mockResolvedValue(roleWithRelations());
+  });
+
+  it("al crear guarda los tableros (editar implica ver) y descarta los sin acceso", async () => {
+    await createRole({
+      name: "SUPERVISOR",
+      permissions: ["pedidos.ver"],
+      dashboards: [
+        { dashboard_id: "d1", can_view: false, can_edit: true },
+        { dashboard_id: "d2", can_view: true, can_edit: false },
+        { dashboard_id: "d3", can_view: false, can_edit: false },
+      ],
+    });
+    expect(m.draDeleteMany).toHaveBeenCalledWith({ where: { roleId: 5 } });
+    expect(m.draCreateMany).toHaveBeenCalledWith({
+      data: [
+        { roleId: 5, dashboardId: "d1", canView: true, canEdit: true },
+        { roleId: 5, dashboardId: "d2", canView: true, canEdit: false },
+      ],
+    });
+  });
+
+  it("si no se envía `dashboards` no toca el acceso existente", async () => {
+    m.roleFindUnique.mockResolvedValue({ ...roleWithRelations(), name: "CAJERO" });
+    await updateRole(5, { name: "CAJERO", permissions: ["pedidos.ver"] });
+    expect(m.draDeleteMany).not.toHaveBeenCalled();
+    expect(m.draCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza tableros inexistentes", async () => {
+    m.dashboardCount.mockResolvedValue(0);
+    await expect(
+      createRole({ name: "SUPERVISOR", permissions: [], dashboards: [{ dashboard_id: "x", can_view: true, can_edit: false }] }),
+    ).rejects.toThrow("tableros");
   });
 });
