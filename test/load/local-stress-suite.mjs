@@ -11,7 +11,7 @@
  * Uso:
  *   npm run test:load:local
  *   npm run test:load:break
- *   node scripts/load-tests/local-stress-suite.mjs --mode=stress --with-reniec --with-s3-write
+ *   node test/load/local-stress-suite.mjs --mode=stress --with-reniec --with-s3-write
  */
 
 import fs from "node:fs";

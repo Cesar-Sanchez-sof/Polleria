@@ -412,7 +412,7 @@ def suite_document(cases: list[dict[str, Any]]) -> dict[str, Any]:
 
 def validate_cases(cases: list[dict[str, Any]]) -> None:
     """Reject generated SQL that is outside the actual read-only role/validator scope."""
-    project_root = Path(__file__).resolve().parents[2]
+    project_root = Path(__file__).resolve().parents[3]
     service_src = project_root / "agents-service" / "src"
     if str(service_src) not in sys.path:
         sys.path.insert(0, str(service_src))

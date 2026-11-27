@@ -29,7 +29,7 @@ El evaluador no carga ni compara la `DATABASE_URL` de escritura del ERP: usa la 
 
 ## 3. Verificar los casos
 
-El archivo incluido `eval/sql/benchmark_cases_350.json` tiene 350 casos bajo la clave `casos`. El evaluador también acepta los campos de pregunta `pregunta`, `question` o `query`, y los campos SQL de referencia `sql_gold`, `gold_sql` o `expected_sql`.
+El archivo incluido `test/agents/sql/benchmark_cases_350.json` tiene 350 casos bajo la clave `casos`. El evaluador también acepta los campos de pregunta `pregunta`, `question` o `query`, y los campos SQL de referencia `sql_gold`, `gold_sql` o `expected_sql`.
 
 El generador produce 35 formas de consulta × 10 meses completos recientes, equilibradas entre ventas, compras, caja, inventario y contabilidad. Antes de guardar, valida las 350 consultas con el `SqlValidator` y la allowlist efectiva del rol `contador_demo`; si una consulta no pasa, detiene la generación sin reemplazar el archivo.
 
@@ -37,9 +37,9 @@ Para validar el generador sin llamar a un proveedor ni a PostgreSQL y regenerar 
 
 ```powershell
 python -m unittest eval.sql.test_generate_benchmark_suite
-python eval\sql\generate_benchmark_suite.py
+python test/agents/sql\generate_benchmark_suite.py
 # Alternativamente, si Node.js está instalado:
-node eval\sql\generate_suite.js
+node test/agents/sql\generate_suite.js
 ```
 
 La regeneración sobrescribe el JSON existente.
@@ -74,9 +74,9 @@ Groq aplica un limitador móvil de hasta 30 solicitudes y 8.000 tokens por minut
 
 ## 5. Consultar resultados
 
-- Informe Markdown, actualizado en cada corrida: `eval\sql\reports\report.md`
-- Resultados completos JSON, uno por corrida: `eval\sql\results\report_YYYYMMDD_HHMMSS.json`
+- Informe Markdown, actualizado en cada corrida: `test/agents/sql\reports\report.md`
+- Resultados completos JSON, uno por corrida: `test/agents/sql\results\report_YYYYMMDD_HHMMSS.json`
 
 ```powershell
-Get-Content .\eval\sql\reports\report.md
+Get-Content .\test/agents/sql\reports\report.md
 ```

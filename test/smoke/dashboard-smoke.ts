@@ -9,10 +9,10 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { SEMANTIC_DATASETS } from "../lib/dashboards/semantic-model";
-import { executeDashboardQueryService } from "../lib/services/settings/dashboard-query.service";
-import type { FilterRule } from "../lib/dashboards/widget-schema";
-import { prisma } from "../lib/prisma";
+import { SEMANTIC_DATASETS } from "@/lib/dashboards/semantic-model";
+import { executeDashboardQueryService } from "@/lib/services/settings/dashboard-query.service";
+import type { FilterRule } from "@/lib/dashboards/widget-schema";
+import { prisma } from "@/lib/prisma";
 
 interface SmokeReportItem {
   dataset: string;

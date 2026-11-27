@@ -3,7 +3,7 @@
  * Verifica lo que dicen los casos de prueba de docs/qa. Deja datos de prueba con DNI 999xxxxx y usuarios «qa.*»
  * (se limpian con `npx tsx prisma/qa-cleanup.ts`).
  *
- * Uso:  BASE_URL=http://localhost:3000 node scripts/qa-smoke-rrhh-seguridad.mjs
+ * Uso:  BASE_URL=http://localhost:3000 node test/smoke/hr-security-smoke.mjs
  *       (por defecto admin / Password123! y mvega / Demo2026!; cámbialos con ADMIN_PASSWORD, RRHH_USER, RRHH_PASSWORD)
  */
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";

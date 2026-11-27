@@ -213,24 +213,24 @@ A continuación se detallan ejemplos representativos de cada estrato integrados 
 
 ## 5. Evaluador SQL implementado
 
-La implementación mantenida está en `eval/sql/`; el ejecutor heredado ya no forma parte del proyecto.
+La implementación mantenida está en `test/agents/sql/`; el ejecutor heredado ya no forma parte del proyecto.
 
-1. `eval/sql/evaluate_agents.py` carga `eval/sql/benchmark_cases_350.json`.
+1. `test/agents/sql/evaluate_agents.py` carga `test/agents/sql/benchmark_cases_350.json`.
 2. Evalúa los proveedores configurados Gemini y/o Groq, uno por uno.
 3. Usa el agente y su conexión PostgreSQL de solo lectura para generar y ejecutar el SQL. Después valida y ejecuta el SQL gold con el mismo `SqlValidator` y el mismo ejecutor read-only.
-4. Calcula EM por comparación textual normalizada; EX por igualdad de resultados; y VES con la fórmula descrita en `eval/sql/Ejecucion.md`. TS se reporta `N/D`: no se configura una suite de bases mutadas.
-5. Escribe `eval/sql/reports/report.md` y un resultado JSON nuevo bajo `eval/sql/results/` en cada corrida. Muestra SQL gold y generada en la terminal y los informes.
+4. Calcula EM por comparación textual normalizada; EX por igualdad de resultados; y VES con la fórmula descrita en `test/agents/sql/execution.md`. TS se reporta `N/D`: no se configura una suite de bases mutadas.
+5. Escribe `test/agents/sql/reports/report.md` y un resultado JSON nuevo bajo `test/agents/sql/results/` en cada corrida. Muestra SQL gold y generada en la terminal y los informes.
 
 El diseño metodológico de EM por AST, VES basado en `EXPLAIN ANALYZE` y TS sobre bases mutadas que se describe más abajo es una propuesta de evaluación más amplia, no el comportamiento actual del script.
 
 ## 6. Generación del Banco de Casos (referencia histórica)
 
-A continuación se conserva un ejemplo ilustrativo antiguo; no es el generador del benchmark mantenido, no debe ejecutarse ni usarse para reemplazar la suite actual. El generador canónico es `eval/sql/generate_benchmark_suite.py`: produce los casos con alcance y SQL compatibles con el agente y los valida con el `SqlValidator` y la allowlist efectiva.
+A continuación se conserva un ejemplo ilustrativo antiguo; no es el generador del benchmark mantenido, no debe ejecutarse ni usarse para reemplazar la suite actual. El generador canónico es `test/agents/sql/generate_benchmark_suite.py`: produce los casos con alcance y SQL compatibles con el agente y los valida con el `SqlValidator` y la allowlist efectiva.
 ```python
 #!/usr/bin/env python
 """generate_suite.py – Genera 350 casos de prueba stratificados.
 
-Salida: eval/sql/benchmark_cases_350.json
+Salida: test/agents/sql/benchmark_cases_350.json
 
 Requisitos: Python≥3.10, pip install psycopg2‑binary (opcional para test de conexión).
 """
@@ -332,9 +332,9 @@ print(f"✅ {len(cases)} casos generados → {output_path}")
    ```
 2. **Generar o validar el banco canónico de casos**
    ```bash
-   python eval/sql/generate_benchmark_suite.py
+   python test/agents/sql/generate_benchmark_suite.py
    ```
-   Se actualizará `eval/sql/benchmark_cases_350.json`. Para validar la suite sin regenerarla ni llamar a proveedores:
+   Se actualizará `test/agents/sql/benchmark_cases_350.json`. Para validar la suite sin regenerarla ni llamar a proveedores:
    ```bash
    python -m unittest eval.sql.test_generate_benchmark_suite
    ```
@@ -342,7 +342,7 @@ print(f"✅ {len(cases)} casos generados → {output_path}")
    ```bash
    python -m eval.sql.evaluate_agents --provider groq
    ```
-   Para Gemini, use `--provider gemini`; sin `--provider` se evalúan los proveedores configurados. Consulte `eval/sql/Ejecucion.md` para configuración, tandas, métricas e informes.
+   Para Gemini, use `--provider gemini`; sin `--provider` se evalúan los proveedores configurados. Consulte `test/agents/sql/execution.md` para configuración, tandas, métricas e informes.
 
 ---
 

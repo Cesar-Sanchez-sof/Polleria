@@ -1,5 +1,5 @@
 /**
- * Borra los datos que deja `scripts/qa-smoke-rrhh-seguridad.mjs`: empleados con DNI 999xxxxx (o 99xxxxxx llamados «QA») (y, en cascada,
+ * Borra los datos que deja `test/smoke/hr-security-smoke.mjs`: empleados con DNI 999xxxxx (o 99xxxxxx llamados «QA») (y, en cascada,
  * sus usuarios, contratos y asistencia), usuarios «qa.*», roles «QA …» y horarios «QA evento …».
  * Uso: npx tsx prisma/qa-cleanup.ts
  */

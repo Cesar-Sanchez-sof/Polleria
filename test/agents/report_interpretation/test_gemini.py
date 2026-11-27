@@ -7,7 +7,7 @@ for line in open('agents-service/.env').read().splitlines():
         k, _, v = line.partition('=')
         env[k.strip()] = v.strip()
 
-reports_dir = Path('eval/sql/reports')
+reports_dir = Path('test/agents/sql/reports')
 parts = []
 for path in sorted(reports_dir.glob('report_*.md')):
     lines = path.read_text(encoding='utf-8', errors='replace').splitlines()

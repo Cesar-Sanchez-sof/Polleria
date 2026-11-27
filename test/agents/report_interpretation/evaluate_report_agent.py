@@ -22,7 +22,7 @@ import sys
 import time
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SERVICE_DOTENV_PATH = PROJECT_ROOT / "agents-service" / ".env"
 BENCHMARK_FILE = Path(__file__).with_name("benchmark_report_interpretation.json")
 REPORTS_DIR = PROJECT_ROOT / "eval" / "sql" / "reports"

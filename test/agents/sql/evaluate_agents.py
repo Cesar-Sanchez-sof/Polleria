@@ -16,7 +16,7 @@ from math import ceil
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 AGENTS_SRC = PROJECT_ROOT / "agents-service" / "src"
 sys.path.insert(0, str(AGENTS_SRC))
 

@@ -1,4 +1,4 @@
-// scripts/k6_load_test.js
+// test/load/k6-load-test.js
 // Load test: login automatico por VU + prueba de todos los endpoints protegidos.
 
 import http from 'k6/http';

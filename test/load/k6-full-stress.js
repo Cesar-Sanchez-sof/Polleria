@@ -1,11 +1,11 @@
 /**
  * Suite k6 Avanzada - Segunda Evaluación de Carga, Estrés y Concurrencia
  *
- * Complementa a `scripts/load-tests/local-stress-suite.mjs` para ejecutarse con Grafana k6
+ * Complementa a `test/load/local-stress-suite.mjs` para ejecutarse con Grafana k6
  * cuando esté instalado en el equipo:
- *   k6 run scripts/load-tests/k6-full-stress.js
- *   k6 run -e PROFILE=stress -e BASE_URL=http://localhost:3000 scripts/load-tests/k6-full-stress.js
- *   k6 run -e PROFILE=spike scripts/load-tests/k6-full-stress.js
+ *   k6 run test/load/k6-full-stress.js
+ *   k6 run -e PROFILE=stress -e BASE_URL=http://localhost:3000 test/load/k6-full-stress.js
+ *   k6 run -e PROFILE=spike test/load/k6-full-stress.js
  */
 
 import http from "k6/http";

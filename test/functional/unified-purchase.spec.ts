@@ -73,8 +73,15 @@ test.describe("Escenario 2: Flujo de Compra Unificada", () => {
     // 7. Ir a Kardex e Inventario -> Verificar que el stock aumentó
     await page.goto("/purchases/inventory");
 
-    // Buscar el insumo en el buscador (placeholder actual: "Buscar por código, insumo o tipo...")
-    const searchInput = page.getByPlaceholder(/Buscar por código, insumo|Buscar insumo|Buscar producto/i);
+    // El buscador vive dentro del panel de filtros avanzados (cerrado por defecto): abrirlo primero
+    const filtersToggle = page.getByRole("button", { name: /Activar filtros|Ocultar filtros/i });
+    await expect(filtersToggle).toBeVisible({ timeout: 20000 });
+    if ((await filtersToggle.getAttribute("aria-expanded")) !== "true") {
+      await filtersToggle.click();
+    }
+
+    // Buscar el insumo en el buscador (placeholder actual: "Buscar código, producto, tipo, unidad o afectación IGV...")
+    const searchInput = page.getByPlaceholder(/Buscar código, producto|Buscar por código, insumo|Buscar insumo|Buscar producto/i);
     await expect(searchInput).toBeVisible({ timeout: 15000 });
     await searchInput.fill("Pollo entero");
 

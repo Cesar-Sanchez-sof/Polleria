@@ -19,7 +19,7 @@ import { GET as realtimeGET, POST as realtimePOST } from "@/app/api/realtime/rou
 import {
   API_CATALOG,
   buildCatalogUrls,
-} from "@/scripts/load-tests/api-catalog.mjs";
+} from "@/test/load/api-catalog.mjs";
 
 const ROOT = process.cwd();
 
@@ -81,8 +81,8 @@ describe("Evaluación CA-01: Concurrencia de Peticiones HTTP a Todas las APIs", 
         }
       }
 
-      expect(missingRoutes, `Rutas sin inventario de carga (regístralas en scripts/load-tests/api-catalog.mjs): ${missingRoutes.join(", ")}`).toEqual([]);
-      expect(missingMethods, `Métodos HTTP faltantes en scripts/load-tests/api-catalog.mjs: ${missingMethods.join(", ")}`).toEqual([]);
+      expect(missingRoutes, `Rutas sin inventario de carga (regístralas en test/load/api-catalog.mjs): ${missingRoutes.join(", ")}`).toEqual([]);
+      expect(missingMethods, `Métodos HTTP faltantes en test/load/api-catalog.mjs: ${missingMethods.join(", ")}`).toEqual([]);
     });
 
     it("todos los endpoints seguros de lectura resuelven URLs concretas con query params válidos", () => {
