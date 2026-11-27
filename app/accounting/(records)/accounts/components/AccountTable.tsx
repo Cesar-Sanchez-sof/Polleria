@@ -94,7 +94,7 @@ export function AccountTable({
       <div
         className={`w-full overflow-x-auto rounded-lg transition-opacity ${loading && rows.length > 0 ? "opacity-60" : ""}`}
       >
-        <Table className="w-full text-left border-collapse min-w-30">
+        <Table className="w-full min-w-max text-left border-collapse">
           <TableHeader>
             <TableRow className="text-slate-900 text-xs font-semibold bg-slate-50/75 dark:bg-slate-800/75 hover:bg-slate-50/75">
               <TableHead className="py-3 px-3 font-bold uppercase tracking-wider text-slate-500 text-[11px] w-24">

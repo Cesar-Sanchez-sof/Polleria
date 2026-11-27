@@ -3,49 +3,42 @@
   "total_cases": 350,
   "exact_match_count": 0,
   "exact_match_rate": 0.0,
-  "execution_success_count": 350,
-  "execution_error_count": 0,
-  "execution_accuracy_count": 341,
+  "execution_success_count": 348,
+  "execution_error_count": 2,
+  "execution_accuracy_count": 339,
   "execution_incorrect_count": 9,
   "execution_accuracy_denominator": 350,
-  "execution_accuracy_rate": 0.9742857142857143,
-  "ves": 0.9605997485714285,
+  "execution_accuracy_rate": 0.9685714285714285,
+  "ves": 0.954958,
   "test_suite_accuracy": null,
-  "interrupted": false,
+  "interrupted": true,
   "cases": [
     {
       "id": "TEST-001",
       "question": "¿Cuál fue el importe total de los comprobantes emitidos en enero de 2026?",
       "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
-      "generated_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) LIMIT 50",
+      "generated_sql": null,
       "gold_rows": [
         {
           "total": "165.00"
         }
       ],
-      "generated_rows": [
-        {
-          "total_importe": "165.00"
-        }
-      ],
+      "generated_rows": null,
       "exact_match": false,
-      "execution_succeeded": true,
-      "execution_accuracy": true,
-      "ves": 0.976799,
-      "elapsed_seconds": 3.775,
-      "sql_execution_seconds": 1.636404,
-      "gold_execution_seconds": 1.561353,
-      "token_usage": {
-        "prompt_tokens": 3517,
-        "completion_tokens": 74,
-        "total_tokens": 3591
-      }
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 0.87,
+      "sql_execution_seconds": 0.0,
+      "gold_execution_seconds": 1.627251,
+      "token_usage": null,
+      "error": "GEMINI_REJECTED:HTTP_403"
     },
     {
       "id": "TEST-002",
       "question": "¿Cuánto se facturó por cada tipo de comprobante en enero de 2026?",
       "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
-      "generated_sql": "SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) GROUP BY si.voucher_type LIMIT 50",
+      "generated_sql": null,
       "gold_rows": [
         {
           "voucher_type": "Boleta",
@@ -56,28 +49,16 @@
           "total": "55.00"
         }
       ],
-      "generated_rows": [
-        {
-          "tipo_comprobante": "Boleta",
-          "total_facturado": "110.00"
-        },
-        {
-          "tipo_comprobante": "Factura",
-          "total_facturado": "55.00"
-        }
-      ],
+      "generated_rows": null,
       "exact_match": false,
-      "execution_succeeded": true,
-      "execution_accuracy": true,
-      "ves": 0.997813,
-      "elapsed_seconds": 4.706,
-      "sql_execution_seconds": 2.40168,
-      "gold_execution_seconds": 2.391186,
-      "token_usage": {
-        "prompt_tokens": 3129,
-        "completion_tokens": 87,
-        "total_tokens": 3216
-      }
+      "execution_succeeded": false,
+      "execution_accuracy": false,
+      "ves": 0.0,
+      "elapsed_seconds": 0.228,
+      "sql_execution_seconds": 0.0,
+      "gold_execution_seconds": 1.579041,
+      "token_usage": null,
+      "error": "GEMINI_REJECTED:HTTP_403"
     },
     {
       "id": "TEST-003",

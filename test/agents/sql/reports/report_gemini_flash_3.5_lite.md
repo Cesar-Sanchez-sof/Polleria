@@ -2,18 +2,18 @@
 
 | Agente | Casos | EX | VES | Correctas | Incorrectas | Errores | Ejecutadas |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| gemini flash 3.5 lite | 350 | 97.43% | 0.9606 | 341 | 9 | 0 | 350 |
+| gemini flash 3.5 lite | 350 | 96.86% | 0.9550 | 339 | 9 | 2 | 348 |
 
 **gemini flash 3.5 lite**:
-- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas. Fórmula: `Correctas / Casos = 341 / 350 = 97.43%`.
+- **EX (Execution Accuracy)**: compara el resultado devuelto en base de datos ignorando el orden de filas y los alias de columnas. Fórmula: `Correctas / Casos = 339 / 350 = 96.86%`.
 - **Desglose de ejecución**:
-  - **Correctas (EX OK)**: 341 (97.43%) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.
+  - **Correctas (EX OK)**: 339 (96.86%) — consultas ejecutadas cuyos datos coincidieron exactamente con el SQL gold.
   - **Incorrectas**: 9 (2.57%) — consultas que se ejecutaron en PostgreSQL sin error pero cuyos datos devueltos difieren del gold.
-  - **Errores**: 0 (0.00%) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).
-  - **Ejecutadas en total**: 350 (100.00%) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).
+  - **Errores**: 2 (0.57%) — consultas con error de ejecución en base de datos (sintaxis, timeout o permisos).
+  - **Ejecutadas en total**: 348 (99.43%) — total de consultas que completaron su ejecución en PostgreSQL (Correctas + Incorrectas).
 - **VES (Valid Efficiency Score)**: media de `sqrt(tiempo_gold / tiempo_generado)`, limitada a 1; las respuestas incorrectas o con error valen 0.
 
-<details><summary>TEST-001 — EX=True, VES=0.976799</summary>
+<details><summary>TEST-001 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -34,22 +34,18 @@ SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si
 **SQL generada**
 
 ```sql
-SELECT COALESCE(SUM(si.total_amount), 0) AS total_importe FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) LIMIT 50
+[SIN SQL]
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[
-  {
-    "total_importe": "165.00"
-  }
-]
+[NO EJECUTADA]
 ```
 
 </details>
 
-<details><summary>TEST-002 — EX=True, VES=0.997813</summary>
+<details><summary>TEST-002 — EX=False, VES=0.0</summary>
 
 **SQL gold**
 
@@ -75,22 +71,13 @@ SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHER
 **SQL generada**
 
 ```sql
-SELECT si.voucher_type AS tipo_comprobante, SUM(si.total_amount) AS total_facturado FROM public.sales_invoice AS si WHERE si.issued_at >= CAST('2026-01-01' AS DATE) AND si.issued_at < CAST('2026-02-01' AS DATE) GROUP BY si.voucher_type LIMIT 50
+[SIN SQL]
 ```
 
 **Respuesta SQL generada**
 
 ```json
-[
-  {
-    "tipo_comprobante": "Boleta",
-    "total_facturado": "110.00"
-  },
-  {
-    "tipo_comprobante": "Factura",
-    "total_facturado": "55.00"
-  }
-]
+[NO EJECUTADA]
 ```
 
 </details>
