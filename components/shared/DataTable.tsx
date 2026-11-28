@@ -341,7 +341,7 @@ export function DataTable<T>({
       {/* The base Table wraps <table> in its own overflow-x-auto box, which would capture the sticky
           header; it is made visible so this div is the only scroll container. */}
       <div className={cn("overflow-auto transition-opacity [&_[data-slot=table-container]]:overflow-visible", maxHeight, dimmed && "opacity-60")}>
-        <Table>
+        <Table className="min-w-max">
           <TableHeader
             className={cn(
               stickyHeader &&

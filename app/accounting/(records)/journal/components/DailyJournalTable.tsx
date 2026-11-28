@@ -162,7 +162,7 @@ export function DailyJournalTable({
           : {
               icon: <Inbox className="h-7 w-7" />,
               title: "No se encontraron asientos para el periodo seleccionado",
-              description: "Ajusta las fechas inicial y final para ampliar el rango consultado.",
+              description: "Ajusta la búsqueda, el estado o las fechas para ampliar el listado.",
               action: hasFilters ? (
                 <Button type="button" size="sm" variant="outline" onClick={onClearFilters} className="gap-1.5 text-xs">
                   <X className="h-3.5 w-3.5" />

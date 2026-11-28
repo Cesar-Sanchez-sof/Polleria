@@ -32,6 +32,7 @@ export const SECTIONS: Record<string, string[]> = {
 const LINK_PERMISSION: Record<string, string> = {
   "/dashboards": "tableros.ver",
   "/dashboards/config": "tableros.ver",
+  "/hr/directory": "empleados.ver",
   "/hr/employees": "empleados.ver",
   "/hr/contracts": "contratos.ver",
   "/hr/schedules": "horarios.ver",
@@ -126,6 +127,7 @@ const ROUTE_RULES: Array<{ prefix: string; permissions: string[] }> = [
   { prefix: "/accounting/reports/sire-compras", permissions: ["ple.ver"] },
   { prefix: "/accounting", permissions: [...RECORD_VIEWS, ...REPORT_VIEWS] },
   { prefix: "/settings", permissions: SECTIONS.settings },
+  { prefix: "/hr/directory", permissions: ["empleados.ver"] },
   { prefix: "/hr/employees", permissions: ["empleados.ver"] },
   { prefix: "/hr/contracts", permissions: ["contratos.ver"] },
   { prefix: "/hr/schedules", permissions: ["horarios.ver"] },

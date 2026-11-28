@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +9,8 @@ import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar, normalizeFilterText } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { Pencil, Users } from "lucide-react";
 import { UserForm, type Role, type UserRow } from "./UserForm";
 import { usePermissions } from "@/components/personalized/PermissionsProvider";
@@ -17,10 +19,13 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [yo, setYo] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const { can } = usePermissions();
 
   const load = useCallback(async () => {
@@ -29,7 +34,11 @@ export default function UsersPage() {
       if (!u.ok || !r.ok) throw new Error();
       setUsers(await u.json());
       setRoles(await r.json());
-      if (me.ok) setYo((await me.json()).userId);
+      if (me.ok) {
+        const meData = await me.json();
+        setYo(meData.userId);
+        setIsAdmin(Boolean(meData.superuser));
+      }
       setError(null);
     } catch {
       setError("No se pudo cargar la lista de usuarios");
@@ -58,6 +67,24 @@ export default function UsersPage() {
     setEditing(u);
     setFormOpen(true);
   }
+
+  const filteredUsers = useMemo(() => {
+    const query = normalizeFilterText(search.trim());
+    if (!query) return users;
+
+    return users.filter((user) =>
+      [
+        user.employee.first_name,
+        user.employee.middle_name ?? "",
+        user.employee.paternal_last_name,
+        user.employee.maternal_last_name ?? "",
+        user.employee.dni,
+        user.username,
+        user.email ?? "",
+        user.role.name,
+      ].some((value) => normalizeFilterText(value).includes(query))
+    );
+  }, [users, search]);
 
   const columns: DataTableColumn<UserRow>[] = [
     {
@@ -133,6 +160,7 @@ export default function UsersPage() {
   icon={Users}
 >
     <div className="flex gap-2">
+    <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
     {can("roles.ver") && (
       <Button variant="outline" nativeButton={false} render={<Link href="/security/roles" />}>Roles y permisos</Button>
     )}
@@ -147,9 +175,22 @@ export default function UsersPage() {
         </p>
       )}
 
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar usuario, nombre, documento, correo o rol..."
+          activeFilterCount={0}
+          hasActiveFilters={Boolean(search.trim())}
+          onClear={() => setSearch("")}
+          resultCount={filteredUsers.length}
+          itemLabel="usuarios"
+        />
+      )}
+
       <DataTable
         columns={columns}
-        rows={users}
+        rows={filteredUsers}
         rowKey={(u) => u.user_id}
         loading={loading}
         loadingMode="auto"
@@ -160,6 +201,7 @@ export default function UsersPage() {
         open={formOpen}
         user={editing}
         roles={roles}
+        roleLock={editing === null ? null : !isAdmin ? "Solo un administrador puede cambiar el rol de un usuario." : editing.user_id === yo ? "No puedes cambiar tu propio rol." : null}
         onClose={() => setFormOpen(false)}
         onSaved={() => {
           setFormOpen(false);

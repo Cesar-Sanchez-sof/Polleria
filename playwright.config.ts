@@ -10,7 +10,7 @@ if (fs.existsSync(envTestPath)) {
 }
 
 export default defineConfig({
-  testDir: "./test/e2e",
+  testDir: "./test/functional",
   timeout: 60000,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

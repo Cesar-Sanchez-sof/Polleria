@@ -1,6 +1,4 @@
 import React from "react";
-import { Users } from "lucide-react";
-import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { getSuppliers } from "@/lib/services/purchases/supplier";
 import { SuppliersTable } from "@/components/purchases/suppliers/SuppliersTable";
 
@@ -14,20 +12,6 @@ export default async function SuppliersPage() {
   const suppliers = await getSuppliers();
 
   return (
-    <>
-      <ModuleHeader
-        title="Gestión de Proveedores"
-        subtitle="Catálogo de proveedores y datos de contacto"
-        icon={Users}
-        iconClassName="bg-amber-100 text-amber-800"
-      />
-      <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
-        <div className="flex flex-col w-full gap-5">
-          <SuppliersTable
-            initialSuppliers={JSON.parse(JSON.stringify(suppliers))}
-          />
-        </div>
-      </main>
-    </>
+    <SuppliersTable initialSuppliers={JSON.parse(JSON.stringify(suppliers))} />
   );
 }

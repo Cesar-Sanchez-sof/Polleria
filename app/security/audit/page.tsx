@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Eye, ShieldCheck } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +55,7 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<AuditRow | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,8 +82,8 @@ export default function AuditPage() {
   const change = (field: keyof typeof EMPTY_FILTERS) => (e: { target: { value: string } }) =>
     setFilters((f) => ({ ...f, [field]: e.target.value }));
 
-  function search(e: React.FormEvent) {
-    e.preventDefault();
+  function search(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setPage(1);
     setApplied(filters);
   }
@@ -123,36 +126,52 @@ export default function AuditPage() {
         subtitle="Registro de cambios: fecha, hora, usuario, acción, módulo y detalle"
         icon={ShieldCheck}
       >
-        <form onSubmit={search} className="flex flex-wrap items-center justify-end gap-2">
-          <Input type="date" className="w-36" aria-label="Desde" value={filters.from} onChange={change("from")} />
-          <Input type="date" className="w-36" aria-label="Hasta" value={filters.to} onChange={change("to")} />
-          <Input className="w-32" placeholder="Usuario" aria-label="Usuario" value={filters.user} onChange={change("user")} />
-          <NativeSelect className="w-44" aria-label="Acción" value={filters.action} onChange={change("action")}>
-            <option value="">Todas las acciones</option>
-            {(data?.actions ?? Object.keys(ACTION_LABEL)).map((a) => (
-              <option key={a} value={a}>
-                {ACTION_LABEL[a] ?? a}
-              </option>
-            ))}
-          </NativeSelect>
-          <NativeSelect className="w-44" aria-label="Módulo" value={filters.module} onChange={change("module")}>
-            <option value="">Todos los módulos</option>
-            {(data?.modules ?? []).map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </NativeSelect>
-          <Input className="w-48" placeholder="Buscar en descripción" aria-label="Buscar" value={filters.q} onChange={change("q")} />
-          <div className="flex gap-2">
-            <Button type="submit">Filtrar</Button>
-            <Button type="button" variant="outline" onClick={clear}>
-              Limpiar
-            </Button>
-          </div>
-        </form>
+        <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
       </ModuleHeader>
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 flex flex-col gap-4">
+        {filtersOpen && (
+          <form onSubmit={search}>
+            <AdvancedFilterBar
+              search={filters.q}
+              onSearchChange={(q) => setFilters((current) => ({ ...current, q }))}
+              searchPlaceholder="Buscar en descripción"
+              activeFilterCount={
+                Number(Boolean(applied.from)) +
+                Number(Boolean(applied.to)) +
+                Number(Boolean(applied.user)) +
+                Number(Boolean(applied.action)) +
+                Number(Boolean(applied.module))
+              }
+              hasActiveFilters={Object.values(applied).some(Boolean)}
+              onClear={clear}
+              actions={
+                <Button type="submit">
+                  Filtrar
+                </Button>
+              }
+            >
+              <Input type="date" className="w-36" aria-label="Desde" value={filters.from} onChange={change("from")} />
+              <Input type="date" className="w-36" aria-label="Hasta" value={filters.to} onChange={change("to")} />
+              <Input className="w-32" placeholder="Usuario" aria-label="Usuario" value={filters.user} onChange={change("user")} />
+              <NativeSelect className="w-44" aria-label="Acción" value={filters.action} onChange={change("action")}>
+                <option value="">Todas las acciones</option>
+                {(data?.actions ?? Object.keys(ACTION_LABEL)).map((a) => (
+                  <option key={a} value={a}>
+                    {ACTION_LABEL[a] ?? a}
+                  </option>
+                ))}
+              </NativeSelect>
+              <NativeSelect className="w-44" aria-label="Módulo" value={filters.module} onChange={change("module")}>
+                <option value="">Todos los módulos</option>
+                {(data?.modules ?? []).map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </NativeSelect>
+            </AdvancedFilterBar>
+          </form>
+        )}
         <DataTable
           columns={columns}
           rows={data?.data ?? []}

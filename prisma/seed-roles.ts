@@ -103,6 +103,23 @@ ROLES_BASE.push({
 // El contador revisa la planilla y sus asientos (no la calcula ni la aprueba: segregación de funciones).
 ROLES_BASE.find((r) => r.name === "CONTADOR")?.permissions.push(...p("planilla", "ver"));
 
+// Gerente: opera todo el negocio, pero en seguridad/configuración técnica solo consulta y nunca elimina.
+const GERENTE_VIEW_ONLY = new Set(["usuarios", "roles", "desarrollador", "personalizacion"]);
+ROLES_BASE.push({
+  name: "GERENTE",
+  description: "Gestiona la operación completa del negocio; en seguridad solo consulta",
+  permissions: PERMISSIONS_CATALOG.filter((c) => (GERENTE_VIEW_ONLY.has(c.module) ? c.action === "ver" : c.action !== "eliminar")).map(
+    (c) => c.code,
+  ),
+});
+
+// Empleado: colaborador sin pantallas de gestión; usa el autoservicio (Mi horario, asistencia, boletas).
+ROLES_BASE.push({
+  name: "EMPLEADO",
+  description: "Colaborador: solo autoservicio (mi horario, mi asistencia y mis boletas)",
+  permissions: [],
+});
+
 export async function seedRolesPermissions(prisma: PrismaClient) {
   // 1. Sincroniza el catálogo (alta/actualización y baja de códigos obsoletos).
   const known = new Set((await prisma.permission.findMany({ select: { code: true } })).map((x) => x.code));

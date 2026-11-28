@@ -8,6 +8,7 @@ import { TransformationRecipeItem, RecipeProductItem } from "./RecipeDialog";
 import { TransformationDetailRecord } from "./TransformationDetailDialog";
 import { Repeat, Sparkles, History } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 
 interface TransformationViewProps {
   products: RecipeProductItem[];
@@ -21,6 +22,7 @@ export function TransformationView({
   transformations,
 }: TransformationViewProps) {
   const [activeTab, setActiveTab] = useState<"execute" | "recipes" | "history">("execute");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
     <>
@@ -89,6 +91,12 @@ export function TransformationView({
               </span>
             </button>
           </div>
+          {activeTab === "history" && (
+            <AdvancedFilterToggle
+              open={filtersOpen}
+              onToggle={() => setFiltersOpen((open) => !open)}
+            />
+          )}
       </ModuleHeader>
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
@@ -106,7 +114,10 @@ export function TransformationView({
           )}
 
           {activeTab === "history" && (
-            <TransformationsTable transformations={transformations} />
+            <TransformationsTable
+              transformations={transformations}
+              filtersOpen={filtersOpen}
+            />
           )}
         </div>
       </main>

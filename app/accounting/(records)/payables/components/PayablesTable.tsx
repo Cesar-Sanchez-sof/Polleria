@@ -2,7 +2,6 @@
 
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
 import React, { useState, useMemo } from "react";
-import { Card } from "@/components/ui/card";
 import {
   CreditCard,
   Eye,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import type { PayableInvoice } from "@/lib/services/accounting/accounting-payables.service";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tag } from "@/components/shared/TagCell";
@@ -25,9 +25,10 @@ interface PayablesTableProps {
   onRefresh: () => void;
   filters: PayablesFilters;
   onFiltersChange: (filters: PayablesFilters) => void;
+  filtersOpen: boolean;
 }
 
-export function PayablesTable({ invoices, paymentTypes, onRefresh, filters, onFiltersChange }: PayablesTableProps) {
+export function PayablesTable({ invoices, paymentTypes, onRefresh, filters, onFiltersChange, filtersOpen }: PayablesTableProps) {
   const { search, status: statusFilter, onlyOverdue, sortOrder } = filters;
   const setStatusFilter = (status: PayableStatusFilter) => onFiltersChange({ ...filters, status });
   const setOnlyOverdue = (value: boolean) => onFiltersChange({ ...filters, onlyOverdue: value });
@@ -192,9 +193,16 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh, filters, onFi
 
   return (
     <>
-      <Card className="p-5 bg-white dark:bg-card border-border/80 shadow-xs rounded-xl space-y-4">
-        {/* Status Filter Chips */}
-        <div className="flex flex-wrap items-center gap-2">
+      {filtersOpen && <AdvancedFilterBar
+        search={search}
+        onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
+        searchPlaceholder="Buscar por proveedor, RUC o N° comprobante..."
+        activeFilterCount={Number(statusFilter !== "todos") + Number(onlyOverdue)}
+        hasActiveFilters={Boolean(search.trim()) || statusFilter !== "todos" || onlyOverdue}
+        onClear={() => onFiltersChange({ ...filters, search: "", status: "todos", onlyOverdue: false })}
+        resultCount={filtered.length}
+        itemLabel={`de ${invoices.length} comprobantes`}
+      >
           <SegmentedTabs
             ariaLabel="Filtrar por estado"
             value={statusFilter}
@@ -223,25 +231,23 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh, filters, onFi
           >
             Solo Vencidos (&gt; 30 días)
           </button>
-        </div>
+      </AdvancedFilterBar>}
 
-        {/* Main Table (DataTable compartido) */}
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          rowKey={(inv) => inv.id}
-          density="compact"
-          sort={{ key: "issued", direction: sortOrder }}
-          manualSort
-          onSortChange={(next) => setSortOrder(next?.direction ?? "desc")}
-          pageResetKey={`${search}|${statusFilter}|${onlyOverdue}`}
-          pagination={{ defaultPageSize: 12, itemLabel: "comprobantes" }}
-          emptyState={{
-            icon: <AlertCircle className="h-7 w-7" />,
-            title: "No se encontraron cuentas por pagar con los filtros seleccionados.",
-          }}
-        />
-      </Card>
+      <DataTable
+        columns={columns}
+        rows={filtered}
+        rowKey={(inv) => inv.id}
+        density="compact"
+        sort={{ key: "issued", direction: sortOrder }}
+        manualSort
+        onSortChange={(next) => setSortOrder(next?.direction ?? "desc")}
+        pageResetKey={`${search}|${statusFilter}|${onlyOverdue}`}
+        pagination={{ defaultPageSize: 12, itemLabel: "comprobantes" }}
+        emptyState={{
+          icon: <AlertCircle className="h-7 w-7" />,
+          title: "No se encontraron cuentas por pagar con los filtros seleccionados.",
+        }}
+      />
 
       {/* Payment Modal */}
       <PayablePaymentDialog

@@ -5,13 +5,13 @@ import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { RowActions } from "@/components/shared/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Input } from "@/components/ui/input";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
 import {
   TransformationDetailDialog,
   TransformationDetailRecord,
 } from "./TransformationDetailDialog";
 import { AnnulTransformationDialog } from "./AnnulTransformationDialog";
 import {
-  Search,
   FileText,
   Repeat,
   Ban,
@@ -19,9 +19,13 @@ import {
 
 interface TransformationsTableProps {
   transformations: TransformationDetailRecord[];
+  filtersOpen: boolean;
 }
 
-export function TransformationsTable({ transformations }: TransformationsTableProps) {
+export function TransformationsTable({
+  transformations,
+  filtersOpen,
+}: TransformationsTableProps) {
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -162,23 +166,27 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
 
   return (
     <div className="space-y-5">
-      {/* Barra de Filtros */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border rounded-lg p-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Buscar por lote (TR-0001), insumo, responsable..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-            }}
-            className="pl-9 h-9 text-xs"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Segmented Control de Estados */}
+      {filtersOpen && (
+        <AdvancedFilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Buscar por lote (TR-0001), insumo, responsable..."
+          activeFilterCount={Number(statusFilter !== "ALL") + Number(Boolean(dateFilter))}
+          hasActiveFilters={searchTerm.trim() !== "" || statusFilter !== "ALL" || Boolean(dateFilter)}
+          onClear={() => {
+            setSearchTerm("");
+            setStatusFilter("ALL");
+            setDateFilter("");
+          }}
+          resultCount={filteredTransformations.length}
+          itemLabel="transformaciones"
+        >
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Estado
+          </span>
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+          {/* Segmented Control de Estados */}
             <button
               type="button"
               onClick={() => {
@@ -219,21 +227,21 @@ export function TransformationsTable({ transformations }: TransformationsTablePr
               Anuladas
             </button>
           </div>
-
-
-          {/* Filtro por Fecha */}
-          <div className="w-[140px]">
-            <Input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => {
-                setDateFilter(e.target.value);
-              }}
-              className="h-9 text-xs"
-            />
-          </div>
         </div>
-      </div>
+        <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          {/* Filtro por Fecha */}
+          Fecha
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+            }}
+            className="h-9 w-[140px] bg-background text-xs"
+          />
+        </label>
+        </AdvancedFilterBar>
+      )}
 
       {/* Tabla de Historial */}
       <DataTable

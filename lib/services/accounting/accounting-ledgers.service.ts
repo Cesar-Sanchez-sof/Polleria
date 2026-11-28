@@ -36,11 +36,17 @@ function getEntryReference(entry: {
 export async function getDailyBookEntriesDomain(params: {
   fromDate?: string | null;
   toDate?: string | null;
+  query?: string | null;
+  status?: string | null;
+  book?: string | null;
   page?: string | number | null;
   pageSize?: string | number | null;
 }) {
   const fromDate = (params.fromDate ?? "").trim();
   const toDate = (params.toDate ?? "").trim();
+  const query = (params.query ?? "").trim();
+  const status = (params.status ?? "").trim();
+  const book = (params.book ?? "").trim();
 
   if (fromDate && !DATE_REGEX.test(fromDate)) {
     throw new ValidationError("La fecha inicial debe tener el formato AAAA-MM-DD.");
@@ -50,6 +56,15 @@ export async function getDailyBookEntriesDomain(params: {
   }
   if (fromDate && toDate && fromDate > toDate) {
     throw new ValidationError("La fecha inicial no puede ser posterior a la fecha final.");
+  }
+  if (query.length > 200) {
+    throw new ValidationError("La búsqueda no puede superar los 200 caracteres.");
+  }
+  if (book.length > 100) {
+    throw new ValidationError("El libro o subdiario no puede superar los 100 caracteres.");
+  }
+  if (status && status !== "registrado" && status !== "anulado") {
+    throw new ValidationError("El estado debe ser registrado o anulado.");
   }
 
   const page = parseInteger(params.page, 1, 1, Number.MAX_SAFE_INTEGER);
@@ -61,6 +76,33 @@ export async function getDailyBookEntriesDomain(params: {
     if (fromDate) dateRange.gte = parseUtcDate(fromDate);
     if (toDate) dateRange.lte = parseUtcDate(toDate);
     filter.entryDate = dateRange;
+  }
+  if (status) filter.status = status === "registrado";
+  if (book) filter.book = { contains: book, mode: "insensitive" };
+  if (query) {
+    filter.OR = [
+      { code: { contains: query, mode: "insensitive" } },
+      { description: { contains: query, mode: "insensitive" } },
+      { book: { contains: query, mode: "insensitive" } },
+      { responsible: { contains: query, mode: "insensitive" } },
+      {
+        entryDetails: {
+          some: {
+            OR: [
+              { description: { contains: query, mode: "insensitive" } },
+              {
+                account: {
+                  OR: [
+                    { code: { contains: query, mode: "insensitive" } },
+                    { name: { contains: query, mode: "insensitive" } },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    ];
   }
 
   const total = await prisma.journalEntry.count({ where: filter });

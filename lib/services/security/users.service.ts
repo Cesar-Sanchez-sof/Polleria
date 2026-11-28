@@ -363,6 +363,20 @@ export async function createUserWithAudit(params: {
   return newUser;
 }
 
+/**
+ * Cambiar el rol de un usuario define todo lo que puede hacer en el sistema, así que solo lo hace un
+ * administrador. Además: nadie cambia su propio rol (evita auto-ascensos y bloqueos) y no se puede
+ * quitar el rol de sistema al único administrador activo.
+ */
+async function verifyRoleChange(p: { userId: number; actorUserId: number | null; superuser: boolean; fromSystemRole: boolean }) {
+  if (!p.superuser) throw new UserError("Solo un administrador puede cambiar el rol de un usuario", 403);
+  if (p.actorUserId === p.userId) throw new UserError("No puedes cambiar tu propio rol", 403);
+  if (p.fromSystemRole) {
+    const others = await prisma.user.count({ where: { id: { not: p.userId }, active: true, role: { isSystem: true } } });
+    if (others === 0) throw new UserError("No se puede quitar el rol de administrador al único administrador activo", 409);
+  }
+}
+
 export async function updateUserWithAudit(params: {
   id: number;
   data: UserData;
@@ -373,6 +387,13 @@ export async function updateUserWithAudit(params: {
   const { id, data, actor, superuser, ipAddress } = params;
   await verifyModifiableUser(id, superuser);
   await verifyAssignableRole(data.role_id, superuser);
+  const previous = await prisma.user.findUnique({
+    where: { id },
+    select: { roleId: true, role: { select: { name: true, isSystem: true } } },
+  });
+  if (!previous) throw new UserError("Usuario no encontrado", 404);
+  const roleChanged = Number(data.role_id) !== previous.roleId;
+  if (roleChanged) await verifyRoleChange({ userId: id, actorUserId: actor?.userId ?? null, superuser, fromSystemRole: previous.role.isSystem });
   const updated = await updateUser(id, data);
   if (actor) {
     await logAudit({
@@ -381,9 +402,13 @@ export async function updateUserWithAudit(params: {
       module: "Usuarios",
       entity: "Usuario",
       entityId: id,
-      description: `Modificó el usuario ${updated.username}`,
+      description: roleChanged
+        ? `Cambió el rol del usuario ${updated.username} de ${previous.role.name} a ${updated.role.name}`
+        : `Modificó el usuario ${updated.username}`,
       details: {
+        ...(roleChanged ? { before: { role: previous.role.name } } : {}),
         after: { username: updated.username, email: updated.email, role: updated.role.name },
+        roleChanged,
         passwordChanged: Boolean(data.password),
       },
       ipAddress: ipAddress ?? null,

@@ -74,10 +74,23 @@ export function AccessFields({
   area?: string;
 }) {
   const [roles, setRoles] = useState<Array<{ role_id: number; name: string }>>([]);
+  const [rolesState, setRolesState] = useState<{ loading: boolean; error: string | null }>({ loading: true, error: null });
   useEffect(() => {
+    let cancelled = false;
     api<Array<{ role_id: number; name: string }>>("/api/roles")
-      .then(setRoles)
-      .catch(() => setRoles([]));
+      .then((list) => {
+        if (cancelled) return;
+        setRoles(Array.isArray(list) ? list : []);
+        setRolesState({ loading: false, error: null });
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setRoles([]);
+        setRolesState({ loading: false, error: e instanceof Error ? e.message : "No se pudieron cargar los roles" });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Sugiere el rol por el área mientras no se haya elegido uno.
@@ -124,13 +137,17 @@ export function AccessFields({
               Rol <span className="text-red-500">*</span>
             </Label>
             <NativeSelect id="acc-role" className="w-full" value={value.role_id} onChange={(e) => onChange({ role_id: e.target.value })}>
-              <NativeSelectOption value="">Selecciona un rol</NativeSelectOption>
+              <NativeSelectOption value="">{rolesState.loading ? "Cargando roles…" : "Selecciona un rol"}</NativeSelectOption>
               {roles.map((r) => (
                 <NativeSelectOption key={r.role_id} value={r.role_id}>
                   {r.name}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+            {rolesState.error && <p className="text-[11px] text-red-600">No se pudieron cargar los roles: {rolesState.error}</p>}
+            {!rolesState.loading && !rolesState.error && roles.length === 0 && (
+              <p className="text-[11px] text-red-600">No hay roles activos. Crea o activa uno en Seguridad → Roles y permisos.</p>
+            )}
             <p className="text-[11px] text-muted-foreground">Define qué pantallas y acciones puede usar (Seguridad → Roles y permisos).</p>
           </div>
           <div className="flex flex-col gap-1.5">

@@ -58,6 +58,14 @@ export function personalFromEmployee(e: EmployeeDto): PersonalData {
 }
 
 /** Campos de datos personales (con consulta a RENIEC), usados al contratar y al editar. */
+/** Hoy en Lima (YYYY-MM-DD): tope de la fecha de nacimiento. */
+export const todayLimaIso = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+
+/** Mensaje de error si la fecha de nacimiento es futura (el calendario no impide teclearla a mano). */
+export function birthDateError(birth: string): string | null {
+  return birth && birth > todayLimaIso() ? "La fecha de nacimiento no puede ser futura" : null;
+}
+
 export function PersonalFields({ value, onChange }: { value: PersonalData; onChange: (p: Partial<PersonalData>) => void }) {
   const [looking, setLooking] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -122,7 +130,12 @@ export function PersonalFields({ value, onChange }: { value: PersonalData; onCha
       {field("middle_name", "Segundo nombre", { maxLength: 50 })}
       {field("paternal_last_name", "Apellido paterno", { maxLength: 50 }, true)}
       {field("maternal_last_name", "Apellido materno", { maxLength: 50 })}
-      {field("birth_date", "Fecha de nacimiento", { type: "date" })}
+      {field("birth_date", "Fecha de nacimiento", { type: "date", max: todayLimaIso(), "aria-invalid": Boolean(birthDateError(value.birth_date)) })}
+      {birthDateError(value.birth_date) && (
+        <p role="alert" className="-mt-2 text-xs font-medium text-rose-600 sm:col-span-2">
+          {birthDateError(value.birth_date)}
+        </p>
+      )}
       {field("phone", "Teléfono", { inputMode: "numeric", maxLength: 9, placeholder: "9XXXXXXXX" })}
       {field("email", "Correo", { type: "email", maxLength: 80 })}
       {field("address", "Dirección", { maxLength: 200 })}

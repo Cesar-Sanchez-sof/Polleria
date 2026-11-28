@@ -12,6 +12,20 @@ export interface RoleManagementDto {
   is_system: boolean;
   total_users: number;
   permissions: string[];
+  /** Acceso del rol a tableros (dashboards) concretos. */
+  dashboards: DashboardAccessEntry[];
+}
+
+export interface DashboardAccessEntry {
+  dashboard_id: string;
+  can_view: boolean;
+  can_edit: boolean;
+}
+
+export interface DashboardOption {
+  dashboard_id: string;
+  name: string;
+  section: string;
 }
 
 export interface RoleData {
@@ -19,6 +33,8 @@ export interface RoleData {
   description?: string | null;
   active?: boolean;
   permissions: string[];
+  /** Si se omite, el acceso a tableros del rol no se toca. */
+  dashboards?: DashboardAccessEntry[];
 }
 
 const RE_NAME = /^[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9 _-]{2,49}$/;
@@ -26,6 +42,7 @@ const RE_NAME = /^[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9 _-]{2,49}$/;
 const INCLUDE_ROLE = {
   _count: { select: { users: true } },
   permissions: { select: { permission: { select: { code: true } } } },
+  dashboardAccess: { select: { dashboardId: true, canView: true, canEdit: true } },
 } satisfies Prisma.RoleInclude;
 
 type RoleWithRelations = Prisma.RoleGetPayload<{ include: typeof INCLUDE_ROLE }>;
@@ -39,6 +56,11 @@ function map(r: RoleWithRelations): RoleManagementDto {
     is_system: r.isSystem,
     total_users: r._count.users,
     permissions: r.permissions.map((rp) => rp.permission.code).sort(),
+    dashboards: r.dashboardAccess.map((a) => ({
+      dashboard_id: a.dashboardId,
+      can_view: a.canView || a.canEdit,
+      can_edit: a.canEdit,
+    })),
   };
 }
 
@@ -60,7 +82,43 @@ function normalize(d: RoleData) {
   for (const m of PERMISSION_MODULES) {
     if (m.actions.some((a) => a !== "ver" && permissions.has(`${m.code}.${a}`))) permissions.add(`${m.code}.ver`);
   }
-  return { name, description: description || null, active: d.active !== false, permissions: [...permissions] };
+  let dashboards: DashboardAccessEntry[] | undefined;
+  if (d.dashboards !== undefined) {
+    if (!Array.isArray(d.dashboards)) throw new UserError("El acceso a tableros debe enviarse como una lista");
+    const seen = new Map<string, DashboardAccessEntry>();
+    for (const e of d.dashboards) {
+      if (!e || typeof e.dashboard_id !== "string" || !e.dashboard_id) throw new UserError("Tablero inválido en el acceso del rol");
+      const can_edit = e.can_edit === true;
+      const can_view = can_edit || e.can_view === true; // editar implica ver
+      if (can_view) seen.set(e.dashboard_id, { dashboard_id: e.dashboard_id, can_view, can_edit });
+    }
+    dashboards = [...seen.values()];
+  }
+  return { name, description: description || null, active: d.active !== false, permissions: [...permissions], dashboards };
+}
+
+/** Reemplaza el acceso del rol a tableros por el conjunto indicado. */
+async function assignDashboardAccess(tx: Prisma.TransactionClient, roleId: number, entries: DashboardAccessEntry[]) {
+  const ids = entries.map((e) => e.dashboard_id);
+  if (ids.length) {
+    const found = await tx.dashboard.count({ where: { id: { in: ids } } });
+    if (found !== ids.length) throw new UserError("Alguno de los tableros seleccionados ya no existe", 400);
+  }
+  await tx.dashboardRoleAccess.deleteMany({ where: { roleId } });
+  if (entries.length) {
+    await tx.dashboardRoleAccess.createMany({
+      data: entries.map((e) => ({ roleId, dashboardId: e.dashboard_id, canView: e.can_view, canEdit: e.can_edit })),
+    });
+  }
+}
+
+/** Tableros existentes, para elegir a cuáles accede un rol. */
+export async function listDashboardOptions(): Promise<DashboardOption[]> {
+  const rows = await prisma.dashboard.findMany({
+    select: { id: true, name: true, section: { select: { name: true, order: true } } },
+    orderBy: [{ section: { order: "asc" } }, { name: "asc" }],
+  });
+  return rows.map((d) => ({ dashboard_id: d.id, name: d.name, section: d.section.name }));
 }
 
 function translateError(e: unknown): never {
@@ -101,6 +159,7 @@ export async function createRole(data: RoleData): Promise<RoleManagementDto> {
         select: { id: true },
       });
       await assignPermissions(tx, role.id, n.permissions);
+      if (n.dashboards) await assignDashboardAccess(tx, role.id, n.dashboards);
       return role.id;
     });
     invalidateAuthCache();
@@ -126,7 +185,7 @@ export async function updateRole(id: number, data: RoleData): Promise<RoleManage
           throw new UserError("Un rol de sistema no se puede renombrar ni desactivar", 400);
         }
         await tx.role.update({ where: { id }, data: { description: n.description } });
-        return;
+        return; // el rol de sistema ve y edita todos los tableros por definición
       }
       if (!n.active && actual._count.users > 0) {
         throw new UserError(
@@ -136,6 +195,7 @@ export async function updateRole(id: number, data: RoleData): Promise<RoleManage
       }
       await tx.role.update({ where: { id }, data: { name: n.name, description: n.description, active: n.active } });
       await assignPermissions(tx, id, n.permissions);
+      if (n.dashboards) await assignDashboardAccess(tx, id, n.dashboards);
     });
     invalidateAuthCache();
     return await getRole(id);

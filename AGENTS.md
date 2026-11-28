@@ -67,7 +67,7 @@ Este repositorio implementa una **Arquitectura por Dominio en 3 Capas Unidirecci
 - `createApiHandler` captura automáticamente estas excepciones y las transforma en respuestas HTTP consistentes.
 
 ### Regla 5: Testing y Regresión
-- Todas las pruebas deben residir en el directorio `test/` (siguiendo las subcarpetas temáticas: `test/services/`, `test/api/`, `test/characterization/`, etc.).
+- Todas las pruebas deben residir en el directorio `test/` (siguiendo las subcarpetas temáticas: `test/unit/`, `test/black-box/`, `test/white-box/`, `test/functional/`, `test/integration/`, `test/smoke/`, `test/load/`, `test/agents/`).
 - Ninguna prueba debe ubicarse dentro de `app/` ni `lib/`.
 - Ante refactorizaciones de handlers existentes, primero deben crearse pruebas de caracterización para congelar los contratos de API y asegurar cero regresiones.
 

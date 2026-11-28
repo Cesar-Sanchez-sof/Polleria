@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-11-25T21:31:24.429493-05:00",
+  "agents": [
+    {
+      "agent": "gemini",
+      "total_cases": 2,
+      "exact_match_count": 0,
+      "exact_match_rate": 0.0,
+      "execution_success_count": 0,
+      "execution_error_count": 2,
+      "execution_accuracy_count": 0,
+      "execution_incorrect_count": 0,
+      "execution_accuracy_denominator": 2,
+      "execution_accuracy_rate": 0.0,
+      "ves": 0.0,
+      "test_suite_accuracy": null,
+      "interrupted": true,
+      "cases": [
+        {
+          "id": "TEST-001",
+          "question": "¿Cuál fue el importe total de los comprobantes emitidos en enero de 2026?",
+          "expected_sql": "SELECT COALESCE(SUM(si.total_amount), 0) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "total": "165.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.972,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 2.596695,
+          "token_usage": null,
+          "error": "GEMINI_REJECTED:HTTP_403"
+        },
+        {
+          "id": "TEST-002",
+          "question": "¿Cuánto se facturó por cada tipo de comprobante en enero de 2026?",
+          "expected_sql": "SELECT si.voucher_type, SUM(si.total_amount) AS total FROM sales_invoice si WHERE si.status = 'Issued' AND si.issued_at >= DATE '2026-01-01' AND si.issued_at < DATE '2026-02-01' GROUP BY si.voucher_type ORDER BY total DESC LIMIT 50",
+          "generated_sql": null,
+          "gold_rows": [
+            {
+              "voucher_type": "Boleta",
+              "total": "110.00"
+            },
+            {
+              "voucher_type": "Factura",
+              "total": "55.00"
+            }
+          ],
+          "generated_rows": null,
+          "exact_match": false,
+          "execution_succeeded": false,
+          "execution_accuracy": false,
+          "ves": 0.0,
+          "elapsed_seconds": 0.228,
+          "sql_execution_seconds": 0.0,
+          "gold_execution_seconds": 1.579041,
+          "token_usage": null,
+          "error": "GEMINI_REJECTED:HTTP_403"
+        }
+      ]
+    }
+  ]
+}

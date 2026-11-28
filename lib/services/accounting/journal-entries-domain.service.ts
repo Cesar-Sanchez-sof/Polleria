@@ -64,7 +64,7 @@ function buildFilter(searchParams: URLSearchParams): Prisma.JournalEntryWhereInp
   if (toDate && DATE_REGEX.test(toDate)) dateRange.lte = parseUtcDate(toDate);
   if (Object.keys(dateRange).length > 0) filter.entryDate = dateRange;
 
-  if (book) filter.book = book;
+  if (book) filter.book = { contains: book, mode: "insensitive" };
   if (status === "registrado") filter.status = true;
   if (status === "anulado") filter.status = false;
 
@@ -72,15 +72,22 @@ function buildFilter(searchParams: URLSearchParams): Prisma.JournalEntryWhereInp
     filter.OR = [
       { code: { contains: search, mode: "insensitive" } },
       { description: { contains: search, mode: "insensitive" } },
+      { book: { contains: search, mode: "insensitive" } },
+      { responsible: { contains: search, mode: "insensitive" } },
       {
         entryDetails: {
           some: {
-            account: {
-              OR: [
-                { code: { contains: search, mode: "insensitive" } },
-                { name: { contains: search, mode: "insensitive" } },
-              ],
-            },
+            OR: [
+              { description: { contains: search, mode: "insensitive" } },
+              {
+                account: {
+                  OR: [
+                    { code: { contains: search, mode: "insensitive" } },
+                    { name: { contains: search, mode: "insensitive" } },
+                  ],
+                },
+              },
+            ],
           },
         },
       },

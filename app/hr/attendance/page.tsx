@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarCheck2, ChevronLeft, ChevronRight, Clock, Edit2, LogIn, LogOut, ShieldAlert, Timer, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AppButton } from "@/components/shared/AppButton";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
@@ -45,6 +47,7 @@ export default function AttendancePage() {
   const [date, setDate] = useState<string | null>(null);
   const [data, setData] = useState<Daily | null>(null);
   const [view, setView] = useState<View>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState<AttendanceRowDto | null>(null);
@@ -213,35 +216,53 @@ export default function AttendancePage() {
     <>
       <ModuleHeader title="Asistencia" subtitle="Control diario de entradas, salidas, tardanzas y faltas" icon={CalendarCheck2}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <AppButton size="sm" variant="secondary" icon={<ChevronLeft />} ariaLabel="Día anterior" onClick={() => date && setDate(addDaysIso(date, -1))} />
-          <Input type="date" value={date ?? ""} max={today ?? undefined} onChange={(e) => e.target.value && setDate(e.target.value)} className="h-9 w-40 text-xs" />
-          <AppButton
-            size="sm"
-            variant="secondary"
-            icon={<ChevronRight />}
-            ariaLabel="Día siguiente"
-            disabled={!date || !today || date >= today}
-            onClick={() => date && setDate(addDaysIso(date, 1))}
-          />
-          {date !== today && (
-            <AppButton size="sm" variant="ghost" onClick={() => setDate(today)}>
-              Hoy
-            </AppButton>
-          )}
-          <SegmentedTabs<View>
-            ariaLabel="Filtrar"
-            value={view}
-            onValueChange={setView}
-            items={[
-              { value: "all", label: "Todos" },
-              { value: "issues", label: "Incidencias", tone: "danger", count: (t?.late ?? 0) + (t?.absences ?? 0) },
-              { value: "present", label: "Presentes", tone: "success", count: t?.present ?? 0 },
-              { value: "log", label: "Bitácora de marcaciones" },
-            ]}
-          />
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
         </div>
       </ModuleHeader>
       <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
+        {filtersOpen && (
+          <AdvancedFilterBar
+            search=""
+            onSearchChange={() => undefined}
+            searchPlaceholder="Buscar asistencia"
+            showSearch={false}
+            activeFilterCount={(date && today && date !== today ? 1 : 0) + (view !== "all" ? 1 : 0)}
+            hasActiveFilters={(date !== today && Boolean(date)) || view !== "all"}
+            onClear={() => {
+              setDate(today);
+              setView("all");
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <AppButton size="sm" variant="secondary" icon={<ChevronLeft />} ariaLabel="Día anterior" onClick={() => date && setDate(addDaysIso(date, -1))} />
+              <Input type="date" value={date ?? ""} max={today ?? undefined} onChange={(e) => e.target.value && setDate(e.target.value)} className="h-9 w-40 text-xs" />
+              <AppButton
+                size="sm"
+                variant="secondary"
+                icon={<ChevronRight />}
+                ariaLabel="Día siguiente"
+                disabled={!date || !today || date >= today}
+                onClick={() => date && setDate(addDaysIso(date, 1))}
+              />
+              {date !== today && (
+                <AppButton size="sm" variant="ghost" onClick={() => setDate(today)}>
+                  Hoy
+                </AppButton>
+              )}
+            </div>
+            <SegmentedTabs<View>
+              ariaLabel="Filtrar"
+              value={view}
+              onValueChange={setView}
+              items={[
+                { value: "all", label: "Todos" },
+                { value: "issues", label: "Incidencias", tone: "danger", count: (t?.late ?? 0) + (t?.absences ?? 0) },
+                { value: "present", label: "Presentes", tone: "success", count: t?.present ?? 0 },
+                { value: "log", label: "Bitácora de marcaciones" },
+              ]}
+            />
+          </AdvancedFilterBar>
+        )}
         {date && <p className="text-sm font-semibold text-muted-foreground">{formatLongCap(date)}</p>}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           <StatCard layout="label-first" tone="neutral" icon={<Clock />} label="Programados" value={t?.scheduled_days ?? 0} />

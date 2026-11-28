@@ -108,6 +108,7 @@ const NAV_SECTIONS: NavSection[] = [
     {
     key: "rrhh", label: "RECURSOS HUMANOS", icon: Briefcase, permissions: "hr",
     items: [
+      { group: "Personal", label: "Directorio de Personal", href: "/hr/directory", path: "directorio-personal" },
       { group: "Personal", label: "Empleados", href: "/hr/employees", path: "empleados" },
       { group: "Personal", label: "Contratos", href: "/hr/contracts", path: "contratos" },
       { group: "Jornada", label: "Horarios Laborales", href: "/hr/schedules", path: "horarios" },
@@ -393,10 +394,10 @@ export default function Sidebar({ mobileOpen: controlledOpen, onCloseMobile }: S
               target="_top"
               onClick={handleLinkClick}
             >
-              ERP EMPRESARIAL
+              ERP Agéntico con IA
             </NavLink>
             <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-              SISTEMA INTEGRAL
+              EMPRESA: LOS BETOS
             </span>
           </div>
 

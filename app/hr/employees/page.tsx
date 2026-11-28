@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Briefcase, CheckCircle2, Clock, Edit2, Eye, FilePlus2, FileWarning, KeyRound, Search, UserPlus, Users, X } from "lucide-react";
+import { AlertCircle, Briefcase, CheckCircle2, Clock, Edit2, Eye, FilePlus2, FileWarning, KeyRound, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { AppButton } from "@/components/shared/AppButton";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
+import { AdvancedFilterToggle } from "@/components/shared/AdvancedFilterToggle";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { RowActions } from "@/components/shared/RowActions";
 import { SegmentedTabs } from "@/components/shared/SegmentedTabs";
@@ -29,6 +30,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("active");
   const [area, setArea] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hiring, setHiring] = useState(false);
@@ -210,46 +212,7 @@ export default function EmployeesPage() {
     <>
       <ModuleHeader title="Empleados" subtitle="Personal, contratos y condiciones laborales" icon={Users}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="relative w-56">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar por nombre, DNI o cargo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Buscar empleados"
-              className="h-9 rounded-xl pl-9 pr-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="Limpiar búsqueda"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          <NativeSelect value={area} onChange={(e) => setArea(e.target.value)} aria-label="Filtrar por área" className="h-9 w-40 rounded-xl text-xs">
-            <NativeSelectOption value="">Todas las áreas</NativeSelectOption>
-            {areas.map((a) => (
-              <NativeSelectOption key={a} value={a}>
-                {a}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <SegmentedTabs<StatusFilter>
-            ariaLabel="Filtrar por estado"
-            value={status}
-            onValueChange={setStatus}
-            className="max-w-full overflow-x-auto"
-            items={[
-              { value: "active", label: "Activos", count: metrics.active, tone: "success" },
-              { value: "inactive", label: "Cesados", count: metrics.inactive, tone: "danger" },
-              { value: "all", label: "Todos", count: metrics.total, tone: "brand" },
-            ]}
-          />
+          <AdvancedFilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((open) => !open)} />
           {can("empleados.crear") && (
             <AppButton size="sm" icon={<UserPlus />} onClick={() => setHiring(true)}>
               Contratar personal
@@ -272,6 +235,43 @@ export default function EmployeesPage() {
           <p role="alert" className="flex items-center gap-2 text-sm font-medium text-rose-600">
             <AlertCircle className="h-4 w-4" /> {error}
           </p>
+        )}
+
+        {filtersOpen && (
+          <AdvancedFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por nombre, DNI o cargo..."
+            activeFilterCount={(search.trim() ? 1 : 0) + (status !== "active" ? 1 : 0) + (area ? 1 : 0)}
+            hasActiveFilters={hasActiveFilter}
+            onClear={() => {
+              setSearch("");
+              setStatus("active");
+              setArea("");
+            }}
+            resultCount={filtered.length}
+            itemLabel="empleados"
+          >
+            <NativeSelect value={area} onChange={(e) => setArea(e.target.value)} aria-label="Filtrar por área" className="h-9 w-40 rounded-xl text-xs">
+              <NativeSelectOption value="">Todas las áreas</NativeSelectOption>
+              {areas.map((a) => (
+                <NativeSelectOption key={a} value={a}>
+                  {a}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <SegmentedTabs<StatusFilter>
+              ariaLabel="Filtrar por estado"
+              value={status}
+              onValueChange={setStatus}
+              className="max-w-full overflow-x-auto"
+              items={[
+                { value: "active", label: "Activos", count: metrics.active, tone: "success" },
+                { value: "inactive", label: "Cesados", count: metrics.inactive, tone: "danger" },
+                { value: "all", label: "Todos", count: metrics.total, tone: "brand" },
+              ]}
+            />
+          </AdvancedFilterBar>
         )}
 
         <DataTable

@@ -40,6 +40,7 @@ export const ACCOUNTS_CATALOG: CatalogRow[] = [
   ["69", "Costo de Ventas", "Gasto", "6"],
   ["70", "Ventas de Mercaderías", "Ingreso", "7"],
   ["101", "Caja", "Activo", "1"],
+  ["102", "Billeteras Digitales (Yape)", "Activo", "1"],
   ["104", "Bancos - Cuentas Corrientes", "Activo", "1"],
   ["121", "Cuentas por Cobrar Comerciales - Terceros", "Activo", "1"],
   ["141", "Adelantos de Remuneraciones al Personal", "Activo", "14"],
@@ -60,6 +61,7 @@ export const ACCOUNTS_CATALOG: CatalogRow[] = [
   ["461", "Cuentas por Pagar Diversas - Terceros", "Pasivo", "4"],
   ["501", "Capital", "Patrimonio", "5"],
   ["591", "Resultados Acumulados", "Patrimonio", "5"],
+  ["601", "Compras de Mercaderías e Insumos", "Gasto", "6"],
   ["621", "Gastos de Personal", "Gasto", "6"],
   ["6211", "Sueldos y Salarios", "Gasto", "621"],
   ["6214", "Gratificaciones y Bonificación Extraordinaria", "Gasto", "621"],
@@ -82,12 +84,12 @@ export const ACCOUNTS_CATALOG: CatalogRow[] = [
   ["704", "Prestación de Servicios", "Ingreso", "7"]
 ];
 
+// OJO: no agregar aquí códigos que el servicio contable use hoy (101, 102, 104, 601, 611, 691…): se fundirían en otra cuenta.
 const ORDERED_RENAMES: Array<{ from: string; to: string }> = [
   { from: "167", to: "395" },
   { from: "201", to: "421" },
   { from: "401", to: "701" },
   { from: "501", to: "621" },
-  { from: "102", to: "104" },
   { from: "161", to: "331" },
   { from: "202", to: "411" },
   { from: "204", to: "461" },
@@ -99,7 +101,6 @@ const ORDERED_RENAMES: Array<{ from: string; to: string }> = [
   { from: "505", to: "634" },
   { from: "506", to: "636" },
   { from: "507", to: "659" },
-  { from: "601", to: "691" },
   { from: "105", to: "121" },
   { from: "108", to: "167" },
   { from: "120", to: "201" },

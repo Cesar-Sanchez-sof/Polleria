@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
+import { AdvancedFilterBar } from "@/components/shared/AdvancedFilterBar";
 
 import { AccountDialog } from "./components/AccountDialog";
 import { AccountTable, type AccountTableRow } from "./components/AccountTable";
@@ -13,6 +21,7 @@ import {
   updateAccount,
   ApiError,
   listAccounts,
+  ACCOUNT_TYPES,
   type AccountingAccount,
 } from "@/lib/services/accounting/accounts.service";
 
@@ -27,6 +36,7 @@ export default function AccountsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<string>("todos");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(() => new Set());
 
@@ -195,19 +205,80 @@ export default function AccountsPage() {
         iconClassName="bg-red-100 text-red-700"
       >
         <AccountsToolbar
-          q={searchQuery}
-          onSearch={setSearchQuery}
-          onClearSearch={() => setSearchQuery("")}
-          type={typeFilter}
-          onType={setTypeFilter}
-          status={statusFilter}
-          onStatus={setStatusFilter}
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((open) => !open)}
           onNew={handleCreateAccount}
-          loading={isLoading}
         />
       </ModuleHeader>
       <main className="relative flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6">
         <div className="flex flex-col w-full gap-5">
+          {filtersOpen && <AdvancedFilterBar
+            search={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Código, nombre o tipo de cuenta..."
+            activeFilterCount={
+              Number(typeFilter !== "todos") +
+              Number(statusFilter !== "todos")
+            }
+            hasActiveFilters={hasActiveFilters}
+            onClear={handleClearFilters}
+            resultCount={rows.length}
+            itemLabel={`de ${accounts.length} cuentas`}
+          >
+            <label className="flex min-w-[160px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Tipo
+              <Select
+                value={typeFilter}
+                items={[
+                  { value: "todos", label: "Todos los tipos" },
+                  ...ACCOUNT_TYPES.map((type) => ({ value: type, label: type })),
+                ]}
+                onValueChange={(value) => setTypeFilter(value ?? "todos")}
+                disabled={isLoading}
+              >
+                <SelectTrigger
+                  className="h-9 w-full rounded-lg bg-background text-xs font-normal normal-case tracking-normal"
+                  aria-label="Filtrar por tipo de cuenta"
+                >
+                  <SelectValue placeholder="Todos los tipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los tipos</SelectItem>
+                  {ACCOUNT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="flex min-w-[160px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Estado
+              <Select
+                value={statusFilter}
+                items={[
+                  { value: "todos", label: "Todos los estados" },
+                  { value: "activas", label: "Activas" },
+                  { value: "inactivas", label: "Inactivas" },
+                ]}
+                onValueChange={(value) => setStatusFilter(value ?? "todos")}
+                disabled={isLoading}
+              >
+                <SelectTrigger
+                  className="h-9 w-full rounded-lg bg-background text-xs font-normal normal-case tracking-normal"
+                  aria-label="Filtrar por estado de la cuenta"
+                >
+                  <SelectValue placeholder="Todos los estados" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los estados</SelectItem>
+                  <SelectItem value="activas">Activas</SelectItem>
+                  <SelectItem value="inactivas">Inactivas</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+          </AdvancedFilterBar>}
+
           <Card className="bg-white rounded-xl shadow-sm ring-0 p-6 flex flex-col gap-5">
             <p className="text-xs text-slate-500">
               {isLoading
