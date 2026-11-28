@@ -11,11 +11,12 @@ function getSigningCredentials(): { privateKeyPem: string; certBase64: string } 
   const envCert = process.env.SUNAT_CERT_PEM;
 
   if (envKey && envCert) {
+    const privateKeyPem = envKey.replace(/\\n/g, '\n').trim();
     const cleanCert = envCert
       .replace(/-----BEGIN CERTIFICATE-----/g, '')
       .replace(/-----END CERTIFICATE-----/g, '')
       .replace(/\s+/g, '');
-    return { privateKeyPem: envKey, certBase64: cleanCert };
+    return { privateKeyPem, certBase64: cleanCert };
   }
 
   // Clave privada y certificado de prueba autogenerado para entorno Beta

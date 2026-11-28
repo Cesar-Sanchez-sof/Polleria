@@ -38,7 +38,7 @@ import { ContractDialog, GrantAccessDialog, TerminateDialog, type ContractDialog
 import { ScheduleView } from "../../_components/ContractFields";
 import { AdvanceBadge, AttendanceBadge, ContractPhaseBadge, RequestBadge } from "../../_components/HrBadges";
 import { InsuranceDialog, LeaveDialog } from "../../_components/RequestDialogs";
-import { api, fmtDate, fmtMinutes, money } from "../../_lib/hr-client";
+import { api, fmtDate, fmtDateTime, fmtMinutes, money } from "../../_lib/hr-client";
 
 type Tab = "summary" | "contracts" | "attendance" | "leaves" | "benefits";
 
@@ -271,6 +271,27 @@ function SummaryTab({ employee: e, contract: c }: { employee: EmployeeDto; contr
             }
           >
             <ScheduleView schedule={c.schedule} />
+          </Card>
+        </div>
+      )}
+      {c && (
+        <div className="lg:col-span-2">
+          <Card title="Historial de sueldo" icon={<HandCoins />}>
+            {c.salary_history.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay modificaciones salariales registradas.</p>
+            ) : (
+              <div className="flex flex-col">
+                {c.salary_history.map((change, index) => (
+                  <div key={`${change.changed_at}-${index}`} className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed py-2 text-sm last:border-0">
+                    <span className="text-muted-foreground">{fmtDateTime(change.changed_at)}</span>
+                    <span className="font-mono">
+                      {money.format(change.previous_salary)} <span className="text-muted-foreground">→</span>{" "}
+                      <strong>{money.format(change.new_salary)}</strong>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       )}

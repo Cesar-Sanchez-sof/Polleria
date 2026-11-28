@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { generateKeyPairSync } from 'node:crypto';
 import {
   buildBoletaUbl21Xml,
   signXmlUbl21,
@@ -77,6 +78,36 @@ describe('Microservicio de Facturación Electrónica SUNAT (UBL 2.1)', () => {
     expect(xmlSigned).toContain('<ds:SignatureValue>');
     expect(xmlSigned).toContain('<ds:X509Certificate>');
     expect(xmlSigned).toContain('http://www.w3.org/2000/09/xmldsig#enveloped-signature');
+  });
+
+  it('acepta claves privadas PEM con saltos de línea escapados en variables de entorno', () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+    });
+    const previousPrivateKey = process.env.SUNAT_PRIVATE_KEY_PEM;
+    const previousCert = process.env.SUNAT_CERT_PEM;
+
+    process.env.SUNAT_PRIVATE_KEY_PEM = privateKey.replace(/\n/g, '\\n');
+    process.env.SUNAT_CERT_PEM = publicKey;
+
+    try {
+      const xml = signXmlUbl21(buildBoletaUbl21Xml(sampleBoletaData), 'B001-00000105');
+      expect(xml).toContain('<ds:SignatureValue>');
+    } finally {
+      if (previousPrivateKey === undefined) {
+        delete process.env.SUNAT_PRIVATE_KEY_PEM;
+      } else {
+        process.env.SUNAT_PRIVATE_KEY_PEM = previousPrivateKey;
+      }
+
+      if (previousCert === undefined) {
+        delete process.env.SUNAT_CERT_PEM;
+      } else {
+        process.env.SUNAT_CERT_PEM = previousCert;
+      }
+    }
   });
 
   it('3. Debe empaquetar el XML firmado en un ZIP en memoria sin tocar disco', () => {

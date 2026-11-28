@@ -14,8 +14,11 @@ const m = vi.hoisted(() => ({
   salesInvoiceFindUnique: vi.fn(),
   salesInvoiceFindMany: vi.fn(),
   salesInvoiceCreate: vi.fn(),
+  salesInvoiceItemCreateMany: vi.fn(),
   salesInvoiceUpdate: vi.fn(),
   salesPaymentCreate: vi.fn(),
+  orderItemFindMany: vi.fn(),
+  orderItemUpdateMany: vi.fn(),
   diningTableUpdate: vi.fn(),
   cashSessionFindFirst: vi.fn(),
   cashSessionUpdate: vi.fn(),
@@ -46,6 +49,10 @@ vi.mock("@/lib/prisma", () => ({
     salesOrder: {
       findUnique: m.salesOrderFindUnique,
       update: m.salesOrderUpdate,
+    },
+    orderItem: {
+      findMany: m.orderItemFindMany,
+      updateMany: m.orderItemUpdateMany,
     },
     salesInvoice: {
       findFirst: m.salesInvoiceFindFirst,
@@ -130,12 +137,21 @@ describe("Characterization: Sales, Customers, Payments & Realtime Domain Handler
           create: m.salesInvoiceCreate,
           update: m.salesInvoiceUpdate,
         },
+        salesInvoiceItem: {
+          createMany: m.salesInvoiceItemCreateMany,
+        },
         salesPayment: {
           create: m.salesPaymentCreate,
         },
         salesOrder: {
+          findUnique: vi.fn().mockResolvedValue({ status: "Received" }),
           update: m.salesOrderUpdate,
         },
+        orderItem: {
+          findMany: m.orderItemFindMany,
+          updateMany: m.orderItemUpdateMany,
+        },
+        $queryRaw: vi.fn().mockResolvedValue([]),
         diningTable: {
           update: m.diningTableUpdate,
         },
@@ -246,6 +262,7 @@ describe("Characterization: Sales, Customers, Payments & Realtime Domain Handler
             id: 1,
             productId: 10,
             quantity: 2,
+            billedQuantity: 0,
             unitPrice: 35.0,
             subtotal: 70.0,
             product: { name: "1 Pollo Entero" },
@@ -253,6 +270,10 @@ describe("Characterization: Sales, Customers, Payments & Realtime Domain Handler
         ],
       };
       m.salesOrderFindUnique.mockResolvedValueOnce(mockOrder);
+      m.orderItemFindMany.mockResolvedValueOnce([
+        { id: 1, quantity: 2, billedQuantity: 0 },
+      ]);
+      m.orderItemUpdateMany.mockResolvedValueOnce({ count: 1 });
       m.salesInvoiceFindFirst.mockResolvedValueOnce(null);
       m.cashSessionFindFirst.mockResolvedValueOnce({ id: 5, status: "OPEN" });
 
@@ -287,6 +308,77 @@ describe("Characterization: Sales, Customers, Payments & Realtime Domain Handler
       expect(json.invoice.change).toBe(30.0);
       expect(m.postSaleJournalEntries).toHaveBeenCalled();
       expect(m.broadcastRealtimeEvent).toHaveBeenCalledWith("PAYMENT_RECEIVED", expect.anything());
+    });
+
+    it("POST puede emitir un comprobante parcial por cantidad y dejar pendiente el saldo", async () => {
+      m.paymentTypeFindUnique.mockResolvedValueOnce({
+        id: 1,
+        name: "Efectivo",
+        active: true,
+      });
+      m.customerFindFirst.mockResolvedValueOnce({
+        id: 1,
+        documentNumber: "00000000",
+        firstName: "CLIENTES VARIOS",
+        personType: "Natural",
+      });
+      m.salesOrderFindUnique.mockResolvedValueOnce({
+        id: 51,
+        code: "PED-51",
+        status: "Received",
+        tables: [{ tableId: 1, table: { id: 1, number: 4 } }],
+        items: [{
+          id: 2,
+          productId: 10,
+          quantity: 2,
+          billedQuantity: 0,
+          unitPrice: 35,
+          subtotal: 70,
+          notes: null,
+          product: { name: "1 Pollo Entero" },
+        }],
+      });
+      m.orderItemFindMany.mockResolvedValueOnce([
+        { id: 2, quantity: 2, billedQuantity: 0 },
+      ]);
+      m.orderItemUpdateMany.mockResolvedValueOnce({ count: 1 });
+      m.salesInvoiceFindFirst.mockResolvedValueOnce(null);
+      m.cashSessionFindFirst.mockResolvedValueOnce({ id: 5, status: "OPEN" });
+      m.salesInvoiceCreate.mockResolvedValueOnce({
+        id: 202,
+        voucherType: "Boleta",
+        series: "B001",
+        number: 2,
+        totalAmount: 35,
+        createdAt: new Date("2026-11-01T15:00:00Z"),
+      });
+      m.postSaleJournalEntries.mockResolvedValueOnce([903]);
+
+      const req = new NextRequest("http://localhost:3000/api/sales", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: 51,
+          orderItems: [{ orderItemId: 2, quantity: 1 }],
+          paymentTypeId: 1,
+          voucherType: "Boleta",
+          amountReceived: 35,
+        }),
+      });
+
+      const res = await postSale(req);
+      const json = await res.json();
+
+      expect(res.status, JSON.stringify(json)).toBe(201);
+      expect(json.invoice.items).toEqual([
+        { name: "1 Pollo Entero", quantity: 1, unitPrice: 35, subtotal: 35, notes: "" },
+      ]);
+      expect(json.remainingItems).toEqual([
+        { id: 2, productId: 10, name: "1 Pollo Entero", quantity: 1, unitPrice: 35, subtotal: 35, notes: "" },
+      ]);
+      expect(m.salesInvoiceItemCreateMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ orderItemId: 2, quantity: 1, subtotal: 35 })],
+      });
+      expect(m.salesOrderUpdate).not.toHaveBeenCalled();
     });
 
     it("GET /api/sales/voucher/[id] con format=json debe retornar metadata de comprobante", async () => {

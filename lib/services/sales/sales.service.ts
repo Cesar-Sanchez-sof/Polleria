@@ -29,9 +29,16 @@ export interface SplitPaymentInput {
   amount?: number;
 }
 
+export interface SaleItemSelectionInput {
+  orderItemId?: number;
+  order_item_id?: number;
+  quantity?: number;
+}
+
 export interface RegisterSaleInput {
   orderId?: number;
   order_id?: number;
+  orderItems?: SaleItemSelectionInput[];
   cashSessionId?: number;
   cash_session_id?: number;
   paymentTypeId?: number;
@@ -114,6 +121,7 @@ export interface RegisterSaleResult {
   journalEntriesCount: number;
   journalEntryIds: number[];
   invoice: SaleInvoiceDto;
+  remainingItems: Array<{ id: number; productId: number; name: string; quantity: number; unitPrice: number; subtotal: number; notes: string }>;
   printData?: any;
 }
 
@@ -191,10 +199,51 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
     throw new ValidationError("No se puede facturar un pedido cancelado.");
   }
 
-  const orderCalculatedTotal = order.items.reduce(
-    (acc, it) => acc + Number(it.unitPrice) * it.quantity,
-    0
-  );
+  const requestedItems = body.orderItems;
+  const selectedQuantityByItemId = new Map<number, number>();
+  if (requestedItems !== undefined) {
+    if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
+      throw new ValidationError("Selecciona al menos un producto para el comprobante.");
+    }
+    for (const selection of requestedItems) {
+      if (!selection || typeof selection !== "object") {
+        throw new ValidationError("La selección de productos del comprobante no es válida.");
+      }
+      const itemId = Number(selection.orderItemId ?? selection.order_item_id);
+      const quantity = Number(selection.quantity);
+      if (!Number.isInteger(itemId) || itemId <= 0 || !Number.isInteger(quantity) || quantity <= 0) {
+        throw new ValidationError("La selección de productos del comprobante no es válida.");
+      }
+      if (selectedQuantityByItemId.has(itemId)) {
+        throw new ValidationError("No repitas un producto en la selección del comprobante.");
+      }
+      selectedQuantityByItemId.set(itemId, quantity);
+    }
+  } else {
+    for (const item of order.items) {
+      const remaining = item.quantity - item.billedQuantity;
+      if (remaining > 0) selectedQuantityByItemId.set(item.id, remaining);
+    }
+  }
+
+  const selectedItems = [...selectedQuantityByItemId.entries()].map(([itemId, quantity]) => {
+    const item = order.items.find((candidate) => candidate.id === itemId);
+    if (!item) throw new ValidationError("Uno de los productos seleccionados no pertenece al pedido.");
+    const remaining = item.quantity - item.billedQuantity;
+    if (quantity > remaining) {
+      throw new ValidationError(`Solo quedan ${remaining} unidades de ${item.product.name} por facturar.`);
+    }
+    return {
+      item,
+      quantity,
+      subtotal: Math.round(Number(item.unitPrice) * quantity * 100) / 100,
+    };
+  });
+  if (selectedItems.length === 0) {
+    throw new ConflictError("El pedido ya no tiene productos pendientes de facturación.");
+  }
+
+  const orderCalculatedTotal = selectedItems.reduce((acc, selection) => acc + selection.subtotal, 0);
   const roundedTotal = Math.round(orderCalculatedTotal * 100) / 100;
 
   if (isSplitPayment) {
@@ -298,6 +347,60 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
     : (paymentType?.name ?? "Efectivo");
 
   const transaction = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "sales_order" WHERE "id" = ${order.id} FOR UPDATE`;
+    const lockedOrder = await tx.salesOrder.findUnique({
+      where: { id: order.id },
+      select: { status: true },
+    });
+    if (!lockedOrder || lockedOrder.status === "Closed") {
+      throw new ConflictError("El pedido ya se encuentra cerrado y facturado.");
+    }
+    if (lockedOrder.status === "Cancelled") {
+      throw new ValidationError("No se puede facturar un pedido cancelado.");
+    }
+
+    const lockedItems = await tx.orderItem.findMany({
+      where: { orderId: order.id },
+      select: { id: true, quantity: true, billedQuantity: true },
+    });
+    const lockedItemsById = new Map(lockedItems.map((item) => [item.id, item]));
+    for (const selection of selectedItems) {
+      const current = lockedItemsById.get(selection.item.id);
+      if (!current || selection.quantity > current.quantity - current.billedQuantity) {
+        throw new ConflictError("La cantidad pendiente cambió. Actualiza el pedido e inténtalo de nuevo.");
+      }
+      const updatedItem = await tx.orderItem.updateMany({
+        where: {
+          id: current.id,
+          orderId: order.id,
+          billedQuantity: current.billedQuantity,
+        },
+        data: { billedQuantity: { increment: selection.quantity } },
+      });
+      if (updatedItem.count !== 1) {
+        throw new ConflictError("La cantidad pendiente cambió. Actualiza el pedido e inténtalo de nuevo.");
+      }
+      current.billedQuantity += selection.quantity;
+    }
+    const fullyBilled = lockedItems.every((item) => item.billedQuantity >= item.quantity);
+    const remainingItems = fullyBilled
+      ? []
+      : lockedItems.flatMap((lockedItem) => {
+          const item = order.items.find((candidate) => candidate.id === lockedItem.id);
+          const quantity = item ? item.quantity - lockedItem.billedQuantity : 0;
+          return item && quantity > 0
+            ? [{
+                id: item.id,
+                productId: item.productId,
+                name: item.product.name,
+                quantity,
+                unitPrice: Number(item.unitPrice),
+                subtotal: Math.round(Number(item.unitPrice) * quantity * 100) / 100,
+                notes: item.notes ?? "",
+              }]
+            : [];
+        });
+
     const invoiceData: any = {
       orderId: order.id,
       customerId,
@@ -319,6 +422,18 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
 
     const invoice = await tx.salesInvoice.create({
       data: invoiceData,
+    });
+
+    await tx.salesInvoiceItem.createMany({
+      data: selectedItems.map(({ item, quantity, subtotal }) => ({
+        salesInvoiceId: invoice.id,
+        orderItemId: item.id,
+        name: item.product.name,
+        quantity,
+        unitPrice: item.unitPrice,
+        subtotal,
+        notes: item.notes,
+      })),
     });
 
     if (isSplitPayment) {
@@ -343,10 +458,12 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
       });
     }
 
-    await tx.salesOrder.update({
-      where: { id: order.id },
-      data: { status: "Closed" },
-    });
+    if (fullyBilled) {
+      await tx.salesOrder.update({
+        where: { id: order.id },
+        data: { status: "Closed" },
+      });
+    }
 
     if (order.tables.length > 0) {
       for (const pm of order.tables) {
@@ -414,7 +531,7 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
       console.warn("[sales.service] Error al registrar asientos automáticos de venta:", acctError);
     }
 
-    return { invoice, journalEntryIds };
+    return { invoice, journalEntryIds, fullyBilled, remainingItems };
   });
 
   let finalS3Url: string = typeof transaction.invoice.s3Url === "string" ? transaction.invoice.s3Url : "";
@@ -463,14 +580,16 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
 
     broadcastRealtimeEvent("TABLE_UPDATED", {
       orderId: order.id,
-      reason: "COBRO_FINALIZADO",
+      reason: transaction.fullyBilled ? "COBRO_FINALIZADO" : "COBRO_PARCIAL",
     });
   } catch (rtErr) {
     console.warn("[sales.service] Error al emitir evento en tiempo real:", rtErr);
   }
 
   return {
-    message: "Venta registrada, pedido cerrado, mesa liberada y asientos contables generados.",
+    message: transaction.fullyBilled
+      ? "Venta registrada, pedido cerrado, mesa liberada y asientos contables generados."
+      : "Comprobante emitido. El pedido permanece abierto con productos pendientes de facturar.",
     journalEntriesCount: transaction.journalEntryIds?.length || 0,
     journalEntryIds: transaction.journalEntryIds || [],
     invoice: {
@@ -495,8 +614,15 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
         personType,
       },
       origin: associatedTable ? `Mesa ${associatedTable.number}` : "Llevar",
-      items: mapOrderItemsToInvoiceItems(order.items),
+      items: selectedItems.map(({ item, quantity, subtotal }) => ({
+        name: item.product.name,
+        quantity,
+        unitPrice: Number(item.unitPrice),
+        subtotal,
+        notes: item.notes ?? "",
+      })),
     },
+    remainingItems: transaction.remainingItems,
   };
 }
 
@@ -537,6 +663,7 @@ export async function listSalesVouchers(filters?: {
           paymentType: true,
         },
       },
+      items: { orderBy: { id: "asc" } },
       journalEntries: {
         select: {
           id: true,
@@ -615,7 +742,15 @@ export async function listSalesVouchers(filters?: {
         description: je.description,
         status: je.status ? "Registrado" : "Anulado",
       })),
-      items: mapOrderItemsToInvoiceItems(c.order?.items || []),
+      items: c.items.length > 0
+        ? c.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            subtotal: Number(item.subtotal),
+            notes: item.notes ?? "",
+          }))
+        : mapOrderItemsToInvoiceItems(c.order?.items || []),
     };
   });
 

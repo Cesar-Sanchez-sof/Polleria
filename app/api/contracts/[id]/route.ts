@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest, ctx: IdContext) {
 
     const before = await getContract(id);
     await verifyModifiableEmployee(before.employee_id, auth.superuser);
-    const updated = await updateContract(id, body as unknown as ContractData);
+    const updated = await updateContract(id, body as unknown as ContractData, auth.session.userId);
     await auditHr(auth.session, request, {
       action: "UPDATE",
       module: "Contratos",

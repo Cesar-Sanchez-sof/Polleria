@@ -546,7 +546,7 @@ export async function correctAttendance(
   };
   const saved = await prisma.attendance.upsert({
     where: { employeeId_date: { employeeId, date } },
-    create: { employeeId, date, ...values, checkOutSource: checkOut ? "Correccion" : null },
+    create: { employeeId, date, ...values, source: "Correccion", checkOutSource: checkOut ? "Correccion" : null },
     update: {
       ...values,
       // La corrección conserva el origen de la marca que no cambió.

@@ -108,6 +108,7 @@ export interface ContractDto {
   renewed_by_id: number | null;
   created_at: string;
   schedule: ContractScheduleDto[];
+  salary_history: Array<{ previous_salary: number; new_salary: number; changed_at: string }>;
   weekly_hours: number;
   working_days: number;
 }
@@ -115,6 +116,7 @@ export interface ContractDto {
 const INCLUDE = {
   employee: { select: { id: true, dni: true, firstName: true, middleName: true, paternalLastName: true, maternalLastName: true } },
   schedule: { include: { shiftTemplate: true }, orderBy: [{ weekday: "asc" }, { shiftTemplate: { startTime: "asc" } }] },
+  salaryHistory: { orderBy: { changedAt: "desc" } },
   renewedBy: { select: { id: true } },
 } satisfies Prisma.EmploymentContractInclude;
 
@@ -178,6 +180,11 @@ export function mapContract(c: ContractRow, today = todayLimaIso()): ContractDto
     renewed_by_id: c.renewedBy?.id ?? null,
     created_at: c.createdAt.toISOString(),
     schedule: [...byDay.values()],
+    salary_history: c.salaryHistory.map((change) => ({
+      previous_salary: Number(change.previousSalary),
+      new_salary: Number(change.newSalary),
+      changed_at: change.changedAt.toISOString(),
+    })),
     weekly_hours: Math.round((minutes / 60) * 100) / 100,
     working_days: byDay.size,
   };
@@ -393,7 +400,7 @@ export async function renewContract(id: number, data: ContractData, actorUserId:
 }
 
 /** Adenda: modifica las condiciones de un contrato vigente (cargo, sueldo, horario…). */
-export async function updateContract(id: number, data: ContractData): Promise<ContractDto> {
+export async function updateContract(id: number, data: ContractData, actorUserId: number | null = null): Promise<ContractDto> {
   return prisma.$transaction(async (tx) => {
     const current = await tx.employmentContract.findUnique({ where: { id } });
     if (!current) throw new UserError("Contrato no encontrado", 404);
@@ -403,6 +410,16 @@ export async function updateContract(id: number, data: ContractData): Promise<Co
       throw new UserError("El tipo de contrato no se cambia por adenda: finaliza este contrato y registra uno nuevo");
     }
     await verifyNoOverlappingContract(tx, current.employeeId, n.data.startDate, n.data.endDate, id);
+    if (Number(current.baseSalary) !== n.data.baseSalary) {
+      await tx.contractSalaryHistory.create({
+        data: {
+          contractId: id,
+          previousSalary: current.baseSalary,
+          newSalary: n.data.baseSalary,
+          changedById: actorUserId,
+        },
+      });
+    }
     await tx.contractScheduleDay.deleteMany({ where: { contractId: id } });
     const updated = await tx.employmentContract.update({
       where: { id },

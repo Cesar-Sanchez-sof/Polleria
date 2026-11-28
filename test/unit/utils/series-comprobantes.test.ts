@@ -12,6 +12,8 @@ const {
   paymentTypeMock,
   diningTableMock,
   salesPaymentMock,
+  salesInvoiceItemMock,
+  orderItemMock,
   inMemoryStore,
 } = vi.hoisted(() => {
   let invoices: any[] = [];
@@ -62,6 +64,15 @@ const {
     }),
   };
 
+  const salesInvoiceItemMock = {
+    createMany: vi.fn(async () => ({ count: 1 })),
+  };
+
+  const orderItemMock = {
+    findMany: vi.fn(async () => [{ id: 1, quantity: 1, billedQuantity: 0 }]),
+    updateMany: vi.fn(async () => ({ count: 1 })),
+  };
+
   const printerConfigMock = {
     findUnique: vi.fn(async () => (printerConfig ? { ...printerConfig } : null)),
     create: vi.fn(async ({ data }: any) => {
@@ -90,6 +101,7 @@ const {
             id: 1,
             productId: 10,
             quantity: 1,
+            billedQuantity: 0,
             unitPrice: 59.0,
             subtotal: 59.0,
             product: { id: 10, name: "1 Pollo a la Brasa" },
@@ -134,6 +146,8 @@ const {
     paymentTypeMock,
     diningTableMock,
     salesPaymentMock,
+    salesInvoiceItemMock,
+    orderItemMock,
     inMemoryStore: {
       getInvoices: () => invoices,
       setInvoices: (val: any[]) => {
@@ -150,6 +164,8 @@ const {
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     salesInvoice: salesInvoiceMock,
+    salesInvoiceItem: salesInvoiceItemMock,
+    orderItem: orderItemMock,
     printerConfig: printerConfigMock,
     salesOrder: salesOrderMock,
     customer: customerMock,
@@ -160,9 +176,12 @@ vi.mock("@/lib/prisma", () => ({
       if (typeof cb === "function") {
         return cb({
           salesInvoice: salesInvoiceMock,
+          salesInvoiceItem: salesInvoiceItemMock,
+          orderItem: orderItemMock,
           salesPayment: salesPaymentMock,
           salesOrder: salesOrderMock,
           diningTable: diningTableMock,
+          $queryRaw: vi.fn(async () => []),
           cashSession: { update: vi.fn() },
         });
       }

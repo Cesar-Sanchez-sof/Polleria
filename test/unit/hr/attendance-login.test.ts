@@ -25,7 +25,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { checkInOnLogin, deviceLabel, markAttendance } from "@/lib/services/hr/attendance.service";
+import { checkInOnLogin, correctAttendance, deviceLabel, markAttendance } from "@/lib/services/hr/attendance.service";
 import { instantAt } from "@/lib/services/hr/labor-rules";
 
 const day = "2026-11-04";
@@ -100,6 +100,26 @@ describe("salida al cerrar sesión", () => {
     expect(r).toMatchObject({ date: day, time: "00:35" });
     expect(m.attendanceUpdate.mock.calls[0][0].data).toMatchObject({ checkOutSource: "CierreSesion", checkOutIp: "190.1.2.3" });
     expect(m.markCreate.mock.calls[0][0].data).toMatchObject({ kind: "Salida", source: "CierreSesion" });
+  });
+});
+
+describe("corrección de asistencia", () => {
+  it("marca la entrada creada por RR. HH. con origen Correccion", async () => {
+    await correctAttendance(
+      { employee_id: 7, date: day, check_in: "18:00" },
+      3,
+      at("19:00"),
+      "ana",
+    );
+
+    expect(m.attendanceUpsert.mock.calls[0][0].create).toMatchObject({
+      employeeId: 7,
+      source: "Correccion",
+    });
+    expect(m.markCreate.mock.calls[0][0].data).toMatchObject({
+      kind: "Entrada",
+      source: "Correccion",
+    });
   });
 });
 

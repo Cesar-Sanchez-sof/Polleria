@@ -86,6 +86,7 @@ const contractRow = {
   renewedFromId: null,
   renewedBy: null,
   createdAt: new Date("2026-11-01T15:00:00Z"),
+  salaryHistory: [],
   employee: { id: 7, dni: "12345678", firstName: "Ana", middleName: null, paternalLastName: "Pérez", maternalLastName: null },
   schedule: [0, 1, 2, 3, 4, 5].map((weekday) => ({ weekday, shiftTemplateId: 2, shiftTemplate: ATENCION })),
 };

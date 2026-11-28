@@ -243,6 +243,7 @@ model User {
   favoriteDashboards     UserDashboardFavorite[] @relation("UserFavoriteDashboards")
   dashboardAccess        DashboardUserAccess[]
   contractsCreated       EmploymentContract[]    @relation("ContractCreatedBy")
+  salaryChanges          ContractSalaryHistory[] @relation("ContractSalaryHistoryChangedBy")
   attendancesLogged      Attendance[]            @relation("AttendanceRegisteredBy")
   leavesReviewed         LeaveRequest[]          @relation("LeaveReviewedBy")
   advancesReviewed       SalaryAdvance[]         @relation("AdvanceReviewedBy")
@@ -392,12 +393,27 @@ model EmploymentContract {
   renewedBy          EmploymentContract?   @relation("ContractRenewal")
   createdBy          User?                 @relation("ContractCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   schedule           ContractScheduleDay[]
+  salaryHistory      ContractSalaryHistory[]
   payrolls           Payroll[]
 
   @@index([employeeId], map: "idx_employment_contract_employee")
   @@index([endDate], map: "idx_employment_contract_end")
   @@index([status, endDate], map: "idx_contract_status_end")
   @@map("employment_contract")
+}
+
+model ContractSalaryHistory {
+  id             Int                @id @default(autoincrement())
+  contractId     Int                @map("contract_id")
+  previousSalary Decimal            @map("previous_salary") @db.Decimal(10, 2)
+  newSalary      Decimal            @map("new_salary") @db.Decimal(10, 2)
+  changedAt      DateTime           @default(now()) @map("changed_at") @db.Timestamptz(6)
+  changedById    Int?               @map("changed_by_id")
+  contract       EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  changedBy      User?              @relation("ContractSalaryHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([contractId, changedAt], map: "idx_contract_salary_history")
+  @@map("contract_salary_history")
 }
 
 /// Horario pactado en el contrato: turno base que cubre en cada día de la semana (0 = lunes).
@@ -942,6 +958,7 @@ model OrderItem {
   orderId            Int                 @map("order_id")
   productId          Int                 @map("product_id")
   quantity           Int                 @db.SmallInt
+  billedQuantity     Int                 @default(0) @map("billed_quantity") @db.SmallInt
   unitPrice          Decimal             @map("unit_price") @db.Decimal(10, 2)
   subtotal           Decimal             @db.Decimal(10, 2)
   itemStatus         String              @default("Pending") @map("dish_status") @db.VarChar(30)
@@ -949,6 +966,7 @@ model OrderItem {
   order              SalesOrder          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product            Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements InventoryMovement[]
+  invoiceItems       SalesInvoiceItem[]
 
   @@index([orderId], map: "idx_order_item_order")
   @@index([productId], map: "idx_order_item_product")
@@ -972,6 +990,7 @@ model SalesInvoice {
   order          SalesOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
   customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
   payments       SalesPayment[]
+  items          SalesInvoiceItem[]
   journalEntries JournalEntry[]
   cashSessionId  Int?           @map("cash_session_id")
   cashSession    CashSession?   @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
@@ -981,6 +1000,23 @@ model SalesInvoice {
   @@index([customerId], map: "idx_sales_invoice_customer")
   @@index([cashSessionId], map: "idx_sales_invoice_cash_session")
   @@map("sales_invoice")
+}
+
+model SalesInvoiceItem {
+  id             Int          @id @default(autoincrement())
+  salesInvoiceId Int          @map("sales_invoice_id")
+  orderItemId    Int?         @map("order_item_id")
+  name           String       @db.VarChar(150)
+  quantity       Int          @db.SmallInt
+  unitPrice      Decimal      @map("unit_price") @db.Decimal(10, 2)
+  subtotal       Decimal      @db.Decimal(10, 2)
+  notes          String?      @db.VarChar(100)
+  salesInvoice   SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem?   @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@index([salesInvoiceId], map: "idx_sales_invoice_item_invoice")
+  @@index([orderItemId], map: "idx_sales_invoice_item_order_item")
+  @@map("sales_invoice_item")
 }
 
 model SalesPayment {

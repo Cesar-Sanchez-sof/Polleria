@@ -20,6 +20,8 @@ export interface OrderLineItem {
   name: string;
   productName?: string;
   quantity: number;
+  billedQuantity?: number;
+  remainingQuantity?: number;
   unitPrice: number;
   subtotal: number;
   itemStatus?: string;
@@ -37,6 +39,7 @@ export interface OrderSummary {
   notes: string;
   items: OrderLineItem[];
   total: number;
+  remainingTotal?: number;
   editable: boolean;
 }
 
@@ -57,6 +60,7 @@ export interface TableItem {
     total: number;
     editable: boolean;
     isAnnexed?: boolean;
+    remainingTotal: number;
   } | null;
 }
 
@@ -307,6 +311,7 @@ export async function listPaymentMethods(): Promise<PaymentMethodItem[]> {
 
 export async function registerSale(data: {
   orderId: number;
+  orderItems?: Array<{ orderItemId: number; quantity: number }>;
   paymentTypeId?: number;
   payments?: Array<{ paymentTypeId: number; amount: number }>;
   voucherType: "Boleta" | "Factura" | "Ticket";
@@ -322,7 +327,11 @@ export async function registerSale(data: {
     mode?: "tap_to_pay" | "qr" | "manual";
     operationId?: string;
   };
-}): Promise<{ message: string; invoice: IssuedVoucher }> {
+}): Promise<{
+  message: string;
+  invoice: IssuedVoucher;
+  remainingItems: Array<{ id: number; productId: number; name: string; quantity: number; unitPrice: number; subtotal: number; notes: string }>;
+}> {
   const res = await fetch("/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

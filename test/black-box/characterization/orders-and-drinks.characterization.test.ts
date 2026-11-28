@@ -15,6 +15,8 @@ const m = vi.hoisted(() => ({
   orderItemUpdate: vi.fn(),
   orderItemCreate: vi.fn(),
   orderTableCreate: vi.fn(),
+  orderTableFindFirst: vi.fn(),
+  orderTableDeleteMany: vi.fn(),
   cashSessionFindFirst: vi.fn(),
   transaction: vi.fn(),
   deductProductStock: vi.fn(),
@@ -46,6 +48,8 @@ vi.mock("@/lib/prisma", () => ({
     },
     orderTable: {
       create: m.orderTableCreate,
+      findFirst: m.orderTableFindFirst,
+      deleteMany: m.orderTableDeleteMany,
     },
     cashSession: {
       findFirst: m.cashSessionFindFirst,
@@ -91,6 +95,8 @@ describe("Characterization: Orders & Drinks Domain Handlers", () => {
         },
         orderTable: {
           create: m.orderTableCreate,
+          findFirst: m.orderTableFindFirst,
+          deleteMany: m.orderTableDeleteMany,
         },
         orderItem: {
           create: m.orderItemCreate,
@@ -120,6 +126,7 @@ describe("Characterization: Orders & Drinks Domain Handlers", () => {
               id: 101,
               productId: 20,
               quantity: 2,
+              billedQuantity: 0,
               unitPrice: 25.0,
               subtotal: 50.0,
               itemStatus: "Pending",
@@ -307,6 +314,7 @@ describe("Characterization: Orders & Drinks Domain Handlers", () => {
             id: 10,
             productId: 5,
             quantity: 1,
+            billedQuantity: 0,
             unitPrice: 30,
             subtotal: 30,
             itemStatus: "Preparing",
@@ -327,6 +335,56 @@ describe("Characterization: Orders & Drinks Domain Handlers", () => {
       expect(json.status).toBe("Preparing");
       expect(json.total).toBe(30);
       expect(json.editable).toBe(true);
+    });
+  });
+
+  describe("PUT /api/orders/[id]", () => {
+    it("mueve el pedido a una mesa libre y reemplaza la asociación anterior", async () => {
+      const previousOrder = {
+        id: 15,
+        code: "PED-15",
+        orderType: "Mesa",
+        orderedAt: new Date("2026-11-01T14:00:00Z"),
+        status: "Preparing",
+        tables: [{ tableId: 2, notes: "VIP", table: { id: 2, number: 3 } }],
+        items: [],
+      };
+      const movedOrder = {
+        ...previousOrder,
+        tables: [{ tableId: 8, notes: null, table: { id: 8, number: 9 } }],
+      };
+      m.salesOrderFindUnique
+        .mockResolvedValueOnce(previousOrder)
+        .mockResolvedValueOnce(movedOrder);
+      m.diningTableFindUnique.mockResolvedValueOnce({ id: 8 });
+      m.orderTableFindFirst.mockResolvedValueOnce(null);
+      m.orderTableDeleteMany.mockResolvedValueOnce({ count: 1 });
+      m.orderTableCreate.mockResolvedValueOnce({ id: 99 });
+      m.diningTableUpdate.mockResolvedValueOnce({ id: 8, active: true });
+
+      const req = new NextRequest("http://localhost:3000/api/orders/15", {
+        method: "PUT",
+        body: JSON.stringify({ tableId: 8 }),
+      });
+      const res = await putOrderById(req, {
+        params: Promise.resolve({ id: "15" }),
+      });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.table).toEqual({ id: 8, number: 9 });
+      expect(m.orderTableDeleteMany).toHaveBeenCalledWith({ where: { orderId: 15 } });
+      expect(m.orderTableCreate).toHaveBeenCalledWith({
+        data: { orderId: 15, tableId: 8, notes: null },
+      });
+      expect(m.broadcastRealtimeEvent).toHaveBeenCalledWith(
+        "TABLE_UPDATED",
+        expect.objectContaining({ tableId: 2, reason: "PEDIDO_MOVIDO", orderId: 15 }),
+      );
+      expect(m.broadcastRealtimeEvent).toHaveBeenCalledWith(
+        "TABLE_UPDATED",
+        expect.objectContaining({ tableId: 8, reason: "PEDIDO_MOVIDO", orderId: 15 }),
+      );
     });
   });
 

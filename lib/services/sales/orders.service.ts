@@ -32,6 +32,8 @@ export interface MappedOrderItemDto {
   productId: number;
   name: string;
   quantity: number;
+  billedQuantity: number;
+  remainingQuantity: number;
   unitPrice: number;
   subtotal: number;
   itemStatus: string;
@@ -48,6 +50,7 @@ export interface MappedOrderDto {
   notes: string;
   items: MappedOrderItemDto[];
   total: number;
+  remainingTotal: number;
   editable: boolean;
 }
 
@@ -129,6 +132,7 @@ export function mapOrderResponse(p: {
     id: number;
     productId: number;
     quantity: number;
+    billedQuantity: number;
     unitPrice: { toString(): string } | number;
     subtotal: { toString(): string } | number;
     itemStatus: string;
@@ -142,12 +146,15 @@ export function mapOrderResponse(p: {
     productId: d.productId,
     name: d.product.name,
     quantity: d.quantity,
+    billedQuantity: d.billedQuantity,
+    remainingQuantity: Math.max(0, d.quantity - d.billedQuantity),
     unitPrice: Number(d.unitPrice),
     subtotal: Number(d.subtotal),
     itemStatus: d.itemStatus,
     notes: d.notes ?? "",
   }));
   const total = items.reduce((acc, it) => acc + it.subtotal, 0);
+  const remainingTotal = items.reduce((acc, it) => acc + it.remainingQuantity * it.unitPrice, 0);
 
   return {
     id: p.id,
@@ -159,6 +166,7 @@ export function mapOrderResponse(p: {
     notes: pm?.notes ?? "",
     items,
     total,
+    remainingTotal,
     editable: !CLOSED_STATUSES.includes(p.status),
   };
 }
@@ -472,7 +480,7 @@ export async function updateOrder(
   id: number,
   data: UpdateOrderInput
 ): Promise<MappedOrderDto> {
-  if (!id || Number.isNaN(id)) {
+  if (!Number.isInteger(id) || id <= 0) {
     throw new ValidationError("ID de pedido inválido.");
   }
 
@@ -494,57 +502,95 @@ export async function updateOrder(
 
   const newStatus = data.status;
   const newItems = Array.isArray(data.items) ? data.items : [];
-
+  const productsMap = new Map<number, (typeof existingOrder.items)[number]["product"]>();
   if (newItems.length > 0) {
     const productIds = newItems.map((it) => resolveProductId(it));
     const productsDb = await prisma.product.findMany({
       where: { id: { in: productIds }, active: true, sellable: true },
     });
-    const productsMap = new Map(productsDb.map((pl) => [pl.id, pl]));
-
-    await prisma.$transaction(async (tx) => {
-      if (newStatus && newStatus !== existingOrder.status) {
-        await tx.salesOrder.update({
-          where: { id },
-          data: { status: newStatus },
-        });
+    for (const product of productsDb) productsMap.set(product.id, product);
+    for (const item of newItems) {
+      const productId = resolveProductId(item);
+      if (!Number.isInteger(productId) || !productsMap.has(productId)) {
+        throw new ValidationError(`El producto con ID ${productId} no existe, no está activo o no se vende.`);
       }
-
-      for (const item of newItems) {
-        const productId = resolveProductId(item);
-        const quantity = resolveQuantity(item);
-        const product = productsMap.get(productId);
-        if (!product || quantity < 1) continue;
-
-        const unitPrice = Number(product.price);
-        const subtotal = unitPrice * quantity;
-        const itemNotes = item.notes ?? item.observations;
-
-        const createdItem = await tx.orderItem.create({
-          data: {
-            orderId: id,
-            productId: product.id,
-            quantity,
-            unitPrice,
-            subtotal,
-            itemStatus: "Pending",
-            notes: itemNotes ? itemNotes.trim().slice(0, 100) : null,
-          },
-        });
-
-        await deductProductStock(
-          tx,
-          { productId: product.id, quantity, orderItemId: createdItem.id },
-          `Adición al pedido ${existingOrder.code}`
-        );
+      if (!Number.isInteger(resolveQuantity(item)) || resolveQuantity(item) < 1) {
+        throw new ValidationError("La cantidad de cada producto debe ser al menos 1.");
       }
-    });
-  } else if (newStatus && newStatus !== existingOrder.status) {
-    await prisma.salesOrder.update({
-      where: { id },
-      data: { status: newStatus },
-    });
+    }
   }
+
+  const requestedTableId = data.tableId === undefined ? undefined : Number(data.tableId);
+  if (requestedTableId !== undefined) {
+    if (!Number.isInteger(requestedTableId) || requestedTableId <= 0) {
+      throw new ValidationError("Debe seleccionar una mesa válida.");
+    }
+    if (existingOrder.orderType !== "Mesa") {
+      throw new ValidationError("Solo se puede cambiar la mesa de un pedido en salón.");
+    }
+    const table = await prisma.diningTable.findUnique({
+      where: { id: requestedTableId },
+      select: { id: true },
+    });
+    if (!table) throw new NotFoundError("La mesa especificada no existe.");
+  }
+
+  const tableNote = data.notes ?? data.observation;
+  const movedFromTableIds = requestedTableId === undefined ? [] : existingOrder.tables.map((table) => table.tableId);
+  await prisma.$transaction(async (tx) => {
+    if (newStatus && newStatus !== existingOrder.status) {
+      await tx.salesOrder.update({ where: { id }, data: { status: newStatus } });
+    }
+
+    for (const item of newItems) {
+      const productId = resolveProductId(item);
+      const quantity = resolveQuantity(item);
+      const product = productsMap.get(productId)!;
+      const unitPrice = Number(product.price);
+      const subtotal = unitPrice * quantity;
+      const itemNotes = item.notes ?? item.observations;
+
+      const createdItem = await tx.orderItem.create({
+        data: {
+          orderId: id,
+          productId: product.id,
+          quantity,
+          unitPrice,
+          subtotal,
+          itemStatus: "Pending",
+          notes: itemNotes ? itemNotes.trim().slice(0, 100) : null,
+        },
+      });
+
+      await deductProductStock(
+        tx,
+        { productId: product.id, quantity, orderItemId: createdItem.id },
+        `Adición al pedido ${existingOrder.code}`
+      );
+    }
+
+    if (requestedTableId !== undefined) {
+      const occupied = await tx.orderTable.findFirst({
+        where: {
+          tableId: requestedTableId,
+          orderId: { not: id },
+          order: { status: { notIn: CLOSED_STATUSES } },
+        },
+        select: { id: true },
+      });
+      if (occupied) throw new ConflictError("La mesa seleccionada ya tiene un pedido activo.");
+
+      await tx.orderTable.deleteMany({ where: { orderId: id } });
+      await tx.orderTable.create({
+        data: {
+          orderId: id,
+          tableId: requestedTableId,
+          notes: typeof tableNote === "string" ? tableNote.trim().slice(0, 100) || null : null,
+        },
+      });
+      await tx.diningTable.update({ where: { id: requestedTableId }, data: { active: true } });
+    }
+  });
 
   const updated = await prisma.salesOrder.findUnique({
     where: { id },
@@ -562,6 +608,12 @@ export async function updateOrder(
       status: updated!.status,
       order: mapped,
     });
+    for (const tableId of movedFromTableIds) {
+      broadcastRealtimeEvent("TABLE_UPDATED", { tableId, reason: "PEDIDO_MOVIDO", orderId: id });
+    }
+    if (requestedTableId !== undefined) {
+      broadcastRealtimeEvent("TABLE_UPDATED", { tableId: requestedTableId, reason: "PEDIDO_MOVIDO", orderId: id });
+    }
   } catch (rtErr) {
     console.warn("[orders.service] Error al emitir evento en tiempo real:", rtErr);
   }

@@ -111,4 +111,21 @@ describe("buildBalanceSheet (SUNAT / PCGE)", () => {
     expect(statement.balanced).toBe(false);
     expect(statement.difference).toBe(50);
   });
+
+  it("incluye cuentas por cobrar al personal y todas las cuentas de inventario", () => {
+    const statement = buildBalanceSheet({
+      asOf: "2026-11-27",
+      accounts: [
+        { code: "141", name: "Adelantos de remuneraciones", type: "Activo", debit: 100, credit: 0 },
+        { code: "211", name: "Productos terminados", type: "Activo", debit: 50, credit: 0 },
+        { code: "501", name: "Capital", type: "Patrimonio", debit: 0, credit: 150 },
+      ],
+    });
+
+    expect(statement.totals.currentAssets).toBe(150);
+    expect(statement.balanced).toBe(true);
+    expect(statement.difference).toBe(0);
+    expect(statement.lines.map((line) => line.code)).toContain("141");
+    expect(statement.lines.map((line) => line.code)).toContain("211");
+  });
 });

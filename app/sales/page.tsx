@@ -342,6 +342,8 @@ function SalesManagementContent() {
   // ESTADO CAJA Y COBRO EN VENTANILLA
   // ---------------------------------------------------------------------------
   const [orderToCharge, setOrderToCharge] = useState<OrderSummary | null>(null);
+  const [invoiceQuantities, setInvoiceQuantities] = useState<Record<number, number>>({});
+  const [counterReceiptNumber, setCounterReceiptNumber] = useState<1 | 2>(1);
   const [paymentSource, setPaymentSource] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<"efectivo" | "yape" | "pos" | "mixto">("efectivo");
   const [amountGiven, setAmountGiven] = useState<string>("");
@@ -504,12 +506,23 @@ function SalesManagementContent() {
   }, [orderItems]);
 
   // Cálculos para cobro en Ventanilla
-  const counterPaymentTotal = orderToCharge ? orderToCharge.total : 0;
+  const selectedCounterItems = useMemo(
+    () =>
+      (orderToCharge?.items ?? []).flatMap((item) => {
+        const quantity = item.id === undefined ? 0 : invoiceQuantities[item.id] ?? 0;
+        return quantity > 0 ? [{ ...item, quantity }] : [];
+      }),
+    [orderToCharge, invoiceQuantities],
+  );
+  const counterPaymentTotal = selectedCounterItems.reduce(
+    (total, item) => total + item.unitPrice * item.quantity,
+    0,
+  );
   const counterBreakdown = useMemo(() => {
     return calculateTotals(
-      orderToCharge ? orderToCharge.items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice })) : []
+      selectedCounterItems.map((item) => ({ quantity: item.quantity, unitPrice: item.unitPrice }))
     );
-  }, [orderToCharge]);
+  }, [selectedCounterItems]);
 
   const counterChangeDue = useMemo(() => {
     const given = Number(amountGiven);
@@ -581,7 +594,8 @@ function SalesManagementContent() {
           table: { id: m.id, number: m.number },
           notes: m.activeOrder.tableNotes,
           items: m.activeOrder.items,
-          total: m.activeOrder.total,
+          total: m.activeOrder.remainingTotal,
+          remainingTotal: m.activeOrder.remainingTotal,
           editable: m.activeOrder.editable,
         };
 
@@ -593,7 +607,7 @@ function SalesManagementContent() {
           orderedAt: m.activeOrder.orderedAt,
           kitchenStatus: m.activeOrder.status,
           items: m.activeOrder.items,
-          total: m.activeOrder.total,
+          total: m.activeOrder.remainingTotal,
           editable: m.activeOrder.editable,
           tableObj: m,
           orderObj: orderObj,
@@ -612,9 +626,9 @@ function SalesManagementContent() {
           orderedAt: p.orderedAt,
           kitchenStatus: p.status,
           items: p.items,
-          total: p.total,
+          total: p.remainingTotal ?? p.total,
           editable: p.editable,
-          orderObj: p,
+          orderObj: { ...p, total: p.remainingTotal ?? p.total },
         });
       }
     }
@@ -671,7 +685,8 @@ function SalesManagementContent() {
           table: { id: m.id, number: m.number },
           notes: m.activeOrder.tableNotes,
           items: m.activeOrder.items,
-          total: m.activeOrder.total,
+          total: m.activeOrder.remainingTotal,
+          remainingTotal: m.activeOrder.remainingTotal,
           editable: m.activeOrder.editable,
         };
 
@@ -691,7 +706,7 @@ function SalesManagementContent() {
           items: m.activeOrder.items,
           total: m.activeOrder.total,
           notes: m.activeOrder.tableNotes,
-          orderObj: orderObj,
+          orderObj: { ...orderObj, total: m.activeOrder.remainingTotal, remainingTotal: m.activeOrder.remainingTotal },
           isDelivered,
         });
       }
@@ -718,7 +733,7 @@ function SalesManagementContent() {
           items: p.items,
           total: p.total,
           notes: p.notes,
-          orderObj: p,
+          orderObj: { ...p, total: p.remainingTotal ?? p.total },
           isDelivered,
         });
       }
@@ -1175,10 +1190,24 @@ function SalesManagementContent() {
   // ---------------------------------------------------------------------------
   // ACCIONES COBRO EN VENTANILLA / CAJA
   // ---------------------------------------------------------------------------
-  const goToCounterPayment = (order: OrderSummary, origin: string) => {
+  const selectCounterOrder = (order: OrderSummary, origin: string) => {
     setOrderToCharge(order);
+    setInvoiceQuantities(
+      Object.fromEntries(
+        order.items.flatMap((item) => {
+          if (item.id === undefined) return [];
+          const remaining = item.remainingQuantity ?? item.quantity;
+          return remaining > 0 ? [[item.id, remaining]] : [];
+        }),
+      ),
+    );
+    setCounterReceiptNumber(1);
     setPaymentSource(origin);
     setAmountGiven("");
+  };
+
+  const goToCounterPayment = (order: OrderSummary, origin: string) => {
+    selectCounterOrder(order, origin);
     const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
     const idYap = paymentTypes.find((t) => t.name.toLowerCase().includes("yape"))?.id ?? 2;
     setPaymentParts([
@@ -1200,6 +1229,11 @@ function SalesManagementContent() {
       return;
     }
 
+    if (selectedCounterItems.length === 0) {
+      toast.error("Selecciona al menos una unidad para este comprobante.");
+      return;
+    }
+
     // Validar documento si se ingresó
     if (customerDoc.trim()) {
       const personType = voucherType === "Factura" ? "Legal" : "Natural";
@@ -1215,6 +1249,9 @@ function SalesManagementContent() {
 
     const salePayload: any = {
       orderId: orderToCharge.id,
+      orderItems: selectedCounterItems.flatMap((item) =>
+        item.id === undefined ? [] : [{ orderItemId: item.id, quantity: item.quantity }],
+      ),
       cashSessionId: cashSessionState.activeSession?.id,
       voucherType: voucherType,
       customer: {
@@ -1289,8 +1326,27 @@ function SalesManagementContent() {
       setIssuedVoucher(res.invoice);
       setTicketModalOpen(true);
 
-      setOrderToCharge(null);
-      setPaymentSource("");
+      if (res.remainingItems.length > 0) {
+        const remainingItems: OrderLineItem[] = res.remainingItems.map((item) => ({
+          ...item,
+          billedQuantity: 0,
+          remainingQuantity: item.quantity,
+        }));
+        const remainingTotal = remainingItems.reduce((sum, item) => sum + item.subtotal, 0);
+        setOrderToCharge((current) =>
+          current ? { ...current, items: remainingItems, total: remainingTotal } : current,
+        );
+        setInvoiceQuantities(Object.fromEntries(remainingItems.flatMap((item) =>
+          item.id === undefined ? [] : [[item.id, item.quantity]],
+        )));
+        setCounterReceiptNumber(2);
+        toast.info("El saldo quedó listo para emitir el segundo comprobante.");
+      } else {
+        setOrderToCharge(null);
+        setInvoiceQuantities({});
+        setCounterReceiptNumber(1);
+        setPaymentSource("");
+      }
       setAmountGiven("");
       setCounterYapeProofImage("");
       const idEf = paymentTypes.find((t) => t.name.toLowerCase().includes("efectivo"))?.id ?? 1;
@@ -3188,9 +3244,7 @@ function SalesManagementContent() {
                           key={c.orderId}
                           data-testid={`cuenta-pendiente-${c.identifier.toLowerCase().replace(/\s+/g, "-")}`}
                           onClick={() => {
-                            setOrderToCharge(c.orderObj);
-                            setPaymentSource(c.identifier);
-                            setAmountGiven("");
+                            selectCounterOrder(c.orderObj, c.identifier);
                           }}
                           className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${isSelected
                             ? "bg-red-50/80 border-red-500 ring-2 ring-red-500/20 shadow-xs"
@@ -3252,7 +3306,7 @@ function SalesManagementContent() {
                   </span>
                   {orderToCharge && (
                     <Badge className="bg-red-700 text-white font-bold text-xs">
-                      {paymentSource}
+                      {paymentSource} · comprobante {counterReceiptNumber}
                     </Badge>
                   )}
                 </h3>
@@ -3273,7 +3327,7 @@ function SalesManagementContent() {
                     <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-bold text-slate-800">
-                          Consumo de la Cuenta ({orderToCharge.items.length} productos):
+                          Productos disponibles ({orderToCharge.items.length}):
                         </span>
                         <div className="flex items-center gap-1.5">
                           <Button
@@ -3321,10 +3375,10 @@ function SalesManagementContent() {
                           >
                             <div className="flex flex-col min-w-0 pr-2">
                               <span className="font-medium">
-                                <strong className="text-red-700 font-mono mr-1.5">
-                                  {it.quantity}x
-                                </strong>
                                 {it.name || (it as any).productName}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                Pendiente: {it.remainingQuantity ?? it.quantity} · Para este comprobante:
                               </span>
                               {it.notes && (
                                 <span className="text-[10px] text-amber-700 italic">
@@ -3332,12 +3386,37 @@ function SalesManagementContent() {
                                 </span>
                               )}
                             </div>
-                            <span className="font-bold shrink-0 text-slate-900">
-                              S/ {it.subtotal.toFixed(2)}
-                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Input
+                                aria-label={`Cantidad de ${it.name} para este comprobante`}
+                                type="number"
+                                min={0}
+                                max={it.remainingQuantity ?? it.quantity}
+                                step={1}
+                                disabled={processingSale || counterReceiptNumber === 2 || it.id === undefined}
+                                value={it.id === undefined ? 0 : invoiceQuantities[it.id] ?? 0}
+                                onChange={(event) => {
+                                  const value = Number(event.target.value);
+                                  const maximum = it.remainingQuantity ?? it.quantity;
+                                  const itemId = it.id;
+                                  if (Number.isInteger(value) && value >= 0 && value <= maximum && itemId !== undefined) {
+                                    setInvoiceQuantities((current) => ({ ...current, [itemId]: value }));
+                                  }
+                                }}
+                                className="h-8 w-16 bg-white text-center"
+                              />
+                              <span className="font-bold text-slate-900">
+                                S/ {((it.id === undefined ? 0 : invoiceQuantities[it.id] ?? 0) * it.unitPrice).toFixed(2)}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
+                      {counterPaymentTotal < orderToCharge.total && counterReceiptNumber === 1 && (
+                        <p className="mt-2 text-[11px] text-amber-800">
+                          Las unidades restantes se cobrarán en el segundo comprobante.
+                        </p>
+                      )}
                     </div>
 
                     {/* Tipo de Comprobante Fiscal */}

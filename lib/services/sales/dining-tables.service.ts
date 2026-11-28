@@ -19,6 +19,8 @@ export interface TableOrderItem {
   productId: number;
   name: string;
   quantity: number;
+  billedQuantity: number;
+  remainingQuantity: number;
   unitPrice: number;
   subtotal: number;
   itemStatus: string;
@@ -35,6 +37,7 @@ export interface TableActiveOrder {
   tableNotes: string;
   items: TableOrderItem[];
   total: number;
+  remainingTotal: number;
   editable: boolean;
   isAnnexed: boolean;
 }
@@ -110,6 +113,8 @@ export async function listDiningTables(options?: {
         productId: d.productId,
         name: d.product.name,
         quantity: d.quantity,
+        billedQuantity: d.billedQuantity,
+        remainingQuantity: Math.max(0, d.quantity - d.billedQuantity),
         unitPrice: Number(d.unitPrice),
         subtotal: Number(d.subtotal),
         itemStatus: d.itemStatus,
@@ -117,6 +122,7 @@ export async function listDiningTables(options?: {
       }));
 
       const calculatedTotal = items.reduce((acc, it) => acc + it.subtotal, 0);
+      const remainingTotal = items.reduce((acc, it) => acc + it.remainingQuantity * it.unitPrice, 0);
 
       activeOrder = {
         id: order.id,
@@ -128,6 +134,7 @@ export async function listDiningTables(options?: {
         tableNotes: activeTableOrder.notes ?? "",
         items,
         total: calculatedTotal,
+        remainingTotal,
         editable: !CLOSED_STATUSES.includes(order.status),
         isAnnexed: Boolean(activeTableOrder.notes?.includes("[Anexa a Mesa")),
       };

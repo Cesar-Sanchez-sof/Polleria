@@ -114,8 +114,7 @@ const CURRENT_ASSET_GROUPS: GroupDef[] = [
   {
     id: "inventory",
     label: "Inventarios",
-    match: (code) =>
-      code.startsWith("20") || code.startsWith("24") || code.startsWith("25"),
+    match: (code) => code.startsWith("2"),
   },
 ];
 
@@ -319,10 +318,9 @@ export function buildBalanceSheet(input: {
     (code) =>
       code.startsWith("10") ||
       code.startsWith("12") ||
+      code.startsWith("14") ||
       code.startsWith("16") ||
-      code.startsWith("20") ||
-      code.startsWith("24") ||
-      code.startsWith("25")
+      code.startsWith("2")
   );
   lines.push({
     key: "current-assets-total",
