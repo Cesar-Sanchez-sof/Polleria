@@ -15,7 +15,7 @@ import { SortAndLimitSection } from "./wells/SortAndLimitSection";
 import { FieldsTreeSection } from "./FieldsTreeSection";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 import type { CatalogField } from "@/lib/hooks/use-visual-data";
-import type { MeasureAggregation, VisualType } from "@/lib/dashboards/widget-schema";
+import type { VisualType } from "@/lib/dashboards/widget-schema";
 
 export function VisualTab({
   widgetId,

@@ -9,7 +9,6 @@ import {
   Edit2,
   Trash2,
   Armchair,
-  CheckCircle2,
   Building2,
   Check,
 } from "lucide-react";

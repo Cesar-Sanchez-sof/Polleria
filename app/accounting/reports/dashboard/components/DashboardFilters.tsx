@@ -8,7 +8,6 @@ import {
   Download,
   Printer,
   Calendar,
-  Sparkles,
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

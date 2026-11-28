@@ -3,15 +3,13 @@ import {
   SEMANTIC_DATASETS,
   AVAILABLE_DATASETS,
   getSemanticField,
-  ALL_DATE_GRANULARITIES,
 } from "@/lib/dashboards/semantic-model";
 import {
-  widgetConfigSchema,
   widgetDataConfigSchema,
   createDefaultWidgetConfig,
 } from "@/lib/dashboards/widget-schema";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
-import { formatSemanticDate, toLimaDate } from "@/lib/services/settings/dashboard-query.service";
+import { formatSemanticDate } from "@/lib/services/settings/dashboard-query.service";
 
 describe("Capa Semántica Ampliada (Semantic Engine)", () => {
   it("debe registrar los 10 datasets requeridos del negocio", () => {

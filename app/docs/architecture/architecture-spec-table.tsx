@@ -2,15 +2,9 @@
 
 import React from 'react';
 import {
-  ShieldCheck,
-  CheckCircle2,
-  FolderGit2,
-  Lock,
   Layers,
-  Sparkles,
   Server,
   Database,
-  FileCode2,
 } from 'lucide-react';
 
 interface BoundedContextSpec {

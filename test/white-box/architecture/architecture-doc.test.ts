@@ -5,7 +5,6 @@ import {
   ARCHITECTURE_EDGES,
   TIER_CONTAINERS,
   LIFECYCLE_FLOWS,
-  MODULE_FILTERS,
 } from '@/app/docs/architecture/architecture-data';
 import { linkPermission } from '@/lib/auth/route-permissions';
 

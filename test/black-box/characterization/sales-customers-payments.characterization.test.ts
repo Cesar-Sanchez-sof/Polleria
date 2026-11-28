@@ -113,10 +113,9 @@ vi.mock("@/lib/services/integrations/mercadopago.service", async (importOriginal
 });
 
 import { GET as getCustomers, POST as postCustomer } from "@/app/api/customers/route";
-import { GET as getSales, POST as postSale } from "@/app/api/sales/route";
+import { POST as postSale } from "@/app/api/sales/route";
 import { GET as getVoucherById } from "@/app/api/sales/voucher/[id]/route";
 import { POST as postPreference } from "@/app/api/payments/mercadopago/preference/route";
-import { GET as getPaymentStatus } from "@/app/api/payments/mercadopago/status/route";
 import { POST as postWebhook } from "@/app/api/webhooks/mercadopago/route";
 import { POST as postRealtime } from "@/app/api/realtime/route";
 

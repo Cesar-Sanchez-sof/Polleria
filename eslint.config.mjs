@@ -1,10 +1,13 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import eslintPluginUnusedImports from "eslint-plugin-unused-imports";
 
 const eslintConfig = defineConfig([
+  // Next.js default configs
   ...nextVitals,
   ...nextTs,
+
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -12,9 +15,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    "test/**",
-    "scripts/**",
+    // "test/**",   // comentado para que sea lintado
+    // "scripts/**", // comentado para que sea lintado
   ]),
+
+  // Core linting rules for the whole project
   {
     linterOptions: {
       reportUnusedDisableDirectives: "off",
@@ -23,7 +28,8 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-require-imports": "off",
-      "prefer-const": "off",
+      // Regla autocorregible: ESLint podrá convertir `let` a `const`.
+      "prefer-const": "error",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "off",
       "react-hooks/immutability": "off",
@@ -33,6 +39,8 @@ const eslintConfig = defineConfig([
       "@next/next/no-img-element": "off",
     },
   },
+
+  // Apply rule that forbids direct import of Prisma client in app layer.
   {
     files: ["app/**/*.{ts,tsx}"],
     rules: {
@@ -48,6 +56,16 @@ const eslintConfig = defineConfig([
           ],
         },
       ],
+    },
+  },
+
+  // Unused imports removal rule (plugin `eslint-plugin-unused-imports`).
+  {
+    files: ["app/**/*.{ts,tsx}"],
+    plugins: { "unused-imports": eslintPluginUnusedImports },
+    rules: {
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": "off",
     },
   },
 ]);

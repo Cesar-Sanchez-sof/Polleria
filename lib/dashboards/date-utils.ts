@@ -7,7 +7,7 @@
  * estrictamente en zona horaria peruana, evitando cualquier desfase con toISOString().
  */
 
-import type { WidgetDateRange, DatePreset } from "./widget-schema";
+import type { WidgetDateRange } from "./widget-schema";
 
 export interface LimaDateParts {
   year: number;

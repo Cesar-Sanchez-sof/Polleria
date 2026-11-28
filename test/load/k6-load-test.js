@@ -55,7 +55,7 @@ const ENDPOINTS = [
   { name: 'usuarios',             url: '/api/users' },
 ];
 
-export default function () {
+export default function k6LoadTest () {
   // 1. LOGIN - k6 almacena Set-Cookie en el jar automaticamente
   const jar = http.cookieJar();
 

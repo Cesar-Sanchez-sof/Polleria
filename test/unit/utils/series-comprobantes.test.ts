@@ -207,7 +207,7 @@ vi.mock("@/lib/realtime/event-emitter", () => ({
 
 import { isValidVoucherSeries, formatVoucherCode } from "@/lib/utils/series-validation";
 import { POST as postSale } from "@/app/api/sales/route";
-import { PUT as updatePrinters, GET as getPrinters } from "@/app/api/settings/printers/route";
+import { PUT as updatePrinters } from "@/app/api/settings/printers/route";
 
 function makeJsonRequest(url: string, method: string, body: any): NextRequest {
   return new Request(url, {

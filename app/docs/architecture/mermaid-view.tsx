@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Copy, Check, FileCode, Layers, ShieldCheck } from 'lucide-react';
+import { Copy, Check, FileCode, Layers } from 'lucide-react';
 
 const MERMAID_DIAGRAM_CODE = `flowchart TD
     %% 1. PRESENTACION Y FRONTENDS

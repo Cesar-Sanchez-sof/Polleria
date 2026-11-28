@@ -17,18 +17,11 @@ import {
   ComposedChart,
 } from "recharts";
 import {
-  BarChart3,
   PieChart as PieChartIcon,
   TrendingUp,
   Table as TableIcon,
   Layers,
-  ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
-  Landmark,
-  ShieldAlert,
   Coins,
-  FileText,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -685,7 +678,7 @@ export function DashboardCharts({
                           <td className="py-2.5 font-mono font-bold text-foreground">
                             {acc.code}
                           </td>
-                          <td className="py-2.5 text-foreground font-medium max-w-[200px] truncate" title={acc.name}>
+                          <td className="py-2.5 text-foreground font-medium max-w-50 truncate" title={acc.name}>
                             {acc.name}
                           </td>
                           <td className="py-2.5">

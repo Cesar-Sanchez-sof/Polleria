@@ -195,7 +195,7 @@ export async function getInventoryMovementsPaginated(
     ]);
 
     // 2️⃣ saldoCorrido — solo cuando se filtra por un insumo específico
-    let runningBalances: Record<number, number> = {};
+    const runningBalances: Record<number, number> = {};
     if (filters.productId) {
       // Trae todos los movimientos del insumo ordenados cronológicamente (movedAt ASC, id ASC)
       const allForProduct = await prisma.inventoryMovement.findMany({

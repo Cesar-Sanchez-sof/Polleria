@@ -13,7 +13,6 @@ import { notifyCashDrawer, type DrawerResult } from "@/lib/services/integrations
 import { logAudit } from "@/lib/services/security/audit.service";
 import {
   ValidationError,
-  ConflictError,
   NotFoundError,
 } from "@/lib/http/route-handler";
 

@@ -21,7 +21,7 @@ interface Props {
   fromShown: number;
   toShown: number;
   total: number;
-  selectedCount: number;
+
   onPage: (page: number) => void;
   onPageSize: (pageSize: number) => void;
 }

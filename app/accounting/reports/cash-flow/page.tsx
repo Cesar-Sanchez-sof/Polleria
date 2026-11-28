@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Waves,
   RefreshCw,
@@ -9,13 +9,6 @@ import {
   Calendar,
   CheckCircle2,
   AlertTriangle,
-  TrendingUp,
-  Wallet,
-  Landmark,
-  ArrowRight,
-  ChevronRight,
-  ShieldCheck,
-  ShieldAlert,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,17 +83,10 @@ export default function CashFlowStatementPage() {
   const handleExportCsv = () => {
     if (!statement) return;
     const lines: string[] = [];
-    lines.push("ESTADO DE FLUJOS DE EFECTIVO (NIC 7 / MÉTODO INDIRECTO)");
-    lines.push(`Período: ${formatCutOffDate(statement.period.startDate)} al ${formatCutOffDate(statement.period.endDate)}`);
-    lines.push(`Moneda: ${statement.currency}`);
-    lines.push("");
+    lines.push("ESTADO DE FLUJOS DE EFECTIVO (NIC 7 / MÉTODO INDIRECTO)", `Período: ${formatCutOffDate(statement.period.startDate)} al ${formatCutOffDate(statement.period.endDate)}`, `Moneda: ${statement.currency}`, `Moneda: ${statement.currency}`);
 
-    lines.push("CONCEPTO,IMPORTE (PEN)");
-    lines.push("1. ACTIVIDADES DE OPERACIÓN,");
-    lines.push(`"  Utilidad Neta del Ejercicio",${statement.operating_activities.net_profit.toFixed(2)}`);
-    lines.push(`"  Ajuste: Depreciación",${statement.operating_activities.adjustments_non_cash.depreciation.toFixed(2)}`);
-    lines.push(`"  Ajuste: Dif. Cambio no realizada",${statement.operating_activities.adjustments_non_cash.unrealized_exchange_difference.toFixed(2)}`);
-    lines.push(`"  Variación en Cuentas por Cobrar",${statement.operating_activities.working_capital_changes.accounts_receivable.toFixed(2)}`);
+    lines.push("CONCEPTO,IMPORTE (PEN)", "1. ACTIVIDADES DE OPERACIÓN,", `"  Utilidad Neta del Ejercicio",${statement.operating_activities.net_profit.toFixed(2)}`, `"  Ajuste: Depreciación",${statement.operating_activities.adjustments_non_cash.depreciation.toFixed(2)}`);
+    lines.push(`"  Ajuste: Dif. Cambio no realizada"`,`${statement.operating_activities.adjustments_non_cash.unrealized_exchange_difference.toFixed(2)}`, `"  Ajuste: Dif. Cambio no realizada",${statement.operating_activities.adjustments_non_cash.unrealized_exchange_difference.toFixed(2)}`);
     lines.push(`"  Variación en Inventarios",${statement.operating_activities.working_capital_changes.inventories.toFixed(2)}`);
     lines.push(`"  Variación en Cuentas por Pagar",${statement.operating_activities.working_capital_changes.accounts_payable.toFixed(2)}`);
     lines.push(`"  Variación en Remuneraciones por Pagar",${statement.operating_activities.working_capital_changes.payroll_payable.toFixed(2)}`);
@@ -108,22 +94,14 @@ export default function CashFlowStatementPage() {
     lines.push(`"Flujo Neto de Actividades de Operación",${statement.operating_activities.net_cash_operating.toFixed(2)}`);
     lines.push("");
 
-    lines.push("2. ACTIVIDADES DE INVERSIÓN,");
-    lines.push(`"  Compras de Propiedad Planta y Equipo",${statement.investing_activities.property_plant_equipment_purchases.toFixed(2)}`);
-    lines.push(`"  Ventas de Activos",${statement.investing_activities.asset_sales.toFixed(2)}`);
-    lines.push(`"Flujo Neto de Actividades de Inversión",${statement.investing_activities.net_cash_investing.toFixed(2)}`);
-    lines.push("");
-
-    lines.push("3. ACTIVIDADES DE FINANCIAMIENTO,");
+    lines.push("2. ACTIVIDADES DE INVERSIÓN,", `"  Compras de Propiedad Planta y Equipo",${statement.investing_activities.property_plant_equipment_purchases.toFixed(2)}`, `"  Ventas de Activos",${statement.investing_activities.asset_sales.toFixed(2)}`, `"Flujo Neto de Actividades de Inversión",${statement.investing_activities.net_cash_investing.toFixed(2)}`, "", "3. ACTIVIDADES DE FINANCIAMIENTO,");
     lines.push(`"  Aportes de Capital",${statement.financing_activities.capital_contributions.toFixed(2)}`);
     lines.push(`"  Obligaciones Financieras",${statement.financing_activities.financial_obligations.toFixed(2)}`);
     lines.push(`"  Dividendos Pagados",${statement.financing_activities.dividends_paid.toFixed(2)}`);
     lines.push(`"Flujo Neto de Actividades de Financiamiento",${statement.financing_activities.net_cash_financing.toFixed(2)}`);
     lines.push("");
 
-    lines.push(`"AUMENTO (DISMINUCIÓN) NETO DE EFECTIVO",${statement.net_cash_increase.toFixed(2)}`);
-    lines.push(`"Saldo de Efectivo al Inicio del Período",${statement.cash_at_beginning.toFixed(2)}`);
-    lines.push(`"Saldo de Efectivo al Cierre del Período",${statement.cash_at_end.toFixed(2)}`);
+    lines.push(`"AUMENTO (DISMINUCIÓN) NETO DE EFECTIVO",${statement.net_cash_increase.toFixed(2)}`, `"Saldo de Efectivo al Inicio del Período",${statement.cash_at_beginning.toFixed(2)}`, `"Saldo de Efectivo al Cierre del Período",${statement.cash_at_end.toFixed(2)}`);
 
     const csv = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(lines.join("\n"));
     const link = document.createElement("a");
@@ -269,11 +247,10 @@ export default function CashFlowStatementPage() {
                   Flujo Neto Operativo
                 </span>
                 <span
-                  className={`text-xl font-extrabold mt-1 ${
-                    statement.operating_activities.net_cash_operating >= 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-rose-600"
-                  }`}
+                  className={`text-xl font-extrabold mt-1 ${statement.operating_activities.net_cash_operating >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600"
+                    }`}
                 >
                   {formatPen(statement.operating_activities.net_cash_operating)}
                 </span>
@@ -287,11 +264,10 @@ export default function CashFlowStatementPage() {
                   Variación Neta de Efectivo
                 </span>
                 <span
-                  className={`text-xl font-extrabold mt-1 ${
-                    statement.net_cash_increase >= 0
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-rose-600"
-                  }`}
+                  className={`text-xl font-extrabold mt-1 ${statement.net_cash_increase >= 0
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-rose-600"
+                    }`}
                 >
                   {formatPen(statement.net_cash_increase)}
                 </span>
@@ -305,9 +281,8 @@ export default function CashFlowStatementPage() {
                   Saldo Final de Efectivo
                 </span>
                 <span
-                  className={`text-xl font-extrabold mt-1 ${
-                    statement.cash_at_end >= 0 ? "text-foreground" : "text-rose-600"
-                  }`}
+                  className={`text-xl font-extrabold mt-1 ${statement.cash_at_end >= 0 ? "text-foreground" : "text-rose-600"
+                    }`}
                 >
                   {formatPen(statement.cash_at_end)}
                 </span>

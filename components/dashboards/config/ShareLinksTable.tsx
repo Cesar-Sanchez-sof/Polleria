@@ -6,7 +6,6 @@ import {
   Copy,
   Check,
   Plus,
-  Trash2,
   Edit2,
   User,
 } from "lucide-react";

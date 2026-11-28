@@ -24,7 +24,6 @@ import {
 import {
   Utensils,
   Plus,
-  Edit,
   Eye,
   CheckCircle2,
   Camera,
@@ -42,7 +41,6 @@ import {
   PackageCheck,
   Flame,
   Check,
-  MessageSquare,
   Receipt,
   Banknote,
   QrCode,
@@ -54,23 +52,17 @@ import {
   LayoutGrid,
   Clock,
   CircleDollarSign,
-  Phone,
-  Calendar,
   AlertCircle,
   FileText,
   DollarSign,
   TrendingUp,
-  ArrowRight,
   Copy,
   XCircle,
   Lock,
   Unlock,
   Coins,
-  ShieldAlert,
   ArrowDownCircle,
-  Wallet,
   GlassWater,
-  Snowflake,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -104,7 +96,6 @@ import {
   canEditOrder,
 } from "@/lib/utils/sales-helpers";
 import { isBeverage } from "@/lib/utils/product-category";
-import { KitchenBoard } from "@/components/restaurant/KitchenBoard";
 import { DrinksDispatchBoard } from "@/components/restaurant/DrinksDispatchBoard";
 import {
   getCashSessionStatus,
@@ -114,10 +105,7 @@ import {
   type CashRegisterStatus,
   type CloseCashAudit,
   type CashDenominations,
-  type CashMovementItem,
   INITIAL_DENOMINATIONS,
-  calculateDenominationsTotal,
-  formatDenominationsSummary,
 } from "@/lib/services/sales/cash-register.service";
 import { DenominationsCounter } from "@/components/restaurant/DenominationsCounter";
 import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";

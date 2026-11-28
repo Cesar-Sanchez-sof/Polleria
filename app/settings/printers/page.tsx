@@ -7,8 +7,6 @@ import {
   Save,
   RefreshCw,
   Sliders,
-  CheckCircle2,
-  AlertCircle,
   Wifi,
   Usb,
   Flame,

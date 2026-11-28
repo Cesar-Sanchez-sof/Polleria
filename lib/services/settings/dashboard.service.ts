@@ -6,8 +6,6 @@ import type {
   DashboardSection,
   DashboardWidget,
   DashboardShare,
-  Role,
-  User,
 } from "@prisma/client";
 
 // ============================================================================
@@ -699,7 +697,7 @@ export async function getUsersForAccess(): Promise<UserOption[]> {
 // Compatibilidad con Dashboard Contable (Accounting / Resumen Financiero)
 // ============================================================================
 
-import { getJson, ApiError } from "@/lib/services/http";
+import { getJson } from "@/lib/services/http";
 import type { DashboardPayload } from "@/lib/accounting/dashboard";
 
 export type {

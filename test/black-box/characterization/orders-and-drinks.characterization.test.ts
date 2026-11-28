@@ -74,7 +74,6 @@ import { GET as getOrders, POST as postOrders } from "@/app/api/orders/route";
 import {
   GET as getOrderById,
   PUT as putOrderById,
-  DELETE as deleteOrderById,
 } from "@/app/api/orders/[id]/route";
 import {
   GET as getDrinks,

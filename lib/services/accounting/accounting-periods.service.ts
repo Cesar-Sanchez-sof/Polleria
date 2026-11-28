@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/services/security/audit.service";
-import { PeriodClosingError } from "@/lib/accounting/closing";
 import { closeAccountingPeriod, reopenAccountingPeriod } from "@/lib/services/accounting/accounting-period-closing.service";
 import { ValidationError, NotFoundError } from "@/lib/http/errors";
 

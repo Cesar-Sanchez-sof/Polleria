@@ -3,7 +3,6 @@ import { calculateDailySalesSummary } from "@/lib/utils/sales-helpers";
 import { postSaleJournalEntries } from "@/lib/services/accounting/accounting-posting.service";
 import {
   uploadVoucherToS3,
-  uploadPaymentProofToS3,
   buildVoucherS3Key,
   getS3Config,
   getVoucherPresignedUrl,
@@ -15,7 +14,6 @@ import { getPrinterConfig } from "@/lib/services/settings/restaurant-config.serv
 import { isValidVoucherSeries, formatVoucherCode } from "@/lib/utils/series-validation";
 import {
   findOrCreateCustomerForSale,
-  type PersonTypeValue,
 } from "@/lib/services/sales/customers.service";
 import {
   ValidationError,
@@ -535,7 +533,7 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
   });
 
   let finalS3Url: string = typeof transaction.invoice.s3Url === "string" ? transaction.invoice.s3Url : "";
-  let yapeProofUrl: string | null = null;
+  const yapeProofUrl: string | null = null;
 
   try {
     const s3Res: any = await uploadVoucherToS3({

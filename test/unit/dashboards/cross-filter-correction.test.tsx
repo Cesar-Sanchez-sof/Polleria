@@ -49,7 +49,7 @@ function applyCrossFilterToPayload(
   widgetDataset: string,
   widgetId: string
 ): FilterRule[] {
-  let filters = [...currentFilters];
+  const filters = [...currentFilters];
   if (!crossFilter || !widgetDataset) return filters;
 
   const matchesDataset = widgetDataset === crossFilter.datasetId;

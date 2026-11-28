@@ -9,13 +9,11 @@ import {
   Phone,
   Mail,
   MapPin,
-  FileText,
   ShieldCheck,
   CheckCircle2,
   QrCode,
   Smartphone,
   Upload,
-  ImageIcon,
   Trash2,
   Crop,
 } from "lucide-react";

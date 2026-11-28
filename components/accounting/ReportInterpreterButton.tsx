@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Lightbulb,
   CheckCircle2,
-  X,
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,8 +18,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type {
   ReportInterpretationRequest,
   ReportInterpretationResult,

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { hasRolePermission } from "@/lib/auth/guard";

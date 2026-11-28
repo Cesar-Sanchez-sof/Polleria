@@ -12,7 +12,7 @@ const {
 } = vi.hoisted(() => {
   let inMemoryRestaurantConfig: any = null;
   let inMemoryAuditLogs: any[] = [];
-  let inMemoryPrinters: any = {
+  const inMemoryPrinters: any = {
     id: "default",
     paperWidth: "80mm",
     autoCut: true,

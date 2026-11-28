@@ -2,7 +2,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render } from "@testing-library/react";
-import { VISUAL_REGISTRY, type VisualRegistryEntry } from "@/lib/dashboards/visual-registry";
+import { VISUAL_REGISTRY } from "@/lib/dashboards/visual-registry";
 import { VISUAL_RENDERERS } from "@/components/dashboards/visuals/renderers";
 import { DynamicVisual } from "@/components/dashboards/visuals/DynamicVisual";
 import {

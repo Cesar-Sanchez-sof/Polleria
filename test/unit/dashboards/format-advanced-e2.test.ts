@@ -13,7 +13,6 @@ import {
 } from "@/lib/dashboards/format-utils";
 import {
   getVisualRegistryEntry,
-  VISUAL_REGISTRY,
 } from "@/lib/dashboards/visual-registry";
 import { useDashboardEditorStore } from "@/lib/store/dashboard-editor-store";
 

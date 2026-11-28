@@ -4,7 +4,7 @@
 
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 import { formatPen } from "@/lib/services/settings/dashboard.service";
-import type { DashboardPayload, Kpi } from "@/lib/services/settings/dashboard.service";
+import type { DashboardPayload } from "@/lib/services/settings/dashboard.service";
 
 export interface FinancialHealth {
   margin: number;

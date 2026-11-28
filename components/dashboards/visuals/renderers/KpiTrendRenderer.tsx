@@ -2,7 +2,7 @@ import React from "react";
 import { ResponsiveContainer, AreaChart, Area } from "recharts";
 import { ArrowUpRight, ArrowDownRight, Minus, Calendar } from "lucide-react";
 import { calculateDeltaPercentage } from "@/lib/dashboards/client-calculations";
-import { resolveDateRange, resolvePreviousRange, getLimaDateParts, formatUtcYmd } from "@/lib/dashboards/date-utils";
+import { resolveDateRange, resolvePreviousRange, getLimaDateParts } from "@/lib/dashboards/date-utils";
 import { type VisualRendererProps, getMetricFriendlyLabel } from "./renderer-types";
 import { evaluateConditionalColor } from "@/lib/dashboards/format-utils";
 

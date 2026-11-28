@@ -56,7 +56,7 @@ vi.mock("@/lib/services/accounting/accounting-posting.service", () => ({
 }));
 
 import { GET as getCashSession, POST as postOpenCashSession } from "@/app/api/cash-sessions/route";
-import { GET as getMovements, POST as postMovement } from "@/app/api/cash-sessions/movements/route";
+import { POST as postMovement } from "@/app/api/cash-sessions/movements/route";
 import { POST as postCloseSession } from "@/app/api/cash-sessions/[id]/close/route";
 
 describe("Characterization: Cash Sessions Domain Handlers", () => {

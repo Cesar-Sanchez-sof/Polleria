@@ -11,9 +11,8 @@ import {
   Brain,
   ArrowRight,
   Layers,
-  ChevronRight,
 } from 'lucide-react';
-import { LIFECYCLE_FLOWS, type FlowLifecycle } from './architecture-data';
+import { LIFECYCLE_FLOWS } from './architecture-data';
 
 const FLOW_ICONS: Record<string, React.ElementType> = {
   'sales-lifecycle': UtensilsCrossed,

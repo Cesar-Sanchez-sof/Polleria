@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { DashboardShare, DashboardRoleAccess, DashboardUserAccess } from "@prisma/client";
 import { logAudit } from "@/lib/services/security/audit.service";
-import { NotFoundError, ForbiddenError } from "@/lib/http/errors";
+import { NotFoundError } from "@/lib/http/errors";
 
 export type { DashboardShare, DashboardRoleAccess, DashboardUserAccess };
 

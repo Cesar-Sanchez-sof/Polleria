@@ -14,7 +14,6 @@ import {
 } from "@/lib/dashboards/widget-schema";
 import {
   VISUAL_REGISTRY,
-  getVisualRegistryEntry,
   migrateWidgetConfigByRole,
 } from "@/lib/dashboards/visual-registry";
 

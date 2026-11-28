@@ -1,4 +1,3 @@
-import type { ComponentType } from "react";
 import type { VisualType, WidgetConfig } from "@/lib/dashboards/widget-schema";
 
 export interface VisualRendererProps {

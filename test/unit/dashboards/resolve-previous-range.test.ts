@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolvePreviousRange, resolveDateRange } from "@/lib/dashboards/date-utils";
+import { resolvePreviousRange } from "@/lib/dashboards/date-utils";
 
 describe("Ronda D1 - Item 5: resolvePreviousRange con Reloj Fijo", () => {
   // En UTC: 2026-11-10T15:00:00Z -> En Lima (UTC-5): 2026-11-10 a las 10:00 AM

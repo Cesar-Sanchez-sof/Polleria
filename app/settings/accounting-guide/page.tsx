@@ -4,11 +4,9 @@ import { useState, useMemo } from "react";
 import {
   Calculator,
   Search,
-  BookOpen,
   Copy,
   Check,
   Lightbulb,
-  ArrowRight,
   TrendingUp,
   ShoppingBag,
   RotateCcw,
