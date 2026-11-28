@@ -101,7 +101,7 @@ export const DEPLOYMENT_ENV_VARS: readonly DeploymentEnvVar[] = [
     name: "AGENTS_SERVICE_URL / AGENTS_SERVICE_INTERNAL_TOKEN / AI_ASSISTANT_IDENTITY_KEY",
     service: "Asistente IA / Agents",
     required: false,
-    example: "https://polleria-agents-service.onrender.com",
+    example: "https://agents-service.onrender.com",
     description: "Conexión segura al microservicio Python de solo lectura (Gemini / Groq) desplegado en Render.",
   },
   {

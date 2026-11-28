@@ -44,7 +44,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     borderAccent: "border-emerald-500/30 hover:border-emerald-500/60",
     badgeBg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
     accentText: "text-emerald-600 dark:text-emerald-400",
-    description: "Ventas y rentas del período (PCGE Clase 7)",
+    description: "Ingresos reconocidos en el Estado de Resultados (PCGE)",
     reportLink: { href: "/accounting/reports/income-statement", label: "Ver Estado de Resultados" },
   },
   expenses: {
@@ -54,7 +54,7 @@ const KPI_CONFIG: Record<KpiKey, KpiConfig> = {
     borderAccent: "border-rose-500/30 hover:border-rose-500/60",
     badgeBg: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
     accentText: "text-rose-600 dark:text-rose-400",
-    description: "Gastos operativos y compras (PCGE Clases 6 y 9)",
+    description: "Costos y gastos de la matriz del Estado de Resultados",
     reportLink: { href: "/accounting/reports/income-statement", label: "Ver Detalle de Gastos" },
     invertVariationColor: true, // Si el gasto sube, es negativo en control de costos
   },

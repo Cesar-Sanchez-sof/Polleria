@@ -96,19 +96,14 @@ export const DEFAULT_BRANDING: BrandingContent = {
     updatesTitle: "Últimas actualizaciones",
     updates: [
       {
-        date: "2026-11-03",
-        title: "Personalización del sistema",
-        description: "El login y el inicio se editan desde Configuración → Personalización.",
+        date: "2026-11-07",
+        title: "Tableros BI",
+        description: "Explora las secciones del panel lateral para visualizar métricas, o crea un nuevo tablero para organizar los KPIs",
       },
       {
         date: "2026-11-03",
         title: "Planilla de remuneraciones",
         description: "Cálculo mensual de boletas con asientos contables y parámetros editables.",
-      },
-      {
-        date: "2026-11-03",
-        title: "Contratos laborales",
-        description: "Plazo fijo, indeterminado, privado y convenio de prácticas.",
       },
       {
         date: "2026-11-03",

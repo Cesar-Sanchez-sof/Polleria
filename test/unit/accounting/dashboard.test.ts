@@ -23,9 +23,9 @@ import {
 const periodAccounts: AccountMovement[] = [
   { code: "701", name: "Ventas", type: "Ingreso", debit: 0, credit: 1200.5 },
   { code: "702", name: "Servicios de cocina", type: "Ingreso", debit: 0, credit: 800 },
-  { code: "621", name: "Sueldos", type: "Gasto", debit: 400, credit: 0 },
-  { code: "601", name: "Costo de ventas", type: "Costo", debit: 300, credit: 0 },
-  { code: "631", name: "Servicios básicos", type: "Gasto", debit: 200.5, credit: 0 },
+  { code: "941", name: "Sueldos administrativos", type: "Gasto", debit: 400, credit: 0 },
+  { code: "691", name: "Costo de ventas", type: "Costo", debit: 300, credit: 0 },
+  { code: "951", name: "Servicios de distribución", type: "Gasto", debit: 200.5, credit: 0 },
 ];
 
 /** Saldos acumulados: caja 5500, por cobrar 500, por pagar 800 */
@@ -39,7 +39,7 @@ const balanceAccounts: AccountMovement[] = [
 
 const previousPeriodAccounts: AccountMovement[] = [
   { code: "701", name: "Ventas", type: "Ingreso", debit: 0, credit: 1000 },
-  { code: "621", name: "Sueldos", type: "Gasto", debit: 1000, credit: 0 },
+  { code: "941", name: "Sueldos administrativos", type: "Gasto", debit: 1000, credit: 0 },
 ];
 
 const previousBalanceAccounts: AccountMovement[] = [
@@ -74,6 +74,21 @@ function kpiValue(input: DashboardInput, key: string): number {
  * ------------------------------------------------------------------ */
 
 describe("buildDashboardKpis", () => {
+  it("usa las mismas cuentas PCGE que el Estado de Resultados", () => {
+    const input = baseInput({
+      periodAccounts: [
+        { code: "701", name: "Ventas", type: "Ingreso", debit: 0, credit: 444.23 },
+        { code: "691", name: "Costo de ventas", type: "Costo", debit: 749.57, credit: 0 },
+        { code: "659", name: "Otros gastos", type: "Gasto", debit: 300, credit: 0 },
+        { code: "621", name: "Sueldos fuera del reporte", type: "Gasto", debit: 15047.76, credit: 0 },
+      ],
+    });
+
+    expect(kpiValue(input, "income")).toBe(444.23);
+    expect(kpiValue(input, "expenses")).toBe(1049.57);
+    expect(kpiValue(input, "profit")).toBe(-605.34);
+  });
+
   it("calcula los 7 KPI con valor, etiqueta y tipo correctos", () => {
     const { kpis, previousPeriod } = buildDashboardKpis(baseInput());
 
@@ -104,7 +119,7 @@ describe("buildDashboardKpis", () => {
     const input = baseInput({
       periodAccounts: [
         { code: "701", name: "Ventas", type: "Ingreso", debit: 0, credit: 300 },
-        { code: "621", name: "Sueldos", type: "Gasto", debit: 450, credit: 0 },
+        { code: "941", name: "Sueldos administrativos", type: "Gasto", debit: 450, credit: 0 },
       ],
     });
     expect(kpiValue(input, "profit")).toBe(-150);

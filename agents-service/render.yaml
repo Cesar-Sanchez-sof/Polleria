@@ -5,7 +5,7 @@
 #  Health Check Path = /v1/health, y las variables de entorno de este archivo.)
 services:
   - type: web
-    name: polleria-agents-service
+    name: agents-service
     runtime: python
     rootDir: agents-service
     plan: free # el plan free se suspende por inactividad: la primera consulta tarda ~1 min. Usa starter para evitarlo.
