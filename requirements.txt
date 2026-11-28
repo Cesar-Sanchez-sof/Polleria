@@ -1,4 +1,4 @@
-# Core dependencies for the Polleria project
+# Core dependencies for the project
 fastapi==0.110.0
 uvicorn==0.28.0
 SQLAlchemy==2.0.27

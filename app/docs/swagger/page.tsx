@@ -62,7 +62,7 @@ export default function ApiDocs() {
   return (
     <>
       <ModuleHeader
-        title="Documentación API – Polleria"
+        title="Documentación API"
         subtitle="Explora la especificación OpenAPI de la aplicación."
         icon={FileText}
       />

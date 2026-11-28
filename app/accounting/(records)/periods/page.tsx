@@ -1,4 +1,3 @@
-// d:/backs/Polleria/app/accounting/periods/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, FormEvent } from "react";

@@ -14,6 +14,7 @@
  */
 
 import { signedBalance, round2, type AccountType } from "./balance-sheet";
+import { computeIncomeStatement } from "./income-statement";
 import { formatDateToIso, parseUtcDate } from "@/lib/dates";
 
 /* ------------------------------------------------------------------ *
@@ -419,6 +420,49 @@ function sumByType(accounts: AccountMovement[], types: string[]): number {
   );
 }
 
+/**
+ * Calcula ingresos, gastos y utilidad con las mismas líneas PCGE que el
+ * Estado de Resultados. Las cuentas 60, 62, 63, etc. no integran directamente
+ * el Estado de Resultados y no deben alterar los KPI del dashboard.
+ */
+function computeIncomeStatementKpis(
+  periodAccounts: AccountMovement[],
+  from: string,
+  to: string
+): Pick<KpiValues, "income" | "expenses" | "profit"> {
+  const result = computeIncomeStatement({
+    startDate: from,
+    endDate: to,
+    balances: periodAccounts.map((account) => ({
+      code: account.code,
+      name: account.name,
+      debit: account.debit,
+      credit: account.credit,
+    })),
+  });
+
+  const income = round2(
+    result.operating_income.total +
+    result.other_revenues_and_expenses.revenues +
+    (result.exchange_difference_net.amount > 0 ? result.exchange_difference_net.amount : 0) +
+    result.financial_income.amount
+  );
+  const expenses = round2(
+    result.sales_costs.cost_of_goods_sold +
+    result.operating_expenses.total +
+    result.other_revenues_and_expenses.expenses +
+    (result.exchange_difference_net.amount < 0 ? -result.exchange_difference_net.amount : 0) +
+    result.financial_expenses.amount +
+    result.income_tax_expense.amount
+  );
+
+  return {
+    income,
+    expenses,
+    profit: round2(result.net_profit.amount),
+  };
+}
+
 const KPI_LABELS: Record<KpiKey, string> = {
   income: "Ingresos",
   expenses: "Gastos",
@@ -451,14 +495,13 @@ interface KpiValues {
 export function computeKpiValues(
   periodAccounts: AccountMovement[],
   balanceAccounts: AccountMovement[],
-  entryCount: number
+  entryCount: number,
+  from = "1900-01-01",
+  to = "9999-12-31"
 ): KpiValues {
-  const income = sumByType(periodAccounts, ["Ingreso"]);
-  const expenses = sumByType(periodAccounts, ["Gasto", "Costo"]);
+  const pnl = computeIncomeStatementKpis(periodAccounts, from, to);
   return {
-    income,
-    expenses,
-    profit: round2(income - expenses),
+    ...pnl,
     caja_bancos: sumByPrefix(balanceAccounts, "10"),
     por_cobrar: sumByPrefix(balanceAccounts, "12"),
     por_pagar: sumByPrefix(balanceAccounts, "42"),
@@ -474,12 +517,20 @@ export function buildDashboardKpis(input: DashboardInput): {
   const current = computeKpiValues(
     input.periodAccounts,
     input.balanceAccounts,
-    input.entryCount
+    input.entryCount,
+    input.from,
+    input.to
   );
 
   const previous = input.previous;
   const previousValues = previous
-    ? computeKpiValues(previous.periodAccounts, previous.balanceAccounts, previous.entryCount)
+    ? computeKpiValues(
+        previous.periodAccounts,
+        previous.balanceAccounts,
+        previous.entryCount,
+        previous.from,
+        previous.to
+      )
     : null;
 
   // Sin datos previos en absoluto → no hay comparación (previousPeriod = null).
