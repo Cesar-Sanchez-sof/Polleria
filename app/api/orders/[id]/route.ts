@@ -30,8 +30,13 @@ export const GET = createApiHandler<unknown, { id: string }>({
   permission: ["pedidos.ver", "cocina.ver", "ventas.ver"],
   handler: async ({ params }) => {
     const id = Number(params?.id);
-    const order = await getOrderById(id);
-    return NextResponse.json(order);
+    try {
+      const order = await getOrderById(id);
+      return NextResponse.json(order);
+    } catch (err: any) {
+      const status = err.name === "NotFoundError" ? 404 : 400;
+      return NextResponse.json({ error: err.message }, { status });
+    }
   },
 });
 

@@ -130,14 +130,6 @@ export async function updateSupplier(id: number, data: SupplierInput) {
   return updated;
 }
 
-export async function updateSupplierAction(id: number, data: SupplierInput) {
-  try {
-    const updated = await updateSupplier(id, data);
-    return { success: true as const, data: updated };
-  } catch (err: any) {
-    return { success: false as const, error: err?.message || "Error al actualizar proveedor" };
-  }
-}
 
 export async function setSupplierStatus(id: number, active: boolean) {
   const session = await requirePermission("proveedores.editar");
@@ -155,11 +147,3 @@ export async function setSupplierStatus(id: number, active: boolean) {
   return updated;
 }
 
-export async function updateSupplierAction(id: number, data: SupplierInput) {
-  try {
-    const updated = await updateSupplier(id, data);
-    return { success: true as const, data: updated };
-  } catch (err: any) {
-    return { success: false as const, error: err?.message || "Error al actualizar proveedor" };
-  }
-}

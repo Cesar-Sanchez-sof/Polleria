@@ -9,6 +9,7 @@
     "prestart": "tsx prisma/seed.ts --auto",
     "start": "next start",
     "lint": "eslint",
+    "lint:fix": "eslint --fix .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run test/unit",

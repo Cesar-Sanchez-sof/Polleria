@@ -20,6 +20,7 @@ const m = vi.hoisted(() => ({
   cashSessionFindFirst: vi.fn(),
   transaction: vi.fn(),
   deductProductStock: vi.fn(),
+  deductOrderItemStock: vi.fn(),
   restoreProductStock: vi.fn(),
   broadcastRealtimeEvent: vi.fn(),
 }));
@@ -60,6 +61,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/services/inventory/product-stock.service", () => ({
   deductProductStock: m.deductProductStock,
+  deductOrderItemStock: m.deductOrderItemStock,
   restoreProductStock: m.restoreProductStock,
   InsufficientStockError: class InsufficientStockError extends Error {},
 }));
