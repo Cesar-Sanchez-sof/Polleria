@@ -200,6 +200,7 @@ function SalesManagementContent() {
   const [voucherTypeFilter, setVoucherTypeFilter] = useState<"todos" | "Boleta" | "Factura" | "Ticket">("todos");
   const [voucherPaymentFilter, setVoucherPaymentFilter] = useState("todos");
   const [voucherOriginFilter, setVoucherOriginFilter] = useState("todos");
+  const [voucherCustomerFilter, setVoucherCustomerFilter] = useState("todos");
 
   // Filtros de Ventanilla
   const [counterSearch, setCounterSearch] = useState("");
@@ -1822,7 +1823,12 @@ function SalesManagementContent() {
         normalizeFilterText(voucher.origin).includes(
           normalizeFilterText(voucherOriginFilter)
         );
-      return matchesSearch && matchesType && matchesPayment && matchesOrigin;
+      const voucherCustomerKey = String(
+        voucher.customer.id ?? voucher.customer.documentNumber ?? voucher.customer.firstName
+      );
+      const matchesCustomer =
+        voucherCustomerFilter === "todos" || voucherCustomerKey === voucherCustomerFilter;
+      return matchesSearch && matchesType && matchesPayment && matchesOrigin && matchesCustomer;
     });
   }, [
     saleVouchers,
@@ -1830,7 +1836,24 @@ function SalesManagementContent() {
     voucherTypeFilter,
     voucherPaymentFilter,
     voucherOriginFilter,
+    voucherCustomerFilter,
   ]);
+
+  const voucherCustomerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const voucher of saleVouchers) {
+      const key = String(
+        voucher.customer.id ?? voucher.customer.documentNumber ?? voucher.customer.firstName
+      );
+      if (!map.has(key)) {
+        const doc = voucher.customer.documentNumber ? ` (${voucher.customer.documentNumber})` : "";
+        map.set(key, `${voucher.customer.firstName}${doc}`);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+  }, [saleVouchers]);
 
   const voucherPaymentOptions = useMemo(
     () =>
@@ -4335,14 +4358,16 @@ function SalesManagementContent() {
               Number(salesDateFilter !== "hoy") +
               Number(voucherTypeFilter !== "todos") +
               Number(voucherPaymentFilter !== "todos") +
-              Number(voucherOriginFilter !== "todos")
+              Number(voucherOriginFilter !== "todos") +
+              Number(voucherCustomerFilter !== "todos")
             }
             hasActiveFilters={
               Boolean(voucherSearch.trim()) ||
               salesDateFilter !== "hoy" ||
               voucherTypeFilter !== "todos" ||
               voucherPaymentFilter !== "todos" ||
-              voucherOriginFilter !== "todos"
+              voucherOriginFilter !== "todos" ||
+              voucherCustomerFilter !== "todos"
             }
             onClear={() => {
               setVoucherSearch("");
@@ -4350,6 +4375,7 @@ function SalesManagementContent() {
               setVoucherTypeFilter("todos");
               setVoucherPaymentFilter("todos");
               setVoucherOriginFilter("todos");
+              setVoucherCustomerFilter("todos");
             }}
             resultCount={filteredSaleVouchers.length}
             itemLabel={`de ${saleVouchers.length} comprobantes`}
@@ -4404,6 +4430,19 @@ function SalesManagementContent() {
                 ))}
               </NativeSelect>
             </label>
+            <label className="flex min-w-[170px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Cliente
+              <NativeSelect
+                value={voucherCustomerFilter}
+                onChange={(e) => setVoucherCustomerFilter(e.target.value)}
+                className="h-9 rounded-lg text-xs"
+              >
+                <NativeSelectOption value="todos">Todos los clientes</NativeSelectOption>
+                {voucherCustomerOptions.map((c) => (
+                  <NativeSelectOption key={c.value} value={c.value}>{c.label}</NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
           </AdvancedFilterBar>}
 
           {/* Tabla de Facturas y Boletas */}
@@ -4412,7 +4451,7 @@ function SalesManagementContent() {
             rows={filteredSaleVouchers}
             rowKey={(comp) => comp.id}
             defaultSort={{ key: "issuedAt", direction: "desc" }}
-            pageResetKey={`${salesDateFilter}|${voucherSearch}|${voucherTypeFilter}|${voucherPaymentFilter}|${voucherOriginFilter}`}
+            pageResetKey={`${salesDateFilter}|${voucherSearch}|${voucherTypeFilter}|${voucherPaymentFilter}|${voucherOriginFilter}|${voucherCustomerFilter}`}
             pagination={{ defaultPageSize: 15, itemLabel: "comprobantes" }}
             emptyState={{
               icon: <Receipt className="h-7 w-7" />,

@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createSupplier, updateSupplier, SupplierInput } from "@/lib/services/purchases/supplier";
+import { createSupplierAction, updateSupplierAction, SupplierInput } from "@/lib/services/purchases/supplier";
 import { lookupDocument } from "@/lib/services/purchases/document-lookup";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
@@ -157,13 +157,21 @@ export function SupplierDialog({
     setLoading(true);
     try {
       if (supplierToEdit) {
-        const res = await updateSupplier(supplierToEdit.id, formData);
+        const res = await updateSupplierAction(supplierToEdit.id, formData);
+        if (!res.success) {
+          toast.error(res.error);
+          return;
+        }
         toast.success("Proveedor actualizado exitosamente");
-        onSuccess(res as unknown as Supplier);
+        onSuccess(res.data as unknown as Supplier);
       } else {
-        const res = await createSupplier(formData);
+        const res = await createSupplierAction(formData);
+        if (!res.success) {
+          toast.error(res.error);
+          return;
+        }
         toast.success("Proveedor registrado exitosamente");
-        onSuccess(res as unknown as Supplier);
+        onSuccess(res.data as unknown as Supplier);
       }
       onOpenChange(false);
     } catch (err: any) {

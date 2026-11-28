@@ -790,6 +790,7 @@ model PurchaseInvoice {
   series          String            @db.VarChar(4)
   number          Int
   issuedAt        DateTime          @default(now()) @map("issued_at") @db.Date
+  dueDate         DateTime?         @map("due_date") @db.Date
   subtotal        Decimal           @default(0) @db.Decimal(7, 2)
   igv             Decimal           @default(0) @db.Decimal(7, 2)
   totalAmount     Decimal           @default(0) @map("total_amount") @db.Decimal(7, 2)

@@ -52,6 +52,7 @@ export interface PayableInvoice {
   number: number;
   voucherLabel: string;
   issuedAt: string;
+  dueDate: string | null;
   createdAt: string;
   subtotal: number;
   igv: number;
@@ -172,8 +173,9 @@ export async function getAccountingPayables(): Promise<PayablesDataResponse> {
       issueDate.setHours(0, 0, 0, 0);
       const diffTime = Math.max(0, now.getTime() - issueDate.getTime());
       const daysOpen = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      // Plazo estándar comercial de 30 días
-      const isOverdue = pendingBalance > 0.005 && daysOpen > 30;
+      const dueDateObj = inv.dueDate ? new Date(inv.dueDate) : null;
+      if (dueDateObj) dueDateObj.setHours(23, 59, 59, 999);
+      const isOverdue = pendingBalance > 0.005 && (dueDateObj ? now.getTime() > dueDateObj.getTime() : daysOpen > 30);
 
       if (pendingBalance > 0.005) {
         totalPendingDebt += pendingBalance;
@@ -231,6 +233,7 @@ export async function getAccountingPayables(): Promise<PayablesDataResponse> {
         number: inv.number,
         voucherLabel: `${inv.voucherType} ${inv.series}-${String(inv.number).padStart(4, "0")}`,
         issuedAt: inv.issuedAt.toISOString(),
+        dueDate: inv.dueDate ? inv.dueDate.toISOString() : null,
         createdAt: inv.createdAt.toISOString(),
         subtotal: Number(inv.subtotal),
         igv: Number(inv.igv),

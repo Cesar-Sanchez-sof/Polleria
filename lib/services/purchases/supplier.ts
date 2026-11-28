@@ -65,6 +65,15 @@ export async function createSupplier(data: SupplierInput) {
   return created;
 }
 
+export async function createSupplierAction(data: SupplierInput) {
+  try {
+    const created = await createSupplier(data);
+    return { success: true as const, data: created };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || "Error al registrar proveedor" };
+  }
+}
+
 export async function updateSupplier(id: number, data: SupplierInput) {
   const session = await requirePermission("proveedores.editar");
   const document = data.ruc ? data.ruc.trim() : "";
@@ -121,6 +130,15 @@ export async function updateSupplier(id: number, data: SupplierInput) {
   return updated;
 }
 
+export async function updateSupplierAction(id: number, data: SupplierInput) {
+  try {
+    const updated = await updateSupplier(id, data);
+    return { success: true as const, data: updated };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || "Error al actualizar proveedor" };
+  }
+}
+
 export async function setSupplierStatus(id: number, active: boolean) {
   const session = await requirePermission("proveedores.editar");
   const updated = await prisma.supplier.update({
@@ -135,4 +153,13 @@ export async function setSupplierStatus(id: number, active: boolean) {
     details: { before: { active: !active }, after: { active } },
   });
   return updated;
+}
+
+export async function updateSupplierAction(id: number, data: SupplierInput) {
+  try {
+    const updated = await updateSupplier(id, data);
+    return { success: true as const, data: updated };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || "Error al actualizar proveedor" };
+  }
 }

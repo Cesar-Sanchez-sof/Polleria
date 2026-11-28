@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
-  deductProductStock,
+  deductOrderItemStock,
   restoreProductStock,
   totalsByProduct,
 } from "@/lib/services/inventory/product-stock.service";
@@ -396,8 +396,8 @@ export async function createOrder(data: CreateOrderInput): Promise<{
           },
         });
 
-        // El stock baja con el pedido: si no alcanza, toda la transacción se revierte.
-        await deductProductStock(
+        // El stock baja con el pedido (incluyendo insumos de receta): si no alcanza, toda la transacción se revierte.
+        await deductOrderItemStock(
           tx,
           { productId: product.id, quantity, orderItemId: createdItem.id },
           `Venta pedido ${code}`
@@ -563,7 +563,7 @@ export async function updateOrder(
         },
       });
 
-      await deductProductStock(
+      await deductOrderItemStock(
         tx,
         { productId: product.id, quantity, orderItemId: createdItem.id },
         `Adición al pedido ${existingOrder.code}`
@@ -659,19 +659,37 @@ export async function cancelOrder(id: number): Promise<{ message: string }> {
       data: { itemStatus: "Cancelled" },
     });
 
-    const totals = totalsByProduct(
-      order.items.map((it) => ({
-        productId: it.productId,
-        quantity: it.quantity,
-      }))
-    );
+    const orderItemIds = order.items.map((it) => it.id);
+    const saleMovements = orderItemIds.length > 0 && tx.inventoryMovement?.findMany
+      ? await tx.inventoryMovement.findMany({
+          where: { orderItemId: { in: orderItemIds }, movementType: "Sale" },
+          select: { productId: true, quantity: true },
+        })
+      : [];
 
-    for (const [productId, quantity] of totals.entries()) {
-      await restoreProductStock(
-        tx,
-        { productId, quantity },
-        `Cancelación comanda ${order.code}`
+    if (saleMovements.length > 0) {
+      const totals = new Map<number, number>();
+      for (const mov of saleMovements) {
+        totals.set(mov.productId, Math.round(((totals.get(mov.productId) ?? 0) + Number(mov.quantity)) * 100) / 100);
+      }
+      for (const [productId, quantity] of totals.entries()) {
+        await restoreProductStock(tx, { productId, quantity }, `Cancelación comanda ${order.code}`);
+      }
+    } else {
+      const totals = totalsByProduct(
+        order.items.map((it) => ({
+          productId: it.productId,
+          quantity: it.quantity,
+        }))
       );
+
+      for (const [productId, quantity] of totals.entries()) {
+        await restoreProductStock(
+          tx,
+          { productId, quantity },
+          `Cancelación comanda ${order.code}`
+        );
+      }
     }
   });
 

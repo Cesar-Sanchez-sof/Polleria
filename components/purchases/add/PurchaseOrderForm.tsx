@@ -23,7 +23,7 @@ import { SupplierDialog } from "@/components/purchases/suppliers/SupplierDialog"
 import { ProductDialog } from "@/components/purchases/inventory/ProductDialog";
 import { ProductSearchSelect, ProductItem } from "./ProductSearchSelect";
 import { SupplierSearchSelect } from "./SupplierSearchSelect";
-import { registerUnifiedPurchase } from "@/lib/services/purchases/purchase-order";
+import { registerUnifiedPurchaseAction } from "@/lib/services/purchases/purchase-order";
 import { toast } from "sonner";
 import {
   Building2,
@@ -106,6 +106,14 @@ export function PurchaseOrderForm({
   const [paymentCondition, setPaymentCondition] = useState<"Contado" | "Credito">(
     "Contado"
   );
+  const [dueDate, setDueDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
 
   // Excluir "Tarjeta / POS" según reglas del módulo
   const allowedPaymentTypes = useMemo(() => {
@@ -297,16 +305,22 @@ export function PurchaseOrderForm({
 
     setLoading(true);
     try {
-      await registerUnifiedPurchase({
+      const res = await registerUnifiedPurchaseAction({
         supplierId: Number(supplierId),
         voucherType,
         series: series.trim().toUpperCase(),
         number: numVal,
         issuedAt: issuedAt ? new Date(issuedAt) : new Date(),
+        dueDate: paymentCondition === "Credito" && dueDate ? new Date(dueDate) : null,
         paymentCondition,
         paymentTypeId: Number(paymentTypeId),
         items: validItems,
       });
+
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
 
       toast.success("Compra registrada exitosamente");
       router.push("/purchases/list");
@@ -612,6 +626,22 @@ export function PurchaseOrderForm({
                 </Select>
               </div>
             </div>
+
+            {paymentCondition === "Credito" && (
+              <div className="space-y-1.5 pt-1">
+                <Label htmlFor="dueDate" className="text-xs font-medium text-foreground">
+                  Fecha de Vencimiento <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="h-9 text-xs bg-background max-w-xs"
+                  required
+                />
+              </div>
+            )}
 
             <div className="text-[11px] text-muted-foreground bg-slate-100/70 dark:bg-slate-800/50 p-2.5 rounded-lg flex items-center gap-2 border border-slate-200/50 dark:border-slate-800">
               <Info className="h-3.5 w-3.5 text-amber-600/90 dark:text-amber-400 shrink-0" />

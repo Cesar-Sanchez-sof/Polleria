@@ -631,9 +631,17 @@ export async function registerSale(body: RegisterSaleInput): Promise<RegisterSal
  */
 export async function listSalesVouchers(filters?: {
   date?: string | null;
+  customerId?: string | number | null;
 }): Promise<{ data: any[]; dailySummary: any }> {
   const dateParam = filters?.date;
   const whereClause: Record<string, unknown> = {};
+
+  if (filters?.customerId !== undefined && filters?.customerId !== null && filters.customerId !== "") {
+    const parsedCustomerId = Number(filters.customerId);
+    if (Number.isInteger(parsedCustomerId) && parsedCustomerId > 0) {
+      whereClause.customerId = parsedCustomerId;
+    }
+  }
 
   if (dateParam && dateParam !== "all" && dateParam !== "todas") {
     let baseDate: Date;

@@ -35,7 +35,8 @@ export const GET = createApiHandler({
   permission: "ventas.ver",
   handler: async ({ searchParams }) => {
     const dateParam = searchParams.get("date") ?? searchParams.get("fecha");
-    const result = await listSalesVouchers({ date: dateParam });
+    const customerIdParam = searchParams.get("customerId") ?? searchParams.get("clienteId");
+    const result = await listSalesVouchers({ date: dateParam, customerId: customerIdParam });
     return NextResponse.json(result);
   },
 });

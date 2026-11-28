@@ -119,6 +119,11 @@ export function PayableDetailDialog({
               <p className="text-xs text-muted-foreground mt-0.5">
                 Antigüedad: {invoice.daysOpen} días
               </p>
+              {invoice.dueDate && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Vencimiento: <span className="font-semibold text-foreground">{formatDate(invoice.dueDate)}</span>
+                </p>
+              )}
               <div className="mt-1">
                 {invoice.isOverdue ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive">

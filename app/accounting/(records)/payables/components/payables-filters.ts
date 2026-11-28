@@ -42,6 +42,7 @@ export function filterPayables(invoices: PayableInvoice[], f: PayablesFilters): 
 export function exportPayablesCsv(filtered: PayableInvoice[]) {
   const headers = [
     "Fecha Emisión",
+    "Fecha Vencimiento",
     "Tipo Comprobante",
     "Serie",
     "Número",
@@ -59,6 +60,7 @@ export function exportPayablesCsv(filtered: PayableInvoice[]) {
 
   const rows = filtered.map((inv) => [
     inv.issuedAt.split("T")[0],
+    inv.dueDate ? inv.dueDate.split("T")[0] : "-",
     inv.voucherType,
     inv.series,
     inv.number,

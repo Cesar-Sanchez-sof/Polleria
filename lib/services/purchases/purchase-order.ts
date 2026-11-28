@@ -28,6 +28,7 @@ export interface UnifiedPurchaseInput {
   series: string;
   number: number;
   issuedAt: Date | string;
+  dueDate?: Date | string | null;
   paymentCondition: "Contado" | "Credito";
   paymentTypeId?: number;
   items: Array<{
@@ -277,6 +278,10 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
           series: data.series,
           number: data.number,
           issuedAt: issuedDate,
+          dueDate:
+            data.paymentCondition === "Credito" && data.dueDate
+              ? new Date(data.dueDate)
+              : null,
           subtotal: subtotalGeneral,
           igv: igvGeneral,
           totalAmount: totalGeneral,
@@ -398,6 +403,15 @@ export async function registerUnifiedPurchase(data: UnifiedPurchaseInput) {
     },
   });
   return registered;
+}
+
+export async function registerUnifiedPurchaseAction(data: UnifiedPurchaseInput) {
+  try {
+    const registered = await registerUnifiedPurchase(data);
+    return { success: true as const, data: registered };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || "Error al registrar la compra" };
+  }
 }
 
 export async function getPurchaseOrders() {

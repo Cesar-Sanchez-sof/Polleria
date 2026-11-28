@@ -77,14 +77,28 @@ export async function POST(req: NextRequest) {
     let payload: SunatBoletaData;
     const bodyText = await req.text();
 
+    const restaurant = await import("@/lib/services/settings/restaurant-config.service")
+      .then((m) => m.getRestaurantInfo())
+      .catch(() => null);
+    const defaultBoleta = getDefaultPolleriaBoleta();
+    if (restaurant) {
+      defaultBoleta.emisor = {
+        ...defaultBoleta.emisor,
+        ruc: restaurant.ruc || defaultBoleta.emisor.ruc,
+        razonSocial: restaurant.name || defaultBoleta.emisor.razonSocial,
+        nombreComercial: restaurant.commercialName || restaurant.name || defaultBoleta.emisor.nombreComercial,
+        direccion: restaurant.address || defaultBoleta.emisor.direccion,
+      };
+    }
+
     if (bodyText && bodyText.trim().length > 0) {
       const parsedBody = JSON.parse(bodyText);
       payload = {
-        ...getDefaultPolleriaBoleta(),
+        ...defaultBoleta,
         ...parsedBody,
       };
     } else {
-      payload = getDefaultPolleriaBoleta();
+      payload = defaultBoleta;
     }
 
     const resultado = await emitirBoletaSunat(payload);

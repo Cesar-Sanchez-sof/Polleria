@@ -73,7 +73,7 @@ export function PayablesTable({ invoices, paymentTypes, onRefresh, filters, onFi
         <div>
           <div className="font-medium text-foreground">{formatDate(inv.issuedAt)}</div>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <span>{inv.daysOpen} d.</span>
+            <span>{inv.dueDate ? `Vence: ${formatDate(inv.dueDate)}` : `${inv.daysOpen} d.`}</span>
             {inv.isOverdue && <span className="font-semibold text-rose-600">• Vencido</span>}
           </div>
         </div>

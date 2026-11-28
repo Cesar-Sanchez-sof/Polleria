@@ -29,8 +29,8 @@ export interface StockLine {
  * Lanza `InsufficientStockError` si no alcanza.
  */
 export async function deductProductStock(tx: Tx, line: StockLine, reason: string): Promise<void> {
-  const quantity = Math.floor(line.quantity);
-  if (quantity < 1) return;
+  const quantity = Math.round(line.quantity * 100) / 100;
+  if (quantity <= 0) return;
 
   const updated = await tx.$queryRaw<Array<{ average_cost: Prisma.Decimal }>>`
     UPDATE "product"
@@ -63,12 +63,54 @@ export async function deductProductStock(tx: Tx, line: StockLine, reason: string
 }
 
 /**
+ * Descuenta el stock de un ítem de pedido: si el producto tiene una receta activa
+ * y no cuenta con stock propio suficiente (platos preparados al momento), descuenta
+ * proporcionalmente los insumos de su receta.
+ */
+export async function deductOrderItemStock(tx: Tx, line: StockLine, reason: string): Promise<void> {
+  const quantity = Math.round(line.quantity * 100) / 100;
+  if (quantity <= 0) return;
+
+  const recipeRows = tx.productRecipe?.findMany
+    ? await tx.productRecipe.findMany({
+        where: { productId: line.productId, active: true },
+        select: { ingredientId: true, quantityRequired: true },
+      })
+    : [];
+
+  if (recipeRows.length > 0) {
+    const product = await tx.product.findUnique({
+      where: { id: line.productId },
+      select: { currentStock: true },
+    });
+    if (Number(product?.currentStock ?? 0) >= quantity) {
+      await deductProductStock(tx, { ...line, quantity }, reason);
+      return;
+    }
+
+    for (const row of recipeRows) {
+      const needed = Math.round(Number(row.quantityRequired) * quantity * 100) / 100;
+      if (needed > 0) {
+        await deductProductStock(
+          tx,
+          { productId: row.ingredientId, quantity: needed, orderItemId: line.orderItemId },
+          reason,
+        );
+      }
+    }
+    return;
+  }
+
+  await deductProductStock(tx, { ...line, quantity }, reason);
+}
+
+/**
  * Devuelve stock (pedido cancelado o con menos unidades). Se registra como ajuste positivo:
  * en el Kardex los ajustes suman con su signo, a diferencia de `Sale`, que siempre resta.
  */
 export async function restoreProductStock(tx: Tx, line: StockLine, reason: string): Promise<void> {
-  const quantity = Math.floor(line.quantity);
-  if (quantity < 1) return;
+  const quantity = Math.round(line.quantity * 100) / 100;
+  if (quantity <= 0) return;
 
   await tx.product.update({
     where: { id: line.productId },

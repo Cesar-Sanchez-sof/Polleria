@@ -129,6 +129,10 @@ export async function uploadVoucherToS3(
   const publicUrl = `${endpoint}/${bucket}/${s3Key}`;
   const localUrl = `/storage/comprobantes/${s3Key}`;
 
+  const restaurant = await import("@/lib/services/settings/restaurant-config.service")
+    .then((m) => m.getRestaurantInfo())
+    .catch(() => null);
+
   const body =
     binaryContent ||
     Buffer.from(
@@ -139,8 +143,9 @@ export async function uploadVoucherToS3(
           serie: meta.serie,
           number: meta.number,
           date: meta.date || new Date(),
-          issuer: "POLLERIA EL SABORCITO",
-          ruc: "20601234567",
+          issuer: restaurant?.name || restaurant?.commercialName || "POLLERÍA & BRASAS EL BUEN SABOR S.A.C.",
+          commercialName: restaurant?.commercialName || restaurant?.name || "",
+          ruc: restaurant?.ruc || "20608976543",
         },
         null,
         2
