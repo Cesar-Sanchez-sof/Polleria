@@ -104,36 +104,54 @@ describe("Evaluación CA-02: Concurrencia de Operaciones Asíncronas en TypeScri
   it("construye y firma 30 comprobantes XML UBL 2.1 + XMLDSIG en paralelo con Promise.all sin colisiones", async () => {
     const histogram = monitorEventLoopDelay({ resolution: 10 });
     histogram.enable();
+    const previousPrivateKey = process.env.SUNAT_PRIVATE_KEY_PEM;
+    const previousCert = process.env.SUNAT_CERT_PEM;
+    delete process.env.SUNAT_PRIVATE_KEY_PEM;
+    delete process.env.SUNAT_CERT_PEM;
 
-    const batch = Array.from({ length: 30 }, (_, idx) => {
-      const correlativo = 500 + idx;
-      return Promise.resolve().then(() => {
-        const boleta = createSampleBoleta(correlativo);
-        const xml = buildBoletaUbl21Xml(boleta);
-        const documentId = `B001-${String(correlativo).padStart(8, "0")}`;
-        const signed = signXmlUbl21(xml, documentId);
-        return { documentId, signed };
+    try {
+      const batch = Array.from({ length: 30 }, (_, idx) => {
+        const correlativo = 500 + idx;
+        return Promise.resolve().then(() => {
+          const boleta = createSampleBoleta(correlativo);
+          const xml = buildBoletaUbl21Xml(boleta);
+          const documentId = `B001-${String(correlativo).padStart(8, "0")}`;
+          const signed = signXmlUbl21(xml, documentId);
+          return { documentId, signed };
+        });
       });
-    });
 
-    const signedDocs = await Promise.all(batch);
-    histogram.disable();
+      const signedDocs = await Promise.all(batch);
+      histogram.disable();
 
-    const digests = new Set<string>();
-    const ids = new Set<string>();
+      const digests = new Set<string>();
+      const ids = new Set<string>();
 
-    for (const doc of signedDocs) {
-      expect(doc.signed).toContain(`<cbc:ID>${doc.documentId}</cbc:ID>`);
-      expect(doc.signed).toContain(`Id="Signature-${doc.documentId}"`);
-      const digestMatch = doc.signed.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/);
-      expect(digestMatch?.[1]).toBeTruthy();
-      digests.add(digestMatch![1]);
-      ids.add(doc.documentId);
+      for (const doc of signedDocs) {
+        expect(doc.signed).toContain(`<cbc:ID>${doc.documentId}</cbc:ID>`);
+        expect(doc.signed).toContain(`Id="Signature-${doc.documentId}"`);
+        const digestMatch = doc.signed.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/);
+        expect(digestMatch?.[1]).toBeTruthy();
+        digests.add(digestMatch![1]);
+        ids.add(doc.documentId);
+      }
+
+      // Cada comprobante mantiene su digest SHA-256 e ID únicos sin contaminación cruzada
+      expect(ids.size).toBe(30);
+      expect(digests.size).toBe(30);
+    } finally {
+      histogram.disable();
+      if (previousPrivateKey === undefined) {
+        delete process.env.SUNAT_PRIVATE_KEY_PEM;
+      } else {
+        process.env.SUNAT_PRIVATE_KEY_PEM = previousPrivateKey;
+      }
+      if (previousCert === undefined) {
+        delete process.env.SUNAT_CERT_PEM;
+      } else {
+        process.env.SUNAT_CERT_PEM = previousCert;
+      }
     }
-
-    // Cada comprobante mantiene su digest SHA-256 e ID únicos sin contaminación cruzada
-    expect(ids.size).toBe(30);
-    expect(digests.size).toBe(30);
   });
 
   it("aplica backpressure acotando promesas concurrentes (maxConcurrency=5) sobre 45 tareas con fallos parciales", async () => {

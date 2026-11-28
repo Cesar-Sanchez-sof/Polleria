@@ -72,7 +72,15 @@ Al pulsar Ctrl+C, los casos completados se guardan en ambos informes y el proces
 
 Groq aplica un limitador móvil de hasta 30 solicitudes y 8.000 tokens por minuto: estima el costo del prompt y ajusta la estimación con el uso real informado por la API. No hay pausas fijas de dos en dos. Según el uso observado de unos 2.700 tokens por consulta, el límite diario de 200.000 tokens permite alrededor de 70 consultas como máximo teórico; conviene dejar margen para variaciones y otros consumos. Gemini no usa este limitador.
 
-## 5. Consultar resultados
+## 5. Ejecutar en GitHub Actions
+
+También se puede ejecutar sin usar el equipo local: en GitHub, abre **Actions → Evaluar agentes SQL → Run workflow**. Elige `groq`, `gemini` o `all`, y especifica el primer caso y la cantidad de casos. Por ejemplo, `start_at=303` y `limit=20` ejecuta los casos 303–322.
+
+Configura en **Settings → Secrets and variables → Actions** los secretos `DATABASE_URL_READONLY`, `AGENTS_SERVICE_INTERNAL_TOKEN` y `AI_ASSISTANT_IDENTITY_KEY`, además de `GROQ_API_KEY`, `GEMINI_API_KEY` o ambos según el proveedor elegido. La base PostgreSQL debe aceptar conexiones desde el runner de GitHub y la URL debe usar un usuario de solo lectura.
+
+Al finalizar, descarga el artefacto de la ejecución para consultar los informes JSON y Markdown. La acción es manual y no se ejecuta en pull requests; `all` requiere ambas claves API y consume cuota de ambos proveedores.
+
+## 6. Consultar resultados
 
 - Informe Markdown, actualizado en cada corrida: `test/agents/sql\reports\report.md`
 - Resultados completos JSON, uno por corrida: `test/agents/sql\results\report_YYYYMMDD_HHMMSS.json`

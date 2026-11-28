@@ -375,7 +375,7 @@ describe("Characterization: Orders & Drinks Domain Handlers", () => {
       expect(json.table).toEqual({ id: 8, number: 9 });
       expect(m.orderTableDeleteMany).toHaveBeenCalledWith({ where: { orderId: 15 } });
       expect(m.orderTableCreate).toHaveBeenCalledWith({
-        data: { orderId: 15, tableId: 8, notes: null },
+        data: { orderId: 15, tableId: 8, notes: "VIP" },
       });
       expect(m.broadcastRealtimeEvent).toHaveBeenCalledWith(
         "TABLE_UPDATED",

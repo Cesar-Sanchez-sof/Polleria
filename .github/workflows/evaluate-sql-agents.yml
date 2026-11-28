@@ -1,0 +1,127 @@
+name: Evaluar agentes SQL
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Proveedor que se evaluará
+        required: true
+        type: choice
+        options:
+          - groq
+          - gemini
+          - all
+        default: groq
+      start_at:
+        description: Número del primer caso (base 1)
+        required: true
+        type: number
+        default: 1
+      limit:
+        description: Cantidad de casos de esta tanda
+        required: true
+        type: number
+        default: 20
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Evaluar ${{ inputs.provider }} (casos ${{ inputs.start_at }} + ${{ inputs.limit }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check -r agents-service/requirements.txt
+
+      - name: Validar selección y rango
+        env:
+          PROVIDER: ${{ inputs.provider }}
+          START_AT: ${{ inputs.start_at }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          provider = os.environ["PROVIDER"]
+          try:
+              start_at = int(os.environ["START_AT"])
+              limit = int(os.environ["LIMIT"])
+          except ValueError:
+              sys.exit("start_at y limit deben ser números enteros.")
+
+          if provider not in {"groq", "gemini", "all"}:
+              sys.exit("El proveedor debe ser groq, gemini o all.")
+          if start_at < 1 or limit < 1:
+              sys.exit("start_at y limit deben ser mayores que cero.")
+
+          with open("test/agents/sql/benchmark_cases_350.json", encoding="utf-8") as file:
+              cases = json.load(file)["casos"]
+          end_at = start_at + limit - 1
+          if start_at > len(cases) or end_at > len(cases):
+              sys.exit(f"El rango solicitado supera los {len(cases)} casos disponibles.")
+
+          print(f"Se ejecutarán {provider}: casos {start_at}-{end_at} de {len(cases)}.")
+          PY
+
+      - name: Ejecutar evaluación
+        env:
+          PROVIDER: ${{ inputs.provider }}
+          START_AT: ${{ inputs.start_at }}
+          LIMIT: ${{ inputs.limit }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL_READONLY: ${{ secrets.DATABASE_URL_READONLY }}
+          AGENTS_SERVICE_INTERNAL_TOKEN: ${{ secrets.AGENTS_SERVICE_INTERNAL_TOKEN }}
+          AI_ASSISTANT_IDENTITY_KEY: ${{ secrets.AI_ASSISTANT_IDENTITY_KEY }}
+        run: |
+          set -euo pipefail
+
+          for name in DATABASE_URL_READONLY AGENTS_SERVICE_INTERNAL_TOKEN AI_ASSISTANT_IDENTITY_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Falta configurar el secreto $name."
+              exit 1
+            fi
+          done
+
+          if [[ "$PROVIDER" == "groq" || "$PROVIDER" == "all" ]]; then
+            if [[ -z "$GROQ_API_KEY" ]]; then
+              echo "::error::Falta configurar el secreto GROQ_API_KEY."
+              exit 1
+            fi
+          fi
+          if [[ "$PROVIDER" == "gemini" || "$PROVIDER" == "all" ]]; then
+            if [[ -z "$GEMINI_API_KEY" ]]; then
+              echo "::error::Falta configurar el secreto GEMINI_API_KEY."
+              exit 1
+            fi
+          fi
+
+          python test/agents/sql/evaluate_agents.py \
+            --provider "$PROVIDER" \
+            --start-at "$START_AT" \
+            --limit "$LIMIT"
+
+      - name: Guardar informes como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sql-agent-evaluation-${{ inputs.provider }}-${{ inputs.start_at }}-${{ inputs.limit }}
+          path: |
+            test/agents/sql/results/*.json
+            test/agents/sql/reports/*.md
+          if-no-files-found: warn
+          retention-days: 30

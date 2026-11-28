@@ -535,7 +535,8 @@ export async function updateOrder(
     if (!table) throw new NotFoundError("La mesa especificada no existe.");
   }
 
-  const tableNote = data.notes ?? data.observation;
+  const primaryTable = existingOrder.tables.find((table) => !table.notes?.includes("[Anexa a Mesa")) ?? existingOrder.tables[0];
+  const tableNote = data.notes ?? data.observation ?? primaryTable?.notes ?? null;
   const movedFromTableIds = requestedTableId === undefined ? [] : existingOrder.tables.map((table) => table.tableId);
   await prisma.$transaction(async (tx) => {
     if (newStatus && newStatus !== existingOrder.status) {
